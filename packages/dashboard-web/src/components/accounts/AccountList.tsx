@@ -268,7 +268,9 @@ export function AccountList(props: AccountListProps) {
 					provider reset and a router retry are separate timers. Missing usage
 					is not zero or unlimited. Model-specific limits may run out before the
 					account-wide limit. Manage model-family assignments and routing
-					notices in Combos.
+					notices in Combos. The tick on a usage bar marks even pace: where
+					usage would sit if the window's quota were spent evenly; usage well
+					short of it near the reset is quota that expires unused.
 				</p>
 			</details>
 		</div>
@@ -286,7 +288,7 @@ export function accountListItems(
 	sort: AccountListSort = "priority",
 	now = Date.now(),
 ) {
-	return (accounts ?? []).map((account) => (
+	const rows = (accounts ?? []).map((account) => (
 		<AccountListItem
 			key={account.id}
 			account={account}
@@ -302,4 +304,28 @@ export function accountListItems(
 			{...handlers}
 		/>
 	));
+	if (sort !== "priority") return rows;
+	const counts = {
+		active: (accounts ?? []).filter((account) => !account.paused).length,
+		paused: (accounts ?? []).filter((account) => account.paused).length,
+	};
+	const seen = new Set<string>();
+	return rows.flatMap((row, index) => {
+		const group = accounts?.[index].paused ? "paused" : "active";
+		if (seen.has(group)) return [row];
+		seen.add(group);
+		return [
+			<h2
+				key={`group:${group}`}
+				className="border-b bg-muted/30 px-3 py-1.5 text-xs font-medium text-muted-foreground"
+			>
+				{group === "active" ? "Active" : "Paused"}{" "}
+				<span className="tabular-nums">{counts[group]}</span>
+				<span className="sr-only">
+					{counts[group] === 1 ? " account" : " accounts"}
+				</span>
+			</h2>,
+			row,
+		];
+	});
 }

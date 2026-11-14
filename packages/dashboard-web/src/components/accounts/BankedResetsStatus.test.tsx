@@ -364,7 +364,11 @@ it("compact balances disclose explanations and preserve fresh, stale and unknown
 		);
 		expect(html).toContain("<details");
 		const header = html.slice(0, html.indexOf("</summary>"));
-		expect(header).toContain("Banked resets:");
+		expect(header).toContain(
+			resets.availableCount === null
+				? "Banked resets not read yet"
+				: `${resets.availableCount} banked`,
+		);
 		if (resets.availableCount === null)
 			expect(header).toContain("not read yet");
 		if (resets.stale) {
@@ -377,4 +381,32 @@ it("compact balances disclose explanations and preserve fresh, stale and unknown
 		}
 		expect(html).toContain('aria-label="Banked resets for codex-pro-1"');
 	}
+});
+
+it("compact held balance includes the exact visible expiry and countdown", () => {
+	const html = renderToStaticMarkup(
+		<BankedResetsStatus
+			compact
+			resets={held}
+			accountName="codex-pro-1"
+			now={NOW}
+		/>,
+	);
+	const header = html.slice(0, html.indexOf("</summary>"));
+	expect(text(header)).toContain(
+		"2 banked · next expires Nov 30, 2026 UTC (in 27d 5h)",
+	);
+	expect(header).not.toContain('class="sr-only">(in 27d 5h)');
+	// A single held reset has no "next" one.
+	const single = renderToStaticMarkup(
+		<BankedResetsStatus
+			compact
+			resets={{ ...held, availableCount: 1, applicableCount: 1 }}
+			accountName="codex-pro-1"
+			now={NOW}
+		/>,
+	);
+	expect(text(single.slice(0, single.indexOf("</summary>")))).toContain(
+		"1 banked · expires Nov 30, 2026 UTC (in 27d 5h)",
+	);
 });

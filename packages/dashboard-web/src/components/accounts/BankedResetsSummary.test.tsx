@@ -103,18 +103,20 @@ describe("BankedResetsSummary", () => {
 		const html = render(summary({ anyStale: true }));
 		expect(html).toContain("<details");
 		expect(html.slice(0, html.indexOf("</summary>"))).toContain(
-			"Includes last known values",
+			"· includes last known",
 		);
 		expect(html).toContain("Banked resets");
-		expect(html).toContain("Includes last known values");
-		expect(html).toContain("Soonest expires");
+		expect(html).toContain("· includes last known");
+		expect(html).toContain("· next ");
 	});
 	it("shows the fleet total without repeating the word resets", () => {
 		const html = render(summary());
 		expect(html).toContain(">Banked resets<");
 		expect(html).toContain(">6<");
-		expect(html).toContain(">total<");
-		expect(text(html)).not.toContain("Includes last known values");
+		expect(text(html)).toContain(
+			"Banked resets 6 · next Nov 30, 2026 UTC (in 27d 5h)",
+		);
+		expect(text(html)).not.toContain("· includes last known");
 	});
 
 	it("explains what a banked reset is in visible text", () => {
@@ -125,7 +127,7 @@ describe("BankedResetsSummary", () => {
 
 	it("shows the soonest expiry with UTC and a countdown", () => {
 		expect(text(render(summary()))).toContain(
-			"Soonest expires Nov 30, 2026 UTC (in 27d 5h)",
+			"· next Nov 30, 2026 UTC (in 27d 5h)",
 		);
 	});
 
@@ -161,7 +163,7 @@ describe("BankedResetsSummary", () => {
 
 	it("flags last known values when some accounts are stale", () => {
 		const visible = text(render(summary({ anyStale: true })));
-		expect(visible).toContain("Includes last known values");
+		expect(visible).toContain("· includes last known");
 		expect(visible).toContain(
 			"Some accounts have not reported recently. Their last known counts are included, so the real total may differ.",
 		);
@@ -170,7 +172,7 @@ describe("BankedResetsSummary", () => {
 	it("says no resets are held and offers no how-to at zero", () => {
 		const html = render(summary({ totalAvailable: 0, soonestExpiresAt: null }));
 		const visible = text(html);
-		expect(visible).toContain("No banked resets held.");
+		expect(visible).toContain("· none held");
 		expect(howto(html)).toBeNull();
 	});
 
@@ -182,17 +184,17 @@ describe("BankedResetsSummary", () => {
 		expect(empty).not.toMatch(/^<details[^>]*\bopen/);
 		const header = empty.slice(0, empty.indexOf("</summary>"));
 		expect(header).toContain("Banked resets");
-		expect(header).toContain("No banked resets held.");
+		expect(header).toContain("· none held");
 		const stale = render(
 			summary({ totalAvailable: 0, soonestExpiresAt: null, anyStale: true }),
 		);
 		expect(stale).toStartWith("<details");
-		expect(stale).toContain("Includes last known values");
+		expect(stale).toContain("· includes last known");
 	});
 
 	it("says when the expiry was not reported", () => {
 		expect(text(render(summary({ soonestExpiresAt: null })))).toContain(
-			"Expiry not reported",
+			"· expiry not reported",
 		);
 	});
 
@@ -249,6 +251,39 @@ it("does not turn an unread or stale zero aggregate into none held", () => {
 	const html = render(
 		summary({ totalAvailable: 0, soonestExpiresAt: null, anyStale: true }),
 	);
-	expect(html).not.toContain("No banked resets held");
-	expect(html).toContain("current balance may be unknown");
+	expect(html).not.toContain("none held");
+	expect(text(html.slice(0, html.indexOf("</summary>")))).toContain(
+		"Banked resets 0 · includes last known",
+	);
+	// The old header said "current balance may be unknown"; the expanded panel
+	// still says a stale zero is not proof of none.
+	expect(text(html)).toContain("so the real total may differ");
+});
+
+it("contains the tracked total and expiry in one compact pill", () => {
+	const html = render(summary());
+	const header = html.slice(
+		html.indexOf("<summary"),
+		html.indexOf("</summary>"),
+	);
+	// One bordered pill carries all the header text; the chevron carries none.
+	expect(header.match(/ border /g)).toHaveLength(1);
+	expect(text(header)).toBe(
+		"Banked resets 6 · next Nov 30, 2026 UTC (in 27d 5h)",
+	);
+});
+
+it("wraps the header pill between whole phrases on a narrow screen", () => {
+	const header = render(summary()).split("</summary>")[0];
+	// Flex children would stack as side-by-side columns at 320 px.
+	expect(header).not.toContain("inline-flex");
+	expect(header).toContain(
+		'<span class="whitespace-nowrap"><span>Banked resets</span> <span class="font-semibold tabular-nums text-foreground">6</span></span>',
+	);
+	expect(header).toContain(
+		'<span class="whitespace-nowrap">Nov 30, 2026 UTC</span>',
+	);
+	expect(header).toContain(
+		'<span class="whitespace-nowrap">(in 27d 5h)</span>',
+	);
 });

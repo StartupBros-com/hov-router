@@ -1,7 +1,7 @@
 import type { BankedResetsSummary as BankedResetsSummaryData } from "@better-ccflare/types";
 import { ChevronDown } from "lucide-react";
 import { formatRelativeReset } from "../../lib/pool-usage";
-import { STATUS_PILL_CLASS, STATUS_TONE_CLASS } from "./status-tones";
+import { STATUS_TONE_CLASS } from "./status-tones";
 
 const EXPIRY_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
 	month: "short",
@@ -88,6 +88,10 @@ export function BankedResetsSummary({
 		);
 	// Applicability stays in the API but predicts nothing about a reset working.
 	const { totalAvailable, soonestExpiresAt, anyStale } = summary;
+	const expiry =
+		soonestExpiresAt === null
+			? null
+			: bankedResetExpiryParts(soonestExpiresAt, now);
 	const explanation = (
 		<p className="max-w-prose text-sm text-muted-foreground">
 			A banked reset is a saved reset that restores an account's usage limits
@@ -101,27 +105,41 @@ export function BankedResetsSummary({
 			aria-label="Banked resets"
 			className="group min-w-0 text-muted-foreground"
 		>
-			<summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 text-xs [&::-webkit-details-marker]:hidden">
-				<span className="font-medium">Banked resets</span>
-				<span className="font-semibold tabular-nums">{totalAvailable}</span>
-				<span className="text-sm text-muted-foreground">total</span>
-				{anyStale && (
-					<span className={`${STATUS_PILL_CLASS} ${STATUS_TONE_CLASS.warning}`}>
-						Includes last known values
-					</span>
-				)}
-				<span>
-					{soonestExpiresAt !== null ? (
-						<span title={describeBankedResetExpiry(soonestExpiresAt)}>
-							Soonest expires{" "}
-							{formatBankedResetExpiryLabel(soonestExpiresAt, now)}
+			<summary className="flex min-h-11 cursor-pointer list-none items-center gap-x-3 text-xs [&::-webkit-details-marker]:hidden">
+				{/* Flowing text, not flex columns, so a narrow screen wraps it between whole phrases. */}
+				<span className="min-w-0 rounded-2xl border px-2.5 py-1 text-xs">
+					<span className="whitespace-nowrap">
+						<span>Banked resets</span>{" "}
+						<span className="font-semibold tabular-nums text-foreground">
+							{totalAvailable}
 						</span>
-					) : anyStale ? (
-						"Reported balance; current balance may be unknown."
-					) : totalAvailable > 0 ? (
-						"Expiry not reported"
+					</span>{" "}
+					{totalAvailable === 0 ? (
+						// A stale zero is a last known count, not proof that none are held.
+						anyStale ? null : (
+							<span>· none held</span>
+						)
+					) : expiry !== null && soonestExpiresAt !== null ? (
+						<span title={describeBankedResetExpiry(soonestExpiresAt)}>
+							· next <span className="whitespace-nowrap">{expiry.date}</span>
+							{expiry.note && (
+								<>
+									{" "}
+									<span className="whitespace-nowrap">({expiry.note})</span>
+								</>
+							)}
+						</span>
 					) : (
-						"No banked resets held."
+						<span>· expiry not reported</span>
+					)}
+					{anyStale && (
+						<>
+							{/* A stale zero renders no middle segment, so the count's space already separates it. */}
+							{totalAvailable !== 0 && " "}
+							<span className={STATUS_TONE_CLASS.warning}>
+								· includes last known
+							</span>
+						</>
 					)}
 				</span>
 				<ChevronDown
