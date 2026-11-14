@@ -31,7 +31,12 @@ function extractHostname(input: RequestInfo | URL): string | undefined {
 	}
 }
 
-function isLoopbackHost(hostname: string): boolean {
+/**
+ * True for a host that is provably loopback: `localhost`, `::1` (bare or
+ * bracketed) and any `127.x.y.z` address. Matching is exact, so callers that
+ * accept free-form input normalise case and whitespace first.
+ */
+export function isLoopbackHost(hostname: string): boolean {
 	return LOOPBACK_HOSTS.has(hostname) || IPV4_LOOPBACK_RE.test(hostname);
 }
 

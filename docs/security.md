@@ -8,11 +8,11 @@ This document outlines the security considerations, practices, and recommendatio
 
 **IMPORTANT**: HoV Router is designed for local development and trusted environments. The current implementation has several security limitations:
 
-1. **No Authentication**: All API endpoints and the dashboard are publicly accessible
+1. **Authentication is off until the first API key exists**: With no active key, every API and proxy request is accepted. Create an admin key with `hov-router --generate-api-key <name> --admin` or on the dashboard's API Keys page ([API_AUTHENTICATION.md](API_AUTHENTICATION.md)). The dashboard page itself (HTML and static assets) is always served without a key
 2. **Network Exposure**: Server binds to all interfaces (0.0.0.0) by default
 3. **Plaintext Token Storage**: OAuth tokens are stored unencrypted in SQLite
-4. **No HTTPS**: Communication is over HTTP without TLS encryption
-5. **Full Request Logging**: All request/response payloads are stored (up to 10MB for streaming)
+4. **HTTP by default**: TLS is off unless the server is started with `--ssl-key` and `--ssl-cert` (or `SSL_KEY_PATH` and `SSL_CERT_PATH`), in which case it serves HTTPS directly
+5. **Full Request Logging**: Request/response payloads are stored by default and deleted after `DATA_RETENTION_DAYS` (default 1 day). Turn storage off with `STORE_PAYLOADS=false`
 
 **Recommended Usage**: 
 - Run only in isolated, trusted networks
@@ -25,7 +25,7 @@ This document outlines the security considerations, practices, and recommendatio
 
 Based on the latest security review, the following critical issues require immediate attention:
 
-1. **No Authentication**: All endpoints are publicly accessible. Implement API key authentication immediately.
+1. **Authentication off by default**: All endpoints accept requests until the first API key is created. Create an admin key before any other machine can reach the port.
 2. **Network Exposure**: Server binds to 0.0.0.0. Use firewall rules or bind to localhost only.
 3. **Plaintext Tokens**: OAuth tokens stored unencrypted. Implement AES-256-GCM encryption.
 4. **No CORS Protection**: Server does not set any CORS headers, allowing requests from any origin.
@@ -89,7 +89,7 @@ HoV Router is a load balancer proxy that manages multiple OAuth accounts to dist
 // packages/database/src/migrations.ts
 CREATE TABLE IF NOT EXISTS accounts (
     id TEXT PRIMARY KEY,
-    refresh_token TEXT NOT NULL,  // Stored in plaintext
+    refresh_token TEXT,            // Stored in plaintext
     access_token TEXT,             // Stored in plaintext
     expires_at INTEGER
 )
@@ -119,17 +119,19 @@ CREATE TABLE IF NOT EXISTS oauth_sessions (
 )
 
 // Scopes requested from Anthropic
-scopes: ["org:create_api_key", "user:profile", "user:inference"]
+scopes: [
+    "org:create_api_key", "user:profile", "user:inference",
+    "user:sessions:claude_code", "user:mcp_servers", "user:file_upload",
+]
 ```
 
 **Security Strengths**: 
 - Implements PKCE flow for protection against authorization code interception
 - Uses SHA256 for code challenge generation
-- Requests minimal necessary scopes
 
 #### Token Refresh Pattern
 ```typescript
-// packages/proxy/src/proxy.ts
+// packages/proxy/src/handlers/token-manager.ts (simplified)
 async function refreshAccessTokenSafe(account: Account, ctx: ProxyContext): Promise<string> {
     // Prevents token refresh stampede with in-flight tracking
     if (!ctx.refreshInFlight.has(account.id)) {
@@ -194,13 +196,14 @@ async function encryptToken(token: string, key: Buffer): Promise<EncryptedToken>
 The system implements sophisticated rate limit detection and handling:
 
 ```typescript
-// packages/providers/src/providers/anthropic/provider.ts
+// packages/providers/src/providers/anthropic/provider.ts (simplified)
 parseRateLimit(response: Response): RateLimitInfo {
     const statusHeader = response.headers.get("anthropic-ratelimit-unified-status");
     const resetHeader = response.headers.get("anthropic-ratelimit-unified-reset");
     
     // Distinguishes between hard limits (blocking) and soft warnings
-    const isRateLimited = HARD_LIMIT_STATUSES.has(statusHeader || "") || response.status === 429;
+    const isRateLimited = HARD_LIMIT_STATUSES.has(statusHeader || "") ||
+        response.status === 429 || response.status === 529;
     
     return {
         isRateLimited,
@@ -233,7 +236,7 @@ const server = serve({
 });
 ```
 
-**Security Concern**: The server binds to port 8080 on all interfaces (0.0.0.0) by default, potentially exposing it to the network.
+**Security Concern**: The server binds to port 8080 on all interfaces (0.0.0.0) by default, potentially exposing it to the network. When it listens on anything other than a loopback address and no API key exists, it logs a warning at startup that names both fixes: create an admin key, or limit who can reach the port.
 
 ### Recommended Configuration
 
@@ -252,7 +255,7 @@ iptables -A INPUT -p tcp --dport 8080 -j DROP
 
 **✅ Implemented**: Server now supports the `BETTER_CCFLARE_HOST` environment variable for binding configuration:
 ```typescript
-// Implemented in apps/server/src/server.ts:480
+// Implemented in apps/server/src/server.ts
 const hostname = process.env.BETTER_CCFLARE_HOST || "0.0.0.0"; // Allow binding configuration
 const serverConfig = {
     port: runtime.port,
@@ -303,7 +306,7 @@ server {
 ```
 
 #### 3. TLS/HTTPS Setup
-- Use TLS termination at reverse proxy level
+- Start the server with `--ssl-key` and `--ssl-cert` (or `SSL_KEY_PATH` and `SSL_CERT_PATH`) to serve HTTPS directly, or terminate TLS at a reverse proxy
 - Ensure strong cipher suites (TLS 1.2+)
 - Implement HSTS headers
 - Consider mutual TLS for additional security
@@ -381,7 +384,7 @@ if (isStream && response.body) {
 2. **Auth Header Stripping**: `authorization`, `x-api-key`, and `cookie` headers are stripped from persisted request payloads (`sanitizeRequestHeaders` in `packages/http-common/src/headers.ts`) so analytics rows never contain client credentials
 3. **Database File Access**: SQLite database file can be read by any process with file system access — encryption at rest mitigates this when enabled
 4. **No Body-Content Sanitization**: Sensitive patterns inside request/response **bodies** (API keys, passwords, PII) are not redacted
-5. **Unlimited Retention**: No automatic cleanup of old request payloads (configurable via `DATA_RETENTION_DAYS`)
+5. **Bounded Retention**: An hourly sweep deletes stored payloads after `DATA_RETENTION_DAYS` (default 1, range 1-365) and request records after `REQUEST_RETENTION_DAYS` (default 90, range 1-3650)
 
 ### Payload Encryption at Rest
 
@@ -416,9 +419,8 @@ When `PAYLOAD_ENCRYPTION_KEY` is set to a 64-character hex string (32 bytes / AE
 ### Log Retention
 
 #### Current State
-- No automatic log rotation or cleanup
-- Request payloads stored indefinitely in SQLite database
-- File logs written to disk without rotation
+- The log file (`app.log` under `BETTER_CCFLARE_LOG_DIR`, by default a `better-ccflare-logs` folder in the system temp directory) is deleted and started again when it passes 10 MB; no older copies are kept
+- Stored request payloads are deleted after `DATA_RETENTION_DAYS` (default 1 day) and request records after `REQUEST_RETENTION_DAYS` (default 90 days)
 
 #### Recommended Practices
 
@@ -434,7 +436,7 @@ interface LogRotationConfig {
 ```
 
 2. **Data Minimization**
-- Add option to disable request/response body logging
+- Turn off request/response body storage with `STORE_PAYLOADS=false` when it is not needed
 - Implement selective logging based on endpoint
 - Add data redaction for sensitive patterns
 
@@ -448,14 +450,17 @@ bun cli cleanup --type requests --force
 ## Access Control
 
 ### Current State
-- **No authentication required**: All endpoints are publicly accessible when network-reachable
-- **Dashboard**: Accessible without authentication at `/dashboard`
-- **API endpoints**: All `/api/*` endpoints are unprotected
+- **Authentication is off until the first API key exists**: With no active key, every API and proxy request is accepted from anything that can reach the port. Once a key exists, API and proxy requests need a valid key in the `x-api-key` header or as `Authorization: Bearer <key>`
+- **Dashboard**: The page itself (HTML and static assets) is always served without a key. The `/api/*` calls it makes need a key once one exists
+- **API endpoints**: `/api/*` needs a key once one exists. A few read-only routes stay open: `/health`, `/api/version/check`, `GET /api/sessions/:id/account`, `GET /api/oauth/qwen/status/:id`, `GET /api/oauth/codex/status/:id` and, only when publication is turned on, `GET /api/public/subscription-value`
 - **No CORS headers**: The server does not set any CORS headers, effectively allowing requests from any origin
 - **No rate limiting**: Individual clients can make unlimited requests to API endpoints
-- **Proxy endpoint**: The `/v1/*` proxy endpoint has no authentication (relies on OAuth tokens for upstream authentication)
+- **Proxy endpoint**: The `/v1/*` proxy endpoint needs no key until the first API key exists; after that it needs a valid key
 
 ### Security Implications
+
+Items 1 to 3 apply while no API key exists; item 4 applies with or without one.
+
 1. **Data Exposure**: Anyone with network access can view account information, request logs, and analytics
 2. **Configuration Changes**: Unprotected configuration endpoints allow unauthorized strategy changes
 3. **Account Management**: Account addition/removal endpoints are exposed
@@ -466,7 +471,7 @@ bun cli cleanup --type requests --force
 #### 1. API Key Authentication
 ```typescript
 // ✅ IMPLEMENTED: API key authentication with timing attack prevention
-// Location: packages/types/src/api-key.ts:85-114
+// Location: packages/types/src/api-key.ts (verifyApiKey)
 async verifyApiKey(apiKey: string, hashedKey: string): Promise<boolean> {
     try {
         const [salt, hash] = hashedKey.split(":");
@@ -474,9 +479,8 @@ async verifyApiKey(apiKey: string, hashedKey: string): Promise<boolean> {
             return false;
         }
 
-        const candidateHash = this.crypto
-            .scryptSync(apiKey, salt, 64)
-            .toString("hex");
+        const candidateBuf: Buffer = await this.scryptAsync(apiKey, salt, 64);
+        const candidateHash = candidateBuf.toString("hex");
 
         // Length validation before timing-safe comparison
         if (candidateHash.length !== hash.length) {
@@ -536,14 +540,14 @@ interface User {
   - [ ] Monitor for token leaks in logs
 
 - [ ] **Access Control**
-  - [ ] Implement authentication for all endpoints
+  - [ ] Create an admin API key so authentication is on (`hov-router --generate-api-key <name> --admin`)
   - [ ] Use strong, unique API keys
   - [ ] Enable audit logging
   - [ ] Regular access reviews
 
 - [ ] **Data Protection**
   - [ ] Configure log rotation
-  - [ ] Implement data retention policies
+  - [ ] Set data retention (`DATA_RETENTION_DAYS`, `REQUEST_RETENTION_DAYS`)
   - [ ] Regular database backups
   - [ ] Encrypt sensitive backups
 
@@ -654,7 +658,7 @@ function addSecurityHeaders(response: Response): Response {
 
 ### 12. Timing Attacks on API Key Verification
 **Risk**: Attackers could use timing differences in string comparison to brute-force API keys
-**Mitigation**: ✅ **FIXED** - Implemented constant-time comparison using `crypto.timingSafeEqual()` with proper length validation and error handling in `packages/types/src/api-key.ts:85-114`
+**Mitigation**: ✅ **FIXED** - Implemented constant-time comparison using `crypto.timingSafeEqual()` with proper length validation and error handling in `packages/types/src/api-key.ts` (`verifyApiKey`)
 
 **Implementation Details**:
 - Uses `crypto.timingSafeEqual()` for constant-time hash comparison
@@ -666,7 +670,7 @@ function addSecurityHeaders(response: Response): Response {
 ## Recent Security Updates
 
 ### Critical Security Fixes (October 28, 2025)
-- **Timing Attack Prevention**: Implemented constant-time comparison for API key verification using `crypto.timingSafeEqual()` to prevent brute-force attacks via timing analysis (`packages/types/src/api-key.ts:85-114`)
+- **Timing Attack Prevention**: Implemented constant-time comparison for API key verification using `crypto.timingSafeEqual()` to prevent brute-force attacks via timing analysis (`packages/types/src/api-key.ts`, `verifyApiKey`)
 - **API Key Verification Security**: Added length validation, explicit encoding, comprehensive error handling, and extensive test coverage for timing attack prevention (`__tests__/api-auth.test.ts`)
 
 ### Critical Security Fixes (October 27, 2025)
@@ -721,8 +725,8 @@ function addSecurityHeaders(response: Response): Response {
 - Secure key rotation mechanism
 
 ### Phase 3: Network Hardening (Priority: High)
-- Add HOST binding configuration (localhost by default)
-- TLS support in proxy server
+- ~~Add HOST binding configuration~~ (`BETTER_CCFLARE_HOST`); making localhost the default is still open
+- ~~TLS support in proxy server~~ (`--ssl-key` and `--ssl-cert`)
 - Certificate pinning for API calls
 - IP allowlisting capability
 
@@ -815,8 +819,8 @@ WHERE timestamp > strftime('%s', 'now', '-1 hour') * 1000
 GROUP BY account_used 
 ORDER BY count DESC"
 
-# Check for configuration changes
-sqlite3 better-ccflare.db "SELECT * FROM audit_log WHERE action LIKE '%config%'"
+# Configuration changes are not recorded: there is no audit table yet
+# (audit logging is an open item under Phase 1 of the roadmap above).
 ```
 
 ### Incident Response
@@ -884,7 +888,7 @@ curl -H "Origin: http://evil.com" \
      http://localhost:8080/api/accounts
 
 # Check for exposed internal headers
-curl -I http://localhost:8080/api/health
+curl -I http://localhost:8080/health
 ```
 
 ## Conclusion
@@ -895,14 +899,14 @@ Security is an ongoing process. This documentation should be reviewed and update
 1. **HoV Router prioritizes functionality over security** - suitable for development, not production
 2. **Network isolation is critical** - always restrict access to trusted networks
 3. **Token security requires enhancement** - implement encryption for production use
-4. **Authentication is missing** - all endpoints are currently public
+4. **Authentication is off by default** - it turns on when the first API key is created; until then every request is accepted
 5. **Monitoring is essential** - regular review of logs can detect security issues early
 6. **Regular updates needed** - keep dependencies and documentation current
 
 ### Immediate Actions for Production Use
-1. Implement authentication middleware before exposing to any network
+1. Create an admin API key before any other machine can reach the port
 2. Bind server to localhost only
-3. Set up reverse proxy with TLS
+3. Turn on TLS (`--ssl-key` and `--ssl-cert`) or put a TLS-terminating reverse proxy in front
 4. Encrypt OAuth tokens in database
 5. Implement rate limiting
 6. Add security headers (CORS, CSP, etc.)
