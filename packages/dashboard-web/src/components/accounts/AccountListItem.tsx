@@ -3,6 +3,7 @@ import { AccountPresenter } from "@better-ccflare/ui-common";
 import {
 	ChevronDown,
 	CircleCheck,
+	CirclePause,
 	CircleX,
 	Edit2,
 	Ellipsis,
@@ -38,6 +39,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import type { AccountFamilyRoutingState } from "./account-routing";
 import { accountUsageWindows } from "./account-usage-windows";
 import { BankedResetsStatus } from "./BankedResetsStatus";
+import { ProviderMark } from "./ProviderMark";
 import { RateLimitProgress } from "./RateLimitProgress";
 import {
 	describeBindingConstraint,
@@ -52,7 +54,7 @@ const STATUS_ICON = {
 	ok: CircleCheck,
 	warning: TriangleAlert,
 	bad: CircleX,
-	muted: Pause,
+	muted: CirclePause,
 };
 
 function formatTokenCount(n: number): string {
@@ -464,7 +466,10 @@ export function AccountListItem({
 					</div>
 					{/* No bullet separators: they strand at line ends when this wraps. */}
 					<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-						<span>{account.provider}</span>
+						<span className="inline-flex items-center gap-1.5">
+							<ProviderMark provider={account.provider} />
+							{account.provider}
+						</span>
 						{codexUsageExtras?.plan_type && (
 							<span className="rounded-full bg-secondary px-2 py-0.5 font-medium text-secondary-foreground">
 								{codexUsageExtras.plan_type}
@@ -521,8 +526,8 @@ export function AccountListItem({
 						onClick={() => {
 							if (!account.paused || status.canResume) onPauseToggle(account);
 						}}
-						aria-label={account.paused ? "Resume account" : "Pause account"}
-						title={account.paused ? "Resume account" : "Pause account"}
+						aria-label={`${account.paused ? "Resume" : "Pause"} ${account.name}`}
+						title={`${account.paused ? "Resume" : "Pause"} ${account.name}`}
 					>
 						{account.paused ? (
 							<Play className="h-4 w-4" />

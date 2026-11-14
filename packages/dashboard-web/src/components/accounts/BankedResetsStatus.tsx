@@ -60,14 +60,18 @@ function ExpiryChunk({
 			className="text-muted-foreground"
 			title={describeBankedResetExpiry(soonestExpiresAt)}
 		>
-			{availableCount === 1 ? "Expires" : "Soonest expires"}{" "}
+			{compact
+				? availableCount === 1
+					? "expires"
+					: "next expires"
+				: availableCount === 1
+					? "Expires"
+					: "Soonest expires"}{" "}
 			<span className="whitespace-nowrap">{date}</span>
 			{note && (
 				<>
 					{" "}
-					<span className={compact ? "sr-only" : "whitespace-nowrap"}>
-						({note})
-					</span>
+					<span className="whitespace-nowrap">({note})</span>
 				</>
 			)}
 			{doesNotExpire && "; at least one does not expire"}
@@ -142,12 +146,20 @@ export function BankedResetsStatus({
 			>
 				<details className="group">
 					<summary className="flex min-h-11 cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
-						<span>Banked resets:</span>
-						<span className="text-foreground tabular-nums">{value}</span>
+						<span className="text-foreground tabular-nums">
+							{holdsResets || kind === "none"
+								? `${value} banked`
+								: `Banked resets ${value}`}
+						</span>
 						{showsStale && (
 							<span className={STATUS_TONE_CLASS.warning}>Last known</span>
 						)}
-						{holdsResets && <ExpiryChunk resets={resets} now={now} compact />}
+						{holdsResets && (
+							<>
+								{" · "}
+								<ExpiryChunk resets={resets} now={now} compact />
+							</>
+						)}
 						<ChevronDown
 							aria-hidden="true"
 							className="h-3 w-3 shrink-0 group-open:rotate-180"

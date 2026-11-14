@@ -1,5 +1,5 @@
 import { reauthInstruction } from "@better-ccflare/core/reauth-instructions";
-import { AlertTriangle, CheckCircle, RefreshCw, XCircle } from "lucide-react";
+import { AlertTriangle, RefreshCw, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { APIErrorBoundary } from "./ErrorBoundary";
@@ -109,10 +109,28 @@ export function OAuthTokenStatus({
 		}
 	}, [status, accountName, hasRefreshToken, fallbackAttempted]);
 
-	// Don't show anything for non-OAuth accounts
-	if (!hasRefreshToken) {
+	return (
+		<OAuthTokenStatusView
+			status={status}
+			message={message}
+			accountName={accountName}
+			hasRefreshToken={hasRefreshToken}
+			provider={provider}
+		/>
+	);
+}
+
+export function OAuthTokenStatusView({
+	status,
+	message,
+	accountName,
+	hasRefreshToken,
+	provider,
+}: OAuthTokenStatusProps & { status: TokenStatus; message: string }) {
+	// Non-OAuth accounts have no token to report; a healthy or still-loading
+	// token is not a problem, so the row stays quiet.
+	if (!hasRefreshToken || status === "healthy" || status === "loading")
 		return null;
-	}
 
 	// Show loading during fallback attempt
 	if (status === "error") {
@@ -132,15 +150,11 @@ export function OAuthTokenStatus({
 
 	const getIcon = () => {
 		switch (status) {
-			case "healthy":
-				return <CheckCircle className="h-4 w-4 text-green-600" />;
 			case "warning":
 				return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
 			case "critical":
 			case "expired":
 				return <XCircle className="h-4 w-4 text-red-600" />;
-			case "loading":
-				return <RefreshCw className="h-4 w-4 text-gray-400 animate-spin" />;
 			default:
 				return <AlertTriangle className="h-4 w-4 text-gray-500" />;
 		}
@@ -148,15 +162,11 @@ export function OAuthTokenStatus({
 
 	const getTooltip = () => {
 		switch (status) {
-			case "healthy":
-				return "OAuth token available";
 			case "warning":
 				return `OAuth token expiring soon - ${message}`;
 			case "critical":
 			case "expired":
 				return `OAuth token expired - ${message} - To re-authenticate, ${reauthInstruction(provider ?? "", accountName, { hasRefreshToken, audience: "dashboard" })}`;
-			case "loading":
-				return "Checking OAuth token status...";
 			default:
 				return "OAuth token status unknown";
 		}

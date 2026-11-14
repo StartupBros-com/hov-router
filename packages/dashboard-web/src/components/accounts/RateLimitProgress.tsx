@@ -127,12 +127,19 @@ function computeProjectedMessage(
 /** Compact empty state: untracked by design reads differently from missing data. */
 function MissingQuota({ provider }: { provider: string }) {
 	return providerHasNoQuotaTracking(provider) ? (
-		<p
-			className="text-xs text-muted-foreground"
+		<div
+			className="grid min-w-0 grid-cols-[minmax(0,7rem)_minmax(2rem,1fr)_2.5rem] items-center gap-x-2 text-xs text-muted-foreground @[28rem]:grid-cols-[minmax(0,7rem)_minmax(2rem,1fr)_2.5rem_4.75rem]"
 			title="The router doesn't poll this provider for quota or credit usage."
 		>
-			Quota not tracked
-		</p>
+			<span>Quota not tracked</span>
+			<span
+				aria-hidden="true"
+				className="h-1.5 rounded-full border border-dashed border-muted-foreground/40"
+			/>
+			<span className="sr-only">
+				The router doesn't poll this provider for quota or credit usage.
+			</span>
+		</div>
 	) : (
 		<p className="text-xs text-muted-foreground">Usage unavailable</p>
 	);
@@ -224,6 +231,14 @@ export function RateLimitProgress({
 		isNanoGPTData && (usageData as { active?: boolean }).active === false;
 	const isZaiPeak = provider === "zai" && isZaiPeakHour(now);
 	const isAnthropicPeak = provider === "anthropic" && isAnthropicPeakHour(now);
+	const anyBinding = usages.some(
+		(usage) =>
+			Boolean(usage.window) &&
+			usage.utilization != null &&
+			Number.isFinite(usage.utilization) &&
+			usage.utilization >= 0 &&
+			(usage.isActive || usage.window === bindingWindow),
+	);
 	const throttledWindowSet = new Set(usageThrottledWindows);
 
 	// The throttle notice normally rides along inside the throttled window's row.
@@ -360,6 +375,18 @@ export function RateLimitProgress({
 					const exhausted = known && percentage >= 100;
 					const label = displayLabel(usage);
 					const binding = usage.isActive || usage.window === bindingWindow;
+					const strong = binding || !anyBinding;
+					const expectedPct = computeExpectedPct(
+						usage.resetTime,
+						usage.window,
+						now,
+					);
+					const pacePct =
+						!usage.synthetic &&
+						usage.resetTime &&
+						Date.parse(usage.resetTime) > now
+							? expectedPct
+							: null;
 					const highlighted =
 						highlightReset?.label === label &&
 						highlightReset.resetTime === usage.resetTime;
@@ -394,14 +421,35 @@ export function RateLimitProgress({
 							</span>
 							{known ? (
 								<>
-									<Progress
-										value={Math.min(100, percentage)}
-										aria-label={`${label} used`}
-										className="h-1 min-w-0"
-										indicatorClassName={
-											exhausted ? "bg-destructive" : "bg-muted-foreground"
+									<div
+										className="relative min-w-0"
+										title={
+											pacePct !== null
+												? "Tick: even pace for this window"
+												: undefined
 										}
-									/>
+									>
+										<Progress
+											value={Math.min(100, percentage)}
+											aria-label={`${label} used`}
+											className="h-1.5 min-w-0 bg-muted-foreground/25"
+											indicatorClassName={
+												exhausted
+													? "bg-destructive"
+													: strong
+														? "bg-foreground"
+														: "bg-muted-foreground"
+											}
+										/>
+										{pacePct !== null && (
+											<span
+												aria-hidden="true"
+												data-pace-marker=""
+												className="pointer-events-none absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground ring-2 ring-background"
+												style={{ left: `${pacePct}%` }}
+											/>
+										)}
+									</div>
 									<span
 										className={cn(
 											"text-right tabular-nums",
@@ -409,6 +457,11 @@ export function RateLimitProgress({
 										)}
 									>
 										{Math.round(percentage)}%
+										{pacePct !== null && (
+											<span className="sr-only">
+												; even pace {Math.round(pacePct)}%
+											</span>
+										)}
 									</span>
 								</>
 							) : (

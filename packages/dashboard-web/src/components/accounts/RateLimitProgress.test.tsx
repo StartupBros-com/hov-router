@@ -15,6 +15,22 @@ import type {
 import { renderToStaticMarkup } from "react-dom/server";
 import { RateLimitProgress } from "./RateLimitProgress";
 
+it("untracked quota has a dashed empty bar and accessible explanation", () => {
+	const html = renderToStaticMarkup(
+		<RateLimitProgress compact provider="openai-compatible" resetIso={null} />,
+	);
+	expect(html).toContain("Quota not tracked");
+	expect(html).toContain(
+		'aria-hidden="true" class="h-1.5 rounded-full border border-dashed border-muted-foreground/40"',
+	);
+	expect(html).toContain(
+		'class="sr-only">The router doesn&#x27;t poll this provider for quota or credit usage.</span>',
+	);
+	expect(html).toContain(
+		'title="The router doesn&#x27;t poll this provider for quota or credit usage."',
+	);
+});
+
 describe("RateLimitProgress", () => {
 	it("lets detailed reset timestamps wrap with a gap in narrow dialogs", () => {
 		const reset = new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -1051,4 +1067,87 @@ it("expires refresh and orphan pacing notices for cached and uncached data in bo
 				expect(html).not.toContain("retry after");
 				expect(html).not.toContain("Retry after");
 			}
+});
+
+it("compact pace ticks require a known real window with a future reset", () => {
+	const now = Date.UTC(2026, 10, 3, 12);
+	setSystemTime(now);
+	try {
+		const render = (window: string, reset: string | null) =>
+			renderToStaticMarkup(
+				<RateLimitProgress
+					compact
+					provider="anthropic"
+					resetIso={reset}
+					usageWindow={window}
+					usageUtilization={40}
+				/>,
+			);
+		const future = new Date(now + 2 * 3600000).toISOString();
+		const html = render("five_hour", future);
+		expect(html.match(/data-pace-marker=""/g)).toHaveLength(1);
+		expect(html).toContain("left:60%");
+		expect(html).toContain("; even pace 60%");
+		expect(html).toContain('title="Tick: even pace for this window"');
+		// Weekly windows, including model tiers, place the tick over seven days.
+		for (const [window, daysLeft, pct] of [
+			["seven_day", 3.5, 50],
+			["seven_day_fable", 1.75, 75],
+		] as const) {
+			const weekly = render(
+				window,
+				new Date(now + daysLeft * 86400000).toISOString(),
+			);
+			expect(weekly.match(/data-pace-marker=""/g)).toHaveLength(1);
+			expect(weekly).toContain(`left:${pct}%`);
+		}
+		for (const [window, reset] of [
+			["seven_day", null],
+			["mystery_window", future],
+			["five_hour", new Date(now - 1).toISOString()],
+		] as const) {
+			const noTick = render(window, reset);
+			expect(noTick).not.toContain("data-pace-marker");
+			// A bar with no tick must not explain one in its tooltip.
+			expect(noTick).not.toContain("Tick: even pace");
+		}
+	} finally {
+		setSystemTime();
+	}
+});
+
+it("compact bars rank only when a known bar is binding and keep visible tracks", () => {
+	const render = (bindingWindow?: string, exhausted = false) =>
+		renderToStaticMarkup(
+			<RateLimitProgress
+				compact
+				provider="anthropic"
+				resetIso={null}
+				bindingWindow={bindingWindow}
+				usageData={
+					{
+						five_hour: { utilization: exhausted ? 100 : 40, resets_at: null },
+						seven_day: { utilization: 40, resets_at: null },
+					} as unknown as FullUsageData
+				}
+				showWeekly
+			/>,
+		);
+	const ranked = render("five_hour");
+	expect(ranked.match(/class="[^"]*bg-foreground[^"]*"/g)).toHaveLength(1);
+	expect(ranked.match(/class="[^"]*bg-muted-foreground"/g)).toHaveLength(1);
+	expect(ranked.match(/bg-muted-foreground\/25/g)).toHaveLength(2);
+	expect(render().match(/class="[^"]*bg-foreground[^"]*"/g)).toHaveLength(2);
+	// Exhausted stays destructive whether or not it is the limiting window,
+	// and only the exhausted bar turns destructive.
+	const exhaustedBinding = render("five_hour", true);
+	expect(exhaustedBinding.match(/bg-destructive/g)).toHaveLength(1);
+	expect(
+		exhaustedBinding.match(/class="[^"]*bg-muted-foreground"/g),
+	).toHaveLength(1);
+	const exhaustedOther = render("seven_day", true);
+	expect(exhaustedOther.match(/bg-destructive/g)).toHaveLength(1);
+	expect(exhaustedOther.match(/class="[^"]*bg-foreground[^"]*"/g)).toHaveLength(
+		1,
+	);
 });

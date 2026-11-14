@@ -48,6 +48,75 @@ function renderToStaticMarkup(node: ReactNode): string {
 }
 
 function noop() {}
+it("keeps the provider text alongside its decorative mark", () => {
+	const html = renderClosedMarkup(
+		<AccountListItem
+			account={makeAccount({ provider: "codex" })}
+			{...requiredHandlers}
+		/>,
+	);
+	expect(html).toMatch(
+		/<span class="inline-flex items-center gap-1.5"><svg[^>]*data-provider-mark="openai"[\s\S]*?<\/svg>codex<\/span>/,
+	);
+});
+it("groups priority rows as flat keyed siblings using rendered counts", () => {
+	const now = Date.UTC(2026, 10, 3);
+	const accounts = [
+		makeAccount({ id: "a", name: "active-a", paused: false }),
+		makeAccount({
+			id: "b",
+			name: "cooldown-b",
+			paused: false,
+			rateLimitedUntil: now + 60000,
+		}),
+		makeAccount({ id: "c", name: "paused-c", paused: true }),
+	];
+	const items = accountListItems(
+		{ accounts, ...requiredHandlers },
+		"priority",
+		now,
+	);
+	expect(items.map((item) => item.key)).toEqual([
+		"group:active",
+		"a",
+		"b",
+		"group:paused",
+		"c",
+	]);
+	expect(items.map((item) => item.type)).toEqual([
+		"h2",
+		AccountListItem,
+		AccountListItem,
+		"h2",
+		AccountListItem,
+	]);
+	const html = renderClosedMarkup(items);
+	expect(html.match(/<h2\b/g)).toHaveLength(2);
+	const visible = html.replace(/<[^>]*>/g, "");
+	expect(visible).toContain("Active 2 accounts");
+	expect(visible).toContain("Paused 1 account");
+	expect(visible).not.toContain("Paused 1 accounts");
+	expect(html.indexOf("Active ")).toBeLessThan(html.indexOf("active-a"));
+	expect(html.indexOf("cooldown-b")).toBeLessThan(html.indexOf("Paused "));
+	expect(html.indexOf("Paused ")).toBeLessThan(html.indexOf("paused-c"));
+	expect(
+		html.match(/<article[^>]*>/g)?.every((tag) => !tag.includes("opacity")),
+	).toBe(true);
+	expect(
+		renderClosedMarkup(
+			accountListItems({ accounts, ...requiredHandlers }, "next-reset", now),
+		),
+	).not.toContain("<h2");
+	expect(
+		renderClosedMarkup(
+			accountListItems(
+				{ accounts: accounts.slice(0, 2), ...requiredHandlers },
+				"priority",
+				now,
+			),
+		),
+	).not.toContain("Paused ");
+});
 function withoutDetailsContent(html: string): string {
 	const start = html.search(/<section[^>]*aria-label="Details for /);
 	if (start < 0) return html;
@@ -92,13 +161,13 @@ describe("account scan layout", () => {
 			{
 				input: { paused: true, pauseReason: "manual" },
 				tone: "muted",
-				icon: "pause",
+				icon: "circle-pause",
 				label: "Paused",
 			},
 			{
 				input: { paused: true, pauseReason: "overage" },
 				tone: "muted",
-				icon: "pause",
+				icon: "circle-pause",
 				label: "Paused",
 				detail: "Auto-paused: overage",
 			},
@@ -209,11 +278,16 @@ describe("account scan layout", () => {
 				{...requiredHandlers}
 			/>,
 		);
-		const resume = (
-			html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? []
-		).filter((b) => b.includes("Resume account"));
-		expect(resume).toHaveLength(2);
-		for (const button of resume) expect(button).toContain("disabled");
+		const buttons = html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? [];
+		// The row's icon button names the account; the Details tab's button keeps its text.
+		const iconResume = buttons.filter((b) =>
+			b.includes('aria-label="Resume acc-1"'),
+		);
+		const detailsResume = buttons.filter((b) => b.includes(">Resume account<"));
+		expect(iconResume).toHaveLength(1);
+		expect(detailsResume).toHaveLength(1);
+		for (const button of [...iconResume, ...detailsResume])
+			expect(button).toContain("disabled");
 	});
 	it("distinguishes unavailable data from an empty collection", () => {
 		const unavailable = renderToStaticMarkup(
@@ -793,11 +867,12 @@ describe("AccountListItem authoritative family routing", () => {
 		});
 
 		expect(children.map((child) => child.key)).toEqual([
+			"group:paused",
 			"account-a",
 			"account-b",
 		]);
-		expect(children[0]?.props.routingStates).toBe(firstRouting);
-		expect(children[1]?.props.routingStates).toBe(secondRouting);
+		expect(children[1]?.props.routingStates).toBe(firstRouting);
+		expect(children[2]?.props.routingStates).toBe(secondRouting);
 	});
 });
 
@@ -1379,11 +1454,11 @@ describe("AccountListItem row layout", () => {
 
 	it("gives every icon-only action an accessible name", () => {
 		const paused = render(makeAccount({ name: "max-a", paused: true }));
-		expect(paused).toContain('aria-label="Resume account"');
+		expect(paused).toContain('aria-label="Resume max-a"');
 		expect(paused).toContain('aria-label="More actions for max-a"');
 		expect(paused).toContain('aria-label="Refresh usage"');
 		expect(render(makeAccount({ paused: false }))).toContain(
-			'aria-label="Pause account"',
+			'aria-label="Pause acc-1"',
 		);
 	});
 
@@ -1535,9 +1610,9 @@ describe("Details settings errors", () => {
 			...requiredHandlers,
 			settingsErrors: { [account.id]: "Setting failed" },
 		});
-		expect(items[0]?.props.settingsError).toBe("Setting failed");
-		expect(items[1]?.props.settingsError).toBeUndefined();
-		const html = renderToStaticMarkup(items[0]);
+		expect(items[1]?.props.settingsError).toBe("Setting failed");
+		expect(items[2]?.props.settingsError).toBeUndefined();
+		const html = renderToStaticMarkup(items[1]);
 		expect(html).toContain('role="alert"');
 		expect(html).toContain("Setting failed");
 		expect(withoutDetailsContent(html)).not.toContain("Setting failed");
@@ -1775,4 +1850,25 @@ it("retains a visible exception if a binding observation differs from the quota 
 	expect(visible).toContain('data-testid="binding-constraint"');
 	expect(visible).toContain("100%");
 	expect(visible).toContain("32%");
+});
+
+it("names pause controls by account and distinguishes the paused pill icon", () => {
+	for (const paused of [false, true]) {
+		const html = renderClosedMarkup(
+			<AccountListItem
+				account={makeAccount({ name: "named-account", paused })}
+				{...requiredHandlers}
+			/>,
+		);
+		const label = `${paused ? "Resume" : "Pause"} named-account`;
+		expect(html).toContain(`aria-label="${label}"`);
+		expect(html).toContain(`title="${label}"`);
+		if (paused) {
+			expect(html).toContain("lucide-circle-pause");
+			const button = html.match(
+				/<button[^>]*aria-label="Resume named-account"[^>]*>[\s\S]*?<\/button>/,
+			)?.[0];
+			expect(button).toContain("lucide-play");
+		}
+	}
 });
