@@ -20,11 +20,13 @@ import {
 	warmPricingCatalog,
 } from "@better-ccflare/core";
 import { BunSqlAdapter, ensureSchema } from "@better-ccflare/database";
+import { getSupportedLineIdentities } from "@better-ccflare/providers";
 import type { AlertEvent } from "@better-ccflare/types";
 import {
 	AlertService,
 	buildDiscordAlertContent,
 	buildPricingCatalogAlerts,
+	getRouteProfileLineIdentities,
 } from "../alerts";
 
 const NOW = Date.parse("2026-11-10T03:00:00Z");
@@ -176,6 +178,23 @@ describe("buildPricingCatalogAlerts", () => {
 	});
 });
 
+describe("getRouteProfileLineIdentities", () => {
+	it("checks only the Codex lines a route profile can pin", () => {
+		const all = getSupportedLineIdentities();
+		const lines = getRouteProfileLineIdentities();
+		expect(Object.keys(lines).sort()).toEqual(["gpt-astra", "gpt-sol"]);
+		for (const [line, identities] of Object.entries(lines)) {
+			expect(identities).toEqual(all[line as keyof typeof all]);
+		}
+		// The Claude lines still exist in the identity table; they served only
+		// the removed Auto lane (#816), so the alert no longer checks them.
+		expect(Object.keys(all)).toContain("claude-opus");
+		expect(Object.keys(lines).some((line) => line.startsWith("claude-"))).toBe(
+			false,
+		);
+	});
+});
+
 describe("catalogue alert Discord wording", () => {
 	it("names each catalogue gap and the rate mismatch in its own terms", () => {
 		const [autoLine, era, registry] = buildPricingCatalogAlerts(
@@ -190,7 +209,7 @@ describe("catalogue alert Discord wording", () => {
 			"A newly released model has no list-price era.",
 		);
 		expect(buildDiscordAlertContent(autoLine)).toContain(
-			"A newly released model is outside its approved Auto line.",
+			"A newly released model is outside its approved line.",
 		);
 
 		// Legacy rows carry no classification; the id still names the reason.
@@ -244,7 +263,7 @@ describe("AlertService pricing catalogue watch", () => {
 		sqlite.close();
 	});
 
-	const freshOpus = {
+	const freshModels = {
 		anthropic: {
 			models: {
 				"claude-opus-6": {
@@ -255,16 +274,29 @@ describe("AlertService pricing catalogue watch", () => {
 				},
 			},
 		},
+		openai: {
+			models: {
+				// Synthetic: in the gpt-astra line, which supports only gpt-6-astra.
+				"gpt-9-astra": {
+					id: "gpt-9-astra",
+					name: "GPT-9 Astra",
+					release_date: new Date(Date.now() - DAY).toISOString().slice(0, 10),
+					cost: { input: 5, output: 25, cache_read: 0.5 },
+				},
+			},
+		},
 	};
 
 	it("evaluates the catalogue on its first load and reports each gap once", async () => {
-		serveCatalogue(freshOpus);
+		serveCatalogue(freshModels);
 		service.watchPricingCatalog();
 		await service.pricingCatalogSettled();
 		const ids = (await service.listAlerts()).map((a) => a.id).sort();
-		// The real Auto lines include claude-opus, which does not list it yet.
+		// Only lines a route profile can pin are checked (#816): gpt-9-astra is
+		// outside gpt-astra, while claude-opus-6 has no line to be outside.
 		expect(ids).toEqual([
-			"model_routing_drift:catalog_new_model:13:claude-opus-6:auto_line",
+			"model_routing_drift:catalog_new_model:11:gpt-9-astra:auto_line",
+			"model_routing_drift:catalog_new_model:11:gpt-9-astra:era",
 			"model_routing_drift:catalog_new_model:13:claude-opus-6:era",
 			"model_routing_drift:catalog_new_model:13:claude-opus-6:registry",
 		]);
@@ -274,9 +306,9 @@ describe("AlertService pricing catalogue watch", () => {
 		serveCatalogue({
 			anthropic: {
 				models: {
-					...freshOpus.anthropic.models,
+					...freshModels.anthropic.models,
 					"claude-sonnet-6": {
-						...freshOpus.anthropic.models["claude-opus-6"],
+						...freshModels.anthropic.models["claude-opus-6"],
 						id: "claude-sonnet-6",
 						name: "Claude Sonnet 6",
 					},
@@ -288,18 +320,17 @@ describe("AlertService pricing catalogue watch", () => {
 		await service.pricingCatalogSettled();
 		expect((await service.listAlerts()).map((a) => a.id).sort()).toEqual([
 			...ids,
-			"model_routing_drift:catalog_new_model:15:claude-sonnet-6:auto_line",
 			"model_routing_drift:catalog_new_model:15:claude-sonnet-6:era",
 			"model_routing_drift:catalog_new_model:15:claude-sonnet-6:registry",
 		]);
 	});
 
 	it("evaluates a catalogue that loaded before the watch started", async () => {
-		serveCatalogue(freshOpus);
+		serveCatalogue(freshModels);
 		await warmPricingCatalog();
 		service.watchPricingCatalog();
 		await service.pricingCatalogSettled();
-		expect(await service.listAlerts()).toHaveLength(3);
+		expect(await service.listAlerts()).toHaveLength(4);
 	});
 
 	it("ignores the bundled fallback, which only restates this build", async () => {
@@ -317,7 +348,7 @@ describe("AlertService pricing catalogue watch", () => {
 		service.watchPricingCatalog();
 		await service.pricingCatalogSettled();
 		await service.stop();
-		serveCatalogue(freshOpus);
+		serveCatalogue(freshModels);
 		resetNanoGPTPricingCacheForTest();
 		await warmPricingCatalog();
 		await service.pricingCatalogSettled();

@@ -10,7 +10,6 @@ applies_when:
   - Verifying or debugging the per-account Codex credit drain (codex_credit_drain_enabled, the Accounts-page Drain credits switch)
   - Changing the hard capacity gate, or tempted to admit a Codex account at 100% because wham still reports allowed
   - A Codex account whose credits should be kept is losing OpenAI credits
-  - An Auto or quality route refuses a Codex account that ordinary routes serve on credits
 symptoms:
   - A forced request to a drain-enabled account returns 200 but credits_balance does not move
   - wham reports used_percent 100 with allowed true and limitReached false, then flips both after one more request
@@ -115,10 +114,7 @@ That evidence comes only from the account's own wham poll. It is `null` when mis
   - capability route-profile selection (`:2716`).
 
   Drain skips only the session and weekly-all windows. It does not lift per-model weekly caps (`usage-throttling.ts:775`), which bind wherever model-scoped capacity is enforced: on force routes, or when model-scoped capacity routing is set to `exhausted` (`account-selector.ts:1315-1322`).
-- **Auto and quality routes never read the toggle.** They use `evaluateAutoCapacity` (`usage-throttling.ts:36`), called from `packages/proxy/src/handlers/quality-route-admission.ts:74` and `packages/proxy/src/quality-route-candidates.ts:364` and `:666`.
-  - **A spent Codex account is refused with `provider-capacity-exhausted`** when wham reports `allowed:false` or `limitReached:true`, or when a window reads 100 (`usage-throttling.ts:68-70`, `:90-91`). That check runs before any spend grant is read, so no grant can route a spent Codex account through Auto.
-  - **A Codex account with headroom needs an operator-approved `outside-subscription` spend grant**, unless its own poll shows no credits at all. Without the grant it is held as `spend-not-authorized` (`:173-179`, `:201-202`), because only owned no-credit evidence proves subscription-only safety (`:199-200`).
-  - **This is by design.** Subscription-only Codex admission on those routes is the design of PR #404, so an Auto refusal of a spent account with credits is expected, not a drain bug.
+- **Auto quality routes**, which never read the toggle and used `evaluateAutoCapacity` instead, are removed by #816.
 
 ### 5. Look outside ccflare when kept credits fall
 
@@ -149,7 +145,6 @@ To attribute spending without reading secrets:
 - Before claiming a credit drain works.
 - When a drain-enabled account returns 503, or a drain-off account loses credits.
 - Before touching `evaluateHardCapacity`'s 100% threshold, or wiring wham's `allowed` / `limit_reached` into routing.
-- When Auto refuses a Codex account that ordinary routes serve on credits.
 - When ccflare has just restarted or its usage polls are failing, and a kept account must not spend credits.
 
 ## Examples

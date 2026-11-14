@@ -135,7 +135,6 @@ import {
 	PreTransportPhaseTimeoutError,
 	runWithPreTransportDeadline,
 } from "../pre-transport-deadline";
-import { QualityAttemptRejected } from "../quality-route-candidates";
 import { RequestBodyContext } from "../request-body-context";
 import {
 	forwardToClient,
@@ -865,8 +864,6 @@ class NativeQuotaAdmissionDenied extends Error {}
  * disabled so one planned candidate cannot jump ahead of the remaining queue.
  */
 export interface ModelFallbackExecutionPolicy {
-	/** Exact quality authority: lower-level retries cannot invent another target. */
-	readonly qualityAttempt?: import("../quality-route-candidates").QualityAttemptHooks;
 	/** Immutable ID of the exact route candidate being executed. */
 	readonly routeCandidateId: string;
 	/** Defer final forwarding until the request scheduler chooses the winner. */
@@ -2719,7 +2716,6 @@ export async function proxyWithAccount(
 		sourceBody: ArrayBuffer | null,
 		onHttpDispatch?: () => void,
 		onDispatchStarted?: () => void,
-		qualityPrepare?: () => Promise<void>,
 	): Promise<Response> => {
 		const markDispatched = (): void => {
 			onDispatchStarted?.();
@@ -2754,7 +2750,6 @@ export async function proxyWithAccount(
 						signal: attemptSignal,
 					},
 					async (markObservedDispatch) => {
-						if (qualityPrepare) await qualityPrepare();
 						let helperAccount: Account | null = null;
 						let helperBody: Record<string, unknown> | null = null;
 						if (helperScope) {
@@ -2773,7 +2768,6 @@ export async function proxyWithAccount(
 							requestMeta.id,
 							req.headers,
 						);
-						modelFallbackPolicy?.qualityAttempt?.assertDispatch();
 						if (helperScope) {
 							const target = new URL(request.url);
 							const bearer = request.headers.get("authorization");
@@ -3524,11 +3518,7 @@ export async function proxyWithAccount(
 			);
 			return null;
 		}
-		if (
-			provider.name === "codex" &&
-			!ensuredCodexDefaultsBeforeAdmission &&
-			!modelFallbackPolicy?.qualityAttempt
-		) {
+		if (provider.name === "codex" && !ensuredCodexDefaultsBeforeAdmission) {
 			await ensureCodexModelDefaults(account, ctx);
 		}
 		// Bind to the concrete model selected with the admission snapshot. A
@@ -4479,15 +4469,7 @@ export async function proxyWithAccount(
 						// something a later attempt should compare itself against.
 						commitCodexDispatchedRoute();
 					},
-					modelFallbackPolicy?.qualityAttempt
-						? async () =>
-								modelFallbackPolicy.qualityAttempt?.beforeDispatch(
-									transportRequest,
-									accessToken,
-								)
-						: undefined,
 				);
-				modelFallbackPolicy?.qualityAttempt?.observeResponse(response);
 				modelFallbackPolicy?.observeNativeQuotaAttempt?.(response.status);
 				observeTrustedHttpOverload(response, transportRequest, resolvedModel);
 				return response;
@@ -4939,8 +4921,6 @@ export async function proxyWithAccount(
 			candidateResponse: Response,
 		): Promise<boolean> => {
 			if (
-				// Quality attempts own terminal completion and never replay this rejection.
-				modelFallbackPolicy?.qualityAttempt !== undefined ||
 				attemptPlan.providerName !== "codex" ||
 				account.provider !== "codex"
 			) {
@@ -6170,38 +6150,12 @@ export async function proxyWithAccount(
 				usageCache.getFamilyScopedExhaustion(account.id, model) !== null
 			);
 		};
-		// Keep scoped Anthropic quota observations without letting their legacy
-		// failover/discard disposition swallow this attempt's terminal response.
-		// Classification gets a bounded clone; only the original reaches the client.
-		let qualityScopedRateLimit = false;
-		if (modelFallbackPolicy?.qualityAttempt && rawResponse.status === 429) {
-			const classificationResponse = await boundResponseBodyForClassification(
-				rawResponse.clone(),
-			);
-			try {
-				qualityScopedRateLimit = Boolean(
-					(await handleExactModel429(
-						classificationResponse,
-						initialAttemptedModel,
-					)) ??
-						(await handleScopedAnthropic429(
-							classificationResponse,
-							initialAttemptedModel,
-						)),
-				);
-			} finally {
-				cancelDiscardedResponseBody(classificationResponse);
-			}
-		}
 		// A committed enforced degraded-mode send owns this request's only
 		// physical attempt. Preserve its response before any raw classifier,
 		// model fallback, cooldown failover, or body drain can consume it.
 		if (
 			!wasProtectedLifecycleForLatestResponse() &&
-			!irreversibleSearchDispatchCommitted() &&
-			// Quality owns replay and settlement. Legacy raw-failure paths may
-			// consume a response and return null, losing its terminal observation.
-			!modelFallbackPolicy?.qualityAttempt
+			!irreversibleSearchDispatchCommitted()
 		) {
 			rawFailureClassification = await handleRawAttemptFailure(rawResponse);
 			if (rawFailureClassification.returnOriginalResponse) {
@@ -6992,11 +6946,7 @@ export async function proxyWithAccount(
 		// A provider-issued 401 is either repaired by one bounded same-account
 		// OAuth refresh/retry or quarantined and failed over. Protected/hosted
 		// lifecycles remain terminal and are intentionally untouched.
-		if (
-			response.status === 401 &&
-			!irreversibleSearchDispatchCommitted() &&
-			!modelFallbackPolicy?.qualityAttempt
-		) {
+		if (response.status === 401 && !irreversibleSearchDispatchCommitted()) {
 			const authResult = await handleUpstreamAuthFailure(
 				response,
 				"auth_failed_401",
@@ -7010,7 +6960,6 @@ export async function proxyWithAccount(
 		// synthetic (cache-keepalive) requests to avoid loop amplification.
 		if (
 			response.status === 529 &&
-			!modelFallbackPolicy?.qualityAttempt &&
 			!irreversibleSearchDispatchCommitted() &&
 			!isSyntheticInternal &&
 			!wasProtectedLifecycleForLatestResponse()
@@ -7228,11 +7177,7 @@ export async function proxyWithAccount(
 
 		// Re-check 401 after an in-place 529 retry. The same bounded auth handler
 		// prevents a revoked credential from being sent again on later requests.
-		if (
-			response.status === 401 &&
-			!irreversibleSearchDispatchCommitted() &&
-			!modelFallbackPolicy?.qualityAttempt
-		) {
+		if (response.status === 401 && !irreversibleSearchDispatchCommitted()) {
 			const authResult = await handleUpstreamAuthFailure(
 				response,
 				"auth_failed_401_after_retry",
@@ -7761,32 +7706,25 @@ export async function proxyWithAccount(
 		// untouched for the client. Native xAI treats 402/429 as capacity signals;
 		// every provider retains the established 529 terminal contract.
 		const isTerminalRateLimitStatus =
-			// Quality attempts must deliver and settle unproven 429s, not discard
-			// them as legacy failover misses and leave a durable dispatch unresolved.
-			(modelFallbackPolicy?.qualityAttempt !== undefined &&
-				response.status === 429) ||
 			response.status === 529 ||
 			(account.provider === "xai" &&
 				(response.status === 402 || response.status === 429));
 		const shouldPreserveTerminalRateLimitResponse =
-			!qualityScopedRateLimit &&
 			isTerminalRateLimitStatus &&
 			(returnRateLimitedResponseOnExhaustion || Boolean(routingAttemptLedger));
 		const responseForRateLimitCheck = shouldPreserveTerminalRateLimitResponse
 			? await boundResponseBodyForClassification(response.clone())
 			: response;
 		let rateLimitObservation: RateLimitObservation | null = null;
-		const isRateLimited =
-			!qualityScopedRateLimit &&
-			(await processProxyResponse(
-				responseForRateLimitCheck,
-				account,
-				attemptProxyContext(),
-				requestMeta,
-				(observation) => {
-					rateLimitObservation = observation;
-				},
-			));
+		const isRateLimited = await processProxyResponse(
+			responseForRateLimitCheck,
+			account,
+			attemptProxyContext(),
+			requestMeta,
+			(observation) => {
+				rateLimitObservation = observation;
+			},
+		);
 		if (responseForRateLimitCheck !== response) {
 			// The rate-limit check ran on a clone whose header-only use is done.
 			// boundResponseBodyForClassification already buffered it into a
@@ -7853,7 +7791,6 @@ export async function proxyWithAccount(
 						projectAttributionSource:
 							requestMeta.projectAttributionSource ?? null,
 						response: terminalResponse,
-						qualityCompletion: modelFallbackPolicy?.qualityAttempt?.complete,
 						timestamp: requestMeta.timestamp,
 						retryAttempt: 0,
 						failoverAttempts: terminalFailoverAttempts,
@@ -8019,7 +7956,6 @@ export async function proxyWithAccount(
 
 		const responseLifecycle = activeLifecycleForLatestResponse();
 		const forwardOptions = {
-			qualityCompletion: modelFallbackPolicy?.qualityAttempt?.complete,
 			requestId: requestMeta.id,
 			method: req.method,
 			path: url.pathname,
@@ -8123,7 +8059,6 @@ export async function proxyWithAccount(
 			);
 		else if (!(err instanceof NativeQuotaAdmissionDenied))
 			routingAttemptLedger?.recordPhysicalOutcome("transport_error");
-		if (err instanceof QualityAttemptRejected) throw err;
 		const committedLifecycle = anthropicDegradedState?.lifecycle;
 		if (req.signal.aborted) {
 			if (

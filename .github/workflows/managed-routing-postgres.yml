@@ -87,14 +87,14 @@ jobs:
 
           printf '\nAll %d isolated test files passed\n' "${#test_files[@]}"
 
-      - name: Run route-control tests against the compiled CLI
+      - name: Run CLI dotenv tests against the compiled CLI
         # The full suite above drives apps/cli/src/main.ts. With this variable set the
         # same file drives the binary that "Build CLI generated modules" compiled, and
         # runs "compiled ordinary CLI preserves project dotenv fallback" (#416), which
         # skips without it. Before this step nothing set it, so that test never ran.
         env:
           BETTER_CCFLARE_TEST_COMPILED_CLI: ${{ github.workspace }}/apps/cli/dist/better-ccflare
-        run: bun test --timeout 15000 apps/cli/src/__tests__/quality-route-control.test.ts
+        run: bun test --timeout 15000 apps/cli/src/__tests__/ordinary-cli-dotenv.test.ts
 
       - name: Run lint
         run: bun run lint

@@ -10,12 +10,10 @@ import {
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compileQualityRoutingPolicy } from "@better-ccflare/core";
 import {
 	AsyncDbWriter,
 	DatabaseFactory,
 	type DatabaseOperations,
-	QualityRouteRepository,
 } from "@better-ccflare/database";
 import {
 	LeastUsedStrategy,
@@ -32,7 +30,7 @@ import * as operations from "../handlers/proxy-operations";
 import { INTERNAL_PROBE_SECRET_HEADER } from "../handlers/proxy-types";
 import { RoutingAttemptLedger } from "../handlers/routing-attempt-ledger";
 import { handleProxy } from "../proxy";
-import { QualityRouteService } from "../quality-route-service";
+import { RETIRED_QUALITY_ROUTE_MESSAGE } from "../retired-quality-route";
 import {
 	getRequestLifecycleCoordinator,
 	recordRoutingTerminalRequest,
@@ -249,40 +247,15 @@ describe("proxy startup affinity restore gate", () => {
 		);
 	});
 
-	it("holds quality routing and its direct strategy selection until the restore gate opens", async () => {
+	it.each([
+		"claude-bccf-quality-auto",
+		"claude-bccf-quality-astra",
+		"claude-bccf-quality-opus",
+		"claude-bccf-quality-fable",
+	])("refuses the retired %s with a 400 before the restore gate, without selection or traffic", async (model) => {
 		const strategy = new SessionAffinityStrategy();
 		strategy.initialize(store);
 		ctx.strategy = strategy;
-		const policy = compileQualityRoutingPolicy({
-			version: 1,
-			assignments: [
-				{
-					line: "claude-opus",
-					lane: "opus",
-					priority: 0,
-					upgrade: "same-line-supported",
-				},
-			],
-			accounts: [
-				{
-					accountId: "absent-quality-test-account",
-					provider: "anthropic",
-					lines: ["claude-opus"],
-					priority: 0,
-				},
-			],
-			fallbacks: [
-				{ from: "fable", to: "astra" },
-				{ from: "astra", to: "opus" },
-			],
-			spendGrants: [],
-		});
-		ctx.config.getQualityRoutingPolicy = () => policy;
-		const service = new QualityRouteService(
-			new QualityRouteRepository(db.getAdapter()),
-		);
-		ctx.qualityRouteService = service;
-		const status = spyOn(service, "status");
 		const select = spyOn(strategy, "select");
 		const gate = spyOn(strategy, "affinityRestoreGate");
 		const pendingRead = deferred<ReturnType<typeof history>>();
@@ -290,33 +263,42 @@ describe("proxy startup affinity restore gate", () => {
 			pendingRead.promise,
 		);
 		restores.push(
-			() => status.mockRestore(),
 			() => select.mockRestore(),
 			() => gate.mockRestore(),
 			() => reader.mockRestore(),
 		);
 		const restoring = restoreAffinityPins({ strategy, reader: db });
-		const response = send(
-			request("claude-bccf-quality-opus"),
-			"restore-test-principal",
-		);
 		try {
-			await flushRouting();
+			// The restore is still pending, so a request that reached the gate
+			// would hang here; the retired id is answered first.
+			const response = await send(request(model), "restore-test-principal");
+			expect(response.status).toBe(400);
+			expect(response.headers.get("cache-control")).toBe("no-store");
+			expect(gate).not.toHaveBeenCalled();
 			expect(select).not.toHaveBeenCalled();
-			expect(status).not.toHaveBeenCalled();
-			expect(gate).toHaveBeenCalledTimes(1);
+			expect(globalThis.fetch).not.toHaveBeenCalled();
 		} finally {
 			pendingRead.resolve(history());
 			await restoring;
-			await response;
-			await service.stop();
 		}
-		// No enrolled test account is present: real quality routing selects an
-		// empty candidate set and refuses locally, without provider traffic.
-		expect((await response).status).toBe(503);
-		expect(select).toHaveBeenCalledTimes(1);
-		expect(select.mock.calls[0][1].affinityLaneKey).toMatch(/^quality-lane_/);
-		expect(status).toHaveBeenCalled();
+	});
+
+	it("names the stock replacement in the retired quality id's error body", async () => {
+		const response = await handleProxy(
+			request("claude-bccf-quality-auto"),
+			new URL("https://proxy.local/v1/messages"),
+			ctx,
+		);
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			type: "error",
+			error: {
+				type: "invalid_request_error",
+				code: "quality_route_retired",
+				message: RETIRED_QUALITY_ROUTE_MESSAGE,
+			},
+		});
+		expect(RETIRED_QUALITY_ROUTE_MESSAGE).toContain("opus");
 		expect(globalThis.fetch).not.toHaveBeenCalled();
 	});
 

@@ -802,116 +802,29 @@ describe("trackStreamForShutdown", () => {
 		await result.settled;
 	});
 
-	it("programmatic stop persists a late observed completion before recovery and DB teardown", async () => {
-		const { stopServerResponsesAndRecovery } = require("./server");
-		const {
-			QualitySettlementRecovery,
-		} = require("../../../packages/proxy/src/quality-settlement-recovery");
-		const events: string[] = [];
-		const { Database } = require("bun:sqlite");
-		const db = new Database(":memory:");
-		db.exec("CREATE TABLE outcomes (kind TEXT NOT NULL)");
-		const recovery = new QualitySettlementRecovery(
-			async (_identity: unknown, outcome: { kind: string }) => {
-				db.query("INSERT INTO outcomes (kind) VALUES (?)").run(outcome.kind);
-				events.push("persisted");
-			},
-		);
-		const reserved = recovery.reserve();
-		reserved.bind({
-			session: { verified: true, principalId: "test", sessionId: "stop" },
-			incarnation: "inc",
-			conversation: "$root",
-			leaseId: "lease",
-			revision: 1,
-			expectedHomeVersion: 0,
-		});
-		let pendingRequests = 1;
-		let finish!: () => void;
-		const response = trackStreamForShutdown(
-			new Response(
-				new ReadableStream({
-					start(controller) {
-						finish = () => {
-							controller.close();
-						};
-					},
-				}),
-			),
-		);
-		const consuming = response.text();
-		const server = {
-			get pendingRequests() {
-				return pendingRequests;
-			},
-			stop() {
-				void Promise.resolve().then(async () => {
-					await reserved.settle({ kind: "validated-success" });
-					finish();
-					await consuming;
-					pendingRequests = 0;
-				});
-			},
-		};
-		await stopServerResponsesAndRecovery(
-			server,
-			{
-				async stop() {
-					events.push("recovery-stop");
-					await recovery.stop();
-				},
-			},
-			1000,
-		);
-		expect(db.query("SELECT kind FROM outcomes").all()).toEqual([
-			{ kind: "validated-success" },
-		]);
-		db.close();
-		events.push("db-close");
-		expect(events).toEqual(["persisted", "recovery-stop", "db-close"]);
-	});
 	it("programmatic stop shares completion and stops accepting immediately", async () => {
-		const { stopServerResponsesAndRecovery } = require("./server");
+		const { stopServerResponses } = require("./server");
 		let stopCalls = 0;
 		let reentrant: Promise<void> | undefined;
-		let recoveryCalls = 0;
-		let release!: () => void;
-		const recoveryDone = new Promise<void>((resolve) => {
-			release = resolve;
-		});
 		const server = {
 			pendingRequests: 0,
 			stop() {
 				stopCalls++;
-				reentrant = stopServerResponsesAndRecovery(server, recovery, 0);
+				reentrant = stopServerResponses(server, 0);
 			},
 		};
-		const recovery = {
-			async stop() {
-				recoveryCalls++;
-				await recoveryDone;
-			},
-		};
-		const first = stopServerResponsesAndRecovery(server, recovery, 0);
+		const first = stopServerResponses(server, 0);
 		expect(stopCalls).toBe(1);
-		const second = stopServerResponsesAndRecovery(server, recovery, 0);
+		const second = stopServerResponses(server, 0);
 		expect(second).toBe(first);
 		expect(reentrant).toBe(first);
-		let complete = false;
-		void first.then(() => {
-			complete = true;
-		});
-		await Promise.resolve();
-		expect(complete).toBe(false);
-		release();
 		await first;
-		expect(recoveryCalls).toBe(1);
-		expect(stopServerResponsesAndRecovery(server, recovery, 0)).toBe(first);
+		expect(stopServerResponses(server, 0)).toBe(first);
 		expect(stopCalls).toBe(1);
 	});
 
-	it("programmatic deadline waits for source cancellation before recovery stop", async () => {
-		const { stopServerResponsesAndRecovery } = require("./server");
+	it("programmatic deadline waits for source cancellation before resolving", async () => {
+		const { stopServerResponses } = require("./server");
 		const events: string[] = [];
 		let pendingRequests = 1;
 		const response = trackStreamForShutdown(
@@ -938,22 +851,14 @@ describe("trackStreamForShutdown", () => {
 				events.push(force ? "force" : "stop");
 			},
 		};
-		await stopServerResponsesAndRecovery(
-			server,
-			{
-				async stop() {
-					events.push("recovery");
-				},
-			},
-			0,
-		);
-		expect(events).toEqual(["stop", "force", "cancelled", "recovery"]);
+		await stopServerResponses(server, 0);
+		events.push("resolved");
+		expect(events).toEqual(["stop", "force", "cancelled", "resolved"]);
 		await expect(reader.read()).rejects.toThrow(/drain deadline/);
 	});
 
-	it("programmatic stop bounds hung cancellation before recovery teardown", async () => {
-		const { stopServerResponsesAndRecovery } = require("./server");
-		let recoveryStopped = false;
+	it("programmatic stop bounds hung cancellation", async () => {
+		const { stopServerResponses } = require("./server");
 		const response = trackStreamForShutdown(
 			new Response(
 				new ReadableStream({
@@ -969,16 +874,7 @@ describe("trackStreamForShutdown", () => {
 		const reader = response.body?.getReader();
 		await reader.read();
 		const started = performance.now();
-		await stopServerResponsesAndRecovery(
-			{ pendingRequests: 1, stop() {} },
-			{
-				async stop() {
-					recoveryStopped = true;
-				},
-			},
-			0,
-		);
-		expect(recoveryStopped).toBe(true);
+		await stopServerResponses({ pendingRequests: 1, stop() {} }, 0);
 		expect(performance.now() - started).toBeGreaterThanOrEqual(950);
 		expect(performance.now() - started).toBeLessThan(2000);
 		await expect(reader.read()).rejects.toThrow(/drain deadline/);
@@ -996,9 +892,7 @@ describe("trackStreamForShutdown", () => {
 			src.indexOf("function createServerStopHandle("),
 			src.indexOf("export function readShutdownDrainMs("),
 		);
-		expect(factory).toContain(
-			"stopServerResponsesAndRecovery(server, recovery)",
-		);
+		expect(factory).toContain("stopServerResponses(server)");
 		expect(factory).toContain("if (serverInstance !== server) return;");
 		expect(factory.indexOf("completion.then")).toBeLessThan(
 			factory.indexOf("serverInstance = null"),
@@ -1008,18 +902,12 @@ describe("trackStreamForShutdown", () => {
 			src.indexOf("// Register signal handlers"),
 		);
 		expect(signal).toContain("const shuttingDownServer = serverInstance;");
-		expect(signal).toContain(
-			"const shuttingDownRecovery = activeQualityRouteService;",
-		);
 		expect(signal.indexOf("await drainServerResponses(")).toBeLessThan(
 			signal.indexOf("await drainUsageCollector()"),
 		);
 		expect(signal.indexOf("await drainUsageCollector()")).toBeLessThan(
-			signal.indexOf("await stopServerResponsesAndRecovery("),
+			signal.indexOf("await shutdown()"),
 		);
-		expect(
-			signal.indexOf("await stopServerResponsesAndRecovery("),
-		).toBeLessThan(signal.indexOf("await shutdown()"));
 	});
 
 	it("passes non-stream responses through untouched", () => {

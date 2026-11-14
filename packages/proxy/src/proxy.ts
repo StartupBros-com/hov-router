@@ -697,12 +697,7 @@ export function handleProxy(
 	);
 }
 
-import { captureAutoRequestRequirements } from "@better-ccflare/providers";
-import {
-	reserveQualityIngress,
-	routeQualityRequest,
-	withdrawQualityIngress,
-} from "./quality-route-candidates";
+import { retiredQualityRouteResponse } from "./retired-quality-route";
 
 async function handleProxyImpl(
 	req: Request,
@@ -712,7 +707,6 @@ async function handleProxyImpl(
 	apiKeyName?: string | null,
 	observation?: RequestObservation,
 ): Promise<Response> {
-	reserveQualityIngress(req, url, ctx, apiKeyId);
 	// Reserve root intent synchronously, before body buffering or agent
 	// interception can await and invert same-session request order. Discovery,
 	// unrelated paths, children, credentialless callers, and zero-profile
@@ -812,7 +806,6 @@ async function handleProxyImpl(
 			rootIntentInput,
 			rootIntentGeneration,
 		);
-		await withdrawQualityIngress(req, ctx);
 	}
 }
 
@@ -938,34 +931,18 @@ async function handleProxyCoreImpl(
 	// choices describe intent, not live candidate availability; admission remains
 	// authoritative. Discovery must never refresh catalogs or query providers:
 	// route labels come from one local account read plus in-memory catalogs.
-	const qualityChoices =
-		req.method === "GET" &&
-		url.pathname === "/v1/models" &&
-		ctx.qualityRouteService
-			? (ctx.config?.getQualityRoutingPolicy?.()?.choices ?? []).filter(
-					(choice) => choice.listed,
-				)
-			: [];
 	if (
 		req.method === "GET" &&
 		url.pathname === "/v1/models" &&
-		(ctx.modelRouteSessionRegistry?.hasProfiles || qualityChoices.length > 0)
+		ctx.modelRouteSessionRegistry?.hasProfiles
 	) {
-		const routeModels = ctx.modelRouteSessionRegistry?.hasProfiles
-			? await listModelRouteDiscoveryModels(ctx.modelRouteSessionRegistry, () =>
-					ctx.dbOps.getAllAccounts(),
-				)
-			: [];
+		const routeModels = await listModelRouteDiscoveryModels(
+			ctx.modelRouteSessionRegistry,
+			() => ctx.dbOps.getAllAccounts(),
+		);
 		return new Response(
 			JSON.stringify({
-				data: [
-					...routeModels,
-					...qualityChoices.map((choice) => ({
-						id: choice.publicModelId,
-						display_name: choice.displayName,
-						description: choice.description,
-					})),
-				],
+				data: routeModels,
 				has_more: false,
 			}),
 			{
@@ -1008,9 +985,6 @@ async function handleProxyCoreImpl(
 	// Capture before interception: removing history/tools cannot manufacture authority.
 	const originalWebSearchHelperEligible =
 		isFreshWebSearchHelper(originalParsedBody);
-	let qualityRequirements = ctx.qualityRouteService
-		? captureAutoRequestRequirements(originalParsedBody)
-		: undefined;
 	// Scheduler auth has already been consumed above. Only an explicitly
 	// streaming Anthropic Messages request may activate the outer SSE rescue;
 	// non-streaming callers must retain their eventual JSON status/headers/body,
@@ -1326,16 +1300,6 @@ async function handleProxyCoreImpl(
 				);
 			}
 		}
-		if (policyResult === "replaced" && ctx.qualityRouteService) {
-			// Establish only the authorized edit as the preservation baseline. Use
-			// the original buffer so earlier cache-TTL changes do not acquire a new
-			// exemption from admission. Provider/model/tool checks remain unchanged.
-			const policyBaseline = new RequestBodyContext(requestBodyBuffer);
-			applyClaudeCodeBackgroundMergePolicy(policyBaseline);
-			qualityRequirements = captureAutoRequestRequirements(
-				policyBaseline.getParsedJson(),
-			);
-		}
 	}
 
 	// 4. Intercept and modify request for agent model preferences
@@ -1399,13 +1363,13 @@ async function handleProxyCoreImpl(
 			: new RequestBodyContext(finalBodyBuffer);
 	requestMeta.agentAttributionSource = agentAttributionSource;
 	const isCountHelper = url.pathname === "/v1/messages/count_tokens";
-	// The quality route runs before profile resolution, so the helper preview is
-	// taken here. A helper-shaped request (a declared hosted server tool and no
-	// client function tools, as Claude Code builds WebSearch) withdraws its own
-	// root-intent reservation below, so no commit path (quality route, explicit
-	// or native) can commit or clear a binding for it and it cannot make a
-	// concurrent root's commit stale; a request that also declares client
-	// functions is a real main-loop turn and keeps its reservation.
+	// The helper preview is taken before profile resolution. A helper-shaped
+	// request (a declared hosted server tool and no client function tools, as
+	// Claude Code builds WebSearch) withdraws its own root-intent reservation
+	// below, so no commit path (explicit or native) can commit or clear a
+	// binding for it and it cannot make a concurrent root's commit stale; a
+	// request that also declares client functions is a real main-loop turn and
+	// keeps its reservation.
 	const serverToolPreview = isCountHelper
 		? undefined
 		: finalRequestBodyContext.previewServerToolRequirements();
@@ -1421,32 +1385,15 @@ async function handleProxyCoreImpl(
 			rootIntentGeneration,
 		);
 	}
+	// A retired Auto quality id is refused before any account is chosen, on
+	// every path, including an id an interceptor rewrote the model to.
+	const retiredQualityResponse = retiredQualityRouteResponse(
+		(originalParsedBody as { model?: unknown } | null)?.model,
+		finalRequestBodyContext.getModel(),
+	);
+	if (retiredQualityResponse) return retiredQualityResponse;
 	const restoreGate = ctx.strategy.affinityRestoreGate?.() ?? null;
 	if (restoreGate !== null) await restoreGate;
-	const qualityResponse = await routeQualityRequest({
-		req,
-		url,
-		ctx,
-		meta: requestMeta,
-		originalBody: originalParsedBody,
-		body: finalRequestBodyContext,
-		apiKeyId,
-		apiKeyName,
-		requirements: qualityRequirements,
-		serverToolQueryPresent: hasServerToolCapabilityQuery(url),
-		onRootAccepted: () =>
-			modelRouteRegistry?.commitNative(
-				{
-					callerIdentity: routeCallerIdentity(req, apiKeyId),
-					sessionId: req.headers.get("x-claude-code-session-id"),
-					requestModel: normalizedRequestModel,
-					isSubagent: false,
-				},
-				{ kind: "native" },
-				rootIntentGeneration,
-			),
-	});
-	if (qualityResponse) return qualityResponse;
 	const effectiveModelAfterInterception =
 		finalRequestBodyContext.getModel()?.trim() ?? null;
 	requestMeta.requestedLogicalModel = effectiveModelAfterInterception;

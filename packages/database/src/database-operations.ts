@@ -91,7 +91,6 @@ import { ComboRepository } from "./repositories/combo.repository";
 import { DeviceSetupJobRepository } from "./repositories/device-setup-job.repository";
 import { MemberNoticesRepository } from "./repositories/member-notices.repository";
 import { OAuthRepository } from "./repositories/oauth.repository";
-import { QualityRouteRepository } from "./repositories/quality-route.repository";
 import {
 	type RequestData,
 	RequestRepository,
@@ -465,7 +464,6 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 	private apiKeys: ApiKeyRepository;
 	private combo: ComboRepository;
 	private deviceSetupJobs: DeviceSetupJobRepository;
-	private qualityRoutes: QualityRouteRepository;
 	private serverToolReplayIssuance: ServerToolReplayIssuanceRepository;
 	private codexResetCredits: CodexResetCreditsRepository;
 	private codexResetRedemptions: CodexResetRedemptionsRepository;
@@ -629,7 +627,6 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 		this.apiKeys = new ApiKeyRepository(this.adapter);
 		this.combo = new ComboRepository(this.adapter);
 		this.deviceSetupJobs = new DeviceSetupJobRepository(this.adapter);
-		this.qualityRoutes = new QualityRouteRepository(this.adapter);
 		this.serverToolReplayIssuance = new ServerToolReplayIssuanceRepository(
 			this.adapter,
 		);
@@ -1269,10 +1266,6 @@ OAuth tokens will need to be re-authenticated.
 			this.retryConfig,
 			"clearStaleRateLimitReset",
 		);
-	}
-
-	getQualityRouteRepository(): QualityRouteRepository {
-		return this.qualityRoutes;
 	}
 
 	getDeviceSetupJobRepository(): DeviceSetupJobRepository {

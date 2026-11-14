@@ -1,9 +1,8 @@
 import { loadCliDotenv } from "./startup-env";
 
-// This entrypoint MUST be compiled with --no-compile-autoload-dotenv. Controls
-// must reach application code with only the environment supplied by the caller.
-// Ordinary commands retain Bun's native dotenv semantics before app imports.
-if (!process.argv.slice(2).some((arg) => arg.startsWith("--quality-routing"))) {
+// This entrypoint is compiled with --no-compile-autoload-dotenv and loads the
+// environment itself, keeping Bun's native dotenv semantics before app imports.
+{
 	// A compiled executable also contains the Bun CLI. Use that exact runtime's
 	// loader rather than approximating its NODE_ENV/local precedence or expansion.
 	// This child only loads ordinary-mode configuration; it never runs the app.

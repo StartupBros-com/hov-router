@@ -58,7 +58,7 @@ Status as of this writing: PR #451 was deployed on 2026-10-06 at 01:25Z. Confirm
   - The plan is kept, marked superseded, at `docs/plans/2026-10-05-0117-feat-account-usage-window-cap-plan.md`. Its follow-ups #446 and #448 were closed as not planned, since the code they described is gone.
 - **Treating any response from an exhausted account as the trigger.** Since 2026-10-01, 61 of 204 sessions got responses from Fable-exhausted accounts, and only 2 switched. So exhaustion headers alone do not arm the prompt (auto memory [claude]).
 - **Consenting once.** Claude Code stores consent globally in `~/.claude.json` (`fableOverageConsentV2`). It honours that consent only when extra usage is enabled, or disabled for one of a few recoverable reasons. The login's org has extra usage disabled at the org level (`org_level_disabled`), so consenting changes nothing. This was read in the 2.1.289 binary.
-- **Quality routing policy lines.** `quality_routing_policy.accounts[].lines` applies to Auto routes only. Claude Code sends the native `claude-fable-5-1` model, which never goes through Auto (auto memory [claude]).
+- **Quality routing policy lines.** `quality_routing_policy.accounts[].lines` applied to Auto routes only, and Claude Code sends the native `claude-fable-5-1` model, which never went through Auto. #816 removes the Auto lane, after which the setting does nothing.
 
 ## Solution
 
@@ -94,7 +94,7 @@ Nobody captured the response that armed the prompt in either incident. So setter
 
 Not covered:
 
-- **Setter 2 is still open.** A `credits_required` 429 still reaches the client on a quality route, because quality attempts deliver unproven 429s rather than fail over (`packages/proxy/src/handlers/proxy-operations.ts:8143`). None of the 56 quality-routed requests on record by 2026-10-05 was a 429.
+- **Setter 2 on quality routes.** Quality attempts delivered an unproven `credits_required` 429 to the client rather than fail over. None of the 56 quality-routed requests on record by 2026-10-05 was a 429, and #816 removes the quality routes.
 - **The server flag.** No proxy change can affect it.
 - **The header has not been seen in traffic.** No captured Fable response has carried `overage-in-use: true` yet: 0 of 45 by 2026-10-05. Capture started with #445, after both incidents, so this sample cannot show what either incident received. This channel was closed by reading the client code.
 
@@ -104,7 +104,7 @@ Not covered:
 - **Behind a pool, a rate-limit header describes the serving account, not the client.** Any `anthropic-ratelimit-unified-*` header that Claude Code acts on can mislead it. When an upgrade makes the client start acting on a new one, decide whether the guard should pass it through.
 - **If it comes back, check in this order.** Do not treat it as pool exhaustion, and do not re-add a per-account cap.
   1. Check that the deployed guard still strips the header: run `rg -F UNIFIED_OVERAGE_IN_USE_HEADER` on the pinned `guards/<sha>/ccflare-guard.mjs` under `~/.config/better-ccflare`.
-  2. Check whether a 429 carrying `credits_required` or `seven_day_overage_included` reached the session through a quality route.
+  2. Check whether a 429 carrying `credits_required` or `seven_day_overage_included` reached the session.
   3. Check for `tengu_saffron_lattice` among the cached GrowthBook features in `~/.claude.json`.
 
   For steps 1 and 2, this query reads the database without writing anything:

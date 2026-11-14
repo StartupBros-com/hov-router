@@ -46,6 +46,7 @@ import { Logger } from "@better-ccflare/logger";
 import {
 	getProviderModelDefaultOverrides,
 	getSupportedLineIdentities,
+	getSupportedLines,
 } from "@better-ccflare/providers";
 import type {
 	Account,
@@ -435,8 +436,8 @@ export function buildRequestTokenAlert(
 // before we treat it as a genuine (if unrecognized) Claude model request.
 // The second branch admits a family this build does not know yet
 // (`claude-<word>-<digit>...`, e.g. a new family's first model) while still
-// rejecting the router's own picker ids (`claude-bccf-route-*`,
-// `claude-bccf-quality-auto`), whose second word is not followed by a digit.
+// rejecting the router's own picker ids (`claude-bccf-route-*`, and the
+// retired `claude-bccf-quality-*`), whose second word is not followed by a digit.
 const CLAUDE_MODEL_SHAPE_RE =
 	/^claude-(?:(?:opus|sonnet|haiku|fable)(?:-|$)|[a-z]+-\d)/i;
 
@@ -588,7 +589,7 @@ function buildUnknownModelAlertFor(
 				: "advisor calls use";
 	let message: string;
 	if (!family) {
-		message = `${subject} ${model}, a Claude model family this build does not recognize, so no family alias or Auto line can follow it; ${catalogGapMessage}`;
+		message = `${subject} ${model}, a Claude model family this build does not recognize, so no family alias can follow it; ${catalogGapMessage}`;
 	} else if (source !== "requested") {
 		message = `${subject} ${model} (family ${family}) which is missing from the bundled model catalog; ${catalogGapMessage}`;
 	} else if (isWellFormedConcreteClaudeModelId(model)) {
@@ -700,8 +701,8 @@ export function buildCatalogNewModelAlert(
 	} else {
 		severity = "info";
 		const supported = gap.autoLineModels ?? [];
-		title = "New model outside its Auto line";
-		message = `${seen}, but the approved Auto line ${gap.autoLine} supports only ${supported.join(", ") || "no identities"}, so Auto keeps serving ${gap.autoLine} from those until reviewed support evidence adds ${gap.modelId} to SUPPORTED_IDENTITIES in packages/providers/src/auto-model-capabilities.ts. No action is needed if staying on the older model is deliberate.`;
+		title = "New model outside its approved line";
+		message = `${seen}, but the approved line ${gap.autoLine} supports only ${supported.join(", ") || "no identities"}, so route profiles pinned to ${gap.autoLine} (physicalModelPolicy "line") keep serving those until reviewed support evidence adds ${gap.modelId} to SUPPORTED_IDENTITIES in packages/providers/src/auto-model-capabilities.ts. No action is needed if staying on the older model is deliberate.`;
 	}
 	return {
 		id: `model_routing_drift:catalog_new_model:${encodeScopePart(gap.modelId)}:${gap.gap}`,
@@ -767,8 +768,24 @@ export function buildEraRateMismatchAlert(
 }
 
 /**
+ * The approved lines a route profile can pin (`physicalModelPolicy: "line"`,
+ * Codex only) and their supported identities. The Claude lines served only the
+ * removed Auto lane (#816), so a newer Claude model outside them is not drift.
+ */
+export function getRouteProfileLineIdentities(): Record<
+	string,
+	readonly string[]
+> {
+	const identities = getSupportedLineIdentities();
+	const lines: Record<string, readonly string[]> = {};
+	for (const line of getSupportedLines("codex")) lines[line] = identities[line];
+	return lines;
+}
+
+/**
  * Every catalogue-derived alert for one loaded models.dev catalogue. Pure:
- * `autoLines` is the approved Auto line identities (getSupportedLineIdentities).
+ * `autoLines` is the approved lines to check and their identities
+ * (getRouteProfileLineIdentities).
  */
 export function buildPricingCatalogAlerts(
 	catalog: PricingCatalog,
@@ -1343,10 +1360,10 @@ export function buildDiscordAlertContent(alert: AlertEvent): string {
 	) {
 		const gap = alert.id.split(":").at(-1);
 		if (gap === "auto_line") {
-			condition = "A newly released model is outside its approved Auto line.";
-			impact = "Auto keeps serving the line's older model; no requests fail.";
+			condition = "A newly released model is outside its approved line.";
+			impact = "Nothing moves to the new model on its own; no requests fail.";
 			action =
-				"Review support evidence before adding it to the Auto line, or keep the older model deliberately.";
+				"Review support evidence before adding it to the line, or keep the older model deliberately.";
 		} else {
 			condition =
 				gap === "era"
@@ -1890,7 +1907,7 @@ export class AlertService {
 		const alerts = buildPricingCatalogAlerts(
 			catalog,
 			nowMs,
-			getSupportedLineIdentities(),
+			getRouteProfileLineIdentities(),
 		);
 		if (alerts.length === 0) return;
 		const { webhookUrl } = getAlertsConfig(this.config);

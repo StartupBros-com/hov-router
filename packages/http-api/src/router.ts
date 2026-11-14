@@ -132,10 +132,6 @@ import {
 	createQwenReauthHandler,
 } from "./handlers/oauth";
 import { createPublicSubscriptionValueHandler } from "./handlers/public-subscription-value";
-import {
-	handleQualityControl,
-	isQualityControlPath,
-} from "./handlers/quality-routes";
 import { createAccountRedeemResetHandler } from "./handlers/redeem-reset";
 import {
 	createRequestPayloadHandler,
@@ -712,17 +708,6 @@ export class APIRouter {
 			}
 		}
 
-		if (isQualityControlPath(path)) {
-			return this.wrapHandler(() =>
-				handleQualityControl(
-					req,
-					path,
-					authResult.apiKeyId,
-					this.context.qualityRouteService,
-				),
-			)(req, url);
-		}
-
 		// Stream token minting (#379, #479): needs the authenticated caller's
 		// identity (apiKeyId/role) to bind into the minted token, which the
 		// static handlers map (keyed only by method+path) has no way to pass
@@ -771,8 +756,8 @@ export class APIRouter {
 			);
 		}
 
-		// Endpoints removed in 5.0.0 answer 410 here rather than falling
-		// through to the inference proxy (see removed-endpoints.ts).
+		// Removed endpoints answer 410 here rather than falling through to
+		// the inference proxy (see removed-endpoints.ts).
 		const removed = findRemovedEndpoint(path);
 		if (removed) {
 			return removedEndpointResponse(removed);

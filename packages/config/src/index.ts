@@ -16,7 +16,6 @@ import {
 } from "node:fs";
 import { dirname, posix } from "node:path";
 import {
-	compileQualityRoutingPolicy,
 	DEFAULT_STRATEGY,
 	isValidStrategy,
 	NETWORK,
@@ -34,8 +33,6 @@ import {
 	CACHE_HEALTH_BUCKET_MS,
 	CACHE_HEALTH_DEFAULT_POLICY,
 	isAlertType,
-	type QualityRoutingPolicy,
-	type QualityRoutingPolicyConfig,
 } from "@better-ccflare/types";
 import { resolveConfigPath } from "./paths";
 import {
@@ -45,33 +42,16 @@ import {
 
 const log = new Logger("Config");
 
-export const QUALITY_ROUTING_POLICY_ENV =
-	"CCFLARE_QUALITY_ROUTING_POLICY_JSON" as const;
-const MAX_QUALITY_ROUTING_POLICY_JSON_BYTES = 256 * 1024;
+/**
+ * Retired with the Auto quality lane (#816). A leftover policy is ignored, never
+ * validated, and left in the file, so startup warns instead of refusing.
+ */
+const RETIRED_QUALITY_ROUTING_POLICY_ENV =
+	"CCFLARE_QUALITY_ROUTING_POLICY_JSON";
+let warnedRetiredQualityRoutingPolicy = false;
 
-/** Separate from legacy route profiles; nonempty malformed policy is fatal. */
-export function parseQualityRoutingPolicy(
-	raw: unknown,
-): QualityRoutingPolicy | null {
-	if (typeof raw !== "string") return compileQualityRoutingPolicy(raw);
-	if (Buffer.byteLength(raw, "utf8") > MAX_QUALITY_ROUTING_POLICY_JSON_BYTES) {
-		throw new Error("quality_routing_policy: JSON exceeds 262144 bytes");
-	}
-	if (raw.trim() === "") return null;
-	// Reuse the existing bounded scanner to reject duplicate (including escaped)
-	// member names instead of letting JSON.parse silently replace authorizations.
-	if (!new StrictJsonScanner(raw).scan()) {
-		throw new Error(
-			"quality_routing_policy: must be strict JSON without duplicate keys or excessive depth",
-		);
-	}
-	const value: unknown = JSON.parse(raw);
-	if (typeof value === "string")
-		throw new Error(
-			"quality_routing_policy: JSON must contain a policy object",
-		);
-	return compileQualityRoutingPolicy(value);
-}
+/** Any JSON object a retired setting may still hold on disk. */
+type RetiredConfigObject = { readonly [key: string]: unknown };
 
 export type ModelScopedCapacityRoutingMode = "off" | "exhausted";
 
@@ -922,7 +902,8 @@ export interface ExternalCodexCloudRoot {
 export interface ConfigData {
 	external_codex_homes?: string;
 	external_codex_cloud_roots?: string;
-	quality_routing_policy?: QualityRoutingPolicyConfig | string;
+	/** Retired with the Auto quality lane (#816); ignored if still present. */
+	quality_routing_policy?: RetiredConfigObject | string;
 	lb_strategy?: StrategyName;
 	client_id?: string;
 	retry_attempts?: number;
@@ -1019,7 +1000,7 @@ export interface ConfigData {
 		| number
 		| boolean
 		| ProviderModelDefaultOverrides
-		| QualityRoutingPolicyConfig
+		| RetiredConfigObject
 		| undefined;
 }
 
@@ -1461,9 +1442,22 @@ export class Config extends EventEmitter {
 			description: "config file",
 		});
 		this.loadConfig();
-		// Outside loadConfig's legacy parse-recovery catch: invalid policy must
-		// abort startup, never silently disable an explicitly enrolled route.
-		this.getQualityRoutingPolicy();
+		this.warnRetiredQualityRoutingPolicy();
+	}
+
+	private warnRetiredQualityRoutingPolicy(): void {
+		if (warnedRetiredQualityRoutingPolicy) return;
+		const sources = [
+			this.data.quality_routing_policy !== undefined &&
+				"quality_routing_policy in the config file",
+			process.env[RETIRED_QUALITY_ROUTING_POLICY_ENV] !== undefined &&
+				RETIRED_QUALITY_ROUTING_POLICY_ENV,
+		].filter((source): source is string => typeof source === "string");
+		if (sources.length === 0) return;
+		warnedRetiredQualityRoutingPolicy = true;
+		log.warn(
+			`Ignoring ${sources.join(" and ")}: the Auto quality lane was removed, so it has no effect and can be deleted.`,
+		);
 	}
 
 	getExternalCodexHomes(): string[] {
@@ -1515,13 +1509,6 @@ export class Config extends EventEmitter {
 		this.set(
 			"external_codex_cloud_roots",
 			value.map((root) => `${root.accountName}=${root.path}`).join(","),
-		);
-	}
-
-	getQualityRoutingPolicy(): QualityRoutingPolicy | null {
-		const fromEnv = process.env[QUALITY_ROUTING_POLICY_ENV];
-		return parseQualityRoutingPolicy(
-			fromEnv !== undefined ? fromEnv : this.data.quality_routing_policy,
 		);
 	}
 
@@ -1597,7 +1584,6 @@ export class Config extends EventEmitter {
 	}
 
 	set(key: string, value: string | number | boolean): void {
-		if (key === "quality_routing_policy") parseQualityRoutingPolicy(value);
 		const oldValue = this.data[key];
 		this.data[key] = value;
 		this.saveConfig();
@@ -2734,9 +2720,10 @@ export class Config extends EventEmitter {
 	getAllSettings(): Record<string, string | number | boolean | undefined> {
 		const anthropicDegradedMode = this.getAnthropicDegradedModeConfig();
 		// The member notice address and signing secret are removed here, not
-		// redacted, so no settings reader ever sees them.
+		// redacted, so no settings reader ever sees them. A retired quality
+		// policy is dropped: it is an object and no longer configures anything.
 		const {
-			quality_routing_policy: qualityRoutingPolicy,
+			quality_routing_policy: _retiredQualityRoutingPolicy,
 			member_notice_webhook_url: _memberNoticeWebhookUrl,
 			member_notice_signing_secret: _memberNoticeSigningSecret,
 			...settings
@@ -2744,16 +2731,6 @@ export class Config extends EventEmitter {
 		// Include current strategy (which might come from env)
 		return {
 			...settings,
-			// Keep the existing scalar settings API; structured policy has its
-			// own validated getter and is represented here as configuration JSON.
-			...(qualityRoutingPolicy !== undefined
-				? {
-						quality_routing_policy:
-							typeof qualityRoutingPolicy === "string"
-								? qualityRoutingPolicy
-								: JSON.stringify(qualityRoutingPolicy),
-					}
-				: {}),
 			lb_strategy: this.getStrategy(),
 			data_retention_days: this.getDataRetentionDays(),
 			request_retention_days: this.getRequestRetentionDays(),

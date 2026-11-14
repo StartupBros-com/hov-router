@@ -89,6 +89,24 @@ There is no PostgreSQL-to-SQLite migration tool, so option 2 starts with an empt
 
 Release 5.0.0 logs one startup warning naming each Codex variable that is still set, without its value. Release 5.0.1 and later drop that warning and ignore the variables without logging anything. [Configuration](configuration.md) lists every name.
 
+## Auto quality lane removed
+
+**What changed.** The opt-in Auto quality lane is gone: the `claude-bccf-quality-*` model choices that picked an account and model by quality preference. Stock models and `claude-bccf-route-*` route profiles are unchanged.
+
+**Before upgrading.** Point every client that requests a `claude-bccf-quality-*` model at another model first, such as a launcher that defaults headless sessions to `claude-bccf-quality-auto`. Use a stock model such as `opus`, or a route profile listed by `GET /v1/models`.
+
+**Model ids.** A request for any model starting with `claude-bccf-quality-` gets a `400` `invalid_request_error` with code `quality_route_retired`, before any account is chosen, so nothing is sent upstream. `GET /v1/models` no longer lists the quality choices.
+
+**Endpoints.** The session status and retry controls under `/v1/quality-routing/` answer `410 Gone` from the router itself, for every method, with `removedIn: "6.0.0"` and no replacement.
+
+**Commands.** Any `--quality-routing-*` flag exits with status 2 and a message saying the commands were removed, without opening the database.
+
+**Settings now ignored.** A leftover `quality_routing_policy` in the config file, or `CCFLARE_QUALITY_ROUTING_POLICY_JSON` in the environment, is ignored and left in place, with one startup warning naming where it was found. It is no longer validated, so a policy that an older release refused no longer stops startup.
+
+**History.** Requests the lane served keep their stored quality decision in request history. Its database tables are kept, with no migration.
+
+**Alerts.** The alert for a new model outside its approved line now checks only the Codex lines a route profile can pin (`gpt-astra`, `gpt-sol`). A newer Claude model is no longer flagged this way.
+
 ## Manual source updates
 
 Branded builds do not offer an actionable upstream update. Do not install a registry package or a tombii release to update this fork: those are upstream distributions, not HoV Router.

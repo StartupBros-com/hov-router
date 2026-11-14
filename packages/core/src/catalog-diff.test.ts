@@ -86,7 +86,7 @@ describe("findCatalogNewModels", () => {
 		});
 	});
 
-	it("flags a registered model outside its approved Auto line", () => {
+	it("flags a registered model outside its approved line", () => {
 		const gaps = findCatalogNewModels(
 			catalog({
 				anthropic: {
@@ -125,8 +125,8 @@ describe("findCatalogNewModels", () => {
 		expect(gaps).toEqual([]);
 	});
 
-	it("flags only the missing era for a fresh GPT model with no Auto line", () => {
-		// Synthetic id: no list-price era, and no Auto line covers terra models.
+	it("flags only the missing era for a fresh GPT model with no approved line", () => {
+		// Synthetic id: no list-price era, and no approved line covers terra models.
 		const gaps = findCatalogNewModels(
 			catalog({
 				openai: { "gpt-6.2-terra": { release_date: recent, cost: COST } },
@@ -148,7 +148,7 @@ describe("findCatalogNewModels", () => {
 		expect(gaps).toEqual([]);
 	});
 
-	it("flags a fresh GPT model outside an existing Auto line", () => {
+	it("flags a fresh GPT model outside an existing approved line", () => {
 		const gaps = findCatalogNewModels(
 			catalog({ openai: { "gpt-7-sol": { release_date: recent } } }),
 			{ nowMs: NOW, autoLines: { "gpt-sol": ["gpt-6.1-sol"] } },

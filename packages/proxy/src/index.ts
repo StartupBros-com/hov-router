@@ -167,10 +167,6 @@ export {
 } from "./handlers/pending-rotation-registry";
 export { createPendingRotationWal } from "./handlers/pending-rotation-wal";
 export {
-	evaluateQualityRouteAdmission,
-	type QualityRouteAdmissionInput,
-} from "./handlers/quality-route-admission";
-export {
 	clearRoutingObservations,
 	getRoutingObservations,
 	type RoutingObservation,
@@ -240,10 +236,6 @@ export {
 	initProxy,
 	type ProxyContext,
 } from "./proxy";
-export {
-	QualityRouteService,
-	type QualityRouteStatus,
-} from "./quality-route-service";
 export {
 	forwardToClient,
 	type ResponseHandlerOptions,

@@ -122,7 +122,6 @@ mock.module("@better-ccflare/proxy", () => {
 		lowestTierCodexModel: () => null,
 		markAccountTokensFresh: () => {},
 		ModelRouteSessionRegistry: class {},
-		QualityRouteService: class {},
 		parseModelRouteProfiles: () => [],
 		markBackendRetiring: () => {},
 		recordCodexUsageSnapshot: async () => {},

@@ -57,7 +57,7 @@ The design of the fix is in [routing-architecture.md, "Advisor native routing co
 
 Advisor is now a native Anthropic passthrough requirement. In outline (the routing doc has the details):
 
-- `deriveNativeAnthropicToolRequirement` (`packages/providers/src/server-tool-capabilities.ts:467`) detects the advisor declaration. Account selection, the dispatch backstop and Auto admission then keep the request on first-party Anthropic accounts.
+- `deriveNativeAnthropicToolRequirement` (`packages/providers/src/server-tool-capabilities.ts:467`) detects the advisor declaration. Account selection and the dispatch backstop then keep the request on first-party Anthropic accounts.
 - When no first-party account can serve it, the refusal uses the exact text Claude Code recovers from. `the advisor tool is not available` makes Claude Code drop the tool and retry, and `Advisor tool result content could not be processed` makes it strip advisor history (`packages/proxy/src/server-tool-routing-errors.ts:84`, `:91`).
 - Advisor tokens are stored per model in `requests.advisor_usage`, a `TEXT` column (`packages/database/src/migrations.ts:624` in `ensureSchema` for new installs, `:1841` in `runMigrations` for upgrades). The PostgreSQL copy went with PostgreSQL support in #723.
 
@@ -82,7 +82,7 @@ The refusals work because Claude Code recovers from advisor errors by matching s
 
 ## Prevention
 
-- **Before refusing any new typed Anthropic tool, check whether Claude Code can recover from the refusal.** Decide whether the proxy can run the tool (a hosted requirement) or only Anthropic can (a native requirement). Then make the refusal text match a client recovery path, or the chat stays stuck. The advisor phrases are pinned in `packages/proxy/src/server-tool-routing-errors.test.ts`, and in `advisor-passthrough.integration.test.ts`, `server-tool-routing.integration.test.ts` and `proxy-quality-routes.test.ts` under `packages/proxy/src/__tests__/`.
+- **Before refusing any new typed Anthropic tool, check whether Claude Code can recover from the refusal.** Decide whether the proxy can run the tool (a hosted requirement) or only Anthropic can (a native requirement). Then make the refusal text match a client recovery path, or the chat stays stuck. The advisor phrases are pinned in `packages/proxy/src/server-tool-routing-errors.test.ts`, and in `advisor-passthrough.integration.test.ts` and `server-tool-routing.integration.test.ts` under `packages/proxy/src/__tests__/`.
 - **Re-check the recovery phrases after a Claude Code upgrade.** They are a contract with the client's version (see `retire_when`).
 - **Never total billable usage from a capped snapshot.** Cap what you keep for display or pricing detail, but build the totals over the full array.
 - **Know the client-side advisor facts when reading a report.** These were checked in the Claude Code 2.1.289 binary:

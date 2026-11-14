@@ -7,7 +7,7 @@
  *
  * - `findCatalogNewModels`: a recently released first-party model (by the
  *   catalogue's own `release_date`) that is missing from CLAUDE_MODEL_IDS,
- *   from LIST_PRICE_ERAS, or from the approved Auto line its name belongs to.
+ *   from LIST_PRICE_ERAS, or from the approved line its name belongs to.
  * - `findEraRateMismatches`: a list-price era whose rates disagree with the
  *   model's own first-party catalogue section.
  *
@@ -47,7 +47,7 @@ export function catalogSectionForModel(modelId: string): CatalogSection | null {
 }
 
 /**
- * The Auto line a model's name places it in (`claude-<family>` or
+ * The approved line a model's name places it in (`claude-<family>` or
  * `gpt-<variant>`), whether or not that line exists. `null` for a GPT id with
  * no trailing variant word, such as `gpt-5.5`.
  */
@@ -83,8 +83,9 @@ export interface FindCatalogNewModelsOptions {
 	/** Defaults to CATALOG_NEW_MODEL_MAX_AGE_DAYS. */
 	maxAgeDays?: number;
 	/**
-	 * Approved Auto lines and their supported identities, oldest to newest.
-	 * A line absent from this map is not checked. Passed in because the
+	 * Approved lines and their supported identities, oldest to newest.
+	 * A line absent from this map is not checked; the alert service passes
+	 * only the lines a route profile can pin. Passed in because the
 	 * identities live in @better-ccflare/providers, which core cannot import.
 	 */
 	autoLines?: Readonly<Record<string, readonly string[]>>;

@@ -752,32 +752,6 @@ export LOG_LEVEL=DEBUG
 bun run cli --list
 ```
 
-## Auto quality session controls
-
-These commands operate on an already enrolled durable session; they do not create credentials, start the proxy, read its database or make inference requests. The policy is disabled by default. Use the same verified inference API-key principal that owns the session. The required `--origin` must be an explicit loopback HTTP(S) origin with no userinfo/path/query/fragment, and `--credential-env` names an already supplied environment variable. Do not put the secret itself in arguments, output, examples or a request URL.
-
-The following commands are examples for a separately authorized **local test instance**, not production activation. `EXISTING_INFERENCE_KEY` denotes an existing process environment variable; these commands do not set it:
-
-```bash
-hov-router --quality-routing-status session-example \
-  --origin http://127.0.0.1:8081 --credential-env EXISTING_INFERENCE_KEY
-hov-router --quality-routing-retry-preferred session-example \
-  --origin http://127.0.0.1:8081 --credential-env EXISTING_INFERENCE_KEY
-```
-
-Status is read-only. Retry first reads the incarnation/revision, then submits one idempotency token and the expected revision. A lost transport response gets one identical redelivery, not a new operation. A new invocation is a new operation. Retry does not immediately send inference; the next authorized root request performs selection. Re-selecting the same `/model` choice merely continues the session and is not a substitute for explicit retry.
-
-The equivalent authenticated API is:
-
-- `GET /v1/quality-routing/sessions/:sessionId`
-- `POST /v1/quality-routing/sessions/:sessionId/retry-preferred` with `Content-Type: application/json` and exactly `incarnation`, positive integer `expectedIntentRevision`, and a nonempty `idempotencyToken` (maximum 512 characters). The body limit is 4096 bytes, including streamed bodies.
-
-Status returns `known`, intent revision/preference, pending/in-flight state, current decision and last successful home/decision. Unknown/expired sessions are not resurrected. Disabled/unknown routes return 404, missing authority 401, stale/conflicting/unresolved mutations 409, and bounded-state capacity refusal 429. Commands emit JSON and exit nonzero on refusal. Redirects are refused. Ambient HTTP/HTTPS/ALL proxy variables cause `proxy-environment-denied` before credential access or transport, even for loopback; `NO_PROXY` is not a bypass.
-
-**Installed-binary verification — 2026-10-03, `312ff63d`:** the independently hash-verified production executable passed **17/17 tests (149 assertions)** and **22/22 historical checks** under `env -i` / `bwrap --unshare-all`, with synthetic loopback services and no provider calls. Physical executable-directory `/app/.env` fallback, project fallback, precedence/expansion, control-mode credential refusal, proxy denial and redirect refusal passed. The actual compiled retry command produced GET → POST → POST with identical idempotency-bearing bodies and one synthetic mutation after a lost response. This proves CLI transport/redelivery against a synthetic receipt server, not live-handler persistence or live-provider routing.
-
-Auto was separately authorized and enabled at **2026-10-03 04:42:21Z**, with zero paid-spend grants. Production discovery lists six preserved manual choices plus four quality choices; an unused session returns HTTP 404 with `{"status":"unknown"}`, not disabled. The earlier `0666336e` **21/22, exit 1** smoke is retained as [historical evidence](troubleshooting.md#auto-quality-routing), not a current fallback blocker. [Issue #398](https://github.com/StartupBros/hov-router/issues/398) remains open for selected-account eligibility, real interactive tool-rich Auto/home/worker/fallback acceptance and the original picker report.
-
 ### Getting Support
 
 1. Check existing documentation in `/docs`

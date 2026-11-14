@@ -394,41 +394,33 @@ describe("proxyWithAccount: Codex attempt dispatch boundary", () => {
 		});
 	});
 
-	it("final HTTP gate runs after asynchronous quality preparation and before dispatch observation", async () => {
+	it("final HTTP gate re-checks quota after asynchronous preparation and before dispatch observation", async () => {
 		installUsageCollector();
 		const codex = getProvider("codex");
 		if (!codex) throw new Error("Codex provider is not registered");
 		const dispatched = mock((_transport: string) => undefined);
-		spyOn(codex, "observeUpstream").mockResolvedValue({
-			dispatched,
-			response: (response) => response,
-			error: () => {},
+		const deadline = Date.now() + 1_000;
+		// Quota is admitted at planning time and lapses while the attempt is
+		// still preparing, after the early checks but before the send.
+		spyOn(codex, "observeUpstream").mockImplementation(async () => {
+			await Promise.resolve();
+			setSystemTime(deadline + 1);
+			return {
+				dispatched,
+				response: (response: Response) => response,
+				error: () => {},
+			};
 		});
 		const http = mock(
 			async () => new Response("must never send", { status: 500 }),
 		);
 		globalThis.fetch = http as never;
-		const deadline = Date.now() + 1_000;
 		const policy: ModelFallbackExecutionPolicy = {
 			...makePolicy(30_000),
 			nativeQuotaAdmission: () => Date.now() < deadline,
-			qualityAttempt: {
-				beforeDispatch: async () => {
-					await Promise.resolve();
-					setSystemTime(deadline + 1);
-				},
-				assertDispatch: () => {},
-				observeResponse: () => {},
-				complete: () => {},
-			} as never,
 		};
 		const body = makeRequestBody();
-		await runProxy(
-			makeRequest(body),
-			body,
-			policy,
-			"quality-preparation-final-gate",
-		);
+		await runProxy(makeRequest(body), body, policy, "preparation-final-gate");
 		expect(http).not.toHaveBeenCalled();
 		expect(dispatched).not.toHaveBeenCalled();
 	});
