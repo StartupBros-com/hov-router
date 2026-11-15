@@ -167,7 +167,7 @@ because the denominator grows faster. The post-#510 comparison under both readin
      `packages/load-balancer/src/strategies/affinity-restore.ts`). Lanes still start fresh
      after a restore abandoned at its 3-second budget or 20,000-record cap (`/health`
      reports it under `routing.affinityRestore`), in strict drain-soonest mode, for
-     child-home, quality and web-search helper lanes, and for lanes idle past the affinity
+     child-home and web-search helper lanes, and for lanes idle past the affinity
      TTL.
    - **The size of the effect.** In the baseline window, same-partition pairs that spanned
      an upstream start switched accounts 52% of the time (74 of 142), against about 3%

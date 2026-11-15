@@ -159,11 +159,6 @@ ${formatModeHelpBreakdown()}
 
 ${getManagedRoutingHelpText()}
 
-  --quality-routing-status <session>  Read this key's quality-routing status (JSON)
-  --quality-routing-retry-preferred <session>  Mark preferred intent pending; sends no inference
-    --origin <loopback-origin> --credential-env <ENV_NAME>  Required; existing inference key only
-                       Ambient HTTP(S)_PROXY / ALL_PROXY must be unset; redirects are refused
-
   --scan-external-codex Scan configured Codex rollout/cloud sources once (--json supported)
   --analyze            Analyze database performance
   --repair-db          Check and repair database integrity
@@ -1248,26 +1243,14 @@ async function main() {
 		fastExit(0);
 		return;
 	}
-	// Local quality controls never initialize the DB, look up credentials, or
-	// start a server. The only authority is the explicitly named inference key.
+	// The parser ignores unknown flags, so a script still calling a removed
+	// --quality-routing-* control would otherwise fall through to another command.
 	if (args.some((arg) => arg.startsWith("--quality-routing"))) {
-		try {
-			const { parseQualityRouteCommand, runQualityRouteCommand } = await import(
-				"./quality-route-control"
-			);
-			const command = parseQualityRouteCommand(args);
-			if (!command) throw new Error("Invalid quality-routing command.");
-			const result = await runQualityRouteCommand(command);
-			console.log(JSON.stringify(result.data));
-			fastExit(result.exitCode);
-			return;
-		} catch {
-			console.error(
-				"Invalid quality-routing command. Use --quality-routing-status <session> or --quality-routing-retry-preferred <session> --origin <loopback-origin> --credential-env <ENV_NAME>.",
-			);
-			fastExit(2);
-			return;
-		}
+		console.error(
+			"The --quality-routing-* commands were removed with the Auto quality lane.",
+		);
+		fastExit(2);
+		return;
 	}
 	const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
 	let routingCommand: ManagedRoutingCliCommand | null;

@@ -1,4 +1,3 @@
-import { Database } from "bun:sqlite";
 import {
 	afterEach,
 	beforeEach,
@@ -9,7 +8,6 @@ import {
 	spyOn,
 } from "bun:test";
 import { readFileSync } from "node:fs";
-import { compileQualityRoutingPolicy } from "@better-ccflare/core";
 import { Logger } from "@better-ccflare/logger";
 import * as providersModule from "@better-ccflare/providers";
 import {
@@ -19,12 +17,8 @@ import {
 	OpenAICompatibleProvider,
 	type Provider,
 	setCodexAccountModelContextMetadata,
-	usageCache,
 } from "@better-ccflare/providers";
 import type { Account } from "@better-ccflare/types";
-import { BunSqlAdapter } from "../../../database/src/adapters/bun-sql-adapter";
-import { ensureSchema } from "../../../database/src/migrations";
-import { QualityRouteRepository } from "../../../database/src/repositories/quality-route.repository";
 import type { ProxyContext } from "../handlers";
 import {
 	INTERNAL_PROBE_SECRET_HEADER,
@@ -34,9 +28,7 @@ import {
 	INTERNAL_SCHEDULER_AUTH_HEADER,
 	stampInternalSchedulerAuth,
 } from "../internal-probe-auth";
-import { fetchLiveModels, resetModelCatalogForTest } from "../model-catalog";
 import { handleProxy } from "../proxy";
-import { QualityRouteService } from "../quality-route-service";
 import * as usageCollectorModule from "../usage-collector";
 
 // Literal host fixture and expected policy, independent of implementation constants.
@@ -192,7 +184,6 @@ describe("Claude Code background merge policy at ingress and provider transport"
 	let starts: Record<string, unknown>[];
 	let failures: number;
 	let unexpectedUrls: string[];
-	let qualityFixture: boolean;
 	const originalPassthrough = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
 
 	beforeEach(() => {
@@ -200,7 +191,6 @@ describe("Claude Code background merge policy at ingress and provider transport"
 		starts = [];
 		failures = 0;
 		unexpectedUrls = [];
-		qualityFixture = false;
 		const value = {
 			handleStart: mock((data: Record<string, unknown>) => {
 				starts.push(data);
@@ -230,29 +220,14 @@ describe("Claude Code background merge policy at ingress and provider transport"
 			)
 				return Response.json({ models: [] });
 			// This suite can only use synthetic accounts at this reserved fixture host.
-			if (
-				new URL(request.url).hostname !== "policy-upstream.invalid" &&
-				!(
-					qualityFixture &&
-					new URL(request.url).hostname === "api.anthropic.com"
-				)
-			) {
+			if (new URL(request.url).hostname !== "policy-upstream.invalid") {
 				unexpectedUrls.push(request.url);
 				throw new Error("Unexpected fixture transport URL");
 			}
 			if (request.method === "GET")
 				return Response.json({
 					models: [],
-					data: qualityFixture
-						? [
-								{
-									id: "claude-fable-5-1",
-									max_input_tokens: 100000,
-									max_tokens: 1000,
-									input_modalities: ["text"],
-								},
-							]
-						: [],
+					data: [],
 					has_more: false,
 				});
 			const raw = await request.text();
@@ -1187,91 +1162,6 @@ describe("Claude Code background merge policy at ingress and provider transport"
 			}
 		});
 	}
-
-	it.each([
-		false,
-		true,
-	])("quality admission forwards the policy edit and stock's cache TTL stamp (system_prompt_cache_ttl_1h=%s)", async (mutateTtl) => {
-		qualityFixture = true;
-		const db = new Database(":memory:");
-		ensureSchema(db);
-		const service = new QualityRouteService(
-			new QualityRouteRepository(new BunSqlAdapter(db)),
-		);
-		const selected = { ...account(), custom_endpoint: null };
-		const ctx = context(new AnthropicProvider(), true, [selected]);
-		const policy = compileQualityRoutingPolicy({
-			version: 1,
-			assignments: [
-				{
-					line: "claude-fable",
-					lane: "fable",
-					priority: 0,
-					upgrade: "same-line-supported",
-				},
-			],
-			accounts: [
-				{
-					accountId: selected.id,
-					provider: "anthropic",
-					lines: ["claude-fable"],
-					priority: 0,
-				},
-			],
-			fallbacks: [
-				{ from: "fable", to: "astra" },
-				{ from: "astra", to: "opus" },
-			],
-			spendGrants: [],
-		});
-		ctx.config = {
-			...ctx.config,
-			getQualityRoutingPolicy: () => policy,
-			getSystemPromptCacheTtl1h: () => mutateTtl,
-		} as ProxyContext["config"];
-		ctx.qualityRouteService = service;
-		try {
-			await fetchLiveModels(ctx, { allowOAuth: true, accountId: selected.id });
-			usageCache.set(selected.id, {
-				limits: [
-					{ kind: "weekly_all", percent: 10, resets_at: Date.now() + 60000 },
-				],
-				spend: { enabled: false },
-			} as never);
-			const options = {
-				force: false,
-				principal: "fixture-principal",
-				headers: { "x-claude-code-session-id": "fixture-quality-session" },
-			};
-			const system = [
-				{ type: "text", text: HOST, cache_control: { type: "ephemeral" } },
-			];
-			const payload = { ...body(system), model: "claude-bccf-quality-auto" };
-			const response = await send(payload, ctx, options);
-			// A native Auto target is admitted as stock would send it, so stock's
-			// own 1h TTL stamp is forwarded rather than refused (#428).
-			expect(response.status).toBe(200);
-			expect(outbound).toHaveLength(1);
-			expect(outbound[0].body.system).toEqual([
-				{
-					...system[0],
-					text: HOST.replace(DIRECTIVE, POLICY),
-					cache_control: mutateTtl
-						? { type: "ephemeral", ttl: "1h" }
-						: { type: "ephemeral" },
-				},
-			]);
-			assertPolicy(outbound[0].raw);
-			const denied = await send({ ...payload, max_tokens: 1001 }, ctx, options);
-			expect(denied.status).not.toBe(200);
-			expect(outbound).toHaveLength(1);
-		} finally {
-			await service.stop();
-			resetModelCatalogForTest();
-			usageCache.clear();
-			db.close();
-		}
-	});
 
 	it("does not put prompt contents or credentials in incompatibility logs", async () => {
 		const logged: unknown[] = [];

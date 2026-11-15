@@ -1,4 +1,8 @@
-/** Quality routes are additive; they do not reinterpret claude-bccf-route-* IDs. */
+/**
+ * The Auto quality lane was removed (#816). What remains is shared: request
+ * rows keep their recorded quality_decision, the subscription-helper capacity
+ * gate reuses the admission decision, and route profiles name approved lines.
+ */
 export type QualityRootPreference = "auto" | "fable" | "astra" | "opus";
 export type QualityWorkerRole =
 	| "standard"
@@ -10,8 +14,6 @@ export type QualityLane =
 	| Exclude<QualityRootPreference, "auto">
 	| "standard"
 	| "lightweight";
-export type QualityPublicModelId =
-	`claude-bccf-quality-${QualityRootPreference}`;
 export type QualityPolicyRevision = `quality-policy-v1:${string}`;
 /** Catalog changes do not constitute operator policy approval. */
 export type QualityCatalogRevision = string;
@@ -24,77 +26,12 @@ export type QualityApprovedLine =
 	| "claude-sonnet"
 	| "claude-haiku";
 
-export interface QualityLineAssignment {
-	readonly line: QualityApprovedLine;
-	readonly lane: QualityLane;
-	/** Lower first, within this lane only; ties use the stable line ID. */
-	readonly priority: number;
-	readonly upgrade: "exact-only" | "same-line-supported";
-}
-
-export interface QualityAccountEnrollment {
-	readonly accountId: string;
-	readonly provider: QualityProvider;
-	readonly lines: readonly QualityApprovedLine[];
-	/** Lower first within a lane; never promotes a line into another lane. */
-	readonly priority: number;
-}
-
-export interface QualityPermittedFallback {
-	readonly from: QualityLane;
-	readonly to: QualityLane;
-}
-
 /** Only trusted operator configuration can create a grant. Provider flags cannot. */
 export interface QualitySpendGrant {
 	readonly accountId: string;
 	readonly line: QualityApprovedLine;
 	readonly authorization: "operator-approved";
 	readonly scope: "outside-subscription";
-}
-
-/**
- * V1 accepts only the six initially approved named line/lane pairs. New lines
- * or cross-role assignments need a separately approved policy schema change.
- * Enrollment and spend are explicit: no account discovery or implicit grants.
- */
-export interface QualityRoutingPolicyConfig {
-	readonly version: 1;
-	readonly assignments: readonly QualityLineAssignment[];
-	readonly accounts: readonly QualityAccountEnrollment[];
-	readonly fallbacks: readonly QualityPermittedFallback[];
-	readonly spendGrants: readonly QualitySpendGrant[];
-	/** Opt standard/lightweight workers into flagship fallback; never grants spend. */
-	readonly workerFlagshipFallback?: boolean;
-}
-
-export interface QualityRouteChoice {
-	readonly preference: QualityRootPreference;
-	readonly publicModelId: QualityPublicModelId;
-	readonly displayName: string;
-	readonly description: string;
-	/** Shown in /v1/models discovery. An unlisted id still resolves for saved defaults. */
-	readonly listed: boolean;
-}
-
-/** Compilation is pure. A revision change is not a retry or home-change command. */
-export interface QualityRoutingPolicy extends QualityRoutingPolicyConfig {
-	readonly revision: QualityPolicyRevision;
-	readonly choices: readonly QualityRouteChoice[];
-	readonly lanes: Readonly<Record<QualityLane, readonly QualityApprovedLine[]>>;
-	readonly mainLadders: Readonly<
-		Record<QualityRootPreference, readonly QualityLane[]>
-	>;
-	readonly workerLanes: Readonly<
-		Record<QualityWorkerRole, readonly QualityLane[]>
-	>;
-}
-
-export interface QualitySuccessorTarget {
-	readonly accountId: string;
-	readonly line: QualityApprovedLine;
-	readonly predecessorModel: string;
-	readonly successorModel: string;
 }
 
 export type QualityRequestIntent =
@@ -425,19 +362,4 @@ export function sanitizeQualityDecision(
 	} catch {
 		return null;
 	}
-}
-
-/** Filled only after the control boundary verifies principal/session ownership. */
-export interface QualityVerifiedSession {
-	readonly verified: true;
-	readonly principalId: string;
-	readonly sessionId: string;
-}
-
-/** Status/retry never performs inference or grants spend. Duplicates return the original outcome. */
-export interface QualityControlOutcome {
-	readonly status: "ready" | "unavailable" | "conflict";
-	readonly incarnation: string;
-	readonly intentRevision: number;
-	readonly decision: QualityDecisionEnvelope | null;
 }

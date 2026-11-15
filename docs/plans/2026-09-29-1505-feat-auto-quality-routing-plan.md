@@ -7,9 +7,12 @@ artifact_contract: ce-unified-plan/v1
 product_contract_source: ce-brainstorm
 execution: code
 deepened: 2026-09-29
+status: superseded
 ---
 
 # Auto Quality Routing - Plan
+
+> **Superseded 2026-11-14 by #816.** The operator retired the Auto quality lane this plan built, and #816 removes its code. The plan is kept as history.
 
 ## Goal Capsule
 

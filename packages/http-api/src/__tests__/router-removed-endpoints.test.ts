@@ -1,7 +1,7 @@
 /**
- * Endpoints removed in 5.0.0 must answer 410 from the API router itself.
+ * Removed endpoints must answer 410 from the API router itself.
  *
- * An unmatched /api/* path makes APIRouter.handleRequest return null, and
+ * An unmatched /api/* or /v1/* path makes APIRouter.handleRequest return null, and
  * server.ts then hands the request to the inference proxy, whose Anthropic
  * provider accepts every path. Without a local answer, a stale script calling
  * a removed endpoint would be forwarded upstream on a real account.
@@ -177,6 +177,55 @@ describe("endpoints removed in 5.0.0", () => {
 			"/api/workspaces/extra",
 			"/api/debug/cache-diagnosis/extra",
 		]) {
+			expect((await send("GET", path))?.status).not.toBe(410);
+		}
+	});
+});
+
+describe("Auto quality lane controls removed in 6.0.0 (#816)", () => {
+	it("answers 410 for the status and retry controls and names the stock replacement", async () => {
+		for (const [method, path] of [
+			["GET", "/v1/quality-routing/sessions/synthetic-session"],
+			[
+				"POST",
+				"/v1/quality-routing/sessions/synthetic-session/retry-preferred",
+			],
+		] as const) {
+			const response = await send(
+				method,
+				path,
+				method === "POST" ? {} : undefined,
+			);
+			expect(response?.status).toBe(410);
+			expect(response?.headers.get("cache-control")).toBe("no-store");
+			const body = (await response?.json()) as Record<string, unknown>;
+			expect(body).toMatchObject({
+				error: "Gone",
+				endpoint: "/v1/quality-routing/*",
+				removedIn: "6.0.0",
+				replacement: null,
+			});
+			expect(body.message).toContain("opus");
+		}
+	});
+
+	it("reserves every form the removed handler classified, so none reaches the proxy", async () => {
+		for (const path of [
+			"/v1/quality-routing",
+			"/v1/quality-routing-other",
+			"/v1/quality-routing/sessions/%",
+			"/v1/quality-routing/sessions/%2f",
+			"/v1/%71uality-routing/sessions/synthetic-session",
+			"/%761/quality-routing/sessions/synthetic-session",
+		]) {
+			for (const method of ["GET", "POST", "DELETE"]) {
+				expect((await send(method, path))?.status).toBe(410);
+			}
+		}
+	});
+
+	it("leaves other /v1 paths to the proxy", async () => {
+		for (const path of ["/v1/messages", "/v1/models", "/v1/quality"]) {
 			expect((await send("GET", path))?.status).not.toBe(410);
 		}
 	});

@@ -113,20 +113,6 @@ export type {
 } from "./repositories/model-translation.repository";
 // Re-export repository classes
 export { ModelTranslationRepository } from "./repositories/model-translation.repository";
-export {
-	type QualityConversation,
-	type QualityHome,
-	type QualityIngressTicket,
-	type QualityLease,
-	type QualityReplacementAuthority,
-	type QualityRetryInput,
-	QualityRouteError,
-	type QualityRouteLimits,
-	QualityRouteRepository,
-	type QualityRouteState,
-	type QualitySettlement,
-	type QualityTrustedChild,
-} from "./repositories/quality-route.repository";
 export type { AdvisorModelUsage } from "./repositories/request.repository";
 export {
 	ROUTING_ATTEMPT_SUMMARY_WINDOWS,

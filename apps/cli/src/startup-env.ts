@@ -5,11 +5,7 @@ let attempted = false;
 
 /** The compiled entrypoint supplies execPath; source startup supplies argv[1]. */
 export function loadCliDotenv(entrypoint: string | undefined): void {
-	if (
-		attempted ||
-		process.argv.slice(2).some((arg) => arg.startsWith("--quality-routing"))
-	)
-		return;
+	if (attempted) return;
 	attempted = true;
 
 	// Preserve legacy ordering and dotenv's non-overriding process-env semantics.

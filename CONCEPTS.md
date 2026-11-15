@@ -198,8 +198,8 @@ instead of the account being refused.
 It holds only while fresh evidence from the account's own usage poll says credits are
 available. Without that evidence the account gets the normal spent-window refusal, and that
 refusal itself needs a fresh usage reading. It lifts only the account-wide short and
-multi-day windows (per-model caps are not lifted) and never covers the proxy's own probe traffic
-or Auto quality routing, which has its own, stricter spend rules. Accounts without the opt-in
+multi-day windows (per-model caps are not lifted) and never covers the proxy's own probe traffic.
+Accounts without the opt-in
 are refused once a plan window reads full even while the provider still reports them as
 allowed: the provider's allowed flag can lag its usage percentage, and the request that
 crosses the line is billed to credits.
@@ -239,13 +239,13 @@ route profile when one applies.
 
 Ordinary and profile lanes (and the client-session fallback) retain their owners across
 restarts in session-affinity and sticky drain-soonest mode, restored from finalized request
-history within the affinity TTL. Child-home, quality and web-search helper lanes have
+history within the affinity TTL. Child-home and web-search helper lanes have
 process-local identities and do not survive a restart. Strict drain-soonest and strategies
 that order every turn afresh do not restore owners.
 
 One session and model can run several lanes at once, each with its own owner, so a
 session's successive requests can alternate accounts while no owner moves. It is unrelated to
-the quality lane, the physical-model lane, the hosted and native web-search lanes, and the
+the physical-model lane, the hosted and native web-search lanes, and the
 database's *Reader lane*.
 
 ### Drain-soonest
@@ -553,23 +553,11 @@ routinely lags the default branch — which makes the pin, not the branch, the c
 the pinned build and can already be stale with respect to fixes that have merged but not
 shipped.
 
-## Auto quality routing
+## Approved lines
 
-### Quality lane and approved line
+### Approved line
 
-A lane expresses operator quality intent, not a model capability. Approved lines map Fable to `fable`, Astra to `astra`, Opus and Sol to `opus`, Sonnet to `standard`, and Haiku to `lightweight`. Account enrollment and current exact-model support are separate requirements. Catalog position never assigns a new model to a quality role. A Codex route profile can follow an approved line too: each account serves the newest supported model of that line in its own catalog, wherever the provider ranks it.
-
-### Accepted intent versus successful home
-
-Accepted intent is the durable principal/session preference and revision. A home is a per-conversation exact account/physical-model target installed only after validated success. Root and child homes are independent. Continuation may use an exact supported predecessor even after recovery/new discovery. A temporary request-only fallback is not automatically a new home. An explicit authenticated retry changes intent revision and fences older work; selecting the same choice does not.
-
-### Admission estimate versus capability fact
-
-`stock-codex-estimate-v1` is the context estimate for a translated (Codex) target, and it mirrors stock Codex admission: the same estimate of the original request, no added headroom, the output reserve the wire carries (none on the subscription endpoint, which drops `max_output_tokens`), and stock's window (the maximum window at the effective percent). It is an operational estimate, not a tokenizer guarantee or proof of subscription entitlement. Where stock defers a low-confidence overflow to the provider, Auto skips the lane instead, because it has another rung; an unknown window admits, as it does for stock. Rows persisted before #429 carry `local-envelope-v1`, which counted the whole final JSON envelope in UTF-8 bytes with 25% plus 1024 headroom and the caller's full output reserve. Source-owned fresh account capability facts remain necessary, and the estimate never stands in for unknown media or billing facts. A native Anthropic target is admitted as stock routing would send it, keeping only proven rejections, and gets no local context estimate, because stock does none for Anthropic.
-
-### Dispatch fence and decision provenance
-
-The dispatch fence durably distinguishes a possibly sent inference from work that is still safe to select. A storage failure after output retries persistence, never inference. Decision provenance is a bounded sanitized explanation, not a second authority for dispatch: current, pending/in-flight and last successful decisions differ. First-writer request history cannot be overwritten by a late usage update. The historical worker-message naming describes an in-process collector contract, not evidence of an active inference worker thread.
+An approved line is a named model line and the exact model identities the router supports on it (`SUPPORTED_IDENTITIES` in `packages/providers/src/auto-model-capabilities.ts`). Catalog position never adds a model to a line. A Codex route profile can follow a line (`gpt-astra` or `gpt-sol`): each account serves the newest supported model of that line in its own catalog, wherever the provider ranks it. The Claude lines were read only by the Auto quality lane, removed in #816. The catalogue-gap alert keeps that lane's id, `auto_line`, which stored alerts carry; it fires when a newly released model's name places it in a line a route profile can pin and the line does not support it.
 
 ## Ingress policy
 
@@ -682,7 +670,7 @@ it twice.
   of that list only when its own discovery runs.
 - *Lane* names unrelated things in routing and in the database: an *Affinity lane* is the unit
   session affinity pins an owner account to, while a *Reader lane* is a database connection that
-  dashboard reads are sent to. The quality, physical-model and web-search lanes are routing
+  dashboard reads are sent to. The physical-model and web-search lanes are routing
   lanes as well. Say which one is meant.
 
 ## Retained ingress and cold backend handoff

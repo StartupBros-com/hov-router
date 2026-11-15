@@ -117,7 +117,6 @@ import {
 	markBackendRetiring,
 	type ProxyContext,
 	parseModelRouteProfiles,
-	QualityRouteService,
 	recordCodexUsageSnapshot,
 	refreshModelCatalog,
 	refreshTokenAfterRejectedRedemption,
@@ -725,7 +724,6 @@ function serveDashboardFile(
 let serverInstance: ReturnType<typeof serve> | null = null;
 // The active server has one independent Bun-process admission budget.
 let activeBodyAdmission: BodyAdmissionController | null = null;
-let activeQualityRouteService: QualityRouteService | undefined;
 let registeredServerId: string | null = null;
 let stopRetentionJob: (() => void) | null = null;
 let stopOAuthCleanupJob: (() => void) | null = null;
@@ -1482,11 +1480,7 @@ export default async function startServer(options?: {
 		}
 		return {
 			port: existingPort,
-			stop: createServerStopHandle(
-				serverInstance,
-				activeQualityRouteService,
-				activeBodyAdmission,
-			),
+			stop: createServerStopHandle(serverInstance, activeBodyAdmission),
 		};
 	}
 
@@ -1994,19 +1988,12 @@ export default async function startServer(options?: {
 	});
 	stopDataCleanupJob = unregisterDataCleanup;
 
-	// One persistence boundary for authenticated controls and inference. No
-	// service, state enrollment, or discovery choices when policy is absent.
-	const qualityRouteService = config.getQualityRoutingPolicy()
-		? new QualityRouteService(dbOps.getQualityRouteRepository())
-		: undefined;
-	activeQualityRouteService = qualityRouteService;
 	const apiRouter = new APIRouter(
 		{
 			db,
 			config,
 			dbOps,
 			alertService,
-			qualityRouteService,
 			modelCatalog: {
 				codexModels: async (accountId: string) => {
 					if (!modelCatalogProxyContext) return null;
@@ -2244,7 +2231,6 @@ export default async function startServer(options?: {
 	cacheFlightCohortSealService?.dispose();
 	cacheFlightCohortSealService = new CohortSealService({ config });
 	const proxyContext: ProxyContext = {
-		qualityRouteService,
 		strategy,
 		cacheAffinityOrderer: new CacheAffinityOrderer(
 			runtimeConfig.sessionDurationMs,
@@ -3228,11 +3214,7 @@ Available endpoints:
 
 	return {
 		port: serverPort,
-		stop: createServerStopHandle(
-			serverInstance,
-			qualityRouteService,
-			bodyAdmission,
-		),
+		stop: createServerStopHandle(serverInstance, bodyAdmission),
 	};
 }
 
@@ -3402,9 +3384,7 @@ type DrainableServer = {
 	readonly pendingRequests: number;
 	stop(closeActiveConnections?: boolean): unknown;
 };
-type SettlementRecovery = { stop(): Promise<void> };
 const responseDrains = new WeakMap<DrainableServer, Promise<void>>();
-const serverStops = new WeakMap<DrainableServer, Promise<void>>();
 const releasedListeners = new WeakSet<DrainableServer>();
 function stopAcceptingResponses(server: DrainableServer): void {
 	if (releasedListeners.has(server)) return;
@@ -3452,33 +3432,22 @@ function drainServerResponses(
 	return promise;
 }
 
-/** Stops this listener and its recovery only; never disposes shared DBs or exits. */
-export function stopServerResponsesAndRecovery(
+/** Stops this listener only; never disposes shared DBs or exits. */
+export function stopServerResponses(
 	server: DrainableServer,
-	recovery?: SettlementRecovery,
 	drainMs = readShutdownDrainMs(),
 ): Promise<void> {
-	const existing = serverStops.get(server);
-	if (existing) return existing;
-	const { promise, resolve, reject } = Promise.withResolvers<void>();
-	serverStops.set(server, promise);
-	void drainServerResponses(server, drainMs)
-		.then(async () => {
-			await recovery?.stop();
-		})
-		.then(resolve, reject);
-	return promise;
+	return drainServerResponses(server, drainMs);
 }
 
 /** Capture all owners now: an old handle must never stop a replacement listener. */
 function createServerStopHandle(
 	server: NonNullable<typeof serverInstance>,
-	recovery: QualityRouteService | undefined,
 	admission: BodyAdmissionController | null,
 ): () => Promise<void> {
 	return () => {
 		admission?.shutdown();
-		const completion = stopServerResponsesAndRecovery(server, recovery);
+		const completion = stopServerResponses(server);
 		void completion.then(
 			() => {
 				// Keep ownership visible throughout draining so a racing signal can await it.
@@ -3487,8 +3456,6 @@ function createServerStopHandle(
 				storageFullBackstop?.uninstall();
 				storageFullBackstop = null;
 				if (activeBodyAdmission === admission) activeBodyAdmission = null;
-				if (activeQualityRouteService === recovery)
-					activeQualityRouteService = undefined;
 			},
 			() => {},
 		);
@@ -3624,9 +3591,7 @@ function stopPeriodicWork(): Promise<void> {
 		pending.push(stopMemberNoticeJob?.() ?? Promise.resolve());
 		stopMemberNoticeJob = undefined;
 		// Admitted requests still route on cached usage evidence; shutdown clears
-		// it after the drain. Quality settlement recovery is not periodic work:
-		// it persists the outcomes of responses still streaming, so it stops only
-		// after their drain.
+		// it after the drain.
 		usageCache.stopAllPolling();
 		await Promise.all(pending);
 	})();
@@ -3686,7 +3651,6 @@ async function handleGracefulShutdown(signal: string) {
 	if (quiesceKeepalive) clearInterval(quiesceKeepalive);
 	// A programmatic stop may finish while schedulers below are draining.
 	const shuttingDownServer = serverInstance;
-	const shuttingDownRecovery = activeQualityRouteService;
 	// Reject queued requests before stopping the listener. Active leases still
 	// drain with their response streams and release through the terminal wrapper.
 	activeBodyAdmission?.shutdown();
@@ -3721,17 +3685,6 @@ async function handleGracefulShutdown(signal: string) {
 
 		usageCache.clear(); // Stop all usage polling
 		await drainUsageCollector();
-		if (shuttingDownServer) {
-			await stopServerResponsesAndRecovery(
-				shuttingDownServer,
-				shuttingDownRecovery,
-				drainMs,
-			);
-		} else {
-			await shuttingDownRecovery?.stop();
-		}
-		if (activeQualityRouteService === shuttingDownRecovery)
-			activeQualityRouteService = undefined;
 		await shutdown();
 		console.log("✅ Shutdown complete");
 		process.exit(0);
