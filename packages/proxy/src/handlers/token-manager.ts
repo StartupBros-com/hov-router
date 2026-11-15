@@ -536,6 +536,15 @@ async function adoptDbTokensIfFresher(
 	const memIssuedAt = account.refresh_token_issued_at ?? null;
 	const dbRefreshTokenNotOlder =
 		memIssuedAt === null || (dbIssuedAt !== null && dbIssuedAt >= memIssuedAt);
+	// A rotation that is still waiting to be stored was made with the refresh
+	// token the row holds, so that token is spent. Taking it back from the row
+	// would send it to the provider a second time (#827): a disk that stays
+	// full for longer than an access token lasts gets here.
+	const unstoredRotation = getPendingRotation(account.id, account.created_at);
+	const dbRefreshTokenSpent =
+		unstoredRotation !== undefined &&
+		Boolean(unstoredRotation.refreshToken) &&
+		dbAccount.refresh_token === unstoredRotation.attemptedRefreshToken;
 	if (
 		dbTokenValid &&
 		typeof dbAccount.expires_at === "number" &&
@@ -543,7 +552,11 @@ async function adoptDbTokensIfFresher(
 	) {
 		account.access_token = dbAccount.access_token;
 		account.expires_at = dbAccount.expires_at;
-		if (dbAccount.refresh_token && dbRefreshTokenNotOlder) {
+		if (
+			dbAccount.refresh_token &&
+			dbRefreshTokenNotOlder &&
+			!dbRefreshTokenSpent
+		) {
 			account.refresh_token = dbAccount.refresh_token;
 			account.refresh_token_issued_at = dbAccount.refresh_token_issued_at;
 		}
@@ -554,7 +567,8 @@ async function adoptDbTokensIfFresher(
 	if (
 		dbAccount.refresh_token &&
 		dbAccount.refresh_token !== account.refresh_token &&
-		dbRefreshTokenNotOlder
+		dbRefreshTokenNotOlder &&
+		!dbRefreshTokenSpent
 	) {
 		account.refresh_token = dbAccount.refresh_token;
 		account.refresh_token_issued_at = dbAccount.refresh_token_issued_at;
@@ -756,29 +770,54 @@ export async function refreshAccessTokenSafe(
 				// winning manual re-auth.
 				let resolveWithToken = result.accessToken;
 				try {
-					let persisted: boolean;
-					if (attemptedRefreshToken) {
-						persisted =
-							await ctx.dbOps.updateAccountTokensIfRefreshTokenMatches(
-								account.id,
-								attemptedRefreshToken,
-								result.accessToken,
-								result.expiresAt,
-								result.refreshToken,
-								account.created_at,
-							);
-					} else {
-						// (round-3 item 4) Null-safe CAS: an account that refreshed
-						// without a refresh token must not blind-overwrite
-						// credentials a concurrent manual re-auth may have just
-						// written.
-						persisted = await ctx.dbOps.updateAccountTokensIfRefreshTokenAbsent(
-							account.id,
-							result.accessToken,
-							result.expiresAt,
-							result.refreshToken,
-							account.created_at,
-						);
+					const storeIfRowHolds = (
+						expectedRefreshToken: string | null | undefined,
+					): Promise<boolean> =>
+						expectedRefreshToken
+							? ctx.dbOps.updateAccountTokensIfRefreshTokenMatches(
+									account.id,
+									expectedRefreshToken,
+									result.accessToken,
+									result.expiresAt,
+									result.refreshToken,
+									account.created_at,
+								)
+							: // (round-3 item 4) Null-safe CAS: an account that refreshed
+								// without a refresh token must not blind-overwrite
+								// credentials a concurrent manual re-auth may have just
+								// written.
+								ctx.dbOps.updateAccountTokensIfRefreshTokenAbsent(
+									account.id,
+									result.accessToken,
+									result.expiresAt,
+									result.refreshToken,
+									account.created_at,
+								);
+					// This refresh may have spent the refresh token of a rotation
+					// that is still waiting to be stored (#827). The row was never
+					// told about that rotation, so it holds the token the chain
+					// started from, and comparing against the spent token alone
+					// would match nothing and drop the only token the provider
+					// still accepts. The chain's first token is tried first: a
+					// store of the waiting rotation that lands in between leaves
+					// the spent token in the row, and the second write matches it.
+					// The other order loses the rotation to that same store.
+					const unstoredRotation = getPendingRotation(
+						account.id,
+						account.created_at,
+					);
+					const spentRefreshToken = attemptedRefreshToken ?? "";
+					const chainStartsFromAnotherToken =
+						unstoredRotation !== undefined &&
+						spentRefreshToken ===
+							(unstoredRotation.refreshToken ??
+								unstoredRotation.attemptedRefreshToken) &&
+						unstoredRotation.attemptedRefreshToken !== spentRefreshToken;
+					let persisted =
+						chainStartsFromAnotherToken &&
+						(await storeIfRowHolds(unstoredRotation.attemptedRefreshToken));
+					if (!persisted) {
+						persisted = await storeIfRowHolds(attemptedRefreshToken);
 					}
 					if (persisted) {
 						clearPendingRotation(account.id, account.created_at);

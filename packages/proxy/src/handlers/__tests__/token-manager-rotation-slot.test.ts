@@ -27,6 +27,7 @@ import {
 	getValidAccessToken,
 	isTerminalTokenRefreshFailure,
 	RefreshStorageUnavailableError,
+	refreshAccessTokenSafe,
 } from "../token-manager";
 
 const CREATED_AT = 101;
@@ -77,7 +78,9 @@ function makeContext(stored: Account, provider?: unknown) {
 		getAccount: mock(async (accountId: string) =>
 			accountId === current.id ? { ...current } : null,
 		),
-		updateAccountTokensIfRefreshTokenMatches: mock(async () => true),
+		updateAccountTokensIfRefreshTokenMatches: mock(
+			async (..._args: unknown[]) => true,
+		),
 		updateAccountTokensIfRefreshTokenAbsent: mock(async () => true),
 		flagRequiresReauthIfTokenMatches: mock(async () => true),
 		pauseAccountIfActive: mock(async () => true),
@@ -96,6 +99,8 @@ function makeContext(stored: Account, provider?: unknown) {
 		store: (patch: Partial<Account>) => {
 			current = { ...current, ...patch };
 		},
+		/** The durable row as it is now. */
+		row: (): Account => ({ ...current }),
 	};
 }
 
@@ -381,5 +386,246 @@ describe("a rotated refresh token whose database write fails", () => {
 		configurePendingRotationPersistence(openStore());
 		await expect(restorePendingRotations()).resolves.toBe(0);
 		expect(slotFiles()).toHaveLength(1);
+	});
+
+	const ISSUED_AT = 1_700_000_000_000;
+	/**
+	 * The durable row. Each request reads the account from it, so a request
+	 * made while no write reaches the row starts from the same values again.
+	 */
+	const storedRow = (id: string): Account => ({
+		...makeAccount(id, "codex"),
+		refresh_token_issued_at: ISSUED_AT,
+	});
+	const databaseFull = (): Error =>
+		Object.assign(new Error("database or disk is full"), {
+			code: "SQLITE_FULL",
+		});
+	/**
+	 * A token endpoint that rotates on every call. Returns the refresh tokens
+	 * it was sent. The first access token is due for refresh as soon as it is
+	 * issued, so the next request refreshes again.
+	 */
+	const rotatingEndpoint = (): string[] => {
+		const sent: string[] = [];
+		global.fetch = mock(async (_url: unknown, init?: RequestInit) => {
+			sent.push(
+				new URLSearchParams(String(init?.body)).get("refresh_token") ?? "",
+			);
+			const call = sent.length;
+			return new Response(
+				JSON.stringify({
+					access_token: `access-${call}`,
+					refresh_token: `refresh-${call}`,
+					expires_in: call === 1 ? 60 : 3600,
+				}),
+				{ status: 200, headers: { "content-type": "application/json" } },
+			);
+		}) as unknown as typeof fetch;
+		return sent;
+	};
+
+	it("holds the later of two rotations when the database stays unwritable between them", async () => {
+		// A full disk can outlast an access token. The second refresh must spend
+		// the first rotation's refresh token, not the one the row still has, and
+		// the slot must then hold the second rotation, still keyed on the row's.
+		configurePendingRotationPersistence(openStore());
+		const row = storedRow("two-rotations");
+		const failing = makeContext(row);
+		failing.dbOps.updateAccountTokensIfRefreshTokenMatches.mockImplementation(
+			async () => {
+				throw databaseFull();
+			},
+		);
+		const sentRefreshTokens = rotatingEndpoint();
+
+		await expect(
+			getValidAccessToken({ ...row }, failing.ctx as never),
+		).resolves.toBe("access-1");
+		await expect(
+			getValidAccessToken({ ...row }, failing.ctx as never),
+		).resolves.toBe("access-2");
+		expect(sentRefreshTokens).toEqual(["rt-old", "refresh-1"]);
+		expect(slotFiles()).toHaveLength(1);
+
+		// The next process, with the database writable again.
+		clearAllPendingRotationsForTests();
+		configurePendingRotationPersistence(openStore());
+		const stored = storedRow("two-rotations");
+		const working = makeContext(stored);
+		await expect(
+			restorePendingRotations(async (accountId) =>
+				working.dbOps.getAccount(accountId),
+			),
+		).resolves.toBe(1);
+		expect(getPendingRotation("two-rotations", CREATED_AT)).toMatchObject({
+			accessToken: "access-2",
+			refreshToken: "refresh-2",
+			attemptedRefreshToken: "rt-old",
+		});
+
+		const thirdCall = mock(async () => {
+			throw new Error("the provider must not be asked again");
+		});
+		global.fetch = thirdCall as unknown as typeof fetch;
+		await expect(
+			getValidAccessToken(stored, working.ctx as never),
+		).resolves.toBe("access-2");
+		expect(thirdCall).not.toHaveBeenCalled();
+		const written = working.dbOps.updateAccountTokensIfRefreshTokenMatches.mock
+			.calls[0] as unknown[];
+		expect(written[1]).toBe("rt-old");
+		expect(written[2]).toBe("access-2");
+		expect(written[4]).toBe("refresh-2");
+		expect(stored.refresh_token).toBe("refresh-2");
+	});
+
+	it("writes the later rotation to the row when the database takes writes again before it is stored", async () => {
+		// Some writes get through on a full disk. The row was never told about
+		// the first rotation, so it holds the token that rotation spent, not the
+		// one the second refresh has just spent. The second rotation is the only
+		// one the provider still honours and must reach the row.
+		configurePendingRotationPersistence(openStore());
+		const row = storedRow("late-write");
+		const db = makeContext(row);
+		const rowRefreshTokens: string[] = [];
+		let writes = 0;
+		db.dbOps.updateAccountTokensIfRefreshTokenMatches.mockImplementation(
+			async (...args: unknown[]) => {
+				writes += 1;
+				if (writes <= 2) throw databaseFull();
+				const [, expected, accessToken, expiresAt, refreshToken] = args as [
+					string,
+					string,
+					string,
+					number,
+					string | undefined,
+				];
+				if (db.row().refresh_token !== expected) return false;
+				db.store({
+					access_token: accessToken,
+					expires_at: expiresAt,
+					...(refreshToken ? { refresh_token: refreshToken } : {}),
+				});
+				if (refreshToken) rowRefreshTokens.push(refreshToken);
+				return true;
+			},
+		);
+		const sentRefreshTokens = rotatingEndpoint();
+
+		await expect(
+			getValidAccessToken({ ...row }, db.ctx as never),
+		).resolves.toBe("access-1");
+		const second = { ...row };
+		await expect(getValidAccessToken(second, db.ctx as never)).resolves.toBe(
+			"access-2",
+		);
+
+		expect(sentRefreshTokens).toEqual(["rt-old", "refresh-1"]);
+		expect(db.row()).toMatchObject({
+			access_token: "access-2",
+			refresh_token: "refresh-2",
+		});
+		// The spent first rotation never reached the row.
+		expect(rowRefreshTokens).toEqual(["refresh-2"]);
+		expect(second.refresh_token).toBe("refresh-2");
+
+		// Nothing is left waiting: the removal from the slot is queued by the
+		// refresh, not awaited, so let it run.
+		expect(getPendingRotation("late-write", CREATED_AT)).toBeUndefined();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		clearAllPendingRotationsForTests();
+		configurePendingRotationPersistence(openStore());
+		await expect(restorePendingRotations()).resolves.toBe(0);
+	});
+
+	for (const landing of ["before", "after"] as const) {
+		it(`writes the later rotation to the row when the first rotation is stored just ${landing} its first write`, async () => {
+			// A request that started before this refresh can still be storing
+			// the first rotation. Whichever side of the first write it lands on,
+			// the row must end with the second rotation and never go back to
+			// the first, whose refresh token is spent.
+			configurePendingRotationPersistence(openStore());
+			const row = storedRow(`store-lands-${landing}`);
+			const db = makeContext(row);
+			const sentRefreshTokens = rotatingEndpoint();
+			const storeFirstRotation = () => {
+				if (db.row().refresh_token !== "rt-old") return;
+				db.store({ access_token: "access-1", refresh_token: "refresh-1" });
+			};
+			let storeHasLanded = false;
+			db.dbOps.updateAccountTokensIfRefreshTokenMatches.mockImplementation(
+				async (...args: unknown[]) => {
+					// Nothing reaches the row until the second rotation exists.
+					if (sentRefreshTokens.length < 2) throw databaseFull();
+					const [, expected, accessToken, expiresAt, refreshToken] = args as [
+						string,
+						string,
+						string,
+						number,
+						string | undefined,
+					];
+					const landNow = !storeHasLanded;
+					storeHasLanded = true;
+					if (landNow && landing === "before") storeFirstRotation();
+					const matched = db.row().refresh_token === expected;
+					if (matched) {
+						db.store({
+							access_token: accessToken,
+							expires_at: expiresAt,
+							...(refreshToken ? { refresh_token: refreshToken } : {}),
+						});
+					}
+					if (landNow && landing === "after") storeFirstRotation();
+					return matched;
+				},
+			);
+
+			await expect(
+				getValidAccessToken({ ...row }, db.ctx as never),
+			).resolves.toBe("access-1");
+			const second = { ...row };
+			await expect(getValidAccessToken(second, db.ctx as never)).resolves.toBe(
+				"access-2",
+			);
+
+			expect(sentRefreshTokens).toEqual(["rt-old", "refresh-1"]);
+			expect(db.row()).toMatchObject({
+				access_token: "access-2",
+				refresh_token: "refresh-2",
+			});
+			expect(second.refresh_token).toBe("refresh-2");
+		});
+	}
+
+	it("does not take the row's spent refresh token back along with a longer-lived stored access token", async () => {
+		// A 401 can force a refresh while the stored access token has not
+		// expired. The row's access token then outlives the rotated one, and
+		// the row is adopted for it. Its refresh token is the one the unstored
+		// rotation spent and must be left where it is.
+		configurePendingRotationPersistence(openStore());
+		const row: Account = {
+			...storedRow("longer-lived-row"),
+			access_token: "at-row",
+			expires_at: Date.now() + 2 * 60 * 60 * 1000,
+		};
+		const failing = makeContext(row);
+		failing.dbOps.updateAccountTokensIfRefreshTokenMatches.mockImplementation(
+			async () => {
+				throw databaseFull();
+			},
+		);
+		const sentRefreshTokens = rotatingEndpoint();
+
+		await expect(
+			refreshAccessTokenSafe({ ...row }, failing.ctx as never),
+		).resolves.toBe("access-1");
+		const second = { ...row };
+		await expect(
+			refreshAccessTokenSafe(second, failing.ctx as never),
+		).resolves.toBe("at-row");
+
+		expect(sentRefreshTokens).toEqual(["rt-old"]);
+		expect(second.refresh_token).toBe("refresh-1");
 	});
 });
