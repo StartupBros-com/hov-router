@@ -17,7 +17,8 @@
  *     [--named-steps <a,b>] [--kill-pause-ms <n>]
  *     [--loop-signal alternate|term] [--loop-continue]
  *     [--start-reserve-bytes <n>] [--quiet-start]
- *     [--rearm-router-reserve] [--oauth-row]
+ *     [--rearm-router-reserve] [--oauth-row] [--schema-behind]
+ *     [--deadline-ms <n>]
  *
  * `--restart-loops` repeats the restart on the full filesystem, alternating a
  * clean stop and a kill, and stops at the first start that fails
@@ -74,8 +75,15 @@
  * backstop keeps the server alive through one, and without this check it
  * could hide a write that lost its own handling.
  *
+ * `--deadline-ms` stops a run that takes longer than that: the server and
+ * the spinner are killed and the process exits 3 with no report. Whatever
+ * started the run may be unable to stop it (a test that timed out does not,
+ * and under sudo it is not allowed to), and a run left going keeps a server
+ * and a full filesystem alive.
+ *
  * Prints one JSON report on stdout. Exit 0 means the scenario ran (read
- * `failures`); exit 2 means the harness itself could not run.
+ * `failures`); exit 2 means the harness itself could not run; exit 3 means
+ * the deadline passed first.
  */
 import { Database } from "bun:sqlite";
 import {
@@ -144,7 +152,12 @@ interface Args {
 	oauthRow: boolean;
 	/** Leave the schema one index short and check the start fails closed. */
 	schemaBehind: boolean;
+	/** Stop the run and exit 3 after this long. 0 sets no deadline. */
+	deadlineMs: number;
 }
+
+/** Exit code for a run stopped at `--deadline-ms`. */
+const DEADLINE_EXIT_CODE = 3;
 
 /** Room given back so the running router can write its start reserve. */
 const ROUTER_REARM_ROOM_BYTES = 1024 * 1024;
@@ -188,8 +201,10 @@ function parseArgs(argv: string[]): Args {
 	let rearmRouterReserve = false;
 	let oauthRow = false;
 	let schemaBehind = false;
+	let deadlineMs = 0;
 	for (let i = 0; i < argv.length; i++) {
 		const value = argv[i + 1];
+		if (argv[i] === "--deadline-ms" && value) deadlineMs = Number(value);
 		if (argv[i] === "--oauth-row") oauthRow = true;
 		if (argv[i] === "--schema-behind") schemaBehind = true;
 		if (argv[i] === "--rearm-router-reserve") rearmRouterReserve = true;
@@ -236,6 +251,9 @@ function parseArgs(argv: string[]): Args {
 	if (!dir) throw new Error("--dir <mounted directory> is required");
 	if (!Number.isFinite(soakMs) || soakMs < 0) {
 		throw new Error("--soak-ms must be a non-negative number");
+	}
+	if (!Number.isFinite(deadlineMs) || deadlineMs < 0) {
+		throw new Error("--deadline-ms must be a non-negative number");
 	}
 	if (!Number.isInteger(restartLoops) || restartLoops < 0) {
 		throw new Error("--restart-loops must be a non-negative integer");
@@ -300,6 +318,7 @@ function parseArgs(argv: string[]): Args {
 		rearmRouterReserve,
 		oauthRow,
 		schemaBehind,
+		deadlineMs,
 	};
 }
 
@@ -661,6 +680,11 @@ class RouterProcess {
 			await Bun.sleep(250);
 		}
 		return false;
+	}
+
+	/** SIGKILL without waiting for the exit. */
+	killNow(): void {
+		if (this.proc && this.exit === null) this.proc.kill("SIGKILL");
 	}
 
 	async stop(signal: "SIGTERM" | "SIGKILL", timeoutMs: number): Promise<void> {
@@ -1109,6 +1133,20 @@ async function main(): Promise<void> {
 	const router = new RouterProcess(args, await reservePort());
 	let refill: ReturnType<typeof setInterval> | null = null;
 	let spinner: ReturnType<typeof Bun.spawn> | null = null;
+	// Nothing here waits. Whatever the run is stuck on is why the deadline
+	// passed, and a step that resumed in the meantime could start the server
+	// again after it was killed.
+	const deadline =
+		args.deadlineMs > 0
+			? setTimeout(() => {
+					router.killNow();
+					spinner?.kill("SIGKILL");
+					console.error(
+						`disk-full scenario: stopped at its ${args.deadlineMs} ms deadline, with no report`,
+					);
+					process.exit(DEADLINE_EXIT_CODE);
+				}, args.deadlineMs)
+			: null;
 	const stopPressure = async () => {
 		if (refill) clearInterval(refill);
 		refill = null;
@@ -1935,6 +1973,8 @@ async function main(): Promise<void> {
 		await router.stop("SIGTERM", 20_000);
 		await upstream.stop(true);
 	}
+	// Everything the run started has been stopped. Only the report is left.
+	if (deadline) clearTimeout(deadline);
 
 	report.upstreamHits = upstreamHits;
 	report.failures = failures;

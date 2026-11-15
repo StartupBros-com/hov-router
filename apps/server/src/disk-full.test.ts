@@ -19,7 +19,7 @@
  * instead, which is what production runs.
  */
 import { afterAll, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -150,13 +150,41 @@ interface Report {
 	recovery: { recordingResumed: boolean; logResumed: boolean };
 }
 
+/**
+ * Other processes whose command line or environment names `needle`. Every
+ * process of a run has the mount directory in one or the other.
+ */
+function processesNaming(
+	needle: string,
+): Array<{ pid: number; inCommandLine: boolean }> {
+	const found: Array<{ pid: number; inCommandLine: boolean }> = [];
+	for (const entry of readdirSync("/proc")) {
+		const pid = Number(entry);
+		if (!Number.isInteger(pid) || pid === process.pid) continue;
+		const names = (file: string): boolean => {
+			try {
+				return readFileSync(`/proc/${entry}/${file}`, "utf8").includes(needle);
+			} catch {
+				// Gone already, or not ours to read.
+				return false;
+			}
+		};
+		if (names("cmdline")) found.push({ pid, inCommandLine: true });
+		else if (names("environ")) found.push({ pid, inCommandLine: false });
+	}
+	return found;
+}
+
 const mounts: string[] = [];
 
 afterAll(() => {
 	for (const mount of mounts) rmSync(mount, { recursive: true, force: true });
 });
 
-async function runScenario(args: string[]): Promise<Report> {
+/** The scenario's own exit code for "stopped at `--deadline-ms`". */
+const DEADLINE_EXIT_CODE = 3;
+
+function startScenario(args: string[]) {
 	if (!strategy) throw new Error("no way to mount a private filesystem");
 	const mount = mkdtempSync(join(tmpdir(), "ccflare-disk-full-"));
 	mounts.push(mount);
@@ -172,11 +200,29 @@ async function runScenario(args: string[]): Promise<Report> {
 		]),
 		{ cwd: REPO_ROOT, stdout: "pipe", stderr: "pipe" },
 	);
-	const [stdout, stderr, exitCode] = await Promise.all([
+	const finished = Promise.all([
 		new Response(child.stdout).text(),
 		new Response(child.stderr).text(),
 		child.exited,
+	]).then(([stdout, stderr, exitCode]) => ({ stdout, stderr, exitCode }));
+	return { mount, finished };
+}
+
+/**
+ * Runs the scenario to its report. `deadlineMs` must be below the test's own
+ * timeout: a test that times out does not stop what it started, and under
+ * sudo it could not, so the scenario stops itself first.
+ */
+async function runScenario(
+	args: string[],
+	deadlineMs: number,
+): Promise<Report> {
+	const { finished } = startScenario([
+		...args,
+		"--deadline-ms",
+		String(deadlineMs),
 	]);
+	const { stdout, stderr, exitCode } = await finished;
 	if (exitCode !== 0) {
 		throw new Error(
 			`the scenario did not run (exit ${exitCode}): ${stderr.slice(-2000)}`,
@@ -196,13 +242,10 @@ describe.skipIf(strategy === null)(`a full disk, with ${mode}`, () => {
 	it("keeps serving, restarts and recovers with no free block on the filesystem", async () => {
 		// 65 s of soak crosses the once-a-minute WAL checkpoint, which has
 		// to cope with the full filesystem too.
-		const report = await runScenario([
-			"--oauth-row",
-			"--soak-ms",
-			"65000",
-			"--restart-loops",
-			"2",
-		]);
+		const report = await runScenario(
+			["--oauth-row", "--soak-ms", "65000", "--restart-loops", "2"],
+			390_000,
+		);
 
 		expect(report.failures).toEqual([]);
 		expect(report.mode).toBe(COMPILED_CLI ? "compiled" : "source");
@@ -243,7 +286,10 @@ describe.skipIf(strategy === null)(`a full disk, with ${mode}`, () => {
 	}, 420_000);
 
 	it("refuses to start, and says why, when the full disk leaves its schema work unfinished", async () => {
-		const report = await runScenario(["--schema-behind", "--soak-ms", "1000"]);
+		const report = await runScenario(
+			["--schema-behind", "--soak-ms", "1000"],
+			270_000,
+		);
 
 		expect(report.failures).toEqual([]);
 		expect(report.schemaBehind).toMatchObject({
@@ -260,6 +306,44 @@ describe.skipIf(strategy === null)(`a full disk, with ${mode}`, () => {
 			"Free space on that filesystem and start again",
 		);
 	}, 300_000);
+
+	it("stops itself at its deadline and leaves no process behind", async () => {
+		// The two tests above rely on this. A run that outlived its test
+		// would keep a server and a full filesystem going with nothing left
+		// to stop them.
+		const { mount, finished } = startScenario([
+			"--soak-ms",
+			"120000",
+			"--deadline-ms",
+			"20000",
+		]);
+		// The server's command line does not name the mount; its environment
+		// does. Seeing it while the run is going shows that the search below
+		// would find one left behind.
+		let sawServer = false;
+		let exited = false;
+		const outcome = finished.finally(() => {
+			exited = true;
+		});
+		while (!exited) {
+			if (processesNaming(mount).some((found) => !found.inCommandLine)) {
+				sawServer = true;
+			}
+			await Bun.sleep(250);
+		}
+		const { exitCode, stdout, stderr } = await outcome;
+
+		expect(stderr).toContain("deadline");
+		expect(exitCode).toBe(DEADLINE_EXIT_CODE);
+		expect(stdout).toBe("");
+		expect(sawServer).toBe(true);
+		// A process sent SIGKILL is gone a moment later, not at once.
+		const gone = Date.now() + 5_000;
+		while (processesNaming(mount).length > 0 && Date.now() < gone) {
+			await Bun.sleep(100);
+		}
+		expect(processesNaming(mount)).toEqual([]);
+	}, 90_000);
 });
 
 // A gate that cannot run must not look like one that passed.
