@@ -3,6 +3,7 @@
  * a small filesystem mounted for the purpose, and the writers that fill it.
  */
 import { closeSync, openSync, statfsSync, statSync, writeSync } from "node:fs";
+import { networkInterfaces } from "node:os";
 import { dirname } from "node:path";
 
 export function freeBytes(dir: string): number {
@@ -39,6 +40,24 @@ export function assertDedicatedSmallMount(dir: string): void {
 	if (total > MAX_SCENARIO_FILESYSTEM_BYTES) {
 		throw new Error(
 			`${dir} is ${total} bytes; the scenario only fills filesystems up to ${MAX_SCENARIO_FILESYSTEM_BYTES} bytes`,
+		);
+	}
+}
+
+/**
+ * A scenario that stores a made-up OAuth account must not be able to reach
+ * the provider that account names: a server that used the row would send its
+ * made-up token there. So such a scenario only runs where this process can
+ * reach nothing but itself, in a network namespace whose only interface is
+ * loopback (`unshare -n`, then `ip link set lo up`).
+ */
+export function assertLoopbackOnly(): void {
+	const others = Object.keys(networkInterfaces()).filter(
+		(name) => name !== "lo",
+	);
+	if (others.length > 0) {
+		throw new Error(
+			`this process can reach ${others.join(", ")}; an OAuth account row only goes in inside a network namespace with nothing but loopback`,
 		);
 	}
 }

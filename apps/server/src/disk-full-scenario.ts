@@ -6,8 +6,8 @@
  * a size-capped filesystem the caller mounted, fills that filesystem to zero
  * free blocks and keeps it there, then reports whether the server keeps
  * serving, restarts, and resumes recording once space returns. Upstream is a
- * local stub and the account is anthropic-compatible, so no provider is
- * contacted.
+ * local stub and the account that serves is anthropic-compatible, so no
+ * provider is contacted.
  *
  * Usage:
  *   bun run apps/server/src/disk-full-scenario.ts --dir <mounted dir>
@@ -17,7 +17,7 @@
  *     [--named-steps <a,b>] [--kill-pause-ms <n>]
  *     [--loop-signal alternate|term] [--loop-continue]
  *     [--start-reserve-bytes <n>] [--quiet-start]
- *     [--rearm-router-reserve]
+ *     [--rearm-router-reserve] [--oauth-row]
  *
  * `--restart-loops` repeats the restart on the full filesystem, alternating a
  * clean stop and a kill, and stops at the first start that fails
@@ -54,6 +54,15 @@
  * the running router to write its reserve back, the way returning space
  * would, so every start is measured with one.
  *
+ * `--oauth-row` adds a made-up, paused Codex account, the kind whose token
+ * refresh rotates the refresh token. The server keeps a slot file for such an
+ * account so a rotation can be saved on a full disk, and makes it at start.
+ * The run checks that the start with space made the slot, removes it before
+ * the fill, and checks that every start on the full filesystem either made it
+ * again or said it had no space, without failing and without leaving a temp
+ * file. It refuses to run unless loopback is the only network interface, so
+ * the made-up token can go nowhere.
+ *
  * Prints one JSON report on stdout. Exit 0 means the scenario ran (read
  * `failures`); exit 2 means the harness itself could not run.
  */
@@ -64,6 +73,7 @@ import {
 	fsyncSync,
 	mkdirSync,
 	openSync,
+	readdirSync,
 	rmSync,
 	statSync,
 	truncateSync,
@@ -76,6 +86,7 @@ import {
 } from "@better-ccflare/database";
 import {
 	assertDedicatedSmallMount,
+	assertLoopbackOnly,
 	blockCounts,
 	fillToZero,
 	freeBytes,
@@ -118,6 +129,8 @@ interface Args {
 	quietStart: boolean;
 	/** Make room before each stop so the router writes its own reserve back. */
 	rearmRouterReserve: boolean;
+	/** Add a paused Codex account and check its pending-rotation slot. */
+	oauthRow: boolean;
 }
 
 /** Room given back so the running router can write its start reserve. */
@@ -126,6 +139,12 @@ const ROUTER_REARM_ROOM_BYTES = 1024 * 1024;
 const ROUTER_REARM_WAIT_MS = 45_000;
 /** Part of the line the router logs after a start that spent its reserve. */
 const ROUTER_RESERVE_RELEASED_MARKER = "start reserve and opened it";
+const OAUTH_ROW_ID = "scenario-oauth-row";
+const OAUTH_ROW_NAME = "disk-full-oauth-row";
+/** Size of one pending-rotation slot file. */
+const SLOT_BYTES = 65_536;
+/** Part of the line the router logs when a start has no space for a slot. */
+const SLOT_NO_SPACE_MARKER = "No disk space for the pending rotation slot of";
 
 const STEP_NAMES = ["clean-stop", "crash", "clean-stop-no-log-dir"] as const;
 type StepName = (typeof STEP_NAMES)[number];
@@ -148,8 +167,10 @@ function parseArgs(argv: string[]): Args {
 	let startReserveBytes = 0;
 	let quietStart = false;
 	let rearmRouterReserve = false;
+	let oauthRow = false;
 	for (let i = 0; i < argv.length; i++) {
 		const value = argv[i + 1];
+		if (argv[i] === "--oauth-row") oauthRow = true;
 		if (argv[i] === "--rearm-router-reserve") rearmRouterReserve = true;
 		if (argv[i] === "--quiet-start") quietStart = true;
 		if (argv[i] === "--start-reserve-bytes" && value) {
@@ -256,6 +277,7 @@ function parseArgs(argv: string[]): Args {
 		startReserveBytes,
 		quietStart,
 		rearmRouterReserve,
+		oauthRow,
 	};
 }
 
@@ -302,6 +324,54 @@ function seedBootWork(dbFile: string): Record<string, number> {
 	} finally {
 		db.close();
 	}
+}
+
+/**
+ * A made-up Codex account: the kind whose refresh rotates the refresh token,
+ * so the server keeps a pending-rotation slot for it. It is paused and its
+ * access token does not expire for ten years, so nothing asks to refresh it,
+ * and `assertLoopbackOnly` has already shown that nothing could leave this
+ * host if something did. Must run while the server is up, like `seedBootWork`.
+ */
+function seedOAuthRow(dbFile: string): void {
+	const db = new Database(dbFile, { readwrite: true, create: false });
+	try {
+		db.run("PRAGMA busy_timeout = 10000");
+		const now = Date.now();
+		db.run(
+			"INSERT INTO accounts (id, name, provider, refresh_token, access_token, expires_at, created_at, refresh_token_issued_at, priority, paused, pause_reason) VALUES (?, ?, 'codex', 'scenario-refresh-token', 'scenario-access-token', ?, ?, ?, 99, 1, 'manual')",
+			[
+				OAUTH_ROW_ID,
+				OAUTH_ROW_NAME,
+				now + 10 * 365 * 24 * 60 * 60 * 1000,
+				now,
+				now,
+			],
+		);
+	} finally {
+		db.close();
+	}
+}
+
+interface SlotDirState {
+	slots: { name: string; bytes: number }[];
+	tempFiles: number;
+}
+
+/** The slot files and leftover temp files in the pending-rotation directory. */
+function slotDirState(slotDir: string): SlotDirState {
+	let names: string[] = [];
+	try {
+		names = readdirSync(slotDir);
+	} catch {
+		// Not made yet.
+	}
+	return {
+		slots: names
+			.filter((name) => name.endsWith(".slot"))
+			.map((name) => ({ name, bytes: fileSize(join(slotDir, name)) ?? 0 })),
+		tempFiles: names.filter((name) => name.endsWith(".tmp")).length,
+	};
 }
 
 /**
@@ -927,6 +997,7 @@ async function main(): Promise<void> {
 		throw new Error(`compiled binary ${args.binary} does not exist`);
 	}
 	if (!args.baselineOnly) assertDedicatedSmallMount(args.dir);
+	if (args.oauthRow) assertLoopbackOnly();
 	for (const sub of ["home", "config", "tmp"]) {
 		mkdirSync(join(args.dir, sub), { recursive: true });
 	}
@@ -939,6 +1010,7 @@ async function main(): Promise<void> {
 	// apart from the reserve the router owns.
 	const reserveFile = `${dbFile}.scenario-reserve`;
 	const routerReserveFile = startReservePath(dbFile);
+	const slotDir = join(args.dir, "config/better-ccflare/pending-rotations");
 	/** True while a start holds the refill off (`--quiet-start`). */
 	let refillHeld = false;
 	const failures: string[] = [];
@@ -1045,6 +1117,19 @@ async function main(): Promise<void> {
 			);
 		}
 
+		// The OAuth account goes in before the restart with space, so that
+		// restart is the start that has to make its slot.
+		let slotsBeforeOAuthRow: SlotDirState | null = null;
+		if (args.oauthRow) {
+			slotsBeforeOAuthRow = slotDirState(slotDir);
+			if (slotsBeforeOAuthRow.slots.length > 0) {
+				throw new Error(
+					"a slot existed before any account that rotates did, so the slot check proves nothing",
+				);
+			}
+			seedOAuthRow(dbFile);
+		}
+
 		// A restart with space available: the control for the restarts below, and
 		// it shows which database side files a clean stop leaves behind.
 		await router.stop("SIGTERM", 20_000);
@@ -1065,6 +1150,29 @@ async function main(): Promise<void> {
 			throw new Error(
 				"the server did not restart with space available, so the scenario proves nothing",
 			);
+		}
+		if (args.oauthRow) {
+			const afterStart = slotDirState(slotDir);
+			// Removed with space available, before the fill: the starts on the
+			// full filesystem meet an account with no slot and no room for one.
+			for (const slot of afterStart.slots) {
+				rmSync(join(slotDir, slot.name), { force: true });
+			}
+			report.oauthRow = {
+				slotsBeforeRow: slotsBeforeOAuthRow,
+				slotsAfterStartWithSpace: afterStart,
+				removedBeforeFill: afterStart.slots.length,
+				slotsAtFill: slotDirState(slotDir),
+			};
+			if (
+				afterStart.slots.length !== 1 ||
+				afterStart.slots[0]?.bytes !== SLOT_BYTES ||
+				afterStart.tempFiles !== 0
+			) {
+				failures.push(
+					`the start with space did not leave exactly one ${SLOT_BYTES}-byte slot for the OAuth account: ${JSON.stringify(afterStart)}`,
+				);
+			}
 		}
 
 		// Cleanup work for the boots on the full filesystem. It goes in after the
@@ -1292,6 +1400,18 @@ async function main(): Promise<void> {
 			const healthy = await router.waitHealthy(60_000);
 			const padRestore = padTask ? await padTask : null;
 			const startMs = Date.now() - startedAt;
+			let oauthSlot: (SlotDirState & { saidNoSpace: boolean }) | null = null;
+			if (args.oauthRow) {
+				const saidNoSpace = () =>
+					router
+						.outputSinceStart()
+						.some((line) => line.includes(SLOT_NO_SPACE_MARKER));
+				// The server prints the line before it listens; the pipe may lag.
+				if (healthy && slotDirState(slotDir).slots.length === 0) {
+					await waitFor(async () => saidNoSpace(), 3_000);
+				}
+				oauthSlot = { ...slotDirState(slotDir), saidNoSpace: saidNoSpace() };
+			}
 			// Put back after a failed start too, so every start is measured from
 			// the same state; a router that failed to start could not do this.
 			const reserveRestore =
@@ -1324,6 +1444,7 @@ async function main(): Promise<void> {
 				reserveRestore,
 				reserveRearmed,
 				padRestore,
+				oauthSlot,
 				routerReserveBeforeStart,
 				routerReserveAfterStart: fileSize(routerReserveFile),
 				// The router logs this line only after the open that follows
@@ -1334,6 +1455,26 @@ async function main(): Promise<void> {
 				filesAfterStart: sideFiles(dbFile),
 				failure: healthy ? null : startFailureDetail(router.outputSinceStart()),
 			};
+		};
+		/**
+		 * A start that came up must have made the OAuth account's slot or said
+		 * it had no space for one, and must have left no temp file behind.
+		 */
+		const checkOAuthSlot = (
+			label: string,
+			start: Awaited<ReturnType<typeof startOnFull>>,
+		) => {
+			if (!start.oauthSlot || !start.healthy) return;
+			if (start.oauthSlot.tempFiles > 0) {
+				failures.push(
+					`${label}: ${start.oauthSlot.tempFiles} slot temp file(s) were left on the full filesystem`,
+				);
+			}
+			if (start.oauthSlot.slots.length === 0 && !start.oauthSlot.saidNoSpace) {
+				failures.push(
+					`${label}: the start neither made a slot for the OAuth account nor said it had no space for one`,
+				);
+			}
 		};
 		for (const step of steps) {
 			const startedFromLiveServer = router.alive();
@@ -1348,6 +1489,7 @@ async function main(): Promise<void> {
 				await Bun.sleep(args.killPauseMs);
 			}
 			const start = await startOnFull();
+			checkOAuthSlot(step.name, start);
 			const healthy = start.healthy;
 			const served = healthy
 				? await sendBatch(router.base, accountId, `restart-${step.name}`, 5)
@@ -1424,6 +1566,7 @@ async function main(): Promise<void> {
 					await Bun.sleep(args.killPauseMs);
 				}
 				const start = await startOnFull();
+				checkOAuthSlot(`restart loop ${i + 1}`, start);
 				startMs.push(start.startMs);
 				const served = start.healthy
 					? await sendBatch(router.base, accountId, `loop-${i}`, 2)
@@ -1452,6 +1595,7 @@ async function main(): Promise<void> {
 						routerReserveBeforeStart: start.routerReserveBeforeStart,
 						routerReserveAfterStart: start.routerReserveAfterStart,
 						routerReleasedReserve: start.routerReleasedReserve,
+						oauthSlot: start.oauthSlot,
 						failure: start.failure,
 					});
 				}
