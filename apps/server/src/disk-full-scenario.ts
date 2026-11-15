@@ -17,6 +17,7 @@
  *     [--named-steps <a,b>] [--kill-pause-ms <n>]
  *     [--loop-signal alternate|term] [--loop-continue]
  *     [--start-reserve-bytes <n>] [--quiet-start]
+ *     [--rearm-router-reserve]
  *
  * `--restart-loops` repeats the restart on the full filesystem, alternating a
  * clean stop and a kill, and stops at the first start that fails
@@ -45,6 +46,14 @@
  * opens the database releases the reserve itself and nothing else gets a turn
  * in between.
  *
+ * The router keeps a start reserve of its own and releases it when a start
+ * cannot open the database. Every start reports that file's size before and
+ * after, and whether the router said it released it. A reserve spent on a
+ * full filesystem cannot be written back, so by default only the first start
+ * has one. `--rearm-router-reserve` makes room before each stop and waits for
+ * the running router to write its reserve back, the way returning space
+ * would, so every start is measured with one.
+ *
  * Prints one JSON report on stdout. Exit 0 means the scenario ran (read
  * `failures`); exit 2 means the harness itself could not run.
  */
@@ -62,6 +71,10 @@ import {
 	writeSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import {
+	START_RESERVE_BYTES,
+	startReservePath,
+} from "@better-ccflare/database";
 
 const STUB_MARKER = "disk-full-scenario-stub-reply";
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
@@ -97,7 +110,16 @@ interface Args {
 	startReserveBytes: number;
 	/** Hold the refill from the release of the reserve to the end of the start. */
 	quietStart: boolean;
+	/** Make room before each stop so the router writes its own reserve back. */
+	rearmRouterReserve: boolean;
 }
+
+/** Room given back so the running router can write its start reserve. */
+const ROUTER_REARM_ROOM_BYTES = 1024 * 1024;
+/** Longer than the router's 30 s reserve check. */
+const ROUTER_REARM_WAIT_MS = 45_000;
+/** Part of the line the router logs after a start that spent its reserve. */
+const ROUTER_RESERVE_RELEASED_MARKER = "start reserve and opened it";
 
 const STEP_NAMES = ["clean-stop", "crash", "clean-stop-no-log-dir"] as const;
 type StepName = (typeof STEP_NAMES)[number];
@@ -119,8 +141,10 @@ function parseArgs(argv: string[]): Args {
 	let loopContinue = false;
 	let startReserveBytes = 0;
 	let quietStart = false;
+	let rearmRouterReserve = false;
 	for (let i = 0; i < argv.length; i++) {
 		const value = argv[i + 1];
+		if (argv[i] === "--rearm-router-reserve") rearmRouterReserve = true;
 		if (argv[i] === "--quiet-start") quietStart = true;
 		if (argv[i] === "--start-reserve-bytes" && value) {
 			startReserveBytes = Number(value);
@@ -203,6 +227,11 @@ function parseArgs(argv: string[]): Args {
 	if (quietStart && startReserveBytes === 0) {
 		throw new Error("--quiet-start needs --start-reserve-bytes");
 	}
+	if (rearmRouterReserve && pressure !== "timer") {
+		throw new Error(
+			"--rearm-router-reserve needs --pressure timer: the spinner takes the room before the router can",
+		);
+	}
 	return {
 		dir: resolve(dir),
 		binary,
@@ -220,6 +249,7 @@ function parseArgs(argv: string[]): Args {
 		loopContinue,
 		startReserveBytes,
 		quietStart,
+		rearmRouterReserve,
 	};
 }
 
@@ -985,7 +1015,10 @@ async function main(): Promise<void> {
 	const logFile = join(args.dir, "tmp/better-ccflare-logs/app.log");
 	const dbFile = join(args.dir, "config/better-ccflare/better-ccflare.db");
 	const shmFile = `${dbFile}-shm`;
-	const reserveFile = `${dbFile}.start-reserve`;
+	// This process's own measurement reserve (`--start-reserve-bytes`), kept
+	// apart from the reserve the router owns.
+	const reserveFile = `${dbFile}.scenario-reserve`;
+	const routerReserveFile = startReservePath(dbFile);
 	/** True while a start holds the refill off (`--quiet-start`). */
 	let refillHeld = false;
 	const failures: string[] = [];
@@ -1283,6 +1316,31 @@ async function main(): Promise<void> {
 				},
 			] as const
 		).filter((step) => args.namedSteps.includes(step.name));
+		/**
+		 * Give the running router room to write its start reserve back, then
+		 * take the room away again. Null when not asked for or nothing is running.
+		 */
+		const rearmRouterReserve = async () => {
+			if (!args.rearmRouterReserve || !router.alive()) return null;
+			const whole = () =>
+				(fileSize(routerReserveFile) ?? 0) >= START_RESERVE_BYTES;
+			if (whole()) return { needed: false, armed: true, waitedMs: 0 };
+			const startedAt = Date.now();
+			refillHeld = true;
+			try {
+				truncateSync(
+					ballast,
+					Math.max(0, (fileSize(ballast) ?? 0) - ROUTER_REARM_ROOM_BYTES),
+				);
+				const armed = await waitFor(async () => whole(), ROUTER_REARM_WAIT_MS);
+				// The size is reached before the router's fsync returns.
+				if (armed) await Bun.sleep(500);
+				return { needed: true, armed, waitedMs: Date.now() - startedAt };
+			} finally {
+				fillToZero(ballast);
+				refillHeld = false;
+			}
+		};
 		/** Start the server on the full filesystem and report what the start did. */
 		const startOnFull = async () => {
 			// Whatever the stop released goes back to the co-tenant before the start.
@@ -1298,6 +1356,7 @@ async function main(): Promise<void> {
 				rmSync(reserveFile, { force: true });
 				blocksAfterRelease = blockCounts(args.dir);
 			}
+			const routerReserveBeforeStart = fileSize(routerReserveFile);
 			const startedAt = Date.now();
 			router.start();
 			const padTask =
@@ -1345,12 +1404,20 @@ async function main(): Promise<void> {
 				reserveRestore,
 				reserveRearmed,
 				padRestore,
+				routerReserveBeforeStart,
+				routerReserveAfterStart: fileSize(routerReserveFile),
+				// The router logs this line only after the open that follows
+				// its release has succeeded.
+				routerReleasedReserve: router
+					.outputSinceStart()
+					.some((line) => line.includes(ROUTER_RESERVE_RELEASED_MARKER)),
 				filesAfterStart: sideFiles(dbFile),
 				failure: healthy ? null : startFailureDetail(router.outputSinceStart()),
 			};
 		};
 		for (const step of steps) {
 			const startedFromLiveServer = router.alive();
+			const routerReserveRearm = await rearmRouterReserve();
 			await router.stop(step.signal, 20_000);
 			const stopExit = router.exit;
 			const filesAfterStop = sideFiles(dbFile);
@@ -1367,6 +1434,7 @@ async function main(): Promise<void> {
 				: { sent: 5, served: 0, failures: [] };
 			restarts[step.name] = {
 				startedFromLiveServer,
+				routerReserveRearm,
 				stopExit,
 				filesAfterStop,
 				...start,
@@ -1428,6 +1496,7 @@ async function main(): Promise<void> {
 				const signal =
 					args.loopSignal === "term" || i % 2 === 0 ? "SIGTERM" : "SIGKILL";
 				const startedFromLiveServer = router.alive();
+				const routerReserveRearm = await rearmRouterReserve();
 				await router.stop(signal, 20_000);
 				const stopExit = router.exit;
 				const filesAfterStop = sideFiles(dbFile);
@@ -1459,6 +1528,10 @@ async function main(): Promise<void> {
 						blocksAfterRelease: start.blocksAfterRelease,
 						reserveRestore: start.reserveRestore,
 						reserveRearmed: start.reserveRearmed,
+						routerReserveRearm,
+						routerReserveBeforeStart: start.routerReserveBeforeStart,
+						routerReserveAfterStart: start.routerReserveAfterStart,
+						routerReleasedReserve: start.routerReleasedReserve,
 						failure: start.failure,
 					});
 				}

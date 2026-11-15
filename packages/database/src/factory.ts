@@ -6,7 +6,9 @@ import {
 	type DatabaseRetryConfig,
 } from "./database-operations";
 import { migrateFromCcflare } from "./migrate-from-ccflare";
+import { resolveDbPath } from "./paths";
 import { assertNotPostgresUrl } from "./postgres-refusal";
+import { openWithStartReserve } from "./start-reserve";
 
 let instance: DatabaseOperations | null = null;
 let closing: Promise<void> | null = null;
@@ -109,6 +111,26 @@ export async function getInstanceAsync(
 	return db;
 }
 
+/**
+ * `getInstanceAsync` for the server's start: an open that fails for lack of
+ * space releases the start reserve and is tried once more (#827).
+ *
+ * Only the server opens the database this way. CLI commands keep
+ * `getInstance`, so a command run on a full disk cannot spend the reserve the
+ * next server start depends on.
+ */
+export async function getInstanceForServerStart(
+	onReserveReleased?: (bytes: number, error: unknown) => void,
+): Promise<DatabaseOperations> {
+	const db = openWithStartReserve(
+		dbPath ?? resolveDbPath(),
+		() => getInstance(),
+		onReserveReleased,
+	);
+	await db.initializeAsync();
+	return db;
+}
+
 /** Keep the singleton registered until every database owner has retired. */
 export function closeAll(): Promise<void> {
 	if (closing) return closing;
@@ -132,6 +154,7 @@ export const DatabaseFactory = {
 	initialize,
 	getInstance,
 	getInstanceAsync,
+	getInstanceForServerStart,
 	closeAll,
 	reset,
 };

@@ -171,6 +171,11 @@ import {
 	createModelRouteSessionRegistry,
 } from "./runtime-config";
 import {
+	createStartReserveKeeper,
+	START_RESERVE_ARM_INTERVAL_MS,
+	startReserveReleasedMessage,
+} from "./start-reserve-keeper";
+import {
 	createUsagePollingTrackingClearer,
 	isCurrentUsagePollingAccount,
 	UsagePollingLifecycle,
@@ -722,6 +727,7 @@ let stopModelCatalogRefreshJob: (() => void) | null = null;
 let stopCodexCatalogRefreshJob: (() => void) | null = null;
 let stopDeviceSetupRecoveryJob: (() => Promise<void>) | null = null;
 let stopZaiPeakHoursPauseJob: (() => void) | null = null;
+let stopStartReserveJob: (() => void) | null = null;
 let usagePollingLifecycle: UsagePollingLifecycle<NodeJS.Timeout> | null = null;
 let cacheFlightCohortSealService: CohortSealService | null = null;
 let cacheKeepaliveScheduler: CacheKeepaliveScheduler | null = null;
@@ -1593,7 +1599,23 @@ export default async function startServer(options?: {
 	);
 
 	DatabaseFactory.initialize(undefined, runtime);
-	const dbOps = await DatabaseFactory.getInstanceAsync();
+	// A start on a full disk can fail to open the database. The factory then
+	// releases the start reserve and opens once more (#827). The callback runs
+	// between the release and that second open, so it only takes a note.
+	const startReserveUse: { released?: { bytes: number; error: unknown } } = {};
+	const dbOps = await DatabaseFactory.getInstanceForServerStart(
+		(bytes, error) => {
+			startReserveUse.released = { bytes, error };
+		},
+	);
+	if (startReserveUse.released) {
+		new Logger("StartReserve").warn(
+			startReserveReleasedMessage(
+				startReserveUse.released.bytes,
+				startReserveUse.released.error,
+			),
+		);
+	}
 	retireBackendHeartbeat = () => dbOps.retireInstanceHeartbeat();
 	// Started before the rest of startup so a post-start freeze (#606) names
 	// how long the main thread was held and which SQL ran meanwhile.
@@ -2030,6 +2052,23 @@ export default async function startServer(options?: {
 		log.error("Startup maintenance failed:", err);
 	});
 	stopRetentionJob = () => {}; // No-op stopper
+
+	// Keep the start reserve whole, so the next start on a full disk has
+	// blocks to give back when it cannot open the database (#827).
+	const startReserveDbPath = dbOps.getResolvedDbPath();
+	if (startReserveDbPath && startReserveDbPath !== ":memory:") {
+		stopStartReserveJob = intervalManager.register({
+			id: "start-reserve",
+			callback: createStartReserveKeeper({
+				dbPath: startReserveDbPath,
+				log: new Logger("StartReserve"),
+			}),
+			intervalMs: START_RESERVE_ARM_INTERVAL_MS,
+			immediate: startReserveUse.released === undefined,
+			maxConcurrent: 1,
+			description: "Start reserve check",
+		});
+	}
 
 	// Set up periodic OAuth session cleanup (every hour)
 	const unregisterOAuthCleanup = registerCleanup({
@@ -3499,6 +3538,10 @@ function stopPeriodicWork(): Promise<void> {
 		if (stopZaiPeakHoursPauseJob) {
 			stopZaiPeakHoursPauseJob();
 			stopZaiPeakHoursPauseJob = null;
+		}
+		if (stopStartReserveJob) {
+			stopStartReserveJob();
+			stopStartReserveJob = null;
 		}
 		if (cacheKeepaliveScheduler) {
 			cacheKeepaliveScheduler.stop();
