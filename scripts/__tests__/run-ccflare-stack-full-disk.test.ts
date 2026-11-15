@@ -229,6 +229,48 @@ describe("the runner's control directory", () => {
 		expect(controlDirsIn(where.tmp)).toEqual([]);
 	}, 30_000);
 
+	test("holds the listener's credential file before anything is started", async () => {
+		const where = layout();
+		const runner = await start(where);
+		// No backend comes up, so no listener runs: what is in the directory
+		// is what the runner put there.
+		runner.refuseBackendStart(OUT_OF_SPACE_EXIT_STATUS);
+		await runner.waitForOutput(WAITING, { times: 2 });
+		const [name] = controlDirsIn(where.tmp);
+		const credentialPath = join(where.tmp, name ?? "", "deploy-credential");
+
+		// The listener starts after the stack is ready. A credential file it
+		// had to make then would need a block, and failing for one would take
+		// a serving stack down.
+		expect(readFileSync(credentialPath, "utf8")).toBe(" ".repeat(43));
+		expect(statSync(credentialPath).mode & 0o777).toBe(0o600);
+		const inode = statSync(credentialPath).ino;
+
+		// A file that has gone is put back at the next try, not only when
+		// the directory is made.
+		rmSync(credentialPath);
+		const waits = runner.count(WAITING);
+		await runner.waitForOutput(WAITING, { times: waits + 2 });
+		expect(readFileSync(credentialPath, "utf8")).toBe(" ".repeat(43));
+		const replaced = statSync(credentialPath).ino;
+
+		runner.refuseBackendStart(null);
+		await runner.waitForOutput(READY);
+		const runtime = await runtimeRecord(runner);
+		expect(await appears(join(runtime.controlDir, "deploy.sock"))).toBe(true);
+
+		// The same file, so the listener wrote over it: the length the runner
+		// holds is the length of the credential.
+		expect(runtime.controlDir).toBe(join(where.tmp, name ?? ""));
+		expect(statSync(credentialPath).ino).toBe(replaced);
+		expect(replaced).not.toBe(0);
+		expect(inode).not.toBe(0);
+		expect(readFileSync(credentialPath, "utf8")).toMatch(
+			/^[A-Za-z0-9_-]{43}$/,
+		);
+		expect((await runner.stop()).code).toBe(STOPPED_EXIT_STATUS);
+	}, 30_000);
+
 	test("hands the listener what it serves without writing a file for it", async () => {
 		const where = layout();
 		const runner = await start(where);
@@ -358,6 +400,31 @@ describe("a start that fails for any other reason", () => {
 		expect(exit.code).toBe(CIRCUIT_EXIT_STATUS);
 		expect(runner.count(WAITING)).toBe(0);
 		expect(runner.count(CIRCUIT_OPEN)).toBe(1);
+	}, 30_000);
+
+	test("is counted again once the starts stop failing for lack of space", async () => {
+		const where = layout();
+		const runner = await start(where, {
+			RUNNER_RESTART_MAX_FAILURES: "3",
+		});
+		runner.refuseBackendStart(OUT_OF_SPACE_EXIT_STATUS);
+		await runner.waitForOutput(WAITING, { times: 2 });
+
+		// The disk has space again and the backend is simply broken. A wait
+		// that outlived its cause would keep the runner trying for ever.
+		runner.refuseBackendStart(1);
+		const exit = await runner.waitForExit();
+
+		expect(exit.code).toBe(CIRCUIT_EXIT_STATUS);
+		expect(runner.count(CIRCUIT_OPEN)).toBe(1);
+		// Every refused start was either waited out or counted, and exactly
+		// as many were counted as the circuit allows.
+		const refused = lifecycle(runner).filter((line) =>
+			line.startsWith("backend-refused "),
+		).length;
+		expect(refused - runner.count(WAITING)).toBe(3);
+		// One start can have been under way when the stub changed its answer.
+		expect(runner.count(WAITING)).toBeLessThanOrEqual(3);
 	}, 30_000);
 
 	test("still opens the circuit for a backend that exits out of space after the stack was ready", async () => {

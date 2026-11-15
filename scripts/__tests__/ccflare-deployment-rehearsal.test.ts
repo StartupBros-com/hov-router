@@ -57,6 +57,8 @@ test.each([
 	"rss_then_commit",
 	"rss_prepared",
 	"runner_crash",
+	"candidate_out_of_space",
+	"rollback_out_of_space",
 ])("disposable compiled Bun/SQLite %s retains ingress and proves cold owner handoff", async (mode) => {
 	const dir = mkdtempSync(join(tmpdir(), "ccflare-handoff-rehearsal-")),
 		control = join(dir, "transaction"),
@@ -78,6 +80,20 @@ test.each([
 	const procRoot = join(dir, "fixture-proc");
 	const headerRelease = join(dir, "release-headers");
 	const streamRelease = join(dir, "release-stream");
+	// #827: a backend whose start finds no space exits 28, and the runner waits
+	// such a start out instead of counting it. Not during a deployment or its
+	// rollback: a candidate that exits 28 is rolled back like any other, and a
+	// rollback start that exits 28 is counted.
+	const outOfSpace =
+		mode === "candidate_out_of_space" || mode === "rollback_out_of_space";
+	const refuseOld = join(dir, "fixture.db.refuse-old");
+	// Late enough for the runner to have read the process's identity.
+	const refusal = (name: string) =>
+		!outOfSpace
+			? ""
+			: name === "candidate"
+				? "await Bun.sleep(500);process.exit(28);"
+				: 'if(existsSync(process.env.FIXTURE_DB+".refuse-old")){await Bun.sleep(500);process.exit(28);}';
 	const armRss = (pid: number) => {
 		const status = join(procRoot, String(pid), "status");
 		writeFileSync(status + ".next", "Name:\tfixture\nVmRSS:\t1 kB\nVmSwap:\t0 kB\n");
@@ -93,7 +109,7 @@ test.each([
 			writeFileSync(
 				source,
 				`import {Database} from "bun:sqlite";import {openSync,closeSync,unlinkSync,appendFileSync,existsSync,mkdirSync,readFileSync,writeFileSync} from "node:fs";import {createManagedIngress} from ${JSON.stringify(join(root, "apps/server/src/managed-ingress.ts"))};
- ${name === "candidate" && mode === "early_exit" ? "process.exit(42);" : ""}const lock=process.env.FIXTURE_DB+".owner";const owner=openSync(lock,"wx");if(process.env.FIXTURE_PROC_ROOT){const proc=process.env.FIXTURE_PROC_ROOT+"/"+process.pid;mkdirSync(proc,{recursive:true});writeFileSync(proc+"/stat",readFileSync("/proc/"+process.pid+"/stat"));writeFileSync(proc+"/status",${JSON.stringify("Name:\tfixture\nVmRSS:\t0 kB\nVmSwap:\t0 kB\n")});}const db=new Database(process.env.FIXTURE_DB);db.exec("CREATE TABLE IF NOT EXISTS calls(generation INTEGER,path TEXT)");appendFileSync(process.env.FIXTURE_EVENTS,"open:"+process.pid+"\\n");
+ ${name === "candidate" && mode === "early_exit" ? "process.exit(42);" : ""}${refusal(name)}const lock=process.env.FIXTURE_DB+".owner";const owner=openSync(lock,"wx");if(process.env.FIXTURE_PROC_ROOT){const proc=process.env.FIXTURE_PROC_ROOT+"/"+process.pid;mkdirSync(proc,{recursive:true});writeFileSync(proc+"/stat",readFileSync("/proc/"+process.pid+"/stat"));writeFileSync(proc+"/status",${JSON.stringify("Name:\tfixture\nVmRSS:\t0 kB\nVmSwap:\t0 kB\n")});}const db=new Database(process.env.FIXTURE_DB);db.exec("CREATE TABLE IF NOT EXISTS calls(generation INTEGER,path TEXT)");appendFileSync(process.env.FIXTURE_EVENTS,"open:"+process.pid+"\\n");
  await Bun.sleep(${delay});const ingress=createManagedIngress({enabled:true,secret:Buffer.from(process.env.CCFLARE_GUARD_CORRELATION_SECRET,"base64url"),generation:Number(process.env.CCFLARE_MANAGED_GENERATION),ingressNonce:process.env.CCFLARE_MANAGED_INGRESS_NONCE,candidateNonce:${JSON.stringify(name === "candidate" && mode === "bad_nonce" ? "e".repeat(32) : null)} ?? process.env.CCFLARE_MANAGED_CANDIDATE_NONCE,sourceSha:process.env.CCFLARE_SOURCE_SHA});
  const server=Bun.serve({hostname:"127.0.0.1",port:Number(process.env.PORT),fetch:r=>ingress(r,async req=>{const url=new URL(req.url);if(url.pathname==="/health")return Response.json({status:"ok",git_sha:${JSON.stringify(name === "candidate" && mode === "bad_source" ? oldSource : sha)}});db.query("INSERT INTO calls VALUES(?,?)").run(Number(process.env.CCFLARE_MANAGED_GENERATION),url.pathname);if(url.pathname==="/v1/slow"){const waitForFile=path=>new Promise(resolve=>{const timer=setInterval(()=>{if(existsSync(path)){clearInterval(timer);resolve();}},10);});if(process.env.FIXTURE_HEADER_RELEASE)await waitForFile(process.env.FIXTURE_HEADER_RELEASE);return new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode("first"));const finish=()=>{try{c.enqueue(new TextEncoder().encode("last"));c.close();}catch{}};if(process.env.FIXTURE_STREAM_RELEASE)waitForFile(process.env.FIXTURE_STREAM_RELEASE).then(finish);else setTimeout(finish,350);}}));}return new Response(${JSON.stringify(sha)});})});
  process.on("SIGTERM",()=>{server.stop(true);db.close();closeSync(owner);unlinkSync(lock);appendFileSync(process.env.FIXTURE_EVENTS,"close:"+process.pid+"\\n");process.exit(0);});`,
@@ -241,6 +257,9 @@ test.each([
 		};
 		const command = join(dir, "command.json");
 		writeFileSync(command, JSON.stringify({ command: "prepare", manifest }));
+		// From here the previous backend finds no space when it is started
+		// again, which is what a rollback does.
+		if (mode === "rollback_out_of_space") writeFileSync(refuseOld, "");
 		if (mode === "rss_prepared") {
 			// Model a durable preparation whose acknowledgement/daemon exit was lost.
 			// The actual RSS supervisor must retire the daemon and adopt that receipt.
@@ -308,7 +327,19 @@ test.each([
 					JSON.parse(readFileSync(join(control, "intent.json"), "utf8"))
 						.phase === "rolled_back",
 			);
+			if (mode === "rollback_out_of_space") {
+				await until(() =>
+					logs.includes(
+						"restarting stack via supervisor; child=better-ccflare upstream",
+					),
+				);
+				rmSync(refuseOld);
+			}
 			expect(await (await waiting).text()).toBe(oldSource);
+			if (outOfSpace)
+				expect(logs).not.toContain(
+					"waiting for space instead of opening the restart circuit",
+				);
 			const rolled = JSON.parse(
 				readFileSync(join(control, "intent.json"), "utf8"),
 			);
@@ -318,7 +349,8 @@ test.each([
 				(await (await fetch(base + "/_guard/health")).json()).runtime.process
 					.guardPid,
 			).toBe(guardPid);
-			if (mode !== "early_exit")
+			// These candidates exit before they open the database.
+			if (mode !== "early_exit" && !outOfSpace)
 				expect(readFileSync(join(dir, "events"), "utf8")).toContain(
 					`close:${rolled.candidatePid}`,
 				);

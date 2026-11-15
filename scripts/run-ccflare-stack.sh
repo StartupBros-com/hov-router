@@ -368,6 +368,25 @@ control_dir_base() {
 	fi
 }
 
+# The length of the credential the deploy listener makes: 32 random bytes in
+# base64url.
+DEPLOY_CREDENTIAL_BYTES=43
+
+# Make sure the listener's credential file $1 is there at its full length.
+# The listener starts once the stack is ready and writes its credential over
+# a file of that length in place, which needs no new block. Left to make the
+# file itself on a full disk, it would fail and take a serving stack down with
+# it (#827).
+ensure_deploy_credential() {
+	local size
+	size="$(stat -c %s -- "$1" 2>/dev/null)" || size=""
+	if [[ "$size" == "$DEPLOY_CREDENTIAL_BYTES" ]]; then return 0; fi
+	(
+		umask 077
+		printf '%*s' "$DEPLOY_CREDENTIAL_BYTES" '' >"$1"
+	)
+}
+
 # True when the filesystem holding $1 has under 1 MiB left for this user, or
 # no file left to hand out. Only ever asked about a step that has already
 # failed: free space alone never decides anything.
@@ -979,6 +998,14 @@ run_stack_once() {
 		[[ "$guard_control_secret" =~ ^[A-Za-z0-9_-]{43}$ ]] || return 1
 		upstream_generation=1
 		pending_replacement=0
+	fi
+	# Every cycle, not only for a new directory: a kept directory can have
+	# lost the file. A directory this fails in is kept, so the next try has
+	# one thing less to find room for.
+	if ((transaction_enabled)) && [[ -n "$control_dir" ]] && ! ensure_deploy_credential "$control_dir/deploy-credential"; then
+		log "deploy credential file could not be made in ${control_dir}; no backend was started"
+		if filesystem_out_of_space "$control_dir"; then start_out_of_space="the control directory"; fi
+		return 1
 	fi
 
 	CCFLARE_MANAGED_INGRESS_NONCE=${CCFLARE_MANAGED_INGRESS_NONCE:-$(LC_ALL=C head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')}
