@@ -4,8 +4,8 @@ import {
 	formatTokensPerSecond,
 } from "@better-ccflare/ui-common";
 import {
+	AlertCircle,
 	Bot,
-	Calendar,
 	ChevronDown,
 	ChevronRight,
 	Clock,
@@ -28,13 +28,17 @@ import {
 	describeRequestAgent,
 	groupAgentFilterOptions,
 } from "../lib/attribution";
+import { activeRequestFilters } from "../lib/request-filters";
 import { requestModelLabel } from "../lib/request-model-label";
+import { httpStatusTone } from "../lib/request-status";
 import { isAnthropicPeakHour, isZaiPeakHour } from "../utils/provider-utils";
 import { CopyButton } from "./CopyButton";
 import { RoutePageHeader } from "./page-shell";
 import { RequestAgentBadge } from "./RequestAgentBadge";
 import { RequestCostBadge } from "./RequestCostBadge";
 import { RequestDetailsModal } from "./RequestDetailsModal";
+import { ActiveFilterBar } from "./requests/ActiveFilterBar";
+import { RequestStatusPill } from "./requests/RequestStatusPill";
 import { TokenUsageDisplay } from "./TokenUsageDisplay";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -47,9 +51,12 @@ import {
 } from "./ui/card";
 import {
 	DropdownMenu,
+	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
+	DropdownMenuLabel,
 	DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { EventTime } from "./ui/event-time";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import {
@@ -62,6 +69,7 @@ import {
 	SelectValue,
 } from "./ui/select";
 import { EmptyState, ErrorState, LoadingState } from "./ui/state";
+import { StatusPill } from "./ui/status-pill";
 
 export function RequestsTab() {
 	const [expandedRequests, setExpandedRequests] = useState<Set<string>>(
@@ -312,13 +320,6 @@ export function RequestsTab() {
 		});
 	};
 
-	const getStatusCodeColor = (code: number) => {
-		if (code >= 200 && code < 300) return "text-green-600";
-		if (code >= 400 && code < 500) return "text-yellow-600";
-		if (code >= 500) return "text-red-600";
-		return "text-gray-600";
-	};
-
 	const clearAllFilters = () => {
 		setAccountFilter("all");
 		setAgentFilter("all");
@@ -328,13 +329,26 @@ export function RequestsTab() {
 		setStatusCodeFilters(new Set());
 	};
 
-	const hasActiveFilters =
-		accountFilter !== "all" ||
-		agentFilter !== "all" ||
-		apiKeyFilter !== "all" ||
-		dateFrom ||
-		dateTo ||
-		statusCodeFilters.size > 0;
+	const activeFilters = activeRequestFilters({
+		account: accountFilter,
+		agent: agentFilter,
+		agentLabel: agentFilterSession?.label,
+		apiKey: apiKeyFilter,
+		statusCodes: statusCodeFilters,
+		dateFrom,
+		dateTo,
+	});
+	const hasActiveFilters = activeFilters.length > 0;
+	const removeFilter = (key: (typeof activeFilters)[number]["key"]) => {
+		if (key === "account") setAccountFilter("all");
+		else if (key === "agent") setAgentFilter("all");
+		else if (key === "apiKey") setApiKeyFilter("all");
+		else if (key === "status") setStatusCodeFilters(new Set());
+		else {
+			setDateFrom("");
+			setDateTo("");
+		}
+	};
 
 	const decodeBase64 = (str: string | null): string => {
 		if (!str) return "No data";
@@ -361,7 +375,7 @@ export function RequestsTab() {
 			<RoutePageHeader page="requests" />
 			<Card>
 				<CardHeader>
-					<div className="flex items-center justify-between">
+					<div className="flex flex-wrap items-center justify-between gap-2">
 						<div>
 							<CardTitle>Request History</CardTitle>
 							<CardDescription>
@@ -371,130 +385,45 @@ export function RequestsTab() {
 						</div>
 						<div className="flex gap-2">
 							<Button
+								type="button"
 								onClick={() => setShowFilters(!showFilters)}
 								variant={showFilters ? "default" : "outline"}
-								size="sm"
+								size="touch-sm"
 								className="relative"
+								aria-expanded={showFilters}
 							>
-								<Filter className="h-4 w-4 mr-2" />
+								<Filter aria-hidden="true" />
 								Filters
 								{hasActiveFilters && !showFilters && (
-									<span className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full animate-pulse" />
+									<>
+										<span
+											aria-hidden="true"
+											className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary animate-pulse motion-reduce:animate-none"
+										/>
+										<span className="sr-only"> (filters active)</span>
+									</>
 								)}
 							</Button>
 							<Button
+								type="button"
 								onClick={() => loadRequests()}
 								variant="ghost"
-								size="icon"
+								size="touch-icon"
 								aria-label="Refresh requests"
 							>
-								<RefreshCw className="h-4 w-4" aria-hidden="true" />
+								<RefreshCw aria-hidden="true" />
 							</Button>
 						</div>
 					</div>
 				</CardHeader>
 				<CardContent>
-					{/* Active Filters Display */}
-					{hasActiveFilters && (
-						<div className="mb-4 p-3 bg-muted/50 rounded-lg">
-							<div className="flex flex-wrap items-center gap-2">
-								{accountFilter !== "all" && (
-									<Badge variant="outline" className="gap-1.5 pr-1">
-										<User className="h-3 w-3" />
-										{accountFilter}
-										<button
-											type="button"
-											onClick={() => setAccountFilter("all")}
-											className="ml-1 p-0.5 hover:bg-destructive/20 rounded"
-										>
-											<X className="h-3 w-3" />
-										</button>
-									</Badge>
-								)}
-								{agentFilter !== "all" && (
-									<Badge variant="outline" className="gap-1.5 pr-1">
-										{agentFilterSession ? (
-											agentFilterSession.label
-										) : (
-											<>
-												<Bot className="h-3 w-3" />
-												{agentFilter}
-											</>
-										)}
-										<button
-											type="button"
-											onClick={() => setAgentFilter("all")}
-											className="ml-1 p-0.5 hover:bg-destructive/20 rounded"
-										>
-											<X className="h-3 w-3" />
-										</button>
-									</Badge>
-								)}
-								{apiKeyFilter !== "all" && (
-									<Badge variant="outline" className="gap-1.5 pr-1">
-										<Hash className="h-3 w-3" />
-										{apiKeyFilter === "no-api-key"
-											? "No API Key"
-											: apiKeyFilter}
-										<button
-											type="button"
-											onClick={() => setApiKeyFilter("all")}
-											className="ml-1 p-0.5 hover:bg-destructive/20 rounded"
-										>
-											<X className="h-3 w-3" />
-										</button>
-									</Badge>
-								)}
-								{statusCodeFilters.size > 0 && (
-									<Badge variant="outline" className="gap-1.5 pr-1">
-										<Hash className="h-3 w-3" />
-										{Array.from(statusCodeFilters).join(", ")}
-										<button
-											type="button"
-											onClick={() => setStatusCodeFilters(new Set())}
-											className="ml-1 p-0.5 hover:bg-destructive/20 rounded"
-										>
-											<X className="h-3 w-3" />
-										</button>
-									</Badge>
-								)}
-								{(dateFrom || dateTo) && (
-									<Badge variant="outline" className="gap-1.5 pr-1">
-										<Calendar className="h-3 w-3" />
-										{dateFrom && dateTo
-											? "Custom range"
-											: dateFrom
-												? `From ${new Date(dateFrom).toLocaleDateString()}`
-												: `Until ${new Date(dateTo).toLocaleDateString()}`}
-										<button
-											type="button"
-											onClick={() => {
-												setDateFrom("");
-												setDateTo("");
-											}}
-											className="ml-1 p-0.5 hover:bg-destructive/20 rounded"
-										>
-											<X className="h-3 w-3" />
-										</button>
-									</Badge>
-								)}
-								<div className="ml-auto flex items-center gap-2">
-									<span className="text-xs text-muted-foreground">
-										{filteredRequests.length} of {data?.requests.length || 0}{" "}
-										requests
-									</span>
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={clearAllFilters}
-										className="h-7 text-xs"
-									>
-										Clear all
-									</Button>
-								</div>
-							</div>
-						</div>
-					)}
+					<ActiveFilterBar
+						filters={activeFilters}
+						shown={filteredRequests.length}
+						total={data?.requests.length || 0}
+						onRemove={removeFilter}
+						onClearAll={clearAllFilters}
+					/>
 
 					{/* Filters Panel */}
 					{showFilters && (
@@ -503,12 +432,13 @@ export function RequestsTab() {
 								<div className="flex items-center justify-between">
 									<h3 className="font-medium">Filters</h3>
 									<Button
+										type="button"
 										variant="ghost"
-										size="sm"
+										size="touch-icon"
 										onClick={() => setShowFilters(false)}
-										className="h-8 w-8 p-0"
+										aria-label="Close filters"
 									>
-										<X className="h-4 w-4" />
+										<X aria-hidden="true" />
 									</Button>
 								</div>
 							</div>
@@ -517,40 +447,40 @@ export function RequestsTab() {
 								{/* Time Range Section */}
 								<div>
 									<h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-										<Clock className="h-4 w-4" />
+										<Clock className="h-4 w-4" aria-hidden="true" />
 										Time Range
 									</h4>
 									<div className="flex flex-wrap gap-2 mb-3">
 										<Button
 											variant={dateFrom || dateTo ? "outline" : "secondary"}
-											size="sm"
+											size="touch-sm"
 											onClick={() => applyDatePreset("1h")}
 										>
 											Last hour
 										</Button>
 										<Button
 											variant={dateFrom || dateTo ? "outline" : "secondary"}
-											size="sm"
+											size="touch-sm"
 											onClick={() => applyDatePreset("24h")}
 										>
 											Last 24h
 										</Button>
 										<Button
 											variant={dateFrom || dateTo ? "outline" : "secondary"}
-											size="sm"
+											size="touch-sm"
 											onClick={() => applyDatePreset("7d")}
 										>
 											Last 7 days
 										</Button>
 										<Button
 											variant={dateFrom || dateTo ? "outline" : "secondary"}
-											size="sm"
+											size="touch-sm"
 											onClick={() => applyDatePreset("30d")}
 										>
 											Last 30 days
 										</Button>
 									</div>
-									<div className="grid grid-cols-2 gap-3">
+									<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 										<div>
 											<Label htmlFor="date-from" className="text-xs">
 												From
@@ -560,7 +490,7 @@ export function RequestsTab() {
 												type="datetime-local"
 												value={dateFrom}
 												onChange={(e) => setDateFrom(e.target.value)}
-												className="h-9 text-sm"
+												className="h-11 text-sm"
 											/>
 										</div>
 										<div>
@@ -572,7 +502,7 @@ export function RequestsTab() {
 												type="datetime-local"
 												value={dateTo}
 												onChange={(e) => setDateTo(e.target.value)}
-												className="h-9 text-sm"
+												className="h-11 text-sm"
 											/>
 										</div>
 									</div>
@@ -584,15 +514,18 @@ export function RequestsTab() {
 								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 									{/* Account Filter */}
 									<div>
-										<Label className="text-xs flex items-center gap-1 mb-2">
-											<User className="h-3 w-3" />
+										<Label
+											htmlFor="filter-account"
+											className="text-xs flex items-center gap-1 mb-2"
+										>
+											<User className="h-3 w-3" aria-hidden="true" />
 											Account
 										</Label>
 										<Select
 											value={accountFilter}
 											onValueChange={setAccountFilter}
 										>
-											<SelectTrigger className="h-9">
+											<SelectTrigger id="filter-account" className="h-11">
 												<SelectValue placeholder="All accounts" />
 											</SelectTrigger>
 											<SelectContent>
@@ -608,12 +541,15 @@ export function RequestsTab() {
 
 									{/* Agent Filter */}
 									<div>
-										<Label className="text-xs flex items-center gap-1 mb-2">
-											<Bot className="h-3 w-3" />
+										<Label
+											htmlFor="filter-agent"
+											className="text-xs flex items-center gap-1 mb-2"
+										>
+											<Bot className="h-3 w-3" aria-hidden="true" />
 											Agent
 										</Label>
 										<Select value={agentFilter} onValueChange={setAgentFilter}>
-											<SelectTrigger className="h-9">
+											<SelectTrigger id="filter-agent" className="h-11">
 												<SelectValue placeholder="All agents" />
 											</SelectTrigger>
 											<SelectContent>
@@ -650,15 +586,18 @@ export function RequestsTab() {
 
 									{/* API Key Filter */}
 									<div>
-										<Label className="text-xs flex items-center gap-1 mb-2">
-											<Key className="h-3 w-3" />
+										<Label
+											htmlFor="filter-api-key"
+											className="text-xs flex items-center gap-1 mb-2"
+										>
+											<Key className="h-3 w-3" aria-hidden="true" />
 											API Key
 										</Label>
 										<Select
 											value={apiKeyFilter}
 											onValueChange={setApiKeyFilter}
 										>
-											<SelectTrigger className="h-9">
+											<SelectTrigger id="filter-api-key" className="h-11">
 												<SelectValue placeholder="All API keys" />
 											</SelectTrigger>
 											<SelectContent>
@@ -675,67 +614,52 @@ export function RequestsTab() {
 
 									{/* Status Code Filter */}
 									<div>
-										<Label className="text-xs flex items-center gap-1 mb-2">
-											<Hash className="h-3 w-3" />
+										<Label
+											htmlFor="filter-status"
+											className="text-xs flex items-center gap-1 mb-2"
+										>
+											<Hash className="h-3 w-3" aria-hidden="true" />
 											Status Code
 										</Label>
 										<DropdownMenu>
 											<DropdownMenuTrigger asChild>
 												<Button
+													id="filter-status"
+													type="button"
 													variant="outline"
-													className="h-9 w-full justify-between font-normal"
+													className="h-11 w-full justify-between font-normal"
 												>
 													{statusCodeFilters.size > 0
 														? `${statusCodeFilters.size} selected`
 														: "All codes"}
-													<ChevronDown className="h-4 w-4 opacity-50" />
+													<ChevronDown
+														className="opacity-50"
+														aria-hidden="true"
+													/>
 												</Button>
 											</DropdownMenuTrigger>
 											<DropdownMenuContent className="w-56 max-h-64 overflow-y-auto">
-												<div className="p-2">
-													<div className="text-xs font-medium text-muted-foreground mb-2">
-														Select status codes
-													</div>
-													{uniqueStatusCodes.map((code) => (
-														<button
-															key={code}
-															type="button"
-															className="flex items-center gap-2 p-2 hover:bg-accent rounded cursor-pointer w-full text-left"
-															onClick={() => toggleStatusCode(code.toString())}
+												<DropdownMenuLabel className="text-xs font-medium text-muted-foreground">
+													Select status codes
+												</DropdownMenuLabel>
+												{uniqueStatusCodes.map((code) => (
+													<DropdownMenuCheckboxItem
+														key={code}
+														className="min-h-11"
+														checked={statusCodeFilters.has(code.toString())}
+														onCheckedChange={() =>
+															toggleStatusCode(code.toString())
+														}
+														onSelect={(event) => event.preventDefault()}
+													>
+														<StatusPill
+															tone={httpStatusTone(code)}
+															className="tabular-nums"
 														>
-															<div
-																className={`w-4 h-4 border rounded-sm flex items-center justify-center ${
-																	statusCodeFilters.has(code.toString())
-																		? "bg-primary border-primary"
-																		: "border-input"
-																}`}
-															>
-																{statusCodeFilters.has(code.toString()) && (
-																	<svg
-																		className="w-3 h-3 text-primary-foreground"
-																		fill="none"
-																		viewBox="0 0 24 24"
-																		stroke="currentColor"
-																		aria-label="Selected"
-																	>
-																		<title>Selected</title>
-																		<path
-																			strokeLinecap="round"
-																			strokeLinejoin="round"
-																			strokeWidth={3}
-																			d="M5 13l4 4L19 7"
-																		/>
-																	</svg>
-																)}
-															</div>
-															<span
-																className={`text-sm font-medium ${getStatusCodeColor(code)}`}
-															>
-																{code}
-															</span>
-														</button>
-													))}
-												</div>
+															{code}
+														</StatusPill>
+													</DropdownMenuCheckboxItem>
+												))}
 											</DropdownMenuContent>
 										</DropdownMenu>
 									</div>
@@ -761,7 +685,9 @@ export function RequestsTab() {
 						<div className="space-y-2">
 							{filteredRequests.map((request) => {
 								const isExpanded = expandedRequests.has(request.id);
-								const isError = request.error || !request.meta.success;
+								const isError =
+									!request.meta.pending &&
+									Boolean(request.error || !request.meta.success);
 								const statusCode = request.response?.status;
 								const summary = data?.summaries.get(request.id);
 								const modelLabel = requestModelLabel(summary);
@@ -786,56 +712,51 @@ export function RequestsTab() {
 								const isAnthropicPeak =
 									oauthAccountNames.has(request.meta.accountName ?? "") &&
 									isAnthropicPeakHour(request.meta.timestamp);
-								const statusClass =
-									statusCode == null
-										? ""
-										: statusCode >= 200 && statusCode < 300
-											? "bg-green-500/10 text-green-600 dark:text-green-400"
-											: statusCode >= 400 && statusCode < 500
-												? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
-												: statusCode >= 500
-													? "bg-red-500/10 text-red-600 dark:text-red-400"
-													: "bg-muted text-muted-foreground";
 
 								return (
 									<div
 										key={request.id}
+										data-request-id={request.id}
 										className={`border rounded-lg transition-all duration-300 ${
 											isError ? "border-destructive/50" : "border-border"
-										} ${request.meta.pending ? "animate-pulse opacity-70" : "opacity-100"}`}
+										} ${request.meta.pending ? "animate-pulse motion-reduce:animate-none opacity-70" : "opacity-100"}`}
 									>
-										{/* Header row: single line, never wraps */}
+										{/* Header row: one line from sm up; below sm the path takes its own line */}
 										<div className="flex items-center gap-2 p-3">
 											<button
 												type="button"
-												className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer"
+												className="flex min-h-11 min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-left cursor-pointer sm:flex-nowrap"
 												onClick={() => toggleExpanded(request.id)}
 												aria-expanded={isExpanded}
 											>
 												{isExpanded ? (
-													<ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+													<ChevronDown
+														className="h-4 w-4 shrink-0 text-muted-foreground"
+														aria-hidden="true"
+													/>
 												) : (
-													<ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+													<ChevronRight
+														className="h-4 w-4 shrink-0 text-muted-foreground"
+														aria-hidden="true"
+													/>
 												)}
-												<span className="text-xs font-mono tabular-nums text-muted-foreground shrink-0">
-													{new Date(
-														request.meta.timestamp,
-													).toLocaleTimeString()}
-												</span>
-												{statusCode != null && (
-													<span
-														className={`text-xs font-mono font-semibold tabular-nums px-1.5 py-0.5 rounded shrink-0 ${statusClass}`}
-													>
-														{statusCode}
-													</span>
-												)}
+												<EventTime
+													value={request.meta.timestamp}
+													className="text-xs font-mono tabular-nums text-muted-foreground shrink-0 whitespace-nowrap"
+												/>
+												<RequestStatusPill
+													statusCode={statusCode}
+													pending={Boolean(request.meta.pending)}
+													isError={isError}
+													className="shrink-0"
+												/>
 												{method && (
 													<span className="text-xs font-semibold uppercase shrink-0">
 														{method}
 													</span>
 												)}
 												{path && (
-													<span className="text-xs font-mono text-muted-foreground truncate min-w-0 flex-1">
+													<span className="order-last basis-full truncate pl-6 text-xs font-mono text-muted-foreground min-w-0 sm:order-none sm:basis-auto sm:flex-1 sm:pl-0">
 														{path}
 													</span>
 												)}
@@ -860,16 +781,18 @@ export function RequestsTab() {
 											<div className="flex items-center gap-1 shrink-0">
 												<Button
 													variant="ghost"
-													size="icon"
+													size="touch-icon"
 													onClick={() => setModalRequest(request)}
 													title="View Details"
+													aria-label="View request details"
 												>
-													<Eye className="h-4 w-4" />
+													<Eye aria-hidden="true" />
 												</Button>
 												<CopyButton
 													variant="ghost"
-													size="icon"
+													size="touch-icon"
 													title="Copy as JSON"
+													label="Copy request as JSON"
 													getValueAsync={async () => {
 														const full = request.meta.bodiesOmitted
 															? await api.getRequestPayload(request.id)
@@ -950,10 +873,7 @@ export function RequestsTab() {
 													className="text-xs"
 												/>
 												{summary?.comboName && (
-													<Badge
-														variant="outline"
-														className="text-xs border-purple-500 text-purple-500"
-													>
+													<Badge variant="outline" className="text-xs">
 														Combo: {summary.comboName}
 													</Badge>
 												)}
@@ -974,20 +894,10 @@ export function RequestsTab() {
 													className="text-xs"
 												/>
 												{summary?.billingType === "overage" && (
-													<Badge
-														variant="outline"
-														className="text-xs border-orange-500 text-orange-500"
-													>
-														Overage
-													</Badge>
+													<StatusPill tone="warning">Overage</StatusPill>
 												)}
 												{summary?.billingType === "plan" && (
-													<Badge
-														variant="outline"
-														className="text-xs border-teal-500 text-teal-500"
-													>
-														Plan
-													</Badge>
+													<StatusPill tone="neutral">Plan</StatusPill>
 												)}
 												{summary?.tokensPerSecond != null &&
 													summary.tokensPerSecond > 0 && (
@@ -1001,24 +911,36 @@ export function RequestsTab() {
 													</span>
 												)}
 												{request.meta.rateLimited && (
-													<Badge variant="warning" className="text-xs">
-														Rate Limited
-													</Badge>
+													<StatusPill tone="warning">Rate limited</StatusPill>
 												)}
 												{(isZaiPeak || isAnthropicPeak) && (
-													<Badge
-														variant="outline"
-														className="text-xs border-orange-500 text-orange-500"
+													<StatusPill
+														tone="info"
+														title={
+															isZaiPeak
+																? "Sent during Z.ai peak hours (Mon–Fri 14:00–18:00 Singapore time)"
+																: "Sent during Anthropic peak hours (Mon–Fri 5–11 am Pacific)"
+														}
 													>
 														Peak
-													</Badge>
+													</StatusPill>
 												)}
 											</div>
 										)}
 
 										{request.error && (
-											<div className="text-xs text-destructive px-3 pb-2 pl-9 break-words">
-												Error: {request.error}
+											<div
+												className="flex items-start gap-1.5 px-3 pb-2 pl-9 text-xs text-destructive"
+												title={request.error}
+											>
+												<AlertCircle
+													className="mt-0.5 h-3.5 w-3.5 shrink-0"
+													aria-hidden="true"
+												/>
+												<p className="line-clamp-2 min-w-0 break-words">
+													<span className="sr-only">Error: </span>
+													{request.error}
+												</p>
 											</div>
 										)}
 
@@ -1030,11 +952,11 @@ export function RequestsTab() {
 												/>
 												<Button
 													variant="outline"
-													size="sm"
+													size="touch-sm"
 													onClick={() => setModalRequest(request)}
 													className="w-full"
 												>
-													<Eye className="h-4 w-4 mr-2" />
+													<Eye aria-hidden="true" />
 													View More Details
 												</Button>
 											</div>
