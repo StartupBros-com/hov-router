@@ -43,6 +43,36 @@ function safeErrorReason(e: unknown): string {
 	}
 }
 
+/** How the file sink is doing; surfaced on `/health` so dropped logs are visible. */
+export interface LogFileSinkStatus {
+	/** True while lines are being dropped because the log file cannot be written. */
+	suspended: boolean;
+	/** Lines dropped since the sink last worked. Resets when it resumes. */
+	dropped: number;
+	/** How many times the sink has failed since the process started. */
+	failures: number;
+	lastError: string | null;
+	lastErrorAt: number | null;
+}
+
+export interface LogFileWriterOptions {
+	/** First delay before the sink tries to reopen its file; doubles up to the cap. */
+	retryBaseMs?: number;
+}
+
+const RETRY_BASE_MS = 1000;
+const RETRY_MAX_MS = 30_000;
+
+/**
+ * Appends log events to `app.log`.
+ *
+ * The file is a convenience copy (the dashboard's log history reads it), so a
+ * log file that cannot be written must never cost more than the log lines
+ * themselves. A full disk used to end the whole process here: the write
+ * stream had no `error` listener, so its first ENOSPC surfaced as an uncaught
+ * exception. Now any failure suspends the sink, drops lines while suspended,
+ * and reopens the file with backoff. Nothing in this class throws.
+ */
 export class LogFileWriter implements Disposable {
 	private logDir: string;
 	private logFile: string;
@@ -50,37 +80,92 @@ export class LogFileWriter implements Disposable {
 	private maxFileSize = BUFFER_SIZES.LOG_FILE_MAX_SIZE;
 	private writeCount = 0;
 	private static readonly SIZE_CHECK_INTERVAL = 100;
+	private readonly retryBaseMs: number;
+	private retryDelayMs: number;
+	private suspendedUntil: number | null = null;
+	private dropped = 0;
+	private failures = 0;
+	private lastError: string | null = null;
+	private lastErrorAt: number | null = null;
 
-	constructor() {
+	constructor(options: LogFileWriterOptions = {}) {
+		this.retryBaseMs = options.retryBaseMs ?? RETRY_BASE_MS;
+		this.retryDelayMs = this.retryBaseMs;
 		// Use environment variable if set, otherwise use tmp folder
 		this.logDir =
 			process.env.BETTER_CCFLARE_LOG_DIR ||
 			join(tmpdir(), "better-ccflare-logs");
-		if (!existsSync(this.logDir)) {
-			mkdirSync(this.logDir, { recursive: true });
-		}
-
 		this.logFile = join(this.logDir, "app.log");
 		this.initStream();
 	}
 
+	status(): LogFileSinkStatus {
+		return {
+			suspended: this.suspendedUntil !== null,
+			dropped: this.dropped,
+			failures: this.failures,
+			lastError: this.lastError,
+			lastErrorAt: this.lastErrorAt,
+		};
+	}
+
+	/**
+	 * Stop writing until the backoff passes. The one stderr line per failure is
+	 * the only notice: routing it through the logger would call back into the
+	 * sink that just failed.
+	 */
+	private suspend(error: unknown): void {
+		const stream = this.stream;
+		this.stream = null;
+		try {
+			stream?.destroy();
+		} catch {
+			// The stream is already unusable.
+		}
+		this.failures++;
+		this.lastError = safeErrorReason(error);
+		this.lastErrorAt = Date.now();
+		this.suspendedUntil = Date.now() + this.retryDelayMs;
+		this.retryDelayMs = Math.min(this.retryDelayMs * 2, RETRY_MAX_MS);
+		try {
+			console.error(
+				`[logger] log file ${this.logFile} is not writable (${this.lastError}); dropping file log lines and retrying`,
+			);
+		} catch {
+			// stderr can be unwritable for the same reason the file is.
+		}
+	}
+
 	private initStream(): void {
-		// Close existing stream if any
-		if (this.stream && !this.stream.destroyed) {
-			this.stream.end();
-			this.stream = null;
-		}
-
-		// Check if we need to rotate
-		if (existsSync(this.logFile)) {
-			const stats = statSync(this.logFile);
-			if (stats.size > this.maxFileSize) {
-				this.rotateLog();
+		try {
+			// Close existing stream if any
+			if (this.stream && !this.stream.destroyed) {
+				this.stream.end();
+				this.stream = null;
 			}
-		}
 
-		// Create write stream with append mode
-		this.stream = createWriteStream(this.logFile, { flags: "a" });
+			if (!existsSync(this.logDir)) {
+				mkdirSync(this.logDir, { recursive: true });
+			}
+
+			// Check if we need to rotate
+			if (existsSync(this.logFile)) {
+				const stats = statSync(this.logFile);
+				if (stats.size > this.maxFileSize) {
+					this.rotateLog();
+				}
+			}
+
+			// Create write stream with append mode. Open and write failures arrive
+			// as `error` events; without a listener they are uncaught exceptions.
+			const stream = createWriteStream(this.logFile, { flags: "a" });
+			stream.on("error", (error) => {
+				if (this.stream === stream) this.suspend(error);
+			});
+			this.stream = stream;
+		} catch (error) {
+			this.suspend(error);
+		}
 	}
 
 	private rotateLog(): void {
@@ -114,7 +199,41 @@ export class LogFileWriter implements Disposable {
 	}
 
 	write(event: LogEvent): void {
-		if (!this.stream || this.stream.destroyed) {
+		try {
+			this.writeEvent(event);
+		} catch (error) {
+			// A logging call must never crash its caller.
+			this.dropped++;
+			this.suspend(error);
+		}
+	}
+
+	private writeEvent(event: LogEvent): void {
+		if (this.suspendedUntil !== null) {
+			if (Date.now() < this.suspendedUntil) {
+				this.dropped++;
+				return;
+			}
+			this.initStream();
+			if (!this.stream) {
+				this.dropped++;
+				return;
+			}
+			// Reopened. Whether the file is writable again is only known once a
+			// write completes, so the notice is the first line of the attempt.
+			const resumed: LogEvent = {
+				ts: Date.now(),
+				level: "WARN",
+				msg: `Log file sink resumed after dropping ${this.dropped} line(s): ${this.lastError ?? "unknown error"}`,
+			};
+			const stream = this.stream;
+			stream.write(`${JSON.stringify(resumed)}\n`, (error) => {
+				if (error || this.stream !== stream) return;
+				this.suspendedUntil = null;
+				this.dropped = 0;
+				this.retryDelayMs = this.retryBaseMs;
+			});
+		} else if (!this.stream || this.stream.destroyed) {
 			this.initStream();
 		}
 
@@ -153,6 +272,8 @@ export class LogFileWriter implements Disposable {
 		}
 		if (this.stream) {
 			this.stream.write(line);
+		} else {
+			this.dropped++;
 		}
 	}
 
