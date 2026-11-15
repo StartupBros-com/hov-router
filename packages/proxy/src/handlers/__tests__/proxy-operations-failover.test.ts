@@ -3920,6 +3920,12 @@ describe("proxyWithAccount — 401 failover", () => {
 		const upstream = mock(async () => jsonResponse({ ok: true }, 200));
 		globalThis.fetch = upstream as unknown as typeof fetch;
 		const ledger = new RoutingAttemptLedger();
+		// An earlier account in the same request was sent upstream and its
+		// outcome is still open, as it is after a 401 that failed over.
+		ledger.recordPhysicalAttempt({
+			accountId: "earlier-account",
+			provider: "claude-oauth",
+		});
 		const bodyBuffer = makeRequestBody();
 
 		try {
@@ -3968,6 +3974,15 @@ describe("proxyWithAccount — 401 failover", () => {
 		expect(account.expires_at).toBe(expiredAt);
 		expect(account.refresh_token).toBe("refresh-token");
 		expect(ctx.refreshInFlight.size).toBe(0);
+		// This account was never sent anywhere, so the request's attempt record
+		// gains nothing, and the earlier attempt is not marked as a transport
+		// failure it did not have.
+		expect(ledger.lastPhysicalObservation).toMatchObject({
+			ordinal: 1,
+			accountId: "earlier-account",
+			outcome: "pending",
+			cause: null,
+		});
 	});
 
 	it("does not failover on successful 200 response", async () => {
