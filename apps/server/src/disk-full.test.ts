@@ -219,6 +219,11 @@ describe.skipIf(strategy === null)(`a full disk, with ${mode}`, () => {
 		expect(report.schemaBehind?.refusal.join("\n")).toContain(
 			"Free space on that filesystem and start again",
 		);
+		// The start measured what the filesystem had left before it called
+		// the disk full. A measurement that failed would say so instead.
+		expect(report.schemaBehind?.refusal.join("\n")).toMatch(
+			/; \d+ bytes available\)/,
+		);
 	}, 300_000);
 
 	it("stops itself at its deadline and leaves no process behind", async () => {

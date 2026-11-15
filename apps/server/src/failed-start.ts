@@ -32,7 +32,10 @@ function refusedForSpace(error: unknown): boolean {
  * Out of space means the database open the start gave up on
  * (`StartOutOfSpaceError`) or a write that says the disk is full. An I/O
  * error is not that: it can come from a failing device, and a runner waiting
- * for space on a disk that is not full would wait for ever.
+ * for space on a disk that is not full would wait for ever. The database open
+ * holds to the same rule: the index I/O error it sees on a full disk becomes
+ * a `StartOutOfSpaceError` only when the filesystem is short of room as well
+ * (`openWithStartReserve`).
  */
 export function failedStartExitStatus(error: unknown): number {
 	return refusedForSpace(error) || isStorageFullError(error)

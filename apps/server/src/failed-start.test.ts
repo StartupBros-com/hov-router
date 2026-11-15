@@ -27,9 +27,10 @@ function coded(code: string, message = code): Error {
 describe("the exit status of a start that failed", () => {
 	it("is 28 when the database could not be opened for lack of space", () => {
 		// What SQLite says when it cannot rebuild its index is an I/O error
-		// code. The start has already decided that this one means "full".
+		// code. The open has already decided that this one means "full": the
+		// filesystem had no room either.
 		const refusal = new StartOutOfSpaceError(
-			{ dbPath: "/state/router.db", releasedBytes: 65_536 },
+			{ dbPath: "/state/router.db", releasedBytes: 65_536, availableBytes: 0 },
 			{ cause: coded("SQLITE_IOERR_SHMSIZE", "disk I/O error") },
 		);
 
@@ -113,7 +114,7 @@ describe("exitOnFailedStart", () => {
 
 	it("says in one line why a start found no space, and exits 28", () => {
 		const error = new StartOutOfSpaceError(
-			{ dbPath: "/state/router.db", releasedBytes: 0 },
+			{ dbPath: "/state/router.db", releasedBytes: 0, availableBytes: 4096 },
 			{ cause: coded("SQLITE_IOERR_SHMSIZE", "disk I/O error") },
 		);
 
@@ -125,6 +126,9 @@ describe("exitOnFailedStart", () => {
 		expect(lines[0].line).toContain("status 28");
 		expect(lines[0].line).toContain("StartOutOfSpaceError");
 		expect(lines[0].line).toContain("/state/router.db");
+		// What the filesystem had left, so the journal shows the open measured
+		// it before it called the disk full.
+		expect(lines[0].line).toContain("4096 bytes available");
 		expect(lines[0].line).toContain("SQLITE_IOERR_SHMSIZE");
 		expect(lines[0].line).toContain("disk I/O error");
 		expect(lines[0].line).not.toContain("\n");

@@ -237,6 +237,14 @@ guard children, and the journal gives the reason at every attempt. Any other
 failure is counted as before, and so is every failure after the stack was
 ready or during a deployment or rollback.
 
+The backend exits 28 only for a failure that says the disk is full. An I/O
+error exits 1 and is counted, because a failing device raises one on a disk
+with room. There is one exception: SQLite reports an index it could not
+rebuild at the database open as an I/O error, and the backend takes that for a
+full disk when the database's filesystem has less than 1 MiB available, or
+when that cannot be measured. The `[start] failed because there is no space
+left on the disk` line in the journal gives the bytes that were available.
+
 The runner keeps two sockets and the deploy credential in one control
 directory, made once per runner and kept until the runner stops. The managed
 drop-in sets `RuntimeDirectory=ccflare-stack` and `RuntimeDirectoryMode=0700`,

@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
-import { constants, rmSync, statSync } from "node:fs";
+import { constants, rmSync, statfsSync, statSync } from "node:fs";
 import { type FileHandle, open } from "node:fs/promises";
+import { dirname } from "node:path";
 import { isStorageFullError } from "@better-ccflare/core";
 
 /**
@@ -13,6 +14,15 @@ import { isStorageFullError } from "@better-ccflare/core";
  * (#827). Sixteen 4 KiB blocks cover the eight the rebuild writes twice over.
  */
 export const START_RESERVE_BYTES = 64 * 1024;
+
+/**
+ * How much the filesystem must have available before an index I/O error at
+ * the open is taken for something other than a full disk.
+ *
+ * Sixteen times the reserve, so the blocks a start has just released can
+ * never read as room.
+ */
+export const START_ROOM_BYTES = 1024 * 1024;
 
 const CHUNK_BYTES = 4096;
 const MAX_CAUSE_DEPTH = 8;
@@ -166,14 +176,28 @@ function describeError(error: unknown): string {
  */
 export class StartOutOfSpaceError extends Error {
 	readonly reserveReleased: boolean;
+	/**
+	 * What the database's filesystem had available when the start gave up, or
+	 * null when that could not be measured.
+	 */
+	readonly availableBytes: number | null;
 
 	constructor(
-		start: { dbPath: string; releasedBytes: number },
+		start: {
+			dbPath: string;
+			releasedBytes: number;
+			availableBytes?: number | null;
+		},
 		options: { cause: unknown },
 	) {
 		const { dbPath, releasedBytes } = start;
+		const availableBytes = start.availableBytes ?? null;
 		super(
-			`Cannot start: the database at ${dbPath} could not be opened because the disk has no space left (${describeError(options.cause)}). ${
+			`Cannot start: the database at ${dbPath} could not be opened because the disk has no space left (${describeError(options.cause)}; ${
+				availableBytes === null
+					? "the space available could not be measured"
+					: `${availableBytes} bytes available`
+			}). ${
 				releasedBytes > 0
 					? `Releasing the ${releasedBytes}-byte start reserve was not enough.`
 					: "There was no start reserve to release."
@@ -182,7 +206,50 @@ export class StartOutOfSpaceError extends Error {
 		);
 		this.name = "StartOutOfSpaceError";
 		this.reserveReleased = releasedBytes > 0;
+		this.availableBytes = availableBytes;
 	}
+}
+
+/** Bytes an unprivileged writer can still take on the filesystem of `directory`. */
+function availableBytesIn(directory: string): number {
+	const { bavail, bsize } = statfsSync(directory);
+	return Number(bavail) * Number(bsize);
+}
+
+/**
+ * Give up on a start whose open failed for lack of space, or pass the
+ * failure on when it was not that after all.
+ *
+ * SQLite's own "full" is believed as it is. An index I/O error is not: a
+ * failing device raises it on a disk with plenty of room, and the runner
+ * waits out a start refused for space for as long as it takes (#827). So that
+ * one is a refusal only when the filesystem is short of room as well. A
+ * measurement that fails counts as short: the outage was a runner that gave
+ * up, not one that waited.
+ */
+function refuseForSpace(
+	dbPath: string,
+	releasedBytes: number,
+	error: unknown,
+	measureAvailableBytes: (directory: string) => number,
+): never {
+	let availableBytes: number | null;
+	try {
+		availableBytes = measureAvailableBytes(dirname(dbPath));
+	} catch {
+		availableBytes = null;
+	}
+	if (
+		!isStorageFullError(error) &&
+		availableBytes !== null &&
+		availableBytes >= START_ROOM_BYTES
+	) {
+		throw error;
+	}
+	throw new StartOutOfSpaceError(
+		{ dbPath, releasedBytes, availableBytes },
+		{ cause: error },
+	);
 }
 
 /**
@@ -197,12 +264,14 @@ export class StartOutOfSpaceError extends Error {
  * is on its own.
  *
  * An open that still fails for lack of space throws `StartOutOfSpaceError`.
- * Any other failure is passed on as it is.
+ * Any other failure is passed on as it is, and so is an index I/O error on a
+ * filesystem that has room (`START_ROOM_BYTES`).
  */
 export function openWithStartReserve<T>(
 	dbPath: string,
 	openDatabase: () => T,
 	onRelease?: (bytes: number, error: unknown) => void,
+	measureAvailableBytes: (directory: string) => number = availableBytesIn,
 ): T {
 	try {
 		return openDatabase();
@@ -211,21 +280,13 @@ export function openWithStartReserve<T>(
 		// An in-memory database has no file, no reserve and no disk to free.
 		if (dbPath === ":memory:") throw error;
 		const { released, bytes } = releaseStartReserve(dbPath);
-		if (!released) {
-			throw new StartOutOfSpaceError(
-				{ dbPath, releasedBytes: 0 },
-				{ cause: error },
-			);
-		}
+		if (!released) refuseForSpace(dbPath, 0, error, measureAvailableBytes);
 		onRelease?.(bytes, error);
 		try {
 			return openDatabase();
 		} catch (secondError) {
 			if (!isOpenOutOfSpaceError(secondError)) throw secondError;
-			throw new StartOutOfSpaceError(
-				{ dbPath, releasedBytes: bytes },
-				{ cause: secondError },
-			);
+			refuseForSpace(dbPath, bytes, secondError, measureAvailableBytes);
 		}
 	}
 }
