@@ -17,6 +17,7 @@ import {
 	expect,
 	it,
 	mock,
+	setSystemTime,
 	spyOn,
 } from "bun:test";
 import { randomBytes } from "node:crypto";
@@ -25,6 +26,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Logger } from "@better-ccflare/logger";
 import type { Account } from "@better-ccflare/types";
+import { TOKEN_REFRESH_BACKOFF_MS } from "../../constants";
 import {
 	clearAllPendingRotationsForTests,
 	configurePendingRotationPersistence,
@@ -845,5 +847,75 @@ describe("a rotated refresh token whose database write fails", () => {
 
 		expect(sentRefreshTokens).toEqual(["rt-old"]);
 		expect(second.refresh_token).toBe("refresh-1");
+	});
+
+	it("does not send the spent refresh token again when the slot cannot be written either", async () => {
+		// The database write fails and so does the slot: a failing device, or a
+		// filesystem that allocates on overwrite. The refresh path handles this
+		// as it did before slots existed: the refresh fails and starts its
+		// backoff, and the rotation is held in memory only. What must not
+		// happen is the spent refresh token going back to the provider, which
+		// would answer invalid_grant and get a healthy account flagged.
+		const store = openStore();
+		configurePendingRotationPersistence({
+			...store,
+			save: async () => {
+				throw Object.assign(new Error("EIO: i/o error, write"), {
+					code: "EIO",
+				});
+			},
+		});
+		const row = storedRow("slot-unwritable");
+		const failing = makeContext(row);
+		failing.dbOps.updateAccountTokensIfRefreshTokenMatches.mockImplementation(
+			async () => {
+				throw databaseFull();
+			},
+		);
+		const sentRefreshTokens: string[] = [];
+		global.fetch = mock(async (_url: unknown, init?: RequestInit) => {
+			sentRefreshTokens.push(
+				new URLSearchParams(String(init?.body)).get("refresh_token") ?? "",
+			);
+			const call = sentRefreshTokens.length;
+			return new Response(
+				JSON.stringify({
+					access_token: `access-${call}`,
+					refresh_token: `refresh-${call}`,
+					expires_in: 3600,
+				}),
+				{ status: 200, headers: { "content-type": "application/json" } },
+			);
+		}) as unknown as typeof fetch;
+
+		await expect(
+			getValidAccessToken({ ...row }, failing.ctx as never),
+		).rejects.toThrow();
+		expect(sentRefreshTokens).toEqual(["rt-old"]);
+
+		// Inside the backoff nothing is sent at all.
+		await expect(
+			getValidAccessToken({ ...row }, failing.ctx as never),
+		).rejects.toThrow("backoff period");
+		expect(sentRefreshTokens).toEqual(["rt-old"]);
+
+		// After it, the rotation held in memory is served, and its refresh
+		// token is the one the account carries from then on.
+		setSystemTime(Date.now() + TOKEN_REFRESH_BACKOFF_MS + 1_000);
+		try {
+			const later = { ...row };
+			await expect(
+				getValidAccessToken(later, failing.ctx as never),
+			).resolves.toBe("access-1");
+			expect(later.refresh_token).toBe("refresh-1");
+		} finally {
+			setSystemTime();
+		}
+		expect(sentRefreshTokens).toEqual(["rt-old"]);
+		expect(
+			failing.dbOps.flagRequiresReauthIfTokenMatches,
+		).not.toHaveBeenCalled();
+		expect(failing.dbOps.pauseAccountIfActive).not.toHaveBeenCalled();
+		expect(failing.dbOps.setRequiresReauth).not.toHaveBeenCalled();
 	});
 });

@@ -98,8 +98,12 @@ export function composePendingRotationStores(
 		},
 
 		async remove(accountId): Promise<void> {
-			await slots.clear(accountId);
+			// The legacy file goes first. If it cannot be removed the slot keeps
+			// its rotation, which is the newer of the two, and the next load puts
+			// the slot ahead of the file. Cleared first, the slot would leave that
+			// load nothing but the older rotation to restore.
 			await legacy.remove(accountId);
+			await slots.clear(accountId);
 		},
 
 		async discard(accountId): Promise<void> {

@@ -1657,10 +1657,15 @@ export async function getValidAccessToken(
 		return await refreshAccessTokenSafe(account, ctx);
 	} catch (error) {
 		// A token is renewed well before it expires. When that early refresh is
-		// refused for lack of disk space (#827) the provider still takes the
-		// stored token, so the request is sent with it. A token the provider has
-		// turned down never comes this way: the upstream-401 path asks for its
-		// refresh directly and gets the refusal.
+		// refused for lack of disk space (#827) the provider normally still
+		// takes the stored token, so the request is sent with it.
+		//
+		// Nothing here knows whether the provider has already turned that token
+		// down. The upstream-401 path asks for its refresh directly, gets the
+		// refusal and moves the request to another account, but it leaves no
+		// mark, so the next request sends the same token and pays the same 401
+		// before moving on. That lasts until a slot can be made or the token
+		// expires.
 		if (
 			error instanceof RefreshStorageUnavailableError &&
 			account.access_token &&

@@ -4,6 +4,7 @@ import {
 	chmodSync,
 	closeSync,
 	copyFileSync,
+	lstatSync,
 	mkdirSync,
 	mkdtempSync,
 	openSync,
@@ -11,6 +12,7 @@ import {
 	readFileSync,
 	rmSync,
 	statSync,
+	symlinkSync,
 	writeFileSync,
 	writeSync,
 } from "node:fs";
@@ -278,6 +280,26 @@ describe("pending rotation slots", () => {
 			expect(readdirSync(directory)).toEqual([]);
 		},
 	);
+
+	it("does not take a slot path it cannot examine for a missing slot", async () => {
+		// Only "no such file" means there is no slot. A slot made on any other
+		// failure would be renamed over whatever the path holds, and that can
+		// be a rotation. A link to itself is a path that exists and cannot be
+		// examined.
+		const store = open();
+		const path = slotPath("account-1");
+		symlinkSync(path, path);
+
+		await expect(store.reserve("account-1")).rejects.toMatchObject({
+			code: "ELOOP",
+		});
+		await expect(store.save("account-1", rotation)).rejects.toMatchObject({
+			code: "ELOOP",
+		});
+
+		expect(lstatSync(path).isSymbolicLink()).toBe(true);
+		expect(readdirSync(directory)).toEqual([slotName("account-1")]);
+	});
 
 	it("does not store plaintext tokens", async () => {
 		await open().save("account-1", rotation);

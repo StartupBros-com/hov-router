@@ -307,6 +307,39 @@ describe("pending rotation store failure handling", () => {
 		await expect(store.remove("account-1")).rejects.toThrow("EACCES");
 	});
 
+	it("keeps the slot's rotation ahead of a legacy file that could not be removed", async () => {
+		// An older rotation sits in a legacy file that cannot be unlinked. Were
+		// the slot cleared first, the next start would find a cleared slot
+		// beside that file and restore the older rotation, whose refresh token
+		// the provider has already seen spent.
+		const stuckLegacy = fakeLegacy({
+			load: mock(async () => [
+				{ accountId: "account-1", rotation: rotation("old") },
+			]),
+			remove: mock(async () => {
+				throw new Error("EACCES: permission denied, unlink");
+			}),
+		});
+		const store = composePendingRotationStores({
+			slots: realSlots(),
+			legacy: stuckLegacy,
+			log: makeLog(),
+		});
+		await store.save("account-1", rotation("new"));
+
+		await expect(store.remove("account-1")).rejects.toThrow("EACCES");
+
+		// The next start, over the same directory.
+		const next = composePendingRotationStores({
+			slots: realSlots(),
+			legacy: stuckLegacy,
+			log: makeLog(),
+		});
+		expect(await next.load()).toEqual([
+			{ accountId: "account-1", rotation: rotation("new") },
+		]);
+	});
+
 	describe("reservation that fails for lack of space", () => {
 		it("is not retried for the same account until the retry delay has passed", async () => {
 			let now = 1_000;

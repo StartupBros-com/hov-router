@@ -29,9 +29,15 @@ import { assertPendingRotation } from "./pending-rotation-wal";
  *
  * The temp-file-and-rename `.wal` store needs fresh disk blocks for every save,
  * so on a full disk a rotated refresh token cannot be saved. A slot is
- * allocated once, with real bytes, while there is space, and every later save
+ * written out in full once, while there is space, and every later save
  * overwrites it in place: no truncate, no rename, no unlink, so no block is
  * ever released for another writer to take.
+ *
+ * That holds on a filesystem that overwrites a file's blocks where they are
+ * (measured on ext4 and tmpfs). One that allocates new blocks on every write
+ * (btrfs, ZFS), or that keeps a run of zeros in no blocks at all, can still
+ * fail a save for lack of space. The refresh then fails the way it did before
+ * slots.
  *
  * The file holds two records (A and B). A save writes the record that is not
  * current, with a higher sequence, so a write cut short leaves the previous
@@ -261,8 +267,12 @@ export function createPendingRotationSlotStore(
 	const hasFullSlot = (path: string): boolean => {
 		try {
 			return statSync(path).size === SLOT_FILE_BYTES;
-		} catch {
-			return false;
+		} catch (error) {
+			// Only a missing file means there is no slot. Any other failure says
+			// nothing about what the path holds, and a slot made on that guess
+			// would be renamed over one that may hold a rotation.
+			if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+			throw error;
 		}
 	};
 
