@@ -565,8 +565,12 @@ async function client(dir, command) {
  * Store the listener's credential. A runner keeps its control directory from
  * one start to the next, so the last listener's credential file is usually
  * there, and writing over it needs no new block where making it again would.
+ *
+ * Returns "in-place" when the file was written over as it stood, and
+ * "replaced" when it was made or cut to length first. The file looks the same
+ * afterwards either way, so this is the only way to tell which happened.
  */
-function writeCredential(path, credential) {
+export function writeCredential(path, credential) {
 	let fd;
 	try {
 		fd = openSync(path, "r+");
@@ -578,7 +582,7 @@ function writeCredential(path, credential) {
 			if (fstatSync(fd).size === credential.length) {
 				fchmodSync(fd, 0o600);
 				writeSync(fd, credential, 0);
-				return;
+				return "in-place";
 			}
 		} finally {
 			closeSync(fd);
@@ -586,6 +590,7 @@ function writeCredential(path, credential) {
 	}
 	writeFileSync(path, credential, { mode: 0o600 });
 	chmodSync(path, 0o600);
+	return "replaced";
 }
 const RECORD_RETRY_BASE_MS = 250;
 const RECORD_RETRY_MAX_MS = 30_000;

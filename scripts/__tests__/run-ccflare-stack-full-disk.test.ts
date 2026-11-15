@@ -222,7 +222,7 @@ describe("the runner's control directory", () => {
 		expect(after.controlDir).toBe(before.controlDir);
 		expect(controlDirsIn(where.tmp)).toHaveLength(1);
 		expect(after.oldPid).not.toBe(before.oldPid);
-		// The new listener has a new credential, written over the old one.
+		// The new listener has a new credential, in the same file.
 		expect(statSync(credentialPath).ino).toBe(inode);
 		expect(readFileSync(credentialPath, "utf8")).not.toBe(credential);
 		expect(readFileSync(credentialPath, "utf8")).toMatch(
@@ -264,8 +264,9 @@ describe("the runner's control directory", () => {
 		const runtime = await runtimeRecord(runner);
 		expect(await appears(join(runtime.controlDir, "deploy.sock"))).toBe(true);
 
-		// The same file, so the listener wrote over it: the length the runner
-		// holds is the length of the credential.
+		// The same file the runner put back: the listener made no other. That
+		// a file of this length is written over in place is checked on the
+		// write itself, in the transaction module's own tests.
 		expect(runtime.controlDir).toBe(join(where.tmp, name ?? ""));
 		expect(statSync(credentialPath).ino).toBe(replaced);
 		expect(replaced).not.toBe(0);
@@ -390,6 +391,32 @@ describe("a start that fails because the disk is full", () => {
 		});
 		expect(runner.exited()).toBeNull();
 	}, 30_000);
+
+	test("never waits less than a second, even with the backoff set to nothing", async () => {
+		const where = layout();
+		const runner = await start(where, {
+			RUNNER_RESTART_MAX_FAILURES: "3",
+			RUNNER_RESTART_BACKOFF_BASE_MS: "0",
+			RUNNER_RESTART_BACKOFF_MAX_MS: "0",
+		});
+		runner.refuseBackendStart(OUT_OF_SPACE_EXIT_STATUS);
+
+		await runner.waitForOutput(WAITING);
+		const firstWaitSeen = Date.now();
+		await runner.waitForOutput(WAITING, { times: 3 });
+		const elapsedMs = Date.now() - firstWaitSeen;
+
+		// A backoff of 0 is allowed, and the circuit bounds what it costs for
+		// a failure that is counted. Nothing bounds this wait: with no delay
+		// the runner would start backends as fast as they can exit for as
+		// long as the disk stays full.
+		expect(runner.output()).toContain("attempt=1; backoff_ms=1000");
+		expect(runner.output()).toContain("attempt=2; backoff_ms=1000");
+		// Two full waits lie between the first notice and the third.
+		expect(elapsedMs).toBeGreaterThanOrEqual(1_500);
+		expect(runner.exited()).toBeNull();
+		expect(runner.count(CIRCUIT_OPEN)).toBe(0);
+	}, 30_000);
 });
 
 describe("a start that fails for any other reason", () => {
@@ -470,7 +497,11 @@ interface DriverReport {
 	/** The `no-record` scenario only. */
 	noRecord: { ready: number; waitNotices: number; available: number };
 	recorded: { runtime: { oldPid: number }; owner: { pid: number } };
-	stop: { exit: { code: number | null }; processesLeft: number[] };
+	stop: {
+		exit: { code: number | null };
+		listenersSeenBeforeStop: number;
+		processesLeft: number[];
+	};
 	runnerOutput: string[][];
 }
 
@@ -584,8 +615,10 @@ describe.skipIf(strategy === null)(
 				});
 				// Once space was back, the record named the backend in service.
 				expect(report.recorded.runtime.oldPid).toBe(report.recorded.owner.pid);
-				// A stop while a listener waited.
+				// A stop while a listener waited. The search that found nothing
+				// left had seen that listener before the stop.
 				expect(report.stop.exit.code).toBe(143);
+				expect(report.stop.listenersSeenBeforeStop).toBe(1);
 				expect(report.stop.processesLeft).toEqual([]);
 			}, 180_000);
 		}

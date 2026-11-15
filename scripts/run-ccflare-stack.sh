@@ -78,6 +78,10 @@ RUNNER_CIRCUIT_EXIT_STATUS=75
 # ENOSPC. The transaction module's ownership commands and the backend's own
 # start both use it, and nothing else does.
 OUT_OF_SPACE_EXIT_STATUS=28
+# The shortest wait for space. The restart backoff may be set to 0, and for a
+# counted failure the circuit bounds what that costs. Nothing bounds the wait
+# for space, so it never goes below this.
+OUT_OF_SPACE_MIN_WAIT_MS=1000
 RUNNER_PERSISTENT_GUARD=${RUNNER_PERSISTENT_GUARD:-1}
 case "$RUNNER_PERSISTENT_GUARD" in 0 | 1) ;; *) printf 'invalid RUNNER_PERSISTENT_GUARD\n' >&2; exit 64 ;; esac
 TRANSACTION_MODULE="$(dirname "${BASH_SOURCE[0]}")/ccflare-deployment-transaction.mjs"
@@ -1229,6 +1233,9 @@ schedule_restart() {
 	if [[ -n "$start_out_of_space" ]] && ((stack_started_ms == 0 && !pending_deployment && !pending_rollback)); then
 		((out_of_space_retry_count += 1))
 		delay="$(restart_backoff_ms "$out_of_space_retry_count")"
+		if ((delay == 0)); then
+			delay=$OUT_OF_SPACE_MIN_WAIT_MS
+		fi
 		log "start failed for lack of disk space; waiting for space instead of opening the restart circuit; step=${start_out_of_space}; attempt=${out_of_space_retry_count}; backoff_ms=${delay}"
 		sleep_ms "$delay"
 		return 0

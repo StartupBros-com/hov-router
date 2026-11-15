@@ -352,6 +352,22 @@ async function restarts(first: RunnerFixture, withSpace: Runtime) {
 	);
 }
 
+/** Of these processes, the ones that are a deploy listener. */
+function listenersAmong(pids: number[]): number[] {
+	return pids.filter((pid) => {
+		try {
+			const args = readFileSync(`/proc/${pid}/cmdline`, "utf8").split("\0");
+			return (
+				args.includes("serve") &&
+				args.some((arg) => arg.endsWith("ccflare-deployment-transaction.mjs"))
+			);
+		} catch {
+			// Gone already.
+			return false;
+		}
+	});
+}
+
 async function listenerWithNoRecord(first: RunnerFixture, withSpace: Runtime) {
 	const record = join(first.handoff, "runtime.json");
 	const socket = join(withSpace.controlDir, "deploy.sock");
@@ -416,6 +432,14 @@ async function listenerWithNoRecord(first: RunnerFixture, withSpace: Runtime) {
 	await first.waitForOutput(READY, { times: 3, timeoutMs: 40_000 });
 	await first.waitForOutput(LISTENER_WAITING, { times: 2, timeoutMs: 15_000 });
 	checkStillStanding(first, step);
+	// The search that says nothing was left must be able to see what a stop
+	// could leave: the listener that is waiting now.
+	const seenBefore = processesNaming(first.handoff);
+	const listenersBefore = listenersAmong(seenBefore);
+	check(
+		listenersBefore.length === 1,
+		`${step}: the process search sees ${listenersBefore.length} waiting listener(s) among ${seenBefore.join(", ")}`,
+	);
 	const stopped = await first.stop();
 	check(
 		stopped.code === STOPPED_EXIT_STATUS,
@@ -428,11 +452,21 @@ async function listenerWithNoRecord(first: RunnerFixture, withSpace: Runtime) {
 	);
 	check(staged(first).length === 0, `${step}: staged files were left`);
 	check(!existsSync(record), `${step}: a record was written`);
-	// The runner and all it started carry the handoff directory's path.
-	await Bun.sleep(200);
-	const left = processesNaming(first.handoff);
+	// The runner and all it started carry the handoff directory's path. A
+	// child the runner has signalled can take a moment to go.
+	const goneBy = Date.now() + 5_000;
+	let left = processesNaming(first.handoff);
+	while (left.length > 0 && Date.now() < goneBy) {
+		await Bun.sleep(50);
+		left = processesNaming(first.handoff);
+	}
 	check(left.length === 0, `${step}: processes were left: ${left.join(", ")}`);
-	report.stop = { exit: stopped, recover: recovered, processesLeft: left };
+	report.stop = {
+		exit: stopped,
+		recover: recovered,
+		listenersSeenBeforeStop: listenersBefore.length,
+		processesLeft: left,
+	};
 }
 
 try {

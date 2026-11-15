@@ -34,6 +34,7 @@ import {
 	recordReapedBackendOwner,
 	recordWhenThereIsSpace,
 	recoverTransaction,
+	writeCredential,
 } from "../ccflare-deployment-transaction.mjs";
 import { resolveNodeExecutable } from "./node-runtime";
 
@@ -419,6 +420,47 @@ describe("the deploy listener's record", () => {
 	});
 });
 
+describe("the deploy listener's credential file", () => {
+	// Afterwards a file written over in place and one cut to nothing and
+	// written again look the same: same inode, same bytes, same mode. Only the
+	// second gives its block away first, which on a full disk another writer
+	// can take. So the write says which it did, as a record write does.
+	test("is written over in place when it already has the credential's length", () => {
+		const path = join(scratch(), "deploy-credential");
+		writeFileSync(path, " ".repeat(43), { mode: 0o644 });
+		const before = statSync(path).ino;
+		const credential = "c".repeat(43);
+
+		expect(writeCredential(path, credential)).toBe("in-place");
+
+		expect(readFileSync(path, "utf8")).toBe(credential);
+		expect(statSync(path).ino).toBe(before);
+		expect(statSync(path).mode & 0o777).toBe(0o600);
+	});
+
+	test("is replaced when it has any other length", () => {
+		const path = join(scratch(), "deploy-credential");
+		writeFileSync(path, "x".repeat(44), { mode: 0o644 });
+		const credential = "c".repeat(43);
+
+		expect(writeCredential(path, credential)).toBe("replaced");
+
+		// Nothing of the longer file is left past the credential.
+		expect(readFileSync(path, "utf8")).toBe(credential);
+		expect(statSync(path).mode & 0o777).toBe(0o600);
+	});
+
+	test("is made when there is none", () => {
+		const path = join(scratch(), "deploy-credential");
+		const credential = "c".repeat(43);
+
+		expect(writeCredential(path, credential)).toBe("replaced");
+
+		expect(readFileSync(path, "utf8")).toBe(credential);
+		expect(statSync(path).mode & 0o777).toBe(0o600);
+	});
+});
+
 describe("the deploy listener's start", () => {
 	const runtime = (control: string, pin: string) => ({
 		generation: 1,
@@ -515,10 +557,11 @@ describe("the deploy listener's start", () => {
 		expect(result.stderr).toContain("CCFLARE_DEPLOYMENT_RUNTIME");
 	});
 
-	test("writes its credential over the one already there", async () => {
+	test("puts its credential in the file already there", async () => {
 		// A runner that keeps its control directory keeps the last listener's
-		// credential file. Writing over it needs no block; making it again
-		// does.
+		// credential file, and the listener uses that file: it does not make
+		// another. That it writes over it in place is checked on the write
+		// itself, above; the file would look the same here either way.
 		const dir = scratch();
 		const control = join(dir, "control");
 		const handoff = join(dir, "handoff");
