@@ -169,6 +169,7 @@ export type {
 export {
 	armStartReserve,
 	START_RESERVE_BYTES,
+	StartOutOfSpaceError,
 	type StartReserveArmResult,
 	startReservePath,
 } from "./start-reserve";

@@ -15,8 +15,18 @@ import {
 	openWithStartReserve,
 	releaseStartReserve,
 	START_RESERVE_BYTES,
+	StartOutOfSpaceError,
 	startReservePath,
 } from "../start-reserve";
+
+function thrownBy(run: () => unknown): unknown {
+	try {
+		run();
+	} catch (error) {
+		return error;
+	}
+	throw new Error("nothing was thrown");
+}
 
 function codedError(code: string, message = "disk I/O error"): Error {
 	return Object.assign(new Error(message), { code });
@@ -205,23 +215,60 @@ describe("start reserve", () => {
 			expect(statSync(startReservePath(dbPath)).size).toBe(START_RESERVE_BYTES);
 		});
 
-		it("rethrows without a second open when there is no reserve to release", () => {
+		it("refuses by name, without a second open, when there is no reserve to release", () => {
 			let calls = 0;
 			const failure = codedError("SQLITE_IOERR_SHMSIZE");
 
-			expect(() =>
+			const refusal = thrownBy(() =>
 				openWithStartReserve(dbPath, () => {
 					calls++;
 					throw failure;
 				}),
-			).toThrow(failure);
+			) as StartOutOfSpaceError;
+
+			expect(refusal).toBeInstanceOf(StartOutOfSpaceError);
+			expect(refusal.cause).toBe(failure);
+			expect(refusal.reserveReleased).toBe(false);
+			expect(refusal.message).toContain(dbPath);
+			expect(refusal.message).toContain("disk I/O error");
+			expect(refusal.message).toContain("no start reserve");
+			expect(refusal.message).toContain("Free space");
 			expect(calls).toBe(1);
 		});
 
-		it("throws the second failure when the reserve was not enough", async () => {
+		it("refuses by name, with the second failure, when the reserve was not enough", async () => {
 			await armStartReserve(dbPath);
 			let calls = 0;
-			const second = codedError("SQLITE_IOERR_SHMSIZE", "still full");
+			const second = codedError("SQLITE_FULL", "database or disk is full");
+
+			const refusal = thrownBy(() =>
+				openWithStartReserve(dbPath, () => {
+					calls++;
+					throw calls === 1 ? codedError("SQLITE_IOERR_SHMSIZE") : second;
+				}),
+			) as StartOutOfSpaceError;
+
+			expect(refusal).toBeInstanceOf(StartOutOfSpaceError);
+			expect(refusal.cause).toBe(second);
+			expect(refusal.reserveReleased).toBe(true);
+			expect(refusal.message).toContain(dbPath);
+			expect(refusal.message).toContain("database or disk is full");
+			expect(refusal.message).toContain(
+				`${START_RESERVE_BYTES}-byte start reserve`,
+			);
+			// Still a full-disk error to anything that asks.
+			expect(isOpenOutOfSpaceError(refusal)).toBe(true);
+			expect(calls).toBe(2);
+			expect(existsSync(startReservePath(dbPath))).toBe(false);
+		});
+
+		it("passes on a second failure that is not about space as it is", async () => {
+			await armStartReserve(dbPath);
+			let calls = 0;
+			const second = codedError(
+				"SQLITE_CORRUPT",
+				"database disk image is malformed",
+			);
 
 			expect(() =>
 				openWithStartReserve(dbPath, () => {
@@ -230,7 +277,6 @@ describe("start reserve", () => {
 				}),
 			).toThrow(second);
 			expect(calls).toBe(2);
-			expect(existsSync(startReservePath(dbPath))).toBe(false);
 		});
 
 		it("never touches a reserve for an in-memory database", () => {

@@ -152,6 +152,39 @@ export function isOpenOutOfSpaceError(error: unknown): boolean {
 	return false;
 }
 
+function describeError(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * A start that could not open the database because the disk has no space
+ * left, and had no reserve, or not enough of one, to get past it (#827).
+ *
+ * The start stops here. A server that came up without the database, or on a
+ * schema it could not finish updating, would be worse than one that says
+ * why it did not. `cause` holds what SQLite reported.
+ */
+export class StartOutOfSpaceError extends Error {
+	readonly reserveReleased: boolean;
+
+	constructor(
+		start: { dbPath: string; releasedBytes: number },
+		options: { cause: unknown },
+	) {
+		const { dbPath, releasedBytes } = start;
+		super(
+			`Cannot start: the database at ${dbPath} could not be opened because the disk has no space left (${describeError(options.cause)}). ${
+				releasedBytes > 0
+					? `Releasing the ${releasedBytes}-byte start reserve was not enough.`
+					: "There was no start reserve to release."
+			} Free space on that filesystem and start again.`,
+			options,
+		);
+		this.name = "StartOutOfSpaceError";
+		this.reserveReleased = releasedBytes > 0;
+	}
+}
+
 /**
  * Open the database, and when the open fails for lack of space, release the
  * start reserve and open once more.
@@ -162,6 +195,9 @@ export function isOpenOutOfSpaceError(error: unknown): boolean {
  * One start per reserve: once spent it can only be put back when space
  * returns (`armStartReserve`), so a second start on a disk that stayed full
  * is on its own.
+ *
+ * An open that still fails for lack of space throws `StartOutOfSpaceError`.
+ * Any other failure is passed on as it is.
  */
 export function openWithStartReserve<T>(
 	dbPath: string,
@@ -172,9 +208,24 @@ export function openWithStartReserve<T>(
 		return openDatabase();
 	} catch (error) {
 		if (!isOpenOutOfSpaceError(error)) throw error;
+		// An in-memory database has no file, no reserve and no disk to free.
+		if (dbPath === ":memory:") throw error;
 		const { released, bytes } = releaseStartReserve(dbPath);
-		if (!released) throw error;
+		if (!released) {
+			throw new StartOutOfSpaceError(
+				{ dbPath, releasedBytes: 0 },
+				{ cause: error },
+			);
+		}
 		onRelease?.(bytes, error);
-		return openDatabase();
+		try {
+			return openDatabase();
+		} catch (secondError) {
+			if (!isOpenOutOfSpaceError(secondError)) throw secondError;
+			throw new StartOutOfSpaceError(
+				{ dbPath, releasedBytes: bytes },
+				{ cause: secondError },
+			);
+		}
 	}
 }
