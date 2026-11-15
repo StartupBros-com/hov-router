@@ -7,7 +7,8 @@
  * These cover the write that needs no new block, and the three things that
  * keep it honest: it is taken only for a full disk, it never leaves a record
  * the next start cannot read, and it never leaves the ownership record saying
- * a backend may be starting once that backend has been reaped.
+ * a backend may be starting once that backend has been reaped. They also
+ * cover the listener with no record to write over, which waits for space.
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawn, spawnSync } from "node:child_process";
@@ -31,6 +32,7 @@ import {
 	processExists,
 	recordBackendOwner,
 	recordReapedBackendOwner,
+	recordWhenThereIsSpace,
 	recoverTransaction,
 } from "../ccflare-deployment-transaction.mjs";
 import { resolveNodeExecutable } from "./node-runtime";
@@ -304,6 +306,116 @@ describe("the ownership commands", () => {
 		expect(OUT_OF_SPACE_EXIT_STATUS).toBe(28);
 		// 66 memory recycle, 67 deployment, 70 held, 75 circuit open.
 		expect([66, 67, 70, 75, 143]).not.toContain(OUT_OF_SPACE_EXIT_STATUS);
+	});
+});
+
+describe("the deploy listener's record", () => {
+	// The listener starts once the stack is ready, and the runner takes a
+	// listener that exits for a stack that failed. So a listener that cannot
+	// write its record for lack of space waits; it must not exit.
+	function quiet() {
+		const slept: number[] = [];
+		const said: string[] = [];
+		return {
+			slept,
+			said,
+			sleep: async (ms: number) => {
+				slept.push(ms);
+			},
+			log: (line: string) => {
+				said.push(line);
+			},
+		};
+	}
+	/** Finds no space `times` times, then writes. */
+	function refusing(times: number) {
+		let left = times;
+		return (fd: number, text: string) => {
+			if (left-- > 0) throw failure("ENOSPC");
+			writeFileSync(fd, text);
+		};
+	}
+
+	test("waits for space when there is no record to write over, and says so once", async () => {
+		// An install whose disk filled before its first listener had recorded
+		// itself: three listener exits and the runner gave up, with a backend
+		// that had started every time.
+		const dir = scratch();
+		const path = join(dir, "runtime.json");
+		const { slept, said, sleep, log } = quiet();
+
+		const how = await recordWhenThereIsSpace(
+			path,
+			{ generation: 1 },
+			{ write: refusing(3), sleep, log },
+		);
+
+		expect(how).toBe("staged");
+		expect(read(path)).toEqual({ generation: 1 });
+		expect(slept).toHaveLength(3);
+		expect(said).toHaveLength(2);
+		expect(said[0]).toContain("no space to record the deploy listener");
+		expect(said[1]).toContain("the deploy listener is recorded");
+		expect(staged(dir)).toEqual([]);
+	});
+
+	test("waits longer each time, up to a cap", async () => {
+		const dir = scratch();
+		const { slept, sleep, log } = quiet();
+
+		await recordWhenThereIsSpace(
+			join(dir, "runtime.json"),
+			{ generation: 1 },
+			{ write: refusing(12), sleep, log },
+		);
+
+		expect(slept).toHaveLength(12);
+		for (let at = 1; at < slept.length; at++)
+			expect(slept[at]).toBeGreaterThanOrEqual(slept[at - 1]);
+		expect(slept[0]).toBeLessThan(slept[11]);
+		expect(slept[11]).toBe(slept[10]);
+		expect(slept[11]).toBeLessThanOrEqual(30_000);
+	});
+
+	test("writes over the last listener's record without waiting", async () => {
+		const dir = scratch();
+		const path = join(dir, "runtime.json");
+		durableWrite(path, { generation: 1, controlDir: "/run/ccflare-stack/a" });
+		const { slept, said, sleep, log } = quiet();
+
+		const how = await recordWhenThereIsSpace(
+			path,
+			{ generation: 2 },
+			{ ...noSpace, sleep, log },
+		);
+
+		expect(how).toBe("in-place");
+		expect(read(path)).toEqual({ generation: 2 });
+		expect(slept).toEqual([]);
+		expect(said).toEqual([]);
+	});
+
+	test("does not wait for anything but a full disk", async () => {
+		// An I/O error can mean a failing device, and no amount of waiting
+		// brings that back. The listener exits, as it always has.
+		const dir = scratch();
+		const { slept, said, sleep, log } = quiet();
+
+		await expect(
+			recordWhenThereIsSpace(
+				join(dir, "runtime.json"),
+				{ generation: 1 },
+				{
+					write: () => {
+						throw failure("EIO");
+					},
+					sleep,
+					log,
+				},
+			),
+		).rejects.toThrow("EIO");
+		expect(slept).toEqual([]);
+		expect(said).toEqual([]);
 	});
 });
 

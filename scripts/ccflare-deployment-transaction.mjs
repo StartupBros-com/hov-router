@@ -587,26 +587,94 @@ function writeCredential(path, credential) {
 	writeFileSync(path, credential, { mode: 0o600 });
 	chmodSync(path, 0o600);
 }
+const RECORD_RETRY_BASE_MS = 250;
+const RECORD_RETRY_MAX_MS = 30_000;
+/**
+ * Write the record a deploy finds the listener by (`runtime.json`), waiting
+ * for space when there is none. Resolves to what `durableWrite` returned.
+ *
+ * The listener starts once the stack is ready, and the runner takes a
+ * listener that exits for a stack that failed. A full disk leaves the last
+ * listener's record to write over, but an install whose disk filled before
+ * its first record was written has none. There the listener used to exit:
+ * three times, and the runner gave up, with a backend that had started every
+ * time (#827).
+ *
+ * While it waits there is no record, so a deploy finds no listener and does
+ * a full restart. Any failure but a full disk is thrown at once.
+ *
+ * `write`, `sleep` and `log` stand in for the real ones in tests.
+ */
+export async function recordWhenThereIsSpace(
+	path,
+	value,
+	{
+		write,
+		sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+		log = (line) => console.error(line),
+	} = {},
+) {
+	let delay = RECORD_RETRY_BASE_MS;
+	let tries = 0;
+	for (;;) {
+		tries += 1;
+		try {
+			const how = durableWrite(path, value, {
+				overwriteWhenFull: true,
+				...(write ? { write } : {}),
+			});
+			if (tries > 1)
+				log(
+					`backend transaction: the deploy listener is recorded; tries=${tries}`,
+				);
+			return how;
+		} catch (error) {
+			if (!outOfSpace(error)) throw error;
+			if (tries === 1)
+				log(
+					`backend transaction: no space to record the deploy listener (${error.code}); waiting for space. The stack keeps serving, and a deploy does a full restart until the record is written`,
+				);
+		}
+		await sleep(delay);
+		delay = Math.min(delay * 2, RECORD_RETRY_MAX_MS);
+	}
+}
 async function serve(dir, runtime) {
 	mkdirSync(dir, { recursive: true, mode: 0o700 });
 	chmodSync(dir, 0o700);
 	const credential = randomBytes(32).toString("base64url");
 	writeCredential(join(runtime.controlDir, "deploy-credential"), credential);
-	// What a deploy reads to find this listener. A full disk must not stop a
-	// start here either, so it is overwritten in place when it has to be.
-	durableWrite(
-		join(dir, "runtime.json"),
-		{ ...runtime, deploymentPid: process.pid },
-		{ overwriteWhenFull: true },
-	);
 	const socketPath = join(runtime.controlDir, "deploy.sock");
+	// Before the record is written, which can take as long as the disk stays
+	// full: an older record and an older socket must not stand in for a
+	// listener that is not listening yet.
 	try {
 		unlinkSync(socketPath);
 	} catch {}
 	// The prepared transaction awaiting its acknowledgement or handed off.
 	let pending = null;
 	const sockets = new Set();
-	const server = net.createServer((socket) => {
+	let server = null;
+	// A signal leaves an unacknowledged prepare on disk on purpose: the RSS
+	// recycle path retires this listener and adopts a prepared intent whose
+	// reply was lost, and boot recovery restarts the previous build.
+	// Installed before the record is written: with no handler a signal ends
+	// the process wherever it is, which can be between making a staged file
+	// and removing it.
+	for (const sig of ["SIGTERM", "SIGINT"])
+		process.on(sig, () => {
+			server?.close();
+			for (const s of sockets) s.destroy();
+			process.exit(0);
+		});
+	// What a deploy reads to find this listener. A full disk must not stop a
+	// start here either: the record is overwritten in place when it has to
+	// be, and waited for when there is none to overwrite.
+	await recordWhenThereIsSpace(join(dir, "runtime.json"), {
+		...runtime,
+		deploymentPid: process.pid,
+	});
+	server = net.createServer((socket) => {
 		if (sockets.size >= 4) {
 			socket.destroy();
 			return;
@@ -697,15 +765,6 @@ async function serve(dir, runtime) {
 		});
 	});
 	server.listen(socketPath, () => chmodSync(socketPath, 0o600));
-	// A signal leaves an unacknowledged prepare on disk on purpose: the RSS
-	// recycle path retires this listener and adopts a prepared intent whose
-	// reply was lost, and boot recovery restarts the previous build.
-	for (const sig of ["SIGTERM", "SIGINT"])
-		process.on(sig, () => {
-			server.close();
-			for (const s of sockets) s.destroy();
-			process.exit(0);
-		});
 }
 if (
 	process.argv[1] &&

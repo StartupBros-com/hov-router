@@ -467,6 +467,10 @@ interface DriverReport {
 	fill: { available: number };
 	refused: { waits: number };
 	newRunner: { ready: boolean; waits?: number; controlDirectories?: number };
+	/** The `no-record` scenario only. */
+	noRecord: { ready: number; waitNotices: number; available: number };
+	recorded: { runtime: { oldPid: number }; owner: { pid: number } };
+	stop: { exit: { code: number | null }; processesLeft: number[] };
 	runnerOutput: string[][];
 }
 
@@ -475,7 +479,11 @@ interface DriverReport {
  * test's own timeout: a test that times out does not stop what it started,
  * and a runner waiting for space waits for ever.
  */
-function startDriver(variant: string, deadlineMs: number) {
+function startDriver(
+	variant: string,
+	deadlineMs: number,
+	scenario = "restarts",
+) {
 	if (!strategy) throw new Error("no way to mount a private filesystem");
 	const mount = mkdtempSync(join(tmpdir(), "ccflare-runner-full-fs-"));
 	const scratch = mkdtempSync(join(tmpdir(), "ccflare-runner-full-scratch-"));
@@ -493,6 +501,8 @@ function startDriver(variant: string, deadlineMs: number) {
 			variant,
 			"--deadline-ms",
 			String(deadlineMs),
+			"--scenario",
+			scenario,
 		]),
 		{ cwd: repoRoot, stdout: "pipe", stderr: "pipe" },
 	);
@@ -504,9 +514,15 @@ function startDriver(variant: string, deadlineMs: number) {
 	return { scratch, finished };
 }
 
-async function runDriver(variant: string): Promise<DriverReport> {
-	const { stdout, stderr, exitCode } = await startDriver(variant, 150_000)
-		.finished;
+async function runDriver(
+	variant: string,
+	scenario = "restarts",
+): Promise<DriverReport> {
+	const { stdout, stderr, exitCode } = await startDriver(
+		variant,
+		150_000,
+		scenario,
+	).finished;
 	if (exitCode !== 0) {
 		throw new Error(
 			`the driver did not finish (exit ${exitCode}): ${stderr.slice(-3000)}`,
@@ -547,6 +563,32 @@ describe.skipIf(strategy === null)(
 			// file cannot. It is kept, so each retry has less to find room for.
 			expect(report.newRunner.controlDirectories).toBe(1);
 		}, 180_000);
+
+		// The deploy listener starts once the stack is ready and writes the
+		// record a deploy finds it by. With no earlier record to write over it
+		// used to exit, and the runner takes a listener that exits for a stack
+		// that failed: three times, and it gave up, with a backend that had
+		// started every time.
+		for (const variant of ["runtime-directory", "fallback"]) {
+			test(`keeps the stack up while the deploy listener has no record to write over (${variant})`, async () => {
+				const report = await runDriver(variant, "no-record");
+
+				expect(report.failures).toEqual([]);
+				expect(report.fill.available).toBe(0);
+				// Ready once after the backend went down and not again: the
+				// listener waited, and said so once.
+				expect(report.noRecord).toEqual({
+					ready: 2,
+					waitNotices: 1,
+					available: 0,
+				});
+				// Once space was back, the record named the backend in service.
+				expect(report.recorded.runtime.oldPid).toBe(report.recorded.owner.pid);
+				// A stop while a listener waited.
+				expect(report.stop.exit.code).toBe(143);
+				expect(report.stop.processesLeft).toEqual([]);
+			}, 180_000);
+		}
 
 		test("stops itself at its deadline and leaves no process behind", async () => {
 			// The two tests above rely on this: a runner left waiting for

@@ -3,7 +3,8 @@
  * run-ccflare-stack-full-disk.test.ts inside a private mount namespace:
  *
  *   bun run <this file> --dir <mount> --scratch <dir> \
- *     --variant <runtime-directory|fallback> --deadline-ms <n>
+ *     --variant <runtime-directory|fallback> --deadline-ms <n> \
+ *     [--scenario <restarts|no-record>]
  *
  * `--dir` is a small tmpfs mounted for this run. The runner's HOME, its
  * handoff directory, its pin and its TMPDIR are on it. `--scratch` is not:
@@ -26,6 +27,18 @@
  *     has a runtime directory. With none it starts nothing, waits, leaves at
  *     most one control directory, and comes up once space returns.
  *
+ * `--scenario no-record` is the deploy listener with nothing to write over.
+ * The listener starts once the stack is ready and writes `runtime.json`, the
+ * record a deploy finds it by. It can write over the last listener's record
+ * without a block, but an install whose disk fills before the first record
+ * is written has none. The run holds the runner to this:
+ *   - the stack that came up stays up: the listener waits for space, says so
+ *     once, and nothing counts toward the circuit;
+ *   - once space is back the record names the running backend and the
+ *     listener listens, with no restart in between;
+ *   - a stop while the listener waits is a clean stop, with nothing staged
+ *     and no process left.
+ *
  * Prints one JSON report; `failures` is empty when all of that held. Exits 2
  * for a harness error and 3, with no report, at the deadline. Whatever
  * started the run may be unable to stop it, so it stops itself.
@@ -44,19 +57,32 @@ import {
 	blockCounts,
 	fillToZero,
 } from "../../apps/server/src/disk-full-support";
-import { type RunnerFixture, startRunner } from "./runner-transaction-fixture";
+import {
+	processesNaming,
+	type RunnerFixture,
+	startRunner,
+} from "./runner-transaction-fixture";
 
 const READY = "ccflare stack ready";
 const WAITING = "waiting for space instead of opening the restart circuit";
 const CIRCUIT_OPEN = "restart circuit open";
+const CHILD_EXITED = "ccflare stack child exited";
+const LISTENER_WAITING = "no space to record the deploy listener";
+const LISTENER_RECORDED = "the deploy listener is recorded";
 const OUT_OF_SPACE_EXIT_STATUS = 28;
 const STOPPED_EXIT_STATUS = 143;
 const DEADLINE_EXIT_CODE = 3;
 /** The circuit's cap for these runners; the waits go well past it. */
 const MAX_FAILURES = 3;
 const WAITS = MAX_FAILURES + 2;
+/**
+ * Longer than three stack restarts take here. A listener that exits instead
+ * of waiting takes the stack down each time, and the third opens the circuit.
+ */
+const HOLD_MS = 3_000;
 
 type Variant = "runtime-directory" | "fallback";
+type Scenario = "restarts" | "no-record";
 
 function argument(name: string): string {
 	const at = process.argv.indexOf(name);
@@ -72,10 +98,15 @@ const mount = argument("--dir");
 const scratch = argument("--scratch");
 const variant = argument("--variant") as Variant;
 const deadlineMs = Number(argument("--deadline-ms"));
+const scenario = (
+	process.argv.includes("--scenario") ? argument("--scenario") : "restarts"
+) as Scenario;
 
 try {
 	if (variant !== "runtime-directory" && variant !== "fallback")
 		throw new Error(`unknown variant ${variant}`);
+	if (scenario !== "restarts" && scenario !== "no-record")
+		throw new Error(`unknown scenario ${scenario}`);
 	if (!Number.isInteger(deadlineMs) || deadlineMs < 1)
 		throw new Error("--deadline-ms must be a positive whole number");
 	assertDedicatedSmallMount(mount);
@@ -193,16 +224,12 @@ function checkStillStanding(runner: RunnerFixture, step: string) {
 	check(available() === 0, `${step}: the filesystem had free blocks again`);
 }
 
-const report: Record<string, unknown> = { variant, failures };
+const report: Record<string, unknown> = { variant, scenario, failures };
 let step = "the start with space";
-try {
-	const first = await start();
-	await first.waitForOutput(READY);
-	const withSpace = await runtimeRecord(first);
-
-	step = "the fill";
-	let ballastBytes = fillToZero(ballast);
-	// The co-tenant: takes back any block the runner lets go of.
+let ballastBytes = 0;
+/** Fill the filesystem, and keep a co-tenant taking any block that is let go. */
+function keepFull() {
+	ballastBytes += fillToZero(ballast);
 	refill = setInterval(() => {
 		try {
 			ballastBytes += fillToZero(ballast);
@@ -210,9 +237,15 @@ try {
 			// Removed once space is meant to return.
 		}
 	}, 100);
+}
+function giveSpaceBack() {
+	clearInterval(refill);
+	refill = undefined;
+	rmSync(ballast);
+}
+
+async function restarts(first: RunnerFixture, withSpace: Runtime) {
 	const filledTo = ballastBytes;
-	report.fill = { ballastBytes: filledTo, available: available() };
-	check(available() === 0, "the fill left free blocks");
 
 	step = "a backend that goes down while the filesystem is full";
 	first.crashBackend();
@@ -303,9 +336,7 @@ try {
 	report.ballastGrowthBytes = ballastBytes - filledTo;
 
 	step = "space coming back";
-	clearInterval(refill);
-	refill = undefined;
-	rmSync(ballast);
+	giveSpaceBack();
 	await second.waitForOutput(READY, { timeoutMs: 40_000 });
 	check(second.exited() === null, `${step}: the runner exited`);
 	check(second.count(CIRCUIT_OPEN) === 0, `${step}: the circuit opened`);
@@ -319,6 +350,103 @@ try {
 		lastRecover.status === 0 && lastRecover.stdout === '{"action":"start"}',
 		`${step}: recover said ${JSON.stringify(lastRecover)}`,
 	);
+}
+
+async function listenerWithNoRecord(first: RunnerFixture, withSpace: Runtime) {
+	const record = join(first.handoff, "runtime.json");
+	const socket = join(withSpace.controlDir, "deploy.sock");
+	/** Take the record away, and give its block to the co-tenant at once. */
+	const removeRecord = () => {
+		rmSync(record);
+		ballastBytes += fillToZero(ballast);
+	};
+
+	step = "a listener with no record to write over";
+	removeRecord();
+	first.crashBackend();
+	await first.waitForOutput(READY, { times: 2, timeoutMs: 40_000 });
+	await first.waitForOutput(LISTENER_WAITING, { timeoutMs: 15_000 });
+	await Bun.sleep(HOLD_MS);
+	checkStillStanding(first, step);
+	check(first.count(READY) === 2, `${step}: the stack was restarted`);
+	check(
+		first.count(CHILD_EXITED) === 1,
+		`${step}: a stack child exited besides the backend that went down`,
+	);
+	check(
+		first.count(LISTENER_WAITING) === 1,
+		`${step}: the wait was announced ${first.count(LISTENER_WAITING)} times`,
+	);
+	check(
+		!existsSync(record),
+		`${step}: a record was written with no space for it`,
+	);
+	check(!existsSync(socket), `${step}: the listener listens with no record`);
+	report.noRecord = {
+		ready: first.count(READY),
+		waitNotices: first.count(LISTENER_WAITING),
+		available: available(),
+	};
+
+	step = "space coming back to a listener that waits";
+	giveSpaceBack();
+	const landed = await runtimeRecord(first);
+	await first.waitForOutput(LISTENER_RECORDED, { timeoutMs: 5_000 });
+	check(
+		landed.oldPid === owner(first).pid,
+		`${step}: the record does not name the running backend: ${JSON.stringify(landed)}`,
+	);
+	check(
+		await appears(join(landed.controlDir, "deploy.sock")),
+		`${step}: the deploy listener is not listening`,
+	);
+	check(first.exited() === null, `${step}: the runner exited`);
+	check(first.count(READY) === 2, `${step}: the stack was restarted`);
+	check(first.count(CIRCUIT_OPEN) === 0, `${step}: the circuit opened`);
+	check(
+		first.count(LISTENER_RECORDED) === 1,
+		`${step}: the record was announced ${first.count(LISTENER_RECORDED)} times`,
+	);
+	report.recorded = { runtime: landed, owner: owner(first) };
+
+	step = "a stop while a listener waits";
+	keepFull();
+	removeRecord();
+	first.crashBackend();
+	await first.waitForOutput(READY, { times: 3, timeoutMs: 40_000 });
+	await first.waitForOutput(LISTENER_WAITING, { times: 2, timeoutMs: 15_000 });
+	checkStillStanding(first, step);
+	const stopped = await first.stop();
+	check(
+		stopped.code === STOPPED_EXIT_STATUS,
+		`${step}: the runner exited ${JSON.stringify(stopped)}`,
+	);
+	const recovered = first.recover();
+	check(
+		recovered.status === 0 && recovered.stdout === '{"action":"start"}',
+		`${step}: recover said ${JSON.stringify(recovered)}`,
+	);
+	check(staged(first).length === 0, `${step}: staged files were left`);
+	check(!existsSync(record), `${step}: a record was written`);
+	// The runner and all it started carry the handoff directory's path.
+	await Bun.sleep(200);
+	const left = processesNaming(first.handoff);
+	check(left.length === 0, `${step}: processes were left: ${left.join(", ")}`);
+	report.stop = { exit: stopped, recover: recovered, processesLeft: left };
+}
+
+try {
+	const first = await start();
+	await first.waitForOutput(READY);
+	const withSpace = await runtimeRecord(first);
+
+	step = "the fill";
+	keepFull();
+	report.fill = { ballastBytes, available: available() };
+	check(available() === 0, "the fill left free blocks");
+
+	if (scenario === "no-record") await listenerWithNoRecord(first, withSpace);
+	else await restarts(first, withSpace);
 } catch (error) {
 	failures.push(`stopped at ${step}: ${error}`);
 } finally {

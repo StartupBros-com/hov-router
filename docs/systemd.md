@@ -246,6 +246,14 @@ systemd creates `/run/ccflare-stack` for the unit's user before each start and
 removes it at each stop. A runner that is given no runtime directory uses
 `TMPDIR` (`/tmp` by default), as every runner did before.
 
+The deploy listener starts once the stack is ready and writes the record a
+deploy finds it by (`handoff/runtime.json`). On a full disk it writes over the
+last listener's record in place. An install whose disk filled before its first
+record was written has none to write over: the listener then logs `no space to
+record the deploy listener` once and waits for space, while the stack keeps
+serving. Until the record is written a deploy finds no listener and does a full
+restart.
+
 For unexpected child failures, `scripts/run-ccflare-stack.sh` uses a separate
 aggregate cleanup budget: `RUNNER_FAILURE_STOP_BUDGET_MS` defaults to 30 seconds
 and is bounded to 1--120 seconds. It limits how long a stubborn child can delay
