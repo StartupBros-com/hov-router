@@ -27,9 +27,14 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	findMountStrategy,
+	inPrivateFilesystem,
+} from "../../apps/server/src/disk-full-mount";
+import {
 	processesNaming,
 	type RunnerFixture,
 	type RunnerLayout,
+	repoRoot,
 	startRunner,
 } from "./runner-transaction-fixture";
 
@@ -446,3 +451,142 @@ describe("a start that fails for any other reason", () => {
 		expect(runner.count(CIRCUIT_OPEN)).toBe(1);
 	}, 30_000);
 });
+
+// The second group: the same runner, on a filesystem with no free block. The
+// driver does the work inside a private mount namespace (its header has what
+// it holds the runner to) and reports what did not hold.
+const DRIVER = join(import.meta.dir, "run-ccflare-stack-full-disk-driver.ts");
+const FILESYSTEM = "size=16m";
+/** The driver's own exit code for "stopped at `--deadline-ms`". */
+const DEADLINE_EXIT_CODE = 3;
+const strategy = findMountStrategy();
+
+interface DriverReport {
+	variant: string;
+	failures: string[];
+	fill: { available: number };
+	refused: { waits: number };
+	newRunner: { ready: boolean; waits?: number; controlDirectories?: number };
+	runnerOutput: string[][];
+}
+
+/**
+ * Starts the driver on a tmpfs of its own. `deadlineMs` must be below the
+ * test's own timeout: a test that times out does not stop what it started,
+ * and a runner waiting for space waits for ever.
+ */
+function startDriver(variant: string, deadlineMs: number) {
+	if (!strategy) throw new Error("no way to mount a private filesystem");
+	const mount = mkdtempSync(join(tmpdir(), "ccflare-runner-full-fs-"));
+	const scratch = mkdtempSync(join(tmpdir(), "ccflare-runner-full-scratch-"));
+	roots.push(mount, scratch);
+	const child = Bun.spawn(
+		inPrivateFilesystem(strategy, mount, FILESYSTEM, [
+			process.execPath,
+			"run",
+			DRIVER,
+			"--dir",
+			mount,
+			"--scratch",
+			scratch,
+			"--variant",
+			variant,
+			"--deadline-ms",
+			String(deadlineMs),
+		]),
+		{ cwd: repoRoot, stdout: "pipe", stderr: "pipe" },
+	);
+	const finished = Promise.all([
+		new Response(child.stdout).text(),
+		new Response(child.stderr).text(),
+		child.exited,
+	]).then(([stdout, stderr, exitCode]) => ({ stdout, stderr, exitCode }));
+	return { scratch, finished };
+}
+
+async function runDriver(variant: string): Promise<DriverReport> {
+	const { stdout, stderr, exitCode } = await startDriver(variant, 150_000)
+		.finished;
+	if (exitCode !== 0) {
+		throw new Error(
+			`the driver did not finish (exit ${exitCode}): ${stderr.slice(-3000)}`,
+		);
+	}
+	const report = JSON.parse(stdout) as DriverReport;
+	if (report.failures.length > 0) {
+		// The runners' last lines are what explains a failure.
+		for (const lines of report.runnerOutput) console.error(lines.join("\n"));
+	}
+	return report;
+}
+
+describe.skipIf(strategy === null)(
+	"the runner on a filesystem with no free block",
+	() => {
+		test("restarts a backend, waits out refused starts and starts anew, given a runtime directory", async () => {
+			const report = await runDriver("runtime-directory");
+
+			expect(report.failures).toEqual([]);
+			expect(report.fill.available).toBe(0);
+			expect(report.refused.waits).toBeGreaterThanOrEqual(5);
+			// A runner started on the full filesystem came up without a wait.
+			expect(report.newRunner).toMatchObject({ ready: true });
+		}, 180_000);
+
+		test("restarts a backend and, started anew with no runtime directory, waits for space", async () => {
+			const report = await runDriver("fallback");
+
+			expect(report.failures).toEqual([]);
+			expect(report.fill.available).toBe(0);
+			expect(report.refused.waits).toBeGreaterThanOrEqual(5);
+			// Its control directory is on the full filesystem, so it started
+			// nothing and waited, past the circuit's cap, until space returned.
+			expect(report.newRunner.ready).toBe(false);
+			expect(report.newRunner.waits).toBeGreaterThanOrEqual(5);
+			// On a tmpfs the directory can be made and only its credential
+			// file cannot. It is kept, so each retry has less to find room for.
+			expect(report.newRunner.controlDirectories).toBe(1);
+		}, 180_000);
+
+		test("stops itself at its deadline and leaves no process behind", async () => {
+			// The two tests above rely on this: a runner left waiting for
+			// space would go on waiting with nothing left to stop it.
+			const { scratch, finished } = startDriver("fallback", 4_000);
+			let sawRunner = false;
+			let exited = false;
+			const outcome = finished.finally(() => {
+				exited = true;
+			});
+			while (!exited) {
+				// Seeing one while the run is going shows that the search
+				// below would find one left behind.
+				if (processesNaming(scratch).length > 0) sawRunner = true;
+				await Bun.sleep(100);
+			}
+			const { exitCode, stdout, stderr } = await outcome;
+
+			expect(stderr).toContain("deadline");
+			expect(exitCode).toBe(DEADLINE_EXIT_CODE);
+			expect(stdout).toBe("");
+			expect(sawRunner).toBe(true);
+			// A process sent SIGKILL is gone a moment later, not at once.
+			const gone = Date.now() + 5_000;
+			while (processesNaming(scratch).length > 0 && Date.now() < gone) {
+				await Bun.sleep(100);
+			}
+			expect(processesNaming(scratch)).toEqual([]);
+		}, 60_000);
+	},
+);
+
+// A gate that cannot run must not look like one that passed.
+describe.skipIf(strategy !== null || process.env.CI !== "true")(
+	"the runner on a full filesystem, in CI",
+	() => {
+		test("can mount a private filesystem to fill", () => {
+			throw new Error(
+				"neither `unshare -Urmn` nor `sudo -n unshare -mn` works on this runner, so the runner was not run on a full filesystem",
+			);
+		});
+	},
+);

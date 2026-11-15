@@ -6,13 +6,9 @@
  *
  * The filesystem is a tmpfs mounted in a private mount namespace, and the run
  * has loopback as its only network interface, so it cannot fill the host's
- * disk or reach a provider. Two ways to get that, tried in order:
- *   1. an unprivileged user namespace (`unshare -Urmn`);
- *   2. passwordless sudo (`sudo -n unshare -mn`, then back to this user),
- *      for hosts that do not allow unprivileged user namespaces, which
- *      includes GitHub's Ubuntu runners.
- * With neither, the tests are skipped, except in CI, where they fail: a gate
- * that quietly stops running is worse than none.
+ * disk or reach a provider (disk-full-mount.ts has the two ways to get
+ * that). Where neither works the tests are skipped, except in CI, where they
+ * fail: a gate that quietly stops running is worse than none.
  *
  * The same file runs twice in CI. In the main suite it drives the server from
  * source. With BETTER_CCFLARE_TEST_COMPILED_CLI set it drives that binary
@@ -22,98 +18,14 @@ import { afterAll, describe, expect, it } from "bun:test";
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { findMountStrategy, inPrivateFilesystem } from "./disk-full-mount";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
 const SCENARIO = join(import.meta.dir, "disk-full-scenario.ts");
 const COMPILED_CLI = process.env.BETTER_CCFLARE_TEST_COMPILED_CLI || null;
 const FILESYSTEM = "size=64m";
 
-type Strategy = "userns" | "sudo";
-
-const uid = String(process.getuid?.() ?? "");
-const gid = String(process.getgid?.() ?? "");
-
-/** The command that mounts a tmpfs on `mount` and runs `command` beside it. */
-function inPrivateFilesystem(
-	strategy: Strategy,
-	mount: string,
-	options: string,
-	command: string[],
-): string[] {
-	if (strategy === "userns") {
-		return [
-			"unshare",
-			"-Urmn",
-			"sh",
-			"-c",
-			'ip link set lo up || exit 96; mount -t tmpfs -o "$2" tmpfs "$1" || exit 97; shift 2; exec "$@"',
-			"sh",
-			mount,
-			options,
-			...command,
-		];
-	}
-	// Root makes the namespaces and the mount, owned by this user, and the
-	// command then runs as this user again with an environment it names
-	// itself: what sudo passes on depends on the host's policy.
-	return [
-		"sudo",
-		"-n",
-		"unshare",
-		"-mn",
-		"sh",
-		"-c",
-		'ip link set lo up || exit 96; mount -t tmpfs -o "$2,uid=$3,gid=$4,mode=0700" tmpfs "$1" || exit 97; shift 4; exec setpriv --reuid "$UID_TO" --regid "$GID_TO" --init-groups "$@"'
-			.replace("$UID_TO", uid)
-			.replace("$GID_TO", gid),
-		"sh",
-		mount,
-		options,
-		uid,
-		gid,
-		"env",
-		`PATH=${process.env.PATH ?? "/usr/bin:/bin"}`,
-		`HOME=${process.env.HOME ?? "/tmp"}`,
-		...command,
-	];
-}
-
-const probeDir = mkdtempSync(join(tmpdir(), "ccflare-disk-full-probe-"));
-
-function works(strategy: Strategy): boolean {
-	try {
-		const result = Bun.spawnSync(
-			inPrivateFilesystem(strategy, probeDir, "size=1m", [
-				"sh",
-				"-c",
-				'echo ok > "$1/probe"',
-				"sh",
-				probeDir,
-			]),
-			{ stdout: "ignore", stderr: "ignore" },
-		);
-		return result.exitCode === 0;
-	} catch {
-		return false;
-	}
-}
-
-const forced = process.env.BETTER_CCFLARE_DISK_FULL_TEST_MOUNT as
-	| Strategy
-	| undefined;
-const strategy: Strategy | null =
-	process.platform !== "linux" || uid === ""
-		? null
-		: forced
-			? works(forced)
-				? forced
-				: null
-			: works("userns")
-				? "userns"
-				: works("sudo")
-					? "sudo"
-					: null;
-rmSync(probeDir, { recursive: true, force: true });
+const strategy = findMountStrategy();
 
 interface Start {
 	healthy: boolean;
