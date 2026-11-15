@@ -4,6 +4,7 @@ import {
 	chmodSync,
 	closeSync,
 	copyFileSync,
+	mkdirSync,
 	mkdtempSync,
 	openSync,
 	readdirSync,
@@ -94,6 +95,22 @@ describe("pending rotation slots", () => {
 		const after = statSync(path);
 		expect(after.ino).toBe(before.ino);
 		expect(after.mtimeMs).toBe(before.mtimeMs);
+	});
+
+	it("a reservation that fails after writing its temp file leaves nothing behind", async () => {
+		// A refresh asks again every few seconds while a disk is full. A temp
+		// file left by each attempt would take the blocks a start needs (#827).
+		// A directory where the slot belongs makes the rename fail after the
+		// temp file has been written in full.
+		const store = open();
+		mkdirSync(slotPath("account-1"));
+		writeFileSync(join(slotPath("account-1"), "occupied"), "x");
+
+		for (let attempt = 0; attempt < 3; attempt += 1) {
+			await expect(store.reserve("account-1")).rejects.toThrow();
+		}
+
+		expect(readdirSync(directory)).toEqual([slotName("account-1")]);
 	});
 
 	it("round-trips a rotation, with and without optional fields", async () => {

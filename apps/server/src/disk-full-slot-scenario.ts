@@ -12,7 +12,8 @@
  * 4 KiB append without pause, and then:
  *   - saves and clears every reserved account for `--rounds` rounds, checking
  *     after each round that no slot changed size, inode or block count;
- *   - checks that an account with no slot can neither be saved nor reserved;
+ *   - checks that an account with no slot can neither be saved nor reserved,
+ *     and that repeating the failed reservation leaves no temp file behind;
  *   - builds a store over a directory that does not exist, the way a server
  *     starting on the full filesystem would, which must not fail;
  *   - kills a process in the middle of a run of saves and reads the slot back
@@ -43,6 +44,8 @@ import {
 const SECRET = "disk-full-slot-scenario-secret-with-enough-entropy";
 /** Saves a killed writer must have reported before it is killed. */
 const SAVES_BEFORE_KILL = 40;
+/** Times the reservation for an account with no slot is repeated while full. */
+const FAILED_RESERVATIONS = 20;
 /** Longest stored access and refresh tokens on the measured install. */
 const ACCESS_TOKEN_CHARS = 1_789;
 const REFRESH_TOKEN_CHARS = 211;
@@ -117,6 +120,12 @@ function slotIdentities(directory: string): Record<string, SlotIdentity> {
 		};
 	}
 	return identities;
+}
+
+/** Temp files a reservation writes before it renames them into place. */
+function tempFiles(directory: string): string[] {
+	if (!existsSync(directory)) return [];
+	return readdirSync(directory).filter((name) => name.endsWith(".tmp"));
 }
 
 function errorCode(error: unknown): string {
@@ -357,6 +366,37 @@ async function main(): Promise<void> {
 		}
 		report.withoutSlot = withoutSlot;
 
+		// A refresh asks again every few seconds while the disk stays full. A
+		// temp file left by each attempt would take the blocks a start needs.
+		let failedReservations = 0;
+		for (let attempt = 0; attempt < FAILED_RESERVATIONS; attempt += 1) {
+			try {
+				// A new store each time: one store holds a retry back for a while.
+				await createPendingRotationStore({
+					directory,
+					secret: SECRET,
+				}).reserve(unreserved);
+			} catch {
+				failedReservations += 1;
+			}
+		}
+		const tempFilesLeft = tempFiles(directory);
+		report.repeatedReservation = {
+			attempts: FAILED_RESERVATIONS,
+			failed: failedReservations,
+			tempFilesLeft: tempFilesLeft.length,
+		};
+		if (failedReservations !== FAILED_RESERVATIONS) {
+			failures.push(
+				`${FAILED_RESERVATIONS - failedReservations} of ${FAILED_RESERVATIONS} repeated reservations succeeded while full`,
+			);
+		}
+		if (tempFilesLeft.length > 0) {
+			failures.push(
+				`${tempFilesLeft.length} temp files were left by failed reservations`,
+			);
+		}
+
 		// A server starting now builds its store over a directory that does not
 		// exist. That must not fail the start; a reservation says why it cannot.
 		const withoutDirectory: Record<string, unknown> = {};
@@ -389,6 +429,12 @@ async function main(): Promise<void> {
 						`a reservation in a new directory failed with ${errorCode(error)}, expected ENOSPC`,
 					);
 				}
+			}
+			withoutDirectory.tempFilesLeft = tempFiles(lateDirectory).length;
+			if (tempFiles(lateDirectory).length > 0) {
+				failures.push(
+					"a failed reservation in a new directory left a temp file",
+				);
 			}
 		} catch (error) {
 			withoutDirectory.build = errorCode(error);
