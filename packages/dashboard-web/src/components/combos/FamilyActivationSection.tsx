@@ -17,6 +17,7 @@ import {
 	usePreviewFamilyRouting,
 	useUpdateFamilyPolicy,
 } from "../../hooks/queries";
+import { useApiError } from "../../hooks/useApiError";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
@@ -34,6 +35,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../ui/select";
+import { ErrorState, LoadingState } from "../ui/state";
 import { Switch } from "../ui/switch";
 import {
 	type FamilyRoutingModelOption,
@@ -193,6 +195,7 @@ export function familyPolicyMutationErrorMessage(
 }
 
 export function FamilyActivationSection() {
+	const { formatError } = useApiError();
 	const combosQuery = useCombos();
 	const familiesQuery = useFamilies();
 	const updateFamilyPolicy = useUpdateFamilyPolicy();
@@ -349,25 +352,13 @@ export function FamilyActivationSection() {
 		? reviewedPreview
 		: null;
 
-	if (familiesQuery.isLoading || combosQuery.isLoading) {
-		return (
-			<Card>
-				<CardHeader>
-					<CardTitle>Family Activation</CardTitle>
-					<CardDescription>
-						Assign combos and choose Manual or Managed routing per family
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<p className="text-sm text-muted-foreground" aria-live="polite">
-						Loading family policies…
-					</p>
-				</CardContent>
-			</Card>
-		);
-	}
-
-	if (familiesQuery.isError || combosQuery.isError) {
+	if (familiesQuery.data === undefined || combosQuery.data === undefined) {
+		const familiesFailure =
+			familiesQuery.data === undefined && familiesQuery.isError
+				? familiesQuery.error
+				: combosQuery.data === undefined && combosQuery.isError
+					? combosQuery.error
+					: undefined;
 		return (
 			<Card>
 				<CardHeader>
@@ -377,21 +368,23 @@ export function FamilyActivationSection() {
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-3">
-					<p className="text-sm text-destructive" role="alert">
-						Failed to load family policies. Existing routing was not changed.
-					</p>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => {
-							void Promise.all([
-								familiesQuery.refetch(),
-								combosQuery.refetch(),
-							]);
-						}}
-					>
-						Retry
-					</Button>
+					{/* One block for the section: it needs both queries, and the Saved combos list
+					    already reports the combos query on its own. */}
+					{familiesFailure !== undefined ? (
+						<ErrorState
+							size="inline"
+							title="Family policies could not load"
+							message={`${formatError(familiesFailure)} Existing routing was not changed.`}
+							onRetry={() => {
+								void Promise.all([
+									familiesQuery.refetch(),
+									combosQuery.refetch(),
+								]);
+							}}
+						/>
+					) : (
+						<LoadingState size="inline" label="Loading family policies" />
+					)}
 				</CardContent>
 			</Card>
 		);

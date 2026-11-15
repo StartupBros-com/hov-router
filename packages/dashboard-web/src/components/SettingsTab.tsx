@@ -5,18 +5,22 @@ import { DataRetentionCard } from "./overview/DataRetentionCard";
 import { RoutingCard } from "./overview/RoutingCard";
 import { SystemCacheTtlCard } from "./overview/SystemCacheTtlCard";
 import { UsageThrottlingCard } from "./overview/UsageThrottlingCard";
+import { RoutePageHeader } from "./page-shell";
 
 export const SettingsTab = React.memo(() => {
 	return (
-		<div className="space-y-6">
-			{/* Configuration Cards Grid */}
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				<RoutingCard />
-				<CacheKeepaliveCard />
-				<SystemCacheTtlCard />
-				<UsageThrottlingCard />
-				<DataRetentionCard />
-				<AdvancedSettingsCard />
+		<div className="space-y-4">
+			<RoutePageHeader page="settings" />
+			<div className="space-y-6">
+				{/* Configuration Cards Grid */}
+				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+					<RoutingCard />
+					<CacheKeepaliveCard />
+					<SystemCacheTtlCard />
+					<UsageThrottlingCard />
+					<DataRetentionCard />
+					<AdvancedSettingsCard />
+				</div>
 			</div>
 		</div>
 	);

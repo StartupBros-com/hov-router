@@ -14,6 +14,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "../ui/card";
+import { EmptyState, LoadingState } from "../ui/state";
 
 interface AnomaliesViewProps {
 	data?: AnomalyInsightsResponse;
@@ -40,24 +41,9 @@ export const AnomaliesView = ({
 	loading,
 	timeRange: _timeRange,
 }: AnomaliesViewProps) => {
-	if (loading) {
-		return (
-			<Card>
-				<CardContent className="p-6 text-muted-foreground">
-					Loading anomaly insights…
-				</CardContent>
-			</Card>
-		);
-	}
-	if (!data) {
-		return (
-			<Card>
-				<CardContent className="p-6 text-muted-foreground">
-					No anomaly insights available.
-				</CardContent>
-			</Card>
-		);
-	}
+	if (data === undefined && loading)
+		return <LoadingState label="Loading anomaly insights" />;
+	if (!data) return <EmptyState title="No anomaly insights yet" />;
 	const meta = data.meta;
 	const scannedLabel = meta.scannedRequests.toLocaleString();
 	const baselineWindowHoursLabel = (meta.baselineWindowMinutes / 60).toFixed(1);

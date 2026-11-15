@@ -1,6 +1,6 @@
-import { RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { CHART_HEIGHTS } from "../../constants";
+import { Skeleton } from "../ui/skeleton";
 
 interface ChartContainerProps {
 	children: ReactNode;
@@ -38,16 +38,15 @@ export function ChartContainer({
 		);
 	}
 
-	if (loading) {
+	if (loading)
 		return (
-			<div
-				className={`flex items-center justify-center ${className}`}
+			<Skeleton
+				className={className}
 				style={{ height: chartHeight }}
-			>
-				<RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-			</div>
+				role="status"
+				aria-label="Loading chart"
+			/>
 		);
-	}
 
 	if (isEmpty && emptyState) {
 		return (

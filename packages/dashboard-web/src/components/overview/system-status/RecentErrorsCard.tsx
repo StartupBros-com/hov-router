@@ -1,6 +1,7 @@
 import { NO_ACCOUNT_ID, type RecentErrorGroup } from "@better-ccflare/types";
 import { useState } from "react";
 import { useAccounts, useRecentErrors } from "../../../hooks/queries";
+import { useApiError } from "../../../hooks/useApiError";
 import {
 	Select,
 	SelectContent,
@@ -8,6 +9,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../../ui/select";
+import { ErrorState } from "../../ui/state";
 import { ErrorDetailsModal } from "./ErrorDetailsModal";
 import { otherAccountsAvailable } from "./otherAccountsAvailable";
 import { RecentErrorRow } from "./RecentErrorRow";
@@ -22,8 +24,14 @@ const WINDOW_OPTIONS: Array<{ value: ErrorWindowKey; label: string }> = [
 ];
 
 export function RecentErrorsCard() {
+	const { formatError } = useApiError();
 	const { windowKey, setWindowKey, windowHours } = useErrorWindow();
-	const { data: recentErrors, isLoading } = useRecentErrors(windowHours);
+	const {
+		data: recentErrors,
+		isError,
+		error,
+		refetch,
+	} = useRecentErrors(windowHours);
 	const { data: accounts } = useAccounts();
 	const { dismiss, isDismissed } = useDismissedErrors();
 	const [selectedError, setSelectedError] = useState<RecentErrorGroup | null>(
@@ -35,7 +43,17 @@ export function RecentErrorsCard() {
 	const hasOtherAvailableAccounts = (errorAccountId: string | null) =>
 		otherAccountsAvailable(accounts, errorAccountId);
 
-	if (isLoading && !recentErrors) return null;
+	// Loading and an empty list render nothing, as before; only a failed load with no data
+	// shows a block, so it no longer looks the same as having no recent errors.
+	if (recentErrors === undefined)
+		return isError ? (
+			<ErrorState
+				size="inline"
+				title="Recent errors could not load"
+				message={formatError(error)}
+				onRetry={() => void refetch()}
+			/>
+		) : null;
 	if (visibleErrors.length === 0) return null;
 
 	return (

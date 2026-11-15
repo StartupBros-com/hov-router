@@ -9,6 +9,7 @@ import {
 import type { ReactElement } from "react";
 import { useState } from "react";
 import { useStorageInfo, useTriggerIntegrityCheck } from "../../hooks/queries";
+import { useApiError } from "../../hooks/useApiError";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
@@ -18,6 +19,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "../ui/card";
+import { ErrorState, LoadingState } from "../ui/state";
 
 function formatRelative(iso: string | null): string {
 	if (!iso) return "never";
@@ -31,7 +33,8 @@ function formatRelative(iso: string | null): string {
 }
 
 export function StorageIntegrityCard() {
-	const { data, isLoading, error } = useStorageInfo();
+	const { data, isError, error, refetch } = useStorageInfo();
+	const { formatError } = useApiError();
 	const triggerCheck = useTriggerIntegrityCheck();
 	const [lastTriggeredKind, setLastTriggeredKind] = useState<
 		"quick" | "full" | null
@@ -121,12 +124,17 @@ export function StorageIntegrityCard() {
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				{isLoading ? (
-					<div className="text-sm text-muted-foreground">Loading…</div>
-				) : error ? (
-					<div className="text-sm text-destructive">
-						Failed to load storage status.
-					</div>
+				{data === undefined ? (
+					isError ? (
+						<ErrorState
+							size="inline"
+							title="Storage status could not load"
+							message={formatError(error)}
+							onRetry={() => void refetch()}
+						/>
+					) : (
+						<LoadingState size="inline" label="Loading storage status" />
+					)
 				) : (
 					<div className="space-y-4">
 						<div

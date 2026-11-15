@@ -25,6 +25,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "../ui/card";
+import { LoadingState } from "../ui/state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 interface CacheEfficiencyViewProps {
@@ -129,6 +130,8 @@ export function CacheEfficiencyView({
 	loading = false,
 	timeRange,
 }: CacheEfficiencyViewProps) {
+	if (data === undefined)
+		return <LoadingState label="Loading cache insights" />;
 	const totals = data?.totals;
 
 	const tokenComposition = [
