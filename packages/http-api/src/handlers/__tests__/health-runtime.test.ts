@@ -628,6 +628,37 @@ describe("health runtime payload", () => {
 		expect(body.runtime?.storage?.retention).toBeDefined();
 	});
 
+	// A zero count and "nothing is counting" must not look the same: the
+	// full-disk scenario reads this to prove the handlers are installed.
+	it("says so when nothing is watching for uncaught full-disk errors", async () => {
+		const db = {
+			getAllAccounts: async () => [
+				{ name: "acc1", paused: false, rate_limited_until: null },
+			],
+		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+
+		const config = {
+			getStrategy: () => "session",
+		} as unknown as import("@better-ccflare/config").Config;
+
+		const handler = createHealthHandler(db, config, {
+			getFullDiskStatus: () => ({
+				logFile: null,
+				startReserveArmed: true,
+				uncaughtErrors: null,
+			}),
+		});
+
+		const response = await handler(new URL("http://localhost/health"));
+		const body = (await response.json()) as HealthResponse;
+
+		expect(body.runtime?.storage?.fullDisk).toEqual({
+			logFile: null,
+			startReserveArmed: true,
+			uncaughtErrors: null,
+		});
+	});
+
 	it("omits runtime.storage.fullDisk when getFullDiskStatus is not provided", async () => {
 		const db = {
 			getAllAccounts: async () => [

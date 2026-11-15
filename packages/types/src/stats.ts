@@ -47,12 +47,14 @@ export interface FullDiskStatus {
 	/**
 	 * Errors that said the disk was full, that nothing caught, and that the
 	 * process survived. Above zero, some write has no handling of its own.
+	 * Null while nothing is watching for them, which is not the same as
+	 * zero: such an error would end the process.
 	 */
 	uncaughtErrors: {
 		count: number;
 		lastError: string | null;
 		lastErrorAt: number | null;
-	};
+	} | null;
 }
 
 /**
@@ -518,7 +520,7 @@ export interface HealthResponse {
 					count: number;
 					lastError: string | null;
 					lastErrorAt: string | null;
-				};
+				} | null;
 			};
 		};
 	};

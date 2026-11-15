@@ -393,7 +393,7 @@ export function createHealthHandler(
 						lastErrorAt: iso(fullDisk.logFile.lastErrorAt),
 					},
 					startReserveArmed: fullDisk.startReserveArmed,
-					uncaughtErrors: {
+					uncaughtErrors: fullDisk.uncaughtErrors && {
 						...fullDisk.uncaughtErrors,
 						lastErrorAt: iso(fullDisk.uncaughtErrors.lastErrorAt),
 					},

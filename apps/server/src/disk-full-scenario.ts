@@ -150,6 +150,8 @@ interface Args {
 const ROUTER_REARM_ROOM_BYTES = 1024 * 1024;
 /** Longer than the router's 30 s reserve check. */
 const ROUTER_REARM_WAIT_MS = 45_000;
+/** How long a started server gets to say it is watching for uncaught errors. */
+const UNCAUGHT_WATCH_WAIT_MS = 10_000;
 /** Part of the line the router logs after a start that spent its reserve. */
 const ROUTER_RESERVE_RELEASED_MARKER = "start reserve and opened it";
 /** An index `ensureSchema` puts back at every start. */
@@ -511,7 +513,7 @@ function dropIndex(dbFile: string, name: string): void {
 interface FullDiskHealth {
 	logFile: { suspended: boolean; dropped: number } | null;
 	startReserveArmed: boolean | null;
-	uncaughtErrors: { count: number; lastError: string | null };
+	uncaughtErrors: { count: number; lastError: string | null } | null;
 }
 
 /** What `/health` says about the full disk, or null when it says nothing. */
@@ -1122,16 +1124,35 @@ async function main(): Promise<void> {
 	 * A server that is up must say what it is doing without, and must not
 	 * have survived an error that nothing caught.
 	 */
-	const checkFullDiskHealth = (label: string, snapshot: unknown): void => {
+	const checkFullDiskHealth = async (
+		label: string,
+		snapshot: unknown,
+	): Promise<void> => {
 		if (snapshot === null) return;
 		const fullDisk = fullDiskOf(snapshot);
 		if (!fullDisk) {
 			failures.push(`${label}: /health did not report the full-disk state`);
 			return;
 		}
-		if (fullDisk.uncaughtErrors.count > 0) {
+		let uncaught = fullDisk.uncaughtErrors;
+		if (uncaught === null) {
+			// The handlers go on when the start has finished, a moment after
+			// the listener first answers, so an early snapshot can say null.
+			await waitFor(async () => {
+				uncaught =
+					fullDiskOf(await health(router.base))?.uncaughtErrors ?? null;
+				return uncaught !== null;
+			}, UNCAUGHT_WATCH_WAIT_MS);
+		}
+		if (uncaught === null) {
 			failures.push(
-				`${label}: the server survived ${fullDisk.uncaughtErrors.count} error(s) that nothing caught: ${fullDisk.uncaughtErrors.lastError}`,
+				`${label}: /health said nothing is watching for uncaught full-disk errors, so one would end the server`,
+			);
+			return;
+		}
+		if (uncaught.count > 0) {
+			failures.push(
+				`${label}: the server survived ${uncaught.count} error(s) that nothing caught: ${uncaught.lastError}`,
 			);
 		}
 	};
@@ -1309,13 +1330,9 @@ async function main(): Promise<void> {
 
 		if (args.schemaBehind) {
 			dropIndex(dbFile, SCHEMA_BEHIND_INDEX);
-			// With a reserve the start could put the index back out of it. The
-			// start measured here has none, so it has to refuse.
-			rmSync(routerReserveFile, { force: true });
 			report.schemaBehindSeed = {
 				index: SCHEMA_BEHIND_INDEX,
 				indexPresentAfterDrop: indexExists(dbFile, SCHEMA_BEHIND_INDEX),
-				reserveBytesAfterRemoval: fileSize(routerReserveFile),
 			};
 			if (indexExists(dbFile, SCHEMA_BEHIND_INDEX) !== false) {
 				throw new Error(
@@ -1326,6 +1343,17 @@ async function main(): Promise<void> {
 
 		// 2. Fill the filesystem and keep it full.
 		const filledBytes = fillToZero(ballast);
+		if (args.schemaBehind) {
+			// With a reserve the start could put the index back out of it. The
+			// start measured here has none, so it has to refuse. Removed only
+			// now: while there was space the router's next check would have
+			// written it back.
+			rmSync(routerReserveFile, { force: true });
+			fillToZero(ballast);
+			(
+				report.schemaBehindSeed as Record<string, unknown>
+			).reserveBytesAfterRemoval = fileSize(routerReserveFile);
+		}
 		refill = setInterval(() => {
 			if (refillHeld) return;
 			try {
@@ -1425,7 +1453,7 @@ async function main(): Promise<void> {
 				`${soakHealthFailures} health checks failed during the soak`,
 			);
 		}
-		checkFullDiskHealth(
+		await checkFullDiskHealth(
 			"while full",
 			(report.full as { health: unknown }).health,
 		);
@@ -1614,7 +1642,7 @@ async function main(): Promise<void> {
 				retention: healthy ? await retentionOutcome(router.base) : null,
 				seededRowsRemaining: healthy ? seededRowsRemaining(dbFile) : null,
 			};
-			checkFullDiskHealth(
+			await checkFullDiskHealth(
 				step.name,
 				(restarts[step.name] as { health: unknown }).health,
 			);
@@ -1884,7 +1912,7 @@ async function main(): Promise<void> {
 		const healthAtEnd = await health(router.base);
 		(report.recovery as Record<string, unknown>).fullDiskAtEnd =
 			fullDiskOf(healthAtEnd);
-		checkFullDiskHealth("after space returned", healthAtEnd);
+		await checkFullDiskHealth("after space returned", healthAtEnd);
 		if (!reserveArmedAgain) {
 			failures.push(
 				"/health did not report the start reserve whole within 45 s of space returning",

@@ -1899,11 +1899,8 @@ export default async function startServer(options?: {
 	const getFullDiskStatus = (): FullDiskStatus => ({
 		logFile: logFileWriter?.status() ?? null,
 		startReserveArmed: startReserveState.armed,
-		uncaughtErrors: storageFullBackstop?.status() ?? {
-			count: 0,
-			lastError: null,
-			lastErrorAt: null,
-		},
+		// Null, not zero, until the handlers are on: nothing is counting.
+		uncaughtErrors: storageFullBackstop?.status() ?? null,
 	});
 
 	// apiRouter itself is constructed further below (after the
