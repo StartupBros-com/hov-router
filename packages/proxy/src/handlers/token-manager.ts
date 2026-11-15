@@ -24,6 +24,7 @@ import {
 	clearPendingRotation,
 	getPendingRotation,
 	recordPendingRotation,
+	reservePendingRotationSlot,
 } from "./pending-rotation-registry";
 import { ERROR_MESSAGES, type ProxyContext } from "./proxy-types";
 import {
@@ -128,6 +129,31 @@ export function canAttemptStaleTokenRefresh(account: Account): boolean {
 		!account.api_key?.trim() &&
 		OAUTH_REACTIVE_REFRESH_PROVIDERS.has(account.provider.trim().toLowerCase())
 	);
+}
+
+/**
+ * A refresh that was not attempted because there is no disk space to keep a
+ * rotated refresh token (#827).
+ *
+ * The providers `canAttemptStaleTokenRefresh` lists replace the refresh token
+ * on every refresh, and the old one is spent the moment they answer. If the
+ * database write then fails, the rotation is kept in the account's slot file,
+ * which can only be made while there is space. With no slot and no space, a
+ * refresh would leave the only copy of the new token in memory, and the next
+ * restart would lose the account. So the provider is not called.
+ *
+ * This says nothing about the account: it is never terminal and starts no
+ * backoff. The next call asks the store again, and the store tries a failed
+ * reservation at most once every few seconds, so refreshes resume shortly
+ * after space returns.
+ */
+export class RefreshStorageUnavailableError extends ServiceUnavailableError {
+	constructor(accountName: string) {
+		super(
+			`Token refresh for account ${accountName} was not attempted: there is no disk space to keep a rotated refresh token`,
+			"token-refresh-storage",
+		);
+	}
 }
 
 /**
@@ -679,9 +705,34 @@ export async function refreshAccessTokenSafe(
 		// failure condemned a superseded token, not the account.
 		const attemptedRefreshToken = account.refresh_token;
 
+		// A provider that rotates the refresh token needs somewhere to keep the
+		// new one before it is asked for it (#827). The reservation is the first
+		// link of the shared promise, not an await above: the promise must be
+		// created and installed in this same tick, and callers that join it must
+		// not each make their own reservation.
+		//
+		// The list of rotating providers fails open here: one missing from it
+		// gets no slot and no refusal, and refreshes as it did before. Every
+		// other provider starts with the provider call, exactly as before.
+		const providerRefresh: Promise<TokenRefreshResult> =
+			canAttemptStaleTokenRefresh(account)
+				? reservePendingRotationSlot(account.id).then((reservation) => {
+						if (reservation.status === "storage_full") {
+							throw new RefreshStorageUnavailableError(account.name);
+						}
+						if (reservation.status === "failed") {
+							// A fault in the store must not become an auth outage.
+							log.warn(
+								`Could not reserve a pending rotation slot for account ${account.name}; refreshing anyway`,
+								reservation.error,
+							);
+						}
+						return provider.refreshToken(account, ctx.runtime.clientId);
+					})
+				: provider.refreshToken(account, ctx.runtime.clientId);
+
 		// Create a new refresh promise and store it
-		const refreshPromise = provider
-			.refreshToken(account, ctx.runtime.clientId)
+		const refreshPromise = providerRefresh
 			.then(async (result: TokenRefreshResult) => {
 				// The provider call may have awaited through a delete/recreate. Do not
 				// persist, queue, or return credentials after that generation boundary.
@@ -824,6 +875,9 @@ export async function refreshAccessTokenSafe(
 				// awaited CAS/outbox step. It must escape unchanged rather than be
 				// counted, wrapped, or mistaken for a provider failure below.
 				if (error instanceof StaleAccountGenerationError) throw error;
+				// The provider was never called, so there is no failure to count,
+				// back off from or blame on the account.
+				if (error instanceof RefreshStorageUnavailableError) throw error;
 
 				// Provider failures are ID-keyed in the legacy backoff maps, so prove
 				// this request still owns the durable row before changing any state or

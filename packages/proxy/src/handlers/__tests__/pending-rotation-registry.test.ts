@@ -8,8 +8,15 @@ import {
 	getPendingRotation,
 	type PendingRotationDbOps,
 	recordPendingRotation,
+	reservePendingRotationSlot,
 	restorePendingRotations,
 } from "../pending-rotation-registry";
+
+function storageFull(): Error {
+	return Object.assign(new Error("ENOSPC: no space left on device, write"), {
+		code: "ENOSPC",
+	});
+}
 
 function makeDbOps(overrides: Partial<PendingRotationDbOps> = {}) {
 	return {
@@ -120,9 +127,190 @@ describe("restorePendingRotations", () => {
 		expect(save).not.toHaveBeenCalled();
 		expect(getPendingRotation("legacy-api-account")?.createdAt).toBeUndefined();
 	});
+
+	it("keeps a legacy entry in memory when its upgrade cannot be saved for lack of space", async () => {
+		const save = mock(async () => {
+			throw storageFull();
+		});
+		configurePendingRotationPersistence({
+			save,
+			load: mock(async () => [
+				{ accountId: "legacy-full-disk", rotation: restoredRotation() },
+			]),
+			remove: mock(async () => {}),
+		});
+
+		await expect(
+			restorePendingRotations(async () => ({ created_at: 2468 })),
+		).resolves.toBe(1);
+
+		expect(save).toHaveBeenCalledTimes(1);
+		expect(getPendingRotation("legacy-full-disk", 2468)).toEqual(
+			expect.objectContaining({
+				refreshToken: "restored-refresh",
+				createdAt: 2468,
+			}),
+		);
+	});
+
+	it("still fails the restore when the upgrade save fails for another reason", async () => {
+		configurePendingRotationPersistence({
+			save: mock(async () => {
+				throw new Error("permission denied");
+			}),
+			load: mock(async () => [
+				{ accountId: "legacy-unwritable", rotation: restoredRotation() },
+			]),
+			remove: mock(async () => {}),
+		});
+
+		await expect(
+			restorePendingRotations(async () => ({ created_at: 2468 })),
+		).rejects.toThrow("permission denied");
+
+		expect(getPendingRotation("legacy-unwritable")).toBeUndefined();
+	});
+});
+
+describe("reservePendingRotationSlot", () => {
+	it("reports unavailable when no store is configured", async () => {
+		await expect(reservePendingRotationSlot("no-store")).resolves.toEqual({
+			status: "unavailable",
+		});
+	});
+
+	it("reports unavailable when the store cannot reserve", async () => {
+		configurePendingRotationPersistence({
+			save: mock(async () => {}),
+			load: mock(async () => []),
+			remove: mock(async () => {}),
+		});
+
+		await expect(reservePendingRotationSlot("no-reserve")).resolves.toEqual({
+			status: "unavailable",
+		});
+	});
+
+	it("reserves through the store", async () => {
+		const reserve = mock(async () => {});
+		configurePendingRotationPersistence({
+			save: mock(async () => {}),
+			load: mock(async () => []),
+			remove: mock(async () => {}),
+			reserve,
+		});
+
+		await expect(reservePendingRotationSlot("reserved")).resolves.toEqual({
+			status: "reserved",
+		});
+		expect(reserve).toHaveBeenCalledWith("reserved");
+	});
+
+	it("reports a full disk without throwing", async () => {
+		const error = storageFull();
+		configurePendingRotationPersistence({
+			save: mock(async () => {}),
+			load: mock(async () => []),
+			remove: mock(async () => {}),
+			reserve: mock(async () => {
+				throw error;
+			}),
+		});
+
+		await expect(reservePendingRotationSlot("full")).resolves.toEqual({
+			status: "storage_full",
+			error,
+		});
+	});
+
+	it("reports any other failure without throwing", async () => {
+		const error = new Error("permission denied");
+		configurePendingRotationPersistence({
+			save: mock(async () => {}),
+			load: mock(async () => []),
+			remove: mock(async () => {}),
+			reserve: mock(async () => {
+				throw error;
+			}),
+		});
+
+		await expect(reservePendingRotationSlot("unwritable")).resolves.toEqual({
+			status: "failed",
+			error,
+		});
+	});
+
+	it("runs after a discard that was asked for first, so a reused account id keeps its slot", async () => {
+		const order: string[] = [];
+		let releaseDiscard: () => void = () => {};
+		configurePendingRotationPersistence({
+			save: mock(async () => {}),
+			load: mock(async () => []),
+			remove: mock(async () => {}),
+			reserve: mock(async () => {
+				order.push("reserve");
+			}),
+			discard: mock(async () => {
+				await new Promise<void>((resolve) => {
+					releaseDiscard = resolve;
+				});
+				order.push("discard");
+			}),
+		});
+
+		clearPendingRotationForDeletedAccount("reused-id");
+		const reservation = reservePendingRotationSlot("reused-id");
+		await new Promise((resolve) => setTimeout(resolve, 5));
+		expect(order).toEqual([]);
+		releaseDiscard();
+
+		await expect(reservation).resolves.toEqual({ status: "reserved" });
+		expect(order).toEqual(["discard", "reserve"]);
+	});
 });
 
 describe("clearPendingRotationForDeletedAccount", () => {
+	it("discards what the store keeps for the account even with nothing pending", async () => {
+		const discard = mock(async () => {});
+		const remove = mock(async () => {});
+		configurePendingRotationPersistence({
+			save: mock(async () => {}),
+			load: mock(async () => []),
+			remove,
+			discard,
+		});
+
+		clearPendingRotationForDeletedAccount("never-rotated");
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(discard).toHaveBeenCalledWith("never-rotated");
+		expect(remove).not.toHaveBeenCalled();
+	});
+
+	it("drops the pending entry and discards it from the store", async () => {
+		const discard = mock(async () => {});
+		configurePendingRotationPersistence({
+			save: mock(async () => {}),
+			load: mock(async () => []),
+			remove: mock(async () => {}),
+			discard,
+		});
+		await recordPendingRotation("rotated-then-deleted", {
+			accessToken: "access",
+			expiresAt: 1,
+			attemptedRefreshToken: "refresh",
+			createdAt: 101,
+		});
+
+		clearPendingRotationForDeletedAccount("rotated-then-deleted");
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(getPendingRotation("rotated-then-deleted")).toBeUndefined();
+		expect(discard).toHaveBeenCalledWith("rotated-then-deleted");
+	});
+
 	it("removes both modern and legacy rotations through the persistence queue", async () => {
 		const removed: string[] = [];
 		configurePendingRotationPersistence({
