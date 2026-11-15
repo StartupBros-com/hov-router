@@ -112,8 +112,9 @@ export function RenameAccountDialog({
 							{submission.error}
 						</p>
 					)}
-					<DialogFooter className="[&>button]:min-h-11">
+					<DialogFooter>
 						<Button
+							size="touch"
 							type="button"
 							variant="outline"
 							onClick={() => handleOpenChange(false)}
@@ -121,7 +122,7 @@ export function RenameAccountDialog({
 						>
 							Cancel
 						</Button>
-						<Button type="submit" disabled={busy}>
+						<Button size="touch" type="submit" disabled={busy}>
 							{busy ? "Renaming..." : "Rename"}
 						</Button>
 					</DialogFooter>

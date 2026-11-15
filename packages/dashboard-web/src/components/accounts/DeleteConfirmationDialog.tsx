@@ -76,8 +76,9 @@ export function DeleteConfirmationDialog({
 						{submission.error}
 					</p>
 				)}
-				<DialogFooter className="[&>button]:min-h-11">
+				<DialogFooter>
 					<Button
+						size="touch"
 						variant="outline"
 						disabled={busy}
 						onClick={() => submission.close(onCancel)}
@@ -85,6 +86,7 @@ export function DeleteConfirmationDialog({
 						Cancel
 					</Button>
 					<Button
+						size="touch"
 						variant="destructive"
 						onClick={() => {
 							if (confirmInput === accountName)

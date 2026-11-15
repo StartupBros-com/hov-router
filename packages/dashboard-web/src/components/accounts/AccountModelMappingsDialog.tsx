@@ -319,8 +319,9 @@ export function AccountModelMappingsDialog({
 						{submission.error}
 					</p>
 				)}
-				<DialogFooter className="mt-2 shrink-0 [&>button]:min-h-11">
+				<DialogFooter className="mt-2 shrink-0">
 					<Button
+						size="touch"
 						type="button"
 						variant="outline"
 						onClick={() => submission.close(() => onOpenChange(false))}
@@ -328,7 +329,12 @@ export function AccountModelMappingsDialog({
 					>
 						Cancel
 					</Button>
-					<Button type="button" onClick={handleSave} disabled={isLoading}>
+					<Button
+						size="touch"
+						type="button"
+						onClick={handleSave}
+						disabled={isLoading}
+					>
 						{isLoading ? "Saving..." : "Save Changes"}
 					</Button>
 				</DialogFooter>

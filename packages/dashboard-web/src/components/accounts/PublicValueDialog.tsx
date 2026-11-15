@@ -86,6 +86,7 @@ export function PublicValueForm({
 			</div>
 			<DialogFooter>
 				<Button
+					size="touch"
 					type="button"
 					variant="outline"
 					onClick={onClose}
@@ -93,7 +94,7 @@ export function PublicValueForm({
 				>
 					Cancel
 				</Button>
-				<Button type="submit" disabled={isLoading}>
+				<Button size="touch" type="submit" disabled={isLoading}>
 					{isLoading ? "Saving..." : "Save and publish"}
 				</Button>
 			</DialogFooter>

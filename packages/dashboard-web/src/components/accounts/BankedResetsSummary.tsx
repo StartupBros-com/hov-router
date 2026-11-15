@@ -1,7 +1,10 @@
 import type { BankedResetsSummary as BankedResetsSummaryData } from "@better-ccflare/types";
+import { formatClockTime } from "@better-ccflare/ui-common";
 import { ChevronDown } from "lucide-react";
 import { formatRelativeReset } from "../../lib/pool-usage";
-import { STATUS_TONE_CLASS } from "./status-tones";
+import { cn } from "../../lib/utils";
+import { touchTargetClass } from "../ui/button";
+import { StatusPill } from "../ui/status-pill";
 
 const EXPIRY_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
 	month: "short",
@@ -28,7 +31,7 @@ export function formatBankedResetExpiry(atMs: number): string {
 }
 
 export function describeBankedResetExpiry(atMs: number): string {
-	return `Expires ${new Date(atMs).toLocaleString()} (your local time)`;
+	return `Expires ${formatClockTime(atMs, Date.now())} (your local time)`;
 }
 
 /**
@@ -72,10 +75,20 @@ export function BankedResetsSummary({
 		return (
 			<details
 				aria-label="Banked resets"
-				className="text-xs text-muted-foreground"
+				className="group text-xs text-muted-foreground"
 			>
-				<summary className="min-h-11 cursor-pointer py-3">
-					Banked resets · {summary ? "Not tracked" : "not read yet"}
+				<summary
+					className={cn(
+						touchTargetClass,
+						"flex cursor-pointer list-none gap-x-3 py-3 [&::-webkit-details-marker]:hidden",
+					)}
+				>
+					<span>Banked resets</span>
+					<span>{summary ? "Not tracked" : "not read yet"}</span>
+					<ChevronDown
+						aria-hidden="true"
+						className="h-4 w-4 shrink-0 group-open:rotate-180"
+					/>
 				</summary>
 				<p className="max-w-prose pb-3">
 					{summary
@@ -105,23 +118,28 @@ export function BankedResetsSummary({
 			aria-label="Banked resets"
 			className="group min-w-0 text-muted-foreground"
 		>
-			<summary className="flex min-h-11 cursor-pointer list-none items-center gap-x-3 text-xs [&::-webkit-details-marker]:hidden">
-				{/* Flowing text, not flex columns, so a narrow screen wraps it between whole phrases. */}
-				<span className="min-w-0 rounded-2xl border px-2.5 py-1 text-xs">
-					<span className="whitespace-nowrap">
+			<summary
+				className={cn(
+					touchTargetClass,
+					"flex cursor-pointer list-none gap-x-3 text-xs [&::-webkit-details-marker]:hidden",
+				)}
+			>
+				{/* Each phrase is its own flex item, so a narrow screen wraps between whole phrases. */}
+				<span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+					<StatusPill>
 						<span>Banked resets</span>{" "}
 						<span className="font-semibold tabular-nums text-foreground">
 							{totalAvailable}
 						</span>
-					</span>{" "}
+					</StatusPill>{" "}
 					{totalAvailable === 0 ? (
 						// A stale zero is a last known count, not proof that none are held.
 						anyStale ? null : (
-							<span>· none held</span>
+							<span>none held</span>
 						)
 					) : expiry !== null && soonestExpiresAt !== null ? (
 						<span title={describeBankedResetExpiry(soonestExpiresAt)}>
-							· next <span className="whitespace-nowrap">{expiry.date}</span>
+							next <span className="whitespace-nowrap">{expiry.date}</span>
 							{expiry.note && (
 								<>
 									{" "}
@@ -130,15 +148,13 @@ export function BankedResetsSummary({
 							)}
 						</span>
 					) : (
-						<span>· expiry not reported</span>
+						<span>expiry not reported</span>
 					)}
 					{anyStale && (
 						<>
 							{/* A stale zero renders no middle segment, so the count's space already separates it. */}
 							{totalAvailable !== 0 && " "}
-							<span className={STATUS_TONE_CLASS.warning}>
-								· includes last known
-							</span>
+							<StatusPill tone="warning">Last known</StatusPill>
 						</>
 					)}
 				</span>

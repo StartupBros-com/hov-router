@@ -144,10 +144,7 @@ export function AnthropicReauthDialog({
 					)}
 
 					{step === "complete" && (
-						<p
-							role="status"
-							className="text-sm text-green-700 dark:text-green-400"
-						>
+						<p role="status" className="text-sm text-(--success)">
 							Re-authenticated. Tokens updated.
 						</p>
 					)}
@@ -163,15 +160,25 @@ export function AnthropicReauthDialog({
 
 				<DialogFooter>
 					{step === "idle" && (
-						<Button onClick={handleStart}>Start Re-authentication</Button>
+						<Button size="touch" onClick={handleStart}>
+							Start Re-authentication
+						</Button>
 					)}
 					{step === "awaiting-code" && (
-						<Button onClick={handleComplete} disabled={!code.trim()}>
+						<Button
+							size="touch"
+							onClick={handleComplete}
+							disabled={!code.trim()}
+						>
 							Complete Re-authentication
 						</Button>
 					)}
-					{step === "error" && <Button onClick={handleStart}>Try Again</Button>}
-					<Button variant="outline" onClick={handleClose}>
+					{step === "error" && (
+						<Button size="touch" onClick={handleStart}>
+							Try Again
+						</Button>
+					)}
+					<Button size="touch" variant="outline" onClick={handleClose}>
 						{step === "complete" ? "Close" : "Cancel"}
 					</Button>
 				</DialogFooter>

@@ -1,7 +1,9 @@
 import { registerUIRefresh } from "@better-ccflare/core";
-import { AlertCircle, Search, X } from "lucide-react";
+import { AlertCircle, ChevronDown, Search, X } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import type { Account } from "../../api";
+import { cn } from "../../lib/utils";
+import { touchTargetClass } from "../ui/button";
 import { AccountListItem } from "./AccountListItem";
 import {
 	ACCOUNT_SORTS,
@@ -100,7 +102,7 @@ export function AccountList(props: AccountListProps) {
 								{view.counts.attention}{" "}
 								{view.counts.attention === 1 ? "needs" : "need"} attention
 							</p>
-							<p className="text-xs text-muted-foreground">
+							<p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
 								{[
 									view.attentionReasons.reconnect &&
 										`${view.attentionReasons.reconnect} to reconnect`,
@@ -112,13 +114,15 @@ export function AccountList(props: AccountListProps) {
 										`${view.attentionReasons.routing} routing notice${view.attentionReasons.routing === 1 ? "" : "s"}`,
 								]
 									.filter(Boolean)
-									.join(" · ")}
+									.map((reason) => (
+										<span key={String(reason)}>{reason}</span>
+									))}
 							</p>
 						</div>
 					</div>
 					<button
 						type="button"
-						className="min-h-11 px-3 text-sm"
+						className={cn(touchTargetClass, "px-3 text-sm")}
 						onClick={() => {
 							setSearch("");
 							setProvider("");
@@ -201,7 +205,7 @@ export function AccountList(props: AccountListProps) {
 							key={value}
 							aria-pressed={status === value}
 							onClick={() => setStatus(value)}
-							className={`min-h-11 whitespace-nowrap rounded-md border px-2 text-xs ${status === value ? "border-foreground/30 bg-background font-medium" : "border-transparent text-muted-foreground hover:bg-muted"}`}
+							className={`${touchTargetClass} whitespace-nowrap rounded-md border px-2 text-xs ${status === value ? "border-foreground/30 bg-background font-medium" : "border-transparent text-muted-foreground hover:bg-muted"}`}
 						>
 							{label}{" "}
 							<span className="ml-1 tabular-nums">{view.counts[value]}</span>
@@ -217,7 +221,10 @@ export function AccountList(props: AccountListProps) {
 					<button
 						type="button"
 						onClick={clear}
-						className="min-h-11 px-2 underline underline-offset-4"
+						className={cn(
+							touchTargetClass,
+							"px-2 underline underline-offset-4",
+						)}
 					>
 						Clear filters
 					</button>
@@ -239,7 +246,7 @@ export function AccountList(props: AccountListProps) {
 					<button
 						type="button"
 						onClick={clear}
-						className="min-h-11 px-3 text-sm underline"
+						className={cn(touchTargetClass, "px-3 text-sm underline")}
 					>
 						Clear filters
 					</button>
@@ -251,15 +258,24 @@ export function AccountList(props: AccountListProps) {
 					className="hidden grid-cols-[minmax(12.5rem,1.6fr)_minmax(0,3.2fr)_minmax(10rem,0.9fr)_11rem] gap-3 border-b bg-muted/20 px-3 py-3 text-xs text-muted-foreground xl:grid"
 				>
 					<span>Account</span>
-					<span>Usage · resets in</span>
+					<span>Usage and resets</span>
 					<span>Router status</span>
 					<span>Actions</span>
 				</div>
 				{accountListItems({ ...props, accounts: view.accounts }, sort, now)}
 			</div>
-			<details className="text-xs text-muted-foreground">
-				<summary className="flex min-h-11 cursor-pointer items-center">
+			<details className="group text-xs text-muted-foreground">
+				<summary
+					className={cn(
+						touchTargetClass,
+						"flex cursor-pointer list-none gap-x-2 [&::-webkit-details-marker]:hidden",
+					)}
+				>
 					About usage and routing
+					<ChevronDown
+						aria-hidden="true"
+						className="h-4 w-4 shrink-0 group-open:rotate-180"
+					/>
 				</summary>
 				<p>
 					Lower priority numbers route first among eligible accounts. Router
