@@ -315,11 +315,13 @@ function configureSqlite(db: Database, config: DatabaseConfig): void {
 
 		// Enable WAL mode for better concurrency (with error handling)
 		if (config.walMode !== false) {
+			let walOn = false;
 			try {
 				const result = db.query("PRAGMA journal_mode = WAL").get() as {
 					journal_mode: string;
 				};
-				if (result.journal_mode !== "wal") {
+				walOn = result.journal_mode === "wal";
+				if (!walOn) {
 					console.warn(
 						"Failed to enable WAL mode, falling back to DELETE mode",
 					);
@@ -331,7 +333,7 @@ function configureSqlite(db: Database, config: DatabaseConfig): void {
 			}
 			// A stop must leave the WAL index allocated, or the next start
 			// cannot open the database on a full disk (#827).
-			keepWalFilesOnClose(db);
+			if (walOn) keepWalFilesOnClose(db);
 		}
 
 		// Set page size (only effective before any data is written, or after VACUUM)

@@ -1045,7 +1045,8 @@ async function main(): Promise<void> {
 			// the full filesystem cost in history.
 			recordedAt: router.alive()
 				? ((await recordedRows(router.base)) ?? [])
-						.map((row) => Number(row.timestamp))
+						// The API sends each timestamp as an ISO string.
+						.map((row) => Date.parse(String(row.timestamp)))
 						.filter(Number.isFinite)
 						.sort((a, b) => a - b)
 						.map((at) => new Date(at).toISOString())

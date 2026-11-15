@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
+import { keepWalFilesOnClose } from "./persistent-wal";
 
 /**
  * Opens, read-write, a database file the main connection already owns, and
@@ -14,7 +15,11 @@ import { existsSync } from "node:fs";
  */
 export function openExistingDatabase(dbPath: string): Database {
 	try {
-		return new Database(dbPath, { readwrite: true, create: false });
+		const db = new Database(dbPath, { readwrite: true, create: false });
+		// Whichever connection closes last decides whether the WAL files
+		// stay, so a worker's connection asks for the same as the main one.
+		keepWalFilesOnClose(db);
+		return db;
 	} catch (err) {
 		if (!existsSync(dbPath)) {
 			throw new Error(`database file missing at ${dbPath}; not created`, {

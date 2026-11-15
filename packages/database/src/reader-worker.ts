@@ -4,6 +4,7 @@ import {
 	BatchExpectedChangesError,
 	type BatchStatement,
 } from "./adapters/batch-statement";
+import { keepWalFilesOnClose } from "./persistent-wal";
 
 type WorkerPragma = { sql: string; bestEffort?: boolean };
 type ReaderRequest =
@@ -127,6 +128,9 @@ function open(message: Extract<ReaderRequest, { kind: "open" }>): string[] {
 				);
 			}
 		}
+		// As on the main connection: the last close decides whether the WAL
+		// files stay, and this one may be it.
+		keepWalFilesOnClose(db);
 		return warnings;
 	}
 	db = new Database(message.dbPath, { readonly: true });
