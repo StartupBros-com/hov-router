@@ -274,4 +274,47 @@ describe("pending rotation slots", () => {
 			expect(bytes.includes(Buffer.from(secret))).toBe(false);
 		}
 	});
+
+	// The directory can be missing after construction: it could not be made for
+	// lack of space at start, or someone removed it.
+	describe("when the directory is missing", () => {
+		it("reserve makes it again", async () => {
+			const store = open();
+			rmSync(directory, { recursive: true, force: true });
+
+			await store.reserve("account-1");
+
+			expect(statSync(directory).mode & 0o777).toBe(0o700);
+			expect(statSync(slotPath("account-1")).size).toBe(SLOT_FILE_BYTES);
+		});
+
+		it("save makes it again and the rotation loads", async () => {
+			const store = open();
+			rmSync(directory, { recursive: true, force: true });
+
+			await store.save("account-1", rotation);
+
+			expect(await store.load()).toEqual([
+				{ accountId: "account-1", rotation },
+			]);
+		});
+
+		it("load finds nothing and does not make it", async () => {
+			const store = open();
+			rmSync(directory, { recursive: true, force: true });
+
+			expect(await store.load()).toEqual([]);
+			expect(() => statSync(directory)).toThrow();
+		});
+
+		it("clear and discard do nothing and do not make it", async () => {
+			const store = open();
+			rmSync(directory, { recursive: true, force: true });
+
+			await store.clear("account-1");
+			await store.discard("account-1");
+
+			expect(() => statSync(directory)).toThrow();
+		});
+	});
 });

@@ -20,6 +20,7 @@ import {
 	writeSync,
 } from "node:fs";
 import { join } from "node:path";
+import { isStorageFullError } from "@better-ccflare/core";
 import type { PendingRotation } from "./pending-rotation-registry";
 import { assertPendingRotation } from "./pending-rotation-wal";
 
@@ -240,8 +241,18 @@ function currentRecord(
 export function createPendingRotationSlotStore(
 	options: PendingRotationSlotStoreOptions,
 ): PendingRotationSlotStore {
-	mkdirSync(options.directory, { recursive: true, mode: 0o700 });
-	chmodSync(options.directory, 0o700);
+	const ensureDirectory = (): void => {
+		mkdirSync(options.directory, { recursive: true, mode: 0o700 });
+		chmodSync(options.directory, 0o700);
+	};
+	// The server builds this store at start. A directory that cannot be made for
+	// lack of space must not stop that start: `reserve` makes it again, and its
+	// failure reaches the refresh that asked.
+	try {
+		ensureDirectory();
+	} catch (error) {
+		if (!isStorageFullError(error)) throw error;
+	}
 	const key = deriveKey(options.secret);
 
 	const pathFor = (accountId: string) =>
@@ -258,6 +269,7 @@ export function createPendingRotationSlotStore(
 	const reserveSync = (accountId: string): void => {
 		const path = pathFor(accountId);
 		if (hasFullSlot(path)) return;
+		if (!existsSync(options.directory)) ensureDirectory();
 		const digest = digestBytes(accountId);
 		const image = Buffer.alloc(SLOT_FILE_BYTES);
 		buildRecord(
@@ -316,6 +328,7 @@ export function createPendingRotationSlotStore(
 		},
 
 		async discard(accountId): Promise<void> {
+			if (!existsSync(options.directory)) return;
 			rmSync(pathFor(accountId), { force: true });
 			fsyncPath(options.directory);
 		},
@@ -325,6 +338,7 @@ export function createPendingRotationSlotStore(
 		> {
 			const entries: Array<{ accountId: string; rotation: PendingRotation }> =
 				[];
+			if (!existsSync(options.directory)) return entries;
 			for (const fileName of readdirSync(options.directory).sort()) {
 				const hex = parseFileDigest(fileName);
 				if (hex === null) continue;

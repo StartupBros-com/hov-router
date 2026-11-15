@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { isStorageFullError } from "@better-ccflare/core";
 import { Logger } from "@better-ccflare/logger";
 import type {
@@ -125,24 +126,43 @@ export function composePendingRotationStores(
 	};
 }
 
+// Stands in for the `.wal` store when its directory does not exist. Nothing
+// writes a `.wal` file any more, so none can appear later.
+const noLegacyFiles: PendingRotationPersistence = {
+	async save(): Promise<void> {
+		throw new Error("legacy pending rotation files are read-only");
+	},
+	async load(): Promise<Entry[]> {
+		return [];
+	},
+	async remove(): Promise<void> {},
+};
+
 export function createPendingRotationStore(
 	options: PendingRotationStoreOptions,
 ): PendingRotationStore {
 	const log = options.log ?? new Logger("PendingRotationStore");
-	return composePendingRotationStores({
-		slots: createPendingRotationSlotStore({
-			directory: options.directory,
-			secret: options.secret,
-			onUnreadableSlot: (fileName, error) =>
-				log.error(
-					`Pending rotation slot ${fileName} cannot be read and was skipped`,
-					error,
-				),
-		}),
-		legacy: createPendingRotationWal({
-			directory: options.directory,
-			secret: options.secret,
-		}),
-		log,
+	// The slot store makes the directory, and carries on without it when there
+	// is no space to make it. The `.wal` store would fail the start instead.
+	const slots = createPendingRotationSlotStore({
+		directory: options.directory,
+		secret: options.secret,
+		onUnreadableSlot: (fileName, error) =>
+			log.error(
+				`Pending rotation slot ${fileName} cannot be read and was skipped`,
+				error,
+			),
 	});
+	const legacy = existsSync(options.directory)
+		? createPendingRotationWal({
+				directory: options.directory,
+				secret: options.secret,
+			})
+		: noLegacyFiles;
+	if (legacy === noLegacyFiles) {
+		log.error(
+			`The pending rotation directory ${options.directory} could not be made for lack of space; token refreshes that rotate a refresh token are refused until it can`,
+		);
+	}
+	return composePendingRotationStores({ slots, legacy, log });
 }

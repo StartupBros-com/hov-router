@@ -13,6 +13,8 @@
  *   - saves and clears every reserved account for `--rounds` rounds, checking
  *     after each round that no slot changed size, inode or block count;
  *   - checks that an account with no slot can neither be saved nor reserved;
+ *   - builds a store over a directory that does not exist, the way a server
+ *     starting on the full filesystem would, which must not fail;
  *   - kills a process in the middle of a run of saves and reads the slot back
  *     in a new process;
  *   - reads every slot back in a new process and compares it with what was
@@ -234,6 +236,8 @@ async function main(): Promise<void> {
 	assertDedicatedSmallMount(args.dir);
 	const directory = join(args.dir, "pending-rotations");
 	mkdirSync(directory, { recursive: true });
+	// Left unmade until the filesystem is full.
+	const lateDirectory = join(args.dir, "pending-rotations-late");
 	const ballast = join(args.dir, "ballast.bin");
 	const spinFile = join(args.dir, "spin.bin");
 	const failures: string[] = [];
@@ -353,6 +357,47 @@ async function main(): Promise<void> {
 		}
 		report.withoutSlot = withoutSlot;
 
+		// A server starting now builds its store over a directory that does not
+		// exist. That must not fail the start; a reservation says why it cannot.
+		const withoutDirectory: Record<string, unknown> = {};
+		const errorsLogged: string[] = [];
+		try {
+			const late = createPendingRotationStore({
+				directory: lateDirectory,
+				secret: SECRET,
+				log: {
+					info: () => {},
+					warn: () => {},
+					error: (message) => errorsLogged.push(message),
+				},
+			});
+			withoutDirectory.build = "built";
+			withoutDirectory.directoryMade = existsSync(lateDirectory);
+			withoutDirectory.errorsLogged = errorsLogged.length;
+			withoutDirectory.loaded = (await late.load()).length;
+			if (withoutDirectory.loaded !== 0) {
+				failures.push("a store over a new directory loaded entries");
+			}
+			try {
+				await late.reserve(unreserved);
+				withoutDirectory.reserve = "reserved";
+				failures.push("a reservation in a new directory succeeded while full");
+			} catch (error) {
+				withoutDirectory.reserve = errorCode(error);
+				if (errorCode(error) !== "ENOSPC") {
+					failures.push(
+						`a reservation in a new directory failed with ${errorCode(error)}, expected ENOSPC`,
+					);
+				}
+			}
+		} catch (error) {
+			withoutDirectory.build = errorCode(error);
+			failures.push(
+				`building a store over a new directory failed while full: ${errorCode(error)}`,
+			);
+		}
+		report.withoutDirectory = withoutDirectory;
+
 		// What a new process finds after the rounds.
 		const afterRounds = await loadInNewProcess(directory);
 		const wrong = reserved.filter((accountId) => {
@@ -430,6 +475,28 @@ async function main(): Promise<void> {
 	} catch (error) {
 		recovery.outcome = errorCode(error);
 		failures.push(`reserving after space returned failed: ${errorCode(error)}`);
+	}
+	// The store over the directory that could not be made works once it can.
+	try {
+		const late = createPendingRotationStore({
+			directory: lateDirectory,
+			secret: SECRET,
+		});
+		await late.reserve(unreserved);
+		await late.save(unreserved, rotation("late-directory"));
+		const entries = await late.load();
+		recovery.lateDirectory =
+			entries.length === 1 ? "saved" : `loaded ${entries.length} entries`;
+		if (entries.length !== 1) {
+			failures.push(
+				`the late directory held ${entries.length} entries after a save`,
+			);
+		}
+	} catch (error) {
+		recovery.lateDirectory = errorCode(error);
+		failures.push(
+			`saving in the late directory after space returned failed: ${errorCode(error)}`,
+		);
 	}
 	report.recovery = recovery;
 
