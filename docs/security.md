@@ -236,7 +236,7 @@ const server = serve({
 });
 ```
 
-**Security Concern**: The server binds to port 8080 on all interfaces (0.0.0.0) by default, potentially exposing it to the network. When it listens on anything other than a loopback address and no API key exists, it logs a warning at startup that names both fixes: create an admin key, or limit who can reach the port.
+**Security Concern**: The server binds to port 8080 on all interfaces (0.0.0.0) by default, potentially exposing it to the network. When it listens on anything other than a loopback address and no API key exists, it logs a warning at startup that names both fixes: create an admin key, or limit who can reach the port. The router sees only its own listening address and its keys, so a firewall or a container port published on `127.0.0.1` does not silence the warning; an API key does.
 
 ### Recommended Configuration
 

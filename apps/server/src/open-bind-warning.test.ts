@@ -103,6 +103,24 @@ describe("openBindWarning", () => {
 		expect(host).toBeGreaterThan(key ?? Number.POSITIVE_INFINITY);
 		expect(message).not.toContain("\n");
 	});
+
+	it("says it repeats when the port is limited where the router cannot see", () => {
+		// A container port published on 127.0.0.1, or a firewall, leaves the
+		// bind address unchanged, so the next start warns again. Say so, or an
+		// operator who took that remedy reads the repeat as the fix failing.
+		const message = openBindWarning({
+			hostname: "0.0.0.0",
+			port: 8080,
+			authenticationEnabled: false,
+		});
+		const limit = message?.indexOf("put a firewall in front of it");
+		const repeat = message?.indexOf(
+			"cannot see a firewall or a container's port mapping",
+		);
+		expect(limit).toBeGreaterThan(-1);
+		expect(repeat).toBeGreaterThan(limit ?? Number.POSITIVE_INFINITY);
+		expect(message).toContain("until a key exists");
+	});
 });
 
 describe("warnIfOpenBind", () => {

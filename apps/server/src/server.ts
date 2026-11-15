@@ -2856,9 +2856,9 @@ Available endpoints:
 `);
 	});
 
-	// After the banner, so it is the last startup line an operator reads: with
-	// no API key every request is accepted, and a non-loopback address lets
-	// other machines send them.
+	// After the banner, so the endpoint list does not scroll it away: with no
+	// API key every request is accepted, and a non-loopback address lets other
+	// machines send them.
 	void bannerPrinted.finally(() =>
 		warnIfOpenBind({
 			hostname,
