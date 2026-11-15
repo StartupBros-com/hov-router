@@ -11,11 +11,17 @@
  * called" means no token request left the process.
  */
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Account } from "@better-ccflare/types";
 import {
 	clearAllPendingRotationsForTests,
 	configurePendingRotationPersistence,
+	getPendingRotation,
+	restorePendingRotations,
 } from "../pending-rotation-registry";
+import { createPendingRotationStore } from "../pending-rotation-store";
 import {
 	getRefreshTokenUsedForFailure,
 	getValidAccessToken,
@@ -282,5 +288,98 @@ describe("a refresh for a provider that does not rotate", () => {
 		);
 		expect(refreshToken).toHaveBeenCalledTimes(1);
 		expect(store.reserve).not.toHaveBeenCalled();
+	});
+});
+
+describe("a rotated refresh token whose database write fails", () => {
+	let directory: string;
+	beforeEach(() => {
+		directory = mkdtempSync(join(tmpdir(), "rotation-round-trip-"));
+	});
+	afterEach(() => {
+		rmSync(directory, { recursive: true, force: true });
+	});
+
+	const openStore = () =>
+		createPendingRotationStore({ directory, secret: "round-trip-secret" });
+	const slotFiles = () =>
+		readdirSync(directory).filter((name) => name.endsWith(".slot"));
+
+	it("is kept in the account's slot, restored at the next start and written to the database once that works", async () => {
+		// The real store on a real directory: the provider rotates, the database
+		// write fails, the process is lost, and the next one must still hold the
+		// only refresh token the provider will accept.
+		configurePendingRotationPersistence(openStore());
+		const account = makeAccount("round-trip", "codex");
+		const failing = makeContext(account);
+		failing.dbOps.updateAccountTokensIfRefreshTokenMatches.mockImplementation(
+			async () => {
+				throw Object.assign(new Error("database or disk is full"), {
+					code: "SQLITE_FULL",
+				});
+			},
+		);
+		const tokenEndpoint = mockTokenEndpoint();
+
+		await expect(
+			getValidAccessToken(account, failing.ctx as never),
+		).resolves.toBe("fresh-access");
+		expect(tokenEndpoint).toHaveBeenCalledTimes(1);
+		expect(slotFiles()).toHaveLength(1);
+		expect(
+			readdirSync(directory).filter((name) => name.endsWith(".wal")),
+		).toEqual([]);
+
+		// The next process: nothing in memory, a new store over the same
+		// directory, and the account row as the database still has it.
+		clearAllPendingRotationsForTests();
+		configurePendingRotationPersistence(openStore());
+		expect(getPendingRotation("round-trip")).toBeUndefined();
+		const stored = makeAccount("round-trip", "codex");
+		const working = makeContext(stored);
+
+		await expect(
+			restorePendingRotations(async (accountId) =>
+				working.dbOps.getAccount(accountId),
+			),
+		).resolves.toBe(1);
+		expect(getPendingRotation("round-trip", CREATED_AT)).toMatchObject({
+			accessToken: "fresh-access",
+			refreshToken: "fresh-refresh",
+			attemptedRefreshToken: "rt-old",
+			createdAt: CREATED_AT,
+		});
+
+		// The first request after the start. The spent refresh token must not go
+		// back to the provider: the restored rotation is written to the database
+		// and served instead.
+		const secondCall = mock(async () => {
+			throw new Error("the provider must not be asked again");
+		});
+		global.fetch = secondCall as unknown as typeof fetch;
+
+		await expect(
+			getValidAccessToken(stored, working.ctx as never),
+		).resolves.toBe("fresh-access");
+		expect(secondCall).not.toHaveBeenCalled();
+		expect(
+			working.dbOps.updateAccountTokensIfRefreshTokenMatches,
+		).toHaveBeenCalledTimes(1);
+		const written = working.dbOps.updateAccountTokensIfRefreshTokenMatches.mock
+			.calls[0] as unknown[];
+		expect(written[0]).toBe("round-trip");
+		expect(written[1]).toBe("rt-old");
+		expect(written[2]).toBe("fresh-access");
+		expect(written[4]).toBe("fresh-refresh");
+		expect(written[5]).toBe(CREATED_AT);
+		expect(stored.refresh_token).toBe("fresh-refresh");
+
+		// Stored once in the database, the rotation leaves the slot: a later
+		// start has nothing to restore.
+		expect(getPendingRotation("round-trip")).toBeUndefined();
+		clearAllPendingRotationsForTests();
+		configurePendingRotationPersistence(openStore());
+		await expect(restorePendingRotations()).resolves.toBe(0);
+		expect(slotFiles()).toHaveLength(1);
 	});
 });
