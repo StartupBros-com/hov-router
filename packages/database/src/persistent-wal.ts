@@ -14,8 +14,13 @@ export const WAL_SIZE_LIMIT_BYTES = 64 * 1024 * 1024;
  * By default the last close deletes both, and the next open has to allocate
  * the 32 KiB `-shm` index again. On a full filesystem that allocation fails
  * with `SQLITE_IOERR_SHMSIZE`, so a router stopped cleanly while the disk was
- * full could not start again until someone freed space (#827). With the index
- * left allocated, a start needs no new blocks to open the database.
+ * full could not start again until someone freed space (#827).
+ *
+ * Keeping the index improves the odds of that start; it does not guarantee
+ * it. The first connection to open the database still truncates the index
+ * and writes it again, so the start takes back blocks it has just released,
+ * and can lose them: to another writer in between, or, as measured on small
+ * ext4 images, when the index was no larger than the log needed.
  *
  * The setting is per connection and the connection that closes last decides,
  * so every read-write connection calls this. A connection from outside (the

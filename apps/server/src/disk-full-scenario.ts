@@ -13,10 +13,15 @@
  *   bun run apps/server/src/disk-full-scenario.ts --dir <mounted dir>
  *     [--binary <compiled cli>] [--soak-ms <n>]
  *     [--restart-loops <n>] [--pressure timer|spin] [--spin-pause-us <n>]
- *     [--wal-frames <n>] [--index-slack]
+ *     [--wal-frames <n>] [--index-slack] [--pad-index-bytes <n>]
+ *     [--named-steps <a,b>] [--kill-pause-ms <n>]
+ *     [--loop-signal alternate|term] [--loop-continue]
+ *     [--start-reserve-bytes <n>] [--quiet-start]
  *
  * `--restart-loops` repeats the restart on the full filesystem, alternating a
- * clean stop and a kill, and stops at the first start that fails. `--pressure
+ * clean stop and a kill, and stops at the first start that fails
+ * (`--loop-signal term` stops cleanly every time; `--loop-continue` keeps
+ * going after a failed start and reports every iteration). `--pressure
  * spin` adds a second process that retries a 4 KiB append, so a block the
  * router releases even for microseconds can be taken; `--spin-pause-us` sets
  * the pause between its attempts (default 0, which no start survives: SQLite
@@ -26,7 +31,19 @@
  * region. `--index-slack` then folds those frames into the database before
  * the fill, which leaves the index at the larger size while the log needs one
  * region: the shape of a long-running install, where a start frees more index
- * pages than it has to take back.
+ * pages than it has to take back. `--pad-index-bytes` gets the same margin a
+ * different way: this process appends that many zero bytes to the index file
+ * before the fill and tries to put them back after every start, which measures
+ * whether such a margin can be kept once the filesystem is full.
+ * `--named-steps` picks which of `clean-stop`, `crash` and
+ * `clean-stop-no-log-dir` run, and `--kill-pause-ms` waits between a kill and
+ * the next start. `--start-reserve-bytes` measures a margin that touches no
+ * SQLite file: this process keeps a file of that many written bytes next to
+ * the database, removes it just before each start and writes it again
+ * afterwards. With `--quiet-start` the refill does not run between the
+ * removal and the end of the start, which is the case where the process that
+ * opens the database releases the reserve itself and nothing else gets a turn
+ * in between.
  *
  * Prints one JSON report on stdout. Exit 0 means the scenario ran (read
  * `failures`); exit 2 means the harness itself could not run.
@@ -35,11 +52,13 @@ import { Database } from "bun:sqlite";
 import {
 	closeSync,
 	existsSync,
+	fsyncSync,
 	mkdirSync,
 	openSync,
 	rmSync,
 	statfsSync,
 	statSync,
+	truncateSync,
 	writeSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -64,7 +83,24 @@ interface Args {
 	walFrames: number;
 	/** Checkpoint the seeded frames before the fill, keeping the index large. */
 	indexSlack: boolean;
+	/** Zero bytes to keep past the end of the WAL index. 0 leaves it as is. */
+	padIndexBytes: number;
+	/** Which of the named restart steps run, in their fixed order. */
+	namedSteps: StepName[];
+	/** Wait this long between a SIGKILL and the next start. */
+	killPauseMs: number;
+	/** `term` stops the loop's server cleanly every time. */
+	loopSignal: "alternate" | "term";
+	/** Keep looping after a failed start, and loop even with nothing running. */
+	loopContinue: boolean;
+	/** Written bytes kept in a file beside the database and released per start. */
+	startReserveBytes: number;
+	/** Hold the refill from the release of the reserve to the end of the start. */
+	quietStart: boolean;
 }
+
+const STEP_NAMES = ["clean-stop", "crash", "clean-stop-no-log-dir"] as const;
+type StepName = (typeof STEP_NAMES)[number];
 
 function parseArgs(argv: string[]): Args {
 	let dir = "";
@@ -76,9 +112,41 @@ function parseArgs(argv: string[]): Args {
 	let spinPauseUs = 0;
 	let walFrames = 0;
 	let indexSlack = false;
+	let padIndexBytes = 0;
+	let namedSteps: StepName[] = [...STEP_NAMES];
+	let killPauseMs = 0;
+	let loopSignal: Args["loopSignal"] = "alternate";
+	let loopContinue = false;
+	let startReserveBytes = 0;
+	let quietStart = false;
 	for (let i = 0; i < argv.length; i++) {
 		const value = argv[i + 1];
+		if (argv[i] === "--quiet-start") quietStart = true;
+		if (argv[i] === "--start-reserve-bytes" && value) {
+			startReserveBytes = Number(value);
+		}
 		if (argv[i] === "--index-slack") indexSlack = true;
+		if (argv[i] === "--loop-continue") loopContinue = true;
+		if (argv[i] === "--pad-index-bytes" && value) padIndexBytes = Number(value);
+		if (argv[i] === "--kill-pause-ms" && value) killPauseMs = Number(value);
+		if (argv[i] === "--loop-signal" && value) {
+			if (value !== "alternate" && value !== "term") {
+				throw new Error("--loop-signal must be alternate or term");
+			}
+			loopSignal = value;
+		}
+		if (argv[i] === "--named-steps" && value) {
+			const wanted = value.split(",").filter(Boolean);
+			const unknown = wanted.filter(
+				(name) => !STEP_NAMES.includes(name as StepName),
+			);
+			if (unknown.length > 0) {
+				throw new Error(
+					`--named-steps takes ${STEP_NAMES.join(", ")}; got ${unknown.join(", ")}`,
+				);
+			}
+			namedSteps = STEP_NAMES.filter((name) => wanted.includes(name));
+		}
 		if (argv[i] === "--wal-frames" && value) walFrames = Number(value);
 		if (argv[i] === "--restart-loops" && value) restartLoops = Number(value);
 		if (argv[i] === "--spin-pause-us" && value) spinPauseUs = Number(value);
@@ -111,6 +179,30 @@ function parseArgs(argv: string[]): Args {
 			`--index-slack needs --wal-frames above ${FRAMES_PER_INDEX_REGION}, or the index never grows past one region`,
 		);
 	}
+	if (
+		!Number.isInteger(padIndexBytes) ||
+		padIndexBytes < 0 ||
+		padIndexBytes % PAGE_BYTES !== 0
+	) {
+		throw new Error(
+			`--pad-index-bytes must be a non-negative multiple of ${PAGE_BYTES}`,
+		);
+	}
+	if (!Number.isFinite(killPauseMs) || killPauseMs < 0) {
+		throw new Error("--kill-pause-ms must be a non-negative number");
+	}
+	if (
+		!Number.isInteger(startReserveBytes) ||
+		startReserveBytes < 0 ||
+		startReserveBytes % PAGE_BYTES !== 0
+	) {
+		throw new Error(
+			`--start-reserve-bytes must be a non-negative multiple of ${PAGE_BYTES}`,
+		);
+	}
+	if (quietStart && startReserveBytes === 0) {
+		throw new Error("--quiet-start needs --start-reserve-bytes");
+	}
 	return {
 		dir: resolve(dir),
 		binary,
@@ -121,12 +213,29 @@ function parseArgs(argv: string[]): Args {
 		spinPauseUs,
 		walFrames,
 		indexSlack,
+		padIndexBytes,
+		namedSteps,
+		killPauseMs,
+		loopSignal,
+		loopContinue,
+		startReserveBytes,
+		quietStart,
 	};
 }
 
 function freeBytes(dir: string): number {
 	const stats = statfsSync(dir);
 	return Number(stats.bavail) * Number(stats.bsize);
+}
+
+/**
+ * Free blocks and the ones an ordinary write may take. On ext4 the first stays
+ * above zero when the second is zero: the difference is held back for root
+ * and for the filesystem's own bookkeeping.
+ */
+function blockCounts(dir: string): { free: number; available: number } {
+	const stats = statfsSync(dir);
+	return { free: Number(stats.bfree), available: Number(stats.bavail) };
 }
 
 /** Largest filesystem the scenario agrees to fill. */
@@ -386,6 +495,15 @@ class RouterProcess {
 		return this.proc !== null && this.exit === null;
 	}
 
+	/** Everything the server printed since its most recent start. */
+	outputSinceStart(): string[] {
+		let from = 0;
+		this.output.forEach((line, index) => {
+			if (line.startsWith("--- start ")) from = index + 1;
+		});
+		return this.output.slice(from);
+	}
+
 	start(): void {
 		const { dir, binary } = this.args;
 		const command = binary
@@ -587,7 +705,202 @@ function sideFiles(dbFile: string) {
 		db: fileSize(dbFile),
 		wal: fileSize(`${dbFile}-wal`),
 		shm: fileSize(`${dbFile}-shm`),
+		// In 512-byte units, as stat reports them: a sparse index would show a
+		// size without the blocks a start gets back by truncating it.
+		shmBlocks: fileBlocks(`${dbFile}-shm`),
 	};
+}
+
+function fileBlocks(path: string): number | null {
+	try {
+		return statSync(path).blocks;
+	} catch {
+		return null;
+	}
+}
+
+interface PadResult {
+	ok: boolean;
+	sizeBefore: number | null;
+	sizeAfter: number | null;
+	blocksBefore: number | null;
+	blocksAfter: number | null;
+	pagesWritten: number;
+	error?: string;
+}
+
+/**
+ * Append zero-filled pages past the end of the WAL index. They are written,
+ * not left as a hole, because only allocated blocks come back when the next
+ * start truncates the file.
+ *
+ * Measurement only. A router must not do this to its own index, for two
+ * reasons. Closing any descriptor on the index file drops every POSIX lock
+ * the process holds on it, so this is only safe from a process with no SQLite
+ * connection on the database. And the write is not atomic with SQLite growing
+ * the index: a connection that maps the next region between the size check
+ * here and the write gets its new entries overwritten with zeros. The
+ * scenario sends no traffic while it pads.
+ */
+function padIndex(shmPath: string, padBytes: number): PadResult {
+	let before: { size: number; blocks: number } | null = null;
+	try {
+		before = statSync(shmPath);
+	} catch {
+		// Reported below.
+	}
+	const result: PadResult = {
+		ok: false,
+		sizeBefore: before?.size ?? null,
+		sizeAfter: null,
+		blocksBefore: before?.blocks ?? null,
+		blocksAfter: null,
+		pagesWritten: 0,
+	};
+	if (
+		!before ||
+		before.size < INDEX_REGION_BYTES ||
+		before.size % PAGE_BYTES !== 0
+	) {
+		result.error = "the index is not a whole region";
+		return result;
+	}
+	let fd: number | null = null;
+	try {
+		fd = openSync(shmPath, "r+");
+		const page = Buffer.alloc(PAGE_BYTES);
+		const end = before.size + padBytes;
+		for (let offset = before.size; offset < end; offset += PAGE_BYTES) {
+			writeSync(fd, page, 0, PAGE_BYTES, offset);
+			result.pagesWritten++;
+		}
+		fsyncSync(fd);
+		result.ok = true;
+	} catch (error) {
+		result.error = (error as NodeJS.ErrnoException).code ?? String(error);
+	} finally {
+		if (fd !== null) closeSync(fd);
+	}
+	try {
+		const after = statSync(shmPath);
+		result.sizeAfter = after.size;
+		result.blocksAfter = after.blocks;
+	} catch {
+		// The size fields stay null.
+	}
+	return result;
+}
+
+interface ReserveResult {
+	ok: boolean;
+	pagesWritten: number;
+	blocks: number | null;
+	error?: string;
+}
+
+/**
+ * Write the start reserve: real bytes, not a hole, because only allocated
+ * blocks are released when the file is removed.
+ */
+function writeReserve(reservePath: string, bytes: number): ReserveResult {
+	const result: ReserveResult = { ok: false, pagesWritten: 0, blocks: null };
+	let fd: number | null = null;
+	try {
+		fd = openSync(reservePath, "w");
+		const page = Buffer.alloc(PAGE_BYTES);
+		for (let offset = 0; offset < bytes; offset += PAGE_BYTES) {
+			writeSync(fd, page, 0, PAGE_BYTES, offset);
+			result.pagesWritten++;
+		}
+		fsyncSync(fd);
+		result.ok = true;
+	} catch (error) {
+		result.error = (error as NodeJS.ErrnoException).code ?? String(error);
+	} finally {
+		if (fd !== null) closeSync(fd);
+	}
+	result.blocks = fileBlocks(reservePath);
+	return result;
+}
+
+/**
+ * Put the pad back after a start. The start truncates the index and rebuilds
+ * it, so this waits for the file to change and then hold one size across two
+ * looks, 5 ms apart, before appending. That is later than a router padding
+ * its own index could manage, so a pad this restores is not flattered.
+ */
+async function restorePad(
+	shmPath: string,
+	padBytes: number,
+	changedSinceMs: number | null,
+	alive: () => boolean,
+	timeoutMs: number,
+): Promise<PadResult & { waitedMs: number }> {
+	const startedAt = Date.now();
+	let lastSize = -1;
+	while (Date.now() - startedAt < timeoutMs && alive()) {
+		let stats: { size: number; ctimeMs: number } | null = null;
+		try {
+			stats = statSync(shmPath);
+		} catch {
+			// Not there yet.
+		}
+		const rebuilt =
+			stats !== null &&
+			stats.ctimeMs !== changedSinceMs &&
+			stats.size >= INDEX_REGION_BYTES &&
+			stats.size % PAGE_BYTES === 0;
+		if (rebuilt && stats?.size === lastSize) {
+			return {
+				...padIndex(shmPath, padBytes),
+				waitedMs: Date.now() - startedAt,
+			};
+		}
+		lastSize = rebuilt ? (stats?.size ?? -1) : -1;
+		await Bun.sleep(5);
+	}
+	return {
+		ok: false,
+		sizeBefore: fileSize(shmPath),
+		sizeAfter: null,
+		blocksBefore: fileBlocks(shmPath),
+		blocksAfter: null,
+		pagesWritten: 0,
+		error: alive()
+			? "the index was not rebuilt in time"
+			: "the server exited before the index was rebuilt",
+		waitedMs: Date.now() - startedAt,
+	};
+}
+
+function changeTimeMs(path: string): number | null {
+	try {
+		return statSync(path).ctimeMs;
+	} catch {
+		return null;
+	}
+}
+
+/** What a start that failed printed: its error codes, messages and where it threw. */
+function startFailureDetail(lines: string[]): {
+	codes: string[];
+	errors: string[];
+	frames: string[];
+} {
+	const codes = new Set<string>();
+	const errors: string[] = [];
+	const frames: string[] = [];
+	for (const line of lines) {
+		const trimmed = line.trim();
+		const code = trimmed.match(/code: "([A-Z_0-9]+)"/);
+		if (code?.[1]) codes.add(code[1]);
+		if (trimmed.startsWith("at ")) {
+			if (frames.length < 4) frames.push(trimmed.slice(0, 240));
+		} else if (/\berror\b/i.test(trimmed) && !trimmed.startsWith("--- ")) {
+			if (errors.length < 4) errors.push(trimmed.slice(0, 240));
+		}
+	}
+	return { codes: [...codes], errors, frames };
 }
 
 /**
@@ -671,6 +984,10 @@ async function main(): Promise<void> {
 	const spinFile = join(args.dir, "spin.bin");
 	const logFile = join(args.dir, "tmp/better-ccflare-logs/app.log");
 	const dbFile = join(args.dir, "config/better-ccflare/better-ccflare.db");
+	const shmFile = `${dbFile}-shm`;
+	const reserveFile = `${dbFile}.start-reserve`;
+	/** True while a start holds the refill off (`--quiet-start`). */
+	let refillHeld = false;
 	const failures: string[] = [];
 	const report: Record<string, unknown> = {
 		mode: args.binary ? "compiled" : "source",
@@ -811,17 +1128,46 @@ async function main(): Promise<void> {
 		if (args.walFrames > 0 && !args.indexSlack) {
 			walBytesSeeded = seedLargeWal(dbFile, args.walFrames, false);
 		}
+		// The pad goes on with space available, after the seeding connections
+		// above have closed.
+		let padAtSeed: PadResult | null = null;
+		if (args.padIndexBytes > 0) {
+			padAtSeed = padIndex(shmFile, args.padIndexBytes);
+			if (
+				!padAtSeed.ok ||
+				(padAtSeed.blocksAfter ?? 0) <= (padAtSeed.blocksBefore ?? 0)
+			) {
+				throw new Error(
+					`the index could not be padded with space available, so the padded starts were not measured: ${JSON.stringify(padAtSeed)}`,
+				);
+			}
+		}
+		let reserveAtSeed: ReserveResult | null = null;
+		if (args.startReserveBytes > 0) {
+			reserveAtSeed = writeReserve(reserveFile, args.startReserveBytes);
+			if (!reserveAtSeed.ok) {
+				throw new Error(
+					`the start reserve could not be written with space available: ${JSON.stringify(reserveAtSeed)}`,
+				);
+			}
+		}
 		report.seed = {
 			rows: seededBootRows,
 			retentionWithSpace,
 			walFrames: args.walFrames,
 			indexSlack: args.indexSlack,
 			walBytesSeeded,
+			padIndexBytes: args.padIndexBytes,
+			padAtSeed,
+			startReserveBytes: args.startReserveBytes,
+			quietStart: args.quietStart,
+			reserveAtSeed,
 		};
 
 		// 2. Fill the filesystem and keep it full.
 		const filledBytes = fillToZero(ballast);
 		refill = setInterval(() => {
+			if (refillHeld) return;
 			try {
 				fillToZero(ballast);
 			} catch {
@@ -926,11 +1272,83 @@ async function main(): Promise<void> {
 		// clean stop with the log directory gone. A step that finds the server
 		// already dead still tries the start, and says it measured a cold start.
 		const restarts: Record<string, unknown> = {};
-		const steps = [
-			{ name: "clean-stop", signal: "SIGTERM", removeLogDir: false },
-			{ name: "crash", signal: "SIGKILL", removeLogDir: false },
-			{ name: "clean-stop-no-log-dir", signal: "SIGTERM", removeLogDir: true },
-		] as const;
+		const steps = (
+			[
+				{ name: "clean-stop", signal: "SIGTERM", removeLogDir: false },
+				{ name: "crash", signal: "SIGKILL", removeLogDir: false },
+				{
+					name: "clean-stop-no-log-dir",
+					signal: "SIGTERM",
+					removeLogDir: true,
+				},
+			] as const
+		).filter((step) => args.namedSteps.includes(step.name));
+		/** Start the server on the full filesystem and report what the start did. */
+		const startOnFull = async () => {
+			// Whatever the stop released goes back to the co-tenant before the start.
+			fillToZero(ballast);
+			const freeBeforeStart = freeBytes(args.dir);
+			const blocksBeforeStart = blockCounts(args.dir);
+			const indexChangedAt = changeTimeMs(shmFile);
+			let reserveBlocksReleased: number | null = null;
+			let blocksAfterRelease: ReturnType<typeof blockCounts> | null = null;
+			if (args.startReserveBytes > 0) {
+				refillHeld = args.quietStart;
+				reserveBlocksReleased = fileBlocks(reserveFile);
+				rmSync(reserveFile, { force: true });
+				blocksAfterRelease = blockCounts(args.dir);
+			}
+			const startedAt = Date.now();
+			router.start();
+			const padTask =
+				args.padIndexBytes > 0
+					? restorePad(
+							shmFile,
+							args.padIndexBytes,
+							indexChangedAt,
+							() => router.alive(),
+							20_000,
+						)
+					: null;
+			const healthy = await router.waitHealthy(60_000);
+			const padRestore = padTask ? await padTask : null;
+			const startMs = Date.now() - startedAt;
+			// Put back after a failed start too, so every start is measured from
+			// the same state; a router that failed to start could not do this.
+			const reserveRestore =
+				args.startReserveBytes > 0
+					? writeReserve(reserveFile, args.startReserveBytes)
+					: null;
+			// When the server's own waiting writes have taken what the release
+			// freed, the reserve cannot go back on a full filesystem. Make room
+			// the way returning space would, so the next start has one again.
+			let reserveRearmed: boolean | null = null;
+			if (reserveRestore && !reserveRestore.ok) {
+				try {
+					truncateSync(
+						ballast,
+						Math.max(0, (fileSize(ballast) ?? 0) - 2 * args.startReserveBytes),
+					);
+					reserveRearmed = writeReserve(reserveFile, args.startReserveBytes).ok;
+				} catch {
+					reserveRearmed = false;
+				}
+			}
+			refillHeld = false;
+			return {
+				freeBeforeStart,
+				blocksBeforeStart,
+				healthy,
+				startMs,
+				reserveBlocksReleased,
+				blocksAfterRelease,
+				reserveRestore,
+				reserveRearmed,
+				padRestore,
+				filesAfterStart: sideFiles(dbFile),
+				failure: healthy ? null : startFailureDetail(router.outputSinceStart()),
+			};
+		};
 		for (const step of steps) {
 			const startedFromLiveServer = router.alive();
 			await router.stop(step.signal, 20_000);
@@ -939,11 +1357,11 @@ async function main(): Promise<void> {
 			if (step.removeLogDir) {
 				rmSync(dirname(logFile), { recursive: true, force: true });
 			}
-			// Whatever the stop released goes back to the co-tenant before the start.
-			fillToZero(ballast);
-			const freeBeforeStart = freeBytes(args.dir);
-			router.start();
-			const healthy = await router.waitHealthy(60_000);
+			if (step.signal === "SIGKILL" && args.killPauseMs > 0) {
+				await Bun.sleep(args.killPauseMs);
+			}
+			const start = await startOnFull();
+			const healthy = start.healthy;
 			const served = healthy
 				? await sendBatch(router.base, accountId, `restart-${step.name}`, 5)
 				: { sent: 5, served: 0, failures: [] };
@@ -951,8 +1369,7 @@ async function main(): Promise<void> {
 				startedFromLiveServer,
 				stopExit,
 				filesAfterStop,
-				freeBeforeStart,
-				healthy,
+				...start,
 				requests: served,
 				exit: router.exit,
 				health: healthy ? await health(router.base) : null,
@@ -988,7 +1405,7 @@ async function main(): Promise<void> {
 		// 4b. The same restart, repeated. Each start has to reopen the database
 		// with nothing free, so a start that only works most of the time shows
 		// up here as the iteration it first failed on.
-		if (args.restartLoops > 0 && !router.alive()) {
+		if (args.restartLoops > 0 && !router.alive() && !args.loopContinue) {
 			report.restartLoop = {
 				requested: args.restartLoops,
 				pressure: args.pressure,
@@ -999,49 +1416,86 @@ async function main(): Promise<void> {
 			const loop: Record<string, unknown> = {
 				requested: args.restartLoops,
 				pressure: args.pressure,
+				signal: args.loopSignal,
+				// Starts that worked before the first one that did not.
 				completed: 0,
 				firstFailure: null,
 			};
 			const startMs: number[] = [];
+			const iterations: unknown[] = [];
+			let failed = 0;
 			for (let i = 0; i < args.restartLoops; i++) {
-				const signal = i % 2 === 0 ? "SIGTERM" : "SIGKILL";
+				const signal =
+					args.loopSignal === "term" || i % 2 === 0 ? "SIGTERM" : "SIGKILL";
+				const startedFromLiveServer = router.alive();
 				await router.stop(signal, 20_000);
 				const stopExit = router.exit;
 				const filesAfterStop = sideFiles(dbFile);
-				fillToZero(ballast);
-				const freeBeforeStart = freeBytes(args.dir);
-				const startedAt = Date.now();
-				router.start();
-				const healthy = await router.waitHealthy(60_000);
-				startMs.push(Date.now() - startedAt);
-				const served = healthy
+				if (signal === "SIGKILL" && args.killPauseMs > 0) {
+					await Bun.sleep(args.killPauseMs);
+				}
+				const start = await startOnFull();
+				startMs.push(start.startMs);
+				const served = start.healthy
 					? await sendBatch(router.base, accountId, `loop-${i}`, 2)
 					: { sent: 2, served: 0, failures: [] };
 				const cleanStopFailed =
-					signal === "SIGTERM" && stopExit?.exitCode !== 0;
-				if (!healthy || served.served !== served.sent || cleanStopFailed) {
+					startedFromLiveServer &&
+					signal === "SIGTERM" &&
+					stopExit?.exitCode !== 0;
+				const ok =
+					start.healthy && served.served === served.sent && !cleanStopFailed;
+				if (args.loopContinue) {
+					iterations.push({
+						iteration: i + 1,
+						signal,
+						startedFromLiveServer,
+						ok,
+						filesAfterStop,
+						blocksBeforeStart: start.blocksBeforeStart,
+						filesAfterStart: start.filesAfterStart,
+						padRestore: start.padRestore,
+						reserveBlocksReleased: start.reserveBlocksReleased,
+						blocksAfterRelease: start.blocksAfterRelease,
+						reserveRestore: start.reserveRestore,
+						reserveRearmed: start.reserveRearmed,
+						failure: start.failure,
+					});
+				}
+				if (ok) {
+					if (failed === 0) loop.completed = i + 1;
+					continue;
+				}
+				failed++;
+				if (loop.firstFailure === null) {
 					loop.firstFailure = {
 						iteration: i + 1,
 						signal,
 						stopExit,
 						filesAfterStop,
-						filesAfterStart: sideFiles(dbFile),
-						freeBeforeStart,
-						healthy,
+						...start,
 						requests: served,
 						exit: router.exit,
 					};
 					failures.push(
-						`restart loop: iteration ${i + 1} of ${args.restartLoops} (${signal}) failed: ${JSON.stringify({ healthy, served: served.served, stopExit, exit: router.exit })}`,
+						`restart loop: iteration ${i + 1} of ${args.restartLoops} (${signal}) failed: ${JSON.stringify({ healthy: start.healthy, served: served.served, stopExit, exit: router.exit })}`,
 					);
-					break;
 				}
-				loop.completed = i + 1;
+				if (!args.loopContinue) break;
 			}
 			loop.startMs = {
 				min: Math.min(...startMs),
 				max: Math.max(...startMs),
 			};
+			if (args.loopContinue) {
+				loop.failed = failed;
+				loop.iterations = iterations;
+				if (failed > 1) {
+					failures.push(
+						`restart loop: ${failed} of ${args.restartLoops} starts failed`,
+					);
+				}
+			}
 			report.restartLoop = loop;
 		}
 
