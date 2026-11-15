@@ -222,6 +222,30 @@ opens. That keeps systemd from reporting an active service while the proxy and
 guard children are stopped; `Restart=on-failure` and the `StartLimit*` bounds
 own the outer recovery budget.
 
+One kind of failure is kept out of that circuit: a start that failed because
+the disk is full. The runner recognizes three such failures. It could not make
+its control directory and the filesystem has no space left, it could not write
+the ownership record (the transaction module exits 28), or the backend's own
+start found no space (the backend exits 28, the errno of `ENOSPC`). It then
+logs `start failed for lack of disk space; waiting for space instead of opening
+the restart circuit`, waits with the usual backoff (30 seconds at most by
+default) and tries again for as long as the disk stays full. Exiting instead
+would hand the restart to systemd, whose start limit leaves the unit failed
+until someone runs `systemctl reset-failed`, long after the space has come
+back. While the runner waits, systemd reports the unit active with no proxy or
+guard children, and the journal gives the reason at every attempt. Any other
+failure is counted as before, and so is every failure after the stack was
+ready or during a deployment or rollback.
+
+The runner keeps two sockets and the deploy credential in one control
+directory, made once per runner and kept until the runner stops. The managed
+drop-in sets `RuntimeDirectory=ccflare-stack` and `RuntimeDirectoryMode=0700`,
+so that directory is `/run/ccflare-stack/ccflare-control.*`: `/run` is not on
+the disk, and a runner started while the disk is full can still make it.
+systemd creates `/run/ccflare-stack` for the unit's user before each start and
+removes it at each stop. A runner that is given no runtime directory uses
+`TMPDIR` (`/tmp` by default), as every runner did before.
+
 For unexpected child failures, `scripts/run-ccflare-stack.sh` uses a separate
 aggregate cleanup budget: `RUNNER_FAILURE_STOP_BUDGET_MS` defaults to 30 seconds
 and is bounded to 1--120 seconds. It limits how long a stubborn child can delay

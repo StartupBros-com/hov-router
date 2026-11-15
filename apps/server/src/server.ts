@@ -160,6 +160,7 @@ import {
 	EventLoopStallMonitor,
 	formatEventLoopStallReport,
 } from "./event-loop-stall-monitor";
+import { exitOnFailedStart } from "./failed-start";
 import { createHostCounterReader } from "./host-counters";
 import {
 	createManagedIngress,
@@ -3217,10 +3218,12 @@ Available endpoints:
 	}
 
 	// From here a write that fails for lack of disk space where nothing
-	// catches it no longer ends the server (#827). Not before: the CLI does
-	// not await this function, so a start that failed is an unhandled
-	// rejection, and surviving that would leave a process that never
-	// listened. A start that fails still exits with code 1.
+	// catches it no longer ends the server (#827). Not before: surviving an
+	// error during the start would leave a process that never listened. A
+	// start that fails still ends the process: both entry points hand this
+	// function's rejection to `exitOnFailedStart`, which exits 28 when the
+	// disk was full and 1 otherwise. An error during the start that nothing
+	// catches, and that is not this function's own rejection, exits 1.
 	storageFullBackstop ??= installStorageFullBackstop();
 
 	return {
@@ -3792,6 +3795,10 @@ if (import.meta.main) {
 		process.env.SSL_CERT_PATH = sslCertPath;
 	}
 
-	// Start the server asynchronously
-	void startServer({ port, sslKeyPath, sslCertPath });
+	// Start the server asynchronously. A start that fails exits with a
+	// status that tells the runner whether the disk was full (#827).
+	startServer({ port, sslKeyPath, sslCertPath }).catch(exitOnFailedStart);
 }
+
+// The CLI starts the server through this module and needs the same exit.
+export { exitOnFailedStart };

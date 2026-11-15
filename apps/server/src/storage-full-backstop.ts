@@ -54,8 +54,9 @@ export const STORAGE_FULL_REPORT_INTERVAL_MS = 30_000;
  * leaves whatever that code was doing unfinished.
  *
  * The server installs this once its start has finished. A start that fails,
- * for lack of space or anything else, still ends the process with code 1:
- * surviving it would leave a process that never listened.
+ * for lack of space or anything else, still ends the process (see
+ * `exitOnFailedStart`): surviving it would leave a process that never
+ * listened.
  *
  * Covers the main thread only. An error thrown inside a database worker
  * thread never reaches these handlers; each worker's owner listens for it.

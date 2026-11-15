@@ -295,7 +295,9 @@ describe.skipIf(strategy === null)(`a full disk, with ${mode}`, () => {
 		expect(report.schemaBehind).toMatchObject({
 			healthy: false,
 			freeBeforeStart: 0,
-			exit: { exitCode: 1 },
+			// 28, not 1: the runner waits for space after this status and
+			// counts any other toward the circuit that takes the unit down.
+			exit: { exitCode: 28 },
 			reserveArmedWhileFull: false,
 			indexBackAfterSpace: true,
 		});

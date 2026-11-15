@@ -172,7 +172,7 @@ The router keeps serving and starting when its disk has no space left. `runtime.
 ```
 
 - `logFile` — the log file's state, or `null` when the process writes none. While `suspended` is true the file cannot be written and `dropped` counts the lines lost since it last worked; `failures` counts every failure since the process started. Console output (stdout and stderr) is not affected.
-- `startReserveArmed` — whether the 64 KiB start reserve beside the database is whole, as of a check every 30 seconds; `null` before the first check. A start on a full disk can release it to open the database, once. `false` means the next start on a disk that is still full may fail.
+- `startReserveArmed` — whether the 64 KiB start reserve beside the database is whole, as of a check every 30 seconds; `null` before the first check. A start on a full disk can release it to open the database, once. `false` means the next start on a disk that is still full may fail. A start that fails for lack of space exits with status 28, and the managed stack runner then waits for space and tries again instead of giving up (see [systemd](systemd.md#restart-policy-best-practices)).
 - `uncaughtErrors` — full-disk errors that nothing caught and the process survived. A `count` above zero means some write has no handling of its own, and is a defect to report. `null` means nothing is watching for them, which is the case until a start has finished.
 - Each `lastError` in this block is an error code such as `ENOSPC` or `SQLITE_FULL`, or the error's name when it has no code. It is never the message, which can name a path; the message goes to stderr.
 

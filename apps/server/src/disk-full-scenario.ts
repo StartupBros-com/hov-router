@@ -111,6 +111,7 @@ import {
 	freeBytes,
 	spinForever,
 } from "./disk-full-support";
+import { OUT_OF_SPACE_EXIT_STATUS } from "./failed-start";
 
 const STUB_MARKER = "disk-full-scenario-stub-reply";
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
@@ -1740,9 +1741,14 @@ async function main(): Promise<void> {
 				failures.push(
 					"schema-behind: the start came up on the full filesystem although it could not finish its schema work",
 				);
-			} else if (router.exit?.exitCode !== 1 || refusal.length === 0) {
+			} else if (
+				router.exit?.exitCode !== OUT_OF_SPACE_EXIT_STATUS ||
+				refusal.length === 0
+			) {
+				// The status is what tells the runner to wait for space
+				// instead of counting the failure toward its restart circuit.
 				failures.push(
-					`schema-behind: the start did not refuse with exit code 1 and a message naming the cause: ${JSON.stringify({ exit: router.exit, refusal: refusal.length })}`,
+					`schema-behind: the start did not refuse with exit status ${OUT_OF_SPACE_EXIT_STATUS} and a message naming the cause: ${JSON.stringify({ exit: router.exit, refusal: refusal.length })}`,
 				);
 			}
 			if (reserveArmedWhileFull !== false) {

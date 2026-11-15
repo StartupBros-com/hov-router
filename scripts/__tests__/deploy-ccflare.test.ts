@@ -586,6 +586,8 @@ describe("render_systemd_pin", () => {
 				"Restart=on-failure",
 				"RestartSec=5s",
 				"RestartPreventExitStatus=143",
+				"RuntimeDirectory=ccflare-stack",
+				"RuntimeDirectoryMode=0700",
 				"ExecStart=",
 				`ExecStart=${runnerScriptFixture}`,
 				"# END better-ccflare managed deployment",

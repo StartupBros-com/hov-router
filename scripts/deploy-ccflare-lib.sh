@@ -384,6 +384,7 @@ render_systemd_pin() {
 	local kill_mode=mixed stop_timeout=720s
 	local restart=on-failure restart_sec=5s restart_prevent_exit_status=143
 	local start_limit_interval=300s start_limit_burst=5
+	local runtime_directory=ccflare-stack runtime_directory_mode=0700
 	local managed_begin="# BEGIN better-ccflare managed deployment"
 	local managed_end="# END better-ccflare managed deployment"
 
@@ -467,6 +468,14 @@ render_systemd_pin() {
 		printf 'Restart=%s\n' "$restart"
 		printf 'RestartSec=%s\n' "$restart_sec"
 		printf 'RestartPreventExitStatus=%s\n' "$restart_prevent_exit_status"
+		# The runner keeps its control directory here: two sockets and the
+		# deploy credential. /run is not on the disk, so a runner started
+		# while the disk is full can still make them (#827). systemd makes the
+		# directory for the unit's user before each start, names it in
+		# RUNTIME_DIRECTORY and removes it at each stop. A runner that is not
+		# given one uses TMPDIR, as every runner did before.
+		printf 'RuntimeDirectory=%s\n' "$runtime_directory"
+		printf 'RuntimeDirectoryMode=%s\n' "$runtime_directory_mode"
 		printf '%s\n' "ExecStart="
 		printf 'ExecStart=%s\n' "$runner"
 		printf '%s\n' "$managed_end"
