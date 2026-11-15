@@ -48,7 +48,9 @@ describe("Logs rows", () => {
 
 	it("drops the raw palette colours and the bracketed level", () => {
 		const html = render();
-		expect(html).not.toMatch(/text-(?:yellow|green)-/);
+		expect(html).not.toMatch(
+			/\b(?:border|text|bg)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d/,
+		);
 		expect(html).not.toContain("[INFO]");
 	});
 

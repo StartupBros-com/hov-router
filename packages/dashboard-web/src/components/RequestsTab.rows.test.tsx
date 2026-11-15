@@ -136,7 +136,7 @@ describe("Requests rows", () => {
 	it("uses no raw palette colours in the list", () => {
 		const { html } = renderRows();
 		expect(html).not.toMatch(
-			/\b(?:border|text|bg)-(?:purple|orange|teal|green|yellow|red)-\d/,
+			/\b(?:border|text|bg)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d/,
 		);
 	});
 

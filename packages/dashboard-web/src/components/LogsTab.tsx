@@ -278,7 +278,7 @@ export function LogsTab() {
 							onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
 								setAutoScroll((e.target as HTMLInputElement).checked)
 							}
-							className="rounded border-gray-300"
+							className="rounded border-input"
 						/>
 						<label
 							htmlFor="autoscroll"

@@ -529,9 +529,15 @@ export function RequestsTab() {
 												<SelectValue placeholder="All accounts" />
 											</SelectTrigger>
 											<SelectContent>
-												<SelectItem value="all">All accounts</SelectItem>
+												<SelectItem value="all" className="min-h-11">
+													All accounts
+												</SelectItem>
 												{uniqueAccounts.map((account) => (
-													<SelectItem key={account} value={account || ""}>
+													<SelectItem
+														key={account}
+														value={account || ""}
+														className="min-h-11"
+													>
 														{account}
 													</SelectItem>
 												))}
@@ -553,12 +559,18 @@ export function RequestsTab() {
 												<SelectValue placeholder="All agents" />
 											</SelectTrigger>
 											<SelectContent>
-												<SelectItem value="all">All agents</SelectItem>
+												<SelectItem value="all" className="min-h-11">
+													All agents
+												</SelectItem>
 												{agentFilterOptions.agents.length > 0 && (
 													<SelectGroup>
 														<SelectLabel>Agents</SelectLabel>
 														{agentFilterOptions.agents.map((agent) => (
-															<SelectItem key={agent} value={agent}>
+															<SelectItem
+																key={agent}
+																value={agent}
+																className="min-h-11"
+															>
 																{agent}
 															</SelectItem>
 														))}
@@ -574,6 +586,7 @@ export function RequestsTab() {
 																key={session.value}
 																value={session.value}
 																title={`Claude Code session ${session.value}`}
+																className="min-h-11"
 															>
 																{session.label}
 															</SelectItem>
@@ -601,10 +614,18 @@ export function RequestsTab() {
 												<SelectValue placeholder="All API keys" />
 											</SelectTrigger>
 											<SelectContent>
-												<SelectItem value="all">All API keys</SelectItem>
-												<SelectItem value="no-api-key">No API Key</SelectItem>
+												<SelectItem value="all" className="min-h-11">
+													All API keys
+												</SelectItem>
+												<SelectItem value="no-api-key" className="min-h-11">
+													No API Key
+												</SelectItem>
 												{uniqueApiKeys.map((key) => (
-													<SelectItem key={key} value={key || ""}>
+													<SelectItem
+														key={key}
+														value={key || ""}
+														className="min-h-11"
+													>
 														{key}
 													</SelectItem>
 												))}
@@ -742,7 +763,7 @@ export function RequestsTab() {
 												)}
 												<EventTime
 													value={request.meta.timestamp}
-													className="text-xs font-mono tabular-nums text-muted-foreground shrink-0 whitespace-nowrap"
+													className="min-w-0 text-xs font-mono tabular-nums text-muted-foreground sm:shrink-0 sm:whitespace-nowrap"
 												/>
 												<RequestStatusPill
 													statusCode={statusCode}
