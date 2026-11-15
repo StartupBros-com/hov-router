@@ -1,10 +1,9 @@
-import { Suspense } from "react";
-import { AnalyticsLoadingSkeleton } from "./AnalyticsLoadingSkeleton";
 import { AnalyticsTab } from "./AnalyticsTab";
+import { LazyPage } from "./page-shell";
 
 // Lazy loaded Analytics component for code splitting
 export const LazyAnalytics = () => (
-	<Suspense fallback={<AnalyticsLoadingSkeleton />}>
+	<LazyPage page="analytics">
 		<AnalyticsTab />
-	</Suspense>
+	</LazyPage>
 );

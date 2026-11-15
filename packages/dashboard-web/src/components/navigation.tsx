@@ -21,6 +21,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAlerts, useHealth } from "../hooks/queries";
+import { PAGE_META, type PageKey } from "../lib/page-meta";
 import { cn } from "../lib/utils";
 import { version } from "../lib/version";
 import { BrandMark } from "./BrandMark";
@@ -187,37 +188,29 @@ export function Navigation({ onLogout }: NavigationProps = {}) {
 
 	// Build nav items with the current alert badge
 	const navItems: NavItem[] = useMemo(() => {
-		const baseItems: NavItem[] = [
-			{ label: "Overview", icon: LayoutDashboard, path: "/" },
-			{ label: "Analytics", icon: BarChart3, path: "/analytics" },
+		const item = (page: PageKey, icon: NavItem["icon"]): NavItem => ({
+			label: PAGE_META[page].title,
+			icon,
+			path: PAGE_META[page].path,
+		});
+		return [
+			item("overview", LayoutDashboard),
+			item("analytics", BarChart3),
 			{
-				label: "Insights",
-				icon: Lightbulb,
-				path: "/insights",
+				...item("insights", Lightbulb),
 				badge:
 					unacknowledgedCount > 0 ? String(unacknowledgedCount) : undefined,
 			},
-			{ label: "Requests", icon: Activity, path: "/requests" },
-			{ label: "Accounts", icon: Users, path: "/accounts" },
-			{ label: "Usage History", icon: History, path: "/usage-history" },
-			{
-				label: "Window Value",
-				icon: CircleDollarSign,
-				path: "/window-value",
-			},
+			item("requests", Activity),
+			item("accounts", Users),
+			item("usageHistory", History),
+			item("windowValue", CircleDollarSign),
+			item("combos", Zap),
+			item("agents", Bot),
+			item("keys", Key),
+			item("logs", FileText),
+			item("settings", Settings),
 		];
-
-		baseItems.push({ label: "Combos", icon: Zap, path: "/combos" });
-
-		// Add remaining items
-		baseItems.push(
-			{ label: "Agents", icon: Bot, path: "/agents" },
-			{ label: "API Keys", icon: Key, path: "/keys" },
-			{ label: "Logs", icon: FileText, path: "/logs" },
-			{ label: "Settings", icon: Settings, path: "/settings" },
-		);
-
-		return baseItems;
 	}, [unacknowledgedCount]);
 
 	const checkForUpdates = useCallback(async () => {

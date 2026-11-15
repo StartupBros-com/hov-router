@@ -15,6 +15,7 @@ export const ERROR_TYPES = {
 	RATE_LIMIT: "rate-limit",
 	VALIDATION: "validation",
 	SERVER: "server",
+	TIMEOUT: "timeout",
 	UNKNOWN: "unknown",
 } as const;
 
@@ -79,10 +80,21 @@ const ERROR_MESSAGE_PATTERNS = [
 	[ERROR_TYPES.SERVER, ["server error", "500", "502", "503", "504"]],
 ] as const;
 
+// Whole messages a page receives when the request never got an answer: the browser's own fetch
+// failure, which the HTTP client rethrows unchanged once its retry is spent (Chromium "Failed to
+// fetch", Safari "Load failed"), and the client's timeout after a POST helper rewraps it. Matched
+// exactly, so a server message such as "Failed to fetch requests" keeps its own classification.
+const EXACT_MESSAGE_TYPES: Record<string, ErrorType> = {
+	"failed to fetch": ERROR_TYPES.NETWORK,
+	"load failed": ERROR_TYPES.NETWORK,
+	"request timeout": ERROR_TYPES.TIMEOUT,
+};
+
 // Error type detection
 export function getErrorType(error: unknown): ErrorType {
 	if (error instanceof HttpError) {
 		if (error.status === 401) return ERROR_TYPES.AUTH;
+		if (error.status === 408) return ERROR_TYPES.TIMEOUT;
 		if (error.status === 429) return ERROR_TYPES.RATE_LIMIT;
 		if (error.status >= 400 && error.status < 500)
 			return ERROR_TYPES.VALIDATION;
@@ -91,6 +103,11 @@ export function getErrorType(error: unknown): ErrorType {
 
 	if (error instanceof Error) {
 		const message = error.message.toLowerCase();
+
+		if (!(error instanceof HttpError)) {
+			const exact = EXACT_MESSAGE_TYPES[message.trim()];
+			if (exact) return exact;
+		}
 
 		for (const [type, patterns] of ERROR_MESSAGE_PATTERNS) {
 			if (patterns.some((pattern) => message.includes(pattern))) {
@@ -120,6 +137,7 @@ const DEFAULT_ERROR_MESSAGES: Record<ErrorType, string> = {
 	[ERROR_TYPES.RATE_LIMIT]: "Too many requests. Please try again later.",
 	[ERROR_TYPES.VALIDATION]: "Invalid request. Please check your input.",
 	[ERROR_TYPES.SERVER]: "Server error. Please try again later.",
+	[ERROR_TYPES.TIMEOUT]: "The request timed out. Please try again.",
 	[ERROR_TYPES.UNKNOWN]: "An unexpected error occurred.",
 };
 

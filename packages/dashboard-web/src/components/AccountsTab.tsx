@@ -46,9 +46,10 @@ import {
 	savePublicValue,
 	togglePublicValue,
 } from "./accounts/public-value-actions";
+import { PageLoading, RoutePageHeader } from "./page-shell";
 import { Button } from "./ui/button";
-import { Card, CardContent, CardDescription, CardHeader } from "./ui/card";
-import { ErrorState, LoadingState } from "./ui/state";
+import { Card, CardContent } from "./ui/card";
+import { ErrorState } from "./ui/state";
 
 type AccountCreationClient = Pick<
 	typeof api,
@@ -763,10 +764,28 @@ export function AccountsTab() {
 		}
 	};
 
-	if (loading) return <LoadingState label="Loading accounts" />;
+	if (loading) return <PageLoading page="accounts" />;
 
 	return (
 		<div className="space-y-4">
+			<RoutePageHeader
+				page="accounts"
+				actions={
+					<>
+						<BankedResetsSummary summary={bankedResets} />
+						{!adding && (
+							<Button
+								onClick={() => setAdding(true)}
+								size="sm"
+								className="min-h-11 text-black hover:text-black"
+							>
+								<Plus className="mr-2 h-4 w-4" />
+								Add Account
+							</Button>
+						)}
+					</>
+				}
+			/>
 			{error ? (
 				<ErrorState
 					title="Accounts could not load"
@@ -781,31 +800,6 @@ export function AccountsTab() {
 
 			<Card className="min-w-0 border-0 bg-transparent shadow-none hover:shadow-none">
 				{/* Rows provide their own surfaces; the section stays visually open. */}
-				<CardHeader className="px-0 pb-4 pt-0">
-					<div className="flex flex-wrap items-center justify-between gap-4">
-						<div>
-							<h1 className="text-2xl font-semibold tracking-tight">
-								Accounts
-							</h1>
-							<CardDescription>
-								Provider accounts, usage limits and routing settings
-							</CardDescription>
-						</div>
-						<div className="flex min-w-0 flex-wrap items-center gap-3">
-							<BankedResetsSummary summary={bankedResets} />
-							{!adding && (
-								<Button
-									onClick={() => setAdding(true)}
-									size="sm"
-									className="min-h-11 text-black hover:text-black"
-								>
-									<Plus className="mr-2 h-4 w-4" />
-									Add Account
-								</Button>
-							)}
-						</div>
-					</div>
-				</CardHeader>
 				<CardContent className="space-y-4 p-0">
 					{adding && (
 						<AccountAddForm
