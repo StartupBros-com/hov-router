@@ -1,9 +1,9 @@
 import type { UsageHistoryWindowSeries } from "@better-ccflare/types";
 import { Flame } from "lucide-react";
 import { computeWeeklyPace } from "../lib/usage-pace";
-import { cn, formatShortDuration } from "../lib/utils";
+import { formatShortDuration } from "../lib/utils";
 import { formatWindowName } from "./accounts/rate-limit-helpers";
-import { Card, CardContent } from "./ui/card";
+import { StatTile, type StatTileRow } from "./ui/stat-tile";
 
 interface UsageInsightCardsProps {
 	windows: UsageHistoryWindowSeries[];
@@ -84,55 +84,33 @@ function WindowInsightCard({
 			? computeWeeklyPace(lastPoint.utilization, prediction.resetsAtMs, now)
 			: null;
 
+	const rows: StatTileRow[] = [
+		{
+			label: "Exhaustion vs reset",
+			value: exhaustRestLabel,
+			valueClassName: exhaustsFirst
+				? "text-destructive"
+				: "text-muted-foreground",
+		},
+	];
+	if (weeklyPace)
+		rows.push({
+			label: "Weekly pace",
+			value: `${PACE_LABEL[weeklyPace.band]} (${weeklyPace.deltaPct >= 0 ? "+" : ""}${weeklyPace.deltaPct.toFixed(1)}pp)`,
+			valueClassName:
+				weeklyPace.band === "over_pace"
+					? "text-warning"
+					: weeklyPace.band === "in_reserve"
+						? "text-success"
+						: "text-muted-foreground",
+		});
+
 	return (
-		<Card>
-			<CardContent className="p-6">
-				<div className="flex items-center justify-between mb-4">
-					<Flame className="h-8 w-8 text-muted-foreground/20" />
-				</div>
-				<div className="space-y-1">
-					<p className="text-sm text-muted-foreground">
-						{formatWindowName(window)} burn rate
-					</p>
-					<p className="text-2xl font-bold">{burnRateLabel}</p>
-				</div>
-				<div className="mt-3 pt-3 border-t border-border/50 space-y-1">
-					<div className="flex items-baseline justify-between text-xs gap-2">
-						<span className="text-muted-foreground shrink-0">
-							Exhaustion vs reset
-						</span>
-						<span
-							className={cn(
-								"font-medium tabular-nums text-right",
-								exhaustsFirst ? "text-destructive" : "text-muted-foreground",
-							)}
-						>
-							{exhaustRestLabel}
-						</span>
-					</div>
-					{weeklyPace && (
-						<div className="flex items-baseline justify-between text-xs gap-2">
-							<span className="text-muted-foreground shrink-0">
-								Weekly pace
-							</span>
-							<span
-								className={cn(
-									"font-medium tabular-nums text-right",
-									weeklyPace.band === "over_pace"
-										? "text-warning"
-										: weeklyPace.band === "in_reserve"
-											? "text-success"
-											: "text-muted-foreground",
-								)}
-							>
-								{PACE_LABEL[weeklyPace.band]} (
-								{weeklyPace.deltaPct >= 0 ? "+" : ""}
-								{weeklyPace.deltaPct.toFixed(1)}pp)
-							</span>
-						</div>
-					)}
-				</div>
-			</CardContent>
-		</Card>
+		<StatTile
+			label={`${formatWindowName(window)} burn rate`}
+			icon={Flame}
+			value={burnRateLabel}
+			rows={rows}
+		/>
 	);
 }

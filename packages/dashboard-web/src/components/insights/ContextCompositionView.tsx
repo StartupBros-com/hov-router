@@ -35,6 +35,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../ui/select";
+import { StatTile } from "../ui/stat-tile";
 import { EmptyState, LoadingState } from "../ui/state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
@@ -295,77 +296,37 @@ export const ContextCompositionView = React.memo(
 			<div className="space-y-6">
 				{/* Coverage Summary Cards */}
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-							<CardTitle className="text-sm font-medium">
-								Requests Analyzed
-							</CardTitle>
-							<FileSearch className="h-4 w-4 text-muted-foreground" />
-						</CardHeader>
-						<CardContent>
-							<div className="text-2xl font-bold">
+					<StatTile
+						label="Requests Analyzed"
+						icon={FileSearch}
+						value={
+							<>
 								{formatNumber(meta?.parsedPayloads ?? 0)}{" "}
 								<span className="text-base font-normal text-muted-foreground">
 									of {formatNumber(requestsInRange)}
 								</span>
-							</div>
-							<p className="text-xs text-muted-foreground">
-								Requests with a parsed payload in the last {timeRange}
-							</p>
-						</CardContent>
-					</Card>
-
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-							<CardTitle className="text-sm font-medium">
-								Est. Context Size
-							</CardTitle>
-							<Layers className="h-4 w-4 text-muted-foreground" />
-						</CardHeader>
-						<CardContent>
-							<div className="text-2xl font-bold">
-								~{formatTokens(totals?.estimatedTokens.total ?? 0)}
-							</div>
-							<p className="text-xs text-muted-foreground">
-								Estimated tokens across analyzed payloads (~ 4 chars/token)
-							</p>
-						</CardContent>
-					</Card>
-
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-							<CardTitle className="text-sm font-medium">
-								Stored Payloads
-							</CardTitle>
-							<Database className="h-4 w-4 text-muted-foreground" />
-						</CardHeader>
-						<CardContent>
-							<div className="text-2xl font-bold">
-								{formatNumber(requestsWithPayload)}
-							</div>
-							<p className="text-xs text-muted-foreground">
-								{formatNumber(meta?.scannedPayloads ?? 0)} scanned
-								{meta?.truncated ? " (scan limit reached)" : ""}
-							</p>
-						</CardContent>
-					</Card>
-
-					<Card>
-						<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-							<CardTitle className="text-sm font-medium">
-								Growth Sessions
-							</CardTitle>
-							<TrendingUp className="h-4 w-4 text-muted-foreground" />
-						</CardHeader>
-						<CardContent>
-							<div className="text-2xl font-bold">
-								{formatNumber(sessions.length)}
-							</div>
-							<p className="text-xs text-muted-foreground">
-								Request runs grouped by project and time gap
-							</p>
-						</CardContent>
-					</Card>
+							</>
+						}
+						hint={`Requests with a parsed payload in the last ${timeRange}`}
+					/>
+					<StatTile
+						label="Est. Context Size"
+						icon={Layers}
+						value={`~${formatTokens(totals?.estimatedTokens.total ?? 0)}`}
+						hint="Estimated tokens across analyzed payloads (~ 4 chars/token)"
+					/>
+					<StatTile
+						label="Stored Payloads"
+						icon={Database}
+						value={formatNumber(requestsWithPayload)}
+						hint={`${formatNumber(meta?.scannedPayloads ?? 0)} scanned${meta?.truncated ? " (scan limit reached)" : ""}`}
+					/>
+					<StatTile
+						label="Growth Sessions"
+						icon={TrendingUp}
+						value={formatNumber(sessions.length)}
+						hint="Request runs grouped by project and time gap"
+					/>
 				</div>
 
 				{/* No-payloads notice — only for payload-dependent sections */}

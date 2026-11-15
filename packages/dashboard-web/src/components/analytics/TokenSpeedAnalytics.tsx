@@ -4,6 +4,7 @@ import type { TimeRange } from "../../constants";
 import { ModelTokenSpeedChart } from "../charts/ModelTokenSpeedChart";
 import { TokenSpeedChart } from "../charts/TokenSpeedChart";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { StatTile } from "../ui/stat-tile";
 
 interface TokenSpeedAnalyticsProps {
 	timeSeriesData: Array<{
@@ -56,54 +57,28 @@ export function TokenSpeedAnalytics({
 		<div className="space-y-6">
 			{/* Statistics Cards */}
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">
-							Average Output Speed
-						</CardTitle>
-						<Activity className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">
-							{formatTokensPerSecond(overallAvgSpeed)}
-						</div>
-						<p className="text-xs text-muted-foreground">
-							Across all models and requests
-						</p>
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">Peak Speed</CardTitle>
-						<Zap className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">
-							{formatTokensPerSecond(maxSpeed)}
-						</div>
-						<p className="text-xs text-muted-foreground">
-							Maximum observed in the selected time range
-						</p>
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">Fastest Model</CardTitle>
-						<Zap className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">
-							{fastestModel?.model || "N/A"}
-						</div>
-						<p className="text-xs text-muted-foreground">
-							{fastestModel
-								? `Peak: ${formatTokensPerSecond(fastestModel.maxTokensPerSecond || 0)}`
-								: "No data"}
-						</p>
-					</CardContent>
-				</Card>
+				<StatTile
+					label="Average Output Speed"
+					icon={Activity}
+					value={formatTokensPerSecond(overallAvgSpeed)}
+					hint="Across all models and requests"
+				/>
+				<StatTile
+					label="Peak Speed"
+					icon={Zap}
+					value={formatTokensPerSecond(maxSpeed)}
+					hint="Maximum observed in the selected time range"
+				/>
+				<StatTile
+					label="Fastest Model"
+					icon={Zap}
+					value={fastestModel?.model || "N/A"}
+					hint={
+						fastestModel
+							? `Peak: ${formatTokensPerSecond(fastestModel.maxTokensPerSecond || 0)}`
+							: "No data"
+					}
+				/>
 			</div>
 
 			{/* Charts */}

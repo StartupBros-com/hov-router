@@ -80,10 +80,12 @@ export function BaseAreaChart({
 				<AreaChart data={data} margin={margin} onClick={onChartClick}>
 					<defs>{customGradient || defaultGradient}</defs>
 					<CartesianGrid
+						stroke={CHART_PROPS.gridStroke}
 						strokeDasharray={CHART_PROPS.strokeDasharray}
 						className={CHART_PROPS.gridClassName}
 					/>
 					<XAxis
+						stroke={CHART_PROPS.axisStroke}
 						dataKey={xAxisKey}
 						className="text-xs"
 						angle={xAxisAngle}
@@ -92,11 +94,13 @@ export function BaseAreaChart({
 						tickFormatter={xAxisTickFormatter}
 					/>
 					<YAxis
+						stroke={CHART_PROPS.axisStroke}
 						className="text-xs"
 						domain={yAxisDomain}
 						tickFormatter={yAxisTickFormatter}
 					/>
 					<Tooltip
+						cursor={{ stroke: CHART_PROPS.cursorStroke }}
 						contentStyle={tooltipStyles}
 						// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
 						formatter={tooltipFormatter as any}
@@ -105,6 +109,7 @@ export function BaseAreaChart({
 					/>
 					{showLegend && <Legend height={legendHeight} />}
 					<Area
+						activeDot={{ stroke: CHART_PROPS.surfaceStroke }}
 						type="monotone"
 						dataKey={dataKey}
 						stroke={color}

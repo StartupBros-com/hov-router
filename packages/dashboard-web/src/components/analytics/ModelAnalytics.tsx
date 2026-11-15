@@ -16,6 +16,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../ui/select";
+import { StatTile, type StatTileRow } from "../ui/stat-tile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 interface ModelAnalyticsProps {
@@ -108,7 +109,7 @@ export function ModelAnalytics({
 							<div className="flex flex-wrap items-center justify-between gap-4">
 								<div className="space-y-1">
 									<CardTitle className="text-lg sm:text-2xl font-bold flex items-center gap-2">
-										<Zap className="h-6 w-6 text-purple-500" />
+										<Zap className="h-6 w-6 text-chart-purple" />
 										Model Performance Comparison
 									</CardTitle>
 									<CardDescription>
@@ -187,146 +188,120 @@ export function ModelAnalytics({
 							</CardContent>
 						</Card>
 
-						{/* Model Stats Cards */}
-						<div className="space-y-4">
-							{/* Fastest Model Card */}
-							<Card>
-								<CardHeader className="pb-3">
-									<CardTitle className="text-sm font-medium">
-										Fastest Model
-									</CardTitle>
-								</CardHeader>
-								<CardContent>
-									{(() => {
-										const fastest = modelPerformance
-											.filter((m) => m.avgTokensPerSecond !== null)
-											.sort(
-												(a, b) =>
-													(b.avgTokensPerSecond || 0) -
-													(a.avgTokensPerSecond || 0),
-											)[0];
-										return fastest ? (
-											<div className="space-y-2">
-												<p className="text-2xl font-bold">{fastest.model}</p>
-												<div className="flex items-center gap-4 text-sm">
-													<span className="text-muted-foreground">Speed:</span>
-													<span className="font-medium">
-														{fastest.avgTokensPerSecond?.toFixed(1)} tok/s
-													</span>
-												</div>
-												<div className="flex items-center gap-4 text-sm">
-													<span className="text-muted-foreground">
-														Response:
-													</span>
-													<span className="font-medium">
-														{fastest.avgResponseTime.toFixed(0)}ms
-													</span>
-												</div>
-											</div>
-										) : (
-											<p className="text-muted-foreground">No data</p>
-										);
-									})()}
-								</CardContent>
-							</Card>
-
-							{/* Most Reliable Model Card */}
-							<Card>
-								<CardHeader className="pb-3">
-									<CardTitle className="text-sm font-medium">
-										Most Reliable Model
-									</CardTitle>
-								</CardHeader>
-								<CardContent>
-									{(() => {
-										const reliable = modelPerformance.sort(
-											(a, b) => a.errorRate - b.errorRate,
-										)[0];
-										return reliable ? (
-											<div className="space-y-2">
-												<p className="text-2xl font-bold">{reliable.model}</p>
-												<div className="flex items-center gap-4 text-sm">
-													<span className="text-muted-foreground">
-														Error Rate:
-													</span>
-													<span className="font-medium text-green-700 dark:text-green-400">
-														{reliable.errorRate.toFixed(2)}%
-													</span>
-												</div>
-												<div className="flex items-center gap-4 text-sm">
-													<span className="text-muted-foreground">
-														p95 Response:
-													</span>
-													<span className="font-medium">
-														{reliable.p95ResponseTime.toFixed(0)}ms
-													</span>
-												</div>
-											</div>
-										) : (
-											<p className="text-muted-foreground">No data</p>
-										);
-									})()}
-								</CardContent>
-							</Card>
-
-							{/* Most Cost-Effective Model Card */}
-							<Card>
-								<CardHeader className="pb-3">
-									<CardTitle className="text-sm font-medium">
-										Most Cost-Effective
-									</CardTitle>
-								</CardHeader>
-								<CardContent>
-									{(() => {
-										const costEffective = comparisonData
-											.filter(
-												(m) =>
-													m.avgTokensPerSecond !== null &&
-													m.costPer1kTokens > 0,
-											)
-											.sort((a, b) => {
-												const efficiencyA =
-													(a.avgTokensPerSecond || 0) / a.costPer1kTokens;
-												const efficiencyB =
-													(b.avgTokensPerSecond || 0) / b.costPer1kTokens;
-												return efficiencyB - efficiencyA;
-											})[0];
-										return costEffective ? (
-											<div className="space-y-2">
-												<p className="text-2xl font-bold">
-													{costEffective.model}
-												</p>
-												<div className="flex items-center gap-4 text-sm">
-													<span className="text-muted-foreground">
-														Efficiency:
-													</span>
-													<span className="font-medium">
-														{(
-															(costEffective.avgTokensPerSecond || 0) /
-															costEffective.costPer1kTokens
-														).toFixed(2)}{" "}
-														tok/s/$
-													</span>
-												</div>
-												<div className="flex items-center gap-4 text-sm">
-													<span className="text-muted-foreground">
-														Cost/1K:
-													</span>
-													<span className="font-medium">
-														${costEffective.costPer1kTokens.toFixed(3)}
-													</span>
-												</div>
-											</div>
-										) : (
-											<p className="text-muted-foreground">No data</p>
-										);
-									})()}
-								</CardContent>
-							</Card>
-						</div>
+						<ModelDetailTiles
+							modelPerformance={modelPerformance}
+							comparisonData={comparisonData}
+						/>
 					</div>
 				</TabsContent>
 			</Tabs>
+		</div>
+	);
+}
+
+interface ModelComparisonRow {
+	model: string;
+	avgTokensPerSecond: number | null;
+	costPer1kTokens: number;
+	avgResponseTime: number;
+	errorRate: number;
+	totalRequests: number;
+}
+
+function ModelTile({
+	label,
+	model,
+	rows,
+}: {
+	label: string;
+	model: string | undefined;
+	rows: StatTileRow[] | undefined;
+}) {
+	if (model === undefined)
+		return (
+			<StatTile
+				label={label}
+				value="No data"
+				valueClassName="text-muted-foreground"
+			/>
+		);
+	return <StatTile label={label} value={model} rows={rows} />;
+}
+
+/** The Detailed Analysis tab's fastest, most reliable and cheapest models. */
+export function ModelDetailTiles({
+	modelPerformance,
+	comparisonData,
+}: {
+	modelPerformance: ModelAnalyticsProps["modelPerformance"];
+	comparisonData: ModelComparisonRow[];
+}) {
+	const fastest = modelPerformance
+		.filter((m) => m.avgTokensPerSecond !== null)
+		.sort(
+			(a, b) => (b.avgTokensPerSecond || 0) - (a.avgTokensPerSecond || 0),
+		)[0];
+	const reliable = modelPerformance.sort(
+		(a, b) => a.errorRate - b.errorRate,
+	)[0];
+	const costEffective = comparisonData
+		.filter((m) => m.avgTokensPerSecond !== null && m.costPer1kTokens > 0)
+		.sort((a, b) => {
+			const efficiencyA = (a.avgTokensPerSecond || 0) / a.costPer1kTokens;
+			const efficiencyB = (b.avgTokensPerSecond || 0) / b.costPer1kTokens;
+			return efficiencyB - efficiencyA;
+		})[0];
+
+	return (
+		<div className="space-y-4">
+			<ModelTile
+				label="Fastest Model"
+				model={fastest?.model}
+				rows={
+					fastest && [
+						{
+							label: "Speed",
+							value: `${fastest.avgTokensPerSecond?.toFixed(1)} tok/s`,
+						},
+						{
+							label: "Response",
+							value: `${fastest.avgResponseTime.toFixed(0)}ms`,
+						},
+					]
+				}
+			/>
+			<ModelTile
+				label="Most Reliable Model"
+				model={reliable?.model}
+				rows={
+					reliable && [
+						{ label: "Error Rate", value: `${reliable.errorRate.toFixed(2)}%` },
+						{
+							label: "p95 Response",
+							value: `${reliable.p95ResponseTime.toFixed(0)}ms`,
+						},
+					]
+				}
+			/>
+			<ModelTile
+				label="Most Cost-Effective"
+				model={costEffective?.model}
+				rows={
+					costEffective && [
+						{
+							label: "Efficiency",
+							value: `${(
+								(costEffective.avgTokensPerSecond || 0) /
+									costEffective.costPer1kTokens
+							).toFixed(2)} tok/s/$`,
+						},
+						{
+							label: "Cost/1K",
+							value: `$${costEffective.costPer1kTokens.toFixed(3)}`,
+						},
+					]
+				}
+			/>
 		</div>
 	);
 }

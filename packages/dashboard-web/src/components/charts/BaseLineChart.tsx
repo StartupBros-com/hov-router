@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import {
 	CartesianGrid,
+	type DotProps,
 	Legend,
 	Line,
 	LineChart,
@@ -23,7 +24,7 @@ interface LineConfig {
 	dataKey: string;
 	stroke?: string;
 	strokeWidth?: number;
-	dot?: boolean;
+	dot?: boolean | Partial<DotProps>;
 	name?: string;
 	strokeDasharray?: string;
 	connectNulls?: boolean;
@@ -93,10 +94,12 @@ export function BaseLineChart({
 			<ResponsiveContainer width="100%" height={chartHeight}>
 				<LineChart data={data} margin={margin} onClick={onChartClick}>
 					<CartesianGrid
+						stroke={CHART_PROPS.gridStroke}
 						strokeDasharray={CHART_PROPS.strokeDasharray}
 						className={CHART_PROPS.gridClassName}
 					/>
 					<XAxis
+						stroke={CHART_PROPS.axisStroke}
 						dataKey={xAxisKey}
 						type={xAxisType}
 						domain={xAxisDomain}
@@ -108,14 +111,19 @@ export function BaseLineChart({
 						tickFormatter={xAxisTickFormatter}
 					/>
 					<YAxis
+						stroke={CHART_PROPS.axisStroke}
 						className="text-xs"
 						domain={yAxisDomain}
 						tickFormatter={yAxisTickFormatter}
 					/>
 					{tooltipContent ? (
-						<Tooltip content={tooltipContent} />
+						<Tooltip
+							cursor={{ stroke: CHART_PROPS.cursorStroke }}
+							content={tooltipContent}
+						/>
 					) : (
 						<Tooltip
+							cursor={{ stroke: CHART_PROPS.cursorStroke }}
 							contentStyle={tooltipStyles}
 							// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
 							formatter={tooltipFormatter as any}
@@ -126,12 +134,22 @@ export function BaseLineChart({
 					{showLegend && <Legend height={legendHeight} />}
 					{lineConfigs.map((lineConfig, _index) => (
 						<Line
+							activeDot={{ stroke: CHART_PROPS.surfaceStroke }}
 							key={lineConfig.dataKey}
 							type="monotone"
 							dataKey={lineConfig.dataKey}
 							stroke={lineConfig.stroke || COLORS.primary}
 							strokeWidth={lineConfig.strokeWidth || 2}
-							dot={lineConfig.dot ?? false}
+							dot={
+								typeof lineConfig.dot === "object"
+									? {
+											...lineConfig.dot,
+											fill: lineConfig.dot.fill ?? CHART_PROPS.surfaceStroke,
+										}
+									: lineConfig.dot
+										? { fill: CHART_PROPS.surfaceStroke }
+										: false
+							}
 							name={lineConfig.name || lineConfig.dataKey}
 							animationDuration={animationDuration}
 							strokeDasharray={lineConfig.strokeDasharray}
@@ -148,7 +166,11 @@ export function BaseLineChart({
 							strokeDasharray={
 								refLine.strokeDasharray || CHART_PROPS.strokeDasharray
 							}
-							label={refLine.label}
+							label={
+								refLine.label
+									? { value: refLine.label, fill: CHART_PROPS.axisStroke }
+									: refLine.label
+							}
 						/>
 					))}
 				</LineChart>
