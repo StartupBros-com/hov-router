@@ -35,6 +35,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../ui/select";
+import { EmptyState, LoadingState } from "../ui/state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 interface ContextCompositionViewProps {
@@ -288,6 +289,8 @@ export const ContextCompositionView = React.memo(
 		const requestsWithPayload = meta?.payloadCoverage.requestsWithPayload ?? 0;
 		const noPayloads = !!data && requestsWithPayload === 0;
 
+		if (data === undefined)
+			return <LoadingState label="Loading context insights" />;
 		return (
 			<div className="space-y-6">
 				{/* Coverage Summary Cards */}
@@ -367,25 +370,16 @@ export const ContextCompositionView = React.memo(
 
 				{/* No-payloads notice — only for payload-dependent sections */}
 				{noPayloads && requestsInRange > 0 && (
-					<Card>
-						<CardContent className="p-6">
-							<div className="flex items-start gap-3">
-								<Database className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-								<div className="space-y-1">
-									<p className="font-medium">No stored payloads to analyze</p>
-									<p className="text-sm text-muted-foreground">
-										Context composition is computed from stored request
-										payloads, but none of the {formatNumber(requestsInRange)}{" "}
-										requests in the last {timeRange} have one. Enable payload
-										storage (the <code>store_payloads</code> config option) and
-										new requests will appear here. Note that payloads are
-										size-capped and cleaned up by retention, so coverage is
-										always partial.
-									</p>
-								</div>
-							</div>
-						</CardContent>
-					</Card>
+					<EmptyState
+						title="No stored payloads to analyze"
+						description={
+							"Context composition is computed from stored request payloads, but none of the " +
+							formatNumber(requestsInRange) +
+							" requests in the last " +
+							timeRange +
+							" have one. Enable payload storage (the store_payloads config option) and new requests will appear here. Note that payloads are size-capped and cleaned up by retention, so coverage is always partial."
+						}
+					/>
 				)}
 
 				{/* Payload-dependent sections: composition donuts + context details */}

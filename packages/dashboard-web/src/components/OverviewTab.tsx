@@ -22,13 +22,13 @@ import {
 	useAnalytics,
 	useRoutingObservations,
 } from "../hooks/queries";
+import { useApiError } from "../hooks/useApiError";
 import {
 	computePoolUsage,
 	computeScopedPoolUsage,
 	formatFamilyLabel,
 } from "../lib/pool-usage";
 import { ChartsSection } from "./overview/ChartsSection";
-import { LoadingSkeleton } from "./overview/LoadingSkeleton";
 import { MetricCard } from "./overview/MetricCard";
 import {
 	PoolCapacitySection,
@@ -41,16 +41,25 @@ import {
 } from "./overview/StorageIntegrityCard";
 import { SystemStatus } from "./overview/SystemStatus";
 import { TimeRangeSelector } from "./overview/TimeRangeSelector";
+import { RoutePageHeader } from "./page-shell";
+import { ErrorState, LoadingState } from "./ui/state";
 
 export const OverviewTab = React.memo(() => {
 	// Fetch all data using React Query hooks
+	const { formatError } = useApiError();
 	const [timeRange, setTimeRange] = useState("24h");
-	const { data: analytics, isLoading: analyticsLoading } = useAnalytics(
+	const {
+		data: analytics,
+		isLoading: analyticsLoading,
+		isError,
+		error,
+		refetch,
+	} = useAnalytics(
 		timeRange,
 		{ accounts: [], models: [], status: "all" },
 		"normal",
 	);
-	const { data: accounts, isLoading: accountsLoading } = useAccounts();
+	const { data: accounts } = useAccounts();
 	const { data: routingObservationsResponse } = useRoutingObservations();
 
 	const [now, setNow] = useState(() => Date.now());
@@ -145,8 +154,7 @@ export const OverviewTab = React.memo(() => {
 		}
 	}, []);
 
-	const loading = analyticsLoading || accountsLoading;
-	const combinedData = analytics && accounts ? { analytics, accounts } : null;
+	const loading = analyticsLoading;
 
 	// Transform time series data
 	const timeSeriesData = useMemo(() => {
@@ -226,10 +234,6 @@ export const OverviewTab = React.memo(() => {
 		};
 	}, [timeSeriesData, pctChange]);
 
-	if (loading && !combinedData) {
-		return <LoadingSkeleton />;
-	}
-
 	const trendPeriod = getTrendPeriod(timeRange);
 
 	// Use analytics data for model distribution
@@ -246,144 +250,176 @@ export const OverviewTab = React.memo(() => {
 	const apiKeyPerformanceData = analytics?.apiKeyPerformance || [];
 
 	return (
-		<div className="space-y-6">
-			{/* Sticky corruption banner — only renders when /api/storage reports corrupt */}
-			<StorageIntegrityBanner />
+		<div className="space-y-4">
+			<RoutePageHeader
+				page="overview"
+				actions={
+					<TimeRangeSelector value={timeRange} onChange={setTimeRange} />
+				}
+			/>
+			<div className="space-y-6">
+				{/* Sticky corruption banner — only renders when /api/storage reports corrupt */}
+				<StorageIntegrityBanner />
 
-			{/* Header with Time Range Selector */}
-			<div className="flex justify-between items-center">
-				<h2 className="text-2xl font-semibold">Overview</h2>
-				<TimeRangeSelector value={timeRange} onChange={setTimeRange} />
-			</div>
-
-			{/* Metrics Grid */}
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4">
-				<MetricCard
-					title="Total Requests"
-					value={formatNumber(analytics?.totals.requests || 0)}
-					change={
-						trends.deltaRequests !== null ? trends.deltaRequests : undefined
-					}
-					trend={trends.trendRequests}
-					trendPeriod={trendPeriod}
-					icon={Activity}
-				/>
-				<MetricCard
-					title="Success Rate"
-					value={formatPercentage(analytics?.totals.successRate || 0, 0)}
-					change={
-						trends.deltaSuccessRate !== null
-							? trends.deltaSuccessRate
-							: undefined
-					}
-					trend={trends.trendSuccessRate}
-					trendPeriod={trendPeriod}
-					icon={CheckCircle}
-				/>
-				<MetricCard
-					title="Avg Response Time"
-					value={`${Math.round(analytics?.totals.avgResponseTime || 0)}ms`}
-					change={
-						trends.deltaResponseTime !== null
-							? trends.deltaResponseTime
-							: undefined
-					}
-					trend={trends.trendResponseTime}
-					trendPeriod={trendPeriod}
-					icon={Clock}
-				/>
-				<MetricCard
-					title="Plan Value"
-					value={
-						analytics?.totals.planCostUsd
-							? formatCost(analytics.totals.planCostUsd)
-							: "$0.0000"
-					}
-					trendPeriod={trendPeriod}
-					icon={DollarSign}
-					subRows={[
-						{
-							label: "Avg / day",
-							value: formatCost(analytics?.totals.avgDailyPlanCostUsd ?? 0),
-							tooltip: "Average daily plan value over the last 7 days",
-						},
-						{
-							label: "Avg / week",
-							value: formatCost(analytics?.totals.avgWeeklyPlanCostUsd ?? 0),
-							tooltip:
-								"Average weekly plan value, derived from the last 30 days",
-						},
-					]}
-				/>
-				<MetricCard
-					title="API Cost"
-					value={
-						analytics?.totals.apiCostUsd
-							? formatCost(analytics.totals.apiCostUsd)
-							: "$0.0000"
-					}
-					change={trends.deltaCost !== null ? trends.deltaCost : undefined}
-					trend={trends.trendCost}
-					trendPeriod={trendPeriod}
-					icon={DollarSign}
-					subRows={[
-						...(analytics?.totals.avgDailyApiCostUsd != null
-							? [
+				{analytics === undefined ? (
+					isError ? (
+						<ErrorState
+							title="Analytics could not load"
+							message={formatError(error)}
+							onRetry={() => void refetch()}
+						/>
+					) : (
+						<LoadingState label="Loading analytics" />
+					)
+				) : (
+					<>
+						{/* Metrics Grid */}
+						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4">
+							<MetricCard
+								title="Total Requests"
+								value={formatNumber(analytics?.totals.requests || 0)}
+								change={
+									trends.deltaRequests !== null
+										? trends.deltaRequests
+										: undefined
+								}
+								trend={trends.trendRequests}
+								trendPeriod={trendPeriod}
+								icon={Activity}
+							/>
+							<MetricCard
+								title="Success Rate"
+								value={formatPercentage(analytics?.totals.successRate || 0, 0)}
+								change={
+									trends.deltaSuccessRate !== null
+										? trends.deltaSuccessRate
+										: undefined
+								}
+								trend={trends.trendSuccessRate}
+								trendPeriod={trendPeriod}
+								icon={CheckCircle}
+							/>
+							<MetricCard
+								title="Avg Response Time"
+								value={`${Math.round(analytics?.totals.avgResponseTime || 0)}ms`}
+								change={
+									trends.deltaResponseTime !== null
+										? trends.deltaResponseTime
+										: undefined
+								}
+								trend={trends.trendResponseTime}
+								trendPeriod={trendPeriod}
+								icon={Clock}
+							/>
+							<MetricCard
+								title="Plan Value"
+								value={
+									analytics?.totals.planCostUsd
+										? formatCost(analytics.totals.planCostUsd)
+										: "$0.0000"
+								}
+								trendPeriod={trendPeriod}
+								icon={DollarSign}
+								subRows={[
 									{
 										label: "Avg / day",
-										value: formatCost(analytics.totals.avgDailyApiCostUsd),
-										tooltip: "Average daily API cost over the last 7 days",
+										value: formatCost(
+											analytics?.totals.avgDailyPlanCostUsd ?? 0,
+										),
+										tooltip: "Average daily plan value over the last 7 days",
 									},
-								]
-							: []),
-						...(analytics?.totals.avgWeeklyApiCostUsd != null
-							? [
 									{
 										label: "Avg / week",
-										value: formatCost(analytics.totals.avgWeeklyApiCostUsd),
+										value: formatCost(
+											analytics?.totals.avgWeeklyPlanCostUsd ?? 0,
+										),
 										tooltip:
-											"Average weekly API cost, derived from the last 30 days",
+											"Average weekly plan value, derived from the last 30 days",
 									},
-								]
-							: []),
-					]}
+								]}
+							/>
+							<MetricCard
+								title="API Cost"
+								value={
+									analytics?.totals.apiCostUsd
+										? formatCost(analytics.totals.apiCostUsd)
+										: "$0.0000"
+								}
+								change={
+									trends.deltaCost !== null ? trends.deltaCost : undefined
+								}
+								trend={trends.trendCost}
+								trendPeriod={trendPeriod}
+								icon={DollarSign}
+								subRows={[
+									...(analytics?.totals.avgDailyApiCostUsd != null
+										? [
+												{
+													label: "Avg / day",
+													value: formatCost(
+														analytics.totals.avgDailyApiCostUsd,
+													),
+													tooltip:
+														"Average daily API cost over the last 7 days",
+												},
+											]
+										: []),
+									...(analytics?.totals.avgWeeklyApiCostUsd != null
+										? [
+												{
+													label: "Avg / week",
+													value: formatCost(
+														analytics.totals.avgWeeklyApiCostUsd,
+													),
+													tooltip:
+														"Average weekly API cost, derived from the last 30 days",
+												},
+											]
+										: []),
+								]}
+							/>
+							<MetricCard
+								title="Output Speed"
+								value={formatTokensPerSecond(
+									analytics?.totals.avgTokensPerSecond,
+								)}
+								change={
+									trends.deltaOutputSpeed !== null
+										? trends.deltaOutputSpeed
+										: undefined
+								}
+								trend={trends.trendOutputSpeed}
+								trendPeriod={trendPeriod}
+								icon={Zap}
+							/>
+						</div>
+					</>
+				)}
+				<PoolCapacitySection
+					pools={capacityPools}
+					primaryAccountName={primaryAccountName}
+					now={now}
+					observations={routingObservationsResponse?.observations}
 				/>
-				<MetricCard
-					title="Output Speed"
-					value={formatTokensPerSecond(analytics?.totals.avgTokensPerSecond)}
-					change={
-						trends.deltaOutputSpeed !== null
-							? trends.deltaOutputSpeed
-							: undefined
-					}
-					trend={trends.trendOutputSpeed}
-					trendPeriod={trendPeriod}
-					icon={Zap}
-				/>
+
+				{analytics !== undefined && (
+					<ChartsSection
+						timeSeriesData={timeSeriesData}
+						modelData={modelData}
+						accountHealthData={accountHealthData}
+						accountModelUsageData={accountModelUsageData}
+						apiKeyPerformanceData={apiKeyPerformanceData}
+						loading={loading}
+					/>
+				)}
+
+				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+					<SystemStatus />
+					<StorageIntegrityCard />
+				</div>
+
+				{accounts && <RateLimitInfo accounts={accounts} now={now} />}
 			</div>
-
-			<PoolCapacitySection
-				pools={capacityPools}
-				primaryAccountName={primaryAccountName}
-				now={now}
-				observations={routingObservationsResponse?.observations}
-			/>
-
-			<ChartsSection
-				timeSeriesData={timeSeriesData}
-				modelData={modelData}
-				accountHealthData={accountHealthData}
-				accountModelUsageData={accountModelUsageData}
-				apiKeyPerformanceData={apiKeyPerformanceData}
-				loading={loading}
-			/>
-
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				<SystemStatus />
-				<StorageIntegrityCard />
-			</div>
-
-			{accounts && <RateLimitInfo accounts={accounts} now={now} />}
 		</div>
 	);
 });

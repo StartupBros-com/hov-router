@@ -5,7 +5,9 @@ import {
 	useFleetUsageHistory,
 	useUsageHistory,
 } from "../../hooks/queries";
+import { useApiError } from "../../hooks/useApiError";
 import { FleetUsageChart } from "../FleetUsageChart";
+import { RoutePageHeader } from "../page-shell";
 import { UsageInsightCards } from "../UsageInsightCards";
 import { Card } from "../ui/card";
 import {
@@ -15,6 +17,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../ui/select";
+import { EmptyState, ErrorState, LoadingState } from "../ui/state";
 import { formatPredictionAnnotation } from "./chart-data";
 import {
 	fleetTruncationNotice,
@@ -32,7 +35,13 @@ const RANGES: TimeRange[] = ["1h", "6h", "24h", "7d", "30d"];
 const ALL_ACCOUNTS = "all";
 
 export function UsageHistoryTab() {
-	const { data: accounts } = useAccounts();
+	const {
+		data: accounts,
+		isError: accountsError,
+		error: accountsFailure,
+		refetch: refetchAccounts,
+	} = useAccounts();
+	const { formatError } = useApiError();
 	const [accountId, setAccountId] = useState<string>("");
 	const [range, setRange] = useState<string>("24h");
 
@@ -44,14 +53,12 @@ export function UsageHistoryTab() {
 	// Neither query fires for the branch that isn't showing — useUsageHistory
 	// is disabled by its own `enabled: !!account` when passed "", and
 	// useFleetUsageHistory takes `isFleet` directly as its `enabled`.
-	const { data, isLoading } = useUsageHistory(isFleet ? "" : selected, range);
-	const { data: fleetData, isLoading: fleetLoading } = useFleetUsageHistory(
+	const { data, isError, error, refetch } = useUsageHistory(
+		isFleet ? "" : selected,
 		range,
-		isFleet,
 	);
+	const fleetQuery = useFleetUsageHistory(range, isFleet);
 	const windows = data?.windows ?? [];
-	// Null unless the server capped the fleet response by its point budget.
-	const truncationNotice = fleetTruncationNotice(fleetData);
 	// Bucket "now" to 1-minute granularity (matching the chart's nowBucket) so the
 	// per-window annotations use a single, stable reference rather than a fresh
 	// Date.now() per window per render — avoids sub-minute ETA display drift.
@@ -59,6 +66,23 @@ export function UsageHistoryTab() {
 
 	return (
 		<div className="space-y-4">
+			<RoutePageHeader page="usageHistory" />
+			{accounts === undefined ? (
+				accountsError ? (
+					<ErrorState
+						title="Accounts could not load"
+						message={formatError(accountsFailure)}
+						onRetry={() => void refetchAccounts()}
+					/>
+				) : (
+					<LoadingState label="Loading accounts" />
+				)
+			) : accounts.length === 0 ? (
+				<EmptyState
+					title="No accounts yet"
+					description="Add an account to start collecting usage history."
+				/>
+			) : null}
 			<div className="flex gap-3">
 				<Select value={selected} onValueChange={setAccountId}>
 					<SelectTrigger className="w-64" aria-label="Account">
@@ -89,28 +113,35 @@ export function UsageHistoryTab() {
 			</div>
 
 			{isFleet ? (
-				<Card className="p-4 space-y-2">
-					{truncationNotice && (
-						// Informational, not an error: the fleet view is capped, not broken.
-						<p className="text-xs text-muted-foreground">{truncationNotice}</p>
-					)}
-					<FleetUsageChart
-						accounts={fleetData?.accounts ?? []}
-						loading={fleetLoading}
-						emptyState="No accounts have usage snapshots in this range yet."
-					/>
-				</Card>
-			) : (
+				<FleetHistorySection query={fleetQuery} />
+			) : !selected ? null : (
+				// No account is selected only while accounts load, fail or are empty; the block
+				// above already says which, so the history card waits for an account.
 				<>
-					<UsageInsightCards windows={windows} now={nowBucket} />
+					{data !== undefined && (
+						<UsageInsightCards windows={windows} now={nowBucket} />
+					)}
 
 					<Card className="p-4">
-						<UsageHistoryChart
-							windows={windows}
-							rangeMs={rangeToMs(range)}
-							loading={isLoading}
-							emptyState={usageEmptyStateMessage(selectedAccount)}
-						/>
+						{data === undefined ? (
+							isError ? (
+								<ErrorState
+									size="inline"
+									title="Usage history could not load"
+									message={formatError(error)}
+									onRetry={() => void refetch()}
+								/>
+							) : (
+								<LoadingState size="inline" label="Loading usage history" />
+							)
+						) : windows.length === 0 ? (
+							<EmptyState
+								size="inline"
+								title={usageEmptyStateMessage(selectedAccount)}
+							/>
+						) : (
+							<UsageHistoryChart windows={windows} rangeMs={rangeToMs(range)} />
+						)}
 					</Card>
 
 					{windows.length > 0 && (
@@ -125,5 +156,48 @@ export function UsageHistoryTab() {
 				</>
 			)}
 		</div>
+	);
+}
+
+/** The fleet query owns this card independently of the account picker query. */
+export function FleetHistorySection({
+	query,
+}: {
+	query: ReturnType<typeof useFleetUsageHistory>;
+}) {
+	const {
+		data: fleetData,
+		isError: fleetError,
+		error: fleetFailure,
+		refetch: refetchFleet,
+	} = query;
+	const { formatError } = useApiError();
+	const truncationNotice = fleetTruncationNotice(fleetData);
+	return (
+		<Card className="p-4 space-y-2">
+			{truncationNotice && (
+				// Informational, not an error: the fleet view is capped, not broken.
+				<p className="text-xs text-muted-foreground">{truncationNotice}</p>
+			)}
+			{fleetData === undefined ? (
+				fleetError ? (
+					<ErrorState
+						size="inline"
+						title="Fleet usage history could not load"
+						message={formatError(fleetFailure)}
+						onRetry={() => void refetchFleet()}
+					/>
+				) : (
+					<LoadingState size="inline" label="Loading fleet usage history" />
+				)
+			) : fleetData.accounts.length === 0 ? (
+				<EmptyState
+					size="inline"
+					title="No accounts have usage snapshots in this range yet."
+				/>
+			) : (
+				<FleetUsageChart accounts={fleetData.accounts} />
+			)}
+		</Card>
 	);
 }

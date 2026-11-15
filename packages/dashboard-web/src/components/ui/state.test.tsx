@@ -1,4 +1,4 @@
-import { expect, it, mock } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EmptyState, ErrorState, LoadingState } from "./state";
 
@@ -57,4 +57,93 @@ it("renders the empty title, description and action", () => {
 	expect(html).toContain("No accounts");
 	expect(html).toContain("Add an account to get started");
 	expect(html).toContain(">Add account</button>");
+});
+describe("state sizes", () => {
+	it("keeps the page size as the default look", () => {
+		expect(
+			renderToStaticMarkup(
+				<LoadingState label="Loading accounts" size="page" />,
+			),
+		).toBe(renderToStaticMarkup(<LoadingState label="Loading accounts" />));
+		expect(
+			renderToStaticMarkup(
+				<ErrorState title="Accounts could not load" message="M" size="page" />,
+			),
+		).toBe(
+			renderToStaticMarkup(
+				<ErrorState title="Accounts could not load" message="M" />,
+			),
+		);
+	});
+	it("renders inline loading as one muted status line", () => {
+		expect(
+			renderToStaticMarkup(<LoadingState label="Loading logs" size="inline" />),
+		).toBe(
+			'<p role="status" aria-label="Loading logs" class="text-sm text-muted-foreground">Loading logs…</p>',
+		);
+	});
+	it("renders an inline error as one destructive alert line with an optional Retry", () => {
+		const plain = renderToStaticMarkup(
+			<ErrorState
+				size="inline"
+				title="Logs could not load"
+				message="Network error."
+			/>,
+		);
+		expect(plain).toContain('role="alert"');
+		expect(plain).toContain("text-destructive");
+		expect(plain).not.toContain("<h3");
+		expect(plain).not.toContain("<button");
+		expect(plain.replace(/<[^>]*>/g, "")).toBe(
+			"Logs could not load. Network error.",
+		);
+		const retry = renderToStaticMarkup(
+			<ErrorState
+				size="inline"
+				title="Logs could not load"
+				message="Network error."
+				onRetry={() => undefined}
+			/>,
+		);
+		expect(retry).toMatch(
+			/<button[^>]*class="[^"]*min-h-11[^"]*"[^>]*>Retry<\/button>/,
+		);
+	});
+	it("renders an inline error without a message as its title alone", () => {
+		const html = renderToStaticMarkup(
+			<ErrorState
+				size="inline"
+				title="Routing-attempt summary could not load"
+			/>,
+		);
+		expect(html).toContain('role="alert"');
+		expect(html.replace(/<[^>]*>/g, "")).toBe(
+			"Routing-attempt summary could not load.",
+		);
+	});
+	it("draws the page-size empty state as a centred dashed box", () => {
+		const html = renderToStaticMarkup(
+			<EmptyState title="No agents yet" description="Add one to start." />,
+		);
+		expect(html).toContain(
+			'<div class="flex flex-col items-center gap-3 rounded-lg border border-dashed px-8 py-12 text-center">',
+		);
+		expect(html).toContain("No agents yet");
+		expect(html).toContain("Add one to start.");
+	});
+	it("renders the inline empty state as muted text without a box", () => {
+		const html = renderToStaticMarkup(
+			<EmptyState
+				size="inline"
+				title="No logs yet."
+				description="Logs appear here as the router writes them."
+			/>,
+		);
+		expect(html).not.toContain("border");
+		expect(html).not.toContain("<h3");
+		expect(html).toContain("text-sm text-muted-foreground");
+		expect(html.replace(/<[^>]*>/g, "")).toBe(
+			"No logs yet. Logs appear here as the router writes them.",
+		);
+	});
 });

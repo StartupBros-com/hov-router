@@ -206,7 +206,7 @@ describe("RoutingCardView", () => {
 
 		it("renders an inline error state", () => {
 			const html = render({ routingAttempts: { status: "error" } });
-			expect(html).toContain("Routing-attempt summary is unavailable.");
+			expect(html).toContain("Routing-attempt summary could not load.");
 		});
 	});
 });

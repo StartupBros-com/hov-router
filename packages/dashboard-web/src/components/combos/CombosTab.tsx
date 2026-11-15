@@ -8,8 +8,11 @@ import {
 	useFamilies,
 	useUpdateCombo,
 } from "../../hooks/queries";
+import { useApiError } from "../../hooks/useApiError";
+import { RoutePageHeader } from "../page-shell";
 import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
+import { EmptyState, ErrorState, LoadingState } from "../ui/state";
 import { ComboCard, type ComboFamilyRoutingCardState } from "./ComboCard";
 import { ComboDialog } from "./ComboDialog";
 import { CombosIntroCard } from "./CombosIntroCard";
@@ -66,6 +69,7 @@ export function CombosTab() {
 		null,
 	);
 	const combosQuery = useCombos();
+	const { formatError } = useApiError();
 	const familiesQuery = useFamilies();
 	const effectiveRoutingQuery = useEffectiveRouting();
 	const deleteCombo = useDeleteCombo();
@@ -81,77 +85,82 @@ export function CombosTab() {
 	const routingProjections = projectFamilyRoutings(effectiveViews);
 
 	return (
-		<div className="space-y-6">
-			<CombosIntroCard />
-
-			<FamilyActivationSection />
-
-			<Separator />
-
-			<div className="space-y-4">
-				<div className="flex items-center justify-between">
-					<h2 className="text-lg font-semibold">Combos</h2>
+		<div className="space-y-4">
+			<RoutePageHeader
+				page="combos"
+				actions={
 					<Button onClick={() => setIsCreateDialogOpen(true)}>
 						<Plus className="mr-2 h-4 w-4" />
 						Create Combo
 					</Button>
-				</div>
+				}
+			/>
+			<div className="space-y-6">
+				<CombosIntroCard />
 
-				{combosQuery.isLoading && (
-					<p className="text-sm text-muted-foreground">Loading combos...</p>
-				)}
+				<FamilyActivationSection />
 
-				{combosQuery.isError && (
-					<p className="text-sm text-destructive">Failed to load combos.</p>
-				)}
+				<Separator />
 
-				{!combosQuery.isLoading &&
-					!combosQuery.isError &&
-					combos.length === 0 && (
-						<div className="flex flex-col items-center gap-3 rounded-lg border border-dashed px-8 py-12 text-center">
-							<p className="text-sm text-muted-foreground">
-								No combos yet. Create one to define a fallback chain.
-							</p>
-							<Button size="sm" onClick={() => setIsCreateDialogOpen(true)}>
-								<Plus className="mr-2 h-4 w-4" />
-								Create Combo
-							</Button>
+				<div className="space-y-4">
+					<h2 className="text-lg font-semibold">Saved combos</h2>
+					{combosQuery.data === undefined ? (
+						combosQuery.isError ? (
+							<ErrorState
+								title="Combos could not load"
+								message={formatError(combosQuery.error)}
+								onRetry={() => void combosQuery.refetch()}
+							/>
+						) : (
+							<LoadingState label="Loading combos" />
+						)
+					) : combos.length === 0 ? (
+						<EmptyState
+							title="No combos yet"
+							description="Create one to define a fallback chain."
+							action={
+								<Button onClick={() => setIsCreateDialogOpen(true)}>
+									<Plus className="mr-2 h-4 w-4" />
+									Create Combo
+								</Button>
+							}
+						/>
+					) : null}
+
+					{combos.length > 0 && (
+						<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+							{combos.map((combo) => (
+								<ComboCard
+									key={combo.id}
+									combo={combo}
+									slotCount={combo.slot_count}
+									familyRoutings={buildComboFamilyRoutingStates(
+										combo.id,
+										families,
+										routingProjections,
+									)}
+									onEdit={() => setEditDialogComboId(combo.id)}
+									onDelete={() => deleteCombo.mutate(combo.id)}
+									onToggleEnabled={(enabled) =>
+										updateCombo.mutate({ id: combo.id, enabled })
+									}
+								/>
+							))}
 						</div>
 					)}
+				</div>
 
-				{combos.length > 0 && (
-					<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-						{combos.map((combo) => (
-							<ComboCard
-								key={combo.id}
-								combo={combo}
-								slotCount={combo.slot_count}
-								familyRoutings={buildComboFamilyRoutingStates(
-									combo.id,
-									families,
-									routingProjections,
-								)}
-								onEdit={() => setEditDialogComboId(combo.id)}
-								onDelete={() => deleteCombo.mutate(combo.id)}
-								onToggleEnabled={(enabled) =>
-									updateCombo.mutate({ id: combo.id, enabled })
-								}
-							/>
-						))}
-					</div>
-				)}
+				<ComboDialog
+					isOpen={isCreateDialogOpen}
+					onClose={() => setIsCreateDialogOpen(false)}
+				/>
+
+				<ComboDialog
+					isOpen={!!editDialogComboId}
+					comboId={editDialogComboId}
+					onClose={() => setEditDialogComboId(null)}
+				/>
 			</div>
-
-			<ComboDialog
-				isOpen={isCreateDialogOpen}
-				onClose={() => setIsCreateDialogOpen(false)}
-			/>
-
-			<ComboDialog
-				isOpen={!!editDialogComboId}
-				comboId={editDialogComboId}
-				onClose={() => setEditDialogComboId(null)}
-			/>
 		</div>
 	);
 }

@@ -2,8 +2,6 @@ import { DEFAULT_AGENT_MODEL } from "@better-ccflare/core";
 import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
 import { format, formatDistanceToNow } from "date-fns";
 import {
-	AlertCircle,
-	Bot,
 	Folder,
 	FolderOpen,
 	Globe,
@@ -19,7 +17,9 @@ import {
 	useModels,
 	useRefreshModels,
 } from "../hooks/queries";
+import { useApiError } from "../hooks/useApiError";
 import { AgentCard, ModelSelect, WorkspaceCard } from "./agents";
+import { RoutePageHeader } from "./page-shell";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import {
@@ -39,11 +39,11 @@ import {
 	DialogTrigger,
 } from "./ui/dialog";
 import { Separator } from "./ui/separator";
-import { Skeleton } from "./ui/skeleton";
+import { EmptyState, ErrorState, LoadingState } from "./ui/state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 export function AgentsTab() {
-	const { data: response, isLoading, error, refetch } = useAgents();
+	const { data: response, isError, error, refetch } = useAgents();
 	const bulkUpdatePreferences = useBulkUpdateAgentPreferences();
 	const refreshModels = useRefreshModels();
 	const { data: modelCatalog } = useModels();
@@ -63,90 +63,87 @@ export function AgentsTab() {
 		});
 	};
 
-	if (isLoading) {
+	const { formatError } = useApiError();
+	const header = (
+		<RoutePageHeader
+			page="agents"
+			actions={
+				response && (
+					<>
+						<Badge variant="secondary" className="gap-1.5">
+							<Globe className="h-3.5 w-3.5" />
+							{response.globalAgents.length} Global
+						</Badge>
+						<Badge variant="secondary" className="gap-1.5">
+							<Folder className="h-3.5 w-3.5" />
+							{response.workspaceAgents.length} Workspace
+						</Badge>
+						{response.pluginAgents.length > 0 && (
+							<Badge variant="secondary" className="gap-1.5">
+								<Package className="h-3.5 w-3.5" />
+								{response.pluginAgents.length} Plugin
+							</Badge>
+						)}
+					</>
+				)
+			}
+		/>
+	);
+	if (response === undefined)
 		return (
-			<div className="space-y-8">
-				<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-					{[...Array(6)].map((_, i) => (
-						// biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton elements
-						<Card key={i}>
-							<CardHeader>
-								<Skeleton className="h-6 w-32" />
-								<Skeleton className="h-4 w-full mt-2" />
-								<Skeleton className="h-4 w-3/4" />
-							</CardHeader>
-							<CardContent>
-								<Skeleton className="h-4 w-24" />
-							</CardContent>
-						</Card>
-					))}
-				</div>
+			<div className="space-y-4">
+				{header}
+				{isError ? (
+					<ErrorState
+						title="Agents could not load"
+						message={formatError(error)}
+						onRetry={() => void refetch()}
+					/>
+				) : (
+					<LoadingState label="Loading agents" />
+				)}
 			</div>
 		);
-	}
 
-	if (error) {
+	if (response.agents.length === 0) {
 		return (
-			<Card>
-				<CardHeader>
-					<CardTitle className="flex items-center gap-2 text-destructive">
-						<AlertCircle className="h-5 w-5" />
-						Error Loading Agents
-					</CardTitle>
-					<CardDescription>
-						{error instanceof Error ? error.message : "Failed to load agents"}
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<Button onClick={() => refetch()} variant="outline" size="sm">
-						<RefreshCw className="mr-2 h-4 w-4" />
-						Retry
-					</Button>
-				</CardContent>
-			</Card>
-		);
-	}
-
-	if (!response || response.agents.length === 0) {
-		return (
-			<Card>
-				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
-						<Bot className="h-5 w-5" />
-						No Agents Found
-					</CardTitle>
-					<CardDescription>
-						No agent definition files found in ~/.claude/agents/ or a registered
-						workspace on the machine running {PRODUCT_NAME}. Agents on the
-						computers that connect to it are not listed here.
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="space-y-4">
-					<div>
-						<h3 className="font-medium mb-2">Global Agents</h3>
-						<p className="text-sm text-muted-foreground">
-							To add global agents, create markdown files in the
-							~/.claude/agents/ directory of the account that runs{" "}
-							{PRODUCT_NAME}.
-						</p>
-					</div>
-					<Separator />
-					<div>
-						<h3 className="font-medium mb-2">Workspace Agents</h3>
-						<p className="text-sm text-muted-foreground">
-							Workspace agents live in a project's .claude/agents/ directory.{" "}
-							{PRODUCT_NAME} registers projects only when
-							BETTER_CCFLARE_AGENT_WORKSPACE_AUTODISCOVER=true is set. It then
-							registers a project from the next request sent from inside it, if
-							that folder is on its own machine under the directory it runs
-							from.
-						</p>
-					</div>
-					<Separator />
-					<div>
-						<h3 className="font-medium mb-2">Agent Format</h3>
-						<pre className="mt-2 p-4 bg-muted rounded-lg text-xs overflow-x-auto">
-							{`---
+			<div className="space-y-4">
+				{header}
+				<Card>
+					<EmptyState
+						title="No agents yet"
+						description={
+							"No agent definition files found in ~/.claude/agents/ or a registered workspace on the machine running " +
+							PRODUCT_NAME +
+							". Agents on the computers that connect to it are not listed here."
+						}
+					/>
+					<CardContent className="space-y-4">
+						<div>
+							<h3 className="font-medium mb-2">Global Agents</h3>
+							<p className="text-sm text-muted-foreground">
+								To add global agents, create markdown files in the
+								~/.claude/agents/ directory of the account that runs{" "}
+								{PRODUCT_NAME}.
+							</p>
+						</div>
+						<Separator />
+						<div>
+							<h3 className="font-medium mb-2">Workspace Agents</h3>
+							<p className="text-sm text-muted-foreground">
+								Workspace agents live in a project's .claude/agents/ directory.{" "}
+								{PRODUCT_NAME} registers projects only when
+								BETTER_CCFLARE_AGENT_WORKSPACE_AUTODISCOVER=true is set. It then
+								registers a project from the next request sent from inside it,
+								if that folder is on its own machine under the directory it runs
+								from.
+							</p>
+						</div>
+						<Separator />
+						<div>
+							<h3 className="font-medium mb-2">Agent Format</h3>
+							<pre className="mt-2 p-4 bg-muted rounded-lg text-xs overflow-x-auto">
+								{`---
 name: My Agent
 description: Description of what this agent does
 color: blue
@@ -154,10 +151,11 @@ model: ${DEFAULT_AGENT_MODEL}
 ---
 
 Your system prompt content here...`}
-						</pre>
-					</div>
-				</CardContent>
-			</Card>
+							</pre>
+						</div>
+					</CardContent>
+				</Card>
+			</div>
 		);
 	}
 
@@ -174,322 +172,292 @@ Your system prompt content here...`}
 	}));
 
 	return (
-		<div className="space-y-6">
-			{/* Header */}
-			<div className="space-y-4">
-				<div className="flex items-center justify-between">
-					<div>
-						<h2 className="text-2xl font-bold flex items-center gap-3">
-							<div className="p-2 bg-primary/10 rounded-lg">
-								<Bot className="h-6 w-6 text-primary" />
-							</div>
-							AI Agents
-						</h2>
-						<p className="text-muted-foreground mt-1">
-							Manage your AI agents and their model preferences
-						</p>
-						<p className="text-xs text-muted-foreground mt-1">
-							Lists agent files on the machine running {PRODUCT_NAME}, not the
-							agents on the computers that connect to it.
-						</p>
-						<p className="text-xs text-muted-foreground mt-1">
-							Model preference on a card sets a runtime proxy override (database
-							only). Edit opens the agent's configuration file — those changes
-							are written to disk.
-						</p>
-					</div>
-					<div className="flex items-center gap-4">
-						<div className="flex items-center gap-2">
-							<Badge variant="secondary" className="gap-1.5">
-								<Globe className="h-3.5 w-3.5" />
-								{globalAgents.length} Global
-							</Badge>
-							<Badge variant="secondary" className="gap-1.5">
-								<Folder className="h-3.5 w-3.5" />
-								{workspaceAgents.length} Workspace
-							</Badge>
-							{pluginAgents.length > 0 && (
-								<Badge variant="secondary" className="gap-1.5">
-									<Package className="h-3.5 w-3.5" />
-									{pluginAgents.length} Plugin
-								</Badge>
-							)}
-						</div>
-					</div>
-				</div>
-
-				{/* Agent model preferences */}
-				<Card>
-					<CardHeader>
-						<div className="flex items-center justify-between">
-							<div>
-								<CardTitle className="text-base flex items-center gap-2">
-									<Settings className="h-4 w-4" />
-									Agent Model Preferences
-								</CardTitle>
-								<CardDescription>
-									Set every agent's model preference at once.
-								</CardDescription>
-							</div>
-							<div className="flex items-center gap-3">
-								{modelCatalog && (
-									<span className="text-xs text-muted-foreground">
-										{modelCatalog.source === "live"
-											? `Live model list · fetched ${formatDistanceToNow(
-													new Date(modelCatalog.fetchedAt),
-													{ addSuffix: true },
-												)}`
-											: `Bundled model list · as of ${format(
-													new Date(modelCatalog.fetchedAt),
-													"PP",
-												)}`}
-									</span>
-								)}
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => refreshModels.mutate()}
-									disabled={refreshModels.isPending}
-									aria-label="Refresh model list"
-									title="Refresh the live model list from Anthropic"
-								>
-									<RefreshCw
-										className={`h-3.5 w-3.5 ${refreshModels.isPending ? "animate-spin" : ""}`}
-									/>
-								</Button>
-							</div>
-						</div>
-					</CardHeader>
-					<CardContent>
-						<div className="space-y-4">
-							<div className="space-y-2">
-								<p className="text-sm font-medium">Force Update All Agents</p>
-								<p className="text-sm text-muted-foreground">
-									Override all individual agent preferences with a specific
-									model.
-								</p>
-								<Dialog
-									open={bulkUpdateDialogOpen}
-									onOpenChange={setBulkUpdateDialogOpen}
-								>
-									<DialogTrigger asChild>
-										<Button variant="outline" size="sm">
-											Force Update All
-										</Button>
-									</DialogTrigger>
-									<DialogContent>
-										<DialogHeader>
-											<DialogTitle>Update All Agent Models</DialogTitle>
-											<DialogDescription>
-												This will override all individual agent preferences and
-												set them to the selected model. This action cannot be
-												undone.
-											</DialogDescription>
-										</DialogHeader>
-										<div className="py-4">
-											<ModelSelect
-												value={bulkUpdateModel}
-												onValueChange={setBulkUpdateModel}
-												ariaLabel="Model for all agents"
-											/>
-										</div>
-										<DialogFooter>
-											<Button
-												variant="outline"
-												onClick={() => setBulkUpdateDialogOpen(false)}
-											>
-												Cancel
-											</Button>
-											<Button
-												onClick={handleBulkUpdate}
-												disabled={bulkUpdatePreferences.isPending}
-											>
-												{bulkUpdatePreferences.isPending
-													? "Updating..."
-													: `Update ${response?.agents.length || 0} Agents`}
-											</Button>
-										</DialogFooter>
-									</DialogContent>
-								</Dialog>
-							</div>
-						</div>
-					</CardContent>
-				</Card>
-
-				{/* Workspaces Section */}
-				{workspacesWithCounts.length > 0 && (
-					<Card className="border-dashed">
+		<div className="space-y-4">
+			{header}
+			<div className="space-y-6">
+				<div className="space-y-4">
+					<p className="text-xs text-muted-foreground">
+						Lists agent files on the machine running {PRODUCT_NAME}, not the
+						agents on the computers that connect to it.
+					</p>
+					<p className="text-xs text-muted-foreground">
+						Model preference on a card sets a runtime proxy override (database
+						only). Edit opens the agent's configuration file — those changes are
+						written to disk.
+					</p>
+					{/* Agent model preferences */}
+					<Card>
 						<CardHeader>
-							<CardTitle className="text-base flex items-center gap-2">
-								<FolderOpen className="h-4 w-4" />
-								Active Workspaces
-							</CardTitle>
+							<div className="flex items-center justify-between">
+								<div>
+									<CardTitle className="text-base flex items-center gap-2">
+										<Settings className="h-4 w-4" />
+										Agent Model Preferences
+									</CardTitle>
+									<CardDescription>
+										Set every agent's model preference at once.
+									</CardDescription>
+								</div>
+								<div className="flex items-center gap-3">
+									{modelCatalog && (
+										<span className="text-xs text-muted-foreground">
+											{modelCatalog.source === "live"
+												? `Live model list · fetched ${formatDistanceToNow(
+														new Date(modelCatalog.fetchedAt),
+														{ addSuffix: true },
+													)}`
+												: `Bundled model list · as of ${format(
+														new Date(modelCatalog.fetchedAt),
+														"PP",
+													)}`}
+										</span>
+									)}
+									<Button
+										variant="outline"
+										size="sm"
+										onClick={() => refreshModels.mutate()}
+										disabled={refreshModels.isPending}
+										aria-label="Refresh model list"
+										title="Refresh the live model list from Anthropic"
+									>
+										<RefreshCw
+											className={`h-3.5 w-3.5 ${refreshModels.isPending ? "animate-spin" : ""}`}
+										/>
+									</Button>
+								</div>
+							</div>
 						</CardHeader>
 						<CardContent>
-							<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-								{workspacesWithCounts.map((workspace) => (
-									<button
-										type="button"
-										key={workspace.path}
-										onClick={() =>
-											setSelectedWorkspace(
-												selectedWorkspace === workspace.path
-													? null
-													: workspace.path,
-											)
-										}
-										className="text-left w-full"
+							<div className="space-y-4">
+								<div className="space-y-2">
+									<p className="text-sm font-medium">Force Update All Agents</p>
+									<p className="text-sm text-muted-foreground">
+										Override all individual agent preferences with a specific
+										model.
+									</p>
+									<Dialog
+										open={bulkUpdateDialogOpen}
+										onOpenChange={setBulkUpdateDialogOpen}
 									>
-										<WorkspaceCard
-											workspace={workspace}
-											isActive={selectedWorkspace === workspace.path}
-										/>
-									</button>
-								))}
+										<DialogTrigger asChild>
+											<Button variant="outline" size="sm">
+												Force Update All
+											</Button>
+										</DialogTrigger>
+										<DialogContent>
+											<DialogHeader>
+												<DialogTitle>Update All Agent Models</DialogTitle>
+												<DialogDescription>
+													This will override all individual agent preferences
+													and set them to the selected model. This action cannot
+													be undone.
+												</DialogDescription>
+											</DialogHeader>
+											<div className="py-4">
+												<ModelSelect
+													value={bulkUpdateModel}
+													onValueChange={setBulkUpdateModel}
+													ariaLabel="Model for all agents"
+												/>
+											</div>
+											<DialogFooter>
+												<Button
+													variant="outline"
+													onClick={() => setBulkUpdateDialogOpen(false)}
+												>
+													Cancel
+												</Button>
+												<Button
+													onClick={handleBulkUpdate}
+													disabled={bulkUpdatePreferences.isPending}
+												>
+													{bulkUpdatePreferences.isPending
+														? "Updating..."
+														: `Update ${response?.agents.length || 0} Agents`}
+												</Button>
+											</DialogFooter>
+										</DialogContent>
+									</Dialog>
+								</div>
 							</div>
 						</CardContent>
 					</Card>
-				)}
-			</div>
 
-			{/* Agents Tabs */}
-			<Tabs defaultValue="all" className="space-y-4">
-				<TabsList className="grid w-full max-w-md grid-cols-3">
-					<TabsTrigger value="all" className="gap-1.5">
-						<Package className="h-4 w-4" />
-						All Agents
-					</TabsTrigger>
-					<TabsTrigger value="global" className="gap-1.5">
-						<Globe className="h-4 w-4" />
-						Global
-					</TabsTrigger>
-					<TabsTrigger value="workspace" className="gap-1.5">
-						<Folder className="h-4 w-4" />
-						Workspace
-					</TabsTrigger>
-				</TabsList>
+					{/* Workspaces Section */}
+					{workspacesWithCounts.length > 0 && (
+						<Card className="border-dashed">
+							<CardHeader>
+								<CardTitle className="text-base flex items-center gap-2">
+									<FolderOpen className="h-4 w-4" />
+									Active Workspaces
+								</CardTitle>
+							</CardHeader>
+							<CardContent>
+								<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+									{workspacesWithCounts.map((workspace) => (
+										<button
+											type="button"
+											key={workspace.path}
+											onClick={() =>
+												setSelectedWorkspace(
+													selectedWorkspace === workspace.path
+														? null
+														: workspace.path,
+												)
+											}
+											className="text-left w-full"
+										>
+											<WorkspaceCard
+												workspace={workspace}
+												isActive={selectedWorkspace === workspace.path}
+											/>
+										</button>
+									))}
+								</div>
+							</CardContent>
+						</Card>
+					)}
+				</div>
 
-				<TabsContent value="all" className="space-y-6">
-					{globalAgents.length > 0 && (
-						<div className="space-y-4">
-							<div className="flex items-center gap-2">
-								<h2 className="text-lg font-semibold">Global Agents</h2>
-								<Badge variant="outline">{globalAgents.length}</Badge>
+				{/* Agents Tabs */}
+				<Tabs defaultValue="all" className="space-y-4">
+					<TabsList className="grid w-full max-w-md grid-cols-3">
+						<TabsTrigger value="all" className="gap-1.5">
+							<Package className="h-4 w-4" />
+							All Agents
+						</TabsTrigger>
+						<TabsTrigger value="global" className="gap-1.5">
+							<Globe className="h-4 w-4" />
+							Global
+						</TabsTrigger>
+						<TabsTrigger value="workspace" className="gap-1.5">
+							<Folder className="h-4 w-4" />
+							Workspace
+						</TabsTrigger>
+					</TabsList>
+
+					<TabsContent value="all" className="space-y-6">
+						{globalAgents.length > 0 && (
+							<div className="space-y-4">
+								<div className="flex items-center gap-2">
+									<h2 className="text-lg font-semibold">Global Agents</h2>
+									<Badge variant="outline">{globalAgents.length}</Badge>
+								</div>
+								<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+									{globalAgents.map((agent) => (
+										<AgentCard key={agent.id} agent={agent} />
+									))}
+								</div>
 							</div>
+						)}
+
+						{workspaceAgents.length > 0 && (
+							<div className="space-y-4">
+								<div className="flex items-center gap-2">
+									<h2 className="text-lg font-semibold">Workspace Agents</h2>
+									<Badge variant="outline">
+										{filteredWorkspaceAgents.length}
+									</Badge>
+									{selectedWorkspace && (
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={() => setSelectedWorkspace(null)}
+										>
+											Clear filter
+										</Button>
+									)}
+								</div>
+								<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+									{filteredWorkspaceAgents.map((agent) => (
+										<AgentCard key={agent.id} agent={agent} />
+									))}
+								</div>
+							</div>
+						)}
+
+						{pluginAgents.length > 0 && (
+							<div className="space-y-4">
+								<div className="flex items-center gap-2">
+									<h2 className="text-lg font-semibold">Plugin Agents</h2>
+									<Badge variant="outline">{pluginAgents.length}</Badge>
+								</div>
+								<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+									{pluginAgents.map((agent) => (
+										<AgentCard key={agent.id} agent={agent} />
+									))}
+								</div>
+							</div>
+						)}
+					</TabsContent>
+
+					<TabsContent value="global" className="space-y-4">
+						{globalAgents.length === 0 ? (
+							<Card>
+								<CardHeader>
+									<CardTitle className="flex items-center gap-2">
+										<Info className="h-5 w-5" />
+										No Global Agents
+									</CardTitle>
+									<CardDescription>
+										Create agent files in ~/.claude/agents/ to add global agents
+									</CardDescription>
+								</CardHeader>
+							</Card>
+						) : (
 							<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 								{globalAgents.map((agent) => (
 									<AgentCard key={agent.id} agent={agent} />
 								))}
 							</div>
-						</div>
-					)}
+						)}
+					</TabsContent>
 
-					{workspaceAgents.length > 0 && (
-						<div className="space-y-4">
-							<div className="flex items-center gap-2">
-								<h2 className="text-lg font-semibold">Workspace Agents</h2>
-								<Badge variant="outline">
-									{filteredWorkspaceAgents.length}
-								</Badge>
+					<TabsContent value="workspace" className="space-y-4">
+						{workspaceAgents.length === 0 ? (
+							<Card>
+								<CardHeader>
+									<CardTitle className="flex items-center gap-2">
+										<Info className="h-5 w-5" />
+										No Workspace Agents
+									</CardTitle>
+									<CardDescription>
+										Workspace agents are automatically discovered from your
+										project directories. They should be able to discover local
+										project agents after you send a message from within that
+										directory.
+									</CardDescription>
+								</CardHeader>
+							</Card>
+						) : (
+							<>
 								{selectedWorkspace && (
-									<Button
-										variant="ghost"
-										size="sm"
-										onClick={() => setSelectedWorkspace(null)}
-									>
-										Clear filter
-									</Button>
+									<div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+										<Folder className="h-4 w-4" />
+										<span className="text-sm">
+											Showing agents from:{" "}
+											<strong>{selectedWorkspace.split("/").pop()}</strong>
+										</span>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="ml-auto"
+											onClick={() => setSelectedWorkspace(null)}
+										>
+											Clear filter
+										</Button>
+									</div>
 								)}
-							</div>
-							<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-								{filteredWorkspaceAgents.map((agent) => (
-									<AgentCard key={agent.id} agent={agent} />
-								))}
-							</div>
-						</div>
-					)}
-
-					{pluginAgents.length > 0 && (
-						<div className="space-y-4">
-							<div className="flex items-center gap-2">
-								<h2 className="text-lg font-semibold">Plugin Agents</h2>
-								<Badge variant="outline">{pluginAgents.length}</Badge>
-							</div>
-							<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-								{pluginAgents.map((agent) => (
-									<AgentCard key={agent.id} agent={agent} />
-								))}
-							</div>
-						</div>
-					)}
-				</TabsContent>
-
-				<TabsContent value="global" className="space-y-4">
-					{globalAgents.length === 0 ? (
-						<Card>
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2">
-									<Info className="h-5 w-5" />
-									No Global Agents
-								</CardTitle>
-								<CardDescription>
-									Create agent files in ~/.claude/agents/ to add global agents
-								</CardDescription>
-							</CardHeader>
-						</Card>
-					) : (
-						<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-							{globalAgents.map((agent) => (
-								<AgentCard key={agent.id} agent={agent} />
-							))}
-						</div>
-					)}
-				</TabsContent>
-
-				<TabsContent value="workspace" className="space-y-4">
-					{workspaceAgents.length === 0 ? (
-						<Card>
-							<CardHeader>
-								<CardTitle className="flex items-center gap-2">
-									<Info className="h-5 w-5" />
-									No Workspace Agents
-								</CardTitle>
-								<CardDescription>
-									Workspace agents are automatically discovered from your
-									project directories. They should be able to discover local
-									project agents after you send a message from within that
-									directory.
-								</CardDescription>
-							</CardHeader>
-						</Card>
-					) : (
-						<>
-							{selectedWorkspace && (
-								<div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-									<Folder className="h-4 w-4" />
-									<span className="text-sm">
-										Showing agents from:{" "}
-										<strong>{selectedWorkspace.split("/").pop()}</strong>
-									</span>
-									<Button
-										variant="ghost"
-										size="sm"
-										className="ml-auto"
-										onClick={() => setSelectedWorkspace(null)}
-									>
-										Clear filter
-									</Button>
+								<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+									{filteredWorkspaceAgents.map((agent) => (
+										<AgentCard key={agent.id} agent={agent} />
+									))}
 								</div>
-							)}
-							<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-								{filteredWorkspaceAgents.map((agent) => (
-									<AgentCard key={agent.id} agent={agent} />
-								))}
-							</div>
-						</>
-					)}
-				</TabsContent>
-			</Tabs>
+							</>
+						)}
+					</TabsContent>
+				</Tabs>
+			</div>
 		</div>
 	);
 }
