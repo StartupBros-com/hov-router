@@ -10,10 +10,20 @@
  * token-manager-real-provider-refresh.test.ts, so "the provider was not
  * called" means no token request left the process.
  */
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	mock,
+	spyOn,
+} from "bun:test";
+import { randomBytes } from "node:crypto";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Logger } from "@better-ccflare/logger";
 import type { Account } from "@better-ccflare/types";
 import {
 	clearAllPendingRotationsForTests,
@@ -28,6 +38,7 @@ import {
 	isTerminalTokenRefreshFailure,
 	RefreshStorageUnavailableError,
 	refreshAccessTokenSafe,
+	reservePendingRotationSlots,
 } from "../token-manager";
 
 const CREATED_AT = 101;
@@ -275,6 +286,170 @@ describe("a refresh that would rotate the refresh token", () => {
 	});
 });
 
+describe("a refused refresh for a token that has not expired yet", () => {
+	// A token is renewed some time before it expires. When that early refresh
+	// is refused for lack of space, the provider still takes the stored token,
+	// so the request should be sent with it instead of failing over.
+	const stillValid = (id: string): Account => ({
+		...makeAccount(id, "codex"),
+		expires_at: Date.now() + 10 * 60 * 1000,
+	});
+	const noSpace = () =>
+		useStore(async () => {
+			throw storageFull();
+		});
+
+	it("serves the stored token without calling the provider", async () => {
+		const account = stillValid("refused-still-valid");
+		const { ctx, dbOps } = makeContext(account);
+		noSpace();
+		const fetchMock = mockTokenEndpoint();
+
+		await expect(getValidAccessToken(account, ctx as never)).resolves.toBe(
+			"at-old",
+		);
+
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(account.refresh_token).toBe("rt-old");
+		expect(
+			dbOps.updateAccountTokensIfRefreshTokenMatches,
+		).not.toHaveBeenCalled();
+		expect(dbOps.flagRequiresReauthIfTokenMatches).not.toHaveBeenCalled();
+		expect(dbOps.pauseAccountIfActive).not.toHaveBeenCalled();
+		expect(ctx.refreshInFlight.size).toBe(0);
+	});
+
+	it("still refuses a refresh asked for because the provider rejected that token", async () => {
+		// The upstream-401 path asks for the refresh directly. The token it
+		// holds was just turned down, so serving it again would help nobody.
+		const account = stillValid("refused-after-401");
+		const { ctx } = makeContext(account);
+		noSpace();
+		const fetchMock = mockTokenEndpoint();
+
+		await expect(
+			refreshAccessTokenSafe(account, ctx as never),
+		).rejects.toBeInstanceOf(RefreshStorageUnavailableError);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("is refused once the token has expired", async () => {
+		const account: Account = {
+			...makeAccount("refused-just-expired", "codex"),
+			expires_at: Date.now() - 1,
+		};
+		const { ctx } = makeContext(account);
+		noSpace();
+		const fetchMock = mockTokenEndpoint();
+
+		await expect(
+			getValidAccessToken(account, ctx as never),
+		).rejects.toBeInstanceOf(RefreshStorageUnavailableError);
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("says so once for a token, not once for every request", async () => {
+		const warn = spyOn(Logger.prototype, "warn").mockImplementation(() => {});
+		try {
+			const account = stillValid("refused-quiet");
+			const { ctx } = makeContext(account);
+			noSpace();
+			mockTokenEndpoint();
+
+			for (let request = 0; request < 3; request += 1) {
+				await expect(
+					getValidAccessToken({ ...account }, ctx as never),
+				).resolves.toBe("at-old");
+			}
+
+			const said = warn.mock.calls.filter(
+				([message]) =>
+					String(message).includes("refused-quiet") &&
+					String(message).includes("disk space"),
+			);
+			expect(said).toHaveLength(1);
+		} finally {
+			warn.mockRestore();
+		}
+	});
+});
+
+describe("reserving slots at start", () => {
+	const noAccess = (id: string, provider: string): Account => ({
+		...makeAccount(id, provider),
+		refresh_token: null,
+	});
+
+	it("asks for a slot for every account that rotates and for no other", async () => {
+		const store = useStore(async () => {});
+		const accounts: Account[] = [
+			makeAccount("codex-a", "codex"),
+			{ ...makeAccount("key-a", "openai-compatible"), api_key: "sk-test" },
+			makeAccount("anthropic-a", "anthropic"),
+			makeAccount("qwen-a", "qwen"),
+			noAccess("codex-signed-out", "codex"),
+			makeAccount("xai-a", "xai"),
+		];
+
+		await expect(
+			reservePendingRotationSlots(async () => accounts),
+		).resolves.toEqual({ reserved: 3, storageFull: 0, failed: 0 });
+		expect(store.reserve.mock.calls.map(([accountId]) => accountId)).toEqual([
+			"codex-a",
+			"anthropic-a",
+			"xai-a",
+		]);
+	});
+
+	it("carries on past an account whose slot cannot be made", async () => {
+		const store = useStore(async (accountId) => {
+			if (accountId === "codex-full") throw storageFull();
+			if (accountId === "codex-denied") {
+				throw Object.assign(new Error("EACCES: permission denied, open"), {
+					code: "EACCES",
+				});
+			}
+		});
+
+		await expect(
+			reservePendingRotationSlots(async () => [
+				makeAccount("codex-full", "codex"),
+				makeAccount("codex-denied", "codex"),
+				makeAccount("codex-fine", "codex"),
+			]),
+		).resolves.toEqual({ reserved: 1, storageFull: 1, failed: 1 });
+		expect(store.reserve).toHaveBeenCalledTimes(3);
+	});
+
+	it("does not stop a start when the accounts cannot be read", async () => {
+		const store = useStore(async () => {});
+
+		await expect(
+			reservePendingRotationSlots(async () => {
+				throw Object.assign(new Error("database or disk is full"), {
+					code: "SQLITE_FULL",
+				});
+			}),
+		).resolves.toEqual({ reserved: 0, storageFull: 0, failed: 0 });
+		expect(store.reserve).not.toHaveBeenCalled();
+	});
+
+	it("reserves nothing with a store that has no slots", async () => {
+		configurePendingRotationPersistence({
+			save: mock(async () => {}),
+			load: mock(async () => []),
+			remove: mock(async () => {}),
+		});
+
+		await expect(
+			reservePendingRotationSlots(async () => [
+				makeAccount("codex-a", "codex"),
+				makeAccount("codex-b", "codex"),
+			]),
+		).resolves.toEqual({ reserved: 0, storageFull: 0, failed: 0 });
+	});
+});
+
 describe("a refresh for a provider that does not rotate", () => {
 	it("asks for no slot and reaches the provider on a full disk", async () => {
 		const account = makeAccount("no-slot-needed", "fake-refresh-provider");
@@ -386,6 +561,49 @@ describe("a rotated refresh token whose database write fails", () => {
 		configurePendingRotationPersistence(openStore());
 		await expect(restorePendingRotations()).resolves.toBe(0);
 		expect(slotFiles()).toHaveLength(1);
+	});
+
+	it("restores the readable rotations at start when one account's slot cannot be read", async () => {
+		// A damaged slot must cost that one account's rotation at most. It must
+		// not stop the start, and it must not hide another account's rotation.
+		const first = openStore();
+		await first.save("slot-readable", {
+			accessToken: "kept-access",
+			expiresAt: Date.now() + 3_600_000,
+			refreshToken: "kept-refresh",
+			attemptedRefreshToken: "rt-old",
+			createdAt: CREATED_AT,
+			recordedAt: Date.now(),
+		});
+		const before = new Set(slotFiles());
+		await first.reserve("slot-damaged");
+		const damaged = slotFiles().filter((name) => !before.has(name));
+		expect(damaged).toHaveLength(1);
+		writeFileSync(join(directory, damaged[0] as string), randomBytes(65_536));
+
+		const errors: string[] = [];
+		configurePendingRotationPersistence(
+			createPendingRotationStore({
+				directory,
+				secret: "round-trip-secret",
+				log: {
+					info: () => {},
+					warn: () => {},
+					error: (message) => {
+						errors.push(message);
+					},
+				},
+			}),
+		);
+
+		await expect(restorePendingRotations(async () => null)).resolves.toBe(1);
+		expect(getPendingRotation("slot-readable", CREATED_AT)).toMatchObject({
+			accessToken: "kept-access",
+			refreshToken: "kept-refresh",
+		});
+		expect(getPendingRotation("slot-damaged", CREATED_AT)).toBeUndefined();
+		expect(errors).toHaveLength(1);
+		expect(errors[0]).toContain(damaged[0] as string);
 	});
 
 	const ISSUED_AT = 1_700_000_000_000;

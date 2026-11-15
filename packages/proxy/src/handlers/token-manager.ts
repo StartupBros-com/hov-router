@@ -156,6 +156,85 @@ export class RefreshStorageUnavailableError extends ServiceUnavailableError {
 	}
 }
 
+/** What a pass over the accounts' pending rotation slots did. */
+export interface PendingRotationSlotReservations {
+	reserved: number;
+	storageFull: number;
+	failed: number;
+}
+
+/**
+ * Make the slot of every account whose refresh rotates the refresh token
+ * (#827). The server runs this at start. A refresh asks for its own slot when
+ * the account has none, but a slot can only be made while there is space, so
+ * an account that gets one now keeps refreshing after the disk fills.
+ *
+ * Never throws and never stops a start. An account left without a slot has
+ * its refreshes refused until one can be made (`RefreshStorageUnavailableError`).
+ */
+export async function reservePendingRotationSlots(
+	loadAccounts: () => Promise<Account[]>,
+): Promise<PendingRotationSlotReservations> {
+	const result = { reserved: 0, storageFull: 0, failed: 0 };
+	try {
+		const noSpace: string[] = [];
+		const faulted: string[] = [];
+		let fault: unknown;
+		for (const account of await loadAccounts()) {
+			if (!canAttemptStaleTokenRefresh(account)) continue;
+			const reservation = await reservePendingRotationSlot(account.id);
+			if (reservation.status === "unavailable") return result;
+			if (reservation.status === "reserved") {
+				result.reserved += 1;
+			} else if (reservation.status === "storage_full") {
+				result.storageFull += 1;
+				noSpace.push(account.name);
+			} else {
+				result.failed += 1;
+				faulted.push(account.name);
+				fault ??= reservation.error;
+			}
+		}
+		if (noSpace.length > 0) {
+			log.warn(
+				`No disk space for the pending rotation slot of ${noSpace.length} account(s) (${noSpace.join(", ")}); their token refreshes are refused until a slot can be made`,
+			);
+		}
+		if (faulted.length > 0) {
+			log.warn(
+				`Could not make the pending rotation slot of ${faulted.length} account(s) (${faulted.join(", ")}); their token refreshes go ahead without one`,
+				fault,
+			);
+		}
+	} catch (error) {
+		log.warn(
+			"Could not reserve pending rotation slots; each token refresh asks for its own",
+			error,
+		);
+	}
+	return result;
+}
+
+/**
+ * The expiry of the stored token last served to each account because its
+ * refresh was refused, so that is said once for a token and not once for every
+ * request. Bounded because account ids are user data.
+ */
+const MAX_STORED_TOKEN_SERVED_ENTRIES = 1_000;
+const storedTokenServedUntil = new Map<string, number>();
+
+function noteStoredTokenServed(account: Account, expiresAt: number): void {
+	if (storedTokenServedUntil.get(account.id) === expiresAt) return;
+	storedTokenServedUntil.set(account.id, expiresAt);
+	if (storedTokenServedUntil.size > MAX_STORED_TOKEN_SERVED_ENTRIES) {
+		const oldest = storedTokenServedUntil.keys().next().value;
+		if (oldest !== undefined) storedTokenServedUntil.delete(oldest);
+	}
+	log.warn(
+		`Token refresh for account ${account.name} was put off for lack of disk space; serving its stored token, which expires at ${new Date(expiresAt).toISOString()}`,
+	);
+}
+
 /**
  * Reactive refreshes are shared across requests by account id. Keep a short
  * cooldown in this module (next to the refresh-in-flight/backoff state) so a
@@ -1574,5 +1653,23 @@ export async function getValidAccessToken(
 				: "expiring soon";
 
 	log.info(`Token ${reason} for account: ${account.name}`);
-	return await refreshAccessTokenSafe(account, ctx);
+	try {
+		return await refreshAccessTokenSafe(account, ctx);
+	} catch (error) {
+		// A token is renewed well before it expires. When that early refresh is
+		// refused for lack of disk space (#827) the provider still takes the
+		// stored token, so the request is sent with it. A token the provider has
+		// turned down never comes this way: the upstream-401 path asks for its
+		// refresh directly and gets the refusal.
+		if (
+			error instanceof RefreshStorageUnavailableError &&
+			account.access_token &&
+			typeof account.expires_at === "number" &&
+			account.expires_at > Date.now()
+		) {
+			noteStoredTokenServed(account, account.expires_at);
+			return account.access_token;
+		}
+		throw error;
+	}
 }

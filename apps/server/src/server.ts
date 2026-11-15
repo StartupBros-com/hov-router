@@ -93,7 +93,7 @@ import {
 	createAnthropicDegradedRuntimeHealth,
 	createDurableServerToolReplayWriterAdmission,
 	createGuardCorrelationVerifier,
-	createPendingRotationWal,
+	createPendingRotationStore,
 	createServerToolReplayRuntime,
 	DegradedModeObservability,
 	DegradedOwnerOverlay,
@@ -122,6 +122,7 @@ import {
 	registerCodexUsageRefresher,
 	registerPollingRestarter,
 	registerRefreshClearer,
+	reservePendingRotationSlots,
 	restoreModelRouteBindings,
 	restorePendingRotations,
 	startExternalCodexScheduler,
@@ -888,7 +889,7 @@ async function adoptLegacyRoutingSettings(
 }
 
 /**
- * Restore the pending-rotation WAL only after account lookups exist, but before
+ * Restore the pending rotations only after account lookups exist, but before
  * any proxy context or scheduler can begin credential refresh work.
  */
 export async function restorePendingRotationsBeforeRuntimeRefresh(
@@ -1587,12 +1588,14 @@ export default async function startServer(options?: {
 	// API-key auth is enabled (issue #216). See AuthService#isLocalControlRequest.
 	const localControlSecret = config.getLocalControlSecret();
 
-	// Keep provider-committed rotations outside the primary DB: this WAL must
+	// Keep provider-committed rotations outside the primary DB: this store must
 	// remain writable when the DB outage that caused the token CAS failure is
-	// still active. One encrypted, atomically-replaced file per account avoids
-	// cross-account writer races.
+	// still active, and a full disk is one such outage (#827). One encrypted
+	// fixed-size slot per account, overwritten in place, needs no new blocks for
+	// a save and avoids cross-account writer races. Files left by the older
+	// temp-file-and-rename store are still read at start.
 	configurePendingRotationPersistence(
-		createPendingRotationWal({
+		createPendingRotationStore({
 			directory: join(dirname(resolveConfigPath()), "pending-rotations"),
 			secret: localControlSecret,
 		}),
@@ -1629,6 +1632,10 @@ export default async function startServer(options?: {
 	// Upgrade legacy WAL ownership before any proxy context, polling loop, or
 	// scheduler can refresh: every later production caller is generation-bound.
 	await restorePendingRotationsBeforeRuntimeRefresh(dbOps);
+	// A slot can only be made while there is disk space, so make them now. An
+	// account that has one keeps refreshing after the disk fills; one without
+	// has its refreshes refused until space returns (#827). Never fatal.
+	await reservePendingRotationSlots(() => dbOps.getAllAccounts());
 
 	// Before anything can route: adopt the combo behaviour this install was
 	// already running, so upgrading is never a silent routing change.
