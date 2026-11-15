@@ -59,7 +59,12 @@ export const OverviewTab = React.memo(() => {
 		{ accounts: [], models: [], status: "all" },
 		"normal",
 	);
-	const { data: accounts } = useAccounts();
+	const {
+		data: accounts,
+		isError: accountsFailed,
+		error: accountsError,
+		refetch: refetchAccounts,
+	} = useAccounts();
 	const { data: routingObservationsResponse } = useRoutingObservations();
 
 	const [now, setNow] = useState(() => Date.now());
@@ -400,6 +405,14 @@ export const OverviewTab = React.memo(() => {
 					primaryAccountName={primaryAccountName}
 					now={now}
 					observations={routingObservationsResponse?.observations}
+					loadError={
+						accounts === undefined && accountsFailed
+							? {
+									message: formatError(accountsError),
+									onRetry: () => void refetchAccounts(),
+								}
+							: null
+					}
 				/>
 
 				{analytics !== undefined && (

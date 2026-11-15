@@ -9,9 +9,9 @@ import {
 	type PoolUsageResult,
 } from "../../lib/pool-usage";
 import { cn } from "../../lib/utils";
+import { METER_TONE_CLASS, Meter } from "../ui/meter";
 import {
 	atRiskBadge,
-	headlineColor,
 	nextQuotaTimeLabel,
 	PoolUsagePopover,
 	REASON_LABELS,
@@ -36,16 +36,6 @@ export interface PoolUsageRowProps {
 	// Current time (ms), refreshed periodically by the caller -- drives each
 	// segment's relative reset time.
 	now: number;
-}
-
-// Same thresholds as headlineColor (pool-usage-shared.tsx), as a fill/bg
-// class instead of a text class. Uses the SOLID variants (globals.css): the
-// plain .bg-success / .bg-warning are pale badge tints and would read as
-// weaker than the bg-muted track they are drawn on.
-function fillClass(pct: number): string {
-	if (pct < 60) return "bg-success-solid";
-	if (pct < 80) return "bg-warning-solid";
-	return "bg-destructive";
 }
 
 function segmentTitle(
@@ -92,7 +82,6 @@ export function PoolUsageRow({
 		willRunOutCount,
 		capacityCount,
 	);
-	const colorClass = headlineColor(average);
 	const headline = average != null ? formatPercentage(average, 0) : "—";
 	const nextQuotaText =
 		earliestResetMs == null
@@ -144,27 +133,19 @@ export function PoolUsageRow({
 						<span className="truncate">{title}</span>
 					</div>
 					<div className="flex items-center gap-2">
-						<span className={cn("text-2xl font-bold", colorClass)}>
-							{headline}
-						</span>
+						<span className="text-2xl font-bold tabular-nums">{headline}</span>
 						<span className="pointer-events-auto">
 							<PoolUsagePopover result={result} window={window} />
 						</span>
 					</div>
 				</div>
 
-				{/* Bar: flexible width */}
-				<div className="h-3.5 min-w-[80px] flex-1 overflow-hidden rounded-full bg-muted">
-					{average != null && (
-						<div
-							className={cn(
-								"h-full rounded-full transition-[width]",
-								fillClass(average),
-							)}
-							style={{ width: `${Math.min(100, Math.max(0, average))}%` }}
-						/>
-					)}
-				</div>
+				{/* Bar: flexible width, the neutral Accounts quota bar */}
+				<Meter
+					value={average}
+					aria-label={`${title} average used`}
+					className="h-3.5 min-w-[80px] flex-1"
+				/>
 
 				{/* Meta block: ~210px on lg+, wraps below the bar on md */}
 				<div className="flex flex-col gap-1 text-left md:w-full lg:w-[210px] lg:shrink-0 lg:text-right">
@@ -245,7 +226,7 @@ export function PoolUsageRow({
 									>
 										<div
 											className={cn(
-												"relative h-12 w-full overflow-hidden rounded bg-muted",
+												"relative h-12 w-full overflow-hidden rounded bg-muted-foreground/25",
 												segment.kind === "unknown" &&
 													"border-2 border-dashed border-border bg-transparent",
 											)}
@@ -255,15 +236,19 @@ export function PoolUsageRow({
 												segment.kind,
 												isPrimarySegment,
 											) && (
-												<span className="absolute left-1 top-1 z-10 rounded-sm bg-background/80 px-1 text-[10px] font-medium leading-none text-orange-700 dark:text-primary">
+												<span className="absolute left-1 top-1 z-10 rounded-sm bg-background/80 px-1 text-[10px] font-medium leading-none text-(--primary-text)">
 													next
 												</span>
 											)}
 											{segment.kind !== "unknown" && segment.pct != null && (
+												// Red marks an exhausted account only. An active one can
+												// sit at 100% or more while it drains purchased credits.
 												<div
 													className={cn(
 														"absolute bottom-0 left-0 right-0 rounded-b",
-														fillClass(segment.pct),
+														segment.kind === "exhausted"
+															? METER_TONE_CLASS.exhausted
+															: METER_TONE_CLASS.strong,
 													)}
 													style={{
 														height: `${Math.min(100, Math.max(0, segment.pct))}%`,

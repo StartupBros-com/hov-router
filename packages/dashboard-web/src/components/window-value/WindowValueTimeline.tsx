@@ -201,10 +201,10 @@ function WindowValueSegment({
 		"window-value-segment",
 		"absolute inset-y-2 flex min-w-0 items-center gap-1 overflow-hidden rounded-sm border px-1.5 text-[11px] font-medium shadow-sm",
 		window.grantType === "early_reset"
-			? "window-value-segment--early-reset border-amber-500/60 bg-amber-400/80 text-amber-950 dark:bg-amber-500/70 dark:text-amber-50"
+			? "window-value-segment--early-reset border-chart-warning/60 bg-chart-warning/80 text-(--warning-solid-foreground) dark:bg-chart-warning/70"
 			: window.grantType === "first_observed"
 				? "window-value-segment--first-observed border-muted-foreground/30 bg-muted text-muted-foreground"
-				: "border-primary/35 bg-primary/80 text-primary-foreground dark:bg-primary/70",
+				: "border-chart-primary/35 bg-chart-primary/80 text-primary-foreground dark:bg-chart-primary/70",
 		partial ? "window-value-segment--partial opacity-45" : "",
 		open ? "border-r-2 border-r-dashed" : "",
 	]

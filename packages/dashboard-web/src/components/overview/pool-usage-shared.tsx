@@ -28,13 +28,6 @@ export const REASON_ORDER: ExcludedReason[] = [
 	"no_usage_data",
 ];
 
-export function headlineColor(average: number | null): string | undefined {
-	if (average == null) return undefined;
-	if (average < 60) return "text-success";
-	if (average < 80) return "text-warning";
-	return "text-red-600 dark:text-red-400";
-}
-
 export function groupExcluded(
 	excluded: PoolUsageResult["excluded"],
 ): Array<{ reason: ExcludedReason; items: PoolUsageResult["excluded"] }> {
@@ -128,9 +121,7 @@ export function atRiskBadge(
 		return { label: null, colorClass: null };
 	}
 	const colorClass =
-		willRunOutCount >= capacityCount
-			? "text-red-600 dark:text-red-400"
-			: "text-warning";
+		willRunOutCount >= capacityCount ? "text-(--danger)" : "text-warning";
 	return {
 		label: `${willRunOutCount} of ${capacityCount} will run out`,
 		colorClass,

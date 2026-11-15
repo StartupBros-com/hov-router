@@ -3,6 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type LogEntry } from "../api";
 import { useLogHistory } from "../hooks/queries";
 import { useApiError } from "../hooks/useApiError";
+import { logLevelLabel, logLevelTone } from "../lib/log-level";
+import type { StatusTone } from "../lib/request-status";
+import { cn } from "../lib/utils";
 import { RoutePageHeader } from "./page-shell";
 import { Button } from "./ui/button";
 import {
@@ -12,7 +15,18 @@ import {
 	CardHeader,
 	CardTitle,
 } from "./ui/card";
+import { EventTime } from "./ui/event-time";
 import { EmptyState, ErrorState, LoadingState } from "./ui/state";
+import { StatusPill } from "./ui/status-pill";
+
+/** Text colour for each level tone; a pill per line would crowd 1,000 lines. */
+const LEVEL_TEXT: Record<StatusTone, string> = {
+	danger: "text-(--danger)",
+	warning: "text-(--warning)",
+	info: "text-(--info)",
+	success: "text-(--success)",
+	neutral: "text-muted-foreground",
+};
 
 export function LogsTab() {
 	const [liveLogs, setLogs] = useState<LogEntry[] | null>(null);
@@ -172,61 +186,47 @@ export function LogsTab() {
 		setPaused(!paused);
 	};
 
-	const getLogColor = (level: string | undefined) => {
-		if (!level) return "";
-		switch (level.toUpperCase()) {
-			case "ERROR":
-				return "text-destructive";
-			case "WARN":
-				return "text-yellow-700 dark:text-yellow-500";
-			case "INFO":
-				return "text-green-700 dark:text-green-500";
-			case "DEBUG":
-				return "text-muted-foreground";
-			default:
-				return "";
-		}
-	};
-
-	const formatTimestamp = (ts: number) => {
-		return new Date(ts).toLocaleTimeString();
-	};
-
 	return (
 		<div className="space-y-4">
 			<RoutePageHeader page="logs" />
 			<Card>
 				<CardHeader>
-					<div className="flex items-center justify-between">
+					<div className="flex flex-wrap items-center justify-between gap-2">
 						<div>
-							<CardTitle>Live Logs</CardTitle>
-							<CardDescription>
-								Real-time log stream {paused && "(Paused)"}
-							</CardDescription>
+							<CardTitle className="flex items-center gap-2">
+								Live Logs
+								{paused && <StatusPill tone="warning">Paused</StatusPill>}
+							</CardTitle>
+							<CardDescription>Real-time log stream</CardDescription>
 						</div>
 						<div className="flex gap-2">
-							<Button onClick={togglePause} variant="outline" size="sm">
+							<Button onClick={togglePause} variant="outline" size="touch-sm">
 								{paused ? (
 									<>
-										<Play className="mr-2 h-4 w-4" />
+										<Play aria-hidden="true" />
 										Resume
 									</>
 								) : (
 									<>
-										<Pause className="mr-2 h-4 w-4" />
+										<Pause aria-hidden="true" />
 										Pause
 									</>
 								)}
 							</Button>
-							<Button onClick={clearLogs} variant="outline" size="sm">
-								<Trash2 className="mr-2 h-4 w-4" />
+							<Button onClick={clearLogs} variant="outline" size="touch-sm">
+								<Trash2 aria-hidden="true" />
 								Clear
 							</Button>
 						</div>
 					</div>
 				</CardHeader>
 				<CardContent>
-					<div className="space-y-1 max-h-[500px] overflow-y-auto text-sm">
+					<section
+						aria-label="Log lines"
+						// biome-ignore lint/a11y/noNoninteractiveTabindex: the lines hold nothing focusable, so without a tab stop a keyboard user cannot scroll them (WCAG 2.1.1, axe scrollable-region-focusable)
+						tabIndex={0}
+						className="space-y-1 max-h-[500px] overflow-y-auto rounded-md text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					>
 						{history === undefined ? (
 							isError ? (
 								<ErrorState
@@ -247,20 +247,29 @@ export function LogsTab() {
 										// biome-ignore lint/suspicious/noArrayIndexKey: append-only log buffer; LogEvent has no per-event id and ts is not unique across same-ms bursts
 										`${log.ts}-${i}`
 									}
-									className="flex gap-2 font-mono"
+									className="flex flex-wrap items-baseline gap-x-2 font-mono"
 								>
-									<span className="text-muted-foreground">
-										{formatTimestamp(log.ts)}
+									<EventTime
+										value={log.ts}
+										className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground"
+									/>
+									<span
+										data-tone={logLevelTone(log.level)}
+										className={cn(
+											"min-w-[7ch] shrink-0 font-medium",
+											LEVEL_TEXT[logLevelTone(log.level)],
+										)}
+									>
+										{logLevelLabel(log.level)}
 									</span>
-									<span className={`font-medium ${getLogColor(log.level)}`}>
-										[{log.level || "LOG"}]
+									<span className="min-w-0 basis-full break-words sm:flex-1">
+										{log.msg}
 									</span>
-									<span className="flex-1">{log.msg}</span>
 								</div>
 							))
 						)}
 						<div ref={logsEndRef} />
-					</div>
+					</section>
 					<div className="mt-4 flex items-center gap-2">
 						<input
 							type="checkbox"
@@ -269,11 +278,11 @@ export function LogsTab() {
 							onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
 								setAutoScroll((e.target as HTMLInputElement).checked)
 							}
-							className="rounded border-gray-300"
+							className="rounded border-input"
 						/>
 						<label
 							htmlFor="autoscroll"
-							className="text-sm text-muted-foreground"
+							className="inline-flex min-h-11 items-center text-sm text-muted-foreground"
 						>
 							Auto-scroll to bottom
 						</label>

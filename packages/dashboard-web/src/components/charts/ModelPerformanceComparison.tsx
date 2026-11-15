@@ -1,4 +1,3 @@
-import { getModelShortName } from "@better-ccflare/core";
 import { formatCost, formatTokensPerSecond } from "@better-ccflare/ui-common";
 import {
 	Area,
@@ -14,9 +13,15 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import { CHART_HEIGHTS, CHART_PROPS, COLORS } from "../../constants";
+import {
+	CHART_HEIGHTS,
+	CHART_PROPS,
+	CHART_TOOLTIP_STYLE,
+	COLORS,
+} from "../../constants";
 import { ChartContainer } from "./ChartContainer";
 import { getTooltipStyles } from "./chart-utils";
+import { getModelColor } from "./model-colors";
 
 interface ModelComparisonData {
 	model: string;
@@ -34,17 +39,6 @@ interface ModelPerformanceComparisonProps {
 	viewMode?: "speed-cost" | "performance" | "efficiency";
 }
 
-// Model-based color palette
-const MODEL_COLORS: Record<string, string> = {
-	"claude-3.5-sonnet": COLORS.purple,
-	"claude-3.5-haiku": COLORS.success,
-	"claude-3-opus": COLORS.blue,
-	"claude-opus-4": COLORS.pink,
-	"claude-opus-4.1": COLORS.indigo,
-	"claude-sonnet-4": COLORS.cyan,
-	"claude-sonnet-4.5": COLORS.purple,
-};
-
 function speedCostTooltipFormatter(value: number, name: string) {
 	if (name === "Speed") return [formatTokensPerSecond(value), name];
 	if (name === "Cost/1K") return [formatCost(value), name];
@@ -55,24 +49,6 @@ function performanceTooltipFormatter(value: number, name: string) {
 	if (name === "Response Time") return [`${value}ms`, name];
 	if (name === "Error Rate") return [`${value}%`, name];
 	return [value, name];
-}
-
-function getModelColor(model: string): string {
-	// Try to find color by short name first
-	const shortName = getModelShortName(model);
-	if (MODEL_COLORS[shortName]) return MODEL_COLORS[shortName];
-
-	// Check for exact match
-	if (MODEL_COLORS[model]) return MODEL_COLORS[model];
-
-	// Check for partial matches
-	for (const [key, color] of Object.entries(MODEL_COLORS)) {
-		if (model.includes(key) || key.includes(model)) {
-			return color;
-		}
-	}
-
-	return COLORS.primary;
 }
 
 export function ModelPerformanceComparison({
@@ -134,7 +110,7 @@ export function ModelPerformanceComparison({
 						</defs>
 						<CartesianGrid
 							strokeDasharray={CHART_PROPS.strokeDasharray}
-							stroke="rgba(255,255,255,0.1)"
+							stroke={CHART_PROPS.gridStroke}
 						/>
 						<XAxis
 							dataKey="model"
@@ -143,7 +119,7 @@ export function ModelPerformanceComparison({
 							height={80}
 							interval={0}
 							fontSize={12}
-							stroke="rgba(255,255,255,0.5)"
+							stroke={CHART_PROPS.axisStroke}
 						/>
 						<YAxis
 							yAxisId="speed"
@@ -151,6 +127,7 @@ export function ModelPerformanceComparison({
 							stroke={COLORS.purple}
 							fontSize={12}
 							label={{
+								fill: COLORS.purple,
 								value: "Tokens/Second",
 								angle: -90,
 								position: "insideLeft",
@@ -163,6 +140,7 @@ export function ModelPerformanceComparison({
 							stroke={COLORS.warning}
 							fontSize={12}
 							label={{
+								fill: COLORS.warning,
 								value: "Cost per 1K Tokens ($)",
 								angle: 90,
 								position: "insideRight",
@@ -170,9 +148,9 @@ export function ModelPerformanceComparison({
 							}}
 						/>
 						<Tooltip
+							cursor={{ stroke: CHART_PROPS.cursorStroke }}
 							contentStyle={{
-								backgroundColor: "rgba(0,0,0,0.8)",
-								border: "1px solid rgba(255,255,255,0.2)",
+								...CHART_TOOLTIP_STYLE.default,
 								borderRadius: "8px",
 								backdropFilter: "blur(8px)",
 							}}
@@ -193,6 +171,7 @@ export function ModelPerformanceComparison({
 							filter="url(#glow)"
 						/>
 						<Line
+							activeDot={{ stroke: CHART_PROPS.surfaceStroke }}
 							yAxisId="cost"
 							type="monotone"
 							dataKey="costPer1kTokens"
@@ -232,10 +211,12 @@ export function ModelPerformanceComparison({
 							</linearGradient>
 						</defs>
 						<CartesianGrid
+							stroke={CHART_PROPS.gridStroke}
 							strokeDasharray={CHART_PROPS.strokeDasharray}
 							className={CHART_PROPS.gridClassName}
 						/>
 						<XAxis
+							stroke={CHART_PROPS.axisStroke}
 							dataKey="model"
 							angle={-45}
 							textAnchor="end"
@@ -244,10 +225,12 @@ export function ModelPerformanceComparison({
 							fontSize={12}
 						/>
 						<YAxis
+							stroke={CHART_PROPS.axisStroke}
 							yAxisId="time"
 							orientation="left"
 							fontSize={12}
 							label={{
+								fill: CHART_PROPS.axisStroke,
 								value: "Response Time (ms)",
 								angle: -90,
 								position: "insideLeft",
@@ -255,10 +238,12 @@ export function ModelPerformanceComparison({
 							}}
 						/>
 						<YAxis
+							stroke={CHART_PROPS.axisStroke}
 							yAxisId="error"
 							orientation="right"
 							fontSize={12}
 							label={{
+								fill: CHART_PROPS.axisStroke,
 								value: "Error Rate (%)",
 								angle: 90,
 								position: "insideRight",
@@ -266,6 +251,7 @@ export function ModelPerformanceComparison({
 							}}
 						/>
 						<Tooltip
+							cursor={{ stroke: CHART_PROPS.cursorStroke }}
 							contentStyle={getTooltipStyles("dark")}
 							// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
 							formatter={performanceTooltipFormatter as any}
@@ -331,9 +317,10 @@ export function ModelPerformanceComparison({
 					</defs>
 					<CartesianGrid
 						strokeDasharray={CHART_PROPS.strokeDasharray}
-						stroke="rgba(255,255,255,0.1)"
+						stroke={CHART_PROPS.gridStroke}
 					/>
 					<XAxis
+						stroke={CHART_PROPS.axisStroke}
 						dataKey="model"
 						angle={-45}
 						textAnchor="end"
@@ -342,8 +329,10 @@ export function ModelPerformanceComparison({
 						fontSize={12}
 					/>
 					<YAxis
+						stroke={CHART_PROPS.axisStroke}
 						fontSize={12}
 						label={{
+							fill: CHART_PROPS.axisStroke,
 							value: "Efficiency Score",
 							angle: -90,
 							position: "insideLeft",
@@ -351,9 +340,9 @@ export function ModelPerformanceComparison({
 						}}
 					/>
 					<Tooltip
+						cursor={{ stroke: CHART_PROPS.cursorStroke }}
 						contentStyle={{
-							backgroundColor: "rgba(0,0,0,0.8)",
-							border: "1px solid rgba(255,255,255,0.2)",
+							...CHART_TOOLTIP_STYLE.default,
 							borderRadius: "8px",
 							backdropFilter: "blur(8px)",
 						}}
@@ -380,6 +369,7 @@ export function ModelPerformanceComparison({
 						}}
 					/>
 					<Area
+						activeDot={{ stroke: CHART_PROPS.surfaceStroke }}
 						type="monotone"
 						dataKey={(data: ModelComparisonData) =>
 							(data.avgTokensPerSecond || 0) / data.costPer1kTokens

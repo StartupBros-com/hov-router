@@ -408,6 +408,18 @@ describe("WindowValueTimeline", () => {
 		);
 	});
 
+	it("colours natural and early-reset segments from the chart tokens", () => {
+		const html = renderToString(
+			<WindowValueTimeline accounts={[proPrimary]} nowMs={NOW_MS} />,
+		);
+
+		expect(html).toContain("bg-chart-primary/80");
+		expect(html).toContain("bg-chart-warning/80");
+		expect(html).toContain("text-(--warning-solid-foreground)");
+		expect(html).not.toContain("amber-");
+		expect(html).not.toContain("bg-primary/");
+	});
+
 	it("keeps lower bounds in titles and floats labels for too-narrow segments", () => {
 		const html = renderToString(
 			<WindowValueTimeline
