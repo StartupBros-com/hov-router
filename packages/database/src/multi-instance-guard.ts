@@ -38,6 +38,7 @@
 
 import { randomUUID } from "node:crypto";
 import { hostname as osHostname } from "node:os";
+import { isStorageFullError } from "@better-ccflare/core";
 import { Logger } from "@better-ccflare/logger";
 import type { BunSqlAdapter } from "./adapters/bun-sql-adapter";
 
@@ -56,6 +57,13 @@ export const HEARTBEAT_INTERVAL_MS = 5_000;
  * surfacing a real concurrent instance within ~30s of its start.
  */
 export const HEARTBEAT_EXPIRY_MS = 30_000;
+
+/**
+ * A run of failing heartbeat ticks is logged on its first tick and then once
+ * per this many: every 10 minutes at HEARTBEAT_INTERVAL_MS, instead of a line
+ * every 5 s for as long as the disk stays full.
+ */
+const HEARTBEAT_FAILURE_REPORT_EVERY = 120;
 
 export interface HeartbeatRecord {
 	instance_id: string;
@@ -304,11 +312,24 @@ export async function runStartupGuard(
 	const mode = options.mode ?? readMultiInstanceMode();
 	const writeLog = options.log ?? ((msg) => log.warn(msg));
 
-	// Purge rows from crashed predecessors so the table does not grow.
-	await purgeStaleHeartbeats(adapter, now, expiryMs);
+	try {
+		// Purge rows from crashed predecessors so the table does not grow.
+		await purgeStaleHeartbeats(adapter, now, expiryMs);
 
-	// Insert (or refresh) this instance's row.
-	await writeHeartbeat(adapter, now);
+		// Insert (or refresh) this instance's row.
+		await writeHeartbeat(adapter, now);
+	} catch (error) {
+		// A start must not need a disk write (#827). In warn mode a heartbeat
+		// that cannot be stored costs detection only: a second instance started
+		// before the heartbeat loop gets a write through will not see this
+		// one. Refuse mode promises that it would, so it stays fatal there, as
+		// does every failure that is not a full disk.
+		if (mode !== "warn" || !isStorageFullError(error)) throw error;
+		writeLog(
+			`Multi-instance guard: storage is full, so this instance's heartbeat was not recorded (${(error as Error).message}). ` +
+				"Starting anyway. Another instance started on this database will not be warned about this one until space is freed and the heartbeat loop records it.",
+		);
+	}
 
 	// Scan for peers.
 	const result = await scanHeartbeats(adapter, now, expiryMs);
@@ -403,10 +424,16 @@ export function startHeartbeatLoop(
 		 * close has set to busy_timeout=0, holding stop() past its bound.
 		 */
 		isClosing?: () => boolean;
+		log?: (msg: string) => void;
 	} = {},
 ): () => Promise<void> {
 	const intervalMs = options.intervalMs ?? HEARTBEAT_INTERVAL_MS;
 	const now = options.now ?? Date.now;
+	const writeLog = options.log ?? ((msg) => log.warn(msg));
+	// Ticks that have failed in a row. A full disk fails every tick for as
+	// long as it stays full, so a streak is reported when it starts, every
+	// HEARTBEAT_FAILURE_REPORT_EVERY ticks after that, and when it ends.
+	let failedTicks = 0;
 
 	const settlementTimeoutMs =
 		typeof options.settlementTimeoutMs === "number" &&
@@ -420,8 +447,21 @@ export function startHeartbeatLoop(
 		if (stopped || inFlight || options.isClosing?.()) return;
 		// Keep one tracked mutation. A slow retry must not multiply timer jobs.
 		inFlight = writeHeartbeat(adapter, now())
+			.then(() => {
+				if (failedTicks > 0) {
+					writeLog(
+						`heartbeat recorded again after ${failedTicks} failed tick(s)`,
+					);
+				}
+				failedTicks = 0;
+			})
 			.catch((err) => {
-				log.warn(`heartbeat tick failed: ${(err as Error).message}`);
+				failedTicks++;
+				if (failedTicks % HEARTBEAT_FAILURE_REPORT_EVERY === 1) {
+					writeLog(
+						`heartbeat tick failed (${failedTicks} in a row): ${(err as Error).message}`,
+					);
+				}
 			})
 			.finally(() => {
 				inFlight = null;

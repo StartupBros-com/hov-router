@@ -255,7 +255,9 @@ class RouterProcess {
 			Bun.sleep(timeoutMs).then(() => true),
 		]);
 		if (timedOut) {
-			this.output.push(`--- ${signal} did not stop the server; sending SIGKILL`);
+			this.output.push(
+				`--- ${signal} did not stop the server; sending SIGKILL`,
+			);
 			proc.kill("SIGKILL");
 			await proc.exited;
 		}
@@ -550,7 +552,9 @@ async function main(): Promise<void> {
 			);
 		}
 		if (soakHealthFailures > 0) {
-			failures.push(`${soakHealthFailures} health checks failed during the soak`);
+			failures.push(
+				`${soakHealthFailures} health checks failed during the soak`,
+			);
 		}
 
 		// 4. Restart on the still-full filesystem. A clean stop goes first: it
@@ -649,7 +653,9 @@ async function main(): Promise<void> {
 		report.recovery = {
 			requests: recovered,
 			recordedWhileFull,
-			recordedAfter: router.alive() ? await recordedRequests(router.base) : null,
+			recordedAfter: router.alive()
+				? await recordedRequests(router.base)
+				: null,
 			recordingResumed: resumed,
 			samePid: router.pid === pidBeforeRecovery && router.alive(),
 			logBytesBefore,
