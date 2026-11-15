@@ -19,6 +19,7 @@ import { sanitizeResponseHeaders } from "@better-ccflare/http-common";
 import { Logger } from "@better-ccflare/logger";
 import {
 	type AgentAttributionSource,
+	getDefaultBillingType,
 	NO_ACCOUNT_ID,
 	type ProjectAttributionSource,
 	type RequestResponse,
@@ -1266,18 +1267,7 @@ export class UsageCollector {
 			// Account has explicit billing type override
 			state.billingType = msg.accountBillingType;
 		} else {
-			// Providers with subscription plans default to "plan" billing;
-			// all others (anthropic-compatible, openai-compatible, etc.) are API
-			const planProviders = new Set([
-				"anthropic",
-				"zai",
-				"alibaba-coding-plan",
-				"ollama",
-				"ollama-cloud",
-				"qwen",
-				"codex",
-			]);
-			state.billingType = planProviders.has(msg.providerName) ? "plan" : "api";
+			state.billingType = getDefaultBillingType(msg.providerName);
 		}
 
 		this.requests.set(msg.requestId, state);

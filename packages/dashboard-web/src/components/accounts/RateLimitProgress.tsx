@@ -1,6 +1,10 @@
 import { computeWindowStartMs, registerUIRefresh } from "@better-ccflare/core";
 import type { FullUsageData } from "@better-ccflare/types";
-import { isFutureDeadline } from "@better-ccflare/ui-common";
+import {
+	formatClockTime,
+	isFutureDeadline,
+	sameResetKeepers,
+} from "@better-ccflare/ui-common";
 import { useEffect, useId, useState } from "react";
 import { formatRelativeReset } from "../../lib/pool-usage";
 import { cn, formatShortDuration } from "../../lib/utils";
@@ -12,11 +16,11 @@ import {
 } from "../../utils/provider-utils";
 import { LiveCountdown } from "../LiveCountdown";
 import { Progress } from "../ui/progress";
+import { StatusPill } from "../ui/status-pill";
 import { accountUsageWindows } from "./account-usage-windows";
 import {
 	displayLabel,
 	formatWindowName,
-	isWeeklyWindow,
 	severityColor,
 } from "./rate-limit-helpers";
 
@@ -85,10 +89,7 @@ function formatThrottledUntil(throttledUntilMs: number, now: number): string {
 	}
 
 	const roundedUpToMinuteMs = Math.ceil(throttledUntilMs / 60000) * 60000;
-	return new Date(roundedUpToMinuteMs).toLocaleTimeString(undefined, {
-		hour: "2-digit",
-		minute: "2-digit",
-	});
+	return formatClockTime(roundedUpToMinuteMs, now);
 }
 
 // Map an Anthropic severity (or a >=100% fallback) to a Progress indicator class.
@@ -97,8 +98,8 @@ function severityIndicatorClass(
 	utilization: number | null,
 ): string | undefined {
 	const c = severityColor(severity, utilization);
-	if (c === "critical") return "bg-red-500 dark:bg-red-400";
-	if (c === "warning") return "bg-amber-500 dark:bg-amber-400";
+	if (c === "critical") return "bg-(--danger-solid)";
+	if (c === "warning") return "bg-(--warning-solid)";
 	return undefined;
 }
 
@@ -258,6 +259,7 @@ export function RateLimitProgress({
 		pacingActive &&
 		usageThrottledWindows.some((window) => !renderedWindows.has(window));
 
+	const resetKeepers = sameResetKeepers(usages.map((usage) => usage.resetTime));
 	return (
 		<div
 			className={cn(
@@ -267,44 +269,32 @@ export function RateLimitProgress({
 		>
 			{!compact && provider === "zai" && (
 				<div className="flex items-center gap-2">
-					<span
-						className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${
-							isZaiPeak
-								? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-								: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-						}`}
-					>
+					<StatusPill tone={isZaiPeak ? "warning" : "success"}>
 						<span
-							className={`h-1.5 w-1.5 rounded-full ${isZaiPeak ? "bg-orange-500" : "bg-green-500"}`}
+							className={`h-1.5 w-1.5 rounded-full ${isZaiPeak ? "bg-(--warning-solid)" : "bg-(--success-solid)"}`}
 						/>
 						{isZaiPeak ? "Peak hours (14:00–18:00 SGT)" : "Off-peak hours"}
-					</span>
+					</StatusPill>
 				</div>
 			)}
 			{!compact && provider === "anthropic" && (
 				<div className="flex items-center gap-2">
-					<span
-						className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${
-							isAnthropicPeak
-								? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-								: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-						}`}
-					>
+					<StatusPill tone={isAnthropicPeak ? "warning" : "success"}>
 						<span
-							className={`h-1.5 w-1.5 rounded-full ${isAnthropicPeak ? "bg-orange-500" : "bg-green-500"}`}
+							className={`h-1.5 w-1.5 rounded-full ${isAnthropicPeak ? "bg-(--warning-solid)" : "bg-(--success-solid)"}`}
 						/>
 						{isAnthropicPeak
 							? "Peak hours (5–11am PT, weekdays)"
 							: "Off-peak hours"}
-					</span>
+					</StatusPill>
 				</div>
 			)}
 			{!compact && hasOrphanThrottledWindow && usageThrottledUntil != null && (
 				<div className="flex items-center justify-between">
-					<span className="text-xs text-amber-700 dark:text-amber-400">
+					<span className="text-xs text-(--warning)">
 						Pacing active; affected windows may delay requests
 					</span>
-					<span className="text-xs text-amber-700 dark:text-amber-400">
+					<span className="text-xs text-(--warning)">
 						{(() => {
 							const throttledLabel = formatThrottledUntil(
 								usageThrottledUntil,
@@ -319,7 +309,7 @@ export function RateLimitProgress({
 			)}
 			{compact && (
 				<p className="text-xs text-muted-foreground xl:hidden">
-					Usage · resets in
+					Usage and resets
 				</p>
 			)}
 			{compact &&
@@ -328,13 +318,16 @@ export function RateLimitProgress({
 					<MissingQuota provider={provider} />
 				)}
 			{refreshDelayed && usageRateLimitedUntil != null && (
-				<p className="col-span-2 text-xs text-amber-700 dark:text-amber-400">
+				<p className="col-span-2 text-xs text-(--warning)">
 					Usage refresh delayed — retry after{" "}
-					{new Date(usageRateLimitedUntil).toLocaleTimeString()}
+					{formatClockTime(
+						Math.ceil(usageRateLimitedUntil / 60_000) * 60_000,
+						now,
+					)}
 				</p>
 			)}
 			{compact && pacingActive && usageThrottledUntil != null && (
-				<p className="col-span-2 text-xs text-amber-700 dark:text-amber-400">
+				<p className="col-span-2 text-xs text-(--warning)">
 					Pacing active; affected windows may delay requests.{" "}
 					{formatThrottledUntil(usageThrottledUntil, now).startsWith(
 						"Less than",
@@ -357,6 +350,9 @@ export function RateLimitProgress({
 				</div>
 			)}
 			{usages.map((usage, _index) => {
+				const keeperIndex = resetKeepers[_index];
+				const keeper = keeperIndex != null ? usages[keeperIndex] : undefined;
+				const keeperLabel = keeper ? displayLabel(keeper) : null;
 				if (compact) {
 					if (providerShowsCreditsBalance(provider)) return null;
 					if (inactiveNanoGPT && usage.window === "daily")
@@ -408,7 +404,15 @@ export function RateLimitProgress({
 										className="ml-1"
 										title={`${exhausted ? "Exhausted. " : ""}${binding ? "Currently limiting. " : ""}${usage.window?.startsWith("seven_day_") ? "This limit applies to this model, separately from account-wide usage." : "Account-wide limit."}`}
 									>
-										<span aria-hidden="true">{exhausted ? "!" : "•"}</span>
+										<span
+											className={cn(
+												"font-medium",
+												exhausted ? "text-(--danger)" : "text-muted-foreground",
+											)}
+										>
+											{" "}
+											{exhausted ? "exhausted" : "limiting"}
+										</span>
 										<span className="sr-only">
 											{exhausted ? "Exhausted; " : ""}
 											{binding ? "currently limiting; " : ""}
@@ -480,12 +484,14 @@ export function RateLimitProgress({
 								>
 									<span className="sr-only">
 										{highlighted ? "Sort key; " : ""}
-										{new Date(usage.resetTime).toLocaleString()} local time;
-										Resets{" "}
+										{new Date(usage.resetTime).toLocaleString()} local time;{" "}
+										{keeperLabel ? `resets with ${keeperLabel}` : "Resets "}
 									</span>
-									{Date.parse(usage.resetTime) <= now
-										? "Due"
-										: formatRelativeReset(Date.parse(usage.resetTime), now)}
+									{keeperLabel
+										? "same reset"
+										: Date.parse(usage.resetTime) <= now
+											? "Due"
+											: formatRelativeReset(Date.parse(usage.resetTime), now)}
 								</time>
 							) : (
 								<span className="col-span-full text-muted-foreground @[28rem]:col-span-1 @[28rem]:text-right">
@@ -574,20 +580,40 @@ export function RateLimitProgress({
 												? (usage.label ??
 													`Usage (${formatWindowName(usage.window)})`)
 												: "Rate limit window"}
+											{/* A synthetic row holds no quota data: it is a placeholder, or its
+											    bar measures elapsed cooldown time. It never gets a quota marker. */}
+											{!usage.synthetic &&
+												usage.window != null &&
+												(usage.isActive ||
+													usage.window === bindingWindow ||
+													(percentage ?? 0) >= 100) && (
+													<span
+														className={cn(
+															"ml-1.5 font-medium",
+															(percentage ?? 0) >= 100
+																? "text-(--danger)"
+																: "text-muted-foreground",
+														)}
+													>
+														{" "}
+														{(percentage ?? 0) >= 100
+															? "exhausted"
+															: "limiting"}
+														<span className="sr-only">
+															{usage.isActive || usage.window === bindingWindow
+																? "; currently limiting"
+																: ""}
+														</span>
+													</span>
+												)}
 										</span>
 										<span
 											className={cn(
 												"text-xs font-medium text-muted-foreground",
-												isWindowThrottled &&
-													"text-amber-700 dark:text-amber-400",
+												isWindowThrottled && "text-(--warning)",
 											)}
 										>
 											{isAvailable ? `${percentage?.toFixed(0)}%` : "N/A"}
-											{usage.isActive && (
-												<span className="ml-1.5 text-[11px] font-medium uppercase tracking-wide text-red-700 dark:text-red-400">
-													limiting
-												</span>
-											)}
 										</span>
 									</div>
 									<div className="group relative">
@@ -604,8 +630,8 @@ export function RateLimitProgress({
 														(percentage ?? 0) <= 0
 															? "text-muted-foreground"
 															: isOverPacing
-																? "text-red-400"
-																: "text-green-400"
+																? "text-(--danger)"
+																: "text-(--success)"
 													}
 												>
 													{projectedMessage}
@@ -618,7 +644,7 @@ export function RateLimitProgress({
 											className="h-2"
 											indicatorClassName={
 												isWindowThrottled
-													? "bg-amber-500 dark:bg-amber-400"
+													? "bg-(--warning-solid)"
 													: severityIndicatorClass(
 															usage.severity,
 															// Time-based fallback row (window == null) uses elapsed
@@ -646,10 +672,10 @@ export function RateLimitProgress({
 									</div>
 									{isWindowThrottled && throttleDisplayUntil && (
 										<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-											<span className="text-xs text-amber-700 dark:text-amber-400">
+											<span className="text-xs text-(--warning)">
 												Pacing active; affected windows may delay requests
 											</span>
-											<span className="text-xs text-amber-700 dark:text-amber-400">
+											<span className="text-xs text-(--warning)">
 												{(() => {
 													const throttledLabel = formatThrottledUntil(
 														throttleDisplayUntil,
@@ -665,48 +691,28 @@ export function RateLimitProgress({
 								</>
 							);
 						})()}
-						{usage.resetTime && (
-							<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-								<LiveCountdown
-									target={usage.resetTime}
-									suffix=" until reset"
-									className="text-xs text-muted-foreground"
-								/>
-								<span className="text-xs text-muted-foreground">
-									{(usage.window && isWeeklyWindow(usage.window)) ||
-									usage.window === "weekly" ||
-									usage.window === "monthly" ||
-									usage.window === "time_limit" ||
-									usage.window === "tokens_limit"
-										? `Resets ${new Date(usage.resetTime).toLocaleString(
-												undefined,
-												{
-													month: "short",
-													day: "numeric",
-													hour: "2-digit",
-													minute: "2-digit",
-												},
-											)} (local)`
-										: `Resets ${new Date(usage.resetTime).toLocaleTimeString(
-												undefined,
-												{
-													hour: "2-digit",
-													minute: "2-digit",
-												},
-											)} (local)`}
-									{(() => {
-										const relativeReset = formatRelativeReset(
-											new Date(usage.resetTime).getTime(),
-											now,
-										);
-										return relativeReset != null ? ` · ${relativeReset}` : "";
-									})()}
-								</span>
-							</div>
-						)}
+						{usage.resetTime &&
+							(keeperLabel ? (
+								<p className="text-xs text-muted-foreground">
+									Same reset as {keeperLabel}
+								</p>
+							) : (
+								<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+									<LiveCountdown
+										target={usage.resetTime}
+										suffix=" until reset"
+										className="text-xs text-muted-foreground"
+									/>
+									<span className="text-xs text-muted-foreground">
+										Resets {formatClockTime(Date.parse(usage.resetTime), now)}{" "}
+										(local)
+									</span>
+								</div>
+							))}
 						{!usage.resetTime && (
-							<p className="text-xs text-muted-foreground">
-								{!isAvailable && "Data unavailable · "}Reset unknown
+							<p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+								{!isAvailable && <span>Data unavailable</span>}
+								<span>Reset unknown</span>
 							</p>
 						)}
 					</div>

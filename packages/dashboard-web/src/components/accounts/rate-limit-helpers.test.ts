@@ -457,19 +457,21 @@ describe("describeBindingConstraint", () => {
 describe("formatRateLimitStatus", () => {
 	it("humanizes the enum and converts minutes to a duration", () => {
 		expect(formatRateLimitStatus("usage_exhausted (2757m)")).toBe(
-			"Usage exhausted · resets in 45h 57m",
+			"Usage exhausted, resets in 45h 57m",
 		);
 		expect(formatRateLimitStatus("allowed (1433m)")).toBe(
-			"Allowed · resets in 23h 53m",
+			"Allowed, resets in 23h 53m",
 		);
 		expect(formatRateLimitStatus("Rate limited (3m)")).toBe(
-			"Rate limited · resets in 3m",
+			"Rate limited, resets in 3m",
 		);
 	});
 
 	it("keeps warnings distinct without promising available provider capacity", () => {
 		expect(formatRateLimitStatus("allowed")).toBe("Allowed");
-		expect(formatRateLimitStatus("allowed_warning")).toBe("Allowed · warning");
+		expect(formatRateLimitStatus("allowed_warning")).toBe(
+			"Allowed with warning",
+		);
 		expect(formatRateLimitStatus("OK")).toBe("OK");
 		expect(formatRateLimitStatus("usage_exhausted")).toBe("Usage exhausted");
 	});

@@ -18,7 +18,8 @@ type TokenStatus =
 	| "expired"
 	| "no-refresh-token"
 	| "loading"
-	| "error";
+	| "error"
+	| "unknown";
 
 export function OAuthTokenStatus({
 	accountName,
@@ -27,7 +28,6 @@ export function OAuthTokenStatus({
 }: OAuthTokenStatusProps) {
 	const [status, setStatus] = useState<TokenStatus>("loading");
 	const [message, setMessage] = useState("Loading...");
-	const [fallbackAttempted, setFallbackAttempted] = useState(false);
 
 	useEffect(() => {
 		if (!hasRefreshToken) {
@@ -46,21 +46,35 @@ export function OAuthTokenStatus({
 			try {
 				const response = await api.getAccountTokenHealth(accountName);
 				if (cancelled) return;
-
 				if (response?.success) {
 					setStatus(response.data.status);
 					setMessage(response.data.message);
-				} else {
-					console.error("API returned error:", response);
-					setStatus("error");
-					setMessage("Failed to load token status");
+					return;
 				}
 			} catch (error) {
 				if (cancelled) return;
 				console.error("Failed to fetch token status:", error);
-				setStatus("error");
-				setMessage("Failed to check token status");
 			}
+			setStatus("error");
+			try {
+				const response = await api.getTokenHealth();
+				if (cancelled) return;
+				const account = response?.success
+					? response.data?.accounts?.find(
+							(row) => row.accountName === accountName,
+						)
+					: undefined;
+				if (account) {
+					setStatus(account.status);
+					setMessage(account.message);
+					return;
+				}
+			} catch (error) {
+				if (cancelled) return;
+				console.error("Failed to fetch global health:", error);
+			}
+			setStatus("unknown");
+			setMessage("OAuth token status unavailable");
 		};
 
 		// Execute immediately without delay
@@ -70,44 +84,6 @@ export function OAuthTokenStatus({
 			cancelled = true;
 		};
 	}, [accountName, hasRefreshToken]);
-
-	// Fallback: if initial fetch fails, try global token health
-	useEffect(() => {
-		if (status === "error" && hasRefreshToken && !fallbackAttempted) {
-			setFallbackAttempted(true);
-			let cancelled = false;
-
-			const checkGlobalHealth = async () => {
-				try {
-					const globalResponse = await api.getTokenHealth();
-					if (cancelled) return;
-
-					if (globalResponse?.success && globalResponse.data?.accounts) {
-						const accountData = globalResponse.data.accounts.find(
-							(acc: {
-								accountName: string;
-								status: TokenStatus;
-								message: string;
-							}) => acc.accountName === accountName,
-						);
-						if (accountData) {
-							setStatus(accountData.status);
-							setMessage(accountData.message);
-						}
-					}
-				} catch (error) {
-					if (cancelled) return;
-					console.error("Failed to fetch global health:", error);
-				}
-			};
-
-			checkGlobalHealth();
-
-			return () => {
-				cancelled = true;
-			};
-		}
-	}, [status, accountName, hasRefreshToken, fallbackAttempted]);
 
 	return (
 		<OAuthTokenStatusView
@@ -140,7 +116,7 @@ export function OAuthTokenStatusView({
 				title="OAuth refresh token status unknown - checking..."
 			>
 				<RefreshCw
-					className="h-4 w-4 text-gray-400 animate-spin"
+					className="h-4 w-4 text-muted-foreground animate-spin"
 					aria-hidden="true"
 				/>
 				<span className="sr-only">Checking OAuth token status</span>
@@ -151,12 +127,12 @@ export function OAuthTokenStatusView({
 	const getIcon = () => {
 		switch (status) {
 			case "warning":
-				return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
+				return <AlertTriangle className="h-4 w-4 text-(--warning)" />;
 			case "critical":
 			case "expired":
-				return <XCircle className="h-4 w-4 text-red-600" />;
+				return <XCircle className="h-4 w-4 text-(--danger)" />;
 			default:
-				return <AlertTriangle className="h-4 w-4 text-gray-500" />;
+				return <AlertTriangle className="h-4 w-4 text-muted-foreground" />;
 		}
 	};
 

@@ -334,16 +334,16 @@ export function collectAnthropicUsageRows(
 
 /**
  * Turn the server's raw rate-limit status ("usage_exhausted (2757m)") into
- * readable text ("Usage exhausted · resets in 45h 57m").
+ * readable text ("Usage exhausted, resets in 45h 57m").
  */
 export function formatRateLimitStatus(status: string): string {
 	const match = status.match(/^(.*?)\s*\((\d+)m\)$/);
 	const base = (match ? match[1] : status).replace(/_/g, " ");
 	const label =
 		base.toLowerCase() === "allowed warning"
-			? "Allowed · warning"
+			? "Allowed with warning"
 			: base.charAt(0).toUpperCase() + base.slice(1);
 	return match
-		? `${label} · resets in ${formatShortDuration(Number(match[2]) * 60000)}`
+		? `${label}, resets in ${formatShortDuration(Number(match[2]) * 60000)}`
 		: label;
 }

@@ -146,10 +146,7 @@ export function CodexReauthDialog({
 					)}
 
 					{step === "complete" && (
-						<p
-							role="status"
-							className="text-sm text-green-700 dark:text-green-400"
-						>
+						<p role="status" className="text-sm text-(--success)">
 							Re-authenticated. Tokens updated.
 						</p>
 					)}
@@ -165,9 +162,11 @@ export function CodexReauthDialog({
 
 				<DialogFooter>
 					{(step === "idle" || step === "error") && (
-						<Button onClick={handleStart}>Start Re-authentication</Button>
+						<Button size="touch" onClick={handleStart}>
+							Start Re-authentication
+						</Button>
 					)}
-					<Button variant="outline" onClick={handleClose}>
+					<Button size="touch" variant="outline" onClick={handleClose}>
 						{step === "complete" ? "Close" : "Cancel"}
 					</Button>
 				</DialogFooter>

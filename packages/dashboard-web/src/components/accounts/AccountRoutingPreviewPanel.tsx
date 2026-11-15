@@ -108,17 +108,20 @@ export function AccountRoutingPreviewPanel({
 										<span className="block font-medium">
 											{proposal.managed_model}
 										</span>
-										<span className="block text-xs text-muted-foreground">
-											Account priority · {proposal.provider} ·{" "}
-											{proposal.route_class}
+										<span className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+											<span>Account priority</span>
+											<span>{proposal.provider}</span>
+											<span>{proposal.route_class}</span>
 										</span>
-										<span className="block text-xs">
-											{routingReasonLabel(proposal.reason)}
-											{proposal.high_confidence
-												? proposal.selected_by_default
-													? " · Recommended"
-													: " · High confidence"
-												: " · Action required"}
+										<span className="flex flex-wrap gap-x-3 text-xs">
+											<span>{routingReasonLabel(proposal.reason)}</span>
+											<span>
+												{proposal.high_confidence
+													? proposal.selected_by_default
+														? "Recommended"
+														: "High confidence"
+													: "Action required"}
+											</span>
 										</span>
 									</span>
 								</label>

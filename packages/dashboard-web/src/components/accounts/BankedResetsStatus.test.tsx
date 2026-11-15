@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import type { BankedResets } from "@better-ccflare/types";
 import { renderToStaticMarkup } from "react-dom/server";
+import { StatusPill } from "../ui/status-pill";
 import { BankedResetsStatus, bankedResetsRowState } from "./BankedResetsStatus";
-import { STATUS_TONE_CLASS } from "./status-tones";
 
 const NOV_30 = Date.UTC(2026, 10, 30);
 const NOW = Date.UTC(2026, 10, 2, 18, 30);
@@ -169,7 +169,9 @@ describe("BankedResetsStatus", () => {
 		expect(visible).not.toMatch(/Banked resets: 0\b/);
 		// Said once, by the amber pill, not repeated on every chunk.
 		expect(visible.match(/last known/gi)).toHaveLength(1);
-		expect(html).toContain(`${STATUS_TONE_CLASS.warning}">Last known<`);
+		expect(html).toContain(
+			renderToStaticMarkup(<StatusPill tone="warning">Last known</StatusPill>),
+		);
 	});
 
 	it("falls back when a stale account has no read time", () => {
@@ -394,7 +396,7 @@ it("compact held balance includes the exact visible expiry and countdown", () =>
 	);
 	const header = html.slice(0, html.indexOf("</summary>"));
 	expect(text(header)).toContain(
-		"2 banked · next expires Nov 30, 2026 UTC (in 27d 5h)",
+		"2 banked next expires Nov 30, 2026 UTC (in 27d 5h)",
 	);
 	expect(header).not.toContain('class="sr-only">(in 27d 5h)');
 	// A single held reset has no "next" one.
@@ -407,6 +409,6 @@ it("compact held balance includes the exact visible expiry and countdown", () =>
 		/>,
 	);
 	expect(text(single.slice(0, single.indexOf("</summary>")))).toContain(
-		"1 banked · expires Nov 30, 2026 UTC (in 27d 5h)",
+		"1 banked expires Nov 30, 2026 UTC (in 27d 5h)",
 	);
 });

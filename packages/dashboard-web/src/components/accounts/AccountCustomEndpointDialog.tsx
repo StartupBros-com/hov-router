@@ -135,8 +135,9 @@ export function AccountCustomEndpointDialog({
 						{submission.error}
 					</p>
 				)}
-				<DialogFooter className="[&>button]:min-h-11">
+				<DialogFooter>
 					<Button
+						size="touch"
 						type="button"
 						variant="outline"
 						onClick={() => submission.close(() => onOpenChange(false))}
@@ -144,7 +145,12 @@ export function AccountCustomEndpointDialog({
 					>
 						Cancel
 					</Button>
-					<Button type="button" onClick={handleSave} disabled={busy}>
+					<Button
+						size="touch"
+						type="button"
+						onClick={handleSave}
+						disabled={busy}
+					>
 						{busy ? "Saving..." : "Save"}
 					</Button>
 				</DialogFooter>

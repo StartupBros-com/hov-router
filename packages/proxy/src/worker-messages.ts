@@ -40,7 +40,7 @@ export interface StartMessage {
 	// Provider info for rate limit parsing
 	providerName: string;
 
-	// Account billing type override (null = use provider heuristic)
+	// Account billing type override (null = the provider's defaultBillingType)
 	accountBillingType: string | null;
 
 	// Account auto-pause-on-overage flag (1 = enabled, 0 = disabled, null = not set)

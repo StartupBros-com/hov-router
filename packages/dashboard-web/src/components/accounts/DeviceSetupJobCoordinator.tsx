@@ -56,7 +56,7 @@ export function DeviceSetupJobCoordinator({
 	if (!authenticated || activeCount === 0) return null;
 	return (
 		<div
-			className="mx-4 mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100 lg:ml-68"
+			className="mx-4 mt-4 rounded-lg border border-(--info)/30 bg-(--info-soft) p-3 text-sm text-(--info) lg:ml-68"
 			role="status"
 			aria-live="polite"
 		>

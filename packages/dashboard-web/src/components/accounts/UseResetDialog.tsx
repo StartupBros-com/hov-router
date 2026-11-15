@@ -140,17 +140,18 @@ export function UseResetPanel({
 				{view ? (
 					<>
 						{view.canRetry && (
-							<Button variant="outline" onClick={onConfirm}>
+							<Button size="touch" variant="outline" onClick={onConfirm}>
 								Try again
 							</Button>
 						)}
-						<Button autoFocus onClick={onClose}>
+						<Button size="touch" autoFocus onClick={onClose}>
 							Close
 						</Button>
 					</>
 				) : (
 					<>
 						<Button
+							size="touch"
 							variant="outline"
 							autoFocus
 							disabled={sending}
@@ -158,7 +159,7 @@ export function UseResetPanel({
 						>
 							No, go back
 						</Button>
-						<Button disabled={sending} onClick={onConfirm}>
+						<Button size="touch" disabled={sending} onClick={onConfirm}>
 							{sending ? "Sending..." : "Use 1 reset"}
 						</Button>
 					</>

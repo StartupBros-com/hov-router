@@ -15,6 +15,7 @@ import type { BankedResets, FullUsageData } from "@better-ccflare/types";
 import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup as renderClosedMarkup } from "react-dom/server";
 import type { Account } from "../../api";
+import { StatusPill } from "../ui/status-pill";
 import { AccountList, accountListItems } from "./AccountList";
 import {
 	AccountListItem,
@@ -23,7 +24,7 @@ import {
 } from "./AccountListItem";
 import { mergeAccountModelMappings } from "./AccountModelMappingsDialog";
 import type { AccountFamilyRoutingState } from "./account-routing";
-import { STATUS_PILL_CLASS, STATUS_TONE_CLASS } from "./status-tones";
+import { STATUS_PILL_TONE, type StatusTone } from "./status-tones";
 
 // Static provider-contract coverage renders the row expanded and all tab bodies.
 // Browser acceptance separately drives the real disclosure, tabs and focus behavior.
@@ -56,7 +57,7 @@ it("keeps the provider text alongside its decorative mark", () => {
 		/>,
 	);
 	expect(html).toMatch(
-		/<span class="inline-flex items-center gap-1.5"><svg[^>]*data-provider-mark="openai"[\s\S]*?<\/svg>codex<\/span>/,
+		/<div class="col-start-1 row-start-1 self-center"><svg[^>]*data-provider-mark="openai"[\s\S]*?<\/svg><\/div><div class="col-start-2 row-start-1 flex min-w-0 items-center">[\s\S]*?<span class="inline-flex items-center gap-1.5">codex<\/span>/,
 	);
 });
 it("groups priority rows as flat keyed siblings using rendered counts", () => {
@@ -135,7 +136,7 @@ describe("account scan layout", () => {
 	it("pairs status color with a decorative icon and the unchanged label", () => {
 		const examples: {
 			input: Partial<Account>;
-			tone: keyof typeof STATUS_TONE_CLASS;
+			tone: StatusTone;
 			icon: string;
 			label: string;
 			detail?: string;
@@ -182,7 +183,9 @@ describe("account scan layout", () => {
 				),
 			);
 			const start = html.indexOf(
-				`class="${STATUS_PILL_CLASS} ${STATUS_TONE_CLASS[tone]}"`,
+				renderClosedMarkup(<StatusPill tone={STATUS_PILL_TONE[tone]} />)
+					.replace("</span>", "")
+					.replace(/>$/, ""),
 			);
 			expect(start).toBeGreaterThanOrEqual(0);
 			const pill = html.slice(start, html.indexOf("</span>", start));
@@ -315,7 +318,7 @@ describe("account scan layout", () => {
 			"5-hour reset (soonest)",
 			"Weekly used (lowest first)",
 			"5-hour used (lowest first)",
-			"Usage · resets in",
+			"Usage and resets",
 			'aria-pressed="true"',
 		])
 			expect(html).toContain(text);
@@ -1276,7 +1279,10 @@ describe("AccountListItem header at phone width", () => {
 		);
 		const nameEnd = html.indexOf(">pro-primary-wmgm</h3>");
 		const headingStart = html.lastIndexOf("<h3", nameEnd);
-		const columnStart = html.lastIndexOf('<div class="min-w-0', headingStart);
+		const columnStart = html.lastIndexOf(
+			'<div class="grid min-w-0',
+			headingStart,
+		);
 		return {
 			html,
 			heading: html.slice(headingStart, nameEnd),
@@ -1287,7 +1293,9 @@ describe("AccountListItem header at phone width", () => {
 	it("gives the name column a real basis so the actions wrap below it", () => {
 		const { html, column } = header();
 		expect(html).toContain("Clear cooldown");
-		expect(column).toContain("flex-[1_1_8rem]");
+		expect(column).toContain(
+			"basis-full grid-cols-[1rem_minmax(0,1fr)] gap-x-2 gap-y-1 sm:basis-auto sm:flex-[1_1_8rem]",
+		);
 		expect(column).not.toMatch(/\bflex-1\b/);
 		expect(html).toContain('class="ml-auto flex shrink-0 flex-wrap');
 	});
@@ -1582,7 +1590,7 @@ describe("compact hybrid list", () => {
 		expect(html).toContain("1 needs attention");
 		expect(html).toContain("Review accounts");
 		expect(html).toContain("Router status");
-		expect(html).toContain("Usage · resets in");
+		expect(html).toContain("Usage and resets");
 		expect(withoutDetailsContent(html)).toContain("Usage unavailable");
 	});
 	it("starts collapsed with a button controlling an inline account region", () => {

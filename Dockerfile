@@ -91,6 +91,11 @@ ENV NODE_ENV=production
 ENV BETTER_CCFLARE_DB_PATH=/data/better-ccflare.db
 ENV XDG_CONFIG_HOME=/data
 ENV BETTER_CCFLARE_LOG_DIR=/app/logs
+# Listen on every interface inside the container: a published port (-p, compose
+# `ports:`) reaches the container over its network interface, never loopback.
+# Set here rather than left to the binary's default. Restrict who can reach it
+# on the host side, e.g. publish as 127.0.0.1:8080:8080.
+ENV BETTER_CCFLARE_HOST=0.0.0.0
 # /health git_sha: the binary has no embedded SHA here, so it reads this.
 # Empty when GIT_SHA is not passed, which /health reports as null.
 ENV BETTER_CCFLARE_GIT_SHA=${GIT_SHA}

@@ -641,6 +641,8 @@ spec:
         ports:
         - containerPort: 8080
         env:
+        - name: BETTER_CCFLARE_HOST
+          value: "0.0.0.0" # the Service and the probes reach the pod IP, not loopback
         - name: BETTER_CCFLARE_DB_PATH
           value: "/data/better-ccflare.db"
         - name: LB_STRATEGY

@@ -1,14 +1,15 @@
 import type { BankedResets } from "@better-ccflare/types";
 import { ChevronDown } from "lucide-react";
 import { useId } from "react";
-import { Button } from "../ui/button";
+import { cn } from "../../lib/utils";
+import { Button, touchTargetClass } from "../ui/button";
+import { StatusPill } from "../ui/status-pill";
 import {
 	bankedResetExpiryParts,
 	describeBankedResetExpiry,
 	formatBankedResetObserved,
 } from "./BankedResetsSummary";
 import { resetActionAvailability } from "./reset-redemption-flow";
-import { STATUS_PILL_CLASS, STATUS_TONE_CLASS } from "./status-tones";
 
 export type BankedResetsRowKind = "not_tracked" | "unknown" | "none" | "held";
 
@@ -145,24 +146,22 @@ export function BankedResetsStatus({
 				className="min-w-0 text-xs"
 			>
 				<details className="group">
-					<summary className="flex min-h-11 cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
+					<summary
+						className={cn(
+							touchTargetClass,
+							"flex cursor-pointer flex-wrap gap-x-2 gap-y-1 text-muted-foreground",
+						)}
+					>
 						<span className="text-foreground tabular-nums">
 							{holdsResets || kind === "none"
 								? `${value} banked`
 								: `Banked resets ${value}`}
 						</span>
-						{showsStale && (
-							<span className={STATUS_TONE_CLASS.warning}>Last known</span>
-						)}
-						{holdsResets && (
-							<>
-								{" · "}
-								<ExpiryChunk resets={resets} now={now} compact />
-							</>
-						)}
+						{showsStale && <StatusPill tone="warning">Last known</StatusPill>}
+						{holdsResets && <ExpiryChunk resets={resets} now={now} compact />}
 						<ChevronDown
 							aria-hidden="true"
-							className="h-3 w-3 shrink-0 group-open:rotate-180"
+							className="h-4 w-4 shrink-0 group-open:rotate-180"
 						/>
 						<span className="sr-only">
 							Banked reset details and confirmation
@@ -174,8 +173,7 @@ export function BankedResetsStatus({
 					{action?.shown && (
 						<Button
 							variant="outline"
-							size="sm"
-							className="min-h-11"
+							size="touch-sm"
 							disabled={!action.enabled}
 							aria-describedby={detailId}
 							onClick={onUseReset}
@@ -201,17 +199,13 @@ export function BankedResetsStatus({
 				<span className="whitespace-nowrap font-medium tabular-nums">
 					{value}
 				</span>
-				{showsStale && (
-					<span className={`${STATUS_PILL_CLASS} ${STATUS_TONE_CLASS.warning}`}>
-						Last known
-					</span>
-				)}
+				{showsStale && <StatusPill tone="warning">Last known</StatusPill>}
 				{holdsResets && <ExpiryChunk resets={resets} now={now} />}
 				{action?.shown && (
 					<Button
 						variant="outline"
-						size="sm"
-						className="ml-auto min-h-11"
+						size="touch-sm"
+						className="ml-auto"
 						disabled={!action.enabled}
 						aria-describedby={detailId}
 						onClick={onUseReset}

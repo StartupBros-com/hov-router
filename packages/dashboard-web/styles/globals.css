@@ -5,6 +5,20 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+	--success: oklch(52.7% 0.154 150.069);
+	--success-soft: oklch(96.2% 0.044 156.743);
+	--success-solid: oklch(62.7% 0.194 149.214);
+	--warning: oklch(55.5% 0.163 48.998);
+	--warning-solid: oklch(76.9% 0.188 70.08);
+	--info: oklch(48.8% 0.243 264.376);
+	--danger: oklch(50.5% 0.213 27.518);
+	--danger-solid: oklch(63.7% 0.237 25.331);
+	--success-solid-foreground: oklch(26.6% 0.065 152.934);
+	--warning-soft: oklch(76.9% 0.188 70.08 / 0.1);
+	--warning-solid-foreground: oklch(27.9% 0.077 45.635);
+	--info-soft: oklch(62.3% 0.214 259.815 / 0.1);
+	--danger-soft: color-mix(in oklab, var(--destructive) 10%, transparent);
+
 	--background: hsl(0 0% 100%);
 	--foreground: hsl(240 10% 3.9%);
 	--card: hsl(0 0% 100%);
@@ -29,6 +43,20 @@
 }
 
 .dark {
+	--success: oklch(79.2% 0.209 151.711);
+	--success-soft: oklch(39.3% 0.095 152.535 / 0.2);
+	--success-solid: oklch(72.3% 0.219 149.579);
+	--warning: oklch(82.8% 0.189 84.429);
+	--warning-solid: oklch(82.8% 0.189 84.429);
+	--info: oklch(70.7% 0.165 254.624);
+	--danger: oklch(70.4% 0.191 22.216);
+	--danger-solid: oklch(70.4% 0.191 22.216);
+	--success-solid-foreground: oklch(26.6% 0.065 152.934);
+	--warning-soft: oklch(76.9% 0.188 70.08 / 0.1);
+	--warning-solid-foreground: oklch(27.9% 0.077 45.635);
+	--info-soft: oklch(62.3% 0.214 259.815 / 0.1);
+	--danger-soft: color-mix(in oklab, var(--destructive) 10%, transparent);
+
 	--background: hsl(220 13% 8%); /* Dark background like ccflare */
 	--foreground: hsl(0 0% 95%);
 	--card: hsl(220 13% 12%);
@@ -133,19 +161,19 @@
 
 	/* Success/Error/Warning colors */
 	.text-success {
-		@apply text-green-700 dark:text-green-400;
+		color: var(--success);
 	}
 
 	.text-warning {
-		@apply text-yellow-700 dark:text-yellow-400;
+		color: var(--warning);
 	}
 
 	.bg-success {
-		@apply bg-green-100 dark:bg-green-900/20;
+		background-color: var(--success-soft);
 	}
 
 	.bg-warning {
-		@apply bg-yellow-100 dark:bg-yellow-900/20;
+		background-color: var(--warning-soft);
 	}
 
 	/*
@@ -155,10 +183,10 @@
 	 * the solid .bg-destructive it sits next to.
 	 */
 	.bg-success-solid {
-		@apply bg-green-600 dark:bg-green-500;
+		background-color: var(--success-solid);
 	}
 
 	.bg-warning-solid {
-		@apply bg-yellow-500 dark:bg-yellow-400;
+		background-color: var(--warning-solid);
 	}
 }

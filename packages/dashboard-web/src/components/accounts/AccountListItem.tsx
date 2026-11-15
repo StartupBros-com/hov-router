@@ -1,5 +1,5 @@
 import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
-import { AccountPresenter } from "@better-ccflare/ui-common";
+import { AccountPresenter, formatClockTime } from "@better-ccflare/ui-common";
 import {
 	ChevronDown,
 	CircleCheck,
@@ -34,6 +34,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { StatusPill } from "../ui/status-pill";
 import { Switch } from "../ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import type { AccountFamilyRoutingState } from "./account-routing";
@@ -46,7 +47,7 @@ import {
 	displayLabel,
 	formatRateLimitStatus,
 } from "./rate-limit-helpers";
-import { STATUS_PILL_CLASS, STATUS_TONE_CLASS } from "./status-tones";
+import { STATUS_PILL_TONE } from "./status-tones";
 
 export { BankedResetsStatus } from "./BankedResetsStatus";
 
@@ -205,7 +206,7 @@ export function CodexCreditDrainControl({
 			</p>
 			{account.codexCreditDrainServing && (
 				<span
-					className="text-xs font-medium text-amber-700 dark:text-amber-400"
+					className="text-xs font-medium text-(--warning)"
 					title="Plan window is spent; requests are being served from purchased credits"
 				>
 					on credits
@@ -255,8 +256,7 @@ export function PublicValueControl({
 			{enabled && onEditLabel && (
 				<Button
 					variant="ghost"
-					size="sm"
-					className="h-11 min-w-11 px-2"
+					size="touch-icon"
 					onClick={() => onEditLabel(account)}
 					aria-label="Edit public label"
 					title="Edit public label"
@@ -448,13 +448,16 @@ export function AccountListItem({
 			}`}
 		>
 			{/* Identity on the left, actions on the right. The identity column claims
-			    8rem first, so on a narrow card the actions drop below the name
+			    the full phone row, so on a narrow card the actions drop below the name
 			    instead of squeezing it into a sliver. */}
 			<div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 xl:contents">
-				<div className="min-w-0 flex-[1_1_8rem] space-y-1 xl:col-start-1 xl:row-start-1">
+				<div className="grid min-w-0 basis-full grid-cols-[1rem_minmax(0,1fr)] gap-x-2 gap-y-1 sm:basis-auto sm:flex-[1_1_8rem] xl:col-start-1 xl:row-start-1">
 					{/* The name line holds only the name and its token health, so the
 					    icon never wraps away from the name it describes. */}
-					<div className="flex min-w-0 items-center">
+					<div className="col-start-1 row-start-1 self-center">
+						<ProviderMark provider={account.provider} />
+					</div>
+					<div className="col-start-2 row-start-1 flex min-w-0 items-center">
 						<h3 className="min-w-0 break-words font-medium leading-tight">
 							{account.name}
 						</h3>
@@ -465,26 +468,25 @@ export function AccountListItem({
 						/>
 					</div>
 					{/* No bullet separators: they strand at line ends when this wraps. */}
-					<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+					<div className="col-start-2 row-start-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
 						<span className="inline-flex items-center gap-1.5">
-							<ProviderMark provider={account.provider} />
 							{account.provider}
 						</span>
 						{codexUsageExtras?.plan_type && (
-							<span className="rounded-full bg-secondary px-2 py-0.5 font-medium text-secondary-foreground">
+							<StatusPill tone="secondary">
 								{codexUsageExtras.plan_type}
-							</span>
+							</StatusPill>
 						)}
 						<span className="whitespace-nowrap tabular-nums">
 							Priority {account.priority}
 						</span>
 						{isPrimary && (
-							<span
-								className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-foreground"
+							<StatusPill
+								tone="primary"
 								title="The account the router picks next"
 							>
 								Primary
-							</span>
+							</StatusPill>
 						)}
 					</div>
 				</div>
@@ -492,8 +494,8 @@ export function AccountListItem({
 					{showForceReset && (
 						<Button
 							variant="outline"
-							size="sm"
-							className="min-h-11 gap-1 text-xs"
+							size="touch-sm"
+							className="gap-1 text-xs"
 							onClick={() => onForceResetRateLimit(account)}
 							title={
 								staleLockDetected
@@ -508,8 +510,8 @@ export function AccountListItem({
 					{reauth && reauthRequired && (
 						<Button
 							variant="default"
-							size="sm"
-							className="min-h-11 gap-1 text-xs text-black hover:text-black"
+							size="touch-sm"
+							className="gap-1 text-xs text-black hover:text-black"
 							onClick={() => reauth.handler(account)}
 							title={reauth.title}
 						>
@@ -520,8 +522,7 @@ export function AccountListItem({
 
 					<Button
 						variant="ghost"
-						size="sm"
-						className="h-11 w-11 p-0"
+						size="touch-icon"
 						disabled={account.paused && !status.canResume}
 						onClick={() => {
 							if (!account.paused || status.canResume) onPauseToggle(account);
@@ -537,8 +538,8 @@ export function AccountListItem({
 					</Button>
 					<Button
 						variant={detailsOpen ? "secondary" : "ghost"}
-						size="sm"
-						className="min-h-11 gap-1 px-2"
+						size="touch-sm"
+						className="gap-1 px-2"
 						aria-label={`Details for ${account.name}`}
 						aria-expanded={detailsOpen}
 						aria-controls={detailsId}
@@ -555,8 +556,7 @@ export function AccountListItem({
 						<DropdownMenuTrigger asChild>
 							<Button
 								variant="ghost"
-								size="sm"
-								className="h-11 w-11 p-0"
+								size="touch-icon"
 								aria-label={`More actions for ${account.name}`}
 								title="More actions"
 							>
@@ -623,8 +623,8 @@ export function AccountListItem({
 				<span className="text-xs font-medium text-muted-foreground xl:sr-only">
 					Router status
 				</span>
-				<span
-					className={`${STATUS_PILL_CLASS} ${STATUS_TONE_CLASS[status.tone]}`}
+				<StatusPill
+					tone={STATUS_PILL_TONE[status.tone]}
 					title={
 						reauthRequired
 							? "Refresh token invalid — re-authenticate"
@@ -640,7 +640,7 @@ export function AccountListItem({
 					<StatusIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
 					{/* The status track's 10rem floor fits the longest label on one line. */}
 					<span className="whitespace-nowrap">{status.label}</span>
-				</span>
+				</StatusPill>
 				{status.reason === "paused" && pauseReasonLabel && (
 					<span className="text-xs text-muted-foreground">
 						{`Auto-paused: ${pauseReasonLabel}`}
@@ -658,17 +658,20 @@ export function AccountListItem({
 							account.rateLimitedUntil as number,
 						).toLocaleString()}
 					>
-						Router retry:{" "}
-						{new Date(account.rateLimitedUntil as number).toLocaleTimeString()}
+						Router retry{" "}
+						{formatClockTime(
+							Math.ceil((account.rateLimitedUntil as number) / 60_000) * 60_000,
+							now,
+						)}
 					</span>
 				)}
 				{staleLockDetected && (
-					<span
-						className={`${STATUS_PILL_CLASS} ${STATUS_TONE_CLASS.warning}`}
+					<StatusPill
+						tone="warning"
 						title="Reported usage is below 100%, but the router still has a rate-limit block."
 					>
 						Possible stale cooldown
-					</span>
+					</StatusPill>
 				)}
 
 				{codexCreditsBalance !== null && (
@@ -677,9 +680,7 @@ export function AccountListItem({
 					</span>
 				)}
 				{account.codexCreditDrainServing && account.provider === "codex" && (
-					<span className={`${STATUS_PILL_CLASS} ${STATUS_TONE_CLASS.warning}`}>
-						Serving from purchased credits
-					</span>
+					<StatusPill tone="warning">Serving from purchased credits</StatusPill>
 				)}
 			</div>
 
@@ -712,7 +713,7 @@ export function AccountListItem({
 					{routingStates.filter(routingNeedsNotice).map((state) => (
 						<p
 							key={`${state.family}:${state.comboId}`}
-							className="text-amber-700 dark:text-amber-400"
+							className="text-(--warning)"
 						>
 							{formatRoutingFamily(state.family)}:{" "}
 							{state.reason === "ambiguous" ||
@@ -792,8 +793,8 @@ export function AccountListItem({
 									{presenter.requestCount.toLocaleString()} requests
 								</span>
 								<Button
+									size="touch"
 									variant="outline"
-									className="min-h-11"
 									disabled={account.paused && !status.canResume}
 									onClick={() => {
 										if (!account.paused || status.canResume)
@@ -805,8 +806,7 @@ export function AccountListItem({
 								{canRefreshUsage && (
 									<Button
 										variant="ghost"
-										size="sm"
-										className="h-11 w-11 p-0"
+										size="touch-icon"
 										disabled={isRefreshingUsage}
 										onClick={async () => {
 											setIsRefreshingUsage(true);
@@ -857,29 +857,36 @@ export function AccountListItem({
 								</span>
 							)}
 							{account.sessionStats && (
-								<div className="text-xs text-muted-foreground">
-									Session: {account.sessionStats.requests} req
-									{" · "}↑{formatTokenCount(account.sessionStats.inputTokens)}{" "}
-									in
-									{" · "}✦
-									{formatTokenCount(
-										account.sessionStats.cacheCreationInputTokens,
-									)}{" "}
-									cache↑
-									{" · "}✦
-									{formatTokenCount(account.sessionStats.cacheReadInputTokens)}{" "}
-									cache↓
-									{" · "}↓{formatTokenCount(account.sessionStats.outputTokens)}{" "}
-									out
+								<div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+									<span className="font-medium">Session</span>
+									<span>{account.sessionStats.requests} requests</span>
+									<span>
+										{formatTokenCount(account.sessionStats.inputTokens)} in
+									</span>
+									<span>
+										{formatTokenCount(
+											account.sessionStats.cacheCreationInputTokens,
+										)}{" "}
+										cache write
+									</span>
+									<span>
+										{formatTokenCount(
+											account.sessionStats.cacheReadInputTokens,
+										)}{" "}
+										cache read
+									</span>
+									<span>
+										{formatTokenCount(account.sessionStats.outputTokens)} out
+									</span>
 									{account.sessionStats.planCostUsd > 0 && (
-										<>
-											{" · "}${account.sessionStats.planCostUsd.toFixed(2)} plan
-										</>
+										<span>
+											${account.sessionStats.planCostUsd.toFixed(2)} plan
+										</span>
 									)}
 									{account.sessionStats.apiCostUsd > 0 && (
-										<>
-											{" · "}${account.sessionStats.apiCostUsd.toFixed(2)} api
-										</>
+										<span>
+											${account.sessionStats.apiCostUsd.toFixed(2)} API
+										</span>
 									)}
 								</div>
 							)}
@@ -932,13 +939,15 @@ export function AccountListItem({
 														</span>
 													)}
 													{actionRequired && (
-														<Badge variant="warning">Action required</Badge>
+														<StatusPill tone="warning">
+															Action required
+														</StatusPill>
 													)}
 													{state.managedRouteAvailable && (
 														<>
-															<Badge variant="warning">
+															<StatusPill tone="warning">
 																Managed route available
-															</Badge>
+															</StatusPill>
 															<span className="text-muted-foreground">
 																Review in Combos
 															</span>
@@ -1011,16 +1020,16 @@ export function AccountListItem({
 							)}
 							<div className="flex flex-wrap gap-2">
 								<Button
+									size="touch"
 									variant="outline"
-									className="min-h-11"
 									onClick={() => onPriorityChange(account)}
 								>
 									Change priority…
 								</Button>
 								{onCustomEndpointChange && (
 									<Button
+										size="touch"
 										variant="outline"
-										className="min-h-11"
 										onClick={() => onCustomEndpointChange(account)}
 									>
 										Custom endpoint…
@@ -1028,8 +1037,8 @@ export function AccountListItem({
 								)}
 								{onModelMappingsChange && (
 									<Button
+										size="touch"
 										variant="outline"
-										className="min-h-11"
 										onClick={() => onModelMappingsChange(account)}
 									>
 										Model mappings…
