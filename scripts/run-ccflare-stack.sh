@@ -63,8 +63,25 @@ RUNNER_PROC_ROOT=${RUNNER_PROC_ROOT:-/proc}
 # restart budget. An explicit `true` remains available for operator-controlled
 # one-shot fixtures; `auto` is always service-safe and exits with the distinct
 # bounded status below.
+#
+# One kind of failure is kept out of the breaker on purpose: a start that
+# failed because the disk is full (#827). Exiting for it hands the restart to
+# systemd, whose start limit then leaves the unit failed until someone runs
+# `systemctl reset-failed`, long after the space has come back. The runner
+# waits and tries again instead (see schedule_restart). While the disk stays
+# full the unit is therefore reported active with no stack children, which is
+# what the first paragraph says must not happen; the journal gives the reason
+# at every attempt.
 RUNNER_CIRCUIT_HOLD=${RUNNER_CIRCUIT_HOLD:-auto}
 RUNNER_CIRCUIT_EXIT_STATUS=75
+# What a start that failed for lack of disk space exits with: the errno of
+# ENOSPC. The transaction module's ownership commands and the backend's own
+# start both use it, and nothing else does.
+OUT_OF_SPACE_EXIT_STATUS=28
+# The shortest wait for space. The restart backoff may be set to 0, and for a
+# counted failure the circuit bounds what that costs. Nothing bounds the wait
+# for space, so it never goes below this.
+OUT_OF_SPACE_MIN_WAIT_MS=1000
 RUNNER_PERSISTENT_GUARD=${RUNNER_PERSISTENT_GUARD:-1}
 case "$RUNNER_PERSISTENT_GUARD" in 0 | 1) ;; *) printf 'invalid RUNNER_PERSISTENT_GUARD\n' >&2; exit 64 ;; esac
 TRANSACTION_MODULE="$(dirname "${BASH_SOURCE[0]}")/ccflare-deployment-transaction.mjs"
@@ -104,6 +121,15 @@ stack_started_ms=0
 rss_recycle_count=0
 rss_recycle_window_started_ms=0
 rss_last_recycle_ms=0
+# The step of the current stack cycle that failed because the disk is full,
+# or empty. Only a step before the stack is ready ever sets it.
+start_out_of_space=""
+out_of_space_retry_count=0
+# An ownership record this runner wrote as "spawning" that no "running" record
+# has followed, and the backend it was written for.
+owner_open=0
+owner_open_pid=""
+owner_open_start=""
 
 log() {
 	printf '[%s] %s\n' "$(date -Is)" "$*"
@@ -253,12 +279,16 @@ NODE
 }
 transaction_advance() { "$NODE_BIN" "$TRANSACTION_MODULE" advance "$TRANSACTION_DIR" "$@" >/dev/null; }
 start_deployment_listener() {
- local initial="$TRANSACTION_DIR/runtime-input.json"
+ # What the listener serves reaches it in its environment. It used to go
+ # through a file, which was one more write a start could not do without
+ # on a full disk (#827).
+ local runtime
  mkdir -p "$TRANSACTION_DIR"; chmod 700 "$TRANSACTION_DIR"
- CCFLARE_ACTIVE_PID="$upstream_pid" CCFLARE_ACTIVE_START="$(proc_start_time "$upstream_pid" /proc)" CCFLARE_ACTIVE_GENERATION="$upstream_generation" CCFLARE_ACTIVE_CONTROL="$control_dir" CCFLARE_ACTIVE_BIN="$CCFLARE_BIN" CCFLARE_ACTIVE_RUNNER="${BASH_SOURCE[0]}" CCFLARE_ACTIVE_GUARD="$GUARD_SCRIPT" CCFLARE_RETIRING_PID="$retiring_pid" CCFLARE_RETIRING_START="$retiring_start" "$NODE_BIN" - "$initial" <<'NODE'
-const fs=require("node:fs"),crypto=require("node:crypto"),path=require("node:path");const e=process.env;const hash=p=>crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex");const r={generation:Number(e.CCFLARE_ACTIVE_GENERATION),oldPid:Number(e.CCFLARE_ACTIVE_PID),oldStartTime:e.CCFLARE_ACTIVE_START,binary:fs.realpathSync(e.CCFLARE_ACTIVE_BIN),binaryHash:hash(e.CCFLARE_ACTIVE_BIN),backendSourceSha:e.CCFLARE_SOURCE_SHA,schemaDigest:e.CCFLARE_SCHEMA_DIGEST,ingress:{runner:hash(e.CCFLARE_ACTIVE_RUNNER),guard:hash(e.CCFLARE_ACTIVE_GUARD),policy:hash(path.join(path.dirname(e.CCFLARE_ACTIVE_GUARD),"ccflare-guard-policy.mjs")),timing:hash(path.join(path.dirname(e.CCFLARE_ACTIVE_GUARD),"ccflare-managed-timing.mjs")),transaction:hash(path.join(path.dirname(e.CCFLARE_ACTIVE_RUNNER),"ccflare-deployment-transaction.mjs"))},pinPath:e.CCFLARE_PIN_PATH,pinHash:hash(e.CCFLARE_PIN_PATH),controlDir:e.CCFLARE_ACTIVE_CONTROL,...(e.CCFLARE_RETIRING_PID?{retiring:{pid:Number(e.CCFLARE_RETIRING_PID),startTime:e.CCFLARE_RETIRING_START}}:{})};fs.writeFileSync(process.argv[2],JSON.stringify(r),{mode:0o600});
+ runtime="$(CCFLARE_ACTIVE_PID="$upstream_pid" CCFLARE_ACTIVE_START="$(proc_start_time "$upstream_pid" /proc)" CCFLARE_ACTIVE_GENERATION="$upstream_generation" CCFLARE_ACTIVE_CONTROL="$control_dir" CCFLARE_ACTIVE_BIN="$CCFLARE_BIN" CCFLARE_ACTIVE_RUNNER="${BASH_SOURCE[0]}" CCFLARE_ACTIVE_GUARD="$GUARD_SCRIPT" CCFLARE_RETIRING_PID="$retiring_pid" CCFLARE_RETIRING_START="$retiring_start" "$NODE_BIN" - <<'NODE'
+const fs=require("node:fs"),crypto=require("node:crypto"),path=require("node:path");const e=process.env;const hash=p=>crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex");const r={generation:Number(e.CCFLARE_ACTIVE_GENERATION),oldPid:Number(e.CCFLARE_ACTIVE_PID),oldStartTime:e.CCFLARE_ACTIVE_START,binary:fs.realpathSync(e.CCFLARE_ACTIVE_BIN),binaryHash:hash(e.CCFLARE_ACTIVE_BIN),backendSourceSha:e.CCFLARE_SOURCE_SHA,schemaDigest:e.CCFLARE_SCHEMA_DIGEST,ingress:{runner:hash(e.CCFLARE_ACTIVE_RUNNER),guard:hash(e.CCFLARE_ACTIVE_GUARD),policy:hash(path.join(path.dirname(e.CCFLARE_ACTIVE_GUARD),"ccflare-guard-policy.mjs")),timing:hash(path.join(path.dirname(e.CCFLARE_ACTIVE_GUARD),"ccflare-managed-timing.mjs")),transaction:hash(path.join(path.dirname(e.CCFLARE_ACTIVE_RUNNER),"ccflare-deployment-transaction.mjs"))},pinPath:e.CCFLARE_PIN_PATH,pinHash:hash(e.CCFLARE_PIN_PATH),controlDir:e.CCFLARE_ACTIVE_CONTROL,...(e.CCFLARE_RETIRING_PID?{retiring:{pid:Number(e.CCFLARE_RETIRING_PID),startTime:e.CCFLARE_RETIRING_START}}:{})};process.stdout.write(JSON.stringify(r));
 NODE
- "$NODE_BIN" "$TRANSACTION_MODULE" serve "$TRANSACTION_DIR" "$initial" &
+ )"
+ CCFLARE_DEPLOYMENT_RUNTIME="$runtime" "$NODE_BIN" "$TRANSACTION_MODULE" serve "$TRANSACTION_DIR" &
  deployment_pid=$!
 }
 # Signal an owned helper and reap it only if the signal reached it. A TERM
@@ -326,6 +356,65 @@ proc_start_time() {
 	set -- $rest
 	[[ "${20}" =~ ^[0-9]+$ ]] || return 1
 	printf '%s\n' "${20}"
+}
+
+# Where the control directory goes. The unit's runtime directory is a tmpfs
+# systemd makes for the service, so nothing kept there needs a block on the
+# disk the router's state is on (#827). Without one it goes where it always
+# has.
+control_dir_base() {
+	local runtime="${RUNTIME_DIRECTORY:-}"
+	runtime="${runtime%%:*}"
+	if [[ -n "$runtime" && -d "$runtime" && -w "$runtime" ]]; then
+		printf '%s\n' "$runtime"
+	else
+		printf '%s\n' "${TMPDIR:-/tmp}"
+	fi
+}
+
+# The length of the credential the deploy listener makes: 32 random bytes in
+# base64url.
+DEPLOY_CREDENTIAL_BYTES=43
+
+# Make sure the listener's credential file $1 is there at its full length.
+# The listener starts once the stack is ready and writes its credential over
+# a file of that length in place, which needs no new block. Left to make the
+# file itself on a full disk, it would fail and take a serving stack down with
+# it (#827).
+ensure_deploy_credential() {
+	local size
+	size="$(stat -c %s -- "$1" 2>/dev/null)" || size=""
+	if [[ "$size" == "$DEPLOY_CREDENTIAL_BYTES" ]]; then return 0; fi
+	(
+		umask 077
+		printf '%*s' "$DEPLOY_CREDENTIAL_BYTES" '' >"$1"
+	)
+}
+
+# True when the filesystem holding $1 has under 1 MiB left for this user, or
+# no file left to hand out. Only ever asked about a step that has already
+# failed: free space alone never decides anything.
+filesystem_out_of_space() {
+	local counts
+	counts="$(stat -f -c '%a %S %c %d' -- "$1" 2>/dev/null)" || return 1
+	set -- $counts
+	[[ $# -eq 4 && "$1" =~ ^[0-9]+$ && "$2" =~ ^[0-9]+$ && "$3" =~ ^[0-9]+$ && "$4" =~ ^[0-9]+$ ]] || return 1
+	if (($1 * $2 < 1048576)) || (($3 > 0 && $4 == 0)); then return 0; fi
+	return 1
+}
+
+# Close an ownership record left at "spawning". Call it only once the backend
+# the record was written for has been stopped and waited for. Left as it is,
+# that record holds every later runner start until a person removes it (#827).
+close_reaped_owner() {
+	((transaction_enabled && owner_open)) || return 0
+	[[ -n "$owner_open_pid" ]] || return 0
+	if "$NODE_BIN" "$TRANSACTION_MODULE" owner-reaped "$TRANSACTION_DIR" "$owner_open_pid" ${owner_open_start:+"$owner_open_start"}; then
+		owner_open=0
+		log "closed the ownership record of reaped backend pid=${owner_open_pid}"
+	else
+		log "the ownership record of reaped backend pid=${owner_open_pid} could not be closed; the next runner start may be held"
+	fi
 }
 
 # A retiring backend outlives the cycle that started it, so it is stopped by
@@ -510,6 +599,7 @@ cleanup() {
 	stop_owned_helper "$control_pid"; control_pid=""
 	log "stopping ccflare stack"
 	stop_stack_children
+	close_reaped_owner
 	if [[ -n "$control_dir" ]]; then rm -f -- "$control_dir/control.sock" "$control_dir/deploy.sock" "$control_dir/deploy-credential"; rmdir -- "$control_dir" 2>/dev/null || true; fi
 }
 
@@ -858,11 +948,13 @@ child_name_for_pid() {
 }
 
 run_stack_once() {
+	local control_base owner_status
 	fatal_startup=0
 	child_exit_name=""
 	child_exit_status=1
 	child_exit_class="failure"
 	stack_started_ms=0
+	start_out_of_space=""
 
 	if ! generate_guard_correlation_secret; then
 		fatal_startup=1
@@ -888,20 +980,53 @@ run_stack_once() {
 	fi
 
 	if [[ -z "$guard_pid" && "$RUNNER_PERSISTENT_GUARD" == "1" ]]; then
-		if [[ -n "$control_dir" ]]; then rm -f -- "$control_dir/control.sock" "$control_dir/deploy.sock" "$control_dir/deploy-credential"; rmdir -- "$control_dir" 2>/dev/null || true; fi
-		control_dir="$(mktemp -d "${TMPDIR:-/tmp}/ccflare-control.XXXXXX")"
-		chmod 700 "$control_dir"
+		# The directory is made once and kept until this runner stops. A new
+		# one for every cycle needed a free block at exactly the moment a full
+		# disk had brought the stack down, and removing the old one first gave
+		# that block to whatever else was writing (#827). Its sockets are
+		# removed here; the listener writes its credential over the old one.
+		if [[ -n "$control_dir" && ! -d "$control_dir" ]]; then control_dir=""; fi
+		if [[ -n "$control_dir" ]]; then
+			rm -f -- "$control_dir/control.sock" "$control_dir/deploy.sock"
+		else
+			control_base="$(control_dir_base)"
+			if ! control_dir="$(mktemp -d "$control_base/ccflare-control.XXXXXX")"; then
+				control_dir=""
+				log "control directory could not be made under ${control_base}; nothing was started"
+				if filesystem_out_of_space "$control_base"; then start_out_of_space="the control directory"; fi
+				return 1
+			fi
+			chmod 700 "$control_dir"
+		fi
 		guard_control_secret="$(LC_ALL=C head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
 		[[ "$guard_control_secret" =~ ^[A-Za-z0-9_-]{43}$ ]] || return 1
 		upstream_generation=1
 		pending_replacement=0
+	fi
+	# Every cycle, not only for a new directory: a kept directory can have
+	# lost the file. A directory this fails in is kept, so the next try has
+	# one thing less to find room for.
+	if ((transaction_enabled)) && [[ -n "$control_dir" ]] && ! ensure_deploy_credential "$control_dir/deploy-credential"; then
+		log "deploy credential file could not be made in ${control_dir}; no backend was started"
+		if filesystem_out_of_space "$control_dir"; then start_out_of_space="the control directory"; fi
+		return 1
 	fi
 
 	CCFLARE_MANAGED_INGRESS_NONCE=${CCFLARE_MANAGED_INGRESS_NONCE:-$(LC_ALL=C head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')}
 	if ((pending_deployment || pending_rollback)); then CCFLARE_MANAGED_CANDIDATE_NONCE="$(deployment_field manifest.candidateNonce)"; else CCFLARE_MANAGED_CANDIDATE_NONCE=$(LC_ALL=C head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'); fi
 	export CCFLARE_MANAGED_TIMING="${CCFLARE_MANAGED_TIMING:-0}" CCFLARE_MANAGED_INGRESS_NONCE CCFLARE_MANAGED_CANDIDATE_NONCE
 	export CCFLARE_MANAGED_GENERATION="$upstream_generation"
-	if ((transaction_enabled)); then "$NODE_BIN" "$TRANSACTION_MODULE" owner-spawning "$TRANSACTION_DIR" || return 1; fi
+	if ((transaction_enabled)); then
+		owner_status=0
+		"$NODE_BIN" "$TRANSACTION_MODULE" owner-spawning "$TRANSACTION_DIR" || owner_status=$?
+		if ((owner_status != 0)); then
+			if ((owner_status == OUT_OF_SPACE_EXIT_STATUS)); then start_out_of_space="the ownership record"; fi
+			return 1
+		fi
+		owner_open=1
+		owner_open_pid=""
+		owner_open_start=""
+	fi
 	log "starting better-ccflare upstream on 127.0.0.1:${UPSTREAM_PORT}"
 	HOME="$HOME" \
 		USER="$USER" \
@@ -917,12 +1042,20 @@ run_stack_once() {
 	upstream_pid=$!
 	if ((transaction_enabled)); then
 		local candidate_start
+		owner_open_pid="$upstream_pid"
 		if ! candidate_start="$(proc_start_time "$upstream_pid" /proc)"; then
 			if ((pending_deployment)); then transaction_advance "$handoff_phase" held '{"reason":"candidate_start_identity_unavailable"}' || true; fi
 			log "backend start held: candidate_start_identity_unavailable"
 			return 1
 		fi
-		"$NODE_BIN" "$TRANSACTION_MODULE" owner-started "$TRANSACTION_DIR" "$upstream_pid" "$candidate_start" || return 1
+		owner_open_start="$candidate_start"
+		owner_status=0
+		"$NODE_BIN" "$TRANSACTION_MODULE" owner-started "$TRANSACTION_DIR" "$upstream_pid" "$candidate_start" || owner_status=$?
+		if ((owner_status != 0)); then
+			if ((owner_status == OUT_OF_SPACE_EXIT_STATUS)); then start_out_of_space="the ownership record"; fi
+			return 1
+		fi
+		owner_open=0
 		if ((pending_deployment)); then transaction_advance "$handoff_phase" candidate_started "{\"candidatePid\":$upstream_pid,\"candidateStartTime\":\"$candidate_start\"}" || return 1; fi
 	fi
 	if ! wait_for_url better-ccflare "http://127.0.0.1:${UPSTREAM_PORT}/health" "$upstream_pid"; then
@@ -930,6 +1063,11 @@ run_stack_once() {
 			child_exit_name="better-ccflare upstream"
 			child_exit_status=1
 			child_exit_class="failure"
+		fi
+		# The backend leaves this status when its start found no space,
+		# and for nothing else.
+		if [[ "$child_exit_name" == "better-ccflare upstream" ]] && ((child_exit_status == OUT_OF_SPACE_EXIT_STATUS)); then
+			start_out_of_space="the backend's start"
 		fi
 		return 1
 	fi
@@ -978,6 +1116,7 @@ run_stack_once() {
 
 	fi
 	stack_started_ms="$(epoch_ms)"
+	out_of_space_retry_count=0
 	local upstream_identity=""
 	if ((RUNNER_RSS_THRESHOLD_BYTES > 0)); then
 		# Pin the watchdog's start-time identity before announcing readiness, so
@@ -1062,8 +1201,45 @@ wait_for_operator() {
 	done
 }
 
+# Backoff before restart attempt $1, counted from 1: the base, doubled for
+# each attempt after the first, never above the cap.
+restart_backoff_ms() {
+	local delay=$RUNNER_RESTART_BACKOFF_BASE_MS exponent=$(($1 - 1))
+	while ((exponent > 0)); do
+		if ((delay == 0)); then
+			break
+		fi
+		if ((delay >= RUNNER_RESTART_BACKOFF_MAX_MS || delay > RUNNER_RESTART_BACKOFF_MAX_MS / 2)); then
+			delay=$RUNNER_RESTART_BACKOFF_MAX_MS
+			break
+		fi
+		delay=$((delay * 2))
+		exponent=$((exponent - 1))
+	done
+	if ((delay > RUNNER_RESTART_BACKOFF_MAX_MS)); then
+		delay=$RUNNER_RESTART_BACKOFF_MAX_MS
+	fi
+	printf '%s\n' "$delay"
+}
+
 schedule_restart() {
-	local now delay exponent
+	local now delay
+	# A start that failed because the disk is full is waited out, not counted
+	# (#827). The evidence is the failed step's own: a status only an
+	# out-of-space start leaves, or a directory that could not be made on a
+	# filesystem with nothing left. It never applies once the stack was ready
+	# in this cycle, or while a deployment or its rollback is under way; those
+	# keep the bounded circuit below.
+	if [[ -n "$start_out_of_space" ]] && ((stack_started_ms == 0 && !pending_deployment && !pending_rollback)); then
+		((out_of_space_retry_count += 1))
+		delay="$(restart_backoff_ms "$out_of_space_retry_count")"
+		if ((delay == 0)); then
+			delay=$OUT_OF_SPACE_MIN_WAIT_MS
+		fi
+		log "start failed for lack of disk space; waiting for space instead of opening the restart circuit; step=${start_out_of_space}; attempt=${out_of_space_retry_count}; backoff_ms=${delay}"
+		sleep_ms "$delay"
+		return 0
+	fi
 	now="$(epoch_ms)"
 	if ((restart_window_started_ms == 0)); then
 		restart_window_started_ms=$now
@@ -1088,22 +1264,7 @@ schedule_restart() {
 		return "$circuit_status"
 	fi
 
-	delay=$RUNNER_RESTART_BACKOFF_BASE_MS
-	exponent=$((restart_failure_count - 1))
-	while ((exponent > 0)); do
-		if ((delay == 0)); then
-			break
-		fi
-		if ((delay >= RUNNER_RESTART_BACKOFF_MAX_MS || delay > RUNNER_RESTART_BACKOFF_MAX_MS / 2)); then
-			delay=$RUNNER_RESTART_BACKOFF_MAX_MS
-			break
-		fi
-		delay=$((delay * 2))
-		exponent=$((exponent - 1))
-	done
-	if ((delay > RUNNER_RESTART_BACKOFF_MAX_MS)); then
-		delay=$RUNNER_RESTART_BACKOFF_MAX_MS
-	fi
+	delay="$(restart_backoff_ms "$restart_failure_count")"
 	log "restarting stack via supervisor; child=${child_exit_name}; class=${child_exit_class}; failure_count=${restart_failure_count}; backoff_ms=${delay}"
 	sleep_ms "$delay"
 }
@@ -1159,6 +1320,7 @@ while :; do
 		stop_child "failed replacement upstream" "$upstream_pid" "$RUNNER_FAILURE_STOP_BUDGET_MS"
 		wait "${upstream_pid:-0}" 2>/dev/null || true
 		upstream_pid=""
+		close_reaped_owner
 		log "replacement failed; guard remains available with bounded admission"
 		if schedule_restart; then continue; else replacement_status=$?; fi
 		# Exhausting the existing circuit is terminal; ordinary cleanup/systemd
@@ -1167,6 +1329,7 @@ while :; do
 		exit "$replacement_status"
 	fi
 	stop_stack_children "$RUNNER_FAILURE_STOP_BUDGET_MS"
+	close_reaped_owner
 	if ((shutdown_requested)); then
 		exit 143
 	fi

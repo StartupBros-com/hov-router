@@ -297,7 +297,9 @@ let serverOwnsShutdown = false;
  * Helper function to start server with unified environment variable handling
  */
 async function startServerWithConfig(args: ParsedArgs, config: Config) {
-	const { default: startServer } = await import("@better-ccflare/server");
+	const { default: startServer, exitOnFailedStart } = await import(
+		"@better-ccflare/server"
+	);
 	serverOwnsShutdown = true;
 	const runtime = config.getRuntime();
 
@@ -313,12 +315,15 @@ async function startServerWithConfig(args: ParsedArgs, config: Config) {
 		`Dashboard will be available at ${protocol}://localhost:${port}/dashboard`,
 	);
 
+	// Not awaited: the caller keeps the process alive. A start that fails
+	// exits with a status that tells the runner whether the disk was full
+	// (#827); before, it was a rejection nobody handled and always exit 1.
 	startServer({
 		port,
 		withDashboard: true,
 		sslKeyPath,
 		sslCertPath,
-	});
+	}).catch(exitOnFailedStart);
 }
 
 /**

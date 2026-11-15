@@ -111,6 +111,7 @@ import {
 	freeBytes,
 	spinForever,
 } from "./disk-full-support";
+import { OUT_OF_SPACE_EXIT_STATUS } from "./failed-start";
 
 const STUB_MARKER = "disk-full-scenario-stub-reply";
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
@@ -171,6 +172,10 @@ const ROUTER_RESERVE_RELEASED_MARKER = "start reserve and opened it";
 const SCHEMA_BEHIND_INDEX = "idx_api_keys_active";
 /** How the server's refusal to start for lack of space begins. */
 const START_REFUSAL_MARKER = "Cannot start: the database at";
+/** How much of a line of server output is kept. */
+const OUTPUT_LINE_CHARS = 400;
+/** How much of the refusal line is kept. */
+const REFUSAL_LINE_CHARS = 1600;
 const OAUTH_ROW_ID = "scenario-oauth-row";
 const OAUTH_ROW_NAME = "disk-full-oauth-row";
 /** Size of one pending-rotation slot file. */
@@ -565,7 +570,12 @@ async function drain(
 		for await (const chunk of stream) {
 			for (const line of decoder.decode(chunk, { stream: true }).split("\n")) {
 				if (!line) continue;
-				sink.push(line.length > 400 ? `${line.slice(0, 400)}…` : line);
+				// The refusal names the database path, what was measured and
+				// every cause, and the checks read it to its end.
+				const limit = line.includes(START_REFUSAL_MARKER)
+					? REFUSAL_LINE_CHARS
+					: OUTPUT_LINE_CHARS;
+				sink.push(line.length > limit ? `${line.slice(0, limit)}…` : line);
 				if (sink.length > 2000) sink.shift();
 			}
 		}
@@ -1733,16 +1743,21 @@ async function main(): Promise<void> {
 				freeBeforeStart: start.freeBeforeStart,
 				routerReserveBeforeStart: start.routerReserveBeforeStart,
 				exit: router.exit,
-				refusal: refusal.map((line) => line.slice(0, 400)),
+				refusal,
 				failure: start.failure,
 			};
 			if (start.healthy) {
 				failures.push(
 					"schema-behind: the start came up on the full filesystem although it could not finish its schema work",
 				);
-			} else if (router.exit?.exitCode !== 1 || refusal.length === 0) {
+			} else if (
+				router.exit?.exitCode !== OUT_OF_SPACE_EXIT_STATUS ||
+				refusal.length === 0
+			) {
+				// The status is what tells the runner to wait for space
+				// instead of counting the failure toward its restart circuit.
 				failures.push(
-					`schema-behind: the start did not refuse with exit code 1 and a message naming the cause: ${JSON.stringify({ exit: router.exit, refusal: refusal.length })}`,
+					`schema-behind: the start did not refuse with exit status ${OUT_OF_SPACE_EXIT_STATUS} and a message naming the cause: ${JSON.stringify({ exit: router.exit, refusal: refusal.length })}`,
 				);
 			}
 			if (reserveArmedWhileFull !== false) {

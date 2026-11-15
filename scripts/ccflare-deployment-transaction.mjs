@@ -7,6 +7,8 @@ import {
 	fchownSync,
 	chmodSync,
 	existsSync,
+	fchmodSync,
+	fstatSync,
 	fsyncSync,
 	mkdirSync,
 	openSync,
@@ -17,6 +19,7 @@ import {
 	statSync,
 	unlinkSync,
 	writeFileSync,
+	writeSync,
 } from "node:fs";
 import net from "node:net";
 import { dirname, join } from "node:path";
@@ -51,26 +54,101 @@ export function processExists(pid, start, read = readFileSync) {
 		throw error;
 	}
 }
-export function durableWrite(path, value) {
-	const staged = `${path}.new-${process.pid}-${randomBytes(8).toString("hex")}`;
-	const fd = openSync(staged, "wx", 0o600);
+/**
+ * What the ownership commands exit with when a record could not be written
+ * because the disk is full: the errno of ENOSPC. The runner reads it to tell
+ * a start that only needs space from one that needs an operator (#827).
+ */
+export const OUT_OF_SPACE_EXIT_STATUS = 28;
+const outOfSpace = (error) =>
+	error?.code === "ENOSPC" || error?.code === "EDQUOT";
+/**
+ * Write `text` over the file at `path` without asking the filesystem for a
+ * block: in one write, inside the blocks the file already has, and padded
+ * with spaces to at least its old length so nothing of the old record is left
+ * behind it. False when that cannot be done, and the file is then untouched.
+ *
+ * Not all-or-nothing the way a rename is. A machine that loses power during
+ * the write can leave a record nothing can parse, which `recoverTransaction`
+ * answers by holding the start. A copy-on-write filesystem needs space for an
+ * overwrite as well; there the write fails and the old record stays.
+ */
+function overwriteInPlace(path, text) {
+	let fd;
 	try {
-		writeFileSync(fd, JSON.stringify(value));
-		if (process.geteuid?.() === 0) {
-			const owner = statSync(dirname(path));
-			fchownSync(fd, owner.uid, owner.gid);
-		}
+		fd = openSync(path, "r+");
+	} catch {
+		return false;
+	}
+	try {
+		const { size, blocks } = fstatSync(fd);
+		const record = Buffer.from(text);
+		const length = Math.max(record.length, size);
+		// `blocks` counts 512-byte units. Past them a write allocates, and one
+		// that runs out halfway would leave a torn record.
+		if (length > blocks * 512) return false;
+		const padded = Buffer.alloc(length, " ");
+		record.copy(padded);
+		if (writeSync(fd, padded, 0, length, 0) !== length)
+			throw new Error("short write over an existing record");
 		fsyncSync(fd);
+		return true;
 	} finally {
 		closeSync(fd);
 	}
-	renameSync(staged, path);
+}
+/**
+ * Write a record through a new file and a rename, so a reader sees the old
+ * record or the new one and never part of one. Returns "staged".
+ *
+ * With `overwriteWhenFull`, a write that fails for lack of space is made over
+ * the existing record instead (see `overwriteInPlace`) and returns
+ * "in-place". Only the records a start cannot do without ask for that. A
+ * deploy's own records do not: a deploy on a full disk should fail.
+ *
+ * `write` stands in for the staged file's write in tests.
+ */
+export function durableWrite(
+	path,
+	value,
+	{ overwriteWhenFull = false, write = writeFileSync } = {},
+) {
+	const text = JSON.stringify(value);
+	const staged = `${path}.new-${process.pid}-${randomBytes(8).toString("hex")}`;
+	let made = false;
+	try {
+		const fd = openSync(staged, "wx", 0o600);
+		made = true;
+		try {
+			write(fd, text);
+			if (process.geteuid?.() === 0) {
+				const owner = statSync(dirname(path));
+				fchownSync(fd, owner.uid, owner.gid);
+			}
+			fsyncSync(fd);
+		} finally {
+			closeSync(fd);
+		}
+		renameSync(staged, path);
+	} catch (error) {
+		// A staged file left behind is an inode and a directory entry on a
+		// disk that has none to spare. Only this call's own file is removed.
+		if (made) {
+			try {
+				unlinkSync(staged);
+			} catch {}
+		}
+		if (overwriteWhenFull && outOfSpace(error) && overwriteInPlace(path, text))
+			return "in-place";
+		throw error;
+	}
 	const dir = openSync(dirname(path), "r");
 	try {
 		fsyncSync(dir);
 	} finally {
 		closeSync(dir);
 	}
+	return "staged";
 }
 // A listener on any local address blocks a same-port bind, so the port is
 // free only when neither table has a LISTEN entry for it.
@@ -294,7 +372,15 @@ export function prepareBootstrap(dir, receipt) {
 		throw new Error("unfinished transaction cannot bootstrap");
 	durableWrite(join(dir, "bootstrap.json"), { version: 1, ...receipt });
 }
-export function recordBackendOwner(dir, phase, pid, start) {
+/**
+ * Record who owns the database: "spawning" before a backend is started,
+ * "running" with its identity once it is. Returns how the record was written.
+ *
+ * Both writes fall back to overwriting the record in place on a full disk.
+ * They have to be as certain as each other: a "spawning" record with no
+ * "running" record after it holds every later start (`recoverTransaction`).
+ */
+export function recordBackendOwner(dir, phase, pid, start, options = {}) {
 	mkdirSync(dir, { recursive: true, mode: 0o700 });
 	if (
 		phase !== "spawning" &&
@@ -304,7 +390,40 @@ export function recordBackendOwner(dir, phase, pid, start) {
 			!/^\d+$/.test(String(start)))
 	)
 		throw new Error("invalid backend ownership receipt");
-	durableWrite(join(dir, "owner.json"), { phase, pid, start });
+	return durableWrite(
+		join(dir, "owner.json"),
+		{ phase, pid, start },
+		{ ...options, overwriteWhenFull: true },
+	);
+}
+// The kernel counts a process's start time in ticks since boot, and a pid
+// that is handed out again starts later than that, so no process the record
+// could be compared with has this one.
+const NO_PROCESS_START = "0";
+/**
+ * Close the ownership record for a backend its runner has stopped and reaped,
+ * when the record still says "spawning": the backend's own record could not
+ * be written, or the backend was gone before its identity could be read.
+ * Left as it is, that record holds every later start, and nothing but a
+ * person would ever clear it (#827).
+ *
+ * The record is the one a backend that ran and stopped leaves behind:
+ * "running", with the identity of a process that is no longer there. The
+ * module a rollback puts back reads that form too. `start` is the start time
+ * the runner read, so that a process still there under that identity holds
+ * the next start; without one, the record matches no process.
+ *
+ * Only for a child the caller has waited for. Nothing here can check that.
+ */
+export function recordReapedBackendOwner(
+	dir,
+	pid,
+	start = NO_PROCESS_START,
+	options = {},
+) {
+	if (!/^(0|[1-9]\d{0,19})$/.test(String(start)))
+		throw new Error("invalid backend ownership receipt");
+	return recordBackendOwner(dir, "running", pid, String(start), options);
 }
 export function recoverTransaction(dir, exists = processExists, configured) {
 	try {
@@ -442,25 +561,125 @@ async function client(dir, command) {
 		});
 	});
 }
+/**
+ * Store the listener's credential. A runner keeps its control directory from
+ * one start to the next, so the last listener's credential file is usually
+ * there, and writing over it needs no new block where making it again would.
+ *
+ * Returns "in-place" when the file was written over as it stood, and
+ * "replaced" when it was made or cut to length first. The file looks the same
+ * afterwards either way, so this is the only way to tell which happened.
+ */
+export function writeCredential(path, credential) {
+	let fd;
+	try {
+		fd = openSync(path, "r+");
+	} catch (error) {
+		if (error.code !== "ENOENT") throw error;
+	}
+	if (fd !== undefined) {
+		try {
+			if (fstatSync(fd).size === credential.length) {
+				fchmodSync(fd, 0o600);
+				writeSync(fd, credential, 0);
+				return "in-place";
+			}
+		} finally {
+			closeSync(fd);
+		}
+	}
+	writeFileSync(path, credential, { mode: 0o600 });
+	chmodSync(path, 0o600);
+	return "replaced";
+}
+const RECORD_RETRY_BASE_MS = 250;
+const RECORD_RETRY_MAX_MS = 30_000;
+/**
+ * Write the record a deploy finds the listener by (`runtime.json`), waiting
+ * for space when there is none. Resolves to what `durableWrite` returned.
+ *
+ * The listener starts once the stack is ready, and the runner takes a
+ * listener that exits for a stack that failed. A full disk leaves the last
+ * listener's record to write over, but an install whose disk filled before
+ * its first record was written has none. There the listener used to exit:
+ * three times, and the runner gave up, with a backend that had started every
+ * time (#827).
+ *
+ * While it waits there is no record, so a deploy finds no listener and does
+ * a full restart. Any failure but a full disk is thrown at once.
+ *
+ * `write`, `sleep` and `log` stand in for the real ones in tests.
+ */
+export async function recordWhenThereIsSpace(
+	path,
+	value,
+	{
+		write,
+		sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+		log = (line) => console.error(line),
+	} = {},
+) {
+	let delay = RECORD_RETRY_BASE_MS;
+	let tries = 0;
+	for (;;) {
+		tries += 1;
+		try {
+			const how = durableWrite(path, value, {
+				overwriteWhenFull: true,
+				...(write ? { write } : {}),
+			});
+			if (tries > 1)
+				log(
+					`backend transaction: the deploy listener is recorded; tries=${tries}`,
+				);
+			return how;
+		} catch (error) {
+			if (!outOfSpace(error)) throw error;
+			if (tries === 1)
+				log(
+					`backend transaction: no space to record the deploy listener (${error.code}); waiting for space. The stack keeps serving, and a deploy does a full restart until the record is written`,
+				);
+		}
+		await sleep(delay);
+		delay = Math.min(delay * 2, RECORD_RETRY_MAX_MS);
+	}
+}
 async function serve(dir, runtime) {
 	mkdirSync(dir, { recursive: true, mode: 0o700 });
 	chmodSync(dir, 0o700);
 	const credential = randomBytes(32).toString("base64url");
-	writeFileSync(join(runtime.controlDir, "deploy-credential"), credential, {
-		mode: 0o600,
-	});
-	durableWrite(join(dir, "runtime.json"), {
-		...runtime,
-		deploymentPid: process.pid,
-	});
+	writeCredential(join(runtime.controlDir, "deploy-credential"), credential);
 	const socketPath = join(runtime.controlDir, "deploy.sock");
+	// Before the record is written, which can take as long as the disk stays
+	// full: an older record and an older socket must not stand in for a
+	// listener that is not listening yet.
 	try {
 		unlinkSync(socketPath);
 	} catch {}
 	// The prepared transaction awaiting its acknowledgement or handed off.
 	let pending = null;
 	const sockets = new Set();
-	const server = net.createServer((socket) => {
+	let server = null;
+	// A signal leaves an unacknowledged prepare on disk on purpose: the RSS
+	// recycle path retires this listener and adopts a prepared intent whose
+	// reply was lost, and boot recovery restarts the previous build.
+	// Installed before the record is written: with no handler a signal ends
+	// the process wherever it is, which can be between making a staged file
+	// and removing it.
+	for (const sig of ["SIGTERM", "SIGINT"])
+		process.on(sig, () => {
+			server?.close();
+			for (const s of sockets) s.destroy();
+			process.exit(0);
+		});
+	// What a deploy reads to find this listener. A full disk must not stop a
+	// start here either: the record is overwritten in place when it has to
+	// be, and waited for when there is none to overwrite.
+	await recordWhenThereIsSpace(join(dir, "runtime.json"), {
+		...runtime,
+		deploymentPid: process.pid,
+	});
+	server = net.createServer((socket) => {
 		if (sockets.size >= 4) {
 			socket.destroy();
 			return;
@@ -551,15 +770,6 @@ async function serve(dir, runtime) {
 		});
 	});
 	server.listen(socketPath, () => chmodSync(socketPath, 0o600));
-	// A signal leaves an unacknowledged prepare on disk on purpose: the RSS
-	// recycle path retires this listener and adopts a prepared intent whose
-	// reply was lost, and boot recovery restarts the previous build.
-	for (const sig of ["SIGTERM", "SIGINT"])
-		process.on(sig, () => {
-			server.close();
-			for (const s of sockets) s.destroy();
-			process.exit(0);
-		});
 }
 if (
 	process.argv[1] &&
@@ -568,10 +778,28 @@ if (
 	realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
 	const [command, dir, ...args] = process.argv.slice(2);
+	// The start cannot do without these, and the runner waits for space
+	// instead of giving up when one of them finds none.
+	const ownership = ["owner-spawning", "owner-started", "owner-reaped"];
+	const noteInPlace = (how) => {
+		if (how === "in-place")
+			console.error(
+				`backend transaction: no space for a new file; ${command} wrote over the existing record`,
+			);
+	};
 	try {
-		if (command === "serve")
-			await serve(dir, JSON.parse(readFileSync(args[0], "utf8")));
-		else if (command === "client") {
+		if (command === "serve") {
+			// The runner passes what to serve in the environment. A file is
+			// still read when one is named.
+			const input = args[0]
+				? readFileSync(args[0], "utf8")
+				: process.env.CCFLARE_DEPLOYMENT_RUNTIME;
+			if (!input)
+				throw new Error(
+					"serve needs a runtime file or CCFLARE_DEPLOYMENT_RUNTIME",
+				);
+			await serve(dir, JSON.parse(input));
+		} else if (command === "client") {
 			const result = await client(
 				dir,
 				JSON.parse(readFileSync(args[0], "utf8")),
@@ -579,9 +807,11 @@ if (
 			console.log(JSON.stringify(result));
 			if (!result.ok) process.exitCode = 1;
 		} else if (command === "owner-spawning")
-			recordBackendOwner(dir, "spawning");
+			noteInPlace(recordBackendOwner(dir, "spawning"));
 		else if (command === "owner-started")
-			recordBackendOwner(dir, "running", Number(args[0]), args[1]);
+			noteInPlace(recordBackendOwner(dir, "running", Number(args[0]), args[1]));
+		else if (command === "owner-reaped")
+			noteInPlace(recordReapedBackendOwner(dir, Number(args[0]), args[1]));
 		else if (command === "advance")
 			console.log(
 				JSON.stringify(
@@ -605,6 +835,9 @@ if (
 		} else throw new Error("unknown transaction command");
 	} catch (error) {
 		console.error(`backend transaction held: ${error.message}`);
-		process.exitCode = 70;
+		process.exitCode =
+			ownership.includes(command) && outOfSpace(error)
+				? OUT_OF_SPACE_EXIT_STATUS
+				: 70;
 	}
 }
