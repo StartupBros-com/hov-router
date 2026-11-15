@@ -111,16 +111,42 @@ describe("exitOnFailedStart", () => {
 		return { exits, lines };
 	}
 
-	it("shows the error and exits 28 for a start that found no space", () => {
-		const error = coded("ENOSPC", "ENOSPC: no space left on device, write");
+	it("says in one line why a start found no space, and exits 28", () => {
+		const error = new StartOutOfSpaceError(
+			{ dbPath: "/state/router.db", releasedBytes: 0 },
+			{ cause: coded("SQLITE_IOERR_SHMSIZE", "disk I/O error") },
+		);
 
 		const { exits, lines } = run(error);
 
 		expect(exits).toEqual([28]);
 		expect(lines).toHaveLength(1);
-		expect(lines[0].error).toBe(error);
 		expect(lines[0].line).toContain("no space left on the disk");
 		expect(lines[0].line).toContain("status 28");
+		expect(lines[0].line).toContain("StartOutOfSpaceError");
+		expect(lines[0].line).toContain("/state/router.db");
+		expect(lines[0].line).toContain("SQLITE_IOERR_SHMSIZE");
+		expect(lines[0].line).toContain("disk I/O error");
+		expect(lines[0].line).not.toContain("\n");
+		// The runner starts the backend again for as long as the disk stays
+		// full. Handed the error itself, the compiled build prints a page of
+		// its own bundled source under every one of those starts.
+		expect(lines[0].error).toBeUndefined();
+	});
+
+	it("keeps to one line for a message that has several, and for a thrown value that is not an error", () => {
+		const { exits, lines } = run({
+			code: "ENOSPC",
+			message: "no space left on device\n    while writing the config",
+		});
+
+		expect(exits).toEqual([28]);
+		expect(lines).toHaveLength(1);
+		expect(lines[0].line).toContain(
+			"no space left on device while writing the config [ENOSPC]",
+		);
+		expect(lines[0].line).not.toContain("\n");
+		expect(lines[0].error).toBeUndefined();
 	});
 
 	it("shows the error and exits 1 for any other failed start", () => {

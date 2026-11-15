@@ -40,10 +40,41 @@ export function failedStartExitStatus(error: unknown): number {
 		: 1;
 }
 
+/**
+ * An error and its causes on one line: the name, message and code of each.
+ */
+function describeOnOneLine(error: unknown): string {
+	const parts: string[] = [];
+	let current = error;
+	for (let depth = 0; depth < MAX_CAUSE_DEPTH; depth++) {
+		if (typeof current !== "object" || current === null) {
+			parts.push(String(current));
+			break;
+		}
+		const { name, message, code, cause } = current as {
+			name?: unknown;
+			message?: unknown;
+			code?: unknown;
+			cause?: unknown;
+		};
+		const said = [name, message]
+			.filter((part) => typeof part === "string" && part !== "")
+			.join(": ");
+		parts.push(
+			typeof code === "string" || typeof code === "number"
+				? `${said || "error"} [${code}]`
+				: said || "error",
+		);
+		if (cause === undefined) break;
+		current = cause;
+	}
+	return parts.join("; caused by ").replace(/\s+/g, " ");
+}
+
 export interface FailedStartOptions {
 	/** Replace the process in tests. */
 	exit?: (code: number) => void;
-	report?: (line: string, error: unknown) => void;
+	report?: (line: string, error?: unknown) => void;
 }
 
 /**
@@ -54,6 +85,12 @@ export interface FailedStartOptions {
  * was a rejection nobody handled, which the runtime turns into exit code 1
  * whatever the cause, so the runner could not tell a full disk from a broken
  * build.
+ *
+ * A start that found no space is reported in one line, without the error
+ * itself. The runner starts the backend again for as long as the disk stays
+ * full, and the compiled build prints a page of its own bundled source under
+ * an error it is handed. Any other failed start still shows the error, stack
+ * included.
  */
 export function exitOnFailedStart(
 	error: unknown,
@@ -62,15 +99,16 @@ export function exitOnFailedStart(
 	const exit = options.exit ?? ((code: number) => process.exit(code));
 	const report =
 		options.report ??
-		((line: string, cause: unknown) => console.error(line, cause));
+		((line: string, ...cause: unknown[]) => console.error(line, ...cause));
 	const status = failedStartExitStatus(error);
 	try {
-		report(
-			status === OUT_OF_SPACE_EXIT_STATUS
-				? `[start] failed because there is no space left on the disk; exiting with status ${status}:`
-				: `[start] failed; exiting with status ${status}:`,
-			error,
-		);
+		if (status === OUT_OF_SPACE_EXIT_STATUS) {
+			report(
+				`[start] failed because there is no space left on the disk; exiting with status ${status}: ${describeOnOneLine(error)}`,
+			);
+		} else {
+			report(`[start] failed; exiting with status ${status}:`, error);
+		}
 	} catch {
 		// stderr can be unwritable for the same reason the start failed.
 	}
