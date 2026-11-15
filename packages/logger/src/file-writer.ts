@@ -65,7 +65,11 @@ function safeErrorKind(e: unknown): string {
 export interface LogFileSinkStatus {
 	/** True while lines are being dropped because the log file cannot be written. */
 	suspended: boolean;
-	/** Lines dropped since the sink last worked. Resets when it resumes. */
+	/**
+	 * Lines lost since the sink last worked: those dropped while it was
+	 * suspended, and those already handed to the file when its write failed.
+	 * Resets when it resumes.
+	 */
 	dropped: number;
 	/** How many times the sink has failed since the process started. */
 	failures: number;
@@ -115,6 +119,12 @@ export class LogFileWriter implements Disposable {
 	private suspendedUntil: number | null = null;
 	/** When the sink last resumed; null until it has, and again once it fails. */
 	private resumedAt: number | null = null;
+	/**
+	 * Lines handed to the file that it has not confirmed writing. Replaced,
+	 * not zeroed, when a stream fails: an answer that arrives later for a line
+	 * of the failed stream changes the old object and not the new count.
+	 */
+	private unconfirmed = { lines: 0 };
 	private dropped = 0;
 	private failures = 0;
 	private lastError: string | null = null;
@@ -152,6 +162,12 @@ export class LogFileWriter implements Disposable {
 	private suspend(error: unknown): void {
 		const stream = this.stream;
 		this.stream = null;
+		// A write is answered some time after the line is handed over, so a
+		// burst can be on its way when the first of them fails. Those lines go
+		// down with the stream and are lost as surely as the ones dropped
+		// afterwards.
+		this.dropped += this.unconfirmed.lines;
+		this.unconfirmed = { lines: 0 };
 		try {
 			stream?.destroy();
 		} catch {
@@ -332,7 +348,15 @@ export class LogFileWriter implements Disposable {
 			line = `${JSON.stringify(fallback)}\n`;
 		}
 		if (this.stream) {
-			this.stream.write(line);
+			const unconfirmed = this.unconfirmed;
+			this.stream.write(line, (error) => {
+				// Only a write that worked takes its line off the count. A
+				// failed one stays on it until the stream's failure is handled.
+				if (!error) unconfirmed.lines--;
+			});
+			// After the call, so a line whose write throws is counted once, by
+			// the caller's catch.
+			unconfirmed.lines++;
 		} else {
 			this.dropped++;
 		}

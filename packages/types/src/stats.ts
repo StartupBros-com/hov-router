@@ -35,7 +35,10 @@ export interface FullDiskStatus {
 	logFile: {
 		/** True while log lines are being dropped because the file cannot be written. */
 		suspended: boolean;
-		/** Lines dropped since the file last took a write. */
+		/**
+		 * Lines lost since the file last took a write, counting those already
+		 * on their way to it when it failed.
+		 */
 		dropped: number;
 		/** Times the file has failed since the process started. */
 		failures: number;

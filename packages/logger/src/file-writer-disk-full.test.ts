@@ -134,9 +134,117 @@ describe("LogFileWriter on storage that cannot be written", () => {
 			expect(lines[0]?.level).toBe("WARN");
 			expect(lines[0]?.msg).toContain("Log file sink resumed");
 			expect(lines[0]?.msg).toContain("ENOSPC");
+			// Both lost lines: the one whose write failed and the one dropped
+			// while the sink was suspended.
+			expect(lines[0]?.msg).toContain("after dropping 2 line(s)");
 			expect(sink.status().suspended).toBe(false);
 			expect(sink.status().dropped).toBe(0);
 			expect(uncaught).toEqual([]);
+		},
+	);
+
+	it.skipIf(!hasDevFull)(
+		"counts the lines that were already on their way to the file when the write failed",
+		async () => {
+			symlinkSync("/dev/full", join(logDir, "app.log"));
+			writer = new LogFileWriter({ retryBaseMs: 60_000 });
+			const sink = writer;
+
+			// The file answers a write some time after it is handed over, so
+			// all of these are on their way before the first one fails.
+			for (let i = 0; i < 25; i++) sink.write(event(`burst ${i}`));
+			await waitFor(() => sink.status().suspended);
+
+			expect(sink.status().failures).toBe(1);
+			expect(sink.status().dropped).toBe(25);
+			sink.write(event("dropped while suspended"));
+			expect(sink.status().dropped).toBe(26);
+			await new Promise((resolve) => setTimeout(resolve, 50));
+			// A late answer for one of the 25 must not change the count.
+			expect(sink.status().dropped).toBe(26);
+			expect(uncaught).toEqual([]);
+		},
+	);
+
+	it.skipIf(!hasDevFull)(
+		"counts the lines that joined a reopen that then failed, and not its own notice",
+		async () => {
+			symlinkSync("/dev/full", join(logDir, "app.log"));
+			let clock = 1_000_000;
+			writer = new LogFileWriter({ retryBaseMs: 1_000, now: () => clock });
+			const sink = writer;
+
+			sink.write(event("lost to the full disk"));
+			await waitFor(() => sink.status().failures === 1);
+			expect(sink.status().dropped).toBe(1);
+
+			// The delay has passed, so the next line reopens the file. The file
+			// opens, and the notice and both lines are handed to it before any
+			// of the three is answered. All three then fail.
+			clock += 1_000;
+			sink.write(event("joins the reopen"));
+			sink.write(event("joins it too"));
+			await waitFor(() => sink.status().failures === 2);
+
+			// Two more log lines were lost. The notice is not a log line.
+			expect(sink.status().dropped).toBe(3);
+			expect(sink.status().suspended).toBe(true);
+			expect(uncaught).toEqual([]);
+		},
+	);
+
+	it("counts a line once when handing it to the file throws", () => {
+		writer = new LogFileWriter({ retryBaseMs: 60_000 });
+		const sink = writer;
+		// No real stream throws from write(); this stands in for one that does.
+		const stream = (sink as unknown as { stream: { write: () => never } })
+			.stream;
+		stream.write = () => {
+			throw new Error("write threw");
+		};
+
+		expect(() => sink.write(event("thrown away"))).not.toThrow();
+
+		expect(sink.status().suspended).toBe(true);
+		expect(sink.status().failures).toBe(1);
+		expect(sink.status().dropped).toBe(1);
+	});
+
+	it.skipIf(!hasMkfifo)(
+		"does not count lines the file took before it failed",
+		async () => {
+			const logFile = join(logDir, "app.log");
+			expect(Bun.spawnSync(["mkfifo", logFile]).exitCode).toBe(0);
+			let reader = openForReading(logFile);
+			writer = new LogFileWriter({ retryBaseMs: 60_000 });
+			const sink = writer;
+			try {
+				let seen = "";
+				const read = (marker: string) => () => {
+					seen += readWaiting(reader);
+					return seen.includes(marker);
+				};
+				for (let i = 0; i < 10; i++) sink.write(event(`taken ${i}`));
+				// Writes are answered in order, so once this later line has
+				// come out of the pipe the ten before it have been answered.
+				sink.write(event("taken last"));
+				await waitFor(read("taken last"));
+				sink.write(event("taken after that"));
+				await waitFor(read("taken after that"));
+				expect(sink.status().suspended).toBe(false);
+
+				// Nothing reads the pipe any more: every write from here fails.
+				closeSync(reader);
+				for (let i = 0; i < 7; i++) sink.write(event(`lost ${i}`));
+				await waitFor(() => sink.status().suspended);
+				reader = openForReading(logFile);
+
+				expect(sink.status().failures).toBe(1);
+				expect(sink.status().dropped).toBe(7);
+				expect(uncaught).toEqual([]);
+			} finally {
+				closeSync(reader);
+			}
 		},
 	);
 
@@ -254,7 +362,9 @@ describe("LogFileWriter on storage that cannot be written", () => {
 				await failNextWrite();
 				clock += 1_500;
 				sink.write(event("too early"));
-				expect(sink.status().dropped).toBe(1);
+				// Two lost: the line whose write failed, and this one, which
+				// arrived while the sink was still waiting out its delay.
+				expect(sink.status().dropped).toBe(2);
 				expect(sink.status().suspended).toBe(true);
 				clock += 500;
 				await resume();
