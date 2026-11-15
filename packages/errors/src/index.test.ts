@@ -1,5 +1,72 @@
 import { describe, expect, it } from "bun:test";
-import { ERROR_TYPES, getErrorType, HttpError } from "./index";
+import { ERROR_TYPES, formatError, getErrorType, HttpError } from "./index";
+
+const NETWORK_MESSAGE =
+	"Network error. Please check your connection and try again.";
+const TIMEOUT_MESSAGE = "The request timed out. Please try again.";
+// The options the dashboard's useApiError hook passes to formatError.
+const DASHBOARD_OPTIONS = {
+	errorMap: {
+		unauthorized: "Authentication failed. Please re-add your account.",
+		401: "Authentication failed (401 Unauthorized). The server rejected the request - likely due to expired or invalid API credentials.",
+	},
+};
+
+describe("browser fetch failures and timeouts", () => {
+	it("treats the browsers' bare fetch failures as network errors", () => {
+		for (const error of [
+			new TypeError("Failed to fetch"),
+			new TypeError("Load failed"),
+			new Error("Failed to fetch"),
+			new Error("  failed to FETCH "),
+		]) {
+			expect(getErrorType(error)).toBe(ERROR_TYPES.NETWORK);
+			expect(formatError(error)).toBe(NETWORK_MESSAGE);
+			expect(formatError(error, DASHBOARD_OPTIONS)).toBe(NETWORK_MESSAGE);
+		}
+	});
+
+	it("treats the client's 408 and its rewrapped message as a timeout", () => {
+		for (const error of [
+			new HttpError(408, "Request timeout"),
+			new Error("Request timeout"),
+		]) {
+			expect(getErrorType(error)).toBe(ERROR_TYPES.TIMEOUT);
+			expect(formatError(error)).toBe(TIMEOUT_MESSAGE);
+			expect(formatError(error, DASHBOARD_OPTIONS)).toBe(TIMEOUT_MESSAGE);
+		}
+	});
+
+	it("matches the whole message, not a substring", () => {
+		expect(formatError(new Error("Failed to fetch requests"))).toBe(
+			"Failed to fetch requests",
+		);
+		expect(formatError(new Error("Load failed for chart"))).toBe(
+			"Load failed for chart",
+		);
+		expect(formatError(new Error("Request timeout after retry"))).toBe(
+			"Request timeout after retry",
+		);
+	});
+
+	it("classifies an HttpError by status before its message", () => {
+		expect(getErrorType(new HttpError(500, "Failed to fetch requests"))).toBe(
+			ERROR_TYPES.SERVER,
+		);
+		expect(formatError(new HttpError(500, "Failed to fetch requests"))).toBe(
+			"Server error. Please try again later.",
+		);
+		expect(getErrorType(new HttpError(503, "Failed to fetch"))).toBe(
+			ERROR_TYPES.SERVER,
+		);
+		expect(formatError(new HttpError(404, "Not found"))).toBe(
+			"Invalid request. Please check your input.",
+		);
+		expect(getErrorType(new HttpError(400, "Request timeout"))).toBe(
+			ERROR_TYPES.VALIDATION,
+		);
+	});
+});
 
 const messageCases = [
 	[

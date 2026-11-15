@@ -7,14 +7,17 @@ import {
 	useAlerts,
 } from "../../hooks/queries";
 import { useAlertStream } from "../../hooks/useAlertStream";
+import { useApiError } from "../../hooks/useApiError";
 import { queryKeys } from "../../lib/query-keys";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader } from "../ui/card";
+import { EmptyState, ErrorState, LoadingState } from "../ui/state";
 
 export const AlertsView = React.memo(() => {
 	const queryClient = useQueryClient();
-	const { data, isLoading } = useAlerts();
+	const { data, isError, error, refetch } = useAlerts();
+	const { formatError } = useApiError();
 	const ack = useAcknowledgeAlert();
 	const ackAll = useAcknowledgeAllAlerts();
 
@@ -28,13 +31,16 @@ export const AlertsView = React.memo(() => {
 	const alerts = data?.alerts ?? [];
 	const unacknowledgedCount = data?.unacknowledgedCount ?? 0;
 
-	if (isLoading) {
-		return (
-			<Card>
-				<CardContent className="p-6">Loading alerts…</CardContent>
-			</Card>
+	if (data === undefined)
+		return isError ? (
+			<ErrorState
+				title="Alerts could not load"
+				message={formatError(error)}
+				onRetry={() => void refetch()}
+			/>
+		) : (
+			<LoadingState label="Loading alerts" />
 		);
-	}
 
 	function formatTimestamp(ts: number): string {
 		return new Date(ts).toLocaleString();
@@ -58,11 +64,7 @@ export const AlertsView = React.memo(() => {
 			</div>
 
 			{alerts.length === 0 ? (
-				<Card>
-					<CardContent className="p-6 text-muted-foreground">
-						No alerts yet.
-					</CardContent>
-				</Card>
+				<EmptyState title="No alerts yet." />
 			) : (
 				<ul className="space-y-3">
 					{alerts.map((alert) => (

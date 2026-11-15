@@ -1,4 +1,3 @@
-import { AlertTriangle } from "lucide-react";
 import React, { useState } from "react";
 import type { TimeRange } from "../constants";
 import {
@@ -6,91 +5,76 @@ import {
 	useCacheInsights,
 	useContextInsights,
 } from "../hooks/queries";
+import { useApiError } from "../hooks/useApiError";
 import { AlertsView } from "./insights/AlertsView";
 import { AnomaliesView } from "./insights/AnomaliesView";
 import { CacheEfficiencyView } from "./insights/CacheEfficiencyView";
 import { ContextCompositionView } from "./insights/ContextCompositionView";
 import { TimeRangeSelector } from "./overview/TimeRangeSelector";
-import { Card, CardContent } from "./ui/card";
+import { RoutePageHeader } from "./page-shell";
+import { ErrorState, LoadingState } from "./ui/state";
 
 export const InsightsTab = React.memo(() => {
 	const [timeRange, setTimeRange] = useState<TimeRange>("24h");
 
-	// Fetch cache insights with automatic refetch on range changes
-	const { data, isLoading: loading, isError } = useCacheInsights(timeRange);
-	const {
-		data: contextData,
-		isLoading: contextLoading,
-		isError: contextError,
-	} = useContextInsights(timeRange);
-	const {
-		data: anomalyData,
-		isLoading: anomalyLoading,
-		isError: anomalyError,
-	} = useAnomalyInsights(timeRange);
+	const { formatError } = useApiError();
+	const cache = useCacheInsights(timeRange);
+	const context = useContextInsights(timeRange);
+	const anomaly = useAnomalyInsights(timeRange);
 
 	return (
-		<div className="space-y-6">
-			{/* Controls */}
-			<div className="flex flex-col sm:flex-row gap-4 justify-between">
-				<TimeRangeSelector
-					value={timeRange}
-					onChange={(value) => setTimeRange(value as TimeRange)}
-				/>
+		<div className="space-y-4">
+			<RoutePageHeader page="insights" />
+			<div className="space-y-6">
+				{/* Controls */}
+				<div className="flex flex-col sm:flex-row gap-4 justify-between">
+					<TimeRangeSelector
+						value={timeRange}
+						onChange={(value) => setTimeRange(value as TimeRange)}
+					/>
+				</div>
+
+				{cache.data === undefined ? (
+					cache.isError ? (
+						<ErrorState
+							title="Cache insights could not load"
+							message={formatError(cache.error)}
+							onRetry={() => void cache.refetch()}
+						/>
+					) : (
+						<LoadingState label="Loading cache insights" />
+					)
+				) : (
+					<CacheEfficiencyView data={cache.data} timeRange={timeRange} />
+				)}
+				{context.data === undefined ? (
+					context.isError ? (
+						<ErrorState
+							title="Context insights could not load"
+							message={formatError(context.error)}
+							onRetry={() => void context.refetch()}
+						/>
+					) : (
+						<LoadingState label="Loading context insights" />
+					)
+				) : (
+					<ContextCompositionView data={context.data} timeRange={timeRange} />
+				)}
+				{anomaly.data === undefined ? (
+					anomaly.isError ? (
+						<ErrorState
+							title="Anomaly insights could not load"
+							message={formatError(anomaly.error)}
+							onRetry={() => void anomaly.refetch()}
+						/>
+					) : (
+						<LoadingState label="Loading anomaly insights" />
+					)
+				) : (
+					<AnomaliesView data={anomaly.data} timeRange={timeRange} />
+				)}
+				<AlertsView />
 			</div>
-
-			{isError ? (
-				<Card>
-					<CardContent className="p-6">
-						<div className="flex items-center gap-2 text-destructive">
-							<AlertTriangle className="h-5 w-5" />
-							<span>Failed to load cache insights. Please try again.</span>
-						</div>
-					</CardContent>
-				</Card>
-			) : (
-				<CacheEfficiencyView
-					data={data}
-					loading={loading}
-					timeRange={timeRange}
-				/>
-			)}
-
-			{contextError ? (
-				<Card>
-					<CardContent className="p-6">
-						<div className="flex items-center gap-2 text-destructive">
-							<AlertTriangle className="h-5 w-5" />
-							<span>Failed to load context insights. Please try again.</span>
-						</div>
-					</CardContent>
-				</Card>
-			) : (
-				<ContextCompositionView
-					data={contextData}
-					loading={contextLoading}
-					timeRange={timeRange}
-				/>
-			)}
-
-			{anomalyError ? (
-				<Card>
-					<CardContent className="p-6">
-						<div className="flex items-center gap-2 text-destructive">
-							<AlertTriangle className="h-5 w-5" />
-							<span>Failed to load anomaly insights. Please try again.</span>
-						</div>
-					</CardContent>
-				</Card>
-			) : (
-				<AnomaliesView
-					data={anomalyData}
-					loading={anomalyLoading}
-					timeRange={timeRange}
-				/>
-			)}
-
-			<AlertsView />
 		</div>
 	);
 });

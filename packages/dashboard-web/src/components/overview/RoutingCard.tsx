@@ -7,6 +7,7 @@ import {
 	useSetStrategy,
 	useStrategy,
 } from "../../hooks/queries";
+import { useApiError } from "../../hooks/useApiError";
 import { Badge } from "../ui/badge";
 import {
 	Card,
@@ -23,6 +24,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../ui/select";
+import { EmptyState, ErrorState, LoadingState } from "../ui/state";
 import { Switch } from "../ui/switch";
 
 // Only session-class strategies are offered from the dashboard. Per-request
@@ -75,7 +77,8 @@ export function getStrategySelectItems(
 }
 
 export type RoutingAttemptSummaryViewState =
-	| { status: "loading" | "error" }
+	| { status: "loading" }
+	| { status: "error"; message?: string }
 	| { status: "success"; data: RoutingAttemptSummaryResponse };
 
 export interface RoutingCardViewProps {
@@ -225,20 +228,24 @@ export function RoutingCardView({
 							</p>
 						</div>
 						{routingAttempts.status === "loading" && (
-							<p className="text-sm text-muted-foreground" role="status">
-								Loading routing-attempt summary…
-							</p>
+							<LoadingState
+								size="inline"
+								label="Loading routing-attempt summary"
+							/>
 						)}
 						{routingAttempts.status === "error" && (
-							<p className="text-sm text-muted-foreground" role="alert">
-								Routing-attempt summary is unavailable.
-							</p>
+							<ErrorState
+								size="inline"
+								title="Routing-attempt summary could not load"
+								message={routingAttempts.message}
+							/>
 						)}
 						{routingAttempts.status === "success" &&
 							(routingAttempts.data.totalAttempts === 0 ? (
-								<p className="text-sm text-muted-foreground">
-									No upstream routing attempts in this window.
-								</p>
+								<EmptyState
+									size="inline"
+									title="No upstream routing attempts in this window."
+								/>
 							) : (
 								<div className="space-y-2 text-sm">
 									<p>
@@ -287,6 +294,7 @@ export function RoutingCardView({
 }
 
 export function RoutingCard() {
+	const { formatError } = useApiError();
 	const { data: strategyData, isLoading: strategyLoading } = useStrategy();
 	const setStrategy = useSetStrategy();
 	const { data: capacity, isLoading: capacityLoading } =
@@ -294,10 +302,10 @@ export function RoutingCard() {
 	const setCapacity = useSetModelCapacityRouting();
 	const routingAttempts = useRoutingAttemptSummary("24h");
 	const routingAttemptsView: RoutingAttemptSummaryViewState =
-		routingAttempts.isError
-			? { status: "error" }
-			: routingAttempts.data
-				? { status: "success", data: routingAttempts.data }
+		routingAttempts.data !== undefined
+			? { status: "success", data: routingAttempts.data }
+			: routingAttempts.isError
+				? { status: "error", message: formatError(routingAttempts.error) }
 				: { status: "loading" };
 
 	return (

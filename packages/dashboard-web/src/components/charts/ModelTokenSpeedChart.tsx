@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { CHART_PROPS, COLORS } from "../../constants";
 import { formatCompactNumber } from "../../lib/chart-utils";
+import { Skeleton } from "../ui/skeleton";
 import { getTooltipStyles } from "./chart-utils";
 
 interface ModelTokenSpeedData {
@@ -74,13 +75,14 @@ export function ModelTokenSpeedChart({
 	loading = false,
 	height = 300,
 }: ModelTokenSpeedChartProps) {
-	if (loading) {
+	if (loading)
 		return (
-			<div className="flex items-center justify-center" style={{ height }}>
-				<div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-			</div>
+			<Skeleton
+				style={{ height }}
+				role="status"
+				aria-label="Loading model token speeds"
+			/>
 		);
-	}
 
 	// Filter out models without token speed data and prepare chart data
 	const chartData = data

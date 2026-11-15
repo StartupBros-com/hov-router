@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import React, { useCallback, useMemo, useState } from "react";
 import { useAnalytics } from "../hooks/queries";
 import { useAnalyticsUrlState } from "../hooks/useAnalyticsUrlState";
+import { useApiError } from "../hooks/useApiError";
 import {
 	AnalyticsControls,
 	CumulativeGrowthChart,
@@ -12,6 +13,8 @@ import {
 	TokenSpeedAnalytics,
 	TokenUsageBreakdown,
 } from "./analytics";
+import { RoutePageHeader } from "./page-shell";
+import { ErrorState, LoadingState } from "./ui/state";
 
 export const AnalyticsTab = React.memo(() => {
 	const {
@@ -26,15 +29,17 @@ export const AnalyticsTab = React.memo(() => {
 		filters,
 		setFilters,
 	} = useAnalyticsUrlState();
+	const { formatError } = useApiError();
 	const [filterOpen, setFilterOpen] = useState(false);
 
 	// Fetch analytics data with automatic refetch on dependency changes
-	const { data: analytics, isLoading: loading } = useAnalytics(
-		timeRange,
-		filters,
-		viewMode,
-		modelBreakdown,
-	);
+	const {
+		data: analytics,
+		isLoading: loading,
+		isError,
+		error,
+		refetch,
+	} = useAnalytics(timeRange, filters, viewMode, modelBreakdown);
 
 	// Get unique accounts and models from analytics data
 	// Accumulate all seen accounts/models/apiKeys to maintain full list for filters
@@ -209,86 +214,103 @@ export const AnalyticsTab = React.memo(() => {
 		(filters.status !== "all" ? 1 : 0);
 
 	return (
-		<div className="space-y-6">
-			{/* Controls */}
-			<AnalyticsControls
-				timeRange={timeRange}
-				setTimeRange={setTimeRange}
-				viewMode={viewMode}
-				setViewMode={setViewMode}
-				filters={filters}
-				setFilters={setFilters}
-				availableAccounts={availableAccounts}
-				availableModels={availableModels}
-				availableApiKeys={availableApiKeys}
-				activeFilterCount={activeFilterCount}
-				filterOpen={filterOpen}
-				setFilterOpen={setFilterOpen}
-				loading={loading}
-				onRefresh={() => setTimeRange(timeRange)}
-			/>
+		<div className="space-y-4">
+			<RoutePageHeader page="analytics" />
+			<div className="space-y-6">
+				{/* Controls */}
+				<AnalyticsControls
+					timeRange={timeRange}
+					setTimeRange={setTimeRange}
+					viewMode={viewMode}
+					setViewMode={setViewMode}
+					filters={filters}
+					setFilters={setFilters}
+					availableAccounts={availableAccounts}
+					availableModels={availableModels}
+					availableApiKeys={availableApiKeys}
+					activeFilterCount={activeFilterCount}
+					filterOpen={filterOpen}
+					setFilterOpen={setFilterOpen}
+					loading={loading}
+					onRefresh={() => setTimeRange(timeRange)}
+				/>
 
-			{/* Cumulative View - Show cumulative charts first */}
-			{viewMode === "cumulative" && analytics && (
-				<>
-					{/* Beautiful Cumulative Chart */}
-					<CumulativeGrowthChart data={data} />
+				{analytics === undefined ? (
+					isError ? (
+						<ErrorState
+							title="Analytics could not load"
+							message={formatError(error)}
+							onRetry={() => void refetch()}
+						/>
+					) : (
+						<LoadingState label="Loading analytics" />
+					)
+				) : (
+					<>
+						{/* Cumulative View - Show cumulative charts first */}
+						{viewMode === "cumulative" && analytics && (
+							<>
+								{/* Beautiful Cumulative Chart */}
+								<CumulativeGrowthChart data={data} />
 
-					{/* Cumulative Token Breakdown Ribbon Chart */}
-					{tokenBreakdown.length > 0 && (
-						<CumulativeTokenComposition tokenBreakdown={tokenBreakdown} />
-					)}
-				</>
-			)}
+								{/* Cumulative Token Breakdown Ribbon Chart */}
+								{tokenBreakdown.length > 0 && (
+									<CumulativeTokenComposition tokenBreakdown={tokenBreakdown} />
+								)}
+							</>
+						)}
 
-			{/* Main Metrics Chart */}
-			<MainMetricsChart
-				data={data}
-				rawTimeSeries={analytics?.timeSeries}
-				loading={loading}
-				viewMode={viewMode}
-				timeRange={timeRange}
-				selectedMetric={selectedMetric}
-				setSelectedMetric={setSelectedMetric}
-				modelBreakdown={modelBreakdown}
-				onModelBreakdownChange={setModelBreakdown}
-			/>
-
-			{/* Normal View Charts - Only show in normal mode */}
-			{viewMode === "normal" && (
-				<>
-					{/* Secondary Charts Row */}
-					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-						<PerformanceIndicatorsChart
+						{/* Main Metrics Chart */}
+						<MainMetricsChart
 							data={data}
-							loading={loading}
-							modelBreakdown={modelBreakdown}
 							rawTimeSeries={analytics?.timeSeries}
+							loading={loading}
+							viewMode={viewMode}
 							timeRange={timeRange}
+							selectedMetric={selectedMetric}
+							setSelectedMetric={setSelectedMetric}
+							modelBreakdown={modelBreakdown}
+							onModelBreakdownChange={setModelBreakdown}
 						/>
-						<TokenUsageBreakdown
-							tokenBreakdown={tokenBreakdown}
-							timeRange={timeRange}
-						/>
-					</div>
 
-					{/* Enhanced Model Analytics */}
-					<ModelAnalytics
-						modelPerformance={analytics?.modelPerformance || []}
-						costByModel={costByModel}
-						loading={loading}
-						timeRange={timeRange}
-					/>
+						{/* Normal View Charts - Only show in normal mode */}
+						{viewMode === "normal" && (
+							<>
+								{/* Secondary Charts Row */}
+								<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+									<PerformanceIndicatorsChart
+										data={data}
+										loading={loading}
+										modelBreakdown={modelBreakdown}
+										rawTimeSeries={analytics?.timeSeries}
+										timeRange={timeRange}
+									/>
+									<TokenUsageBreakdown
+										tokenBreakdown={tokenBreakdown}
+										timeRange={timeRange}
+									/>
+								</div>
 
-					{/* Token Speed Analytics */}
-					<TokenSpeedAnalytics
-						timeSeriesData={data}
-						modelPerformance={analytics?.modelPerformance || []}
-						loading={loading}
-						timeRange={timeRange}
-					/>
-				</>
-			)}
+								{/* Enhanced Model Analytics */}
+								<ModelAnalytics
+									modelPerformance={analytics?.modelPerformance || []}
+									costByModel={costByModel}
+									loading={loading}
+									timeRange={timeRange}
+								/>
+
+								{/* Token Speed Analytics */}
+								<TokenSpeedAnalytics
+									timeSeriesData={data}
+									modelPerformance={analytics?.modelPerformance || []}
+									loading={loading}
+									timeRange={timeRange}
+								/>
+							</>
+						)}
+					</>
+				)}
+			</div>
 		</div>
 	);
 });

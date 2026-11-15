@@ -12,7 +12,9 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { useApiError } from "../hooks/useApiError";
 import { CopyButton } from "./CopyButton";
+import { RoutePageHeader } from "./page-shell";
 import { Button } from "./ui/button";
 import {
 	Card,
@@ -38,6 +40,7 @@ import {
 } from "./ui/dropdown-menu";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { EmptyState, ErrorState, LoadingState } from "./ui/state";
 
 interface ApiKey {
 	id: string;
@@ -86,16 +89,21 @@ export function ApiKeysTab() {
 	const [isAdminKey, setIsAdminKey] = useState(false);
 
 	const queryClient = useQueryClient();
+	const { formatError } = useApiError();
 
 	// Fetch API key statistics - only when not showing the generated key dialog
-	const { data: statsResponse, error: statsError } =
-		useQuery<ApiKeyStatsResponse>({
-			queryKey: ["api-keys-stats"],
-			queryFn: async () => {
-				return api.get<ApiKeyStatsResponse>("/api/api-keys/stats");
-			},
-			enabled: !generatedKey, // Don't fetch while showing generated key
-		});
+	const {
+		data: statsResponse,
+		error: statsError,
+		isError: isStatsError,
+		refetch: refetchStats,
+	} = useQuery<ApiKeyStatsResponse>({
+		queryKey: ["api-keys-stats"],
+		queryFn: async () => {
+			return api.get<ApiKeyStatsResponse>("/api/api-keys/stats");
+		},
+		enabled: !generatedKey, // Don't fetch while showing generated key
+	});
 
 	// Default to admin if this is the first key, otherwise api-only
 	useEffect(() => {
@@ -107,7 +115,8 @@ export function ApiKeysTab() {
 	// Fetch API keys - only when not showing the generated key dialog
 	const {
 		data: apiKeysResponse,
-		isLoading: isLoadingKeys,
+		isError: isKeysError,
+		refetch: refetchKeys,
 		error: keysError,
 	} = useQuery<ApiKeysResponse>({
 		queryKey: ["api-keys"],
@@ -256,454 +265,465 @@ export function ApiKeysTab() {
 	const stats = statsResponse?.data;
 	const apiKeys = apiKeysResponse?.data || [];
 
-	if (keysError || statsError) {
-		return (
-			<Card>
-				<CardContent className="p-6">
-					<div className="flex items-center gap-2 text-destructive">
-						<AlertTriangle className="h-5 w-5" />
-						<span>Failed to load API keys. Please try again.</span>
-					</div>
-				</CardContent>
-			</Card>
-		);
-	}
-
 	return (
-		<div className="space-y-6">
-			{/* Statistics Cards */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-				<Card>
-					<CardHeader className="pb-2">
-						<p className="text-base font-medium leading-none tracking-tight">
-							Total Keys
-						</p>
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">{stats?.total || 0}</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader className="pb-2">
-						<p className="text-base font-medium leading-none tracking-tight">
-							Active Keys
-						</p>
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold text-green-600">
-							{stats?.active || 0}
-						</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader className="pb-2">
-						<p className="text-base font-medium leading-none tracking-tight">
-							Inactive Keys
-						</p>
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold text-muted-foreground">
-							{stats?.inactive || 0}
-						</div>
-					</CardContent>
-				</Card>
-			</div>
+		<div className="space-y-4">
+			<RoutePageHeader
+				page="keys"
+				actions={
+					<Dialog
+						open={isCreateDialogOpen}
+						onOpenChange={(open) => {
+							setIsCreateDialogOpen(open);
+							if (!open) generateKeyMutation.reset();
+						}}
+					>
+						<DialogTrigger asChild>
+							<Button>
+								<Plus className="h-4 w-4 mr-2" />
+								Generate API Key
+							</Button>
+						</DialogTrigger>
+						<DialogContent>
+							<DialogHeader>
+								<DialogTitle>Generate New API Key</DialogTitle>
+								<DialogDescription>
+									Create a new API key for authentication. The key will be shown
+									only once, so save it securely.
+								</DialogDescription>
+							</DialogHeader>
+							<div className="space-y-4 py-4">
+								<div className="space-y-2">
+									<Label htmlFor="name">Key Name</Label>
+									<Input
+										id="name"
+										placeholder="e.g., Production App, Development Key"
+										value={newKeyName}
+										onChange={(e) => setNewKeyName(e.target.value)}
+									/>
+								</div>
+								{(() => {
+									const isFirstKey = !stats || stats.active === 0;
+									return (
+										<>
+											<div className="flex items-center space-x-2">
+												<input
+													type="checkbox"
+													id="admin"
+													checked={isAdminKey}
+													onChange={(e) => setIsAdminKey(e.target.checked)}
+													disabled={isFirstKey}
+													className="h-4 w-4 rounded border-gray-300 disabled:cursor-not-allowed disabled:opacity-60"
+												/>
+												<Label
+													htmlFor="admin"
+													className={`text-sm font-normal ${isFirstKey ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+												>
+													Grant admin access (dashboard management)
+												</Label>
+											</div>
+											{isFirstKey ? (
+												<div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-300">
+													<div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-300">
+														<AlertTriangle className="h-4 w-4" />
+														<span className="text-sm">
+															First API key must be admin to prevent lockout
+															from the dashboard.
+														</span>
+													</div>
+												</div>
+											) : isAdminKey ? (
+												<div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-300">
+													<div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-300">
+														<AlertTriangle className="h-4 w-4" />
+														<span className="text-sm">
+															Admin keys can manage accounts, view analytics,
+															and modify settings.
+														</span>
+													</div>
+												</div>
+											) : null}
+										</>
+									);
+								})()}
+								{generateKeyMutation.isError && (
+									<div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+										<div className="flex items-start gap-2 text-destructive">
+											<AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+											<span className="text-sm">
+												{generateKeyMutation.error?.message ??
+													"Failed to generate API key."}
+											</span>
+										</div>
+									</div>
+								)}
+							</div>
+							<DialogFooter>
+								<Button
+									onClick={() => {
+										setIsCreateDialogOpen(false);
+										generateKeyMutation.reset();
+									}}
+									variant="outline"
+								>
+									Cancel
+								</Button>
+								<Button
+									onClick={handleGenerateKey}
+									disabled={!newKeyName.trim() || generateKeyMutation.isPending}
+								>
+									{generateKeyMutation.isPending
+										? "Generating..."
+										: "Generate Key"}
+								</Button>
+							</DialogFooter>
+						</DialogContent>
+					</Dialog>
+				}
+			/>
+			<div className="space-y-6">
+				{/* Statistics Cards */}
+				{statsResponse === undefined ? (
+					isStatsError ? (
+						<ErrorState
+							size="inline"
+							title="API key statistics could not load"
+							message={formatError(statsError)}
+							onRetry={() => void refetchStats()}
+						/>
+					) : (
+						<LoadingState size="inline" label="Loading API key statistics" />
+					)
+				) : (
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+						<Card>
+							<CardHeader className="pb-2">
+								<p className="text-base font-medium leading-none tracking-tight">
+									Total Keys
+								</p>
+							</CardHeader>
+							<CardContent>
+								<div className="text-2xl font-bold">{stats?.total || 0}</div>
+							</CardContent>
+						</Card>
+						<Card>
+							<CardHeader className="pb-2">
+								<p className="text-base font-medium leading-none tracking-tight">
+									Active Keys
+								</p>
+							</CardHeader>
+							<CardContent>
+								<div className="text-2xl font-bold text-green-600">
+									{stats?.active || 0}
+								</div>
+							</CardContent>
+						</Card>
+						<Card>
+							<CardHeader className="pb-2">
+								<p className="text-base font-medium leading-none tracking-tight">
+									Inactive Keys
+								</p>
+							</CardHeader>
+							<CardContent>
+								<div className="text-2xl font-bold text-muted-foreground">
+									{stats?.inactive || 0}
+								</div>
+							</CardContent>
+						</Card>
+					</div>
+				)}
 
-			{/* Header with Create Button */}
-			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-				<div>
-					<h2 className="text-xl font-semibold">API Keys</h2>
-					<p className="text-muted-foreground">
-						Manage API keys for authentication. When at least one key is active,
-						all API requests must include a valid API key.
-					</p>
-				</div>
+				<p className="text-muted-foreground">
+					When at least one key is active, all API requests must include a valid
+					API key.
+				</p>
+
+				{/* API Keys List */}
+				<Card>
+					<CardHeader>
+						<CardTitle>Your API Keys</CardTitle>
+						{apiKeysResponse !== undefined && (
+							<CardDescription>
+								{apiKeys.length === 0
+									? "No API keys have been created yet."
+									: `You have ${apiKeys.length} API key${apiKeys.length === 1 ? "" : "s"}.`}
+							</CardDescription>
+						)}
+					</CardHeader>
+					<CardContent>
+						{(updateRoleMutation.isError || toggleKeyMutation.isError) && (
+							<div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+								<div className="flex items-start gap-2 text-destructive">
+									<AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+									<span className="text-sm flex-1">
+										{updateRoleMutation.error?.message ??
+											toggleKeyMutation.error?.message ??
+											"Operation failed."}
+									</span>
+									<button
+										type="button"
+										onClick={() => {
+											updateRoleMutation.reset();
+											toggleKeyMutation.reset();
+										}}
+										className="shrink-0 hover:opacity-70"
+										aria-label="Dismiss error"
+									>
+										<X className="h-4 w-4" />
+									</button>
+								</div>
+							</div>
+						)}
+						{apiKeysResponse === undefined ? (
+							isKeysError ? (
+								<ErrorState
+									size="inline"
+									title="API keys could not load"
+									message={formatError(keysError)}
+									onRetry={() => void refetchKeys()}
+								/>
+							) : (
+								<LoadingState size="inline" label="Loading API keys" />
+							)
+						) : apiKeys.length === 0 ? (
+							<EmptyState
+								size="inline"
+								title="No API keys configured"
+								description="API authentication will be disabled until you create your first key."
+							/>
+						) : (
+							<div className="space-y-4">
+								{apiKeys.map((key) => (
+									<div
+										key={key.id}
+										className="flex flex-col gap-3 p-4 border rounded-lg sm:flex-row sm:items-center sm:justify-between"
+									>
+										<div className="min-w-0 flex-1">
+											<div className="flex flex-wrap items-center gap-2">
+												<h3 className="font-medium break-all">{key.name}</h3>
+												<div
+													className={`px-2 py-1 rounded text-xs font-medium ${
+														key.isActive
+															? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+															: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+													}`}
+												>
+													{key.isActive ? "Active" : "Disabled"}
+												</div>
+												{canChangeRole(key) ? (
+													<DropdownMenu>
+														<DropdownMenuTrigger asChild>
+															<button
+																type="button"
+																className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium cursor-pointer hover:opacity-80 ${
+																	key.role === "admin"
+																		? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+																		: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+																}`}
+																disabled={updateRoleMutation.isPending}
+															>
+																{key.role === "admin" ? "Admin" : "API-only"}
+																<ChevronDown className="h-3 w-3" />
+															</button>
+														</DropdownMenuTrigger>
+														<DropdownMenuContent align="start">
+															<DropdownMenuItem
+																onClick={() => handleUpdateRole(key, "admin")}
+																disabled={key.role === "admin"}
+															>
+																<Shield className="h-4 w-4 mr-2" />
+																Admin (dashboard access)
+															</DropdownMenuItem>
+															<DropdownMenuItem
+																onClick={() =>
+																	handleUpdateRole(key, "api-only")
+																}
+																disabled={key.role === "api-only"}
+															>
+																API-only (proxy access)
+															</DropdownMenuItem>
+														</DropdownMenuContent>
+													</DropdownMenu>
+												) : (
+													<div
+														className={`px-2 py-1 rounded text-xs font-medium ${
+															key.role === "admin"
+																? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+																: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+														}`}
+														title="First API key must remain admin"
+													>
+														{key.role === "admin" ? "Admin" : "API-only"}
+													</div>
+												)}
+											</div>
+											<div className="text-sm text-muted-foreground mt-1">
+												Key ends with:{" "}
+												<code className="bg-muted px-1 rounded">
+													{key.prefixLast8}
+												</code>
+											</div>
+											<div className="text-xs text-muted-foreground mt-1">
+												Created{" "}
+												{formatDistanceToNow(new Date(key.createdAt), {
+													addSuffix: true,
+												})}
+												{key.lastUsed && (
+													<>
+														{" • "}Last used{" "}
+														{formatDistanceToNow(new Date(key.lastUsed), {
+															addSuffix: true,
+														})}
+													</>
+												)}
+												{" • "}Used {key.usageCount} time
+												{key.usageCount !== 1 ? "s" : ""}
+											</div>
+										</div>
+										<div className="flex shrink-0 items-center gap-2">
+											<CopyButton
+												variant="outline"
+												size="sm"
+												value={key.prefixLast8}
+												title={`Copy key ending ${key.prefixLast8}`}
+											/>
+											<Button
+												variant="outline"
+												size="sm"
+												onClick={() => handleToggleKey(key, !key.isActive)}
+												disabled={toggleKeyMutation.isPending}
+												aria-label={`${key.isActive ? "Disable" : "Enable"} ${key.name}`}
+												title={key.isActive ? "Disable key" : "Enable key"}
+											>
+												{key.isActive ? (
+													<ToggleLeft className="h-4 w-4" />
+												) : (
+													<ToggleRight className="h-4 w-4" />
+												)}
+											</Button>
+											<Button
+												variant="outline"
+												size="sm"
+												onClick={() => handleDeleteKey(key)}
+												disabled={deleteKeyMutation.isPending}
+												aria-label={`Delete ${key.name}`}
+												title="Delete key"
+											>
+												<Trash2 className="h-4 w-4 text-destructive" />
+											</Button>
+										</div>
+									</div>
+								))}
+							</div>
+						)}
+					</CardContent>
+				</Card>
+
+				{/* Generated Key Dialog */}
 				<Dialog
-					open={isCreateDialogOpen}
+					open={!!generatedKey}
 					onOpenChange={(open) => {
-						setIsCreateDialogOpen(open);
-						if (!open) generateKeyMutation.reset();
+						if (!open) {
+							setGeneratedKey(null);
+							// Trigger auth dialog when closing so user can authenticate
+							window.dispatchEvent(new CustomEvent("auth-required"));
+						}
 					}}
 				>
-					<DialogTrigger asChild>
-						<Button>
-							<Plus className="h-4 w-4 mr-2" />
-							Generate API Key
-						</Button>
-					</DialogTrigger>
 					<DialogContent>
 						<DialogHeader>
-							<DialogTitle>Generate New API Key</DialogTitle>
+							<DialogTitle>API Key Generated</DialogTitle>
 							<DialogDescription>
-								Create a new API key for authentication. The key will be shown
-								only once, so save it securely.
+								Your API key has been generated. Save it securely now - it won't
+								be shown again.
 							</DialogDescription>
 						</DialogHeader>
 						<div className="space-y-4 py-4">
 							<div className="space-y-2">
-								<Label htmlFor="name">Key Name</Label>
-								<Input
-									id="name"
-									placeholder="e.g., Production App, Development Key"
-									value={newKeyName}
-									onChange={(e) => setNewKeyName(e.target.value)}
-								/>
-							</div>
-							{(() => {
-								const isFirstKey = !stats || stats.active === 0;
-								return (
-									<>
-										<div className="flex items-center space-x-2">
-											<input
-												type="checkbox"
-												id="admin"
-												checked={isAdminKey}
-												onChange={(e) => setIsAdminKey(e.target.checked)}
-												disabled={isFirstKey}
-												className="h-4 w-4 rounded border-gray-300 disabled:cursor-not-allowed disabled:opacity-60"
-											/>
-											<Label
-												htmlFor="admin"
-												className={`text-sm font-normal ${isFirstKey ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
-											>
-												Grant admin access (dashboard management)
-											</Label>
-										</div>
-										{isFirstKey ? (
-											<div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-300">
-												<div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-300">
-													<AlertTriangle className="h-4 w-4" />
-													<span className="text-sm">
-														First API key must be admin to prevent lockout from
-														the dashboard.
-													</span>
-												</div>
-											</div>
-										) : isAdminKey ? (
-											<div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-300">
-												<div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-300">
-													<AlertTriangle className="h-4 w-4" />
-													<span className="text-sm">
-														Admin keys can manage accounts, view analytics, and
-														modify settings.
-													</span>
-												</div>
-											</div>
-										) : null}
-									</>
-								);
-							})()}
-							{generateKeyMutation.isError && (
-								<div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
-									<div className="flex items-start gap-2 text-destructive">
-										<AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-										<span className="text-sm">
-											{generateKeyMutation.error?.message ??
-												"Failed to generate API key."}
-										</span>
-									</div>
+								<Label>API Key</Label>
+								<div className="flex items-center gap-2">
+									<code className="flex-1 p-3 bg-muted rounded text-sm font-mono break-all">
+										{generatedKey}
+									</code>
+									<CopyButton
+										variant="outline"
+										size="sm"
+										value={generatedKey ?? ""}
+									/>
 								</div>
-							)}
+							</div>
+							<div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-300">
+								<div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-300">
+									<AlertTriangle className="h-5 w-5" />
+									<span className="font-medium">Important:</span>
+								</div>
+								<p className="text-sm text-yellow-700 dark:text-yellow-300/90 mt-1">
+									Save this API key in a secure location. You won't be able to
+									see it again after closing this dialog.
+								</p>
+							</div>
 						</div>
+						<DialogFooter>
+							<Button onClick={handleSavedKey} variant="outline">
+								I've saved the key
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
+
+				{/* Delete Confirmation Dialog */}
+				<Dialog
+					open={isDeleteDialogOpen}
+					onOpenChange={(open) => {
+						setIsDeleteDialogOpen(open);
+						if (!open) deleteKeyMutation.reset();
+					}}
+				>
+					<DialogContent>
+						<DialogHeader>
+							<DialogTitle>Delete API Key</DialogTitle>
+							<DialogDescription>
+								Are you sure you want to delete the API key "{selectedKey?.name}
+								"? This action cannot be undone.
+							</DialogDescription>
+						</DialogHeader>
+						<div className="py-4">
+							<p className="text-sm text-muted-foreground">
+								Deleting this API key will immediately invalidate it, and any
+								applications using it will no longer be able to authenticate.
+							</p>
+						</div>
+						{deleteKeyMutation.isError && (
+							<div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+								<div className="flex items-start gap-2 text-destructive">
+									<AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+									<span className="text-sm">
+										{deleteKeyMutation.error?.message ??
+											"Failed to delete API key."}
+									</span>
+								</div>
+							</div>
+						)}
 						<DialogFooter>
 							<Button
 								onClick={() => {
-									setIsCreateDialogOpen(false);
-									generateKeyMutation.reset();
+									setIsDeleteDialogOpen(false);
+									deleteKeyMutation.reset();
 								}}
 								variant="outline"
 							>
 								Cancel
 							</Button>
 							<Button
-								onClick={handleGenerateKey}
-								disabled={!newKeyName.trim() || generateKeyMutation.isPending}
+								onClick={confirmDeleteKey}
+								variant="destructive"
+								disabled={deleteKeyMutation.isPending}
 							>
-								{generateKeyMutation.isPending
-									? "Generating..."
-									: "Generate Key"}
+								{deleteKeyMutation.isPending ? "Deleting..." : "Delete Key"}
 							</Button>
 						</DialogFooter>
 					</DialogContent>
 				</Dialog>
 			</div>
-
-			{/* API Keys List */}
-			<Card>
-				<CardHeader>
-					<CardTitle>Your API Keys</CardTitle>
-					<CardDescription>
-						{apiKeys.length === 0
-							? "No API keys have been created yet."
-							: `You have ${apiKeys.length} API key${apiKeys.length === 1 ? "" : "s"}.`}
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					{(updateRoleMutation.isError || toggleKeyMutation.isError) && (
-						<div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
-							<div className="flex items-start gap-2 text-destructive">
-								<AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-								<span className="text-sm flex-1">
-									{updateRoleMutation.error?.message ??
-										toggleKeyMutation.error?.message ??
-										"Operation failed."}
-								</span>
-								<button
-									type="button"
-									onClick={() => {
-										updateRoleMutation.reset();
-										toggleKeyMutation.reset();
-									}}
-									className="shrink-0 hover:opacity-70"
-									aria-label="Dismiss error"
-								>
-									<X className="h-4 w-4" />
-								</button>
-							</div>
-						</div>
-					)}
-					{isLoadingKeys ? (
-						<div className="text-center py-8">Loading API keys...</div>
-					) : apiKeys.length === 0 ? (
-						<div className="text-center py-8 text-muted-foreground">
-							<Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
-							<p>No API keys configured</p>
-							<p className="text-sm">
-								API authentication will be disabled until you create your first
-								key.
-							</p>
-						</div>
-					) : (
-						<div className="space-y-4">
-							{apiKeys.map((key) => (
-								<div
-									key={key.id}
-									className="flex flex-col gap-3 p-4 border rounded-lg sm:flex-row sm:items-center sm:justify-between"
-								>
-									<div className="min-w-0 flex-1">
-										<div className="flex flex-wrap items-center gap-2">
-											<h3 className="font-medium break-all">{key.name}</h3>
-											<div
-												className={`px-2 py-1 rounded text-xs font-medium ${
-													key.isActive
-														? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-														: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-												}`}
-											>
-												{key.isActive ? "Active" : "Disabled"}
-											</div>
-											{canChangeRole(key) ? (
-												<DropdownMenu>
-													<DropdownMenuTrigger asChild>
-														<button
-															type="button"
-															className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium cursor-pointer hover:opacity-80 ${
-																key.role === "admin"
-																	? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-																	: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-															}`}
-															disabled={updateRoleMutation.isPending}
-														>
-															{key.role === "admin" ? "Admin" : "API-only"}
-															<ChevronDown className="h-3 w-3" />
-														</button>
-													</DropdownMenuTrigger>
-													<DropdownMenuContent align="start">
-														<DropdownMenuItem
-															onClick={() => handleUpdateRole(key, "admin")}
-															disabled={key.role === "admin"}
-														>
-															<Shield className="h-4 w-4 mr-2" />
-															Admin (dashboard access)
-														</DropdownMenuItem>
-														<DropdownMenuItem
-															onClick={() => handleUpdateRole(key, "api-only")}
-															disabled={key.role === "api-only"}
-														>
-															API-only (proxy access)
-														</DropdownMenuItem>
-													</DropdownMenuContent>
-												</DropdownMenu>
-											) : (
-												<div
-													className={`px-2 py-1 rounded text-xs font-medium ${
-														key.role === "admin"
-															? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-															: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-													}`}
-													title="First API key must remain admin"
-												>
-													{key.role === "admin" ? "Admin" : "API-only"}
-												</div>
-											)}
-										</div>
-										<div className="text-sm text-muted-foreground mt-1">
-											Key ends with:{" "}
-											<code className="bg-muted px-1 rounded">
-												{key.prefixLast8}
-											</code>
-										</div>
-										<div className="text-xs text-muted-foreground mt-1">
-											Created{" "}
-											{formatDistanceToNow(new Date(key.createdAt), {
-												addSuffix: true,
-											})}
-											{key.lastUsed && (
-												<>
-													{" • "}Last used{" "}
-													{formatDistanceToNow(new Date(key.lastUsed), {
-														addSuffix: true,
-													})}
-												</>
-											)}
-											{" • "}Used {key.usageCount} time
-											{key.usageCount !== 1 ? "s" : ""}
-										</div>
-									</div>
-									<div className="flex shrink-0 items-center gap-2">
-										<CopyButton
-											variant="outline"
-											size="sm"
-											value={key.prefixLast8}
-											title={`Copy key ending ${key.prefixLast8}`}
-										/>
-										<Button
-											variant="outline"
-											size="sm"
-											onClick={() => handleToggleKey(key, !key.isActive)}
-											disabled={toggleKeyMutation.isPending}
-											aria-label={`${key.isActive ? "Disable" : "Enable"} ${key.name}`}
-											title={key.isActive ? "Disable key" : "Enable key"}
-										>
-											{key.isActive ? (
-												<ToggleLeft className="h-4 w-4" />
-											) : (
-												<ToggleRight className="h-4 w-4" />
-											)}
-										</Button>
-										<Button
-											variant="outline"
-											size="sm"
-											onClick={() => handleDeleteKey(key)}
-											disabled={deleteKeyMutation.isPending}
-											aria-label={`Delete ${key.name}`}
-											title="Delete key"
-										>
-											<Trash2 className="h-4 w-4 text-destructive" />
-										</Button>
-									</div>
-								</div>
-							))}
-						</div>
-					)}
-				</CardContent>
-			</Card>
-
-			{/* Generated Key Dialog */}
-			<Dialog
-				open={!!generatedKey}
-				onOpenChange={(open) => {
-					if (!open) {
-						setGeneratedKey(null);
-						// Trigger auth dialog when closing so user can authenticate
-						window.dispatchEvent(new CustomEvent("auth-required"));
-					}
-				}}
-			>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>API Key Generated</DialogTitle>
-						<DialogDescription>
-							Your API key has been generated. Save it securely now - it won't
-							be shown again.
-						</DialogDescription>
-					</DialogHeader>
-					<div className="space-y-4 py-4">
-						<div className="space-y-2">
-							<Label>API Key</Label>
-							<div className="flex items-center gap-2">
-								<code className="flex-1 p-3 bg-muted rounded text-sm font-mono break-all">
-									{generatedKey}
-								</code>
-								<CopyButton
-									variant="outline"
-									size="sm"
-									value={generatedKey ?? ""}
-								/>
-							</div>
-						</div>
-						<div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-300">
-							<div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-300">
-								<AlertTriangle className="h-5 w-5" />
-								<span className="font-medium">Important:</span>
-							</div>
-							<p className="text-sm text-yellow-700 dark:text-yellow-300/90 mt-1">
-								Save this API key in a secure location. You won't be able to see
-								it again after closing this dialog.
-							</p>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button onClick={handleSavedKey} variant="outline">
-							I've saved the key
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-
-			{/* Delete Confirmation Dialog */}
-			<Dialog
-				open={isDeleteDialogOpen}
-				onOpenChange={(open) => {
-					setIsDeleteDialogOpen(open);
-					if (!open) deleteKeyMutation.reset();
-				}}
-			>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Delete API Key</DialogTitle>
-						<DialogDescription>
-							Are you sure you want to delete the API key "{selectedKey?.name}"?
-							This action cannot be undone.
-						</DialogDescription>
-					</DialogHeader>
-					<div className="py-4">
-						<p className="text-sm text-muted-foreground">
-							Deleting this API key will immediately invalidate it, and any
-							applications using it will no longer be able to authenticate.
-						</p>
-					</div>
-					{deleteKeyMutation.isError && (
-						<div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
-							<div className="flex items-start gap-2 text-destructive">
-								<AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-								<span className="text-sm">
-									{deleteKeyMutation.error?.message ??
-										"Failed to delete API key."}
-								</span>
-							</div>
-						</div>
-					)}
-					<DialogFooter>
-						<Button
-							onClick={() => {
-								setIsDeleteDialogOpen(false);
-								deleteKeyMutation.reset();
-							}}
-							variant="outline"
-						>
-							Cancel
-						</Button>
-						<Button
-							onClick={confirmDeleteKey}
-							variant="destructive"
-							disabled={deleteKeyMutation.isPending}
-						>
-							{deleteKeyMutation.isPending ? "Deleting..." : "Delete Key"}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
 		</div>
 	);
 }
