@@ -33,7 +33,10 @@ describe("Logs states", () => {
 			if (state === "cached") {
 				expect(html).not.toContain('role="alert"');
 				expect(html).toContain("Cached log entry");
+				expect(html).toContain("font-mono");
 			}
 			if (state === "empty") expect(html).toContain("No logs yet");
+			// Only log lines use the monospace pane; the shared states keep the app font.
+			if (state !== "cached") expect(html).not.toContain("font-mono");
 		});
 });

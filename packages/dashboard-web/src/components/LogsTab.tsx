@@ -226,7 +226,7 @@ export function LogsTab() {
 					</div>
 				</CardHeader>
 				<CardContent>
-					<div className="space-y-1 max-h-[500px] overflow-y-auto font-mono text-sm">
+					<div className="space-y-1 max-h-[500px] overflow-y-auto text-sm">
 						{history === undefined ? (
 							isError ? (
 								<ErrorState
@@ -247,7 +247,7 @@ export function LogsTab() {
 										// biome-ignore lint/suspicious/noArrayIndexKey: append-only log buffer; LogEvent has no per-event id and ts is not unique across same-ms bursts
 										`${log.ts}-${i}`
 									}
-									className="flex gap-2"
+									className="flex gap-2 font-mono"
 								>
 									<span className="text-muted-foreground">
 										{formatTimestamp(log.ts)}
