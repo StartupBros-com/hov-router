@@ -57,7 +57,11 @@ import {
 	SessionDrainSoonestStrategy,
 	SessionStrategy,
 } from "@better-ccflare/load-balancer";
-import { Logger, setConsoleLogging } from "@better-ccflare/logger";
+import {
+	Logger,
+	logFileWriter,
+	setConsoleLogging,
+} from "@better-ccflare/logger";
 import { handleResponsesRequest } from "@better-ccflare/openai-responses-adapter";
 import {
 	CODEX_DEFAULT_ENDPOINT,
@@ -140,6 +144,7 @@ import {
 import { validatePathOrThrow } from "@better-ccflare/security";
 import {
 	type Account,
+	type FullDiskStatus,
 	type LoadBalancingStrategy,
 	type RetentionStatus,
 	StrategyName,
@@ -176,6 +181,10 @@ import {
 	START_RESERVE_ARM_INTERVAL_MS,
 	startReserveReleasedMessage,
 } from "./start-reserve-keeper";
+import {
+	installStorageFullBackstop,
+	type StorageFullBackstop,
+} from "./storage-full-backstop";
 import {
 	createUsagePollingTrackingClearer,
 	isCurrentUsagePollingAccount,
@@ -1436,6 +1445,10 @@ export function formatWalCheckpointLog(
 // Export for programmatic use
 let serverLifecycleOwned = false;
 let quiesceHandlerInstalled = false;
+// Installed once a start has finished and kept through a signal-driven
+// shutdown, which still writes. A programmatic stop takes it off again, so
+// a process that outlives its server gets the runtime's own handling back.
+let storageFullBackstop: StorageFullBackstop | null = null;
 let quiesceKeepalive: ReturnType<typeof setInterval> | undefined;
 let retireBackendHeartbeat: (() => Promise<void>) | undefined;
 let stopAlertJob: (() => Promise<void>) | undefined;
@@ -1878,6 +1891,21 @@ export default async function startServer(options?: {
 	};
 	const getRetentionStatus = (): RetentionStatus => ({ ...retentionState });
 
+	// What the router is doing without on a full disk (#827). A start that
+	// spent the reserve knows it is gone; otherwise the first check says.
+	const startReserveState: { armed: boolean | null } = {
+		armed: startReserveUse.released ? false : null,
+	};
+	const getFullDiskStatus = (): FullDiskStatus => ({
+		logFile: logFileWriter?.status() ?? null,
+		startReserveArmed: startReserveState.armed,
+		uncaughtErrors: storageFullBackstop?.status() ?? {
+			count: 0,
+			lastError: null,
+			lastErrorAt: null,
+		},
+	});
+
 	// apiRouter itself is constructed further below (after the
 	// data-retention-cleanup job is registered) so its getRetentionStatus and
 	// getAnthropicDegradedHealth getters, plus the AuthService/cleanup jobs
@@ -2020,6 +2048,7 @@ export default async function startServer(options?: {
 				}),
 			getUpstreamTransportHealth: () => upstreamTransportTracker.snapshot(),
 			getRetentionStatus,
+			getFullDiskStatus,
 			getHandoff: () =>
 				quiesceHandlerInstalled
 					? { protocol: "quiesce-v1", pid: process.pid }
@@ -2069,6 +2098,9 @@ export default async function startServer(options?: {
 			callback: createStartReserveKeeper({
 				dbPath: startReserveDbPath,
 				log: new Logger("StartReserve"),
+				onChecked: (armed) => {
+					startReserveState.armed = armed;
+				},
 			}),
 			intervalMs: START_RESERVE_ARM_INTERVAL_MS,
 			immediate: startReserveUse.released === undefined,
@@ -3187,6 +3219,13 @@ Available endpoints:
 		throw new Error("Server instance has no valid port");
 	}
 
+	// From here a write that fails for lack of disk space where nothing
+	// catches it no longer ends the server (#827). Not before: the CLI does
+	// not await this function, so a start that failed is an unhandled
+	// rejection, and surviving that would leave a process that never
+	// listened. A start that fails still exits with code 1.
+	storageFullBackstop ??= installStorageFullBackstop();
+
 	return {
 		port: serverPort,
 		stop: createServerStopHandle(
@@ -3445,6 +3484,8 @@ function createServerStopHandle(
 				// Keep ownership visible throughout draining so a racing signal can await it.
 				if (serverInstance !== server) return;
 				serverInstance = null;
+				storageFullBackstop?.uninstall();
+				storageFullBackstop = null;
 				if (activeBodyAdmission === admission) activeBodyAdmission = null;
 				if (activeQualityRouteService === recovery)
 					activeQualityRouteService = undefined;

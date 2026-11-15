@@ -20,6 +20,8 @@ export interface StartReserveKeeperOptions {
 	log: Pick<Logger, "info" | "warn">;
 	/** Replaces the real write in tests. */
 	arm?: (dbPath: string) => Promise<StartReserveArmResult>;
+	/** Told after every check whether the reserve is whole. */
+	onChecked?: (armed: boolean) => void;
 }
 
 function describe(error: unknown): string {
@@ -47,6 +49,7 @@ export function createStartReserveKeeper(
 	let lastArmed: boolean | undefined;
 	return async () => {
 		const result = await arm(options.dbPath);
+		options.onChecked?.(result.armed);
 		if (result.armed === lastArmed) return;
 		lastArmed = result.armed;
 		if (result.armed) {

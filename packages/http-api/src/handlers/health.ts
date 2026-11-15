@@ -20,6 +20,7 @@ import type {
 	UpstreamTransportHealth,
 } from "@better-ccflare/types";
 import type {
+	FullDiskStatus,
 	HealthResponse,
 	IntegrityStatus,
 	PoolStatus,
@@ -86,6 +87,7 @@ export type HealthHandlerRuntimeProviders = Readonly<{
 	getAnthropicDegradedHealth?: AnthropicDegradedHealthFn;
 	getUpstreamTransportHealth?: () => UpstreamTransportHealth;
 	getRetentionStatus?: RetentionStatusFn;
+	getFullDiskStatus?: () => FullDiskStatus;
 	getRoutingHealth?: () => RoutingHealth | undefined;
 	getBodyAdmissionHealth?: () => NonNullable<
 		NonNullable<HealthResponse["runtime"]>["bodyAdmission"]
@@ -199,6 +201,7 @@ export function createHealthHandler(
 		getAnthropicDegradedHealth,
 		getUpstreamTransportHealth,
 		getRetentionStatus,
+		getFullDiskStatus,
 		getRoutingHealth,
 		getBodyAdmissionHealth,
 		getMemorySnapshot,
@@ -369,6 +372,31 @@ export function createHealthHandler(
 					lastErrorAt: retention.lastErrorAt
 						? new Date(retention.lastErrorAt).toISOString()
 						: null,
+				},
+			};
+		}
+
+		// What the router is doing without on a full disk (#827): dropped log
+		// lines, a spent start reserve, an error nothing caught. It keeps
+		// serving through all three, so nothing else would show them.
+		if (getFullDiskStatus) {
+			const runtime = response.runtime ?? {};
+			response.runtime = runtime;
+			const fullDisk = getFullDiskStatus();
+			const iso = (at: number | null) =>
+				at === null ? null : new Date(at).toISOString();
+			runtime.storage = {
+				...runtime.storage,
+				fullDisk: {
+					logFile: fullDisk.logFile && {
+						...fullDisk.logFile,
+						lastErrorAt: iso(fullDisk.logFile.lastErrorAt),
+					},
+					startReserveArmed: fullDisk.startReserveArmed,
+					uncaughtErrors: {
+						...fullDisk.uncaughtErrors,
+						lastErrorAt: iso(fullDisk.uncaughtErrors.lastErrorAt),
+					},
 				},
 			};
 		}

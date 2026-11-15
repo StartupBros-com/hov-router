@@ -82,6 +82,28 @@ describe("start reserve keeper", () => {
 		expect(lines[0]?.message).toContain(`0 of ${START_RESERVE_BYTES} bytes`);
 	});
 
+	it("tells its owner the outcome of every check, changed or not", async () => {
+		const { log } = recordingLog();
+		const results: StartReserveArmResult[] = [
+			{ armed: false, bytes: 0 },
+			{ armed: false, bytes: 0 },
+			{ armed: true, bytes: START_RESERVE_BYTES },
+		];
+		const outcomes: boolean[] = [];
+		const check = createStartReserveKeeper({
+			dbPath,
+			log,
+			arm: async () => results.shift() as StartReserveArmResult,
+			onChecked: (armed) => {
+				outcomes.push(armed);
+			},
+		});
+
+		for (let i = 0; i < 3; i++) await check();
+
+		expect(outcomes).toEqual([false, false, true]);
+	});
+
 	it("names the failure and the bytes given back when a start spent the reserve", () => {
 		const message = startReserveReleasedMessage(
 			START_RESERVE_BYTES,
