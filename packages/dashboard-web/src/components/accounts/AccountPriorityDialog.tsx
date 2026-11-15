@@ -112,8 +112,9 @@ export function AccountPriorityDialog({
 						{validationError || submission.error}
 					</p>
 				)}
-				<DialogFooter className="[&>button]:min-h-11">
+				<DialogFooter>
 					<Button
+						size="touch"
 						type="button"
 						variant="outline"
 						disabled={isUpdating}
@@ -121,7 +122,12 @@ export function AccountPriorityDialog({
 					>
 						Cancel
 					</Button>
-					<Button type="button" onClick={handleUpdate} disabled={isUpdating}>
+					<Button
+						size="touch"
+						type="button"
+						onClick={handleUpdate}
+						disabled={isUpdating}
+					>
 						{isUpdating ? "Updating..." : "Update Priority"}
 					</Button>
 				</DialogFooter>

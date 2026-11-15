@@ -1,5 +1,5 @@
 import type { AccountRoutingOverview } from "@better-ccflare/types";
-import { AlertCircle, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useState } from "react";
 import { type Account, api } from "../api";
 import {
@@ -48,6 +48,7 @@ import {
 } from "./accounts/public-value-actions";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "./ui/card";
+import { ErrorState, LoadingState } from "./ui/state";
 
 type AccountCreationClient = Pick<
 	typeof api,
@@ -762,36 +763,20 @@ export function AccountsTab() {
 		}
 	};
 
-	if (loading) {
-		return (
-			<div role="status" aria-label="Loading accounts" className="space-y-4">
-				<p className="text-muted-foreground">Loading accounts...</p>
-				{[0, 1, 2].map((index) => (
-					<div
-						key={index}
-						aria-hidden="true"
-						className="h-36 animate-pulse rounded-lg border bg-muted/40"
-					/>
-				))}
-			</div>
-		);
-	}
-
-	const displayError = error ? formatError(error) : actionError;
+	if (loading) return <LoadingState label="Loading accounts" />;
 
 	return (
 		<div className="space-y-4">
-			{displayError && (
-				<Card role="alert" className="border-destructive">
-					<CardContent className="pt-6">
-						<div className="flex items-center gap-2">
-							<AlertCircle className="h-4 w-4 text-destructive" />
-							<p className="min-w-0 break-words text-destructive">
-								{displayError}
-							</p>
-						</div>
-					</CardContent>
-				</Card>
+			{error ? (
+				<ErrorState
+					title="Accounts could not load"
+					message={formatError(error)}
+					onRetry={() => void loadAccounts()}
+				/>
+			) : (
+				actionError && (
+					<ErrorState title="Action failed" message={actionError} />
+				)
 			)}
 
 			<Card className="min-w-0 border-0 bg-transparent shadow-none hover:shadow-none">

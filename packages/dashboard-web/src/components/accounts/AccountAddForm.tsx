@@ -1249,36 +1249,36 @@ export function AccountAddForm({
 						{newAccount.mode === "codex" && (
 							<div className="space-y-3" role="status" aria-live="polite">
 								{codexStep === "idle" && (
-									<div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
-										<p className="text-sm text-blue-900 dark:text-blue-100 font-medium mb-1">
+									<div className="bg-(--info-soft) p-3 rounded-lg">
+										<p className="text-sm text-(--info) font-medium mb-1">
 											Device Code Authentication
 										</p>
-										<p className="text-xs text-blue-800 dark:text-blue-200">
+										<p className="text-xs text-(--info)">
 											Click the button below to start Codex authentication. A
 											browser tab will open for you to authorize.
 										</p>
 									</div>
 								)}
 								{codexStep === "pending" && (
-									<div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg space-y-2">
-										<p className="text-sm text-blue-900 dark:text-blue-100 font-medium">
+									<div className="bg-(--info-soft) p-3 rounded-lg space-y-2">
+										<p className="text-sm text-(--info) font-medium">
 											Waiting for authorization...
 										</p>
-										<p className="text-xs text-blue-800 dark:text-blue-200">
+										<p className="text-xs text-(--info)">
 											Enter this code in the browser tab:
 										</p>
-										<p className="text-xs text-blue-800 dark:text-blue-200">
+										<p className="text-xs text-(--info)">
 											This setup continues on the server if you navigate away.
 										</p>
 										<div className="flex items-center gap-2">
-											<code className="text-lg font-mono font-bold tracking-widest bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 px-3 py-1 rounded">
+											<code className="text-lg font-mono font-bold tracking-widest bg-(--info-soft) text-(--info) px-3 py-1 rounded">
 												{codexUserCode}
 											</code>
 											<a
 												href={codexVerificationUrl}
 												target="_blank"
 												rel="noreferrer"
-												className="text-xs text-blue-700 dark:text-blue-300 underline"
+												className="text-xs text-(--info) underline"
 											>
 												Open browser
 											</a>
@@ -1286,20 +1286,18 @@ export function AccountAddForm({
 									</div>
 								)}
 								{codexStep === "complete" && (
-									<div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg">
-										<p className="text-sm text-green-900 dark:text-green-100 font-medium">
+									<div className="bg-(--success-soft) p-3 rounded-lg">
+										<p className="text-sm text-(--success) font-medium">
 											Authorization complete. Account added.
 										</p>
 									</div>
 								)}
 								{codexStep === "error" && (
-									<div className="bg-red-50 dark:bg-red-950 p-3 rounded-lg space-y-2">
-										<p className="text-sm text-red-900 dark:text-red-100 font-medium">
+									<div className="bg-(--danger-soft) p-3 rounded-lg space-y-2">
+										<p className="text-sm text-(--danger) font-medium">
 											Authentication failed
 										</p>
-										<p className="text-xs text-red-800 dark:text-red-200">
-											{codexError}
-										</p>
+										<p className="text-xs text-(--danger)">{codexError}</p>
 										<Button
 											variant="outline"
 											size="sm"
@@ -1317,36 +1315,36 @@ export function AccountAddForm({
 						{newAccount.mode === "qwen" && (
 							<div className="space-y-3" role="status" aria-live="polite">
 								{qwenStep === "idle" && (
-									<div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
-										<p className="text-sm text-blue-900 dark:text-blue-100 font-medium mb-1">
+									<div className="bg-(--info-soft) p-3 rounded-lg">
+										<p className="text-sm text-(--info) font-medium mb-1">
 											Device Code Authentication
 										</p>
-										<p className="text-xs text-blue-800 dark:text-blue-200">
+										<p className="text-xs text-(--info)">
 											Click the button below to start Qwen authentication. A
 											browser tab will open for you to authorize.
 										</p>
 									</div>
 								)}
 								{qwenStep === "pending" && (
-									<div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg space-y-2">
-										<p className="text-sm text-blue-900 dark:text-blue-100 font-medium">
+									<div className="bg-(--info-soft) p-3 rounded-lg space-y-2">
+										<p className="text-sm text-(--info) font-medium">
 											Waiting for authorization...
 										</p>
-										<p className="text-xs text-blue-800 dark:text-blue-200">
+										<p className="text-xs text-(--info)">
 											Enter this code in the browser tab:
 										</p>
-										<p className="text-xs text-blue-800 dark:text-blue-200">
+										<p className="text-xs text-(--info)">
 											This setup continues on the server if you navigate away.
 										</p>
 										<div className="flex items-center gap-2">
-											<code className="text-lg font-mono font-bold tracking-widest bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 px-3 py-1 rounded">
+											<code className="text-lg font-mono font-bold tracking-widest bg-(--info-soft) text-(--info) px-3 py-1 rounded">
 												{qwenUserCode}
 											</code>
 											<a
 												href={qwenAuthUrl}
 												target="_blank"
 												rel="noreferrer"
-												className="text-xs text-blue-700 dark:text-blue-300 underline"
+												className="text-xs text-(--info) underline"
 											>
 												Open browser
 											</a>
@@ -1354,20 +1352,18 @@ export function AccountAddForm({
 									</div>
 								)}
 								{qwenStep === "complete" && (
-									<div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg">
-										<p className="text-sm text-green-900 dark:text-green-100 font-medium">
+									<div className="bg-(--success-soft) p-3 rounded-lg">
+										<p className="text-sm text-(--success) font-medium">
 											Authorization complete. Account added.
 										</p>
 									</div>
 								)}
 								{qwenStep === "error" && (
-									<div className="bg-red-50 dark:bg-red-950 p-3 rounded-lg space-y-2">
-										<p className="text-sm text-red-900 dark:text-red-100 font-medium">
+									<div className="bg-(--danger-soft) p-3 rounded-lg space-y-2">
+										<p className="text-sm text-(--danger) font-medium">
 											Authentication failed
 										</p>
-										<p className="text-xs text-red-800 dark:text-red-200">
-											{qwenError}
-										</p>
+										<p className="text-xs text-(--danger)">{qwenError}</p>
 										<Button
 											variant="outline"
 											size="sm"
@@ -1429,13 +1425,13 @@ export function AccountAddForm({
 										Global for best availability, regional for data residency
 									</p>
 								</div>
-								<div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
-									<p className="text-sm text-blue-900 dark:text-blue-100 font-medium mb-1">
+								<div className="bg-(--info-soft) p-3 rounded-lg">
+									<p className="text-sm text-(--info) font-medium mb-1">
 										Authentication Required
 									</p>
-									<p className="text-xs text-blue-800 dark:text-blue-200">
+									<p className="text-xs text-(--info)">
 										Vertex AI uses Google Cloud credentials. Ensure you've run:{" "}
-										<code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">
+										<code className="bg-(--info-soft) px-1 rounded">
 											gcloud auth application-default login
 										</code>
 									</p>
@@ -1445,13 +1441,13 @@ export function AccountAddForm({
 						{newAccount.mode === "bedrock" && (
 							<>
 								{awsProfiles.length === 0 && !loadingProfiles && (
-									<div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
-										<p className="text-sm text-blue-900 dark:text-blue-100 font-medium mb-1">
+									<div className="bg-(--info-soft) p-3 rounded-lg">
+										<p className="text-sm text-(--info) font-medium mb-1">
 											No AWS profiles found
 										</p>
-										<p className="text-xs text-blue-800 dark:text-blue-200">
+										<p className="text-xs text-(--info)">
 											Run{" "}
-											<code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">
+											<code className="bg-(--info-soft) px-1 rounded">
 												aws configure
 											</code>{" "}
 											to set up profiles.
@@ -1505,7 +1501,7 @@ export function AccountAddForm({
 											{newAccount.profile &&
 												!newAccount.awsRegion &&
 												!loadingProfiles && (
-													<p className="text-xs text-yellow-700 dark:text-yellow-400">
+													<p className="text-xs text-(--warning)">
 														No default region found for this profile. Configure
 														region in ~/.aws/config
 													</p>
@@ -1567,11 +1563,11 @@ export function AccountAddForm({
 												detection. Leave empty to use fuzzy matching.
 											</p>
 										</div>
-										<div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
-											<p className="text-sm text-blue-900 dark:text-blue-100 font-medium mb-1">
+										<div className="bg-(--info-soft) p-3 rounded-lg">
+											<p className="text-sm text-(--info) font-medium mb-1">
 												Authentication Required
 											</p>
-											<p className="text-xs text-blue-800 dark:text-blue-200">
+											<p className="text-xs text-(--info)">
 												Bedrock uses AWS credentials from the selected profile.
 												Ensure your credentials are configured.
 											</p>

@@ -152,7 +152,7 @@ describe("RateLimitProgress", () => {
 		expect(html).toContain("Fable (Weekly)");
 		expect(html).toContain("100%");
 		// severity critical -> red indicator; is_active -> "binding" marker.
-		expect(html).toContain("bg-red-500");
+		expect(html).toContain("bg-(--danger-solid)");
 		expect(html).toContain("limiting");
 		// Session / Weekly group headers.
 		expect(html).toContain("Session");
@@ -225,8 +225,8 @@ describe("RateLimitProgress", () => {
 				showWeekly
 			/>,
 		);
-		expect(html).not.toContain("bg-amber-500");
-		expect(html).not.toContain("bg-red-500");
+		expect(html).not.toContain("bg-(--warning-solid)");
+		expect(html).not.toContain("bg-(--danger-solid)");
 	});
 
 	it("uses the model label (not the window slug) in the scoped-row tooltip (n2)", () => {
@@ -473,6 +473,22 @@ describe("RateLimitProgress", () => {
 		expect(html).toContain("N/A");
 		expect(html).toContain("Data unavailable");
 		expect(html).not.toContain("Usage (5-hour)");
+	});
+
+	it("never marks an ended cooldown as an exhausted or limiting quota window", () => {
+		// With no quota data the row measures elapsed cooldown time, which reaches
+		// 100% once the cooldown ends. That is not quota exhaustion.
+		const html = renderToStaticMarkup(
+			<RateLimitProgress
+				resetIso={new Date(Date.now() - 60 * 1000).toISOString()}
+				provider="openai-compatible"
+				bindingWindow={null}
+			/>,
+		);
+
+		expect(html).toContain("Rate limit window");
+		expect(html).not.toContain("exhausted");
+		expect(html).not.toContain("limiting");
 	});
 
 	it("does not fall back to the elapsed-time bar for Codex when only a reset is known", () => {
@@ -1150,4 +1166,103 @@ it("compact bars rank only when a known bar is binding and keep visible tracks",
 	expect(exhaustedOther.match(/class="[^"]*bg-foreground[^"]*"/g)).toHaveLength(
 		1,
 	);
+});
+
+describe("status primitives reset presentation", () => {
+	const now = Date.UTC(2026, 10, 14, 12);
+	const reset = now + 2 * 3_600_000;
+	const iso = (ms: number) => new Date(ms).toISOString();
+	function renderResets(
+		resets: number[],
+		compact = true,
+		bindingWindow?: string,
+		exhausted = false,
+	) {
+		setSystemTime(now);
+		return renderToStaticMarkup(
+			<RateLimitProgress
+				compact={compact}
+				provider="anthropic"
+				resetIso={null}
+				showWeekly
+				bindingWindow={bindingWindow}
+				usageData={{
+					five_hour: {
+						utilization: exhausted ? 100 : 20,
+						resets_at: iso(resets[0]!),
+					},
+					seven_day: { utilization: 40, resets_at: iso(resets[1]!) },
+					...(resets[2] === undefined
+						? {}
+						: {
+								seven_day_fable: { utilization: 30, resets_at: iso(resets[2]) },
+							}),
+				}}
+			/>,
+		);
+	}
+	// Remove hidden accessibility copy before asserting visible presentation.
+	const visible = (html: string) =>
+		html
+			.replace(
+				/<span\b[^>]*class="[^"]*\bsr-only\b[^"]*"[^>]*>[\s\S]*?<\/span>/g,
+				"",
+			)
+			.replace(/<[^>]*>/g, "");
+	afterEach(() => setSystemTime());
+
+	it("shows one relative reset and same reset for adjacent equal resets", () => {
+		const text = visible(renderResets([reset, reset]));
+		expect(text.match(/in 2h 0m/g)).toHaveLength(1);
+		expect(text).toContain("same reset");
+	});
+	it("merges adjacent resets 20 seconds apart", () => {
+		const text = visible(renderResets([reset, reset + 20_000]));
+		expect(text.match(/in 2h 0m/g)).toHaveLength(1);
+		expect(text).toContain("same reset");
+	});
+	it("shows both relative times for resets 30 minutes apart", () => {
+		const text = visible(renderResets([reset, reset + 30 * 60_000]));
+		expect(text).toContain("in 2h 0m");
+		expect(text).toContain("in 2h 30m");
+		expect(text).not.toContain("same reset");
+	});
+	it("shows equal resets separately when they are not adjacent", () => {
+		const text = visible(renderResets([reset, reset + 30 * 60_000, reset]));
+		expect(text.match(/in 2h 0m/g)).toHaveLength(2);
+		expect(text).toContain("in 2h 30m");
+		expect(text).not.toContain("same reset");
+	});
+	it("marks the binding compact window with visible limiting text", () => {
+		const html = renderResets([reset, reset + 30 * 60_000], true, "seven_day");
+		const weekly = html.match(
+			/<fieldset[^>]*aria-label="Weekly used"[\s\S]*?<\/fieldset>/,
+		)?.[0];
+		expect(weekly).toBeDefined();
+		expect(visible(weekly!)).toMatch(/Weekly\s*limiting/);
+	});
+	it("marks an exhausted compact window with visible exhausted text", () => {
+		const html = renderResets(
+			[reset, reset + 30 * 60_000],
+			true,
+			undefined,
+			true,
+		);
+		const fiveHour = html.match(
+			/<fieldset[^>]*aria-label="5-hour used"[\s\S]*?<\/fieldset>/,
+		)?.[0];
+		expect(fiveHour).toBeDefined();
+		expect(visible(fiveHour!)).toMatch(/5-hour\s*exhausted/);
+	});
+	it("omits the duplicate relative time after Resets in full view", () => {
+		const text = visible(renderResets([reset, reset + 30 * 60_000], false));
+		expect(text).toContain("Resets ");
+		expect(text).not.toMatch(/Resets [^·]* · in /);
+	});
+	it("names the keeper instead of repeating the full-view countdown and reset", () => {
+		const text = visible(renderResets([reset, reset], false));
+		expect(text).toContain("Same reset as 5-hour");
+		expect(text.match(/until reset/g)).toHaveLength(1);
+		expect(text.match(/Resets [^()]*\(local\)/g)).toHaveLength(1);
+	});
 });
