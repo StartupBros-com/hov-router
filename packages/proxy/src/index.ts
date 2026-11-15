@@ -98,14 +98,12 @@ export {
 	CATALOG_REFRESH_INTERVAL_MS,
 	clearCodexModelCacheForAccount,
 	clearCodexModelCacheForTests,
-	getCodexAutoCatalogEvidence,
 	getCodexCatalogRoleTarget,
 	getCodexModels,
 	getKnownCodexModels,
 	getKnownOrSharedCodexModels,
 	initCodexModelCatalogRefresh,
 	lowestTierCodexModel,
-	validateCodexAutoCatalogCredentials,
 } from "./codex-model-catalog";
 export {
 	recordCodexUsageSnapshot,
@@ -186,17 +184,13 @@ export {
 	startIntegrityScheduler,
 } from "./integrity-scheduler";
 export {
-	type AutoResolvedCredentials,
-	clearNativeAutoCatalogEvidence,
 	fetchLiveModels,
 	getModelCatalog,
-	getNativeAutoCatalogEvidence,
 	initModelCatalogRefresh,
 	type ModelCatalog,
 	type ModelCatalogEntry,
 	type ModelCatalogRefreshResult,
 	refreshModelCatalog,
-	validateNativeAutoCatalogCredentials,
 } from "./model-catalog";
 export {
 	ROUTE_BINDING_RESTORE_BUDGET_MS,

@@ -8,16 +8,12 @@ import {
 } from "@better-ccflare/core";
 import { Logger } from "@better-ccflare/logger";
 import {
-	type AutoCatalogEvidence,
 	type AutoModelCapabilities,
 	CODEX_VERIFIED_VERSION_FILE_ENV,
 	clearCodexAccountModelContextMetadata,
 	clearDerivedAccountModelDefaults,
-	createAutoCatalogEvidence,
 	extractChatGptAccountId,
 	hasDerivedProviderModelDefaults,
-	isAutoCatalogEvidenceCurrent,
-	isCodexSubscriptionEndpoint,
 	newestSupportedLineModel,
 	normalizeAutoModelCapabilities,
 	resolveCodexClientIdentity,
@@ -122,49 +118,8 @@ interface CachedAccountCatalog {
 }
 
 const lastGood = new Map<string, CachedAccountCatalog>();
-const autoEvidence = new Map<string, AutoCatalogEvidence>();
-const codexOwners = new WeakMap<
-	AutoCatalogEvidence,
-	{
-		fingerprint: string;
-		createdAt: number;
-		endpoint: string | null;
-		epoch: number;
-	}
->();
 
-/** Revalidate the actual server-resolved token at the final dispatch boundary.
- * Source ownership is private, not a caller's boolean or a copied catalog record.
- */
-export function validateCodexAutoCatalogCredentials(
-	evidence: AutoCatalogEvidence | null,
-	selected: import("./model-catalog").AutoResolvedCredentials,
-): boolean {
-	const current = getCodexAutoCatalogEvidence(selected.account.id);
-	const owner = evidence && codexOwners.get(evidence);
-	const currentOwner = current && codexOwners.get(current);
-	return Boolean(
-		evidence &&
-			isAutoCatalogEvidenceCurrent(evidence) &&
-			current &&
-			owner &&
-			currentOwner &&
-			selected.account.provider === "codex" &&
-			selected.accessToken &&
-			(!selected.account.custom_endpoint ||
-				isCodexSubscriptionEndpoint(selected.account.custom_endpoint)) &&
-			evidence.accountId === selected.account.id &&
-			evidence.revision === current.revision &&
-			owner.epoch === currentOwner.epoch &&
-			owner.createdAt === selected.account.created_at &&
-			currentOwner.createdAt === selected.account.created_at &&
-			owner.endpoint === (selected.account.custom_endpoint ?? null) &&
-			currentOwner.endpoint === owner.endpoint &&
-			owner.fingerprint === currentOwner.fingerprint &&
-			owner.fingerprint === tokenFingerprint(selected.accessToken),
-	);
-}
-// Private credential generations, never exposed in catalog evidence or logs.
+// Private credential generations, never exposed in listings or logs.
 const selectedTokenGeneration = new Map<
 	string,
 	{ fingerprint: string; generation: number }
@@ -174,7 +129,6 @@ function tokenFingerprint(token: string): string {
 }
 function retireOwnCatalog(accountId: string): void {
 	lastGood.delete(accountId);
-	autoEvidence.delete(accountId);
 	clearDerivedAccountModelDefaults("codex", accountId);
 	clearCodexAccountModelContextMetadata(accountId);
 }
@@ -233,68 +187,6 @@ const lastCatalogRoleRouteReportAt = new Map<string, number>();
 /** One best-effort listing request per account at a time. */
 const ensureInFlight = new Map<string, Promise<void>>();
 
-/**
- * The account's running ensure attempt, if any: a wait signal only. Its
- * completion proves nothing about ownership, which the caller rechecks against
- * its own resolved credential. Warm callers of ensureCodexModelDefaults return
- * before the refresh finishes; this lets a bounded caller wait for it instead.
- */
-export function getPendingCodexCatalogAcquisition(
-	accountId: string,
-): Promise<void> | undefined {
-	return ensureInFlight.get(accountId);
-}
-
-/**
- * A bounded caller's own restrictions on the acquisition it starts (Auto
- * catalog preparation). The caller checks them before calling ensure, but the
- * attempt then awaits its own account reload and token resolution; they are
- * rechecked after each, against the freshly loaded row, immediately before any
- * GET. Callers without restrictions (stock routing, the heartbeat, manual
- * revalidation) pass none and keep their behavior, except that a cold one which
- * joined a scoped attempt that ended without a GET acquires once on its own
- * afterwards, under eligibility-only restrictions of its own (see
- * ensureDefaults). The restrictions bound catalog GETs only:
- * token resolution performs its normal refresh and persistence, and a GET
- * already started completes under its own timeout and the publication fences.
- */
-export interface CodexCatalogAcquisitionScope {
-	/** The request ended (abort, policy change, budget): start no new catalog GET. */
-	stopped(): boolean;
-	/** Whether the freshly reloaded row may still receive a catalog GET. */
-	accountEligible(account: Account): boolean;
-}
-
-/**
- * The attempt sent no catalog GET because its scope ended, or its account
- * stopped being eligible, before the GET. A control outcome, not a failure: it
- * records no refresh failure and schedules no retry backoff, so a later
- * eligible caller acquires at once under its own restrictions. It never
- * cancels a GET already started, nor another caller's running attempt.
- */
-export class CodexCatalogAcquisitionNotAttemptedError extends Error {
-	readonly reason: "request-stopped" | "account-ineligible";
-	constructor(reason: "request-stopped" | "account-ineligible") {
-		super(`Codex catalog acquisition not attempted: ${reason}`);
-		this.name = "CodexCatalogAcquisitionNotAttemptedError";
-		this.reason = reason;
-	}
-}
-
-/** Rechecks a scope against the row just reloaded; a no-op without a scope. */
-function throwIfOutOfScope(
-	scope: CodexCatalogAcquisitionScope | undefined,
-	accountId: string,
-	fresh: Account | null | undefined,
-): void {
-	if (!scope) return;
-	if (scope.stopped()) {
-		throw new CodexCatalogAcquisitionNotAttemptedError("request-stopped");
-	}
-	if (!fresh || fresh.id !== accountId || !scope.accountEligible(fresh)) {
-		throw new CodexCatalogAcquisitionNotAttemptedError("account-ineligible");
-	}
-}
 const unknownRevalidationAt = new Map<string, number>();
 const UNKNOWN_REVALIDATION_COOLDOWN_MS = 60_000;
 
@@ -319,7 +211,6 @@ let publishedProviderCatalogGeneration = 0;
  */
 export function clearCodexModelCacheForTests(): void {
 	lastGood.clear();
-	autoEvidence.clear();
 	selectedTokenGeneration.clear();
 	clearCodexAccountModelContextMetadata();
 	invalidationGenerationByAccount.clear();
@@ -346,7 +237,6 @@ export function clearCodexModelCacheForAccount(accountId: string): void {
 		invalidationGenerationFor(accountId) + 1,
 	);
 	lastGood.delete(accountId);
-	autoEvidence.delete(accountId);
 	selectedTokenGeneration.delete(accountId);
 	ensureRetryByAccount.delete(accountId);
 	ensureInFlight.delete(accountId);
@@ -399,21 +289,6 @@ export function getKnownOrSharedCodexModels(
 	accountId: string,
 ): CodexModelListing | null {
 	return readCache(accountId);
-}
-
-/** No fetch, provider-wide fallback, or capacity-prefix inference. Freshness is
- * checked on every read. Account ID alone does not prove that a dispatch token
- * still belongs to the credential epoch that produced this snapshot.
- */
-export function getCodexAutoCatalogEvidence(
-	accountId: string,
-	/** Diagnostic compilation only; admission still checks freshness. */
-	includeStale = false,
-): AutoCatalogEvidence | null {
-	const evidence = autoEvidence.get(accountId) ?? null;
-	return includeStale || isAutoCatalogEvidenceCurrent(evidence)
-		? evidence
-		: null;
 }
 
 function readCache(accountId: string): CodexModelListing | null {
@@ -510,22 +385,9 @@ async function fetchLive(
 	ctx: ProxyContext,
 	generation: number,
 	invalidationGeneration: number,
-	scope?: CodexCatalogAcquisitionScope,
 ): Promise<{ models: CodexModelEntry[]; fingerprint: string }> {
 	const identity = resolveCodexClientIdentity();
 	const accessToken = await getValidAccessToken(account, ctx);
-	if (scope) {
-		// Token resolution was awaited: a stop or an account change that landed
-		// meanwhile must prevent the GET, before any credential bookkeeping.
-		if (scope.stopped()) {
-			throw new CodexCatalogAcquisitionNotAttemptedError("request-stopped");
-		}
-		throwIfOutOfScope(
-			scope,
-			account.id,
-			await ctx.dbOps.getAccount(account.id),
-		);
-	}
 	if (!accessToken) throw new Error("no access token for this account");
 	const fingerprint = tokenFingerprint(accessToken);
 	const previousToken = selectedTokenGeneration.get(account.id);
@@ -586,34 +448,15 @@ export function ensureCodexModelDefaults(
 	ctx: ProxyContext,
 	now: () => number = Date.now,
 	forceRevalidation = false,
-	scope?: CodexCatalogAcquisitionScope,
 ): Promise<void> {
-	return ensureDefaults(account, ctx, now, forceRevalidation, scope, true);
+	return ensureDefaults(account, ctx, now, forceRevalidation);
 }
 
-/**
- * `recoverOnce`: whether a cold caller without restrictions that joins the
- * account's running attempt may make one acquisition of its own after it. A
- * request-scoped attempt can end without a GET (its request stopped, or its
- * account became ineligible, before the GET); that typed outcome is the
- * scoped caller's alone, so an unrestricted joiner rechecks once after the
- * shared attempt settles and acquires only if the account is still cold with
- * no retry pending. The recheck is not forced and makes no further recovery;
- * it carries eligibility-only restrictions (the joiner's account incarnation
- * and the refresh-eligibility rule), never the starter's request stop. So it
- * returns at once when the attempt hydrated the account or recorded a failure,
- * joins a newer attempt plainly, and sends no GET to an account that was
- * paused, flagged for reauth, moved to a custom endpoint or another provider,
- * deleted or replaced meanwhile. Scoped joiners never take it: their
- * preparation waits on the attempt and rechecks ownership.
- */
 function ensureDefaults(
 	account: Account | null | undefined,
 	ctx: ProxyContext,
 	now: () => number,
 	forceRevalidation: boolean,
-	scope: CodexCatalogAcquisitionScope | undefined,
-	recoverOnce: boolean,
 ): Promise<void> {
 	if (account?.provider !== "codex") return Promise.resolve();
 	const invalidationGeneration = invalidationGenerationFor(account.id);
@@ -633,32 +476,7 @@ function ensureDefaults(
 	// a stalled credential refresh or catalog fetch. Cold accounts still wait.
 	if (current) {
 		if (ownListing) return Promise.resolve();
-		if (scope || !recoverOnce) return current;
-		// The running attempt is never cancelled; its outcome stands for its own
-		// caller. `current` is the registered promise, so the recheck runs after
-		// the attempt has cleared itself from the registry: joiners rechecking
-		// together start one recovery and share it. The recovery is bounded (one
-		// recheck, no further recovery) and not forced, and it inherits no
-		// request stop. It carries restrictions of its own that only bound
-		// eligibility: this joiner's account incarnation (deletion generation
-		// and created_at) and the refresh-eligibility rule, rechecked like any
-		// scope after its reload and its token resolution, before any GET. A
-		// deleted or replaced account is skipped outright.
-		const recovery: CodexCatalogAcquisitionScope = {
-			stopped: () => false,
-			accountEligible: (fresh) =>
-				isCurrentInvalidationGeneration(account.id, invalidationGeneration) &&
-				fresh.created_at === account.created_at &&
-				isCodexCatalogRefreshEligible(fresh),
-		};
-		return current.then(() => {
-			if (
-				!isCurrentInvalidationGeneration(account.id, invalidationGeneration)
-			) {
-				return Promise.resolve();
-			}
-			return ensureDefaults(account, ctx, now, false, recovery, false);
-		});
+		return current;
 	}
 
 	const retry = ensureRetryByAccount.get(account.id);
@@ -667,7 +485,7 @@ function ensureDefaults(
 	let attempt: Promise<void>;
 	attempt = (async () => {
 		try {
-			const listing = await getCodexModels(account.id, ctx, scope);
+			const listing = await getCodexModels(account.id, ctx);
 			if (
 				listing?.source === "live" &&
 				hasDerivedProviderModelDefaults("codex", account.id)
@@ -679,12 +497,6 @@ function ensureDefaults(
 				scheduleEnsureRetry(account.id, now());
 			}
 		} catch (err) {
-			// Nothing was attempted, so nothing failed: no backoff, a later eligible
-			// caller acquires at once.
-			if (err instanceof CodexCatalogAcquisitionNotAttemptedError) {
-				log.debug(`Skipped the model list for ${account.name}: ${err.reason}`);
-				return;
-			}
 			// Never blocks the request: without a map the family falls through and
 			// the provider gets to say what it thinks, which the record then learns.
 			if (isCurrentInvalidationGeneration(account.id, invalidationGeneration)) {
@@ -871,14 +683,10 @@ export function lowestTierCodexModel(
 export async function getCodexModels(
 	accountId: string,
 	ctx: ProxyContext,
-	scope?: CodexCatalogAcquisitionScope,
 ): Promise<CodexModelListing | null> {
 	const invalidationGeneration = invalidationGenerationFor(accountId);
 	const fetchGeneration = ++nextCatalogFetchGeneration;
 	const resolvedAccount = await ctx.dbOps.getAccount(accountId);
-	// A scoped caller's stop or eligibility loss during this reload is a typed
-	// not-attempted outcome, never the null that would count as a failed read.
-	throwIfOutOfScope(scope, accountId, resolvedAccount);
 	if (!resolvedAccount || resolvedAccount.provider !== "codex") return null;
 	const account = { ...resolvedAccount };
 
@@ -888,7 +696,6 @@ export async function getCodexModels(
 			ctx,
 			fetchGeneration,
 			invalidationGeneration,
-			scope,
 		);
 		// An answer with nothing usable in it is not an answer. Recording it
 		// would mark the account as resolved and stop every later attempt, so a
@@ -916,23 +723,9 @@ export async function getCodexModels(
 				publishedAccountGeneration === undefined ||
 				fetchGeneration > publishedAccountGeneration
 			) {
-				// This account's exact evidence advances independently of the shared
+				// This account's own listing advances independently of the shared
 				// frontier, so a late response from another account still remains useful.
 				lastGood.set(accountId, { listing, generation: fetchGeneration });
-				const evidence = createAutoCatalogEvidence({
-					...listing,
-					expiresAt: listing.fetchedAt + CATALOG_REFRESH_INTERVAL_MS,
-					provider: "codex",
-				});
-				if (evidence) {
-					codexOwners.set(evidence, {
-						fingerprint,
-						createdAt: account.created_at,
-						endpoint: account.custom_endpoint ?? null,
-						epoch: invalidationGeneration,
-					});
-					autoEvidence.set(accountId, evidence);
-				} else autoEvidence.delete(accountId);
 				setCodexAccountModelContextMetadata(accountId, models);
 				setDerivedAccountModelDefaults("codex", accountId, families);
 				publishedOwn = true;
@@ -954,8 +747,6 @@ export async function getCodexModels(
 		}
 		return listing;
 	} catch (error) {
-		// Not a failed read: no traffic was started, so no failure is recorded.
-		if (error instanceof CodexCatalogAcquisitionNotAttemptedError) throw error;
 		const cached = readCache(accountId);
 		if (isCurrentInvalidationGeneration(accountId, invalidationGeneration)) {
 			lastRefreshFailedAt.set(accountId, Date.now());

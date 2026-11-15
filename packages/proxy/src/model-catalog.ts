@@ -7,7 +7,6 @@
  * to the last known-good cache — and ultimately to the bundled
  * `CLAUDE_MODEL_IDS` list — if a live fetch is unavailable.
  */
-import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,12 +18,8 @@ import {
 } from "@better-ccflare/core";
 import { Logger } from "@better-ccflare/logger";
 import {
-	AUTO_CATALOG_MAX_AGE_MS,
-	type AutoCatalogEvidence,
 	type AutoModelCapabilities,
-	createAutoCatalogEvidence,
 	getProvider,
-	isAutoCatalogEvidenceCurrent,
 	normalizeAutoModelCapabilities,
 } from "@better-ccflare/providers";
 import type { Account } from "@better-ccflare/types";
@@ -73,117 +68,6 @@ interface AnthropicModelsPageResponse {
 	last_id?: string | null;
 }
 
-const nativeOwnEvidence = new Map<string, AutoCatalogEvidence>();
-const nativeEvidenceGeneration = new Map<string, number>();
-const nativeCredentialFingerprint = new Map<string, string>();
-let nextNativeEvidenceGeneration = 0;
-/**
- * Wait signal only: the newest in-flight native acquisition per account. It never
- * carries results, credentials or ownership; callers must still validate owned
- * evidence themselves. The promise resolves (never rejects) when it settles.
- */
-const pendingNativeAcquisitions = new Map<
-	string,
-	{ generation: number; settled: Promise<void>; wake: () => void }
->();
-
-/** Thrown when a newer lookup for the same account superseded this one. */
-export class NativeCatalogObsoleteGenerationError extends Error {
-	constructor() {
-		super("obsolete native catalog generation");
-		this.name = "NativeCatalogObsoleteGenerationError";
-	}
-}
-
-/** Resolves when the newest in-flight native acquisition for the account settles. */
-export function getPendingNativeCatalogAcquisition(
-	accountId: string,
-): Promise<void> | undefined {
-	return pendingNativeAcquisitions.get(accountId)?.settled;
-}
-const nativeOwnerEpoch = new Map<string, number>();
-const nativeOwners = new WeakMap<
-	AutoCatalogEvidence,
-	{ fingerprint: string; createdAt: number; epoch: number }
->();
-
-/** Server-resolved credentials only; this API does not mint client proof tokens. */
-export interface AutoResolvedCredentials {
-	readonly account: Pick<
-		Account,
-		"id" | "provider" | "api_key" | "created_at" | "custom_endpoint"
-	>;
-	readonly accessToken: string | null;
-}
-function nativeFingerprint(selected: AutoResolvedCredentials): string {
-	return createHash("sha256")
-		.update(
-			JSON.stringify([
-				selected.account.provider,
-				selected.accessToken,
-				selected.account.api_key,
-				selected.account.custom_endpoint,
-			]),
-		)
-		.digest("hex");
-}
-
-/** No IO. Recheck after the LAST credential-preparation await and immediately
- * before transport. Only source-owned snapshots from the same account incarnation
- * and credential are accepted; same-content renewal does not invalidate a target.
- * Raw credentials and private fingerprints never enter public provenance.
- */
-export function validateNativeAutoCatalogCredentials(
-	evidence: AutoCatalogEvidence | null,
-	selected: AutoResolvedCredentials,
-): boolean {
-	const current = getNativeAutoCatalogEvidence(selected.account.id);
-	const owner = evidence && nativeOwners.get(evidence);
-	const currentOwner = current && nativeOwners.get(current);
-	return Boolean(
-		evidence &&
-			isAutoCatalogEvidenceCurrent(evidence) &&
-			current &&
-			owner &&
-			currentOwner &&
-			evidence.accountId === selected.account.id &&
-			evidence.revision === current.revision &&
-			owner.epoch === currentOwner.epoch &&
-			owner.createdAt === selected.account.created_at &&
-			currentOwner.createdAt === selected.account.created_at &&
-			owner.fingerprint === currentOwner.fingerprint &&
-			owner.fingerprint === nativeFingerprint(selected),
-	);
-}
-
-/** Fresh process-local owned evidence only; the global disk catalog is advisory.
- * Account ID alone does not validate the selected dispatch credential epoch.
- */
-export function getNativeAutoCatalogEvidence(
-	accountId: string,
-	/** Diagnostic compilation only; admission still checks freshness. */
-	includeStale = false,
-): AutoCatalogEvidence | null {
-	const evidence = nativeOwnEvidence.get(accountId) ?? null;
-	return includeStale || isAutoCatalogEvidenceCurrent(evidence)
-		? evidence
-		: null;
-}
-
-/** Integrators must call on account deletion/replacement, before reusing its ID. */
-export function clearNativeAutoCatalogEvidence(accountId: string): void {
-	nativeOwnEvidence.delete(accountId);
-	nativeOwnerEpoch.set(accountId, (nativeOwnerEpoch.get(accountId) ?? 0) + 1);
-	nativeCredentialFingerprint.delete(accountId);
-	nativeEvidenceGeneration.set(accountId, ++nextNativeEvidenceGeneration);
-	// The fenced lookup can never publish for the new incarnation, so release
-	// its waiters now instead of letting them spend their budget on it. The old
-	// worker's generation fence is unchanged; its later release() is a no-op.
-	const pending = pendingNativeAcquisitions.get(accountId);
-	pendingNativeAcquisitions.delete(accountId);
-	pending?.wake();
-}
-
 function nativeEntry(
 	raw: AnthropicModelsPageResponse["data"][number],
 ): ModelCatalogEntry {
@@ -197,41 +81,6 @@ function nativeEntry(
 			? { capabilities: normalizeAutoModelCapabilities("anthropic", raw) }
 			: {}),
 	};
-}
-
-/** Returns false when a newer lookup/deletion superseded this generation. */
-function publishNativeEvidence(
-	selected: AutoResolvedCredentials,
-	models: ModelCatalogEntry[],
-	generation: number,
-): boolean {
-	const accountId = selected.account.id;
-	if (nativeEvidenceGeneration.get(accountId) !== generation) return false;
-	const fetchedAt = Date.now();
-	// One refresh interval, capped at the native default, without scheduler jitter
-	// or retry grace. Disabling refresh does not grant unbounded validity.
-	const intervalMs = getRefreshHours() * 60 * 60_000;
-	const validityMs = Math.min(
-		intervalMs || AUTO_CATALOG_MAX_AGE_MS.anthropic,
-		AUTO_CATALOG_MAX_AGE_MS.anthropic,
-	);
-	const evidence = createAutoCatalogEvidence({
-		fetchedAt,
-		expiresAt: fetchedAt + Math.floor(validityMs),
-		accountId,
-		provider: "anthropic",
-		source: "live",
-		models,
-	});
-	if (evidence) {
-		nativeOwners.set(evidence, {
-			fingerprint: nativeFingerprint(selected),
-			createdAt: selected.account.created_at,
-			epoch: nativeOwnerEpoch.get(accountId) ?? 0,
-		});
-		nativeOwnEvidence.set(accountId, evidence);
-	}
-	return true;
 }
 
 const MAX_PAGES = 5;
@@ -382,33 +231,17 @@ function selectEligibleAccount(
 	});
 }
 
-/** Optional request-scoped gate applied to freshly loaded accounts. */
-export type NativeCatalogAccountEligible = (account: Account) => boolean;
-
-export class NativeCatalogAccountIneligibleError extends Error {
-	constructor() {
-		super("Native catalog account is not eligible for this request");
-		this.name = "NativeCatalogAccountIneligibleError";
-	}
-}
-
 /**
  * Fetch the live list of models from Anthropic's `/v1/models` endpoint using
  * an active account's credentials. Paginates via `after_id` up to
  * `MAX_PAGES` pages defensively. One ten-second deadline covers the entire
  * lookup, including response bodies and pagination; callers may cancel early.
- * A targeted lookup (`accountId`) exists only to publish owned evidence, so if
- * a newer lookup or deletion supersedes it before publication it throws
- * `NativeCatalogObsoleteGenerationError` rather than resolving; untargeted
- * lookups still resolve with the fetched models.
  */
 export async function fetchLiveModels(
 	ctx: ProxyContext,
 	options?: {
 		allowOAuth?: boolean;
-		accountId?: string;
 		signal?: AbortSignal;
-		accountEligible?: NativeCatalogAccountEligible;
 	},
 ): Promise<ModelCatalogEntry[]> {
 	options?.signal?.throwIfAborted();
@@ -432,7 +265,7 @@ export async function fetchLiveModels(
 		// Also bound awaits that do not honor AbortSignal (e.g. account lookup).
 		// The worker checks the signal after each await before any further effects.
 		return await Promise.race([
-			fetchLiveModelsUntilAborted(ctx, { ...options, signal }),
+			acquireNativeCatalog(ctx, options?.allowOAuth ?? false, signal),
 			cancelled,
 		]);
 	} finally {
@@ -441,89 +274,14 @@ export async function fetchLiveModels(
 	}
 }
 
-async function fetchLiveModelsUntilAborted(
-	ctx: ProxyContext,
-	options: {
-		allowOAuth?: boolean;
-		accountId?: string;
-		signal: AbortSignal;
-		accountEligible?: NativeCatalogAccountEligible;
-	},
-): Promise<ModelCatalogEntry[]> {
-	const { signal } = options;
-	signal.throwIfAborted();
-	// Reserve before the first await: deletion or a newer lookup must fence us.
-	const generation = ++nextNativeEvidenceGeneration;
-	let settle!: () => void;
-	const settled = new Promise<void>((resolve) => {
-		settle = resolve;
-	});
-	const registered = new Set<string>();
-	// Idempotent: runs on abort (the worker may be stuck in an uncancellable
-	// await) and again on settle, so waiters are never left on a dead entry.
-	const release = () => {
-		for (const id of registered) {
-			if (pendingNativeAcquisitions.get(id)?.generation === generation)
-				pendingNativeAcquisitions.delete(id);
-		}
-		registered.clear();
-		settle();
-	};
-	signal.addEventListener("abort", release, { once: true });
-	const register = (accountId: string) => {
-		// An aborted call must not publish a wait signal nothing would release.
-		if (signal.aborted) return;
-		// Never replace a newer lookup's entry: waiters must keep seeing it.
-		if (
-			(pendingNativeAcquisitions.get(accountId)?.generation ?? 0) > generation
-		)
-			return;
-		pendingNativeAcquisitions.set(accountId, {
-			generation,
-			settled,
-			wake: settle,
-		});
-		registered.add(accountId);
-	};
-	if (options.accountId) register(options.accountId);
-	try {
-		return await acquireNativeCatalog(ctx, options, generation, register);
-	} finally {
-		signal.removeEventListener("abort", release);
-		release();
-	}
-}
-
 async function acquireNativeCatalog(
 	ctx: ProxyContext,
-	options: {
-		allowOAuth?: boolean;
-		accountId?: string;
-		signal: AbortSignal;
-		accountEligible?: NativeCatalogAccountEligible;
-	},
-	generation: number,
-	register: (accountId: string) => void,
+	allowOAuth: boolean,
+	signal: AbortSignal,
 ): Promise<ModelCatalogEntry[]> {
-	const { signal } = options;
-	const allowOAuth = options?.allowOAuth ?? false;
-	let accounts: Account[];
-	if (options?.accountId) {
-		const target = await ctx.dbOps.getAccount(options.accountId);
-		accounts = target?.id === options.accountId ? [target] : [];
-	} else {
-		accounts = await ctx.dbOps.getAllAccounts();
-	}
 	signal.throwIfAborted();
-	// Request-scoped eligibility is judged on the freshly loaded rows, before any
-	// generation reservation, token preparation or request for that account.
-	if (options.accountEligible) {
-		const eligible = accounts.filter((a) => options.accountEligible?.(a));
-		if (accounts.length > 0 && eligible.length === 0) {
-			throw new NativeCatalogAccountIneligibleError();
-		}
-		accounts = eligible;
-	}
+	const accounts = await ctx.dbOps.getAllAccounts();
+	signal.throwIfAborted();
 	const account = selectEligibleAccount(accounts, { allowOAuth });
 	if (!account) {
 		throw new Error(
@@ -533,20 +291,9 @@ async function acquireNativeCatalog(
 		);
 	}
 
-	if ((nativeEvidenceGeneration.get(account.id) ?? 0) > generation)
-		throw new NativeCatalogObsoleteGenerationError();
-	nativeEvidenceGeneration.set(account.id, generation);
-	if (!options.accountId) register(account.id);
 	const provider = getProvider(account.provider) || ctx.provider;
 	const accessToken = await getValidAccessToken(account, ctx);
 	signal.throwIfAborted();
-	if (nativeEvidenceGeneration.get(account.id) !== generation)
-		throw new NativeCatalogObsoleteGenerationError();
-	const selected = { account: { ...account }, accessToken };
-	const fingerprint = nativeFingerprint(selected);
-	if (nativeCredentialFingerprint.get(account.id) !== fingerprint)
-		nativeOwnEvidence.delete(account.id);
-	nativeCredentialFingerprint.set(account.id, fingerprint);
 	const headers = provider.prepareHeaders(
 		new Headers(),
 		accessToken,
@@ -583,17 +330,7 @@ async function acquireNativeCatalog(
 			models.push(nativeEntry(m));
 		}
 
-		if (!body.has_more) {
-			// Check and publish are synchronous, so they stay atomic. A targeted
-			// lookup exists only to publish owned evidence: superseded means retry.
-			if (
-				!publishNativeEvidence(selected, models, generation) &&
-				options.accountId
-			)
-				throw new NativeCatalogObsoleteGenerationError();
-			break;
-		}
-		if (!body.last_id) break;
+		if (!body.has_more || !body.last_id) break;
 		afterId = body.last_id;
 	}
 
@@ -755,10 +492,6 @@ export async function ingestModelsListing(
 
 		const params = new URLSearchParams(requestQuery ?? "");
 		const isComplete = body.has_more !== true && !params.has("after_id");
-		// Passive responses have no request-start credential/generation fence.
-		// Even a complete response may arrive after deletion or token replacement.
-		// Keep its facts in the advisory catalog, never publish Auto entitlement;
-		// fetchLiveModels is the generation-fenced owned discovery path.
 
 		const existing = await getModelCatalog();
 		let models: ModelCatalogEntry[];
@@ -903,10 +636,6 @@ export function initModelCatalogRefresh(
  * Reset internal in-memory state. Intended for test cleanup only.
  */
 export function resetModelCatalogForTest(): void {
-	nativeOwnEvidence.clear();
-	nativeEvidenceGeneration.clear();
-	pendingNativeAcquisitions.clear();
-	nativeCredentialFingerprint.clear();
 	memoryCatalog = null;
 	diskLoadAttempted = false;
 }
