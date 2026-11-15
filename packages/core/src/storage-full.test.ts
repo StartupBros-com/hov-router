@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, it } from "bun:test";
-import { isStorageFullError } from "./storage-full";
+import { errorKind, isStorageFullError } from "./storage-full";
 
 /** A real SQLITE_FULL, raised by SQLite itself against a page ceiling. */
 function realSqliteFullError(): unknown {
@@ -97,5 +97,79 @@ describe("isStorageFullError", () => {
 		expect(isStorageFullError(undefined)).toBe(false);
 		expect(isStorageFullError(null)).toBe(false);
 		expect(isStorageFullError("ENOSPC")).toBe(false);
+	});
+});
+
+describe("errorKind", () => {
+	it("is the code of a Node or SQLite error", () => {
+		expect(errorKind(nodeError("ENOSPC", -28))).toBe("ENOSPC");
+		expect(errorKind(realSqliteFullError())).toBe("SQLITE_FULL");
+		expect(errorKind(nodeError("SQLITE_IOERR_SHMSIZE", 4874))).toBe(
+			"SQLITE_IOERR_SHMSIZE",
+		);
+	});
+
+	it("never carries the message, which can hold a path or a token", () => {
+		const error = Object.assign(
+			new Error("ENOENT: no such file, open '/home/someone/secret-token.json'"),
+			{ code: "ENOENT" },
+		);
+		expect(errorKind(error)).toBe("ENOENT");
+	});
+
+	it("is the error's name when there is no code", () => {
+		expect(errorKind(new TypeError("x is not a function"))).toBe("TypeError");
+		expect(errorKind(new Error("boom"))).toBe("Error");
+	});
+
+	it("does not take a code or a name that is not a plain identifier", () => {
+		const sentence = Object.assign(new Error("boom"), {
+			code: "could not open /home/someone/db",
+		});
+		expect(errorKind(sentence)).toBe("Error");
+		const lower = Object.assign(new Error("boom"), { code: "enospc" });
+		expect(errorKind(lower)).toBe("Error");
+		const numeric = Object.assign(new Error("boom"), { code: 28 });
+		expect(errorKind(numeric)).toBe("Error");
+		const named = new Error("boom");
+		named.name = "/home/someone/secret";
+		expect(errorKind(named)).toBe("Error");
+		const long = Object.assign(new Error("boom"), { code: "A".repeat(200) });
+		expect(errorKind(long)).toBe("Error");
+	});
+
+	it("finds the code of a wrapped error", () => {
+		const wrapped = new Error("could not save", {
+			cause: new Error("inner", { cause: nodeError("EDQUOT", -122) }),
+		});
+		expect(errorKind(wrapped)).toBe("EDQUOT");
+	});
+
+	it("says SQLITE_FULL for SQLite's full-disk message with its code lost", () => {
+		const original = realSqliteFullError() as Error;
+		expect(errorKind(new Error(String(original)))).toBe("SQLITE_FULL");
+	});
+
+	it("gives a fixed word for anything that is not an error object", () => {
+		expect(errorKind("ENOSPC: /home/someone/file")).toBe("unknown");
+		expect(errorKind(undefined)).toBe("unknown");
+		expect(errorKind(null)).toBe("unknown");
+		expect(errorKind(28)).toBe("unknown");
+	});
+
+	it("survives a cause chain that loops and an object that throws when read", () => {
+		const a = new Error("a") as Error & { cause?: unknown };
+		const b = new Error("b", { cause: a });
+		a.cause = b;
+		expect(errorKind(a)).toBe("Error");
+		const hostile = new Proxy(
+			{},
+			{
+				get() {
+					throw new Error("no reading");
+				},
+			},
+		);
+		expect(errorKind(hostile)).toBe("unknown");
 	});
 });

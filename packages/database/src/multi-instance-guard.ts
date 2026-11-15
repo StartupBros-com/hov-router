@@ -38,7 +38,7 @@
 
 import { randomUUID } from "node:crypto";
 import { hostname as osHostname } from "node:os";
-import { isStorageFullError } from "@better-ccflare/core";
+import { errorKind, isStorageFullError } from "@better-ccflare/core";
 import { Logger } from "@better-ccflare/logger";
 import type { BunSqlAdapter } from "./adapters/bun-sql-adapter";
 
@@ -59,9 +59,10 @@ export const HEARTBEAT_INTERVAL_MS = 5_000;
 export const HEARTBEAT_EXPIRY_MS = 30_000;
 
 /**
- * A run of failing heartbeat ticks is logged on its first tick and then once
- * per this many: every 10 minutes at HEARTBEAT_INTERVAL_MS, instead of a line
- * every 5 s for as long as the disk stays full.
+ * A run of failing heartbeat ticks is logged the first time each kind of
+ * error appears in it and then once per this many ticks: every 10 minutes at
+ * HEARTBEAT_INTERVAL_MS, instead of a line every 5 s for as long as the disk
+ * stays full.
  */
 const HEARTBEAT_FAILURE_REPORT_EVERY = 120;
 
@@ -434,6 +435,10 @@ export function startHeartbeatLoop(
 	// long as it stays full, so a streak is reported when it starts, every
 	// HEARTBEAT_FAILURE_REPORT_EVERY ticks after that, and when it ends.
 	let failedTicks = 0;
+	// The kinds of error the current streak has reported. A different failure
+	// arriving mid-streak (a damaged database while the disk is full) is said
+	// at once, and two kinds taking turns are each said once.
+	const reportedKinds = new Set<string>();
 
 	const settlementTimeoutMs =
 		typeof options.settlementTimeoutMs === "number" &&
@@ -454,10 +459,14 @@ export function startHeartbeatLoop(
 					);
 				}
 				failedTicks = 0;
+				reportedKinds.clear();
 			})
 			.catch((err) => {
 				failedTicks++;
-				if (failedTicks % HEARTBEAT_FAILURE_REPORT_EVERY === 1) {
+				const kind = errorKind(err);
+				const isNewKind = !reportedKinds.has(kind);
+				reportedKinds.add(kind);
+				if (isNewKind || failedTicks % HEARTBEAT_FAILURE_REPORT_EVERY === 1) {
 					writeLog(
 						`heartbeat tick failed (${failedTicks} in a row): ${(err as Error).message}`,
 					);

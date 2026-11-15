@@ -1,8 +1,13 @@
-import { isStorageFullError } from "@better-ccflare/core";
+import { errorKind, isStorageFullError } from "@better-ccflare/core";
 
 /** Uncaught storage-full errors this process has survived (#827). */
 export interface StorageFullBackstopStatus {
 	count: number;
+	/**
+	 * The last one's error code (`ENOSPC`, `SQLITE_FULL`). Not its message:
+	 * `/health` needs no API key and a message can name a path. The message
+	 * goes to stderr.
+	 */
 	lastError: string | null;
 	lastErrorAt: number | null;
 }
@@ -29,15 +34,6 @@ export interface StorageFullBackstopOptions {
 
 /** A disk that stays full repeats itself, so say it at most this often. */
 export const STORAGE_FULL_REPORT_INTERVAL_MS = 30_000;
-
-function describe(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	try {
-		return String(error);
-	} catch {
-		return "unknown error";
-	}
-}
 
 /**
  * Keep the server running when a write fails for lack of disk space
@@ -95,7 +91,7 @@ export function installStorageFullBackstop(
 			return;
 		}
 		count += 1;
-		lastError = describe(error);
+		lastError = errorKind(error);
 		lastErrorAt = now();
 		if (
 			reportedAt !== null &&

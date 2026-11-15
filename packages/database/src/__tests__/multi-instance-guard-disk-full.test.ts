@@ -35,9 +35,10 @@ type Run = Database["run"];
  * Makes statements containing `fragment` throw `error` until the returned
  * function is called. Everything else reaches the real database.
  */
-function failStatements(db: Database, fragment: string, error: Error) {
+function failStatements(db: Database, fragment: string, first: Error) {
 	const original = db.run.bind(db);
 	let failing = true;
+	let error = first;
 	let attempts = 0;
 	(db as unknown as { run: Run }).run = ((sql: unknown, params?: unknown) => {
 		if (failing && typeof sql === "string" && sql.includes(fragment)) {
@@ -51,6 +52,11 @@ function failStatements(db: Database, fragment: string, error: Error) {
 	}) as Run;
 	return {
 		attempts: () => attempts,
+		/** Fail from now on with this error instead. */
+		failWith: (next: Error) => {
+			error = next;
+			failing = true;
+		},
 		recover: () => {
 			failing = false;
 		},
@@ -211,6 +217,61 @@ describe("multi-instance guard on a full disk (#827)", () => {
 			expect(lines.length).toBe(2);
 			expect(lines[1]).toContain("heartbeat recorded again");
 			expect(heartbeatIds(db).length).toBe(1);
+		} finally {
+			await stop();
+			fault.restore();
+		}
+	});
+
+	it("the heartbeat loop reports each kind of failure in a streak once", async () => {
+		// A full disk and a damaged database are different problems. The second
+		// must not go unsaid for ten minutes because the first was reported, and
+		// two errors taking turns must not bring back a line every tick.
+		const full = realSqliteFullError();
+		const corrupt = Object.assign(
+			new Error("database disk image is malformed"),
+			{ code: "SQLITE_CORRUPT", errno: 11 },
+		);
+		const fault = failStatements(db, "INSERT INTO instance_heartbeats", full);
+		const lines: string[] = [];
+		const stop = startHeartbeatLoop(adapter, {
+			intervalMs: 2,
+			log: (msg) => lines.push(msg),
+		});
+		const deadline = Date.now() + 5_000;
+		const moreAttempts = async (count: number) => {
+			const target = fault.attempts() + count;
+			while (fault.attempts() < target && Date.now() < deadline) {
+				await Bun.sleep(2);
+			}
+			expect(fault.attempts()).toBeGreaterThanOrEqual(target);
+		};
+		try {
+			await moreAttempts(3);
+			expect(lines.length).toBe(1);
+			expect(lines[0]).toContain("database or disk is full");
+
+			fault.failWith(corrupt);
+			await moreAttempts(3);
+			expect(lines.length).toBe(2);
+			expect(lines[1]).toContain("heartbeat tick failed");
+			expect(lines[1]).toContain("database disk image is malformed");
+
+			for (let turn = 0; turn < 4; turn++) {
+				fault.failWith(turn % 2 === 0 ? full : corrupt);
+				await moreAttempts(2);
+			}
+			expect(lines.length).toBe(2);
+
+			fault.recover();
+			while (lines.length < 3 && Date.now() < deadline) await Bun.sleep(2);
+			expect(lines[2]).toContain("heartbeat recorded again");
+
+			// The next streak starts over: the same kind is said again.
+			fault.failWith(full);
+			await moreAttempts(3);
+			expect(lines.length).toBe(4);
+			expect(lines[3]).toContain("heartbeat tick failed (1 in a row)");
 		} finally {
 			await stop();
 			fault.restore();

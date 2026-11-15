@@ -51,12 +51,35 @@ describe("storage-full backstop", () => {
 		expect(h.exits).toEqual([]);
 		expect(h.backstop.status()).toEqual({
 			count: 1,
-			lastError: "ENOSPC: no space left on device, write",
+			lastError: "ENOSPC",
 			lastErrorAt: h.now(),
 		});
 		expect(h.reports).toHaveLength(1);
 		expect(h.reports[0]?.line).toContain("uncaughtException");
 		expect(h.reports[0]?.line).toContain("no space left");
+	});
+
+	it("shows the error's code and keeps its message for stderr", () => {
+		// /health serves the status to anyone, and a message can name a path.
+		const h = harness();
+		const error = Object.assign(
+			new Error(
+				"ENOSPC: no space left on device, open '/home/someone/.config/better-ccflare/secret.json'",
+			),
+			{ code: "ENOSPC" },
+		);
+
+		h.target.emit("uncaughtException", error);
+		expect(h.backstop.status().lastError).toBe("ENOSPC");
+		// The whole error still reaches the report, which goes to stderr.
+		expect(h.reports[0]?.error).toBe(error);
+
+		// SQLite's full-disk text with its code lost in a rethrow.
+		h.target.emit("unhandledRejection", new Error("database or disk is full"));
+		expect(h.backstop.status()).toMatchObject({
+			count: 2,
+			lastError: "SQLITE_FULL",
+		});
 	});
 
 	it("keeps the process running after a storage-full unhandled rejection", () => {
@@ -218,7 +241,7 @@ describe("storage-full backstop in a real process", () => {
 			const report = lastReport(result.stdout);
 			expect(report.alive).toBe(true);
 			expect(report.status?.count).toBe(1);
-			expect(report.status?.lastError).toContain("ENOSPC");
+			expect(report.status?.lastError).toBe("ENOSPC");
 			expect(result.stderr).toContain("no space left");
 		},
 	);

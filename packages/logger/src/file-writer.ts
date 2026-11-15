@@ -43,6 +43,24 @@ function safeErrorReason(e: unknown): string {
 	}
 }
 
+const ERROR_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
+const ERROR_NAME = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+
+// The error's code (`ENOSPC`), else its name, and never its message, which
+// names the log file's path. Same rule as `errorKind` in core, which this
+// package cannot import. Never throws.
+function safeErrorKind(e: unknown): string {
+	if (typeof e !== "object" || e === null) return "unknown";
+	try {
+		const { code, name } = e as { code?: unknown; name?: unknown };
+		if (typeof code === "string" && ERROR_CODE.test(code)) return code;
+		if (typeof name === "string" && ERROR_NAME.test(name)) return name;
+		return "Error";
+	} catch {
+		return "unknown";
+	}
+}
+
 /** How the file sink is doing; surfaced on `/health` so dropped logs are visible. */
 export interface LogFileSinkStatus {
 	/** True while lines are being dropped because the log file cannot be written. */
@@ -51,6 +69,11 @@ export interface LogFileSinkStatus {
 	dropped: number;
 	/** How many times the sink has failed since the process started. */
 	failures: number;
+	/**
+	 * The last failure's error code (`ENOSPC`), or its name when it has no
+	 * code. Not the message: `/health` needs no API key, and the message names
+	 * the log file's path. The message goes to stderr.
+	 */
 	lastError: string | null;
 	lastErrorAt: number | null;
 }
@@ -58,10 +81,15 @@ export interface LogFileSinkStatus {
 export interface LogFileWriterOptions {
 	/** First delay before the sink tries to reopen its file; doubles up to the cap. */
 	retryBaseMs?: number;
+	/** How long the sink must work after a resume before the delay starts over. */
+	retryResetAfterMs?: number;
+	/** Replaces the clock in tests. */
+	now?: () => number;
 }
 
 const RETRY_BASE_MS = 1000;
 const RETRY_MAX_MS = 30_000;
+const RETRY_RESET_AFTER_MS = 60_000;
 
 /**
  * Appends log events to `app.log`.
@@ -81,15 +109,22 @@ export class LogFileWriter implements Disposable {
 	private writeCount = 0;
 	private static readonly SIZE_CHECK_INTERVAL = 100;
 	private readonly retryBaseMs: number;
+	private readonly retryResetAfterMs: number;
+	private readonly now: () => number;
 	private retryDelayMs: number;
 	private suspendedUntil: number | null = null;
+	/** When the sink last resumed; null until it has, and again once it fails. */
+	private resumedAt: number | null = null;
 	private dropped = 0;
 	private failures = 0;
 	private lastError: string | null = null;
+	private lastErrorKind: string | null = null;
 	private lastErrorAt: number | null = null;
 
 	constructor(options: LogFileWriterOptions = {}) {
 		this.retryBaseMs = options.retryBaseMs ?? RETRY_BASE_MS;
+		this.retryResetAfterMs = options.retryResetAfterMs ?? RETRY_RESET_AFTER_MS;
+		this.now = options.now ?? Date.now;
 		this.retryDelayMs = this.retryBaseMs;
 		// Use environment variable if set, otherwise use tmp folder
 		this.logDir =
@@ -104,7 +139,7 @@ export class LogFileWriter implements Disposable {
 			suspended: this.suspendedUntil !== null,
 			dropped: this.dropped,
 			failures: this.failures,
-			lastError: this.lastError,
+			lastError: this.lastErrorKind,
 			lastErrorAt: this.lastErrorAt,
 		};
 	}
@@ -122,10 +157,24 @@ export class LogFileWriter implements Disposable {
 		} catch {
 			// The stream is already unusable.
 		}
+		const now = this.now();
+		// A disk that is still full lets the odd write through. One such
+		// write must not bring the delay back to its base, or the sink would
+		// retry, and say so on stderr, every second for as long as the disk
+		// stays full. The delay starts over only once the sink has worked for
+		// a while since it last resumed.
+		if (
+			this.resumedAt !== null &&
+			now - this.resumedAt >= this.retryResetAfterMs
+		) {
+			this.retryDelayMs = this.retryBaseMs;
+		}
+		this.resumedAt = null;
 		this.failures++;
 		this.lastError = safeErrorReason(error);
-		this.lastErrorAt = Date.now();
-		this.suspendedUntil = Date.now() + this.retryDelayMs;
+		this.lastErrorKind = safeErrorKind(error);
+		this.lastErrorAt = now;
+		this.suspendedUntil = now + this.retryDelayMs;
 		this.retryDelayMs = Math.min(this.retryDelayMs * 2, RETRY_MAX_MS);
 		try {
 			console.error(
@@ -210,29 +259,41 @@ export class LogFileWriter implements Disposable {
 
 	private writeEvent(event: LogEvent): void {
 		if (this.suspendedUntil !== null) {
-			if (Date.now() < this.suspendedUntil) {
-				this.dropped++;
-				return;
+			const now = this.now();
+			if (now < this.suspendedUntil) {
+				// With a stream open, a reopen is being tried and this line
+				// joins it. With none, the sink is waiting out its delay.
+				if (!this.stream) {
+					this.dropped++;
+					return;
+				}
+			} else {
+				this.initStream();
+				if (!this.stream) {
+					this.dropped++;
+					return;
+				}
+				// Reopened. Whether the file is writable again is only known
+				// once a write completes, so the notice is the first line of
+				// the attempt. The next attempt is put off by the current
+				// delay: lines that arrive before the notice's write answers
+				// go to this stream, instead of each opening another and
+				// writing the notice again. If that write never answers, the
+				// delay runs out and the file is opened afresh.
+				this.suspendedUntil = now + this.retryDelayMs;
+				const resumed: LogEvent = {
+					ts: Date.now(),
+					level: "WARN",
+					msg: `Log file sink resumed after dropping ${this.dropped} line(s): ${this.lastError ?? "unknown error"}`,
+				};
+				const stream = this.stream;
+				stream.write(`${JSON.stringify(resumed)}\n`, (error) => {
+					if (error || this.stream !== stream) return;
+					this.suspendedUntil = null;
+					this.dropped = 0;
+					this.resumedAt = this.now();
+				});
 			}
-			this.initStream();
-			if (!this.stream) {
-				this.dropped++;
-				return;
-			}
-			// Reopened. Whether the file is writable again is only known once a
-			// write completes, so the notice is the first line of the attempt.
-			const resumed: LogEvent = {
-				ts: Date.now(),
-				level: "WARN",
-				msg: `Log file sink resumed after dropping ${this.dropped} line(s): ${this.lastError ?? "unknown error"}`,
-			};
-			const stream = this.stream;
-			stream.write(`${JSON.stringify(resumed)}\n`, (error) => {
-				if (error || this.stream !== stream) return;
-				this.suspendedUntil = null;
-				this.dropped = 0;
-				this.retryDelayMs = this.retryBaseMs;
-			});
 		} else if (!this.stream || this.stream.destroyed) {
 			this.initStream();
 		}

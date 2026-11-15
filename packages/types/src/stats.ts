@@ -25,6 +25,10 @@ export interface RetentionStatus {
  * What the router is doing without because the disk has no space left
  * (#827). None of it stops the router serving, so `/health` is where it
  * shows.
+ *
+ * Each `lastError` here is an error code (`ENOSPC`, `SQLITE_FULL`), or the
+ * error's name when it has no code, and never its message: `/health` needs
+ * no API key, and a message can name a path. The messages go to stderr.
  */
 export interface FullDiskStatus {
 	/** The log file. Null when this process writes no log file. */
