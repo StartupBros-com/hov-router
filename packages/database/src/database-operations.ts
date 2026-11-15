@@ -72,6 +72,7 @@ import {
 	type WorkerPragma,
 } from "./off-thread-reader";
 import { resolveDbPath } from "./paths";
+import { keepWalFilesOnClose } from "./persistent-wal";
 import { assertNotPostgresUrl } from "./postgres-refusal";
 import {
 	AccountRepository,
@@ -328,6 +329,9 @@ function configureSqlite(db: Database, config: DatabaseConfig): void {
 				console.warn("WAL mode failed, using DELETE mode:", error);
 				db.run("PRAGMA journal_mode = DELETE");
 			}
+			// A stop must leave the WAL index allocated, or the next start
+			// cannot open the database on a full disk (#827).
+			keepWalFilesOnClose(db);
 		}
 
 		// Set page size (only effective before any data is written, or after VACUUM)
