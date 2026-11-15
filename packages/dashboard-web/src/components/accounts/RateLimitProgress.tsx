@@ -580,8 +580,8 @@ export function RateLimitProgress({
 												? (usage.label ??
 													`Usage (${formatWindowName(usage.window)})`)
 												: "Rate limit window"}
-											{/* A synthetic row measures elapsed cooldown time, not quota,
-											    so it never carries a quota marker. */}
+											{/* A synthetic row holds no quota data: it is a placeholder, or its
+											    bar measures elapsed cooldown time. It never gets a quota marker. */}
 											{!usage.synthetic &&
 												usage.window != null &&
 												(usage.isActive ||
