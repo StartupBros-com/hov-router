@@ -13,7 +13,7 @@
  *   bun run apps/server/src/disk-full-scenario.ts --dir <mounted dir>
  *     [--binary <compiled cli>] [--soak-ms <n>]
  *     [--restart-loops <n>] [--pressure timer|spin] [--spin-pause-us <n>]
- *     [--wal-frames <n>]
+ *     [--wal-frames <n>] [--index-slack]
  *
  * `--restart-loops` repeats the restart on the full filesystem, alternating a
  * clean stop and a kill, and stops at the first start that fails. `--pressure
@@ -23,7 +23,10 @@
  * releases and retakes the WAL index's pages when it opens the database).
  * `--wal-frames` leaves that many frames in the write-ahead log before the
  * fill; above 4,062 the index a start rebuilds no longer fits one 32 KiB
- * region.
+ * region. `--index-slack` then folds those frames into the database before
+ * the fill, which leaves the index at the larger size while the log needs one
+ * region: the shape of a long-running install, where a start frees more index
+ * pages than it has to take back.
  *
  * Prints one JSON report on stdout. Exit 0 means the scenario ran (read
  * `failures`); exit 2 means the harness itself could not run.
@@ -59,6 +62,8 @@ interface Args {
 	spinPauseUs: number;
 	/** Frames to leave in the write-ahead log before the fill. 0 leaves it as is. */
 	walFrames: number;
+	/** Checkpoint the seeded frames before the fill, keeping the index large. */
+	indexSlack: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -70,8 +75,10 @@ function parseArgs(argv: string[]): Args {
 	let pressure: Args["pressure"] = "timer";
 	let spinPauseUs = 0;
 	let walFrames = 0;
+	let indexSlack = false;
 	for (let i = 0; i < argv.length; i++) {
 		const value = argv[i + 1];
+		if (argv[i] === "--index-slack") indexSlack = true;
 		if (argv[i] === "--wal-frames" && value) walFrames = Number(value);
 		if (argv[i] === "--restart-loops" && value) restartLoops = Number(value);
 		if (argv[i] === "--spin-pause-us" && value) spinPauseUs = Number(value);
@@ -99,6 +106,11 @@ function parseArgs(argv: string[]): Args {
 	if (!Number.isInteger(walFrames) || walFrames < 0) {
 		throw new Error("--wal-frames must be a non-negative integer");
 	}
+	if (indexSlack && walFrames <= FRAMES_PER_INDEX_REGION) {
+		throw new Error(
+			`--index-slack needs --wal-frames above ${FRAMES_PER_INDEX_REGION}, or the index never grows past one region`,
+		);
+	}
 	return {
 		dir: resolve(dir),
 		binary,
@@ -108,6 +120,7 @@ function parseArgs(argv: string[]): Args {
 		pressure,
 		spinPauseUs,
 		walFrames,
+		indexSlack,
 	};
 }
 
@@ -191,6 +204,9 @@ const SEED_REQUEST_ROWS = 300;
 const SEED_PAYLOAD_ROWS = 40;
 const SEED_ID_PREFIX = "seed-old-";
 const PAGE_BYTES = 4096;
+/** Frames one 32 KiB region of the WAL index can describe. */
+const FRAMES_PER_INDEX_REGION = 4062;
+const INDEX_REGION_BYTES = 32768;
 
 /**
  * Give the next boot real cleanup work: request rows and payloads far past
@@ -236,8 +252,16 @@ function seedBootWork(dbFile: string): Record<string, number> {
  * cannot move them and every later start has to rebuild an index for all of
  * them. Autocheckpoint is off on this connection for the same reason the
  * server turns it off: the commit must not fold the log back itself.
+ *
+ * With `checkpointAfter` the frames are then folded into the database, as the
+ * server's own once-a-minute checkpoint would. The log empties; the index
+ * keeps the size the burst grew it to.
  */
-function seedLargeWal(dbFile: string, frames: number): number | null {
+function seedLargeWal(
+	dbFile: string,
+	frames: number,
+	checkpointAfter: boolean,
+): number | null {
 	const db = new Database(dbFile, { readwrite: true, create: false });
 	try {
 		db.run("PRAGMA busy_timeout = 10000");
@@ -259,6 +283,16 @@ function seedLargeWal(dbFile: string, frames: number): number | null {
 		})();
 		insertRequest.finalize();
 		insertPayload.finalize();
+		if (checkpointAfter) {
+			const outcome = db.query("PRAGMA wal_checkpoint(TRUNCATE)").get() as {
+				busy: number;
+			};
+			if (outcome.busy !== 0) {
+				throw new Error(
+					"the checkpoint before the fill was blocked, so the index-slack starts were not measured",
+				);
+			}
+		}
 	} finally {
 		db.close();
 	}
@@ -766,13 +800,22 @@ async function main(): Promise<void> {
 		// Cleanup work for the boots on the full filesystem. It goes in after the
 		// last boot with space, whose own startup sweep would have removed it.
 		const retentionWithSpace = await retentionOutcome(router.base);
+		// With index slack the burst goes in and is checkpointed first, so the
+		// boot work below is what the log holds at the fill, as in a run without
+		// a burst.
+		let walBytesSeeded: number | null = null;
+		if (args.walFrames > 0 && args.indexSlack) {
+			walBytesSeeded = seedLargeWal(dbFile, args.walFrames, true);
+		}
 		const seededBootRows = seedBootWork(dbFile);
-		const walBytesSeeded =
-			args.walFrames > 0 ? seedLargeWal(dbFile, args.walFrames) : null;
+		if (args.walFrames > 0 && !args.indexSlack) {
+			walBytesSeeded = seedLargeWal(dbFile, args.walFrames, false);
+		}
 		report.seed = {
 			rows: seededBootRows,
 			retentionWithSpace,
 			walFrames: args.walFrames,
+			indexSlack: args.indexSlack,
 			walBytesSeeded,
 		};
 
@@ -811,8 +854,19 @@ async function main(): Promise<void> {
 			// and the fill empties the log, and the starts below would then prove
 			// nothing about a large one.
 			const walBytesAtFill = fileSize(`${dbFile}-wal`) ?? 0;
+			const shmBytesAtFill = fileSize(`${dbFile}-shm`) ?? 0;
 			(report.seed as Record<string, unknown>).walBytesAtFill = walBytesAtFill;
-			if (walBytesAtFill < args.walFrames * PAGE_BYTES) {
+			(report.seed as Record<string, unknown>).shmBytesAtFill = shmBytesAtFill;
+			if (args.indexSlack) {
+				if (
+					shmBytesAtFill < 2 * INDEX_REGION_BYTES ||
+					walBytesAtFill >= FRAMES_PER_INDEX_REGION * PAGE_BYTES
+				) {
+					throw new Error(
+						`at the fill the index held ${shmBytesAtFill} bytes and the write-ahead log ${walBytesAtFill}, which is not an index larger than the log needs, so the index-slack starts were not measured`,
+					);
+				}
+			} else if (walBytesAtFill < args.walFrames * PAGE_BYTES) {
 				throw new Error(
 					`the write-ahead log held ${walBytesAtFill} bytes at the fill, fewer than the ${args.walFrames} frames seeded, so the large-log starts were not measured`,
 				);
