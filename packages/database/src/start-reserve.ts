@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { constants, rmSync, statfsSync, statSync } from "node:fs";
+import { constants, realpathSync, rmSync, statfsSync, statSync } from "node:fs";
 import { type FileHandle, open } from "node:fs/promises";
 import { dirname } from "node:path";
 import { isStorageFullError } from "@better-ccflare/core";
@@ -217,6 +217,22 @@ function availableBytesIn(directory: string): number {
 }
 
 /**
+ * The directory SQLite keeps the database's index in.
+ *
+ * SQLite names the index after the database's real path, so for a database
+ * path that is a link this is the target's directory, which can be on another
+ * filesystem. A path that cannot be resolved (no file yet, or a link that
+ * leads nowhere) is taken as it is configured.
+ */
+function indexDirectory(dbPath: string): string {
+	try {
+		return dirname(realpathSync(dbPath));
+	} catch {
+		return dirname(dbPath);
+	}
+}
+
+/**
  * Give up on a start whose open failed for lack of space, or pass the
  * failure on when it was not that after all.
  *
@@ -235,7 +251,7 @@ function refuseForSpace(
 ): never {
 	let availableBytes: number | null;
 	try {
-		availableBytes = measureAvailableBytes(dirname(dbPath));
+		availableBytes = measureAvailableBytes(indexDirectory(dbPath));
 	} catch {
 		availableBytes = null;
 	}

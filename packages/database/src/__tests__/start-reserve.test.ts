@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	existsSync,
+	mkdirSync,
 	mkdtempSync,
+	realpathSync,
 	rmSync,
 	statSync,
 	symlinkSync,
@@ -420,6 +422,63 @@ describe("start reserve", () => {
 				expect(refusal.cause).toBe(failure);
 				expect(refusal.availableBytes).toBeNull();
 				expect(refusal.message).toContain("could not be measured");
+			});
+
+			it("measures where a linked database really is", () => {
+				// SQLite names its index after a link's target, so the target's
+				// filesystem is the one that ran out. Here the link's own
+				// directory has room and the target's has none.
+				const data = join(dir, "data");
+				mkdirSync(data);
+				writeFileSync(join(data, "router.db"), "");
+				const linked = join(dir, "linked.db");
+				symlinkSync(join(data, "router.db"), linked);
+				const whereItIs = realpathSync(data);
+				const measured: string[] = [];
+				const failure = codedError("SQLITE_IOERR_SHMSIZE");
+
+				const refusal = thrownBy(() =>
+					openWithStartReserve(
+						linked,
+						() => {
+							throw failure;
+						},
+						undefined,
+						(directory) => {
+							measured.push(directory);
+							return directory === whereItIs ? 0 : PLENTY_BYTES;
+						},
+					),
+				) as StartOutOfSpaceError;
+
+				expect(measured).toEqual([whereItIs]);
+				expect(refusal).toBeInstanceOf(StartOutOfSpaceError);
+				expect(refusal.cause).toBe(failure);
+				expect(refusal.availableBytes).toBe(0);
+			});
+
+			it("measures the configured directory when a link leads nowhere", () => {
+				const linked = join(dir, "linked.db");
+				symlinkSync(join(dir, "gone", "router.db"), linked);
+				const measured: string[] = [];
+				const failure = codedError("SQLITE_IOERR_SHMSIZE");
+
+				const refusal = thrownBy(() =>
+					openWithStartReserve(
+						linked,
+						() => {
+							throw failure;
+						},
+						undefined,
+						(directory) => {
+							measured.push(directory);
+							return 0;
+						},
+					),
+				) as StartOutOfSpaceError;
+
+				expect(measured).toEqual([dir]);
+				expect(refusal).toBeInstanceOf(StartOutOfSpaceError);
 			});
 		});
 
