@@ -165,6 +165,10 @@ export {
 	configurePendingRotationPersistence,
 	restorePendingRotations,
 } from "./handlers/pending-rotation-registry";
+export {
+	createPendingRotationStore,
+	type PendingRotationStore,
+} from "./handlers/pending-rotation-store";
 export { createPendingRotationWal } from "./handlers/pending-rotation-wal";
 export {
 	evaluateQualityRouteAdmission,

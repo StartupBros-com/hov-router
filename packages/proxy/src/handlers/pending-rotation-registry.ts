@@ -57,6 +57,13 @@ export type PendingRotationPersistence = {
 	save(accountId: string, rotation: PendingRotation): Promise<void>;
 	load(): Promise<Array<{ accountId: string; rotation: PendingRotation }>>;
 	remove(accountId: string): Promise<void>;
+	/**
+	 * Make sure a later `save` for this account needs no new disk space. A
+	 * store that cannot promise that leaves this out.
+	 */
+	reserve?(accountId: string): Promise<void>;
+	/** Remove everything kept for an account that no longer exists. */
+	discard?(accountId: string): Promise<void>;
 };
 
 let persistence: PendingRotationPersistence | null = null;
