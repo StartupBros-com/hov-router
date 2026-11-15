@@ -69,6 +69,14 @@ export interface RunnerFixture {
 	 * running. `null` lets it run again.
 	 */
 	refuseCommand(command: string, status: number | null): void;
+	/**
+	 * While set, the transaction command `command` runs and then waits before
+	 * it returns, so the runner is still inside that call. `false` lets it
+	 * return. Set it before the runner gets to the command.
+	 */
+	holdCommand(command: string, hold: boolean): void;
+	/** Resolves once a held `command` has run and is waiting to return. */
+	waitForHeld(command: string, timeoutMs?: number): Promise<void>;
 	exited(): { code: number | null; signal: NodeJS.Signals | null } | null;
 	waitForExit(
 		timeoutMs?: number,
@@ -175,7 +183,8 @@ export async function startRunner(
 	chmodSync(backend, 0o755);
 
 	// Stands in for NODE_BIN so that a test can make one transaction command
-	// fail the way a full disk or a refused write would.
+	// fail the way a full disk or a refused write would, or keep the runner
+	// inside one for as long as the test needs.
 	const nodeWrapper = join(layout.scratch, "node-wrapper.sh");
 	writeFileSync(
 		nodeWrapper,
@@ -186,6 +195,14 @@ export async function startRunner(
 			'	status="$(<"$refusal")"',
 			'	printf \'%s\\n\' "$2" >>"$CAPTURE_DIR/refused-commands.log"',
 			'	printf \'fixture: %s refused with status %s\\n\' "$2" "$status" >&2',
+			'	exit "$status"',
+			"fi",
+			'hold="$CAPTURE_DIR/hold-command-${2:-}"',
+			'if [[ -n "${2:-}" && -f "$hold" ]]; then',
+			`	${JSON.stringify(node)} "$@"`,
+			"	status=$?",
+			'	: >"$CAPTURE_DIR/held-command-$2"',
+			'	while [[ -f "$hold" ]]; do sleep 0.01; done',
 			'	exit "$status"',
 			"fi",
 			`exec ${JSON.stringify(node)} "$@"`,
@@ -303,6 +320,23 @@ export async function startRunner(
 		refuseBackendStart: (status) => control("refuse-backend-start", status),
 		refuseCommand: (command, status) =>
 			control(`refuse-command-${command}`, status),
+		holdCommand: (command, hold) =>
+			control(`hold-command-${command}`, hold ? 1 : null),
+		async waitForHeld(command, timeoutMs = 20_000) {
+			const held = join(capture, `held-command-${command}`);
+			const deadline = Date.now() + timeoutMs;
+			while (Date.now() < deadline) {
+				if (existsSync(held)) return;
+				if (exit)
+					throw new Error(
+						`the runner exited (${JSON.stringify(exit)}) before it was held in ${command}:\n${output.slice(-4000)}`,
+					);
+				await Bun.sleep(10);
+			}
+			throw new Error(
+				`the runner was not held in ${command} in ${timeoutMs} ms:\n${output.slice(-4000)}`,
+			);
+		},
 		exited: () => exit,
 		waitForExit,
 		async stop(timeoutMs = 20_000) {

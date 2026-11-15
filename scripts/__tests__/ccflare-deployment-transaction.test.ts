@@ -21,6 +21,7 @@ import {
 	durableWrite,
 	prepareBootstrap,
 	recordBackendOwner,
+	recordReapedBackendOwner,
 	portListening,
 } from "../ccflare-deployment-transaction.mjs";
 import net from "node:net";
@@ -306,6 +307,71 @@ test("crash before child PID receipt remains held even when prior child is gone"
 		rmSync(f.dir, { recursive: true, force: true });
 	}
 });
+
+// A stop can reach the runner after it has written "spawning" and before it
+// has started anything. It then closes the record under its own pid with a
+// start time no process has. From there the transaction must decide what the
+// next start does, exactly as it does after a backend that ran and was
+// stopped: the record itself must neither hold the start nor allow one the
+// transaction would have held (#827).
+const AMBIGUOUS = { action: "hold", reason: "transaction_ambiguous" };
+test.each([
+	[null, "previous", { action: "start" }],
+	["prepared", "previous", { action: "start_previous" }],
+	["draining", "previous", AMBIGUOUS],
+	["quiescing", "previous", AMBIGUOUS],
+	["old_quiesced", "previous", AMBIGUOUS],
+	["old_reaped", "previous", AMBIGUOUS],
+	["candidate_started", "previous", AMBIGUOUS],
+	["candidate_verified", "previous", AMBIGUOUS],
+	["rolled_back", "previous", { action: "start_previous" }],
+	["held", "previous", AMBIGUOUS],
+	["old_reaped", "candidate", AMBIGUOUS],
+	["committed", "previous", AMBIGUOUS],
+	["committed", "candidate", { action: "start_candidate" }],
+	["attached", "candidate", { action: "start_candidate" }],
+] as const)(
+	"a record closed for a backend that was never started recovers like a stopped backend's: phase %s, %s pin",
+	(phase, pin, expected) => {
+		const f = fixture();
+		try {
+			const candidatePin = join(f.dir, "candidate-pin");
+			writeFileSync(candidatePin, "new-pin");
+			if (phase) {
+				prepareTransaction(
+					f.dir,
+					{ ...f.manifest, candidatePinHash: fileHash(candidatePin) },
+					f.runtime,
+				);
+				const path = join(f.dir, "intent.json");
+				durableWrite(path, {
+					...JSON.parse(readFileSync(path, "utf8")),
+					phase,
+					candidatePid: 999998,
+					candidateStartTime: "2",
+				});
+			}
+			if (pin === "candidate") writeFileSync(f.pin, "new-pin");
+
+			// Processes are looked up for real: none of the fixture's exist.
+			recordBackendOwner(f.dir, "running", 999997, "3");
+			const afterStoppedBackend = recoverTransaction(f.dir);
+			expect(afterStoppedBackend).toEqual(expected);
+
+			// This process stands in for the runner, and it is still running.
+			recordReapedBackendOwner(f.dir, process.pid);
+			expect(recoverTransaction(f.dir)).toEqual(afterStoppedBackend);
+
+			recordBackendOwner(f.dir, "spawning");
+			expect(recoverTransaction(f.dir)).toEqual({
+				action: "hold",
+				reason: "unreaped_or_ambiguous_owner",
+			});
+		} finally {
+			rmSync(f.dir, { recursive: true, force: true });
+		}
+	},
+);
 
 test("official inline Node bootstrap import does not execute CLI entrypoint", () => {
 	const module = new URL(

@@ -413,7 +413,9 @@ const NO_PROCESS_START = "0";
  * the runner read, so that a process still there under that identity holds
  * the next start; without one, the record matches no process.
  *
- * Only for a child the caller has waited for. Nothing here can check that.
+ * Only for a child the caller has waited for, or, with no `start`, for a
+ * record the caller wrote and then started nothing for (a stop that arrived
+ * first). Nothing here can check either.
  */
 export function recordReapedBackendOwner(
 	dir,

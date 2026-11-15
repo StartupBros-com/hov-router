@@ -23,6 +23,7 @@ import {
 	readFileSync,
 	rmSync,
 	statSync,
+	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -322,6 +323,123 @@ describe("the ownership record after a start that was never recorded", () => {
 		// Refused for a reason other than space: counted, not waited out.
 		expect(runner.count(WAITING)).toBe(0);
 	}, 30_000);
+});
+
+/** The ownership record as it is on disk. */
+function ownerRecord(runner: RunnerFixture): {
+	phase: string;
+	pid?: number;
+	start?: string;
+} {
+	return JSON.parse(readFileSync(join(runner.handoff, "owner.json"), "utf8"));
+}
+
+/** Hold the first `command` of a runner that has not been started yet. */
+function holdFromTheStart(where: RunnerLayout, command: string): void {
+	const capture = join(where.scratch, "capture");
+	mkdirSync(capture, { recursive: true });
+	writeFileSync(join(capture, `hold-command-${command}`), "1");
+}
+
+/**
+ * Send the stop while the runner is inside the held `command`, then let the
+ * command return. The shell runs a signal's handler only once the command it
+ * is waiting for has returned, which is what a stop from systemd meets too:
+ * it signals the runner alone.
+ */
+async function stopInside(runner: RunnerFixture, command: string) {
+	await runner.waitForHeld(command);
+	runner.child.kill("SIGTERM");
+	await Bun.sleep(150);
+	expect(runner.exited()).toBeNull();
+	runner.holdCommand(command, false);
+	return runner.waitForExit();
+}
+
+async function nothingLeftRunning(root: string): Promise<number[]> {
+	const deadline = Date.now() + 5_000;
+	while (processesNaming(root).length > 0 && Date.now() < deadline)
+		await Bun.sleep(50);
+	return processesNaming(root);
+}
+
+describe("a stop that lands while a backend is being started", () => {
+	// The runner writes "spawning" to the ownership record, starts the
+	// backend, then writes the backend's identity. A stop between the first
+	// write and the last used to leave "spawning" behind with nothing to
+	// check it against, and that holds every later start until a person
+	// removes the record: `systemctl restart` at the wrong moment took the
+	// unit down for good (#827).
+	test("starts no backend and does not hold the next start, when it lands as the record is written", async () => {
+		const where = layout();
+		holdFromTheStart(where, "owner-spawning");
+		const runner = await start(where);
+		await runner.waitForHeld("owner-spawning");
+		expect(ownerRecord(runner).phase).toBe("spawning");
+
+		const exit = await stopInside(runner, "owner-spawning");
+
+		expect(exit.code).toBe(STOPPED_EXIT_STATUS);
+		expect(lifecycle(runner)).toEqual([]);
+		expect(runner.recover()).toMatchObject({
+			status: 0,
+			stdout: '{"action":"start"}',
+		});
+		expect(await nothingLeftRunning(where.root)).toEqual([]);
+
+		const next = await start(where);
+		await next.waitForOutput(READY);
+		expect((await next.stop()).code).toBe(STOPPED_EXIT_STATUS);
+	}, 60_000);
+
+	test("does the same when the backend being started replaces one that exited", async () => {
+		const where = layout();
+		const runner = await start(where);
+		await runner.waitForOutput(READY);
+		runner.holdCommand("owner-spawning", true);
+		runner.crashBackend(1);
+
+		const exit = await stopInside(runner, "owner-spawning");
+
+		expect(exit.code).toBe(STOPPED_EXIT_STATUS);
+		// One backend started, and it is the one that was made to exit.
+		expect(
+			lifecycle(runner).filter((line) => line.startsWith("backend-start")),
+		).toHaveLength(1);
+		expect(runner.recover()).toMatchObject({
+			status: 0,
+			stdout: '{"action":"start"}',
+		});
+		expect(await nothingLeftRunning(where.root)).toEqual([]);
+
+		const next = await start(where);
+		await next.waitForOutput(READY);
+		expect((await next.stop()).code).toBe(STOPPED_EXIT_STATUS);
+	}, 60_000);
+
+	test("stops the backend it had just started, when it lands as that backend is recorded", async () => {
+		const where = layout();
+		holdFromTheStart(where, "owner-started");
+		const runner = await start(where);
+		await runner.waitForHeld("owner-started");
+		const owner = ownerRecord(runner);
+		expect(owner.phase).toBe("running");
+		expect(existsSync(`/proc/${owner.pid}`)).toBe(true);
+
+		const exit = await stopInside(runner, "owner-started");
+
+		expect(exit.code).toBe(STOPPED_EXIT_STATUS);
+		expect(await nothingLeftRunning(where.root)).toEqual([]);
+		expect(existsSync(`/proc/${owner.pid}`)).toBe(false);
+		expect(runner.recover()).toMatchObject({
+			status: 0,
+			stdout: '{"action":"start"}',
+		});
+
+		const next = await start(where);
+		await next.waitForOutput(READY);
+		expect((await next.stop()).code).toBe(STOPPED_EXIT_STATUS);
+	}, 60_000);
 });
 
 describe("a start that fails because the disk is full", () => {
