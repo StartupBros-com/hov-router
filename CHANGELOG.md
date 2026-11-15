@@ -1,5 +1,42 @@
 # Changelog
 
+## [6.0.0](https://github.com/StartupBros/hov-router/compare/v5.1.0...v6.0.0) (2026-11-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* the Auto quality lane is removed. Requests for claude-bccf-quality-* models fail with 400 quality_route_retired, /v1/quality-routing/* answers 410 Gone, and --quality-routing-* commands exit 2. Move clients to a stock model or a route profile before upgrading; see docs/hov-router-migration.md.
+
+### Features
+
+* **dashboard:** page header and shared loading, error and empty states on every page ([#831](https://github.com/StartupBros/hov-router/issues/831)) ([772a576](https://github.com/StartupBros/hov-router/commit/772a576d55320e06a018a97111bf660da3856cf1)), refs [#830](https://github.com/StartupBros/hov-router/issues/830) [#823](https://github.com/StartupBros/hov-router/issues/823)
+* **dashboard:** stat tiles, chart colour tokens and neutral pool bars on Overview, Analytics and Insights ([#836](https://github.com/StartupBros/hov-router/issues/836)) ([48f5e7e](https://github.com/StartupBros/hov-router/commit/48f5e7e1b92136efbf19df26e63ad8007a97fcc6)), refs [#835](https://github.com/StartupBros/hov-router/issues/835) [#823](https://github.com/StartupBros/hov-router/issues/823)
+* **dashboard:** status pills, labelled filter chips, one timestamp format and 44 px controls on Requests and Logs ([#834](https://github.com/StartupBros/hov-router/issues/834)) ([0680d4f](https://github.com/StartupBros/hov-router/commit/0680d4f5152e1d075dcc7e5175725c3a15cb089f)), refs [#833](https://github.com/StartupBros/hov-router/issues/833) [#823](https://github.com/StartupBros/hov-router/issues/823)
+* **dashboard:** status pills, state blocks, touch sizes and shared reset times on Accounts ([#829](https://github.com/StartupBros/hov-router/issues/829)) ([8b59b26](https://github.com/StartupBros/hov-router/commit/8b59b26a59d37b1278cc58d3ca5373eb2bcb83af)), refs [#823](https://github.com/StartupBros/hov-router/issues/823) [#821](https://github.com/StartupBros/hov-router/issues/821)
+* **dashboard:** steer load from the Accounts page with pace ticks, groups and provider marks ([#822](https://github.com/StartupBros/hov-router/issues/822)) ([386e021](https://github.com/StartupBros/hov-router/commit/386e021a0cb60221bd0b0a3ca576972dd64018cf)), refs [#821](https://github.com/StartupBros/hov-router/issues/821) [#766](https://github.com/StartupBros/hov-router/issues/766)
+* remove the Auto quality lane ([b7ab849](https://github.com/StartupBros/hov-router/commit/b7ab849db8393763ffe794934fdd1725b9d1da01))
+
+
+### Bug Fixes
+
+* **dashboard:** list accounts in routing order and stop inventing quota rows ([#819](https://github.com/StartupBros/hov-router/issues/819)) ([9aeb7a5](https://github.com/StartupBros/hov-router/commit/9aeb7a53261f76f2b7005691af47a4a796fbf2ba)), refs [#808](https://github.com/StartupBros/hov-router/issues/808) [#766](https://github.com/StartupBros/hov-router/issues/766)
+* **dashboard:** replace defensive account status copy ([#815](https://github.com/StartupBros/hov-router/issues/815)) ([6a2cee0](https://github.com/StartupBros/hov-router/commit/6a2cee0fd3c16396586751e3d784f51db97f2f6a)), refs [#808](https://github.com/StartupBros/hov-router/issues/808) [#766](https://github.com/StartupBros/hov-router/issues/766)
+* keep serving and starting when the disk is full ([#837](https://github.com/StartupBros/hov-router/issues/837)) ([e43c894](https://github.com/StartupBros/hov-router/commit/e43c8941304dc0feecb4d3d01baef4eaafc62db0))
+* **logger:** count log lines lost in flight when the log file write fails ([#838](https://github.com/StartupBros/hov-router/issues/838)) ([40e2ae6](https://github.com/StartupBros/hov-router/commit/40e2ae62c476cc99f997ad5dc72a42f116ce1d41)), refs [#827](https://github.com/StartupBros/hov-router/issues/827)
+* **runner:** keep a stop that lands mid-start from holding every later start ([#840](https://github.com/StartupBros/hov-router/issues/840)) ([67820d9](https://github.com/StartupBros/hov-router/commit/67820d9b2419cf079ef7600abce7f50509d30923)), refs [#827](https://github.com/StartupBros/hov-router/issues/827)
+* **runner:** keep restarting the stack when the disk is full ([#839](https://github.com/StartupBros/hov-router/issues/839)) ([1a0cd61](https://github.com/StartupBros/hov-router/commit/1a0cd6137d70f0442c58ad3125cff1fe1f06d5f8))
+* **usage:** record xAI requests as plan billing, from one per-provider default ([#828](https://github.com/StartupBros/hov-router/issues/828)) ([5471334](https://github.com/StartupBros/hov-router/commit/5471334ade6ea80769853c4d4850bda11c0a1285))
+
+
+### Security
+
+* warn at startup when listening beyond loopback with no API key ([#826](https://github.com/StartupBros/hov-router/issues/826)) ([7535ddc](https://github.com/StartupBros/hov-router/commit/7535ddc4515ead7cf81a590214f6733be95cc468))
+
+
+### Improvements
+
+* **proxy:** remove the dead Auto catalog-evidence code ([#841](https://github.com/StartupBros/hov-router/issues/841)) ([d1c5944](https://github.com/StartupBros/hov-router/commit/d1c5944747d1bf2f56151c0a63617e17c3337b0c)), refs [#824](https://github.com/StartupBros/hov-router/issues/824)
+
 ## [5.1.0](https://github.com/StartupBros/hov-router/compare/v5.0.1...v5.1.0) (2026-11-14)
 
 
