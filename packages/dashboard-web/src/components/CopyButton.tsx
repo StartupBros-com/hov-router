@@ -30,6 +30,56 @@ interface CopyButtonProps {
 	 * Optional title attribute for accessibility.
 	 */
 	title?: string;
+	/**
+	 * Accessible name. When set, a screen reader also hears "Copied" or
+	 * "Copy failed" after a click.
+	 */
+	label?: string;
+}
+
+type CopyState = "idle" | "loading" | "copied" | "errored";
+
+/** What the button shows in each copy state. */
+export function CopyButtonFace({
+	state,
+	children,
+}: {
+	state: CopyState;
+	children?: React.ReactNode;
+}) {
+	if (state === "loading") return <Loader2 className="h-4 w-4 animate-spin" />;
+	if (state === "errored") {
+		return children ? (
+			<>
+				<AlertCircle className="h-4 w-4 mr-1 text-destructive" />
+				Copy failed
+			</>
+		) : (
+			<span className="animate-pulse text-destructive" title="Copy failed">
+				<AlertCircle className="h-4 w-4" />
+			</span>
+		);
+	}
+	if (state === "copied") {
+		return children ? (
+			<>
+				<Check className="h-4 w-4 mr-1" />
+				Copied
+			</>
+		) : (
+			<span className="animate-pulse">
+				<Check className="h-4 w-4" />
+			</span>
+		);
+	}
+	return children ? (
+		<>
+			<Copy className="h-4 w-4 mr-1" />
+			{children}
+		</>
+	) : (
+		<Copy className="h-4 w-4" />
+	);
 }
 
 /**
@@ -45,6 +95,7 @@ export function CopyButton({
 	className,
 	children,
 	title,
+	label,
 }: CopyButtonProps) {
 	const [copied, setCopied] = useState(false);
 	const [loading, setLoading] = useState(false);
@@ -102,33 +153,39 @@ export function CopyButton({
 		finishCopy(text);
 	};
 
-	return (
+	const state: CopyState = loading
+		? "loading"
+		: errored
+			? "errored"
+			: copied
+				? "copied"
+				: "idle";
+	const button = (
 		<Button
 			variant={variant}
 			size={size}
 			onClick={handleCopy}
 			title={title}
+			aria-label={label}
 			className={cn("relative overflow-hidden", className)}
 			disabled={loading}
 		>
-			{loading ? (
-				<Loader2 className="h-4 w-4 animate-spin" />
-			) : errored ? (
-				<span className="animate-pulse text-destructive" title="Copy failed">
-					<AlertCircle className="h-4 w-4" />
-				</span>
-			) : copied ? (
-				<span className="animate-pulse">
-					<Check className="h-4 w-4" />
-				</span>
-			) : children ? (
-				<>
-					<Copy className="h-4 w-4 mr-1" />
-					{children}
-				</>
-			) : (
-				<Copy className="h-4 w-4" />
-			)}
+			<CopyButtonFace state={state}>{children}</CopyButtonFace>
 		</Button>
+	);
+	if (!label) return button;
+	// Outside the button: a button's contents are presentational, so a live
+	// region inside it may never be announced.
+	return (
+		<>
+			{button}
+			<span role="status" className="sr-only">
+				{state === "copied"
+					? "Copied"
+					: state === "errored"
+						? "Copy failed"
+						: ""}
+			</span>
+		</>
 	);
 }
