@@ -1,6 +1,8 @@
 // Import provider definitions from the centralized provider-config module
 // This avoids circular dependencies
 import {
+	type DefaultBillingType,
+	getDefaultBillingType,
 	getDefaultEndpoint,
 	isKnownProvider,
 	PROVIDER_CONFIG,
@@ -13,6 +15,8 @@ import {
 
 // Re-export the imported types and constants
 export {
+	type DefaultBillingType,
+	getDefaultBillingType,
 	getDefaultEndpoint,
 	isKnownProvider,
 	PROVIDER_CONFIG,
