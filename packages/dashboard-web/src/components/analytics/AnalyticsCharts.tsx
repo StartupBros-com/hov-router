@@ -14,6 +14,7 @@ import {
 import {
 	CHART_HEIGHTS,
 	CHART_PROPS,
+	CHART_TOOLTIP_STYLE,
 	COLORS,
 	type TimeRange,
 } from "../../constants";
@@ -288,12 +289,12 @@ export function MainMetricsChart({
 											>
 												<stop
 													offset="0%"
-													stopColor="#14b8a6"
+													stopColor={COLORS.teal}
 													stopOpacity={0.9}
 												/>
 												<stop
 													offset="100%"
-													stopColor="#14b8a6"
+													stopColor={COLORS.teal}
 													stopOpacity={0.1}
 												/>
 											</linearGradient>
@@ -306,21 +307,23 @@ export function MainMetricsChart({
 											>
 												<stop
 													offset="0%"
-													stopColor="#f97316"
+													stopColor={COLORS.orange}
 													stopOpacity={0.9}
 												/>
 												<stop
 													offset="100%"
-													stopColor="#f97316"
+													stopColor={COLORS.orange}
 													stopOpacity={0.1}
 												/>
 											</linearGradient>
 										</defs>
 										<CartesianGrid
+											stroke={CHART_PROPS.gridStroke}
 											strokeDasharray={CHART_PROPS.strokeDasharray}
 											className={CHART_PROPS.gridClassName}
 										/>
 										<XAxis
+											stroke={CHART_PROPS.axisStroke}
 											dataKey="time"
 											className="text-xs"
 											angle={isLongRange ? -45 : 0}
@@ -328,21 +331,25 @@ export function MainMetricsChart({
 											height={isLongRange ? 60 : 30}
 										/>
 										<YAxis
+											stroke={CHART_PROPS.axisStroke}
 											className="text-xs"
 											tickFormatter={formatCompactCurrency}
 										/>
 										<Tooltip
+											cursor={{ stroke: CHART_PROPS.cursorStroke }}
 											// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
 											formatter={costFormatter as any}
+											contentStyle={CHART_TOOLTIP_STYLE.default}
 											// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened labelFormatter label to ReactNode
 											labelFormatter={costLabelFormatter as any}
 										/>
 										<Legend height={36} />
 										<Area
+											activeDot={{ stroke: CHART_PROPS.surfaceStroke }}
 											type="monotone"
 											dataKey="planCost"
 											name="Plan Cost"
-											stroke="#14b8a6"
+											stroke={COLORS.teal}
 											strokeWidth={strokeW}
 											fillOpacity={1}
 											fill="url(#colorPlanCost)"
@@ -350,10 +357,11 @@ export function MainMetricsChart({
 											animationDuration={1000}
 										/>
 										<Area
+											activeDot={{ stroke: CHART_PROPS.surfaceStroke }}
 											type="monotone"
 											dataKey="apiCost"
 											name="API/Overage Cost"
-											stroke="#f97316"
+											stroke={COLORS.orange}
 											strokeWidth={strokeW}
 											fillOpacity={1}
 											fill="url(#colorApiCost)"
@@ -688,12 +696,12 @@ export function CumulativeGrowthChart({ data }: CumulativeGrowthChartProps) {
 						</defs>
 						<CartesianGrid
 							strokeDasharray={CHART_PROPS.strokeDasharray}
-							stroke="rgba(255,255,255,0.1)"
+							stroke={CHART_PROPS.gridStroke}
 						/>
 						<XAxis
 							dataKey="time"
 							className="text-xs"
-							stroke="rgba(255,255,255,0.5)"
+							stroke={CHART_PROPS.axisStroke}
 						/>
 						<YAxis
 							yAxisId="tokens"
@@ -709,10 +717,10 @@ export function CumulativeGrowthChart({ data }: CumulativeGrowthChartProps) {
 							tickFormatter={formatCompactCurrency}
 						/>
 						<Tooltip
+							cursor={{ stroke: CHART_PROPS.cursorStroke }}
 							labelClassName="font-bold"
 							contentStyle={{
-								backgroundColor: "rgba(0,0,0,0.8)",
-								border: "1px solid rgba(255,255,255,0.2)",
+								...CHART_TOOLTIP_STYLE.default,
 								borderRadius: "8px",
 								backdropFilter: "blur(8px)",
 							}}
@@ -728,6 +736,7 @@ export function CumulativeGrowthChart({ data }: CumulativeGrowthChartProps) {
 							}}
 						/>
 						<Area
+							activeDot={{ stroke: CHART_PROPS.surfaceStroke }}
 							yAxisId="tokens"
 							type="monotone"
 							dataKey="tokens"
@@ -739,6 +748,7 @@ export function CumulativeGrowthChart({ data }: CumulativeGrowthChartProps) {
 							name="Total Tokens"
 						/>
 						<Area
+							activeDot={{ stroke: CHART_PROPS.surfaceStroke }}
 							yAxisId="cost"
 							type="monotone"
 							dataKey="cost"

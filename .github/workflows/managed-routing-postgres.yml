@@ -96,6 +96,17 @@ jobs:
           BETTER_CCFLARE_TEST_COMPILED_CLI: ${{ github.workspace }}/apps/cli/dist/better-ccflare
         run: bun test --timeout 15000 apps/cli/src/__tests__/ordinary-cli-dotenv.test.ts
 
+      - name: Run the full-disk scenario against the compiled CLI
+        # The full suite above runs apps/server/src/disk-full.test.ts with the server
+        # started from source. Production runs the binary, whose entry point is the
+        # CLI, so the same file runs here against it (#827): the router on a 64 MB
+        # tmpfs filled to zero free blocks has to keep serving, restart and recover.
+        # The tmpfs is mounted in a private namespace with loopback only, through
+        # sudo on this runner, and the test fails here if it cannot be mounted.
+        env:
+          BETTER_CCFLARE_TEST_COMPILED_CLI: ${{ github.workspace }}/apps/cli/dist/better-ccflare
+        run: bun test --timeout 15000 apps/server/src/disk-full.test.ts
+
       - name: Run lint
         run: bun run lint
 

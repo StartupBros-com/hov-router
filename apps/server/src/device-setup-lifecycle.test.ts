@@ -102,7 +102,7 @@ mock.module("@better-ccflare/proxy", () => {
 			writerAdmission: { enabled: false as const },
 		}),
 		createGuardCorrelationVerifier: () => undefined,
-		createPendingRotationWal: () => ({}),
+		createPendingRotationStore: () => ({}),
 		createServerToolReplayRuntime: async () => ({
 			status: "disabled" as const,
 		}),
@@ -127,6 +127,11 @@ mock.module("@better-ccflare/proxy", () => {
 		recordCodexUsageSnapshot: async () => {},
 		refreshModelCatalog: async () => ({ success: true }),
 		refreshTokenAfterRejectedRedemption: async () => false,
+		reservePendingRotationSlots: async () => ({
+			reserved: 0,
+			storageFull: 0,
+			failed: 0,
+		}),
 		registerAccountRemovalTrackingClearer: () => {},
 		registerCodexResetRedeemer: () => {},
 		registerCodexUsageRefresher: () => {},

@@ -4,8 +4,8 @@ import {
 	formatTokensPerSecond,
 } from "@better-ccflare/ui-common";
 import {
+	AlertCircle,
 	Bot,
-	Calendar,
 	ChevronDown,
 	ChevronRight,
 	Clock,
@@ -21,18 +21,24 @@ import { useMemo, useRef, useState } from "react";
 import { api, type RequestPayload, type RequestSummary } from "../api";
 import { API_LIMITS } from "../constants";
 import { useAccounts, useApiKeys, useRequests } from "../hooks/queries";
+import { useApiError } from "../hooks/useApiError";
 import { useRequestStream } from "../hooks/useRequestStream";
 import {
 	attributionSourceLabel,
 	describeRequestAgent,
 	groupAgentFilterOptions,
 } from "../lib/attribution";
+import { activeRequestFilters } from "../lib/request-filters";
 import { requestModelLabel } from "../lib/request-model-label";
+import { httpStatusTone } from "../lib/request-status";
 import { isAnthropicPeakHour, isZaiPeakHour } from "../utils/provider-utils";
 import { CopyButton } from "./CopyButton";
+import { RoutePageHeader } from "./page-shell";
 import { RequestAgentBadge } from "./RequestAgentBadge";
 import { RequestCostBadge } from "./RequestCostBadge";
 import { RequestDetailsModal } from "./RequestDetailsModal";
+import { ActiveFilterBar } from "./requests/ActiveFilterBar";
+import { RequestStatusPill } from "./requests/RequestStatusPill";
 import { TokenUsageDisplay } from "./TokenUsageDisplay";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -45,9 +51,12 @@ import {
 } from "./ui/card";
 import {
 	DropdownMenu,
+	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
+	DropdownMenuLabel,
 	DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { EventTime } from "./ui/event-time";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import {
@@ -59,6 +68,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "./ui/select";
+import { EmptyState, ErrorState, LoadingState } from "./ui/state";
+import { StatusPill } from "./ui/status-pill";
 
 export function RequestsTab() {
 	const [expandedRequests, setExpandedRequests] = useState<Set<string>>(
@@ -82,7 +93,7 @@ export function RequestsTab() {
 
 	const {
 		data: requestsData,
-		isLoading: loading,
+		isError: requestsError,
 		error,
 		refetch: loadRequests,
 	} = useRequests(API_LIMITS.requestsDetail);
@@ -309,13 +320,6 @@ export function RequestsTab() {
 		});
 	};
 
-	const getStatusCodeColor = (code: number) => {
-		if (code >= 200 && code < 300) return "text-green-600";
-		if (code >= 400 && code < 500) return "text-yellow-600";
-		if (code >= 500) return "text-red-600";
-		return "text-gray-600";
-	};
-
 	const clearAllFilters = () => {
 		setAccountFilter("all");
 		setAgentFilter("all");
@@ -325,13 +329,26 @@ export function RequestsTab() {
 		setStatusCodeFilters(new Set());
 	};
 
-	const hasActiveFilters =
-		accountFilter !== "all" ||
-		agentFilter !== "all" ||
-		apiKeyFilter !== "all" ||
-		dateFrom ||
-		dateTo ||
-		statusCodeFilters.size > 0;
+	const activeFilters = activeRequestFilters({
+		account: accountFilter,
+		agent: agentFilter,
+		agentLabel: agentFilterSession?.label,
+		apiKey: apiKeyFilter,
+		statusCodes: statusCodeFilters,
+		dateFrom,
+		dateTo,
+	});
+	const hasActiveFilters = activeFilters.length > 0;
+	const removeFilter = (key: (typeof activeFilters)[number]["key"]) => {
+		if (key === "account") setAccountFilter("all");
+		else if (key === "agent") setAgentFilter("all");
+		else if (key === "apiKey") setApiKeyFilter("all");
+		else if (key === "status") setStatusCodeFilters(new Set());
+		else {
+			setDateFrom("");
+			setDateTo("");
+		}
+	};
 
 	const decodeBase64 = (str: string | null): string => {
 		if (!str) return "No data";
@@ -353,719 +370,654 @@ export function RequestsTab() {
 	 */
 	// copyRequest helper removed – handled inline by CopyButton
 
-	if (loading) {
-		return (
-			<Card>
-				<CardContent className="pt-6">
-					<p className="text-muted-foreground">Loading requests...</p>
-				</CardContent>
-			</Card>
-		);
-	}
-
-	if (error) {
-		return (
-			<Card>
-				<CardContent className="pt-6">
-					<p className="text-destructive">
-						Error: {error instanceof Error ? error.message : String(error)}
-					</p>
-					<Button
-						onClick={() => loadRequests()}
-						variant="outline"
-						size="sm"
-						className="mt-2"
-					>
-						<RefreshCw className="mr-2 h-4 w-4" />
-						Retry
-					</Button>
-				</CardContent>
-			</Card>
-		);
-	}
-
 	return (
-		<Card>
-			<CardHeader>
-				<div className="flex items-center justify-between">
-					<div>
-						<CardTitle>Request History</CardTitle>
-						<CardDescription>
-							Detailed request and response data (last{" "}
-							{API_LIMITS.requestsDetail})
-						</CardDescription>
-					</div>
-					<div className="flex gap-2">
-						<Button
-							onClick={() => setShowFilters(!showFilters)}
-							variant={showFilters ? "default" : "outline"}
-							size="sm"
-							className="relative"
-						>
-							<Filter className="h-4 w-4 mr-2" />
-							Filters
-							{hasActiveFilters && !showFilters && (
-								<span className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full animate-pulse" />
-							)}
-						</Button>
-						<Button
-							onClick={() => loadRequests()}
-							variant="ghost"
-							size="icon"
-							aria-label="Refresh requests"
-						>
-							<RefreshCw className="h-4 w-4" aria-hidden="true" />
-						</Button>
-					</div>
-				</div>
-			</CardHeader>
-			<CardContent>
-				{/* Active Filters Display */}
-				{hasActiveFilters && (
-					<div className="mb-4 p-3 bg-muted/50 rounded-lg">
-						<div className="flex flex-wrap items-center gap-2">
-							{accountFilter !== "all" && (
-								<Badge variant="outline" className="gap-1.5 pr-1">
-									<User className="h-3 w-3" />
-									{accountFilter}
-									<button
-										type="button"
-										onClick={() => setAccountFilter("all")}
-										className="ml-1 p-0.5 hover:bg-destructive/20 rounded"
-									>
-										<X className="h-3 w-3" />
-									</button>
-								</Badge>
-							)}
-							{agentFilter !== "all" && (
-								<Badge variant="outline" className="gap-1.5 pr-1">
-									{agentFilterSession ? (
-										agentFilterSession.label
-									) : (
-										<>
-											<Bot className="h-3 w-3" />
-											{agentFilter}
-										</>
-									)}
-									<button
-										type="button"
-										onClick={() => setAgentFilter("all")}
-										className="ml-1 p-0.5 hover:bg-destructive/20 rounded"
-									>
-										<X className="h-3 w-3" />
-									</button>
-								</Badge>
-							)}
-							{apiKeyFilter !== "all" && (
-								<Badge variant="outline" className="gap-1.5 pr-1">
-									<Hash className="h-3 w-3" />
-									{apiKeyFilter === "no-api-key" ? "No API Key" : apiKeyFilter}
-									<button
-										type="button"
-										onClick={() => setApiKeyFilter("all")}
-										className="ml-1 p-0.5 hover:bg-destructive/20 rounded"
-									>
-										<X className="h-3 w-3" />
-									</button>
-								</Badge>
-							)}
-							{statusCodeFilters.size > 0 && (
-								<Badge variant="outline" className="gap-1.5 pr-1">
-									<Hash className="h-3 w-3" />
-									{Array.from(statusCodeFilters).join(", ")}
-									<button
-										type="button"
-										onClick={() => setStatusCodeFilters(new Set())}
-										className="ml-1 p-0.5 hover:bg-destructive/20 rounded"
-									>
-										<X className="h-3 w-3" />
-									</button>
-								</Badge>
-							)}
-							{(dateFrom || dateTo) && (
-								<Badge variant="outline" className="gap-1.5 pr-1">
-									<Calendar className="h-3 w-3" />
-									{dateFrom && dateTo
-										? "Custom range"
-										: dateFrom
-											? `From ${new Date(dateFrom).toLocaleDateString()}`
-											: `Until ${new Date(dateTo).toLocaleDateString()}`}
-									<button
-										type="button"
-										onClick={() => {
-											setDateFrom("");
-											setDateTo("");
-										}}
-										className="ml-1 p-0.5 hover:bg-destructive/20 rounded"
-									>
-										<X className="h-3 w-3" />
-									</button>
-								</Badge>
-							)}
-							<div className="ml-auto flex items-center gap-2">
-								<span className="text-xs text-muted-foreground">
-									{filteredRequests.length} of {data?.requests.length || 0}{" "}
-									requests
-								</span>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={clearAllFilters}
-									className="h-7 text-xs"
-								>
-									Clear all
-								</Button>
-							</div>
+		<div className="space-y-4">
+			<RoutePageHeader page="requests" />
+			<Card>
+				<CardHeader>
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<div>
+							<CardTitle>Request History</CardTitle>
+							<CardDescription>
+								Detailed request and response data (last{" "}
+								{API_LIMITS.requestsDetail})
+							</CardDescription>
+						</div>
+						<div className="flex gap-2">
+							<Button
+								type="button"
+								onClick={() => setShowFilters(!showFilters)}
+								variant={showFilters ? "default" : "outline"}
+								size="touch-sm"
+								className="relative"
+								aria-expanded={showFilters}
+							>
+								<Filter aria-hidden="true" />
+								Filters
+								{hasActiveFilters && !showFilters && (
+									<>
+										<span
+											aria-hidden="true"
+											className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary animate-pulse motion-reduce:animate-none"
+										/>
+										<span className="sr-only"> (filters active)</span>
+									</>
+								)}
+							</Button>
+							<Button
+								type="button"
+								onClick={() => loadRequests()}
+								variant="ghost"
+								size="touch-icon"
+								aria-label="Refresh requests"
+							>
+								<RefreshCw aria-hidden="true" />
+							</Button>
 						</div>
 					</div>
-				)}
+				</CardHeader>
+				<CardContent>
+					<ActiveFilterBar
+						filters={activeFilters}
+						shown={filteredRequests.length}
+						total={data?.requests.length || 0}
+						onRemove={removeFilter}
+						onClearAll={clearAllFilters}
+					/>
 
-				{/* Filters Panel */}
-				{showFilters && (
-					<div className="mb-6 border rounded-lg bg-card">
-						<div className="p-4 border-b">
-							<div className="flex items-center justify-between">
-								<h3 className="font-medium">Filters</h3>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={() => setShowFilters(false)}
-									className="h-8 w-8 p-0"
-								>
-									<X className="h-4 w-4" />
-								</Button>
-							</div>
-						</div>
-
-						<div className="p-4 space-y-4">
-							{/* Time Range Section */}
-							<div>
-								<h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-									<Clock className="h-4 w-4" />
-									Time Range
-								</h4>
-								<div className="flex flex-wrap gap-2 mb-3">
+					{/* Filters Panel */}
+					{showFilters && (
+						<div className="mb-6 border rounded-lg bg-card">
+							<div className="p-4 border-b">
+								<div className="flex items-center justify-between">
+									<h3 className="font-medium">Filters</h3>
 									<Button
-										variant={dateFrom || dateTo ? "outline" : "secondary"}
-										size="sm"
-										onClick={() => applyDatePreset("1h")}
+										type="button"
+										variant="ghost"
+										size="touch-icon"
+										onClick={() => setShowFilters(false)}
+										aria-label="Close filters"
 									>
-										Last hour
+										<X aria-hidden="true" />
 									</Button>
-									<Button
-										variant={dateFrom || dateTo ? "outline" : "secondary"}
-										size="sm"
-										onClick={() => applyDatePreset("24h")}
-									>
-										Last 24h
-									</Button>
-									<Button
-										variant={dateFrom || dateTo ? "outline" : "secondary"}
-										size="sm"
-										onClick={() => applyDatePreset("7d")}
-									>
-										Last 7 days
-									</Button>
-									<Button
-										variant={dateFrom || dateTo ? "outline" : "secondary"}
-										size="sm"
-										onClick={() => applyDatePreset("30d")}
-									>
-										Last 30 days
-									</Button>
-								</div>
-								<div className="grid grid-cols-2 gap-3">
-									<div>
-										<Label htmlFor="date-from" className="text-xs">
-											From
-										</Label>
-										<Input
-											id="date-from"
-											type="datetime-local"
-											value={dateFrom}
-											onChange={(e) => setDateFrom(e.target.value)}
-											className="h-9 text-sm"
-										/>
-									</div>
-									<div>
-										<Label htmlFor="date-to" className="text-xs">
-											To
-										</Label>
-										<Input
-											id="date-to"
-											type="datetime-local"
-											value={dateTo}
-											onChange={(e) => setDateTo(e.target.value)}
-											className="h-9 text-sm"
-										/>
-									</div>
 								</div>
 							</div>
 
-							<div className="h-px bg-border" />
-
-							{/* Resource Filters */}
-							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-								{/* Account Filter */}
+							<div className="p-4 space-y-4">
+								{/* Time Range Section */}
 								<div>
-									<Label className="text-xs flex items-center gap-1 mb-2">
-										<User className="h-3 w-3" />
-										Account
-									</Label>
-									<Select
-										value={accountFilter}
-										onValueChange={setAccountFilter}
-									>
-										<SelectTrigger className="h-9">
-											<SelectValue placeholder="All accounts" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="all">All accounts</SelectItem>
-											{uniqueAccounts.map((account) => (
-												<SelectItem key={account} value={account || ""}>
-													{account}
+									<h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+										<Clock className="h-4 w-4" aria-hidden="true" />
+										Time Range
+									</h4>
+									<div className="flex flex-wrap gap-2 mb-3">
+										<Button
+											variant={dateFrom || dateTo ? "outline" : "secondary"}
+											size="touch-sm"
+											onClick={() => applyDatePreset("1h")}
+										>
+											Last hour
+										</Button>
+										<Button
+											variant={dateFrom || dateTo ? "outline" : "secondary"}
+											size="touch-sm"
+											onClick={() => applyDatePreset("24h")}
+										>
+											Last 24h
+										</Button>
+										<Button
+											variant={dateFrom || dateTo ? "outline" : "secondary"}
+											size="touch-sm"
+											onClick={() => applyDatePreset("7d")}
+										>
+											Last 7 days
+										</Button>
+										<Button
+											variant={dateFrom || dateTo ? "outline" : "secondary"}
+											size="touch-sm"
+											onClick={() => applyDatePreset("30d")}
+										>
+											Last 30 days
+										</Button>
+									</div>
+									<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+										<div>
+											<Label htmlFor="date-from" className="text-xs">
+												From
+											</Label>
+											<Input
+												id="date-from"
+												type="datetime-local"
+												value={dateFrom}
+												onChange={(e) => setDateFrom(e.target.value)}
+												className="h-11 text-sm"
+											/>
+										</div>
+										<div>
+											<Label htmlFor="date-to" className="text-xs">
+												To
+											</Label>
+											<Input
+												id="date-to"
+												type="datetime-local"
+												value={dateTo}
+												onChange={(e) => setDateTo(e.target.value)}
+												className="h-11 text-sm"
+											/>
+										</div>
+									</div>
+								</div>
+
+								<div className="h-px bg-border" />
+
+								{/* Resource Filters */}
+								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+									{/* Account Filter */}
+									<div>
+										<Label
+											htmlFor="filter-account"
+											className="text-xs flex items-center gap-1 mb-2"
+										>
+											<User className="h-3 w-3" aria-hidden="true" />
+											Account
+										</Label>
+										<Select
+											value={accountFilter}
+											onValueChange={setAccountFilter}
+										>
+											<SelectTrigger id="filter-account" className="h-11">
+												<SelectValue placeholder="All accounts" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="all" className="min-h-11">
+													All accounts
 												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-
-								{/* Agent Filter */}
-								<div>
-									<Label className="text-xs flex items-center gap-1 mb-2">
-										<Bot className="h-3 w-3" />
-										Agent
-									</Label>
-									<Select value={agentFilter} onValueChange={setAgentFilter}>
-										<SelectTrigger className="h-9">
-											<SelectValue placeholder="All agents" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="all">All agents</SelectItem>
-											{agentFilterOptions.agents.length > 0 && (
-												<SelectGroup>
-													<SelectLabel>Agents</SelectLabel>
-													{agentFilterOptions.agents.map((agent) => (
-														<SelectItem key={agent} value={agent}>
-															{agent}
-														</SelectItem>
-													))}
-												</SelectGroup>
-											)}
-											{agentFilterOptions.sessions.length > 0 && (
-												<SelectGroup>
-													<SelectLabel>
-														No agent detected (by session)
-													</SelectLabel>
-													{agentFilterOptions.sessions.map((session) => (
-														<SelectItem
-															key={session.value}
-															value={session.value}
-															title={`Claude Code session ${session.value}`}
-														>
-															{session.label}
-														</SelectItem>
-													))}
-												</SelectGroup>
-											)}
-										</SelectContent>
-									</Select>
-								</div>
-
-								{/* API Key Filter */}
-								<div>
-									<Label className="text-xs flex items-center gap-1 mb-2">
-										<Key className="h-3 w-3" />
-										API Key
-									</Label>
-									<Select value={apiKeyFilter} onValueChange={setApiKeyFilter}>
-										<SelectTrigger className="h-9">
-											<SelectValue placeholder="All API keys" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="all">All API keys</SelectItem>
-											<SelectItem value="no-api-key">No API Key</SelectItem>
-											{uniqueApiKeys.map((key) => (
-												<SelectItem key={key} value={key || ""}>
-													{key}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-
-								{/* Status Code Filter */}
-								<div>
-									<Label className="text-xs flex items-center gap-1 mb-2">
-										<Hash className="h-3 w-3" />
-										Status Code
-									</Label>
-									<DropdownMenu>
-										<DropdownMenuTrigger asChild>
-											<Button
-												variant="outline"
-												className="h-9 w-full justify-between font-normal"
-											>
-												{statusCodeFilters.size > 0
-													? `${statusCodeFilters.size} selected`
-													: "All codes"}
-												<ChevronDown className="h-4 w-4 opacity-50" />
-											</Button>
-										</DropdownMenuTrigger>
-										<DropdownMenuContent className="w-56 max-h-64 overflow-y-auto">
-											<div className="p-2">
-												<div className="text-xs font-medium text-muted-foreground mb-2">
-													Select status codes
-												</div>
-												{uniqueStatusCodes.map((code) => (
-													<button
-														key={code}
-														type="button"
-														className="flex items-center gap-2 p-2 hover:bg-accent rounded cursor-pointer w-full text-left"
-														onClick={() => toggleStatusCode(code.toString())}
+												{uniqueAccounts.map((account) => (
+													<SelectItem
+														key={account}
+														value={account || ""}
+														className="min-h-11"
 													>
-														<div
-															className={`w-4 h-4 border rounded-sm flex items-center justify-center ${
-																statusCodeFilters.has(code.toString())
-																	? "bg-primary border-primary"
-																	: "border-input"
-															}`}
-														>
-															{statusCodeFilters.has(code.toString()) && (
-																<svg
-																	className="w-3 h-3 text-primary-foreground"
-																	fill="none"
-																	viewBox="0 0 24 24"
-																	stroke="currentColor"
-																	aria-label="Selected"
-																>
-																	<title>Selected</title>
-																	<path
-																		strokeLinecap="round"
-																		strokeLinejoin="round"
-																		strokeWidth={3}
-																		d="M5 13l4 4L19 7"
-																	/>
-																</svg>
-															)}
-														</div>
-														<span
-															className={`text-sm font-medium ${getStatusCodeColor(code)}`}
+														{account}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
+
+									{/* Agent Filter */}
+									<div>
+										<Label
+											htmlFor="filter-agent"
+											className="text-xs flex items-center gap-1 mb-2"
+										>
+											<Bot className="h-3 w-3" aria-hidden="true" />
+											Agent
+										</Label>
+										<Select value={agentFilter} onValueChange={setAgentFilter}>
+											<SelectTrigger id="filter-agent" className="h-11">
+												<SelectValue placeholder="All agents" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="all" className="min-h-11">
+													All agents
+												</SelectItem>
+												{agentFilterOptions.agents.length > 0 && (
+													<SelectGroup>
+														<SelectLabel>Agents</SelectLabel>
+														{agentFilterOptions.agents.map((agent) => (
+															<SelectItem
+																key={agent}
+																value={agent}
+																className="min-h-11"
+															>
+																{agent}
+															</SelectItem>
+														))}
+													</SelectGroup>
+												)}
+												{agentFilterOptions.sessions.length > 0 && (
+													<SelectGroup>
+														<SelectLabel>
+															No agent detected (by session)
+														</SelectLabel>
+														{agentFilterOptions.sessions.map((session) => (
+															<SelectItem
+																key={session.value}
+																value={session.value}
+																title={`Claude Code session ${session.value}`}
+																className="min-h-11"
+															>
+																{session.label}
+															</SelectItem>
+														))}
+													</SelectGroup>
+												)}
+											</SelectContent>
+										</Select>
+									</div>
+
+									{/* API Key Filter */}
+									<div>
+										<Label
+											htmlFor="filter-api-key"
+											className="text-xs flex items-center gap-1 mb-2"
+										>
+											<Key className="h-3 w-3" aria-hidden="true" />
+											API Key
+										</Label>
+										<Select
+											value={apiKeyFilter}
+											onValueChange={setApiKeyFilter}
+										>
+											<SelectTrigger id="filter-api-key" className="h-11">
+												<SelectValue placeholder="All API keys" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="all" className="min-h-11">
+													All API keys
+												</SelectItem>
+												<SelectItem value="no-api-key" className="min-h-11">
+													No API Key
+												</SelectItem>
+												{uniqueApiKeys.map((key) => (
+													<SelectItem
+														key={key}
+														value={key || ""}
+														className="min-h-11"
+													>
+														{key}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</div>
+
+									{/* Status Code Filter */}
+									<div>
+										<Label
+											htmlFor="filter-status"
+											className="text-xs flex items-center gap-1 mb-2"
+										>
+											<Hash className="h-3 w-3" aria-hidden="true" />
+											Status Code
+										</Label>
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<Button
+													id="filter-status"
+													type="button"
+													variant="outline"
+													className="h-11 w-full justify-between font-normal"
+												>
+													{statusCodeFilters.size > 0
+														? `${statusCodeFilters.size} selected`
+														: "All codes"}
+													<ChevronDown
+														className="opacity-50"
+														aria-hidden="true"
+													/>
+												</Button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent className="w-56 max-h-64 overflow-y-auto">
+												<DropdownMenuLabel className="text-xs font-medium text-muted-foreground">
+													Select status codes
+												</DropdownMenuLabel>
+												{uniqueStatusCodes.map((code) => (
+													<DropdownMenuCheckboxItem
+														key={code}
+														className="min-h-11"
+														checked={statusCodeFilters.has(code.toString())}
+														onCheckedChange={() =>
+															toggleStatusCode(code.toString())
+														}
+														onSelect={(event) => event.preventDefault()}
+													>
+														<StatusPill
+															tone={httpStatusTone(code)}
+															className="tabular-nums"
 														>
 															{code}
-														</span>
-													</button>
+														</StatusPill>
+													</DropdownMenuCheckboxItem>
 												))}
-											</div>
-										</DropdownMenuContent>
-									</DropdownMenu>
+											</DropdownMenuContent>
+										</DropdownMenu>
+									</div>
 								</div>
 							</div>
 						</div>
-					</div>
-				)}
+					)}
 
-				{!data ? (
-					<p className="text-muted-foreground">No requests found</p>
-				) : filteredRequests.length === 0 ? (
-					<p className="text-muted-foreground">
-						No requests match the selected filters
-					</p>
-				) : (
-					<div className="space-y-2">
-						{filteredRequests.map((request) => {
-							const isExpanded = expandedRequests.has(request.id);
-							const isError = request.error || !request.meta.success;
-							const statusCode = request.response?.status;
-							const summary = data?.summaries.get(request.id);
-							const modelLabel = requestModelLabel(summary);
-							const method = request.meta.method || summary?.method;
-							const path = request.meta.path || summary?.path;
-							const accountLabel =
-								request.meta.accountName ||
-								(request.meta.accountId
-									? `${request.meta.accountId.slice(0, 8)}...`
-									: null);
-							const agentView = describeRequestAgent(
-								summary?.agentUsed || request.meta.agentUsed,
-								summary?.agentAttributionSource ||
-									request.meta.agentAttributionSource,
-							);
-							const projectSrcLabel = attributionSourceLabel(
-								summary?.projectAttributionSource,
-							);
-							const isZaiPeak =
-								zaiAccountNames.has(request.meta.accountName ?? "") &&
-								isZaiPeakHour(request.meta.timestamp);
-							const isAnthropicPeak =
-								oauthAccountNames.has(request.meta.accountName ?? "") &&
-								isAnthropicPeakHour(request.meta.timestamp);
-							const statusClass =
-								statusCode == null
-									? ""
-									: statusCode >= 200 && statusCode < 300
-										? "bg-green-500/10 text-green-600 dark:text-green-400"
-										: statusCode >= 400 && statusCode < 500
-											? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
-											: statusCode >= 500
-												? "bg-red-500/10 text-red-600 dark:text-red-400"
-												: "bg-muted text-muted-foreground";
+					{requestsData === undefined ? (
+						requestsError ? (
+							<RequestsLoadError
+								error={error}
+								onRetry={() => void loadRequests()}
+							/>
+						) : (
+							<LoadingState label="Loading requests" />
+						)
+					) : data?.requests.length === 0 ? (
+						<EmptyState title="No requests found" />
+					) : filteredRequests.length === 0 ? (
+						<EmptyState title="No requests match the selected filters" />
+					) : (
+						<div className="space-y-2">
+							{filteredRequests.map((request) => {
+								const isExpanded = expandedRequests.has(request.id);
+								const isError =
+									!request.meta.pending &&
+									Boolean(request.error || !request.meta.success);
+								const statusCode = request.response?.status;
+								const summary = data?.summaries.get(request.id);
+								const modelLabel = requestModelLabel(summary);
+								const method = request.meta.method || summary?.method;
+								const path = request.meta.path || summary?.path;
+								const accountLabel =
+									request.meta.accountName ||
+									(request.meta.accountId
+										? `${request.meta.accountId.slice(0, 8)}...`
+										: null);
+								const agentView = describeRequestAgent(
+									summary?.agentUsed || request.meta.agentUsed,
+									summary?.agentAttributionSource ||
+										request.meta.agentAttributionSource,
+								);
+								const projectSrcLabel = attributionSourceLabel(
+									summary?.projectAttributionSource,
+								);
+								const isZaiPeak =
+									zaiAccountNames.has(request.meta.accountName ?? "") &&
+									isZaiPeakHour(request.meta.timestamp);
+								const isAnthropicPeak =
+									oauthAccountNames.has(request.meta.accountName ?? "") &&
+									isAnthropicPeakHour(request.meta.timestamp);
 
-							return (
-								<div
-									key={request.id}
-									className={`border rounded-lg transition-all duration-300 ${
-										isError ? "border-destructive/50" : "border-border"
-									} ${request.meta.pending ? "animate-pulse opacity-70" : "opacity-100"}`}
-								>
-									{/* Header row: single line, never wraps */}
-									<div className="flex items-center gap-2 p-3">
-										<button
-											type="button"
-											className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer"
-											onClick={() => toggleExpanded(request.id)}
-											aria-expanded={isExpanded}
-										>
-											{isExpanded ? (
-												<ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-											) : (
-												<ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-											)}
-											<span className="text-xs font-mono tabular-nums text-muted-foreground shrink-0">
-												{new Date(request.meta.timestamp).toLocaleTimeString()}
-											</span>
-											{statusCode != null && (
-												<span
-													className={`text-xs font-mono font-semibold tabular-nums px-1.5 py-0.5 rounded shrink-0 ${statusClass}`}
-												>
-													{statusCode}
-												</span>
-											)}
-											{method && (
-												<span className="text-xs font-semibold uppercase shrink-0">
-													{method}
-												</span>
-											)}
-											{path && (
-												<span className="text-xs font-mono text-muted-foreground truncate min-w-0 flex-1">
-													{path}
-												</span>
-											)}
-											{summary?.responseTimeMs != null && (
-												<span
-													className="text-xs font-mono tabular-nums text-muted-foreground shrink-0"
-													title="Response time"
-												>
-													{formatDuration(summary.responseTimeMs)}
-												</span>
-											)}
-											<span
-												className="text-[11px] font-mono text-muted-foreground/70 shrink-0 hidden sm:inline"
-												title={request.id}
+								return (
+									<div
+										key={request.id}
+										data-request-id={request.id}
+										className={`border rounded-lg transition-all duration-300 ${
+											isError ? "border-destructive/50" : "border-border"
+										} ${request.meta.pending ? "animate-pulse motion-reduce:animate-none opacity-70" : "opacity-100"}`}
+									>
+										{/* Header row: one line from sm up; below sm the path takes its own line */}
+										<div className="flex items-center gap-2 p-3">
+											<button
+												type="button"
+												className="flex min-h-11 min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-left cursor-pointer sm:flex-nowrap"
+												onClick={() => toggleExpanded(request.id)}
+												aria-expanded={isExpanded}
 											>
-												{request.id.slice(0, 8)}
-											</span>
-										</button>
+												{isExpanded ? (
+													<ChevronDown
+														className="h-4 w-4 shrink-0 text-muted-foreground"
+														aria-hidden="true"
+													/>
+												) : (
+													<ChevronRight
+														className="h-4 w-4 shrink-0 text-muted-foreground"
+														aria-hidden="true"
+													/>
+												)}
+												<EventTime
+													value={request.meta.timestamp}
+													className="min-w-0 text-xs font-mono tabular-nums text-muted-foreground sm:shrink-0 sm:whitespace-nowrap"
+												/>
+												<RequestStatusPill
+													statusCode={statusCode}
+													pending={Boolean(request.meta.pending)}
+													isError={isError}
+													className="shrink-0"
+												/>
+												{method && (
+													<span className="text-xs font-semibold uppercase shrink-0">
+														{method}
+													</span>
+												)}
+												{path && (
+													<span className="order-last basis-full truncate pl-6 text-xs font-mono text-muted-foreground min-w-0 sm:order-none sm:basis-auto sm:flex-1 sm:pl-0">
+														{path}
+													</span>
+												)}
+												{summary?.responseTimeMs != null && (
+													<span
+														className="text-xs font-mono tabular-nums text-muted-foreground shrink-0"
+														title="Response time"
+													>
+														{formatDuration(summary.responseTimeMs)}
+													</span>
+												)}
+												<span
+													className="text-[11px] font-mono text-muted-foreground/70 shrink-0 hidden sm:inline"
+													title={request.id}
+												>
+													{request.id.slice(0, 8)}
+												</span>
+											</button>
 
-										{/* Action buttons stay outside the toggle-expand button so they
+											{/* Action buttons stay outside the toggle-expand button so they
 										    never get cut off by flex shrinking and have their own hit area. */}
-										<div className="flex items-center gap-1 shrink-0">
-											<Button
-												variant="ghost"
-												size="icon"
-												onClick={() => setModalRequest(request)}
-												title="View Details"
-											>
-												<Eye className="h-4 w-4" />
-											</Button>
-											<CopyButton
-												variant="ghost"
-												size="icon"
-												title="Copy as JSON"
-												getValueAsync={async () => {
-													const full = request.meta.bodiesOmitted
-														? await api.getRequestPayload(request.id)
-														: request;
-													const decoded: RequestPayload & {
-														decoded?: true;
-													} = {
-														...full,
-														request: full.request
-															? {
-																	...full.request,
-																	body: full.request.body
-																		? decodeBase64(full.request.body)
-																		: null,
-																}
-															: full.request,
-														response: full.response
-															? {
-																	...full.response,
-																	body: full.response.body
-																		? decodeBase64(full.response.body)
-																		: null,
-																}
-															: null,
-														decoded: true,
-													};
-													return JSON.stringify(decoded, null, 2);
-												}}
-											/>
+											<div className="flex items-center gap-1 shrink-0">
+												<Button
+													variant="ghost"
+													size="touch-icon"
+													onClick={() => setModalRequest(request)}
+													title="View Details"
+													aria-label="View request details"
+												>
+													<Eye aria-hidden="true" />
+												</Button>
+												<CopyButton
+													variant="ghost"
+													size="touch-icon"
+													title="Copy as JSON"
+													label="Copy request as JSON"
+													getValueAsync={async () => {
+														const full = request.meta.bodiesOmitted
+															? await api.getRequestPayload(request.id)
+															: request;
+														const decoded: RequestPayload & {
+															decoded?: true;
+														} = {
+															...full,
+															request: full.request
+																? {
+																		...full.request,
+																		body: full.request.body
+																			? decodeBase64(full.request.body)
+																			: null,
+																	}
+																: full.request,
+															response: full.response
+																? {
+																		...full.response,
+																		body: full.response.body
+																			? decodeBase64(full.response.body)
+																			: null,
+																	}
+																: null,
+															decoded: true,
+														};
+														return JSON.stringify(decoded, null, 2);
+													}}
+												/>
+											</div>
 										</div>
-									</div>
 
-									{/* Badges row: wraps freely, holds all the non-essential context */}
-									{(modelLabel ||
-										summary?.project ||
-										agentView ||
-										summary?.comboName ||
-										summary?.apiKeyName ||
-										summary?.totalTokens != null ||
-										(summary != null && !request.meta.pending) ||
-										summary?.billingType ||
-										(summary?.tokensPerSecond ?? 0) > 0 ||
-										accountLabel ||
-										request.meta.rateLimited ||
-										isZaiPeak ||
-										isAnthropicPeak) && (
-										<div className="flex flex-wrap items-center gap-1.5 px-3 pb-2 pl-9 text-xs">
-											{modelLabel?.kind === "response" && (
-												<Badge variant="secondary" className="text-xs">
-													{modelLabel.model}
-												</Badge>
-											)}
-											{modelLabel && modelLabel.kind !== "response" && (
-												<Badge
-													variant="outline"
-													className="text-xs"
-													title="No response model: this is the model the request asked for"
-												>
-													{modelLabel.kind === "requested"
-														? "Requested: "
-														: "Routed: "}
-													{modelLabel.model}
-													{modelLabel.routedTo && ` → ${modelLabel.routedTo}`}
-												</Badge>
-											)}
-											{summary?.project && (
-												<Badge variant="secondary" className="text-xs">
-													Project: {summary.project}
-													{projectSrcLabel && (
-														<span className="text-muted-foreground/70 ml-1">
-															· {projectSrcLabel}
-														</span>
-													)}
-												</Badge>
-											)}
-											<RequestAgentBadge view={agentView} className="text-xs" />
-											{summary?.comboName && (
-												<Badge
-													variant="outline"
-													className="text-xs border-purple-500 text-purple-500"
-												>
-													Combo: {summary.comboName}
-												</Badge>
-											)}
-											{summary?.apiKeyName && (
-												<Badge variant="outline" className="text-xs">
-													<Key className="h-3 w-3 mr-1" />
-													{summary.apiKeyName}
-												</Badge>
-											)}
-											{summary?.totalTokens != null && (
-												<Badge variant="outline" className="text-xs">
-													{formatTokens(summary.totalTokens)} tokens
-												</Badge>
-											)}
-											<RequestCostBadge
-												summary={summary}
-												pending={request.meta.pending}
-												className="text-xs"
-											/>
-											{summary?.billingType === "overage" && (
-												<Badge
-													variant="outline"
-													className="text-xs border-orange-500 text-orange-500"
-												>
-													Overage
-												</Badge>
-											)}
-											{summary?.billingType === "plan" && (
-												<Badge
-													variant="outline"
-													className="text-xs border-teal-500 text-teal-500"
-												>
-													Plan
-												</Badge>
-											)}
-											{summary?.tokensPerSecond != null &&
-												summary.tokensPerSecond > 0 && (
+										{/* Badges row: wraps freely, holds all the non-essential context */}
+										{(modelLabel ||
+											summary?.project ||
+											agentView ||
+											summary?.comboName ||
+											summary?.apiKeyName ||
+											summary?.totalTokens != null ||
+											(summary != null && !request.meta.pending) ||
+											summary?.billingType ||
+											(summary?.tokensPerSecond ?? 0) > 0 ||
+											accountLabel ||
+											request.meta.rateLimited ||
+											isZaiPeak ||
+											isAnthropicPeak) && (
+											<div className="flex flex-wrap items-center gap-1.5 px-3 pb-2 pl-9 text-xs">
+												{modelLabel?.kind === "response" && (
 													<Badge variant="secondary" className="text-xs">
-														{formatTokensPerSecond(summary.tokensPerSecond)}
+														{modelLabel.model}
 													</Badge>
 												)}
-											{accountLabel && (
-												<span className="text-xs text-muted-foreground">
-													via {accountLabel}
-												</span>
-											)}
-											{request.meta.rateLimited && (
-												<Badge variant="warning" className="text-xs">
-													Rate Limited
-												</Badge>
-											)}
-											{(isZaiPeak || isAnthropicPeak) && (
-												<Badge
-													variant="outline"
-													className="text-xs border-orange-500 text-orange-500"
-												>
-													Peak
-												</Badge>
-											)}
-										</div>
-									)}
+												{modelLabel && modelLabel.kind !== "response" && (
+													<Badge
+														variant="outline"
+														className="text-xs"
+														title="No response model: this is the model the request asked for"
+													>
+														{modelLabel.kind === "requested"
+															? "Requested: "
+															: "Routed: "}
+														{modelLabel.model}
+														{modelLabel.routedTo && ` → ${modelLabel.routedTo}`}
+													</Badge>
+												)}
+												{summary?.project && (
+													<Badge variant="secondary" className="text-xs">
+														Project: {summary.project}
+														{projectSrcLabel && (
+															<span className="text-muted-foreground/70 ml-1">
+																· {projectSrcLabel}
+															</span>
+														)}
+													</Badge>
+												)}
+												<RequestAgentBadge
+													view={agentView}
+													className="text-xs"
+												/>
+												{summary?.comboName && (
+													<Badge variant="outline" className="text-xs">
+														Combo: {summary.comboName}
+													</Badge>
+												)}
+												{summary?.apiKeyName && (
+													<Badge variant="outline" className="text-xs">
+														<Key className="h-3 w-3 mr-1" />
+														{summary.apiKeyName}
+													</Badge>
+												)}
+												{summary?.totalTokens != null && (
+													<Badge variant="outline" className="text-xs">
+														{formatTokens(summary.totalTokens)} tokens
+													</Badge>
+												)}
+												<RequestCostBadge
+													summary={summary}
+													pending={request.meta.pending}
+													className="text-xs"
+												/>
+												{summary?.billingType === "overage" && (
+													<StatusPill tone="warning">Overage</StatusPill>
+												)}
+												{summary?.billingType === "plan" && (
+													<StatusPill tone="neutral">Plan</StatusPill>
+												)}
+												{summary?.tokensPerSecond != null &&
+													summary.tokensPerSecond > 0 && (
+														<Badge variant="secondary" className="text-xs">
+															{formatTokensPerSecond(summary.tokensPerSecond)}
+														</Badge>
+													)}
+												{accountLabel && (
+													<span className="text-xs text-muted-foreground">
+														via {accountLabel}
+													</span>
+												)}
+												{request.meta.rateLimited && (
+													<StatusPill tone="warning">Rate limited</StatusPill>
+												)}
+												{(isZaiPeak || isAnthropicPeak) && (
+													<StatusPill
+														tone="info"
+														title={
+															isZaiPeak
+																? "Sent during Z.ai peak hours (Mon–Fri 14:00–18:00 Singapore time)"
+																: "Sent during Anthropic peak hours (Mon–Fri 5–11 am Pacific)"
+														}
+													>
+														Peak
+													</StatusPill>
+												)}
+											</div>
+										)}
 
-									{request.error && (
-										<div className="text-xs text-destructive px-3 pb-2 pl-9 break-words">
-											Error: {request.error}
-										</div>
-									)}
-
-									{isExpanded && (
-										<div className="px-3 pb-3 pl-9 space-y-3">
-											<TokenUsageDisplay
-												summary={summary}
-												pending={request.meta.pending}
-											/>
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => setModalRequest(request)}
-												className="w-full"
+										{request.error && (
+											<div
+												className="flex items-start gap-1.5 px-3 pb-2 pl-9 text-xs text-destructive"
+												title={request.error}
 											>
-												<Eye className="h-4 w-4 mr-2" />
-												View More Details
-											</Button>
-										</div>
-									)}
-								</div>
-							);
-						})}
-					</div>
-				)}
-			</CardContent>
+												<AlertCircle
+													className="mt-0.5 h-3.5 w-3.5 shrink-0"
+													aria-hidden="true"
+												/>
+												<p className="line-clamp-2 min-w-0 break-words">
+													<span className="sr-only">Error: </span>
+													{request.error}
+												</p>
+											</div>
+										)}
 
-			{modalRequest && (
-				<RequestDetailsModal
-					request={modalPayload ?? modalRequest}
-					summary={modalSummary}
-					isOpen={true}
-					onClose={() => {
-						modalSnapshotRef.current = null;
-						setModalRequest(null);
-					}}
-				/>
-			)}
-		</Card>
+										{isExpanded && (
+											<div className="px-3 pb-3 pl-9 space-y-3">
+												<TokenUsageDisplay
+													summary={summary}
+													pending={request.meta.pending}
+												/>
+												<Button
+													variant="outline"
+													size="touch-sm"
+													onClick={() => setModalRequest(request)}
+													className="w-full"
+												>
+													<Eye aria-hidden="true" />
+													View More Details
+												</Button>
+											</div>
+										)}
+									</div>
+								);
+							})}
+						</div>
+					)}
+				</CardContent>
+
+				{modalRequest && (
+					<RequestDetailsModal
+						request={modalPayload ?? modalRequest}
+						summary={modalSummary}
+						isOpen={true}
+						onClose={() => {
+							modalSnapshotRef.current = null;
+							setModalRequest(null);
+						}}
+					/>
+				)}
+			</Card>
+		</div>
+	);
+}
+
+function RequestsLoadError({
+	error,
+	onRetry,
+}: {
+	error: unknown;
+	onRetry: () => void;
+}) {
+	const { formatError } = useApiError();
+	return (
+		<ErrorState
+			title="Requests could not load"
+			message={formatError(error)}
+			onRetry={onRetry}
+		/>
 	);
 }

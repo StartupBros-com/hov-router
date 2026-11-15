@@ -1,107 +1,44 @@
-import { formatPercentage } from "@better-ccflare/ui-common";
-import { Info, TrendingDown, TrendingUp } from "lucide-react";
-import { Card, CardContent } from "../ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { StatTile, type StatTileRow } from "../ui/stat-tile";
 
-export interface MetricCardSubRow {
-	label: string;
-	value: string | number;
-	tooltip?: string;
-}
+export type MetricCardSubRow = Omit<StatTileRow, "valueClassName">;
 
 export interface MetricCardProps {
 	title: string;
 	value: string | number;
 	change?: number;
 	icon: React.ComponentType<{ className?: string }>;
+	/** Whether the change is good ("up") or bad ("down"), not its direction. */
 	trend?: "up" | "down" | "flat";
 	trendPeriod?: string;
 	subRows?: MetricCardSubRow[];
 }
 
+/** Overview's metric card: a StatTile whose trend Overview has already rated. */
 export function MetricCard({
 	title,
 	value,
 	change,
-	icon: Icon,
+	icon,
 	trend,
 	trendPeriod,
 	subRows,
 }: MetricCardProps) {
-	const trendElement = trend !== "flat" && change !== undefined && (
-		<span
-			className={`flex items-center gap-1 text-sm font-medium ${
-				trend === "up" ? "text-success" : "text-red-600 dark:text-red-400"
-			}`}
-		>
-			{trend === "up" ? (
-				<TrendingUp className="h-4 w-4" />
-			) : (
-				<TrendingDown className="h-4 w-4" />
-			)}
-			<span>{formatPercentage(Math.abs(change), 0)}</span>
-		</span>
-	);
-
+	const rated = trend !== undefined && trend !== "flat" && change !== undefined;
 	return (
-		<Card>
-			<CardContent className="p-6">
-				<div className="flex items-center justify-between mb-4">
-					<Icon className="h-8 w-8 text-muted-foreground/20" />
-					{trendPeriod && trendElement ? (
-						<Popover>
-							<PopoverTrigger asChild>
-								<button
-									type="button"
-									className="flex items-center gap-1 cursor-help rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								>
-									{trendElement}
-									<Info className="h-3 w-3 text-muted-foreground" />
-									<span className="sr-only">Compared to {trendPeriod}</span>
-								</button>
-							</PopoverTrigger>
-							<PopoverContent className="w-auto p-2 text-xs">
-								<p>Compared to {trendPeriod}</p>
-							</PopoverContent>
-						</Popover>
-					) : (
-						trendElement
-					)}
-				</div>
-				<div className="space-y-1">
-					<p className="text-sm text-muted-foreground">{title}</p>
-					<p className="text-2xl font-bold">{value}</p>
-				</div>
-				{subRows && subRows.length > 0 && (
-					<div className="mt-3 pt-3 border-t border-border/50 space-y-1">
-						{subRows.map((row) => (
-							<div
-								key={row.label}
-								className="flex items-baseline justify-between text-xs"
-							>
-								<span className="text-muted-foreground">{row.label}</span>
-								{row.tooltip ? (
-									<Popover>
-										<PopoverTrigger asChild>
-											<button
-												type="button"
-												className="inline-flex min-h-6 items-center rounded font-medium tabular-nums cursor-help focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-											>
-												{row.value}
-											</button>
-										</PopoverTrigger>
-										<PopoverContent className="w-auto p-2 text-xs">
-											<p>{row.tooltip}</p>
-										</PopoverContent>
-									</Popover>
-								) : (
-									<span className="font-medium tabular-nums">{row.value}</span>
-								)}
-							</div>
-						))}
-					</div>
-				)}
-			</CardContent>
-		</Card>
+		<StatTile
+			label={title}
+			value={value}
+			icon={icon}
+			rows={subRows}
+			trend={
+				rated
+					? {
+							change,
+							quality: trend === "up" ? "better" : "worse",
+							comparedTo: trendPeriod,
+						}
+					: undefined
+			}
+		/>
 	);
 }

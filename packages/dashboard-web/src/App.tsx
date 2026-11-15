@@ -1,4 +1,3 @@
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
 import { HttpError } from "@better-ccflare/http-common";
 import {
 	MutationCache,
@@ -6,7 +5,7 @@ import {
 	QueryClient,
 	QueryClientProvider,
 } from "@tanstack/react-query";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "./api";
 import { AccountsTab } from "./components/AccountsTab";
@@ -19,14 +18,17 @@ import { DebugPanel } from "./components/DebugPanel";
 import { LogsTab } from "./components/LogsTab";
 import { Navigation } from "./components/navigation";
 import { OverviewTab } from "./components/OverviewTab";
+import { LazyPage } from "./components/page-shell";
 import { RequestsTab } from "./components/RequestsTab";
 import { SettingsTab } from "./components/SettingsTab";
 import {
 	RouterUnreachableView,
 	StartupCheckingView,
 } from "./components/StartupStatus";
+import { PageHeader } from "./components/ui/page-header";
 import { QUERY_CONFIG, REFRESH_INTERVALS } from "./constants";
 import { ThemeProvider } from "./contexts/theme-context";
+import { PAGE_META, pageMetaForPath } from "./lib/page-meta";
 import {
 	authenticateErrorMessage,
 	isKeyRejection,
@@ -64,131 +66,56 @@ const LazyWindowValueTab = lazy(() =>
 		default: m.WindowValueTab,
 	})),
 );
-const LoadingSkeleton = () => (
-	<div className="space-y-6 p-6">
-		<div className="animate-pulse">
-			<div className="h-8 bg-muted rounded w-32 mb-4"></div>
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-				{Array.from({ length: 4 }, (_, i) => `skeleton-card-${i}`).map(
-					(key) => (
-						<div key={key} className="h-24 bg-muted rounded" />
-					),
-				)}
-			</div>
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				{Array.from({ length: 2 }, (_, i) => `skeleton-chart-${i}`).map(
-					(key) => (
-						<div key={key} className="h-64 bg-muted rounded" />
-					),
-				)}
-			</div>
-		</div>
-	</div>
-);
+
+// Each page renders its own header (PageHeader); titles and descriptions live in page-meta.
+const ROUTES = [
+	{ path: PAGE_META.overview.path, element: <OverviewTab /> },
+	{
+		path: PAGE_META.analytics.path,
+		element: (
+			<LazyPage page="analytics">
+				<LazyAnalyticsTab />
+			</LazyPage>
+		),
+	},
+	{
+		path: PAGE_META.insights.path,
+		element: (
+			<LazyPage page="insights">
+				<LazyInsightsTab />
+			</LazyPage>
+		),
+	},
+	{ path: PAGE_META.requests.path, element: <RequestsTab /> },
+	{ path: PAGE_META.accounts.path, element: <AccountsTab /> },
+	{
+		path: PAGE_META.usageHistory.path,
+		element: (
+			<LazyPage page="usageHistory">
+				<LazyUsageHistoryTab />
+			</LazyPage>
+		),
+	},
+	{
+		path: PAGE_META.windowValue.path,
+		element: (
+			<LazyPage page="windowValue">
+				<LazyWindowValueTab />
+			</LazyPage>
+		),
+	},
+	{ path: PAGE_META.combos.path, element: <CombosTab /> },
+	{ path: PAGE_META.agents.path, element: <AgentsTab /> },
+	{ path: PAGE_META.keys.path, element: <ApiKeysTab /> },
+	{ path: PAGE_META.logs.path, element: <LogsTab /> },
+	{ path: PAGE_META.settings.path, element: <SettingsTab /> },
+];
 
 // QueryClient will be created inside App component to have access to auth state
 
 export function App() {
 	const location = useLocation();
-	// Build the dashboard routes once; released features remain reachable.
-	const routes = useMemo(() => {
-		const baseRoutes = [
-			{
-				path: "/",
-				element: <OverviewTab />,
-				title: "Dashboard Overview",
-				subtitle: `Monitor your ${PRODUCT_NAME} performance and usage`,
-			},
-			{
-				path: "/analytics",
-				element: (
-					<Suspense fallback={<LoadingSkeleton />}>
-						<LazyAnalyticsTab />
-					</Suspense>
-				),
-				title: "Analytics",
-				subtitle: "Usage patterns and trends over time",
-			},
-			{
-				path: "/insights",
-				element: (
-					<Suspense fallback={<LoadingSkeleton />}>
-						<LazyInsightsTab />
-					</Suspense>
-				),
-				title: "Insights",
-				subtitle: "Cache efficiency and estimated cost savings",
-			},
-			{
-				path: "/requests",
-				element: <RequestsTab />,
-				title: "Request History",
-				subtitle: "View detailed request and response data",
-			},
-			{
-				path: "/accounts",
-				element: <AccountsTab />,
-				title: "Account Management",
-				subtitle: "Provider accounts, usage limits and routing settings",
-			},
-			{
-				path: "/usage-history",
-				element: (
-					<Suspense fallback={<LoadingSkeleton />}>
-						<LazyUsageHistoryTab />
-					</Suspense>
-				),
-				title: "Usage History",
-				subtitle: "Per-account usage windows over time, with limit prediction",
-			},
-			{
-				path: "/window-value",
-				element: (
-					<Suspense fallback={<LoadingSkeleton />}>
-						<LazyWindowValueTab />
-					</Suspense>
-				),
-				title: "Window Value",
-				subtitle: "Track the value of active and completed usage windows",
-			},
-			{
-				path: "/agents",
-				element: <AgentsTab />,
-				title: "Agent Management",
-				subtitle: "Discover and manage Claude Code agents",
-			},
-			{
-				path: "/keys",
-				element: <ApiKeysTab />,
-				title: "API Key Management",
-				subtitle: "Generate and manage API keys for authentication",
-			},
-			{
-				path: "/logs",
-				element: <LogsTab />,
-				title: "System Logs",
-				subtitle: "Live system logs",
-			},
-			{
-				path: "/settings",
-				element: <SettingsTab />,
-				title: "Settings",
-				subtitle: "Configure system behavior and data retention",
-			},
-		];
-
-		baseRoutes.splice(5, 0, {
-			path: "/combos",
-			element: <CombosTab />,
-			title: "Combos Management",
-			subtitle: "Define fallback chains for model families",
-		});
-
-		return baseRoutes;
-	}, []);
-
-	const currentRoute =
-		routes.find((route) => route.path === location.pathname) || routes[0];
+	const currentPage = pageMetaForPath(location.pathname);
 	const [showAuthDialog, setShowAuthDialog] = useState(false);
 	const [isAuthenticated, setIsAuthenticated] = useState(false);
 	// "unreachable" means the startup request got no answer from the router;
@@ -404,22 +331,11 @@ export function App() {
 
 						{/* Page Content */}
 						<div className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto">
-							{currentRoute.path !== "/accounts" && (
-								<div className="mb-8">
-									<h1 className="text-3xl font-bold gradient-text">
-										{currentRoute.title}
-									</h1>
-									<p className="text-muted-foreground mt-2">
-										{currentRoute.subtitle}
-									</p>
-								</div>
-							)}
-
-							{/* Tab Content - Only render if auth check is complete and user is authenticated */}
-							{!isCheckingAuth && isAuthenticated && (
+							{/* Pages mount only once auth is settled; until then, keep the current page's header in place. */}
+							{!isCheckingAuth && isAuthenticated ? (
 								<div className="animate-in fade-in-0 duration-200">
 									<Routes>
-										{routes.map((route) => (
+										{ROUTES.map((route) => (
 											<Route
 												key={route.path}
 												path={route.path}
@@ -433,6 +349,11 @@ export function App() {
 										<Route path="*" element={<Navigate to="/" replace />} />
 									</Routes>
 								</div>
+							) : (
+								<PageHeader
+									title={currentPage.title}
+									description={currentPage.description}
+								/>
 							)}
 						</div>
 					</main>

@@ -24,6 +24,7 @@ import {
 	clearPendingRotation,
 	getPendingRotation,
 	recordPendingRotation,
+	reservePendingRotationSlot,
 } from "./pending-rotation-registry";
 import { ERROR_MESSAGES, type ProxyContext } from "./proxy-types";
 import {
@@ -127,6 +128,110 @@ export function canAttemptStaleTokenRefresh(account: Account): boolean {
 		Boolean(account.refresh_token?.trim()) &&
 		!account.api_key?.trim() &&
 		OAUTH_REACTIVE_REFRESH_PROVIDERS.has(account.provider.trim().toLowerCase())
+	);
+}
+
+/**
+ * A refresh that was not attempted because there is no disk space to keep a
+ * rotated refresh token (#827).
+ *
+ * The providers `canAttemptStaleTokenRefresh` lists replace the refresh token
+ * on every refresh, and the old one is spent the moment they answer. If the
+ * database write then fails, the rotation is kept in the account's slot file,
+ * which can only be made while there is space. With no slot and no space, a
+ * refresh would leave the only copy of the new token in memory, and the next
+ * restart would lose the account. So the provider is not called.
+ *
+ * This says nothing about the account: it is never terminal and starts no
+ * backoff. The next call asks the store again, and the store tries a failed
+ * reservation at most once every few seconds, so refreshes resume shortly
+ * after space returns.
+ */
+export class RefreshStorageUnavailableError extends ServiceUnavailableError {
+	constructor(accountName: string) {
+		super(
+			`Token refresh for account ${accountName} was not attempted: there is no disk space to keep a rotated refresh token`,
+			"token-refresh-storage",
+		);
+	}
+}
+
+/** What a pass over the accounts' pending rotation slots did. */
+export interface PendingRotationSlotReservations {
+	reserved: number;
+	storageFull: number;
+	failed: number;
+}
+
+/**
+ * Make the slot of every account whose refresh rotates the refresh token
+ * (#827). The server runs this at start. A refresh asks for its own slot when
+ * the account has none, but a slot can only be made while there is space, so
+ * an account that gets one now keeps refreshing after the disk fills.
+ *
+ * Never throws and never stops a start. An account left without a slot has
+ * its refreshes refused until one can be made (`RefreshStorageUnavailableError`).
+ */
+export async function reservePendingRotationSlots(
+	loadAccounts: () => Promise<Account[]>,
+): Promise<PendingRotationSlotReservations> {
+	const result = { reserved: 0, storageFull: 0, failed: 0 };
+	try {
+		const noSpace: string[] = [];
+		const faulted: string[] = [];
+		let fault: unknown;
+		for (const account of await loadAccounts()) {
+			if (!canAttemptStaleTokenRefresh(account)) continue;
+			const reservation = await reservePendingRotationSlot(account.id);
+			if (reservation.status === "unavailable") return result;
+			if (reservation.status === "reserved") {
+				result.reserved += 1;
+			} else if (reservation.status === "storage_full") {
+				result.storageFull += 1;
+				noSpace.push(account.name);
+			} else {
+				result.failed += 1;
+				faulted.push(account.name);
+				fault ??= reservation.error;
+			}
+		}
+		if (noSpace.length > 0) {
+			log.warn(
+				`No disk space for the pending rotation slot of ${noSpace.length} account(s) (${noSpace.join(", ")}); their token refreshes are refused until a slot can be made`,
+			);
+		}
+		if (faulted.length > 0) {
+			log.warn(
+				`Could not make the pending rotation slot of ${faulted.length} account(s) (${faulted.join(", ")}); their token refreshes go ahead without one`,
+				fault,
+			);
+		}
+	} catch (error) {
+		log.warn(
+			"Could not reserve pending rotation slots; each token refresh asks for its own",
+			error,
+		);
+	}
+	return result;
+}
+
+/**
+ * The expiry of the stored token last served to each account because its
+ * refresh was refused, so that is said once for a token and not once for every
+ * request. Bounded because account ids are user data.
+ */
+const MAX_STORED_TOKEN_SERVED_ENTRIES = 1_000;
+const storedTokenServedUntil = new Map<string, number>();
+
+function noteStoredTokenServed(account: Account, expiresAt: number): void {
+	if (storedTokenServedUntil.get(account.id) === expiresAt) return;
+	storedTokenServedUntil.set(account.id, expiresAt);
+	if (storedTokenServedUntil.size > MAX_STORED_TOKEN_SERVED_ENTRIES) {
+		const oldest = storedTokenServedUntil.keys().next().value;
+		if (oldest !== undefined) storedTokenServedUntil.delete(oldest);
+	}
+	log.warn(
+		`Token refresh for account ${account.name} was put off for lack of disk space; serving its stored token, which expires at ${new Date(expiresAt).toISOString()}`,
 	);
 }
 
@@ -510,6 +615,15 @@ async function adoptDbTokensIfFresher(
 	const memIssuedAt = account.refresh_token_issued_at ?? null;
 	const dbRefreshTokenNotOlder =
 		memIssuedAt === null || (dbIssuedAt !== null && dbIssuedAt >= memIssuedAt);
+	// A rotation that is still waiting to be stored was made with the refresh
+	// token the row holds, so that token is spent. Taking it back from the row
+	// would send it to the provider a second time (#827): a disk that stays
+	// full for longer than an access token lasts gets here.
+	const unstoredRotation = getPendingRotation(account.id, account.created_at);
+	const dbRefreshTokenSpent =
+		unstoredRotation !== undefined &&
+		Boolean(unstoredRotation.refreshToken) &&
+		dbAccount.refresh_token === unstoredRotation.attemptedRefreshToken;
 	if (
 		dbTokenValid &&
 		typeof dbAccount.expires_at === "number" &&
@@ -517,7 +631,11 @@ async function adoptDbTokensIfFresher(
 	) {
 		account.access_token = dbAccount.access_token;
 		account.expires_at = dbAccount.expires_at;
-		if (dbAccount.refresh_token && dbRefreshTokenNotOlder) {
+		if (
+			dbAccount.refresh_token &&
+			dbRefreshTokenNotOlder &&
+			!dbRefreshTokenSpent
+		) {
 			account.refresh_token = dbAccount.refresh_token;
 			account.refresh_token_issued_at = dbAccount.refresh_token_issued_at;
 		}
@@ -528,7 +646,8 @@ async function adoptDbTokensIfFresher(
 	if (
 		dbAccount.refresh_token &&
 		dbAccount.refresh_token !== account.refresh_token &&
-		dbRefreshTokenNotOlder
+		dbRefreshTokenNotOlder &&
+		!dbRefreshTokenSpent
 	) {
 		account.refresh_token = dbAccount.refresh_token;
 		account.refresh_token_issued_at = dbAccount.refresh_token_issued_at;
@@ -679,9 +798,34 @@ export async function refreshAccessTokenSafe(
 		// failure condemned a superseded token, not the account.
 		const attemptedRefreshToken = account.refresh_token;
 
+		// A provider that rotates the refresh token needs somewhere to keep the
+		// new one before it is asked for it (#827). The reservation is the first
+		// link of the shared promise, not an await above: the promise must be
+		// created and installed in this same tick, and callers that join it must
+		// not each make their own reservation.
+		//
+		// The list of rotating providers fails open here: one missing from it
+		// gets no slot and no refusal, and refreshes as it did before. Every
+		// other provider starts with the provider call, exactly as before.
+		const providerRefresh: Promise<TokenRefreshResult> =
+			canAttemptStaleTokenRefresh(account)
+				? reservePendingRotationSlot(account.id).then((reservation) => {
+						if (reservation.status === "storage_full") {
+							throw new RefreshStorageUnavailableError(account.name);
+						}
+						if (reservation.status === "failed") {
+							// A fault in the store must not become an auth outage.
+							log.warn(
+								`Could not reserve a pending rotation slot for account ${account.name}; refreshing anyway`,
+								reservation.error,
+							);
+						}
+						return provider.refreshToken(account, ctx.runtime.clientId);
+					})
+				: provider.refreshToken(account, ctx.runtime.clientId);
+
 		// Create a new refresh promise and store it
-		const refreshPromise = provider
-			.refreshToken(account, ctx.runtime.clientId)
+		const refreshPromise = providerRefresh
 			.then(async (result: TokenRefreshResult) => {
 				// The provider call may have awaited through a delete/recreate. Do not
 				// persist, queue, or return credentials after that generation boundary.
@@ -705,29 +849,54 @@ export async function refreshAccessTokenSafe(
 				// winning manual re-auth.
 				let resolveWithToken = result.accessToken;
 				try {
-					let persisted: boolean;
-					if (attemptedRefreshToken) {
-						persisted =
-							await ctx.dbOps.updateAccountTokensIfRefreshTokenMatches(
-								account.id,
-								attemptedRefreshToken,
-								result.accessToken,
-								result.expiresAt,
-								result.refreshToken,
-								account.created_at,
-							);
-					} else {
-						// (round-3 item 4) Null-safe CAS: an account that refreshed
-						// without a refresh token must not blind-overwrite
-						// credentials a concurrent manual re-auth may have just
-						// written.
-						persisted = await ctx.dbOps.updateAccountTokensIfRefreshTokenAbsent(
-							account.id,
-							result.accessToken,
-							result.expiresAt,
-							result.refreshToken,
-							account.created_at,
-						);
+					const storeIfRowHolds = (
+						expectedRefreshToken: string | null | undefined,
+					): Promise<boolean> =>
+						expectedRefreshToken
+							? ctx.dbOps.updateAccountTokensIfRefreshTokenMatches(
+									account.id,
+									expectedRefreshToken,
+									result.accessToken,
+									result.expiresAt,
+									result.refreshToken,
+									account.created_at,
+								)
+							: // (round-3 item 4) Null-safe CAS: an account that refreshed
+								// without a refresh token must not blind-overwrite
+								// credentials a concurrent manual re-auth may have just
+								// written.
+								ctx.dbOps.updateAccountTokensIfRefreshTokenAbsent(
+									account.id,
+									result.accessToken,
+									result.expiresAt,
+									result.refreshToken,
+									account.created_at,
+								);
+					// This refresh may have spent the refresh token of a rotation
+					// that is still waiting to be stored (#827). The row was never
+					// told about that rotation, so it holds the token the chain
+					// started from, and comparing against the spent token alone
+					// would match nothing and drop the only token the provider
+					// still accepts. The chain's first token is tried first: a
+					// store of the waiting rotation that lands in between leaves
+					// the spent token in the row, and the second write matches it.
+					// The other order loses the rotation to that same store.
+					const unstoredRotation = getPendingRotation(
+						account.id,
+						account.created_at,
+					);
+					const spentRefreshToken = attemptedRefreshToken ?? "";
+					const chainStartsFromAnotherToken =
+						unstoredRotation !== undefined &&
+						spentRefreshToken ===
+							(unstoredRotation.refreshToken ??
+								unstoredRotation.attemptedRefreshToken) &&
+						unstoredRotation.attemptedRefreshToken !== spentRefreshToken;
+					let persisted =
+						chainStartsFromAnotherToken &&
+						(await storeIfRowHolds(unstoredRotation.attemptedRefreshToken));
+					if (!persisted) {
+						persisted = await storeIfRowHolds(attemptedRefreshToken);
 					}
 					if (persisted) {
 						clearPendingRotation(account.id, account.created_at);
@@ -824,6 +993,9 @@ export async function refreshAccessTokenSafe(
 				// awaited CAS/outbox step. It must escape unchanged rather than be
 				// counted, wrapped, or mistaken for a provider failure below.
 				if (error instanceof StaleAccountGenerationError) throw error;
+				// The provider was never called, so there is no failure to count,
+				// back off from or blame on the account.
+				if (error instanceof RefreshStorageUnavailableError) throw error;
 
 				// Provider failures are ID-keyed in the legacy backoff maps, so prove
 				// this request still owns the durable row before changing any state or
@@ -1481,5 +1653,28 @@ export async function getValidAccessToken(
 				: "expiring soon";
 
 	log.info(`Token ${reason} for account: ${account.name}`);
-	return await refreshAccessTokenSafe(account, ctx);
+	try {
+		return await refreshAccessTokenSafe(account, ctx);
+	} catch (error) {
+		// A token is renewed well before it expires. When that early refresh is
+		// refused for lack of disk space (#827) the provider normally still
+		// takes the stored token, so the request is sent with it.
+		//
+		// Nothing here knows whether the provider has already turned that token
+		// down. The upstream-401 path asks for its refresh directly, gets the
+		// refusal and moves the request to another account, but it leaves no
+		// mark, so the next request sends the same token and pays the same 401
+		// before moving on. That lasts until a slot can be made or the token
+		// expires.
+		if (
+			error instanceof RefreshStorageUnavailableError &&
+			account.access_token &&
+			typeof account.expires_at === "number" &&
+			account.expires_at > Date.now()
+		) {
+			noteStoredTokenServed(account, account.expires_at);
+			return account.access_token;
+		}
+		throw error;
+	}
 }

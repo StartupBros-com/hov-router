@@ -28,7 +28,7 @@ export function CombosIntroCard() {
 				<div className="flex items-start justify-between gap-4">
 					<div className="space-y-1.5">
 						<CardTitle className="flex items-center gap-2">
-							Combos
+							Use combos for routing
 							<HelpPopover label="How a combo decides which account and model to use">
 								<p>
 									A combo is a list of accounts, in order, tied to one Claude

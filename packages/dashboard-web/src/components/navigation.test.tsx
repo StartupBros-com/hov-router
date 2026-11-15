@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { createUpdateStatusService } from "../../../http-api/src/handlers/version";
 import * as themeContext from "../contexts/theme-context";
+import { PAGE_META } from "../lib/page-meta";
 import { queryKeys } from "../lib/query-keys";
 import {
 	Navigation,
@@ -39,12 +40,45 @@ function status(
 
 describe("navigation identity", () => {
 	it("loads display identity directly without the runtime core barrel", () => {
-		for (const path of ["navigation.tsx", "../App.tsx"]) {
+		for (const path of ["navigation.tsx", "../lib/page-meta.ts"]) {
 			const source = readFileSync(join(import.meta.dir, path), "utf8");
 			expect(source).toContain(
 				'import { PRODUCT_NAME } from "@better-ccflare/core/product-identity"',
 			);
+		}
+		for (const path of [
+			"navigation.tsx",
+			"../lib/page-meta.ts",
+			"../App.tsx",
+		]) {
+			const source = readFileSync(join(import.meta.dir, path), "utf8");
 			expect(source).not.toContain('from "@better-ccflare/core"');
+		}
+	});
+
+	it("labels each nav item with its page title", () => {
+		const queryClient = new QueryClient();
+		const theme = spyOn(themeContext, "useTheme").mockReturnValue({
+			theme: "light",
+			setTheme: () => {},
+		});
+		try {
+			const sidebar = renderToStaticMarkup(
+				<QueryClientProvider client={queryClient}>
+					<MemoryRouter>
+						<Navigation />
+					</MemoryRouter>
+				</QueryClientProvider>,
+			).split("<aside")[1];
+			const links = [
+				...sidebar.matchAll(/<a\b[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/g),
+			].map(([, href, inner]) => [href, inner.replace(/<[^>]*>/g, "").trim()]);
+			expect(links).toEqual(
+				Object.values(PAGE_META).map((page) => [page.path, page.title]),
+			);
+		} finally {
+			theme.mockRestore();
+			queryClient.clear();
 		}
 	});
 
@@ -123,11 +157,14 @@ describe("navigation identity", () => {
 	});
 
 	it("uses shared display identity for the overview subtitle", () => {
-		const app = readFileSync(join(import.meta.dir, "../App.tsx"), "utf8");
-		expect(app).toContain(
-			"subtitle: `Monitor your ${PRODUCT_NAME} performance and usage`",
+		const meta = readFileSync(
+			join(import.meta.dir, "../lib/page-meta.ts"),
+			"utf8",
 		);
-		expect(app).not.toContain("Monitor your wstack Router");
+		expect(meta).toContain(
+			"description: `Monitor your ${PRODUCT_NAME} performance and usage`",
+		);
+		expect(meta).not.toContain("Monitor your wstack Router");
 	});
 
 	it("sets the static browser title to HoV Router Dashboard", () => {

@@ -12,6 +12,7 @@ import type { RouteHomeAction, RoutingAffinityLaneRecord } from "./request";
 import type {
 	AffinityRestoreHealth,
 	AnthropicDegradedRuntimeHealth,
+	FullDiskStatus,
 	IntegrityStatus,
 	MemorySnapshot,
 	RetentionStatus,
@@ -94,6 +95,8 @@ export interface APIContext {
 	/** Restart-scoped, per-provider upstream HTTP reachability. */
 	getUpstreamTransportHealth?: () => UpstreamTransportHealth;
 	getRetentionStatus?: () => RetentionStatus;
+	/** What the router is doing without on a full disk (#827). */
+	getFullDiskStatus?: () => FullDiskStatus;
 	/** Restart-scoped, aggregate-only process memory and lifecycle telemetry. */
 	getMemorySnapshot?: () => MemorySnapshot;
 	getHandoff?: () => { protocol: "quiesce-v1"; pid: number } | undefined;

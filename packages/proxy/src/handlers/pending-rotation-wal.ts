@@ -87,7 +87,7 @@ async function encryptEntry(
 	};
 }
 
-function assertPendingRotation(value: unknown): PendingRotation {
+export function assertPendingRotation(value: unknown): PendingRotation {
 	if (!value || typeof value !== "object") {
 		throw new Error("invalid pending rotation WAL payload");
 	}

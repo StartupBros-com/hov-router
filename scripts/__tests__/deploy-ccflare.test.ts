@@ -586,6 +586,8 @@ describe("render_systemd_pin", () => {
 				"Restart=on-failure",
 				"RestartSec=5s",
 				"RestartPreventExitStatus=143",
+				"RuntimeDirectory=ccflare-stack",
+				"RuntimeDirectoryMode=0700",
 				"ExecStart=",
 				`ExecStart=${runnerScriptFixture}`,
 				"# END better-ccflare managed deployment",
@@ -3948,6 +3950,39 @@ test("renderer retains a validated narrower accepted cap", () => {
 	);
 	expect(readFileSync(output, "utf8")).toContain(
 		"CCFLARE_SERVER_DRAIN_MS=90000",
+	);
+});
+
+test("a rendered pin with the runtime directory passes the checks a deploy runs on it", () => {
+	const dir = tempDir(),
+		input = join(dir, "prior.conf"),
+		output = join(dir, "next.conf"),
+		files = writeDigestFixtures(dir);
+	// A pin from before the runtime directory was added (#827).
+	writeFileSync(
+		input,
+		"# BEGIN better-ccflare managed deployment\n[Service]\nKillMode=mixed\nTimeoutStopSec=720s\n# END better-ccflare managed deployment\n",
+	);
+	expectCommandOk(
+		bash(
+			`source ${helperScriptForShell}; render_systemd_pin '${input}' '${output}' '${join(dir, "binary")}' '${files.runner}' '${files.guard}' '${"a".repeat(40)}' 'fixture' '${files.policy}'`,
+		),
+	);
+	const rendered = readFileSync(output, "utf8").split("\n");
+	expect(rendered).toContain("RuntimeDirectory=ccflare-stack");
+	expect(rendered).toContain("RuntimeDirectoryMode=0700");
+
+	// The structure check every later deploy starts with, and the timing
+	// check this deploy makes before the pin is installed.
+	expectCommandOk(
+		bash(
+			`source ${helperScriptForShell}; validate_deploy_owned_systemd_pin '${output}'`,
+		),
+	);
+	expectCommandOk(
+		bash(
+			`source ${helperScriptForShell}; validate_deployment_timing '${output}' >/dev/null`,
+		),
 	);
 });
 

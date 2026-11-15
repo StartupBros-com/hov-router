@@ -10,6 +10,7 @@ import {
 import {
 	CHART_COLORS,
 	type CHART_HEIGHTS,
+	CHART_PROPS,
 	type CHART_TOOLTIP_STYLE,
 } from "../../constants";
 import { ChartContainer } from "./ChartContainer";
@@ -83,6 +84,7 @@ export function BasePieChart({
 			<ResponsiveContainer width="100%" height={chartHeight}>
 				<PieChart>
 					<Pie
+						stroke={CHART_PROPS.surfaceStroke}
 						data={data}
 						cx={cx}
 						cy={cy}

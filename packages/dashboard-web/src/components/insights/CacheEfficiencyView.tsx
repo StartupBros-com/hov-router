@@ -25,6 +25,8 @@ import {
 	CardHeader,
 	CardTitle,
 } from "../ui/card";
+import { StatTile } from "../ui/stat-tile";
+import { LoadingState } from "../ui/state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 interface CacheEfficiencyViewProps {
@@ -40,7 +42,7 @@ function formatSignedCost(value: number): string {
 
 function savingsColorClass(value: number): string {
 	if (value < 0) return "text-destructive";
-	if (value > 0) return "text-green-700 dark:text-green-400";
+	if (value > 0) return "text-success";
 	return "";
 }
 
@@ -129,6 +131,8 @@ export function CacheEfficiencyView({
 	loading = false,
 	timeRange,
 }: CacheEfficiencyViewProps) {
+	if (data === undefined)
+		return <LoadingState label="Loading cache insights" />;
 	const totals = data?.totals;
 
 	const tokenComposition = [
@@ -155,74 +159,31 @@ export function CacheEfficiencyView({
 		<div className="space-y-6">
 			{/* Summary Cards */}
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">Cache Savings</CardTitle>
-						<PiggyBank className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div
-							className={`text-2xl font-bold ${savingsColorClass(totals?.savingsUsd ?? 0)}`}
-						>
-							{formatSignedCost(totals?.savingsUsd ?? 0)}
-						</div>
-						<p className="text-xs text-muted-foreground">
-							Estimated vs. running uncached in the last {timeRange}
-						</p>
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">
-							Cache Hit Rate
-						</CardTitle>
-						<Percent className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">
-							{formatPercentage(totals?.cacheHitRate ?? 0)}
-						</div>
-						<p className="text-xs text-muted-foreground">
-							Cache reads as share of input tokens
-						</p>
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">
-							Total Requests
-						</CardTitle>
-						<Activity className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">
-							{formatNumber(totals?.requests ?? 0)}
-						</div>
-						<p className="text-xs text-muted-foreground">
-							Requests analyzed in the last {timeRange}
-						</p>
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">
-							Cache Token Cost
-						</CardTitle>
-						<DollarSign className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">
-							{formatCost(totals?.actualCacheCostUsd ?? 0)}
-						</div>
-						<p className="text-xs text-muted-foreground">
-							Cache read/write tokens only, vs{" "}
-							{formatCost(totals?.counterfactualCostUsd ?? 0)} without caching
-						</p>
-					</CardContent>
-				</Card>
+				<StatTile
+					label="Cache Savings"
+					icon={PiggyBank}
+					value={formatSignedCost(totals?.savingsUsd ?? 0)}
+					valueClassName={savingsColorClass(totals?.savingsUsd ?? 0)}
+					hint={`Estimated vs. running uncached in the last ${timeRange}`}
+				/>
+				<StatTile
+					label="Cache Hit Rate"
+					icon={Percent}
+					value={formatPercentage(totals?.cacheHitRate ?? 0)}
+					hint="Cache reads as share of input tokens"
+				/>
+				<StatTile
+					label="Total Requests"
+					icon={Activity}
+					value={formatNumber(totals?.requests ?? 0)}
+					hint={`Requests analyzed in the last ${timeRange}`}
+				/>
+				<StatTile
+					label="Cache Token Cost"
+					icon={DollarSign}
+					value={formatCost(totals?.actualCacheCostUsd ?? 0)}
+					hint={`Cache read/write tokens only, vs ${formatCost(totals?.counterfactualCostUsd ?? 0)} without caching`}
+				/>
 			</div>
 
 			{/* Token Composition + Breakdown */}

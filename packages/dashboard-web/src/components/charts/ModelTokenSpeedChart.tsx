@@ -1,4 +1,3 @@
-import { getModelShortName } from "@better-ccflare/core";
 import { formatTokensPerSecond } from "@better-ccflare/ui-common";
 import {
 	Bar,
@@ -11,9 +10,11 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import { CHART_PROPS, COLORS } from "../../constants";
+import { CHART_PROPS } from "../../constants";
 import { formatCompactNumber } from "../../lib/chart-utils";
+import { Skeleton } from "../ui/skeleton";
 import { getTooltipStyles } from "./chart-utils";
+import { getModelColor } from "./model-colors";
 
 interface ModelTokenSpeedData {
 	model: string;
@@ -28,17 +29,6 @@ interface ModelTokenSpeedChartProps {
 	height?: number;
 }
 
-// Model-based color palette
-const MODEL_COLORS: Record<string, string> = {
-	"claude-3.5-sonnet": COLORS.purple,
-	"claude-3.5-haiku": COLORS.success,
-	"claude-3-opus": COLORS.blue,
-	"claude-opus-4": COLORS.pink,
-	"claude-opus-4.1": COLORS.indigo,
-	"claude-sonnet-4": COLORS.cyan,
-	"claude-sonnet-4.5": COLORS.purple,
-};
-
 function tokenSpeedTooltipFormatter(value: number, name: string) {
 	if (name === "avgSpeed") {
 		return [formatTokensPerSecond(value), "Avg Speed"];
@@ -50,37 +40,19 @@ function tokenSpeedLabelFormatter(label: string) {
 	return `Model: ${label}`;
 }
 
-function getModelColor(model: string): string {
-	// Try to find color by short name first
-	const shortName = getModelShortName(model);
-	if (MODEL_COLORS[shortName]) return MODEL_COLORS[shortName];
-
-	// Check for exact match
-	if (MODEL_COLORS[model]) return MODEL_COLORS[model];
-
-	// Check for partial matches
-	for (const [key, color] of Object.entries(MODEL_COLORS)) {
-		if (model.includes(key) || key.includes(model)) {
-			return color;
-		}
-	}
-
-	// Default color
-	return COLORS.primary;
-}
-
 export function ModelTokenSpeedChart({
 	data,
 	loading = false,
 	height = 300,
 }: ModelTokenSpeedChartProps) {
-	if (loading) {
+	if (loading)
 		return (
-			<div className="flex items-center justify-center" style={{ height }}>
-				<div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-			</div>
+			<Skeleton
+				style={{ height }}
+				role="status"
+				aria-label="Loading model token speeds"
+			/>
 		);
-	}
 
 	// Filter out models without token speed data and prepare chart data
 	const chartData = data
@@ -114,10 +86,12 @@ export function ModelTokenSpeedChart({
 				margin={{ top: 20, right: 30, left: 60, bottom: 80 }}
 			>
 				<CartesianGrid
+					stroke={CHART_PROPS.gridStroke}
 					strokeDasharray={CHART_PROPS.strokeDasharray}
 					className={CHART_PROPS.gridClassName}
 				/>
 				<XAxis
+					stroke={CHART_PROPS.axisStroke}
 					dataKey="model"
 					fontSize={12}
 					angle={-45}
@@ -126,9 +100,11 @@ export function ModelTokenSpeedChart({
 					interval={0}
 				/>
 				<YAxis
+					stroke={CHART_PROPS.axisStroke}
 					fontSize={12}
 					tickFormatter={formatCompactNumber}
 					label={{
+						fill: CHART_PROPS.axisStroke,
 						value: "Tokens/Second",
 						angle: -90,
 						position: "insideLeft",
@@ -139,6 +115,8 @@ export function ModelTokenSpeedChart({
 					}}
 				/>
 				<Tooltip
+					itemStyle={{ color: "var(--popover-foreground)" }}
+					cursor={{ fill: CHART_PROPS.cursorFill }}
 					contentStyle={getTooltipStyles("default")}
 					// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
 					formatter={tokenSpeedTooltipFormatter as any}
@@ -153,6 +131,7 @@ export function ModelTokenSpeedChart({
 						/>
 					))}
 					<ErrorBar
+						stroke={CHART_PROPS.axisStroke}
 						dataKey="errorLower"
 						width={4}
 						strokeOpacity={0.5}

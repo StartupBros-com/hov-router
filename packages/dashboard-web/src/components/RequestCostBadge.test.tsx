@@ -37,6 +37,13 @@ describe("RequestCostBadge", () => {
 		expect(html).toContain("text-xs");
 	});
 
+	it("shows a recorded cost without the solid primary fill", () => {
+		const html = renderToStaticMarkup(
+			<RequestCostBadge summary={{ costUsd: 1.23456 }} />,
+		);
+		expect(html).not.toContain("bg-primary");
+	});
+
 	for (const costUsd of [undefined, null, 0, 1.25]) {
 		it(`hides ${costUsd} cost while the request is pending`, () => {
 			expect(

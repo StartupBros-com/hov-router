@@ -147,6 +147,35 @@ The response includes `runtime.storage.retention`, reporting the health of the h
 - `lastError` — message from the most recent failure, or `null` if the last run succeeded (cleared on the next success)
 - `lastErrorAt` — ISO timestamp of `lastError`, or `null`
 
+**Full-disk state**
+
+The router keeps serving and starting when its disk has no space left. `runtime.storage.fullDisk` says what it is doing without while that lasts. The `status` field and the HTTP status ignore this block, for the reason given under upstream reachability.
+
+```json
+{
+  "runtime": {
+    "storage": {
+      "fullDisk": {
+        "logFile": {
+          "suspended": true,
+          "dropped": 412,
+          "failures": 3,
+          "lastError": "ENOSPC",
+          "lastErrorAt": "2026-11-14T23:20:50.000Z"
+        },
+        "startReserveArmed": false,
+        "uncaughtErrors": { "count": 0, "lastError": null, "lastErrorAt": null }
+      }
+    }
+  }
+}
+```
+
+- `logFile` — the log file's state, or `null` when the process writes none. While `suspended` is true the file cannot be written and `dropped` counts the lines lost since it last worked; `failures` counts every failure since the process started. Console output (stdout and stderr) is not affected.
+- `startReserveArmed` — whether the 64 KiB start reserve beside the database is whole, as of a check every 30 seconds; `null` before the first check. A start on a full disk can release it to open the database, once. `false` means the next start on a disk that is still full may fail. A start that fails for lack of space exits with status 28, and the managed stack runner then waits for space and tries again instead of giving up (see [systemd](systemd.md#restart-policy-best-practices)).
+- `uncaughtErrors` — full-disk errors that nothing caught and the process survived. A `count` above zero means some write has no handling of its own, and is a defect to report. `null` means nothing is watching for them, which is the case until a start has finished.
+- Each `lastError` in this block is an error code such as `ENOSPC` or `SQLITE_FULL`, or the error's name when it has no code. It is never the message, which can name a path; the message goes to stderr.
+
 ---
 
 ### Claude Proxy

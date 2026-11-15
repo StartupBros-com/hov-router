@@ -4,6 +4,7 @@ import { usePersistedExpansion } from "../../hooks/usePersistedExpansion";
 import type { PoolCardWindow, PoolUsageResult } from "../../lib/pool-usage";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
+import { ErrorState } from "../ui/state";
 import { ObservedRoutingTable } from "./ObservedRoutingTable";
 import { PoolUsageRow } from "./PoolUsageRow";
 
@@ -34,6 +35,9 @@ interface PoolCapacitySectionProps {
 	// shown). Undefined/null while the query hasn't loaded yet, or once
 	// loaded but empty -- both simply render no extra block.
 	observations?: Record<string, RoutingObservation> | null;
+	// Set when the accounts the pools are built from never loaded. The rows
+	// would read as an empty pool, so the card says it could not load instead.
+	loadError?: { message: string; onRetry: () => void } | null;
 }
 
 /**
@@ -47,9 +51,27 @@ export function PoolCapacitySection({
 	primaryAccountName,
 	now,
 	observations,
+	loadError,
 }: PoolCapacitySectionProps) {
 	const { isExpanded, toggle, expandAll, collapseAll, expandedCount } =
 		usePersistedExpansion(STORAGE_KEY);
+
+	if (loadError) {
+		return (
+			<Card>
+				<CardContent className="p-6">
+					<h3 className="mb-2 text-sm font-medium">Pool capacity</h3>
+					<ErrorState
+						size="inline"
+						title="Pool capacity could not load"
+						message={loadError.message}
+						onRetry={loadError.onRetry}
+					/>
+					<ObservedRoutingTable observations={observations} now={now} />
+				</CardContent>
+			</Card>
+		);
+	}
 
 	if (pools.length === 0) return null;
 

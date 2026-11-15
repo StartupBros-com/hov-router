@@ -23,7 +23,7 @@ export function RequestCostBadge({
 	const unknown = summary?.costUsd == null;
 	return (
 		<Badge
-			variant={unknown ? "outline" : "default"}
+			variant={unknown ? "outline" : "secondary"}
 			className={className}
 			title={
 				unknown
