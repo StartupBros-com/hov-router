@@ -113,6 +113,13 @@ describe("Dockerfile builds HoV Router from source", () => {
 		expect(dockerfile).toContain("HoV Router Docker Container");
 	});
 
+	it("sets the listening host itself, so the published port does not depend on the binary's default", () => {
+		expect(instructions).toContain("ENV BETTER_CCFLARE_HOST=0.0.0.0");
+		// The image carries the setting. A value under compose `environment:`
+		// would override the user's own `.env`, so compose must not pin it.
+		expect(compose).not.toMatch(/^\s*-\s*BETTER_CCFLARE_HOST=/m);
+	});
+
 	it("labels the image as HoV Router from this repository", () => {
 		expect(dockerfile).toContain('org.opencontainers.image.title="HoV Router"');
 		expect(dockerfile).toContain(

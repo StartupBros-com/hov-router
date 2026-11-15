@@ -159,6 +159,7 @@ import {
 	createManagedIngress,
 	malformedRequestUrlResponse,
 } from "./managed-ingress";
+import { warnIfOpenBind } from "./open-bind-warning";
 import {
 	describeRetentionSweepStop,
 	type RetentionSweepPacer,
@@ -2823,7 +2824,7 @@ export default async function startServer(options?: {
 	memoryMonitorInterval.unref();
 
 	// Log server startup (async)
-	getVersion().then((version) => {
+	const bannerPrinted = getVersion().then((version) => {
 		if (!serverInstance) return;
 		const protocol = tlsEnabled ? "https" : "http";
 		const displayHost = hostname === "0.0.0.0" ? "localhost" : hostname;
@@ -2854,6 +2855,18 @@ Available endpoints:
 ⚡ Ready to proxy requests...
 `);
 	});
+
+	// After the banner, so the endpoint list does not scroll it away: with no
+	// API key every request is accepted, and a non-loopback address lets other
+	// machines send them.
+	void bannerPrinted.finally(() =>
+		warnIfOpenBind({
+			hostname,
+			port: serverInstance?.port ?? runtime.port,
+			isAuthenticationEnabled: () => authService.isAuthenticationEnabled(),
+			warn: (message) => log.warn(message),
+		}),
+	);
 
 	// Log configuration
 	console.log(

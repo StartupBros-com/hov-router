@@ -130,6 +130,7 @@ export {
 } from "./models";
 export {
 	installOutboundProxy,
+	isLoopbackHost,
 	uninstallOutboundProxy,
 } from "./outbound-proxy";
 export {

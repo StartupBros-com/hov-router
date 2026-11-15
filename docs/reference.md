@@ -921,6 +921,9 @@ services:
       - "traefik.http.routers.ccflare.entrypoints=websecure"
       - "traefik.http.routers.ccflare.tls.certresolver=myresolver"
       - "traefik.http.services.ccflare.loadbalancer.server.port=8080"
+    environment:
+      # Traefik reaches the router over the compose network, not loopback.
+      - BETTER_CCFLARE_HOST=0.0.0.0
     volumes:
       - better-ccflare-data:/data
     restart: unless-stopped
