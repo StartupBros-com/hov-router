@@ -40,6 +40,13 @@ describe("CopyButton", () => {
 		).toBe(NAV_UPDATE_COMMAND);
 	});
 
+	it("keeps its ghost, small default when no variant or size is passed", () => {
+		// No call site relies on the defaults today, so the call-site pins above cannot catch a changed default.
+		expect(renderToStaticMarkup(<CopyButton value="x" />)).toBe(
+			renderToStaticMarkup(<CopyButton value="x" variant="ghost" size="sm" />),
+		);
+	});
+
 	it("names a labelled button and announces the copy outside it", () => {
 		const html = renderToStaticMarkup(
 			<CopyButton
