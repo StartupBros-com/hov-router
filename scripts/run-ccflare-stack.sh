@@ -417,6 +417,19 @@ close_reaped_owner() {
 	fi
 }
 
+# Close an ownership record written for a backend that was then not started.
+# It takes the form a stopped backend leaves, under this runner's own pid and
+# a start time no process has, so it matches nothing. Only for a record this
+# runner wrote and started nothing for.
+close_unstarted_owner() {
+	if "$NODE_BIN" "$TRANSACTION_MODULE" owner-reaped "$TRANSACTION_DIR" "$$"; then
+		owner_open=0
+		log "closed the ownership record of a backend that was not started"
+	else
+		log "the ownership record of a backend that was not started could not be closed; the next runner start may be held"
+	fi
+}
+
 # A retiring backend outlives the cycle that started it, so it is stopped by
 # identity: a reused pid is not it, and a zombie awaiting this runner's reap
 # has already stopped.
@@ -612,6 +625,25 @@ terminate() {
 
 trap cleanup EXIT
 trap terminate TERM INT
+
+# Between "spawning" and the backend's identity the ownership record names
+# nothing that can be checked, and a record left like that holds every later
+# runner start until a person removes it: a restart of the unit at the wrong
+# moment took it down for good. So a stop that lands while a backend is being
+# started is kept until the record says what was started, which takes a few
+# hundred milliseconds (#827). release_shutdown must follow on every path.
+shutdown_held=0
+hold_shutdown() {
+	shutdown_held=0
+	trap 'shutdown_held=1' TERM INT
+}
+release_shutdown() {
+	trap terminate TERM INT
+	if ((shutdown_held)); then
+		shutdown_held=0
+		terminate
+	fi
+}
 
 require_file() {
 	if [[ ! -x "$1" ]]; then
@@ -947,8 +979,63 @@ child_name_for_pid() {
 	fi
 }
 
+# Record that a backend is about to be started, start it, and record which
+# process it is. Called with stops held (hold_shutdown), so that the
+# ownership record is never left between the two.
+start_recorded_upstream() {
+	local owner_status
+	if ((transaction_enabled)); then
+		owner_status=0
+		"$NODE_BIN" "$TRANSACTION_MODULE" owner-spawning "$TRANSACTION_DIR" || owner_status=$?
+		if ((owner_status != 0)); then
+			if ((owner_status == OUT_OF_SPACE_EXIT_STATUS)); then start_out_of_space="the ownership record"; fi
+			return 1
+		fi
+		owner_open=1
+		owner_open_pid=""
+		owner_open_start=""
+	fi
+	if ((shutdown_held)); then
+		# The stop came first. Nothing has been started, so the record
+		# written above stands for no backend and can be closed.
+		if ((transaction_enabled)); then close_unstarted_owner; fi
+		return 1
+	fi
+	log "starting better-ccflare upstream on 127.0.0.1:${UPSTREAM_PORT}"
+	HOME="$HOME" \
+		USER="$USER" \
+		BETTER_CCFLARE_HOST=127.0.0.1 \
+		PORT="$UPSTREAM_PORT" \
+		STORE_PAYLOADS=false \
+		LOG_LEVEL="${LOG_LEVEL:-warn}" \
+		CCFLARE_RATE_LIMIT_BACKOFF_MAX_MS=120000 \
+		CCFLARE_GUARD_CORRELATION_SECRET="$guard_correlation_secret" \
+		CCFLARE_DEBUG_ANTHROPIC_BOUNDARY="${CCFLARE_DEBUG_ANTHROPIC_BOUNDARY:-1}" \
+		CCFLARE_DEBUG_CODEX_STREAM="${CCFLARE_DEBUG_CODEX_STREAM:-1}" \
+		"$CCFLARE_BIN" --serve --port "$UPSTREAM_PORT" &
+	upstream_pid=$!
+	if ((transaction_enabled)); then
+		local candidate_start
+		owner_open_pid="$upstream_pid"
+		if ! candidate_start="$(proc_start_time "$upstream_pid" /proc)"; then
+			if ((pending_deployment)); then transaction_advance "$handoff_phase" held '{"reason":"candidate_start_identity_unavailable"}' || true; fi
+			log "backend start held: candidate_start_identity_unavailable"
+			return 1
+		fi
+		owner_open_start="$candidate_start"
+		owner_status=0
+		"$NODE_BIN" "$TRANSACTION_MODULE" owner-started "$TRANSACTION_DIR" "$upstream_pid" "$candidate_start" || owner_status=$?
+		if ((owner_status != 0)); then
+			if ((owner_status == OUT_OF_SPACE_EXIT_STATUS)); then start_out_of_space="the ownership record"; fi
+			return 1
+		fi
+		owner_open=0
+		if ((pending_deployment)); then transaction_advance "$handoff_phase" candidate_started "{\"candidatePid\":$upstream_pid,\"candidateStartTime\":\"$candidate_start\"}" || return 1; fi
+	fi
+}
+
 run_stack_once() {
-	local control_base owner_status
+	local control_base
 	fatal_startup=0
 	child_exit_name=""
 	child_exit_status=1
@@ -1016,48 +1103,13 @@ run_stack_once() {
 	if ((pending_deployment || pending_rollback)); then CCFLARE_MANAGED_CANDIDATE_NONCE="$(deployment_field manifest.candidateNonce)"; else CCFLARE_MANAGED_CANDIDATE_NONCE=$(LC_ALL=C head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'); fi
 	export CCFLARE_MANAGED_TIMING="${CCFLARE_MANAGED_TIMING:-0}" CCFLARE_MANAGED_INGRESS_NONCE CCFLARE_MANAGED_CANDIDATE_NONCE
 	export CCFLARE_MANAGED_GENERATION="$upstream_generation"
-	if ((transaction_enabled)); then
-		owner_status=0
-		"$NODE_BIN" "$TRANSACTION_MODULE" owner-spawning "$TRANSACTION_DIR" || owner_status=$?
-		if ((owner_status != 0)); then
-			if ((owner_status == OUT_OF_SPACE_EXIT_STATUS)); then start_out_of_space="the ownership record"; fi
-			return 1
-		fi
-		owner_open=1
-		owner_open_pid=""
-		owner_open_start=""
-	fi
-	log "starting better-ccflare upstream on 127.0.0.1:${UPSTREAM_PORT}"
-	HOME="$HOME" \
-		USER="$USER" \
-		BETTER_CCFLARE_HOST=127.0.0.1 \
-		PORT="$UPSTREAM_PORT" \
-		STORE_PAYLOADS=false \
-		LOG_LEVEL="${LOG_LEVEL:-warn}" \
-		CCFLARE_RATE_LIMIT_BACKOFF_MAX_MS=120000 \
-		CCFLARE_GUARD_CORRELATION_SECRET="$guard_correlation_secret" \
-		CCFLARE_DEBUG_ANTHROPIC_BOUNDARY="${CCFLARE_DEBUG_ANTHROPIC_BOUNDARY:-1}" \
-		CCFLARE_DEBUG_CODEX_STREAM="${CCFLARE_DEBUG_CODEX_STREAM:-1}" \
-		"$CCFLARE_BIN" --serve --port "$UPSTREAM_PORT" &
-	upstream_pid=$!
-	if ((transaction_enabled)); then
-		local candidate_start
-		owner_open_pid="$upstream_pid"
-		if ! candidate_start="$(proc_start_time "$upstream_pid" /proc)"; then
-			if ((pending_deployment)); then transaction_advance "$handoff_phase" held '{"reason":"candidate_start_identity_unavailable"}' || true; fi
-			log "backend start held: candidate_start_identity_unavailable"
-			return 1
-		fi
-		owner_open_start="$candidate_start"
-		owner_status=0
-		"$NODE_BIN" "$TRANSACTION_MODULE" owner-started "$TRANSACTION_DIR" "$upstream_pid" "$candidate_start" || owner_status=$?
-		if ((owner_status != 0)); then
-			if ((owner_status == OUT_OF_SPACE_EXIT_STATUS)); then start_out_of_space="the ownership record"; fi
-			return 1
-		fi
-		owner_open=0
-		if ((pending_deployment)); then transaction_advance "$handoff_phase" candidate_started "{\"candidatePid\":$upstream_pid,\"candidateStartTime\":\"$candidate_start\"}" || return 1; fi
-	fi
+	# A stop that lands in here is kept until the ownership record says what
+	# was started: see hold_shutdown.
+	local start_status=0
+	hold_shutdown
+	start_recorded_upstream || start_status=$?
+	release_shutdown
+	((start_status == 0)) || return 1
 	if ! wait_for_url better-ccflare "http://127.0.0.1:${UPSTREAM_PORT}/health" "$upstream_pid"; then
 		if [[ -z "$child_exit_name" ]]; then
 			child_exit_name="better-ccflare upstream"
