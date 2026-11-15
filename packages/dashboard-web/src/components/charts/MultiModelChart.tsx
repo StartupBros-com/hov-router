@@ -1,4 +1,3 @@
-import { getModelShortName } from "@better-ccflare/core";
 import {
 	formatCost,
 	formatNumber,
@@ -15,18 +14,14 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import {
-	CHART_COLORS,
-	CHART_HEIGHTS,
-	CHART_PROPS,
-	COLORS,
-} from "../../constants";
+import { CHART_HEIGHTS, CHART_PROPS } from "../../constants";
 import {
 	formatCompactCurrency,
 	formatCompactNumber,
 } from "../../lib/chart-utils";
 import { ChartContainer } from "./ChartContainer";
 import { getTooltipStyles } from "./chart-utils";
+import { getModelColor } from "./model-colors";
 
 interface MultiModelChartProps {
 	data: Array<{
@@ -45,36 +40,6 @@ interface MultiModelChartProps {
 	loading?: boolean;
 	height?: number;
 	viewMode?: "normal" | "cumulative";
-}
-
-// Model-based color palette
-const MODEL_COLORS: Record<string, string> = {
-	"claude-3.5-sonnet": COLORS.purple,
-	"claude-3.5-haiku": COLORS.success,
-	"claude-3-opus": COLORS.blue,
-	"claude-opus-4": COLORS.pink,
-	"claude-opus-4.1": COLORS.indigo,
-	"claude-sonnet-4": COLORS.cyan,
-	"claude-sonnet-4.5": COLORS.purple,
-};
-
-function getModelColor(model: string, index: number): string {
-	// Try to find color by short name first
-	const shortName = getModelShortName(model);
-	if (MODEL_COLORS[shortName]) return MODEL_COLORS[shortName];
-
-	// Check for exact match
-	if (MODEL_COLORS[model]) return MODEL_COLORS[model];
-
-	// Check for partial matches
-	for (const [key, color] of Object.entries(MODEL_COLORS)) {
-		if (model.includes(key) || key.includes(model)) {
-			return color;
-		}
-	}
-
-	// Use chart colors array as fallback
-	return CHART_COLORS[index % CHART_COLORS.length];
 }
 
 function getMetricLabel(metric: string): string {
@@ -199,10 +164,12 @@ export function MultiModelChart({
 					</filter>
 				</defs>
 				<CartesianGrid
+					stroke={CHART_PROPS.gridStroke}
 					strokeDasharray={CHART_PROPS.strokeDasharray}
 					className={CHART_PROPS.gridClassName}
 				/>
 				<XAxis
+					stroke={CHART_PROPS.axisStroke}
 					dataKey="time"
 					fontSize={12}
 					angle={data.length > 10 ? -45 : 0}
@@ -210,9 +177,11 @@ export function MultiModelChart({
 					height={data.length > 10 ? 60 : 30}
 				/>
 				<YAxis
+					stroke={CHART_PROPS.axisStroke}
 					fontSize={12}
 					tickFormatter={(value) => formatAxisValue(value, metric)}
 					label={{
+						fill: CHART_PROPS.axisStroke,
 						value: getMetricLabel(metric),
 						angle: -90,
 						position: "insideLeft",
@@ -220,6 +189,7 @@ export function MultiModelChart({
 					}}
 				/>
 				<Tooltip
+					cursor={{ stroke: CHART_PROPS.cursorStroke }}
 					contentStyle={getTooltipStyles("dark")}
 					// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
 					formatter={tooltipFormatter as any}
@@ -240,7 +210,7 @@ export function MultiModelChart({
 						stroke={getModelColor(model, index)}
 						strokeWidth={viewMode === "cumulative" ? 3 : 2}
 						dot={false}
-						activeDot={{ r: 6 }}
+						activeDot={{ r: 6, stroke: CHART_PROPS.surfaceStroke }}
 						filter={viewMode === "cumulative" ? "url(#glow)" : undefined}
 						connectNulls={true}
 					/>

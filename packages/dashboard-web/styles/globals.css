@@ -40,6 +40,23 @@
 	--ring: hsl(24 89% 56%); /* ccflare Orange */
 	--radius: 0.375rem;
 	--cf-orange: #f38020;
+
+	/* Chart series: the 600 shade where the 500 shade is under 3:1 on the card */
+	--chart-primary: #ea580c;
+	--chart-success: #059669;
+	--chart-warning: #d97706;
+	--chart-error: #ef4444;
+	--chart-blue: #3b82f6;
+	--chart-purple: #8b5cf6;
+	--chart-pink: #ec4899;
+	--chart-indigo: #6366f1;
+	--chart-cyan: #0891b2;
+	--chart-teal: #0d9488;
+	--chart-orange: #ea580c;
+	--chart-grid: var(--border);
+	--chart-axis: var(--muted-foreground);
+	/* Brand orange as text: orange-700 passes 4.5:1 on light backgrounds */
+	--primary-text: oklch(55.3% 0.195 38.402);
 }
 
 .dark {
@@ -77,6 +94,21 @@
 	--input: hsl(220 13% 18%);
 	--ring: hsl(24 89% 56%); /* ccflare Orange */
 	--cf-orange: #f38020;
+
+	--chart-primary: #f38020;
+	--chart-success: #10b981;
+	--chart-warning: #f59e0b;
+	--chart-error: #ef4444;
+	--chart-blue: #3b82f6;
+	--chart-purple: #8b5cf6;
+	--chart-pink: #ec4899;
+	--chart-indigo: #6366f1;
+	--chart-cyan: #06b6d4;
+	--chart-teal: #14b8a6;
+	--chart-orange: #f97316;
+	--chart-grid: var(--border);
+	--chart-axis: var(--muted-foreground);
+	--primary-text: var(--primary);
 }
 
 @theme inline {
@@ -99,6 +131,19 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
+	/* Chart series colours as utilities (bg-chart-primary/80, text-chart-purple)
+	   for chart marks drawn in HTML rather than SVG. */
+	--color-chart-primary: var(--chart-primary);
+	--color-chart-success: var(--chart-success);
+	--color-chart-warning: var(--chart-warning);
+	--color-chart-error: var(--chart-error);
+	--color-chart-blue: var(--chart-blue);
+	--color-chart-purple: var(--chart-purple);
+	--color-chart-pink: var(--chart-pink);
+	--color-chart-indigo: var(--chart-indigo);
+	--color-chart-cyan: var(--chart-cyan);
+	--color-chart-teal: var(--chart-teal);
+	--color-chart-orange: var(--chart-orange);
 	--radius-sm: calc(var(--radius) - 4px);
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);

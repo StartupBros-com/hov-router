@@ -15,6 +15,7 @@ import {
 	providerShowsCreditsBalance,
 } from "../../utils/provider-utils";
 import { LiveCountdown } from "../LiveCountdown";
+import { Meter } from "../ui/meter";
 import { Progress } from "../ui/progress";
 import { StatusPill } from "../ui/status-pill";
 import { accountUsageWindows } from "./account-usage-windows";
@@ -433,16 +434,12 @@ export function RateLimitProgress({
 												: undefined
 										}
 									>
-										<Progress
+										<Meter
 											value={Math.min(100, percentage)}
 											aria-label={`${label} used`}
-											className="h-1.5 min-w-0 bg-muted-foreground/25"
-											indicatorClassName={
-												exhausted
-													? "bg-destructive"
-													: strong
-														? "bg-foreground"
-														: "bg-muted-foreground"
+											className="h-1.5 min-w-0"
+											tone={
+												exhausted ? "exhausted" : strong ? "strong" : "weak"
 											}
 										/>
 										{pacePct !== null && (

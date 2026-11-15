@@ -87,17 +87,20 @@ export function BaseBarChart({
 					onClick={onChartClick}
 				>
 					<CartesianGrid
+						stroke={CHART_PROPS.gridStroke}
 						strokeDasharray={CHART_PROPS.strokeDasharray}
 						className={CHART_PROPS.gridClassName}
 					/>
 					{layout === "vertical" ? (
 						<>
 							<XAxis
+								stroke={CHART_PROPS.axisStroke}
 								type={xAxisType as "number"}
 								className="text-xs"
 								tickFormatter={xAxisTickFormatter}
 							/>
 							<YAxis
+								stroke={CHART_PROPS.axisStroke}
 								dataKey={xAxisKey}
 								type={yAxisType as "category"}
 								className="text-xs"
@@ -108,6 +111,7 @@ export function BaseBarChart({
 					) : (
 						<>
 							<XAxis
+								stroke={CHART_PROPS.axisStroke}
 								dataKey={xAxisKey}
 								type={xAxisType as "category"}
 								className="text-xs"
@@ -117,6 +121,7 @@ export function BaseBarChart({
 								tickFormatter={xAxisTickFormatter}
 							/>
 							<YAxis
+								stroke={CHART_PROPS.axisStroke}
 								yAxisId={secondaryYAxis ? "left" : undefined}
 								type={yAxisType as "number"}
 								className="text-xs"
@@ -126,6 +131,7 @@ export function BaseBarChart({
 							/>
 							{secondaryYAxis && (
 								<YAxis
+									stroke={CHART_PROPS.axisStroke}
 									yAxisId="right"
 									orientation="right"
 									className="text-xs"
@@ -135,6 +141,7 @@ export function BaseBarChart({
 						</>
 					)}
 					<Tooltip
+						cursor={{ fill: CHART_PROPS.cursorFill }}
 						contentStyle={tooltipStyles}
 						// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
 						formatter={tooltipFormatter as any}
