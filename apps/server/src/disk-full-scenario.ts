@@ -63,6 +63,17 @@
  * file. It refuses to run unless loopback is the only network interface, so
  * the made-up token can go nowhere.
  *
+ * `--schema-behind` checks that a start which cannot finish its schema work
+ * fails closed. With space available it drops an index every start puts
+ * back and removes the start reserve; on the full filesystem the start must
+ * then exit 1 naming the cause, never answer a request, and come up with
+ * the index back once space returns. It replaces the restart steps.
+ *
+ * Every run also reads what `/health` says about the full disk and fails if
+ * the server reports an error that nothing caught: the process-level
+ * backstop keeps the server alive through one, and without this check it
+ * could hide a write that lost its own handling.
+ *
  * Prints one JSON report on stdout. Exit 0 means the scenario ran (read
  * `failures`); exit 2 means the harness itself could not run.
  */
@@ -131,6 +142,8 @@ interface Args {
 	rearmRouterReserve: boolean;
 	/** Add a paused Codex account and check its pending-rotation slot. */
 	oauthRow: boolean;
+	/** Leave the schema one index short and check the start fails closed. */
+	schemaBehind: boolean;
 }
 
 /** Room given back so the running router can write its start reserve. */
@@ -139,6 +152,10 @@ const ROUTER_REARM_ROOM_BYTES = 1024 * 1024;
 const ROUTER_REARM_WAIT_MS = 45_000;
 /** Part of the line the router logs after a start that spent its reserve. */
 const ROUTER_RESERVE_RELEASED_MARKER = "start reserve and opened it";
+/** An index `ensureSchema` puts back at every start. */
+const SCHEMA_BEHIND_INDEX = "idx_api_keys_active";
+/** How the server's refusal to start for lack of space begins. */
+const START_REFUSAL_MARKER = "Cannot start: the database at";
 const OAUTH_ROW_ID = "scenario-oauth-row";
 const OAUTH_ROW_NAME = "disk-full-oauth-row";
 /** Size of one pending-rotation slot file. */
@@ -168,9 +185,11 @@ function parseArgs(argv: string[]): Args {
 	let quietStart = false;
 	let rearmRouterReserve = false;
 	let oauthRow = false;
+	let schemaBehind = false;
 	for (let i = 0; i < argv.length; i++) {
 		const value = argv[i + 1];
 		if (argv[i] === "--oauth-row") oauthRow = true;
+		if (argv[i] === "--schema-behind") schemaBehind = true;
 		if (argv[i] === "--rearm-router-reserve") rearmRouterReserve = true;
 		if (argv[i] === "--quiet-start") quietStart = true;
 		if (argv[i] === "--start-reserve-bytes" && value) {
@@ -278,6 +297,7 @@ function parseArgs(argv: string[]): Args {
 		quietStart,
 		rearmRouterReserve,
 		oauthRow,
+		schemaBehind,
 	};
 }
 
@@ -455,6 +475,51 @@ function seededRowsRemaining(dbFile: string): Record<string, number> | null {
 	} catch {
 		return null;
 	}
+}
+
+/** Whether the database has an index. Only call while the server is up. */
+function indexExists(dbFile: string, name: string): boolean | null {
+	try {
+		const db = new Database(dbFile, { readonly: true });
+		try {
+			return (
+				db
+					.query(
+						"SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?",
+					)
+					.get(name) !== null
+			);
+		} finally {
+			db.close();
+		}
+	} catch {
+		return null;
+	}
+}
+
+/** Drop an index while the server is up and there is space to do it. */
+function dropIndex(dbFile: string, name: string): void {
+	const db = new Database(dbFile);
+	try {
+		db.run("PRAGMA busy_timeout = 10000");
+		db.run(`DROP INDEX ${name}`);
+	} finally {
+		db.close();
+	}
+}
+
+interface FullDiskHealth {
+	logFile: { suspended: boolean; dropped: number } | null;
+	startReserveArmed: boolean | null;
+	uncaughtErrors: { count: number; lastError: string | null };
+}
+
+/** What `/health` says about the full disk, or null when it says nothing. */
+function fullDiskOf(snapshot: unknown): FullDiskHealth | null {
+	const body = (snapshot as { body?: unknown } | null)?.body as
+		| { runtime?: { storage?: { fullDisk?: FullDiskHealth } } }
+		| undefined;
+	return body?.runtime?.storage?.fullDisk ?? null;
 }
 
 async function reservePort(): Promise<number> {
@@ -1053,6 +1118,23 @@ async function main(): Promise<void> {
 		rmSync(ballast, { force: true });
 		rmSync(spinFile, { force: true });
 	};
+	/**
+	 * A server that is up must say what it is doing without, and must not
+	 * have survived an error that nothing caught.
+	 */
+	const checkFullDiskHealth = (label: string, snapshot: unknown): void => {
+		if (snapshot === null) return;
+		const fullDisk = fullDiskOf(snapshot);
+		if (!fullDisk) {
+			failures.push(`${label}: /health did not report the full-disk state`);
+			return;
+		}
+		if (fullDisk.uncaughtErrors.count > 0) {
+			failures.push(
+				`${label}: the server survived ${fullDisk.uncaughtErrors.count} error(s) that nothing caught: ${fullDisk.uncaughtErrors.lastError}`,
+			);
+		}
+	};
 	try {
 		// 1. Baseline, with space available.
 		router.start();
@@ -1225,6 +1307,23 @@ async function main(): Promise<void> {
 			reserveAtSeed,
 		};
 
+		if (args.schemaBehind) {
+			dropIndex(dbFile, SCHEMA_BEHIND_INDEX);
+			// With a reserve the start could put the index back out of it. The
+			// start measured here has none, so it has to refuse.
+			rmSync(routerReserveFile, { force: true });
+			report.schemaBehindSeed = {
+				index: SCHEMA_BEHIND_INDEX,
+				indexPresentAfterDrop: indexExists(dbFile, SCHEMA_BEHIND_INDEX),
+				reserveBytesAfterRemoval: fileSize(routerReserveFile),
+			};
+			if (indexExists(dbFile, SCHEMA_BEHIND_INDEX) !== false) {
+				throw new Error(
+					"the index could not be dropped with space available, so the schema-behind start was not measured",
+				);
+			}
+		}
+
 		// 2. Fill the filesystem and keep it full.
 		const filledBytes = fillToZero(ballast);
 		refill = setInterval(() => {
@@ -1326,6 +1425,10 @@ async function main(): Promise<void> {
 				`${soakHealthFailures} health checks failed during the soak`,
 			);
 		}
+		checkFullDiskHealth(
+			"while full",
+			(report.full as { health: unknown }).health,
+		);
 
 		// 4. Restart on the still-full filesystem. A clean stop goes first: it
 		// decides whether the write-ahead log and shared-memory files survive,
@@ -1343,7 +1446,9 @@ async function main(): Promise<void> {
 					removeLogDir: true,
 				},
 			] as const
-		).filter((step) => args.namedSteps.includes(step.name));
+		).filter(
+			(step) => !args.schemaBehind && args.namedSteps.includes(step.name),
+		);
 		/**
 		 * Give the running router room to write its start reserve back, then
 		 * take the room away again. Null when not asked for or nothing is running.
@@ -1509,6 +1614,10 @@ async function main(): Promise<void> {
 				retention: healthy ? await retentionOutcome(router.base) : null,
 				seededRowsRemaining: healthy ? seededRowsRemaining(dbFile) : null,
 			};
+			checkFullDiskHealth(
+				step.name,
+				(restarts[step.name] as { health: unknown }).health,
+			);
 			const kind = startedFromLiveServer ? "restart" : "cold start";
 			if (!healthy) {
 				failures.push(
@@ -1531,6 +1640,51 @@ async function main(): Promise<void> {
 		}
 		report.restarts = restarts;
 		report.pidChanged = router.pid !== firstPid;
+
+		// 4a. A start that cannot finish its schema work has to fail closed.
+		if (args.schemaBehind) {
+			// The router looks at its reserve every 30 s, so what it said at the
+			// end of the full phase can still be its answer from the start.
+			await waitFor(
+				async () =>
+					fullDiskOf(await health(router.base))?.startReserveArmed === false,
+				ROUTER_REARM_WAIT_MS,
+			);
+			const reserveArmedWhileFull =
+				fullDiskOf(await health(router.base))?.startReserveArmed ?? null;
+			await router.stop("SIGTERM", 20_000);
+			const stopExit = router.exit;
+			const start = await startOnFull();
+			// The exit is recorded a moment after the listener check gives up.
+			await waitFor(async () => !router.alive(), 10_000);
+			const refusal = router
+				.outputSinceStart()
+				.filter((line) => line.includes(START_REFUSAL_MARKER));
+			report.schemaBehind = {
+				stopExit,
+				reserveArmedWhileFull,
+				healthy: start.healthy,
+				freeBeforeStart: start.freeBeforeStart,
+				routerReserveBeforeStart: start.routerReserveBeforeStart,
+				exit: router.exit,
+				refusal: refusal.map((line) => line.slice(0, 400)),
+				failure: start.failure,
+			};
+			if (start.healthy) {
+				failures.push(
+					"schema-behind: the start came up on the full filesystem although it could not finish its schema work",
+				);
+			} else if (router.exit?.exitCode !== 1 || refusal.length === 0) {
+				failures.push(
+					`schema-behind: the start did not refuse with exit code 1 and a message naming the cause: ${JSON.stringify({ exit: router.exit, refusal: refusal.length })}`,
+				);
+			}
+			if (reserveArmedWhileFull !== false) {
+				failures.push(
+					`schema-behind: /health did not say the start reserve was gone while full (said ${reserveArmedWhileFull})`,
+				);
+			}
+		}
 
 		// 4b. The same restart, repeated. Each start has to reopen the database
 		// with nothing free, so a start that only works most of the time shows
@@ -1720,6 +1874,31 @@ async function main(): Promise<void> {
 			failures.push(
 				"the log file took no new line within 75 s of space returning",
 			);
+		}
+		// The reserve is written back by a check every 30 s once there is room.
+		const reserveArmedAgain = await waitFor(
+			async () =>
+				fullDiskOf(await health(router.base))?.startReserveArmed === true,
+			ROUTER_REARM_WAIT_MS,
+		);
+		const healthAtEnd = await health(router.base);
+		(report.recovery as Record<string, unknown>).fullDiskAtEnd =
+			fullDiskOf(healthAtEnd);
+		checkFullDiskHealth("after space returned", healthAtEnd);
+		if (!reserveArmedAgain) {
+			failures.push(
+				"/health did not report the start reserve whole within 45 s of space returning",
+			);
+		}
+		if (args.schemaBehind) {
+			const indexBack = indexExists(dbFile, SCHEMA_BEHIND_INDEX);
+			(report.schemaBehind as Record<string, unknown>).indexBackAfterSpace =
+				indexBack;
+			if (indexBack !== true) {
+				failures.push(
+					"schema-behind: the start after space returned did not put the index back",
+				);
+			}
 		}
 	} catch (error) {
 		failures.push(`scenario aborted: ${String(error)}`);
