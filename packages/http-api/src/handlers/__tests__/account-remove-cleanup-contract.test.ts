@@ -14,7 +14,6 @@ const deleteUsageCache = spyOn(usageCache, "delete").mockImplementation(
 const clearAccountRefreshCache = mock(() => {});
 const clearAccountRemovalTrackingForAccount = mock(() => {});
 const clearCodexModelCacheForAccount = mock(() => {});
-const clearNativeAutoCatalogEvidence = mock(() => {});
 const clearOpenAICompatibleModelCacheForAccount = mock(() => {});
 const clearPendingRotationForDeletedAccount = mock(() => {});
 
@@ -23,7 +22,6 @@ mock.module("@better-ccflare/proxy", () => ({
 	clearAccountRefreshCache,
 	clearAccountRemovalTrackingForAccount,
 	clearCodexModelCacheForAccount,
-	clearNativeAutoCatalogEvidence,
 	clearOpenAICompatibleModelCacheForAccount,
 	clearPendingRotationForDeletedAccount,
 	getBindingConstraint: () => undefined,
@@ -59,7 +57,6 @@ afterEach(() => {
 	clearAccountRefreshCache.mockClear();
 	clearAccountRemovalTrackingForAccount.mockClear();
 	clearCodexModelCacheForAccount.mockClear();
-	clearNativeAutoCatalogEvidence.mockClear();
 	clearOpenAICompatibleModelCacheForAccount.mockClear();
 	clearPendingRotationForDeletedAccount.mockClear();
 });
@@ -122,7 +119,6 @@ describe("createAccountRemoveHandler cleanup contract", () => {
 			"account-1",
 		);
 		expect(clearCodexModelCacheForAccount).toHaveBeenCalledWith("account-1");
-		expect(clearNativeAutoCatalogEvidence).toHaveBeenCalledWith("account-1");
 		expect(clearOpenAICompatibleModelCacheForAccount).toHaveBeenCalledWith(
 			"account-1",
 		);
@@ -150,7 +146,6 @@ describe("createAccountRemoveHandler cleanup contract", () => {
 		expect(stopPolling).not.toHaveBeenCalled();
 		expect(clearAccountRemovalTrackingForAccount).not.toHaveBeenCalled();
 		expect(clearCodexModelCacheForAccount).not.toHaveBeenCalled();
-		expect(clearNativeAutoCatalogEvidence).not.toHaveBeenCalled();
 		expect(clearPendingRotationForDeletedAccount).not.toHaveBeenCalled();
 	});
 
@@ -181,7 +176,6 @@ describe("createAccountRemoveHandler cleanup contract", () => {
 		expect(clearAccountRefreshCache).not.toHaveBeenCalled();
 		expect(clearAccountRemovalTrackingForAccount).not.toHaveBeenCalled();
 		expect(clearCodexModelCacheForAccount).not.toHaveBeenCalled();
-		expect(clearNativeAutoCatalogEvidence).not.toHaveBeenCalled();
 		expect(clearPendingRotationForDeletedAccount).not.toHaveBeenCalled();
 	});
 });

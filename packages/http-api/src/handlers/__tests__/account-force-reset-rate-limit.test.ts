@@ -25,7 +25,6 @@ mock.module("@better-ccflare/proxy", () => ({
 	clearAccountRefreshCache: mock(() => {}),
 	clearAccountRemovalTrackingForAccount: mock(() => {}),
 	clearCodexModelCacheForAccount: mock(() => {}),
-	clearNativeAutoCatalogEvidence: mock(() => {}),
 	clearOpenAICompatibleModelCacheForAccount: mock(() => {}),
 	clearPendingRotationForDeletedAccount: mock(() => {}),
 	getBindingConstraint: mock(() => null),
