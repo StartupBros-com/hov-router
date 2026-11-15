@@ -57,7 +57,11 @@ import {
 	SessionDrainSoonestStrategy,
 	SessionStrategy,
 } from "@better-ccflare/load-balancer";
-import { Logger, setConsoleLogging } from "@better-ccflare/logger";
+import {
+	Logger,
+	logFileWriter,
+	setConsoleLogging,
+} from "@better-ccflare/logger";
 import { handleResponsesRequest } from "@better-ccflare/openai-responses-adapter";
 import {
 	CODEX_DEFAULT_ENDPOINT,
@@ -93,7 +97,7 @@ import {
 	createAnthropicDegradedRuntimeHealth,
 	createDurableServerToolReplayWriterAdmission,
 	createGuardCorrelationVerifier,
-	createPendingRotationWal,
+	createPendingRotationStore,
 	createServerToolReplayRuntime,
 	DegradedModeObservability,
 	DegradedOwnerOverlay,
@@ -122,6 +126,7 @@ import {
 	registerCodexUsageRefresher,
 	registerPollingRestarter,
 	registerRefreshClearer,
+	reservePendingRotationSlots,
 	restoreModelRouteBindings,
 	restorePendingRotations,
 	startExternalCodexScheduler,
@@ -139,6 +144,7 @@ import {
 import { validatePathOrThrow } from "@better-ccflare/security";
 import {
 	type Account,
+	type FullDiskStatus,
 	type LoadBalancingStrategy,
 	type RetentionStatus,
 	StrategyName,
@@ -170,6 +176,15 @@ import {
 	buildServerRuntimeConfig,
 	createModelRouteSessionRegistry,
 } from "./runtime-config";
+import {
+	createStartReserveKeeper,
+	START_RESERVE_ARM_INTERVAL_MS,
+	startReserveReleasedMessage,
+} from "./start-reserve-keeper";
+import {
+	installStorageFullBackstop,
+	type StorageFullBackstop,
+} from "./storage-full-backstop";
 import {
 	createUsagePollingTrackingClearer,
 	isCurrentUsagePollingAccount,
@@ -722,6 +737,7 @@ let stopModelCatalogRefreshJob: (() => void) | null = null;
 let stopCodexCatalogRefreshJob: (() => void) | null = null;
 let stopDeviceSetupRecoveryJob: (() => Promise<void>) | null = null;
 let stopZaiPeakHoursPauseJob: (() => void) | null = null;
+let stopStartReserveJob: (() => void) | null = null;
 let usagePollingLifecycle: UsagePollingLifecycle<NodeJS.Timeout> | null = null;
 let cacheFlightCohortSealService: CohortSealService | null = null;
 let cacheKeepaliveScheduler: CacheKeepaliveScheduler | null = null;
@@ -882,7 +898,7 @@ async function adoptLegacyRoutingSettings(
 }
 
 /**
- * Restore the pending-rotation WAL only after account lookups exist, but before
+ * Restore the pending rotations only after account lookups exist, but before
  * any proxy context or scheduler can begin credential refresh work.
  */
 export async function restorePendingRotationsBeforeRuntimeRefresh(
@@ -1429,6 +1445,10 @@ export function formatWalCheckpointLog(
 // Export for programmatic use
 let serverLifecycleOwned = false;
 let quiesceHandlerInstalled = false;
+// Installed once a start has finished and kept through a signal-driven
+// shutdown, which still writes. A programmatic stop takes it off again, so
+// a process that outlives its server gets the runtime's own handling back.
+let storageFullBackstop: StorageFullBackstop | null = null;
 let quiesceKeepalive: ReturnType<typeof setInterval> | undefined;
 let retireBackendHeartbeat: (() => Promise<void>) | undefined;
 let stopAlertJob: (() => Promise<void>) | undefined;
@@ -1581,19 +1601,37 @@ export default async function startServer(options?: {
 	// API-key auth is enabled (issue #216). See AuthService#isLocalControlRequest.
 	const localControlSecret = config.getLocalControlSecret();
 
-	// Keep provider-committed rotations outside the primary DB: this WAL must
+	// Keep provider-committed rotations outside the primary DB: this store must
 	// remain writable when the DB outage that caused the token CAS failure is
-	// still active. One encrypted, atomically-replaced file per account avoids
-	// cross-account writer races.
+	// still active, and a full disk is one such outage (#827). One encrypted
+	// fixed-size slot per account, overwritten in place, needs no new blocks for
+	// a save and avoids cross-account writer races. Files left by the older
+	// temp-file-and-rename store are still read at start.
 	configurePendingRotationPersistence(
-		createPendingRotationWal({
+		createPendingRotationStore({
 			directory: join(dirname(resolveConfigPath()), "pending-rotations"),
 			secret: localControlSecret,
 		}),
 	);
 
 	DatabaseFactory.initialize(undefined, runtime);
-	const dbOps = await DatabaseFactory.getInstanceAsync();
+	// A start on a full disk can fail to open the database. The factory then
+	// releases the start reserve and opens once more (#827). The callback runs
+	// between the release and that second open, so it only takes a note.
+	const startReserveUse: { released?: { bytes: number; error: unknown } } = {};
+	const dbOps = await DatabaseFactory.getInstanceForServerStart(
+		(bytes, error) => {
+			startReserveUse.released = { bytes, error };
+		},
+	);
+	if (startReserveUse.released) {
+		new Logger("StartReserve").warn(
+			startReserveReleasedMessage(
+				startReserveUse.released.bytes,
+				startReserveUse.released.error,
+			),
+		);
+	}
 	retireBackendHeartbeat = () => dbOps.retireInstanceHeartbeat();
 	// Started before the rest of startup so a post-start freeze (#606) names
 	// how long the main thread was held and which SQL ran meanwhile.
@@ -1607,6 +1645,10 @@ export default async function startServer(options?: {
 	// Upgrade legacy WAL ownership before any proxy context, polling loop, or
 	// scheduler can refresh: every later production caller is generation-bound.
 	await restorePendingRotationsBeforeRuntimeRefresh(dbOps);
+	// A slot can only be made while there is disk space, so make them now. An
+	// account that has one keeps refreshing after the disk fills; one without
+	// has its refreshes refused until space returns (#827). Never fatal.
+	await reservePendingRotationSlots(() => dbOps.getAllAccounts());
 
 	// Before anything can route: adopt the combo behaviour this install was
 	// already running, so upgrading is never a silent routing change.
@@ -1849,6 +1891,18 @@ export default async function startServer(options?: {
 	};
 	const getRetentionStatus = (): RetentionStatus => ({ ...retentionState });
 
+	// What the router is doing without on a full disk (#827). A start that
+	// spent the reserve knows it is gone; otherwise the first check says.
+	const startReserveState: { armed: boolean | null } = {
+		armed: startReserveUse.released ? false : null,
+	};
+	const getFullDiskStatus = (): FullDiskStatus => ({
+		logFile: logFileWriter?.status() ?? null,
+		startReserveArmed: startReserveState.armed,
+		// Null, not zero, until the handlers are on: nothing is counting.
+		uncaughtErrors: storageFullBackstop?.status() ?? null,
+	});
+
 	// apiRouter itself is constructed further below (after the
 	// data-retention-cleanup job is registered) so its getRetentionStatus and
 	// getAnthropicDegradedHealth getters, plus the AuthService/cleanup jobs
@@ -1991,6 +2045,7 @@ export default async function startServer(options?: {
 				}),
 			getUpstreamTransportHealth: () => upstreamTransportTracker.snapshot(),
 			getRetentionStatus,
+			getFullDiskStatus,
 			getHandoff: () =>
 				quiesceHandlerInstalled
 					? { protocol: "quiesce-v1", pid: process.pid }
@@ -2030,6 +2085,26 @@ export default async function startServer(options?: {
 		log.error("Startup maintenance failed:", err);
 	});
 	stopRetentionJob = () => {}; // No-op stopper
+
+	// Keep the start reserve whole, so the next start on a full disk has
+	// blocks to give back when it cannot open the database (#827).
+	const startReserveDbPath = dbOps.getResolvedDbPath();
+	if (startReserveDbPath && startReserveDbPath !== ":memory:") {
+		stopStartReserveJob = intervalManager.register({
+			id: "start-reserve",
+			callback: createStartReserveKeeper({
+				dbPath: startReserveDbPath,
+				log: new Logger("StartReserve"),
+				onChecked: (armed) => {
+					startReserveState.armed = armed;
+				},
+			}),
+			intervalMs: START_RESERVE_ARM_INTERVAL_MS,
+			immediate: startReserveUse.released === undefined,
+			maxConcurrent: 1,
+			description: "Start reserve check",
+		});
+	}
 
 	// Set up periodic OAuth session cleanup (every hour)
 	const unregisterOAuthCleanup = registerCleanup({
@@ -3141,6 +3216,13 @@ Available endpoints:
 		throw new Error("Server instance has no valid port");
 	}
 
+	// From here a write that fails for lack of disk space where nothing
+	// catches it no longer ends the server (#827). Not before: the CLI does
+	// not await this function, so a start that failed is an unhandled
+	// rejection, and surviving that would leave a process that never
+	// listened. A start that fails still exits with code 1.
+	storageFullBackstop ??= installStorageFullBackstop();
+
 	return {
 		port: serverPort,
 		stop: createServerStopHandle(
@@ -3399,6 +3481,8 @@ function createServerStopHandle(
 				// Keep ownership visible throughout draining so a racing signal can await it.
 				if (serverInstance !== server) return;
 				serverInstance = null;
+				storageFullBackstop?.uninstall();
+				storageFullBackstop = null;
 				if (activeBodyAdmission === admission) activeBodyAdmission = null;
 				if (activeQualityRouteService === recovery)
 					activeQualityRouteService = undefined;
@@ -3499,6 +3583,10 @@ function stopPeriodicWork(): Promise<void> {
 		if (stopZaiPeakHoursPauseJob) {
 			stopZaiPeakHoursPauseJob();
 			stopZaiPeakHoursPauseJob = null;
+		}
+		if (stopStartReserveJob) {
+			stopStartReserveJob();
+			stopStartReserveJob = null;
 		}
 		if (cacheKeepaliveScheduler) {
 			cacheKeepaliveScheduler.stop();

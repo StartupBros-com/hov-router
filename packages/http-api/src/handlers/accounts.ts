@@ -1450,15 +1450,16 @@ export function createZaiAccountAddHandler(dbOps: DatabaseOperations) {
 				`INSERT INTO accounts (
 					id, name, provider, api_key, refresh_token, access_token,
 					expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?)`,
 				[
 					accountId,
 					name,
 					"zai",
+					// The key lives in api_key only, as the CLI and the
+					// OpenAI-compatible handler store it. Mirroring it into the token
+					// columns left the boot migration a row to rewrite, and a start
+					// must not need a disk write (#827).
 					apiKey,
-					apiKey, // Use API key as refresh token for consistency with CLI
-					apiKey, // Use API key as access token
-					now + 365 * 24 * 60 * 60 * 1000, // 1 year from now
 					now,
 					0,
 					0,
@@ -1481,7 +1482,7 @@ export function createZaiAccountAddHandler(dbOps: DatabaseOperations) {
 				total_requests: number;
 				last_used: number | null;
 				created_at: number;
-				expires_at: number;
+				expires_at: number | null;
 				refresh_token: string;
 				paused: number;
 			}>(
@@ -1514,7 +1515,10 @@ export function createZaiAccountAddHandler(dbOps: DatabaseOperations) {
 					paused: account.paused === 1,
 					priority: priority,
 					tokenStatus: "valid" as const,
-					tokenExpiresAt: new Date(account.expires_at).toISOString(),
+					// A static key never expires: expires_at is NULL in this row shape.
+					tokenExpiresAt: account.expires_at
+						? new Date(account.expires_at).toISOString()
+						: null,
 					rateLimitStatus: "OK",
 					rateLimitReset: null,
 					rateLimitRemaining: null,
@@ -1943,15 +1947,16 @@ export function createMinimaxAccountAddHandler(dbOps: DatabaseOperations) {
 				`INSERT INTO accounts (
 					id, name, provider, api_key, refresh_token, access_token,
 					expires_at, created_at, request_count, total_requests, priority, custom_endpoint
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?)`,
 				[
 					accountId,
 					name,
 					"minimax",
+					// The key lives in api_key only, as the CLI and the
+					// OpenAI-compatible handler store it. Mirroring it into the token
+					// columns left the boot migration a row to rewrite, and a start
+					// must not need a disk write (#827).
 					apiKey,
-					apiKey, // Use API key as refresh token for consistency with CLI
-					apiKey, // Use API key as access token
-					now + 365 * 24 * 60 * 60 * 1000, // 1 year from now
 					now,
 					0,
 					0,
@@ -1973,7 +1978,7 @@ export function createMinimaxAccountAddHandler(dbOps: DatabaseOperations) {
 				total_requests: number;
 				last_used: number | null;
 				created_at: number;
-				expires_at: number;
+				expires_at: number | null;
 				refresh_token: string;
 				paused: number;
 			}>(
@@ -2006,7 +2011,10 @@ export function createMinimaxAccountAddHandler(dbOps: DatabaseOperations) {
 					paused: account.paused === 1,
 					priority: priority,
 					tokenStatus: "valid" as const,
-					tokenExpiresAt: new Date(account.expires_at).toISOString(),
+					// A static key never expires: expires_at is NULL in this row shape.
+					tokenExpiresAt: account.expires_at
+						? new Date(account.expires_at).toISOString()
+						: null,
 					rateLimitStatus: "OK",
 					rateLimitReset: null,
 					rateLimitRemaining: null,
@@ -2422,15 +2430,16 @@ export function createAnthropicCompatibleAccountAddHandler(
 				`INSERT INTO accounts (
 					id, name, provider, api_key, refresh_token, access_token,
 					expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?)`,
 				[
 					accountId,
 					name,
 					"anthropic-compatible",
+					// The key lives in api_key only, as the CLI and the
+					// OpenAI-compatible handler store it. Mirroring it into the token
+					// columns left the boot migration a row to rewrite, and a start
+					// must not need a disk write (#827).
 					apiKey,
-					apiKey, // Use API key as refresh token for consistency with CLI
-					apiKey, // Use API key as access token
-					now + 365 * 24 * 60 * 60 * 1000, // 1 year from now
 					now,
 					0,
 					0,
@@ -2453,7 +2462,7 @@ export function createAnthropicCompatibleAccountAddHandler(
 				total_requests: number;
 				last_used: number | null;
 				created_at: number;
-				expires_at: number;
+				expires_at: number | null;
 				refresh_token: string;
 				paused: number;
 			}>(
@@ -2486,7 +2495,10 @@ export function createAnthropicCompatibleAccountAddHandler(
 					paused: account.paused === 1,
 					priority: priority,
 					tokenStatus: "valid" as const,
-					tokenExpiresAt: new Date(account.expires_at).toISOString(),
+					// A static key never expires: expires_at is NULL in this row shape.
+					tokenExpiresAt: account.expires_at
+						? new Date(account.expires_at).toISOString()
+						: null,
 					rateLimitStatus: "OK",
 					rateLimitReset: null,
 					rateLimitRemaining: null,

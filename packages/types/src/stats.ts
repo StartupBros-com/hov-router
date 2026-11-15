@@ -22,6 +22,46 @@ export interface RetentionStatus {
 }
 
 /**
+ * What the router is doing without because the disk has no space left
+ * (#827). None of it stops the router serving, so `/health` is where it
+ * shows.
+ *
+ * Each `lastError` here is an error code (`ENOSPC`, `SQLITE_FULL`), or the
+ * error's name when it has no code, and never its message: `/health` needs
+ * no API key, and a message can name a path. The messages go to stderr.
+ */
+export interface FullDiskStatus {
+	/** The log file. Null when this process writes no log file. */
+	logFile: {
+		/** True while log lines are being dropped because the file cannot be written. */
+		suspended: boolean;
+		/** Lines dropped since the file last took a write. */
+		dropped: number;
+		/** Times the file has failed since the process started. */
+		failures: number;
+		lastError: string | null;
+		lastErrorAt: number | null;
+	} | null;
+	/**
+	 * Whether the start reserve was whole at the last check: a start on a full
+	 * disk has space to open the database only while it is. Null before the
+	 * first check.
+	 */
+	startReserveArmed: boolean | null;
+	/**
+	 * Errors that said the disk was full, that nothing caught, and that the
+	 * process survived. Above zero, some write has no handling of its own.
+	 * Null while nothing is watching for them, which is not the same as
+	 * zero: such an error would end the process.
+	 */
+	uncaughtErrors: {
+		count: number;
+		lastError: string | null;
+		lastErrorAt: number | null;
+	} | null;
+}
+
+/**
  * Cached integrity status. The `status` collapses both probes into a single
  * surface, but each probe's own most-recent result is preserved so a quick
  * `ok` cannot mask a previously-detected full `corrupt`.
@@ -469,6 +509,22 @@ export interface HealthResponse {
 				lastSuccessAt: string | null;
 				lastError: string | null;
 				lastErrorAt: string | null;
+			};
+			/** `FullDiskStatus`, with its times as ISO strings. */
+			fullDisk?: {
+				logFile: {
+					suspended: boolean;
+					dropped: number;
+					failures: number;
+					lastError: string | null;
+					lastErrorAt: string | null;
+				} | null;
+				startReserveArmed: boolean | null;
+				uncaughtErrors: {
+					count: number;
+					lastError: string | null;
+					lastErrorAt: string | null;
+				} | null;
 			};
 		};
 	};

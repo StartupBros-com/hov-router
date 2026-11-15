@@ -164,4 +164,13 @@ export type {
 	SlowSqlStatement,
 	SqlWindowSummary,
 } from "./sqlite-statement-timing";
+// The start reserve (#827): blocks the server gives back when a start on a
+// full disk cannot open the database.
+export {
+	armStartReserve,
+	START_RESERVE_BYTES,
+	StartOutOfSpaceError,
+	type StartReserveArmResult,
+	startReservePath,
+} from "./start-reserve";
 export { DatabaseOperations };

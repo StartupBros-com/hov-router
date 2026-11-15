@@ -211,6 +211,7 @@ import {
 	isStaleTokenRefreshCoolingDown,
 	isTerminalTokenRefreshFailure,
 	pauseAccountForUpstreamAuthFailure,
+	RefreshStorageUnavailableError,
 	refreshAccessTokenSafe,
 	tryAcquireStaleTokenRefresh,
 	upstreamAuthFailureReason,
@@ -3639,6 +3640,14 @@ export async function proxyWithAccount(
 					// No provider request exists yet, so this candidate can be skipped
 					// without pausing the account or poisoning its route circuit. The
 					// deadline helper consumes any late credential settlement.
+					return null;
+				}
+				if (error instanceof RefreshStorageUnavailableError) {
+					// The same holds here (#827): the refresh was refused before the
+					// provider was called, and the cause is the disk, not the account.
+					// Skipping from here also keeps an earlier attempt in this request
+					// from being recorded as a transport failure.
+					log.warn(`${error.message}; trying another account`);
 					return null;
 				}
 				throw error;

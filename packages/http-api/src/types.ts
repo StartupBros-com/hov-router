@@ -23,6 +23,7 @@ export type {
 	CacheInsightsRow,
 	CleanupResponse,
 	ConfigResponse,
+	FullDiskStatus,
 	HealthResponse,
 	IntegrityStatus,
 	ModelPerformance,

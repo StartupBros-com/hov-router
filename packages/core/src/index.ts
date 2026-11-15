@@ -166,6 +166,7 @@ export {
 	StreamResourceLimitError,
 	type StreamResourceLimitKind,
 } from "./sse-frame-buffer";
+export { errorKind, isStorageFullError } from "./storage-full";
 export * from "./strategy";
 export {
 	computeWindowStartMs,

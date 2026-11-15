@@ -1,3 +1,4 @@
+import { isStorageFullError } from "@better-ccflare/core";
 import { Logger } from "@better-ccflare/logger";
 
 const log = new Logger("PendingRotationRegistry");
@@ -57,6 +58,13 @@ export type PendingRotationPersistence = {
 	save(accountId: string, rotation: PendingRotation): Promise<void>;
 	load(): Promise<Array<{ accountId: string; rotation: PendingRotation }>>;
 	remove(accountId: string): Promise<void>;
+	/**
+	 * Make sure a later `save` for this account needs no new disk space. A
+	 * store that cannot promise that leaves this out.
+	 */
+	reserve?(accountId: string): Promise<void>;
+	/** Remove everything kept for an account that no longer exists. */
+	discard?(accountId: string): Promise<void>;
 };
 
 let persistence: PendingRotationPersistence | null = null;
@@ -118,9 +126,20 @@ export async function restorePendingRotations(
 			const upgraded = { ...rotation, createdAt: current.created_at };
 			// Save before publishing in-memory: a crash after a successful legacy
 			// restore must not regress this entry to wildcard ownership.
-			await enqueuePersistenceWrite(accountId, (store) =>
-				store.save(accountId, upgraded),
-			);
+			try {
+				await enqueuePersistenceWrite(accountId, (store) =>
+					store.save(accountId, upgraded),
+				);
+			} catch (error) {
+				// A full disk must not stop the start (#827). The stored entry keeps
+				// its old form and is upgraded at a later start; deleting the account
+				// in between removes it.
+				if (!isStorageFullError(error)) throw error;
+				log.error(
+					`Could not save the upgraded pending rotation for account ${accountId} for lack of space; it is kept in memory and upgraded at a later start`,
+					error,
+				);
+			}
 			pending.set(accountId, upgraded);
 			restored += 1;
 			continue;
@@ -131,9 +150,51 @@ export async function restorePendingRotations(
 	return restored;
 }
 
-/** Remove a rotation only after the account row itself was deleted. */
+/**
+ * Remove a rotation, and whatever the store keeps for the account, only after
+ * the account row itself was deleted.
+ *
+ * The removal is queued before this returns. Account ids can be reused, and a
+ * reservation or save for the new account must run after it, not before.
+ */
 export function clearPendingRotationForDeletedAccount(accountId: string): void {
-	clearPendingRotation(accountId);
+	pending.delete(accountId);
+	void enqueuePersistenceWrite(accountId, (store) =>
+		store.discard ? store.discard(accountId) : store.remove(accountId),
+	).catch((error) =>
+		log.error(
+			`Failed to remove pending rotation outbox for deleted account ${accountId}`,
+			error,
+		),
+	);
+}
+
+export type PendingRotationReservation =
+	| { status: "reserved" }
+	/** No store is configured, or the store has nothing to reserve. */
+	| { status: "unavailable" }
+	| { status: "storage_full"; error: unknown }
+	| { status: "failed"; error: unknown };
+
+/**
+ * Make sure a rotation for this account can be saved without new disk space
+ * (#827). Never throws: the caller decides what each outcome means.
+ */
+export async function reservePendingRotationSlot(
+	accountId: string,
+): Promise<PendingRotationReservation> {
+	if (!persistence?.reserve) return { status: "unavailable" };
+	try {
+		await enqueuePersistenceWrite(
+			accountId,
+			async (store) => await store.reserve?.(accountId),
+		);
+		return { status: "reserved" };
+	} catch (error) {
+		return isStorageFullError(error)
+			? { status: "storage_full", error }
+			: { status: "failed", error };
+	}
 }
 
 /**

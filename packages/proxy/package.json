@@ -5,7 +5,8 @@
 	"main": "./src/index.ts",
 	"exports": {
 		".": "./src/index.ts",
-		"./usage-throttling": "./src/handlers/usage-throttling.ts"
+		"./usage-throttling": "./src/handlers/usage-throttling.ts",
+		"./pending-rotation-store": "./src/handlers/pending-rotation-store.ts"
 	},
 	"scripts": {
 		"typecheck": "bunx tsc --noEmit"

@@ -93,6 +93,9 @@ const {
 	PhysicalAttemptBudgetExceededError,
 	RoutingAttemptLedger,
 } = await import("../routing-attempt-ledger");
+const { configurePendingRotationPersistence } = await import(
+	"../pending-rotation-registry"
+);
 const { bindRequestPrivateServerToolReplay } = await import(
 	"../../server-tool-replay-runtime"
 );
@@ -3758,6 +3761,228 @@ describe("proxyWithAccount — 401 failover", () => {
 		expect(ctx.dbOps.markAccountRateLimited).not.toHaveBeenCalled();
 		expect(account.paused).toBe(false);
 		expect(account.rate_limited_until).toBeNull();
+	});
+
+	it("fails over without pausing or flagging the account when the stale-token refresh is refused for lack of disk space", async () => {
+		// #827: a 401 on a rotating OAuth account asks for a refresh. With no
+		// slot and no space to make one the refresh is refused before the
+		// provider is called. That says nothing about the account, so the request
+		// must move on and leave the account exactly as it was.
+		let refreshCalls = 0;
+		const provider = makeAttemptPlanningProvider({
+			onRefresh: () => {
+				refreshCalls += 1;
+			},
+		});
+		const ctx = makeProxyContext();
+		ctx.provider = provider;
+		const pauseAccountIfActive = mock(async () => true);
+		const flagRequiresReauthIfTokenMatches = mock(async () => true);
+		const setRequiresReauth = mock(async () => {});
+		const updateAccountTokensIfRefreshTokenMatches = mock(async () => true);
+		const account = makeAccount({
+			id: "full-disk-stale-token-account",
+			provider: "claude-oauth",
+			api_key: null,
+			access_token: "stale-access-token",
+			expires_at: Date.now() + 60 * 60 * 1000,
+			refresh_token: "refresh-token",
+		});
+		Object.assign(ctx.dbOps as object, {
+			getAccount: mock(async () => account),
+			pauseAccountIfActive,
+			flagRequiresReauthIfTokenMatches,
+			setRequiresReauth,
+			updateAccountTokensIfRefreshTokenMatches,
+		});
+		const reserve = mock(async (_accountId: string) => {
+			throw Object.assign(new Error("ENOSPC: no space left on device, write"), {
+				code: "ENOSPC",
+			});
+		});
+		configurePendingRotationPersistence({
+			save: async () => {},
+			load: async () => [],
+			remove: async () => {},
+			reserve,
+		});
+		const requestedUrls: string[] = [];
+		globalThis.fetch = mock(async (input: string | URL | Request) => {
+			requestedUrls.push(
+				typeof input === "string"
+					? input
+					: input instanceof URL
+						? input.href
+						: input.url,
+			);
+			return jsonResponse(
+				{
+					error: {
+						type: "authentication_error",
+						message: "stale access token",
+					},
+				},
+				401,
+			);
+		}) as unknown as typeof fetch;
+		const ledger = new RoutingAttemptLedger();
+		const bodyBuffer = makeRequestBody();
+
+		try {
+			const result = await proxyWithAccount(
+				makeRequest(bodyBuffer),
+				new URL("https://proxy.local/v1/messages"),
+				account,
+				makeRequestMeta(),
+				bodyBuffer,
+				() => undefined,
+				0,
+				ctx,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				false,
+				undefined,
+				ledger,
+			);
+
+			// Failover: another candidate gets the request.
+			expect(result).toBeNull();
+		} finally {
+			configurePendingRotationPersistence(null);
+		}
+
+		// The refusal came from the reservation, and nothing went to a token
+		// endpoint: the one request sent was the upstream call that got the 401.
+		expect(reserve).toHaveBeenCalledTimes(1);
+		expect(reserve).toHaveBeenCalledWith("full-disk-stale-token-account");
+		expect(refreshCalls).toBe(0);
+		expect(requestedUrls).toEqual(["https://legacy.invalid/v1/messages"]);
+		expect(updateAccountTokensIfRefreshTokenMatches).not.toHaveBeenCalled();
+		// The account is untouched: no pause, no re-login flag, same credentials.
+		expect(pauseAccountIfActive).not.toHaveBeenCalled();
+		expect(flagRequiresReauthIfTokenMatches).not.toHaveBeenCalled();
+		expect(setRequiresReauth).not.toHaveBeenCalled();
+		expect(ctx.dbOps.markAccountRateLimited).not.toHaveBeenCalled();
+		expect(ledger.hasAuthFailures).toBe(false);
+		expect(ledger.authFailureCount).toBe(0);
+		expect(account.paused).toBe(false);
+		expect(account.requires_reauth).toBe(false);
+		expect(account.rate_limited_until).toBeNull();
+		expect(account.access_token).toBe("stale-access-token");
+		expect(account.refresh_token).toBe("refresh-token");
+		expect(ctx.refreshInFlight.size).toBe(0);
+	});
+
+	it("skips the account without sending anything when its expired token cannot be refreshed for lack of disk space", async () => {
+		// #827: the usual way to meet the refusal. The access token has expired,
+		// so the request asks for a refresh before anything is sent upstream.
+		let refreshCalls = 0;
+		const provider = makeAttemptPlanningProvider({
+			onRefresh: () => {
+				refreshCalls += 1;
+			},
+		});
+		const ctx = makeProxyContext();
+		ctx.provider = provider;
+		const pauseAccountIfActive = mock(async () => true);
+		const flagRequiresReauthIfTokenMatches = mock(async () => true);
+		const setRequiresReauth = mock(async () => {});
+		const updateAccountTokensIfRefreshTokenMatches = mock(async () => true);
+		const expiredAt = Date.now() - 60 * 1000;
+		const account = makeAccount({
+			id: "full-disk-expired-token-account",
+			provider: "claude-oauth",
+			api_key: null,
+			access_token: "expired-access-token",
+			expires_at: expiredAt,
+			refresh_token: "refresh-token",
+		});
+		Object.assign(ctx.dbOps as object, {
+			getAccount: mock(async () => account),
+			pauseAccountIfActive,
+			flagRequiresReauthIfTokenMatches,
+			setRequiresReauth,
+			updateAccountTokensIfRefreshTokenMatches,
+		});
+		const reserve = mock(async (_accountId: string) => {
+			throw Object.assign(new Error("ENOSPC: no space left on device, write"), {
+				code: "ENOSPC",
+			});
+		});
+		configurePendingRotationPersistence({
+			save: async () => {},
+			load: async () => [],
+			remove: async () => {},
+			reserve,
+		});
+		const upstream = mock(async () => jsonResponse({ ok: true }, 200));
+		globalThis.fetch = upstream as unknown as typeof fetch;
+		const ledger = new RoutingAttemptLedger();
+		// An earlier account in the same request was sent upstream and its
+		// outcome is still open, as it is after a 401 that failed over.
+		ledger.recordPhysicalAttempt({
+			accountId: "earlier-account",
+			provider: "claude-oauth",
+		});
+		const bodyBuffer = makeRequestBody();
+
+		try {
+			const result = await proxyWithAccount(
+				makeRequest(bodyBuffer),
+				new URL("https://proxy.local/v1/messages"),
+				account,
+				makeRequestMeta(),
+				bodyBuffer,
+				() => undefined,
+				0,
+				ctx,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				false,
+				undefined,
+				ledger,
+			);
+
+			// Failover: another candidate gets the request.
+			expect(result).toBeNull();
+		} finally {
+			configurePendingRotationPersistence(null);
+		}
+
+		// Nothing left the process: no token request and no upstream request
+		// with the expired token.
+		expect(reserve).toHaveBeenCalledTimes(1);
+		expect(reserve).toHaveBeenCalledWith("full-disk-expired-token-account");
+		expect(refreshCalls).toBe(0);
+		expect(upstream).not.toHaveBeenCalled();
+		expect(updateAccountTokensIfRefreshTokenMatches).not.toHaveBeenCalled();
+		// The account is untouched: no pause, no re-login flag, same credentials.
+		expect(pauseAccountIfActive).not.toHaveBeenCalled();
+		expect(flagRequiresReauthIfTokenMatches).not.toHaveBeenCalled();
+		expect(setRequiresReauth).not.toHaveBeenCalled();
+		expect(ctx.dbOps.markAccountRateLimited).not.toHaveBeenCalled();
+		expect(ledger.hasAuthFailures).toBe(false);
+		expect(ledger.authFailureCount).toBe(0);
+		expect(account.paused).toBe(false);
+		expect(account.requires_reauth).toBe(false);
+		expect(account.rate_limited_until).toBeNull();
+		expect(account.access_token).toBe("expired-access-token");
+		expect(account.expires_at).toBe(expiredAt);
+		expect(account.refresh_token).toBe("refresh-token");
+		expect(ctx.refreshInFlight.size).toBe(0);
+		// This account was never sent anywhere, so the request's attempt record
+		// gains nothing, and the earlier attempt is not marked as a transport
+		// failure it did not have.
+		expect(ledger.lastPhysicalObservation).toMatchObject({
+			ordinal: 1,
+			accountId: "earlier-account",
+			outcome: "pending",
+			cause: null,
+		});
 	});
 
 	it("does not failover on successful 200 response", async () => {

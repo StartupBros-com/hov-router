@@ -140,6 +140,7 @@ export {
 	hasCodexResetRedeemer,
 	isRefreshTokenLikelyExpired,
 	markAccountTokensFresh,
+	type PendingRotationSlotReservations,
 	redeemCodexResetCreditForAccount,
 	refreshCodexUsageForAccount,
 	refreshTokenAfterRejectedRedemption,
@@ -148,6 +149,7 @@ export {
 	registerCodexUsageRefresher,
 	registerPollingRestarter,
 	registerRefreshClearer,
+	reservePendingRotationSlots,
 	restartUsagePollingForAccount,
 	startGlobalTokenHealthChecks,
 	stopGlobalTokenHealthChecks,
@@ -165,6 +167,10 @@ export {
 	configurePendingRotationPersistence,
 	restorePendingRotations,
 } from "./handlers/pending-rotation-registry";
+export {
+	createPendingRotationStore,
+	type PendingRotationStore,
+} from "./handlers/pending-rotation-store";
 export { createPendingRotationWal } from "./handlers/pending-rotation-wal";
 export {
 	evaluateQualityRouteAdmission,

@@ -537,6 +537,145 @@ describe("health runtime payload", () => {
 
 		expect(body.runtime?.storage?.retention).toBeUndefined();
 	});
+
+	// #827: on a full disk the router drops log lines, may have spent its
+	// start reserve, and may have survived an error nothing caught. None of
+	// that stops it serving, so health is the only place it shows.
+	it("includes runtime.storage.fullDisk with what the router is doing without", async () => {
+		const db = {
+			getAllAccounts: async () => [
+				{ name: "acc1", paused: false, rate_limited_until: null },
+			],
+		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+
+		const config = {
+			getStrategy: () => "session",
+		} as unknown as import("@better-ccflare/config").Config;
+
+		const logFailedAt = Date.now() - 9_000;
+		const uncaughtAt = Date.now() - 4_000;
+		const handler = createHealthHandler(db, config, {
+			getFullDiskStatus: () => ({
+				logFile: {
+					suspended: true,
+					dropped: 12,
+					failures: 3,
+					lastError: "ENOSPC",
+					lastErrorAt: logFailedAt,
+				},
+				startReserveArmed: false,
+				uncaughtErrors: {
+					count: 2,
+					lastError: "SQLITE_FULL",
+					lastErrorAt: uncaughtAt,
+				},
+			}),
+		});
+
+		const response = await handler(new URL("http://localhost/health"));
+		const body = (await response.json()) as HealthResponse;
+
+		expect(body.runtime?.storage?.fullDisk).toEqual({
+			logFile: {
+				suspended: true,
+				dropped: 12,
+				failures: 3,
+				lastError: "ENOSPC",
+				lastErrorAt: new Date(logFailedAt).toISOString(),
+			},
+			startReserveArmed: false,
+			uncaughtErrors: {
+				count: 2,
+				lastError: "SQLITE_FULL",
+				lastErrorAt: new Date(uncaughtAt).toISOString(),
+			},
+		});
+	});
+
+	it("reports a quiet runtime.storage.fullDisk before anything has gone wrong", async () => {
+		const db = {
+			getAllAccounts: async () => [
+				{ name: "acc1", paused: false, rate_limited_until: null },
+			],
+		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+
+		const config = {
+			getStrategy: () => "session",
+		} as unknown as import("@better-ccflare/config").Config;
+
+		const handler = createHealthHandler(db, config, {
+			getRetentionStatus: () => ({
+				lastSuccessAt: null,
+				lastError: null,
+				lastErrorAt: null,
+			}),
+			getFullDiskStatus: () => ({
+				logFile: null,
+				startReserveArmed: null,
+				uncaughtErrors: { count: 0, lastError: null, lastErrorAt: null },
+			}),
+		});
+
+		const response = await handler(new URL("http://localhost/health"));
+		const body = (await response.json()) as HealthResponse;
+
+		expect(body.runtime?.storage?.fullDisk).toEqual({
+			logFile: null,
+			startReserveArmed: null,
+			uncaughtErrors: { count: 0, lastError: null, lastErrorAt: null },
+		});
+		// The other storage blocks are still there beside it.
+		expect(body.runtime?.storage?.retention).toBeDefined();
+	});
+
+	// A zero count and "nothing is counting" must not look the same: the
+	// full-disk scenario reads this to prove the handlers are installed.
+	it("says so when nothing is watching for uncaught full-disk errors", async () => {
+		const db = {
+			getAllAccounts: async () => [
+				{ name: "acc1", paused: false, rate_limited_until: null },
+			],
+		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+
+		const config = {
+			getStrategy: () => "session",
+		} as unknown as import("@better-ccflare/config").Config;
+
+		const handler = createHealthHandler(db, config, {
+			getFullDiskStatus: () => ({
+				logFile: null,
+				startReserveArmed: true,
+				uncaughtErrors: null,
+			}),
+		});
+
+		const response = await handler(new URL("http://localhost/health"));
+		const body = (await response.json()) as HealthResponse;
+
+		expect(body.runtime?.storage?.fullDisk).toEqual({
+			logFile: null,
+			startReserveArmed: true,
+			uncaughtErrors: null,
+		});
+	});
+
+	it("omits runtime.storage.fullDisk when getFullDiskStatus is not provided", async () => {
+		const db = {
+			getAllAccounts: async () => [
+				{ name: "acc1", paused: false, rate_limited_until: null },
+			],
+		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+
+		const config = {
+			getStrategy: () => "session",
+		} as unknown as import("@better-ccflare/config").Config;
+
+		const handler = createHealthHandler(db, config);
+		const response = await handler(new URL("http://localhost/health"));
+		const body = (await response.json()) as HealthResponse;
+
+		expect(body.runtime?.storage?.fullDisk).toBeUndefined();
+	});
 });
 
 describe("AsyncDbWriter.getHealth", () => {
