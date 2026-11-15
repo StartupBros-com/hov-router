@@ -475,6 +475,22 @@ describe("RateLimitProgress", () => {
 		expect(html).not.toContain("Usage (5-hour)");
 	});
 
+	it("never marks an ended cooldown as an exhausted or limiting quota window", () => {
+		// With no quota data the row measures elapsed cooldown time, which reaches
+		// 100% once the cooldown ends. That is not quota exhaustion.
+		const html = renderToStaticMarkup(
+			<RateLimitProgress
+				resetIso={new Date(Date.now() - 60 * 1000).toISOString()}
+				provider="openai-compatible"
+				bindingWindow={null}
+			/>,
+		);
+
+		expect(html).toContain("Rate limit window");
+		expect(html).not.toContain("exhausted");
+		expect(html).not.toContain("limiting");
+	});
+
 	it("does not fall back to the elapsed-time bar for Codex when only a reset is known", () => {
 		// The time-based fallback is hardcoded to a 5-hour window, so for Codex it
 		// drew "how much of the window has passed" as if it were consumption.

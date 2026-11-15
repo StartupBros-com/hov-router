@@ -580,26 +580,32 @@ export function RateLimitProgress({
 												? (usage.label ??
 													`Usage (${formatWindowName(usage.window)})`)
 												: "Rate limit window"}
-											{(usage.isActive ||
-												usage.window === bindingWindow ||
-												(percentage ?? 0) >= 100) && (
-												<span
-													className={cn(
-														"ml-1.5 font-medium",
-														(percentage ?? 0) >= 100
-															? "text-(--danger)"
-															: "text-muted-foreground",
-													)}
-												>
-													{" "}
-													{(percentage ?? 0) >= 100 ? "exhausted" : "limiting"}
-													<span className="sr-only">
-														{usage.isActive || usage.window === bindingWindow
-															? "; currently limiting"
-															: ""}
+											{/* A synthetic row measures elapsed cooldown time, not quota,
+											    so it never carries a quota marker. */}
+											{!usage.synthetic &&
+												usage.window != null &&
+												(usage.isActive ||
+													usage.window === bindingWindow ||
+													(percentage ?? 0) >= 100) && (
+													<span
+														className={cn(
+															"ml-1.5 font-medium",
+															(percentage ?? 0) >= 100
+																? "text-(--danger)"
+																: "text-muted-foreground",
+														)}
+													>
+														{" "}
+														{(percentage ?? 0) >= 100
+															? "exhausted"
+															: "limiting"}
+														<span className="sr-only">
+															{usage.isActive || usage.window === bindingWindow
+																? "; currently limiting"
+																: ""}
+														</span>
 													</span>
-												</span>
-											)}
+												)}
 										</span>
 										<span
 											className={cn(
