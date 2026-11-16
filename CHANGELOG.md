@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.1.0](https://github.com/StartupBros/hov-router/compare/v6.0.0...v6.1.0) (2026-11-16)
+
+
+### Features
+
+* **dashboard:** forecast each Overview pool as a runway, split by provider ([#845](https://github.com/StartupBros/hov-router/issues/845)) ([17f53d7](https://github.com/StartupBros/hov-router/commit/17f53d77a28bfbe9923fcc5d0ed28b70094fb417)), refs [#842](https://github.com/StartupBros/hov-router/issues/842) [#823](https://github.com/StartupBros/hov-router/issues/823)
+
 ## [6.0.0](https://github.com/StartupBros/hov-router/compare/v5.1.0...v6.0.0) (2026-11-15)
 
 

@@ -38,5 +38,5 @@
 		"release-please": "17.11.2",
 		"typescript": "^6.0.2"
 	},
-	"version": "6.0.0"
+	"version": "6.1.0"
 }
