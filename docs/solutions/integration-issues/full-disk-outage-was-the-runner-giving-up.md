@@ -35,7 +35,7 @@ tags:
 On 2026-11-14 the host's ext4 root filled and HoV Router stopped serving every client from
 23:20Z to 23:41Z. It did not come back when space returned: systemd's start limit had marked
 the unit failed, and a person had to free space and start it again (issue #827). The fix is
-PRs #837, #838, #839 and #840. This doc keeps the four beliefs the work had to correct, and the
+PRs #837, #838, #839 and #840. This doc keeps the five beliefs the work had to correct, and the
 ext4 reproduction the repo does not carry.
 
 ## Symptoms
