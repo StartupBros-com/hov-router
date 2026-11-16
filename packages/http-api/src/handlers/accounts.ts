@@ -3503,12 +3503,20 @@ export function createAccountForceResetRateLimitHandler(
 			// other providers (Zai, NanoGPT) use different endpoints handled by their own fetchers.
 			// This bypasses token refresh, but is acceptable since this path only runs when
 			// no active polling exists and the token is likely fresh from recent proxy requests.
+			// A live usage retry-after (recorded before, or by the refresh just
+			// above) skips it: a second request would only restart the lockout (#869).
 			if (
 				!usagePollTriggered &&
 				account.provider === "anthropic" &&
-				account.access_token
+				account.access_token &&
+				usageCache.getRateLimitedUntil(accountId) === null
 			) {
-				const { data: usageData } = await fetchUsageData(account.access_token);
+				const { data: usageData, retryAfterMs } = await fetchUsageData(
+					account.access_token,
+				);
+				if (retryAfterMs != null) {
+					usageCache.recordUsageRetryAfter(accountId, retryAfterMs);
+				}
 				if (usageData) {
 					usageCache.set(account.id, usageData);
 					dbOps
@@ -4400,6 +4408,9 @@ export function createAccountRefreshUsageHandler(dbOps: DatabaseOperations) {
 			// refresh joins its first usage fetch and the reply waits for it.
 			const pollingRestarted = await restartUsagePollingForAccount(accountId);
 			const cacheRefreshed = await usageCache.refreshNow(accountId);
+			const usageLockedUntil = cacheRefreshed
+				? null
+				: usageCache.getRateLimitedUntil(accountId);
 
 			log.info(
 				`Usage refresh requested for account '${account.name}' (polling restarted: ${pollingRestarted}, cache refreshed: ${cacheRefreshed})`,
@@ -4409,9 +4420,11 @@ export function createAccountRefreshUsageHandler(dbOps: DatabaseOperations) {
 				success: true,
 				message: cacheRefreshed
 					? `Usage refreshed for account '${account.name}'.`
-					: pollingRestarted
-						? `Usage polling restarted for account '${account.name}', but the first usage fetch did not finish; usage updates on the next poll.`
-						: `Polling could not be restarted for account '${account.name}' — usage data may not update.`,
+					: pollingRestarted && usageLockedUntil !== null
+						? `The usage endpoint asked the router to wait until ${new Date(usageLockedUntil).toISOString()} for account '${account.name}'; usage updates then.`
+						: pollingRestarted
+							? `Usage polling restarted for account '${account.name}', but the first usage fetch did not finish; usage updates on the next poll.`
+							: `Polling could not be restarted for account '${account.name}' — usage data may not update.`,
 				pollingRestarted,
 				cacheRefreshed,
 			});

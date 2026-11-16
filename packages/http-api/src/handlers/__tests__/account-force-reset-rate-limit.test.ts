@@ -1,4 +1,12 @@
-import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	mock,
+	spyOn,
+} from "bun:test";
 import type { DatabaseOperations } from "@better-ccflare/database";
 
 // This focused unit test does not need DatabaseOperations' worker-backed runtime.
@@ -138,4 +146,124 @@ describe("account force-reset rate-limit handler", () => {
 		expect(refreshNow).not.toHaveBeenCalled();
 		expect(clearScopedDepletions).not.toHaveBeenCalled();
 	});
+});
+
+// Issue #869: one Clear cooldown click inside Anthropic's usage lockout sent
+// two usage requests (refreshNow, then the fallback), each restarting the hour.
+// These run the real usage cache against a stubbed endpoint; nothing leaves.
+describe.serial("force-reset usage fetches under a usage retry-after", () => {
+	const originalFetch = globalThis.fetch;
+	let usageRequests = 0;
+	let answer: () => Response = () => Response.json({});
+	let nextId = 0;
+	const started: string[] = [];
+
+	const rateLimited = () =>
+		new Response("{}", { status: 429, headers: { "retry-after": "3600" } });
+	const usage = () =>
+		Response.json({
+			five_hour: {
+				utilization: 10,
+				resets_at: new Date(Date.now() + 3_600_000).toISOString(),
+			},
+		});
+
+	function lockoutDbOps(id: string): DatabaseOperations {
+		return {
+			getAdapter: () => ({
+				get: mock(async () => ({
+					id,
+					name: id,
+					provider: "anthropic",
+					access_token: "test-token",
+				})),
+			}),
+			forceResetAccountRateLimit: mock(async () => true),
+			recordUsageSnapshot: mock(async () => {}),
+		} as unknown as DatabaseOperations;
+	}
+
+	function newAccount(): string {
+		const id = `force-reset-usage-lockout-${++nextId}`;
+		started.push(id);
+		return id;
+	}
+
+	async function clearCooldown(id: string) {
+		const response = await createAccountForceResetRateLimitHandler(
+			lockoutDbOps(id),
+		)(
+			new Request(
+				`http://localhost/api/accounts/${id}/force-reset-rate-limit`,
+				{
+					method: "POST",
+				},
+			),
+			id,
+		);
+		expect(response.ok).toBe(true);
+		return (await response.json()) as { usagePollTriggered: boolean };
+	}
+
+	async function settle() {
+		await new Promise((resolve) => setTimeout(resolve, 20));
+	}
+
+	beforeEach(() => {
+		usageRequests = 0;
+		globalThis.fetch = (async () => {
+			usageRequests++;
+			return answer();
+		}) as unknown as typeof fetch;
+	});
+
+	afterEach(() => {
+		for (const id of started.splice(0)) {
+			usageCache.stopPolling(id);
+			usageCache.delete(id);
+		}
+		globalThis.fetch = originalFetch;
+	});
+
+	it.serial("sends nothing while a recorded deadline is live", async () => {
+		const id = newAccount();
+		answer = rateLimited;
+		usageCache.startPolling(id, "test-token", "anthropic", 60_000);
+		await settle();
+		expect(usageRequests).toBe(1);
+		expect(usageCache.getRateLimitedUntil(id)).not.toBeNull();
+
+		const body = await clearCooldown(id);
+		expect(body.usagePollTriggered).toBe(false);
+		expect(usageRequests).toBe(1);
+	});
+
+	it.serial(
+		"skips the fallback after the refresh itself draws a 429",
+		async () => {
+			const id = newAccount();
+			answer = usage;
+			usageCache.startPolling(id, "test-token", "anthropic", 60_000);
+			await settle();
+			expect(usageRequests).toBe(1);
+
+			answer = rateLimited;
+			await clearCooldown(id);
+			expect(usageRequests).toBe(2);
+		},
+	);
+
+	it.serial(
+		"records a 429 from the fallback so the next click sends nothing",
+		async () => {
+			const id = newAccount();
+			answer = rateLimited;
+			await clearCooldown(id);
+			expect(usageRequests).toBe(1);
+			expect(usageCache.getRateLimitedUntil(id)).not.toBeNull();
+
+			await clearCooldown(id);
+			expect(usageRequests).toBe(1);
+		},
+	);
 });

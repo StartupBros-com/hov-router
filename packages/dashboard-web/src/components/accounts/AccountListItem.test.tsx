@@ -493,6 +493,25 @@ describe("account scan layout", () => {
 		expect(visible).not.toContain("No local block");
 		expect(visible).toContain("Usage unavailable");
 	});
+	it("explains an Anthropic org refusal and hides Clear cooldown", () => {
+		const html = renderToStaticMarkup(
+			<AccountListItem
+				account={makeAccount({
+					paused: false,
+					rateLimitedUntil: Date.now() + 60000,
+					rateLimitedReason: "org_permission_denied",
+					usageUtilization: 20,
+				})}
+				{...requiredHandlers}
+			/>,
+		);
+		const visible = withoutDetailsContent(html);
+		expect(visible).toContain("Anthropic refused");
+		expect(visible).toContain("billing");
+		expect(visible).toContain("Router retry");
+		expect(visible).not.toContain("Clear cooldown");
+		expect(visible).not.toContain("Cooling down");
+	});
 });
 
 function makeAccount(overrides: Partial<Account> = {}): Account {

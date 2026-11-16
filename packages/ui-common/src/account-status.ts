@@ -7,10 +7,13 @@ export interface AccountStatusInput {
 	rateLimitedUntil?: number | null;
 	usageRateLimitedUntil?: number | null;
 	usageThrottledUntil?: number | null;
+	/** Why the router benched the account; read only while the bench is live. */
+	rateLimitedReason?: string | null;
 }
 export type AccountStatusReason =
 	| "reauth"
 	| "paused"
+	| "refused"
 	| "cooldown"
 	| "exhausted"
 	| "hard-limit"
@@ -33,6 +36,9 @@ export function classifyAccountStatus(input: AccountStatusInput, now: number) {
 	const reauth =
 		!!input.requiresReauth || input.pauseReason === "oauth_invalid_grant";
 	const cooldown = isFutureDeadline(input.rateLimitedUntil, now);
+	// Anthropic 403 permission_error: no local action clears it (#869).
+	const refused =
+		cooldown && input.rateLimitedReason === "org_permission_denied";
 	const pacing = isFutureDeadline(input.usageThrottledUntil, now);
 	const refreshDelayed = isFutureDeadline(input.usageRateLimitedUntil, now);
 	const exhausted = /^(usage_exhausted|usage exhausted)(?:$|\s)/.test(base);
@@ -59,6 +65,7 @@ export function classifyAccountStatus(input: AccountStatusInput, now: number) {
 	let reason: AccountStatusReason;
 	if (reauth) reason = "reauth";
 	else if (input.paused) reason = "paused";
+	else if (refused) reason = "refused";
 	else if (cooldown) reason = "cooldown";
 	else if (exhausted) reason = "exhausted";
 	else if (hard) reason = "hard-limit";
@@ -68,6 +75,7 @@ export function classifyAccountStatus(input: AccountStatusInput, now: number) {
 	const labels: Record<AccountStatusReason, string> = {
 		reauth: "Reconnect required",
 		paused: "Paused",
+		refused: "Anthropic refused",
 		cooldown: "Cooling down",
 		exhausted: "Usage exhausted",
 		"hard-limit": "Reported hard limit",
@@ -81,7 +89,11 @@ export function classifyAccountStatus(input: AccountStatusInput, now: number) {
 	if (pacing) notices.push("pacing");
 	let tone: "ok" | "warning" | "bad" | "muted";
 	if (reason === "paused") tone = "muted";
-	else if (["reauth", "cooldown", "exhausted", "hard-limit"].includes(reason))
+	else if (
+		["reauth", "refused", "cooldown", "exhausted", "hard-limit"].includes(
+			reason,
+		)
+	)
 		tone = "bad";
 	else if (reason === "normal" && notices.length === 0) tone = "ok";
 	else tone = "warning";
@@ -97,8 +109,14 @@ export function classifyAccountStatus(input: AccountStatusInput, now: number) {
 		cooldown,
 		capacityAttention: cooldown || exhausted || hard || pacing,
 		overview: cooldown || exhausted || hard || pacing,
-		clearCooldown: (clearableHard || cooldown) && !input.paused,
+		clearCooldown:
+			(clearableHard || cooldown) && !input.paused && reason !== "refused",
 		canResume: !reauth,
 		routerRetryAt: cooldown ? input.rateLimitedUntil : null,
+		/** One visible line naming what the operator can do, when one applies. */
+		hint:
+			reason === "refused"
+				? "Anthropic is refusing this account's organization. Check billing and Claude Code access on claude.ai; the router keeps retrying."
+				: null,
 	};
 }

@@ -646,6 +646,9 @@ export function AccountListItem({
 						{`Auto-paused: ${pauseReasonLabel}`}
 					</span>
 				)}
+				{status.hint && (
+					<span className="text-xs text-muted-foreground">{status.hint}</span>
+				)}
 				{fullWindowLabels.length > 0 && (
 					<span className="text-xs text-muted-foreground">
 						{fullWindowLabels.join(", ")} at limit

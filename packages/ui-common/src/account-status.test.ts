@@ -183,6 +183,78 @@ test("finite future clocks only, no utilization-derived exhaustion", () => {
 		classifyAccountStatus({ usageThrottledUntil: now + 1 }, now).reason,
 	).toBe("pacing");
 });
+test("an Anthropic org refusal names the refusal instead of offering Clear cooldown", () => {
+	const until = now + 60_000;
+	const refused = classifyAccountStatus(
+		{ rateLimitedUntil: until, rateLimitedReason: "org_permission_denied" },
+		now,
+	);
+	expect(refused.reason).toBe("refused");
+	expect(refused.label).toBe("Anthropic refused");
+	expect(refused.tone).toBe("bad");
+	expect(refused.clearCooldown).toBe(false);
+	expect(refused.capacityAttention).toBe(true);
+	expect(refused.overview).toBe(true);
+	expect(refused.routerRetryAt).toBe(until);
+	expect(refused.hint).toContain("billing");
+	expect(refused.hint).toContain("Claude Code access");
+	// A stored hard status would otherwise offer the button on its own.
+	expect(
+		classifyAccountStatus(
+			{
+				rateLimitStatus: "rate_limited",
+				rateLimitedUntil: until,
+				rateLimitedReason: "org_permission_denied",
+			},
+			now,
+		).clearCooldown,
+	).toBe(false);
+	// Paused and reconnect still outrank the refusal.
+	const benched = {
+		rateLimitedUntil: until,
+		rateLimitedReason: "org_permission_denied",
+	};
+	expect(classifyAccountStatus({ ...benched, paused: true }, now).reason).toBe(
+		"paused",
+	);
+	expect(
+		classifyAccountStatus({ ...benched, requiresReauth: true }, now).reason,
+	).toBe("reauth");
+});
+test("only a live org-refusal bench reads as refused", () => {
+	const other = classifyAccountStatus(
+		{
+			rateLimitedUntil: now + 60_000,
+			rateLimitedReason: "upstream_429_with_reset",
+		},
+		now,
+	);
+	expect(other.reason).toBe("cooldown");
+	expect(other.label).toBe("Cooling down");
+	expect(other.clearCooldown).toBe(true);
+	expect(other.hint).toBeNull();
+	// The state the account is left in after recovery: reason kept, bench over.
+	for (const rateLimitedUntil of [now, now - 1, null]) {
+		const expired = classifyAccountStatus(
+			{ rateLimitedUntil, rateLimitedReason: "org_permission_denied" },
+			now,
+		);
+		expect(expired.reason).toBe("normal");
+		expect(expired.label).toBe("Ready");
+		expect(expired.hint).toBeNull();
+	}
+});
+test("presenter carries the raw rate-limit reason into the status", () => {
+	const raw = {
+		paused: false,
+		rate_limited_until: now + 60_000,
+		rate_limited_reason: "org_permission_denied",
+		pause_reason: null,
+	};
+	expect(
+		new AccountPresenter(raw as unknown as Account, now).status.reason,
+	).toBe("refused");
+});
 test("presenter supports raw, response and display inputs without rewriting raw strings", () => {
 	for (const account of [
 		{ paused: false, rate_limited_until: now + 1, pause_reason: null },
