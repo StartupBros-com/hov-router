@@ -583,6 +583,20 @@ a disk that stayed full has no margin. Only the server's start spends it. Comman
 opening the same database never do, so they cannot use up the margin the next start depends on.
 Deleting it by hand removes that margin without any other effect.
 
+### Ownership record
+
+The supervisor's durable note of which upstream process owns the database: written before the
+upstream is launched, and completed with that process's identity once it is running.
+
+A record left between those two writes names nothing that can be checked, so the next
+supervisor start holds rather than risk a second owner, and stays held until a person settles
+it. The supervisor closes such a record itself when it knows nothing was launched for it, or
+when it knows which process was launched and has stopped it. Between a launch and learning which
+process it started, the record is left to hold, because a process it cannot name may be running. A record that cannot be read holds the same way, since only a
+missing file proves there is no record. The supervisor's exit path decides all of this from what it has done so
+far, never from how it was asked to stop, because a shell can leave through its exit handler
+without running the handler for the signal that stopped it.
+
 ### Managed pin
 
 The deploy-owned block of service configuration binding a running deployment to one exact
