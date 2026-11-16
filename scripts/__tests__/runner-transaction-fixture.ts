@@ -30,6 +30,7 @@ export const transactionModule = join(
 	"ccflare-deployment-transaction.mjs",
 );
 const runnerScript = join(repoRoot, "scripts", "run-ccflare-stack.sh");
+const READY = "ccflare stack ready";
 
 export interface RunnerLayout {
 	/** The stub programs and what they record. Never on the filesystem under test. */
@@ -81,7 +82,10 @@ export interface RunnerFixture {
 	waitForExit(
 		timeoutMs?: number,
 	): Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
-	/** SIGTERM, then the exit. */
+	/**
+	 * SIGTERM, then the exit. A runner that has said it is ready is sent the
+	 * signal only once it has started its deploy listener: see `stop` below.
+	 */
 	stop(
 		timeoutMs?: number,
 	): Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
@@ -190,6 +194,13 @@ export async function startRunner(
 		nodeWrapper,
 		[
 			"#!/usr/bin/env bash",
+			// Every transaction command is noted as it starts. A delay holds one
+			// back for that many seconds before it starts.
+			'if [[ -n "${2:-}" ]]; then',
+			'	delay="$CAPTURE_DIR/delay-command-$2"',
+			'	if [[ -f "$delay" ]]; then sleep "$(<"$delay")"; fi',
+			'	printf \'%s\\n\' "$2" >>"$CAPTURE_DIR/started-commands.log"',
+			"fi",
 			'refusal="$CAPTURE_DIR/refuse-command-${2:-}"',
 			'if [[ -n "${2:-}" && -f "$refusal" ]]; then',
 			'	status="$(<"$refusal")"',
@@ -294,6 +305,31 @@ export async function startRunner(
 			);
 		return result;
 	};
+	const listenersStarted = () => {
+		const path = join(capture, "started-commands.log");
+		if (!existsSync(path)) return 0;
+		return readFileSync(path, "utf8")
+			.split("\n")
+			.filter((command) => command === "serve").length;
+	};
+	// Right after "ready" the runner builds what its deploy listener serves in
+	// a command substitution, then starts the listener and waits on its
+	// children. Bash 5.2 can drop a stop's handler when the signal lands while
+	// it parses a command substitution: the runner then exits 2 with its
+	// cleanup done (#859). That instant is where a stop sent on "ready" lands,
+	// and not where a stop from systemd does, which finds the runner waiting.
+	// From the listener's start to that wait the runner expands no command
+	// substitution, so the stop is sent once each "ready" has its listener.
+	const waitForListener = async (timeoutMs: number) => {
+		const deadline = Date.now() + timeoutMs;
+		while (!exit && listenersStarted() < count(READY)) {
+			if (Date.now() >= deadline)
+				throw new Error(
+					`the runner said '${READY}' ${count(READY)} time(s) but started its deploy listener ${listenersStarted()} time(s) in ${timeoutMs} ms:\n${output.slice(-4000)}`,
+				);
+			await Bun.sleep(10);
+		}
+	};
 
 	return {
 		child,
@@ -340,6 +376,7 @@ export async function startRunner(
 		exited: () => exit,
 		waitForExit,
 		async stop(timeoutMs = 20_000) {
+			if (!exit) await waitForListener(timeoutMs);
 			if (!exit) child.kill("SIGTERM");
 			return waitForExit(timeoutMs);
 		},
