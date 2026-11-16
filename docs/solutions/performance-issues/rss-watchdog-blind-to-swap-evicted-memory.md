@@ -1,6 +1,7 @@
 ---
 title: An RSS-only containment watchdog goes blind when the kernel swaps the leak out
 date: 2026-09-11
+last_updated: 2026-11-16
 category: performance-issues
 module: rss-watchdog
 problem_type: performance_issue
@@ -31,7 +32,7 @@ tags:
 
 ## Problem
 
-The production RSS containment watchdog (`rss_watchdog`, `scripts/run-ccflare-stack.sh:312`) exists to recycle the Bun upstream before an off-heap memory leak takes down the host. It sampled only `VmRSS` from `/proc/<pid>/status`. Under host memory pressure the kernel evicts a leaking process's anonymous pages to swap, which *lowers* `VmRSS` — so the one metric the watchdog trusted went blind precisely when containment was needed.
+The production RSS containment watchdog (`rss_watchdog`, `scripts/run-ccflare-stack.sh:579`) exists to recycle the Bun upstream before an off-heap memory leak takes down the host. It sampled only `VmRSS` from `/proc/<pid>/status`. Under host memory pressure the kernel evicts a leaking process's anonymous pages to swap, which *lowers* `VmRSS` — so the one metric the watchdog trusted went blind precisely when containment was needed.
 
 A second, independent fault made the mechanism's own cap too small for real demand: `RUNNER_RSS_MAX_RECYCLES=3` per 24h undercounted trigger volume on high-throughput days, so containment also went idle for the remainder of those windows. **The two faults are distinct and were observed on different days** — neither fix is sufficient alone.
 
@@ -58,7 +59,7 @@ None of that was wrong, but all of it was solving for "why is native memory grow
 
 PR #337 replaces the RSS-only sample with a combined resident+swap read and raises the recycle cap to match measured demand.
 
-Before, `proc_rss_bytes` read only `VmRSS:`. After, `proc_mem_bytes` (`scripts/run-ccflare-stack.sh:282`) reads the whole file and matches both fields in one `case`:
+Before, `proc_rss_bytes` read only `VmRSS:`. After, `proc_mem_bytes` (`scripts/run-ccflare-stack.sh:549`) reads the whole file and matches both fields in one `case`:
 
 ```bash
 proc_mem_bytes() {
@@ -84,7 +85,7 @@ Two deliberate edge-case rules live in that function:
 - A **missing `VmSwap:` field defaults to `swap=0`** (the local starts pre-initialized) rather than failing the sample — kernels built without swap support keep the previous resident-only behavior instead of silently losing containment.
 - A **malformed** `VmRSS:`/`VmSwap:` value trips the `return 1` inside the `case`, discarding the whole sample — fail closed, safe under `set -Eeuo pipefail` because the caller treats a nonzero return as "skip this poll," not a script abort.
 
-The caller, `rss_watchdog` (`scripts/run-ccflare-stack.sh:312`), consumes all three numbers, compares the combined `mem` against the threshold instead of `rss`, and logs the breakdown (`scripts/run-ccflare-stack.sh:340`):
+The caller, `rss_watchdog` (`scripts/run-ccflare-stack.sh:579`), consumes all three numbers, compares the combined `mem` against the threshold instead of `rss`, and logs the breakdown (`scripts/run-ccflare-stack.sh:607`):
 
 ```
 RSS recycle trigger; upstream_pid=...; mem_bytes=...; rss_bytes=...; swap_bytes=...; threshold_bytes=...; samples=...
@@ -92,7 +93,7 @@ RSS recycle trigger; upstream_pid=...; mem_bytes=...; rss_bytes=...; swap_bytes=
 
 The post-read identity re-check is preserved from the earlier TOCTOU fix — reading two `/proc` files is never atomic, so the PID's start time is re-verified *after* `proc_mem_bytes` returns, not only before.
 
-`RUNNER_RSS_MAX_RECYCLES` was raised from 3 to 8 in every place the tuple is asserted, in lockstep: the systemd pin renderer (`scripts/deploy-ccflare-lib.sh:437`), the deploy-time expected tuple in `validate_production_rss_policy_values` (`scripts/deploy-ccflare-lib.sh:787`), the literal in `scripts/deploy-ccflare.sh:501`, plus tests and docs. It stays finite — a genuine runaway still surfaces as `RSS recycle suppressed; cap exhausted` rather than being masked by endless silent restarts — and the 1-hour cooldown remains the actual pacing control, not the cap.
+`RUNNER_RSS_MAX_RECYCLES` was raised from 3 to 8 in every place the tuple is asserted, in lockstep: the systemd pin renderer (`scripts/deploy-ccflare-lib.sh:464`), the deploy-time expected tuple in `validate_production_rss_policy_values` (`scripts/deploy-ccflare-lib.sh:822`), the literal in `scripts/deploy-ccflare.sh:698`, plus tests and docs. It stays finite — a genuine runaway still surfaces as `RSS recycle suppressed; cap exhausted` rather than being masked by endless silent restarts — and the 1-hour cooldown remains the actual pacing control, not the cap.
 
 ## Why This Works
 
@@ -114,7 +115,7 @@ Widening the metric is not free, and both costs were accepted deliberately:
   - `treats a swapless host's absent VmSwap field as zero and still recycles` (line 588) — asserts the fixture's `/proc/<pid>/status` genuinely *omits* the `VmSwap` key rather than writing `VmSwap: 0`, so it cannot pass against a `proc_mem_bytes` that discards every sample when the key is missing.
   - `discards a malformed VmSwap line and recovers on the next clean sample` (line 617) — corrupts swap before raising RSS above threshold, asserting no trigger fires on the malformed sample and that containment resumes on the next clean one, proving the fail-closed path does not also fail permanently.
 - Each of those was mutation-verified rather than merely observed green: making a missing field fail the sample breaks the swapless test, and coercing a malformed value to zero breaks the malformed test with a false trigger. A containment test that still passes when containment is removed is worse than no test.
-- `validate_production_rss_policy_values` (`scripts/deploy-ccflare-lib.sh:787`) hard-fails a deploy if any of the seven RSS policy values drift from the exact managed tuple, so a future tweak to the cap cannot ship without updating the validator too. Note that `scripts/deploy-ccflare.sh --check` does **not** run this validator — it covers only the main-source, ancestry, clean-tree and version gates — so pin drift is invisible to `--check` until a full deploy runs. Read the pin file directly when you need to confirm the live tuple.
+- `validate_production_rss_policy_values` (`scripts/deploy-ccflare-lib.sh:822`) hard-fails a deploy if any of the seven RSS policy values drift from the exact managed tuple, so a future tweak to the cap cannot ship without updating the validator too. Note that `scripts/deploy-ccflare.sh --check` does **not** run this validator — it covers only the main-source, ancestry, clean-tree and version gates — so pin drift is invisible to `--check` until a full deploy runs. Read the pin file directly when you need to confirm the live tuple.
 - **The general lesson: a containment or alerting threshold must be measured on a metric that cannot be deflated by the very pressure it exists to detect.** `VmRSS` degrades exactly when the host is under memory pressure, because the kernel's pressure-relief mechanism is also the metric's blind spot. Before wiring a watchdog or alert to a single OS- or runtime-reported number, ask what system response to the guarded condition would move that number in the wrong direction, and whether a broader read closes the gap without inventing a new failure mode.
 - A corollary for soak criteria: a soak that passes while the guard is silent proves nothing. The pre-fix soak for this watchdog could have passed with containment inert, because a host under pressure hides the very growth being measured. Any soak over a safety net needs a positive liveness signal from the net itself, not just the absence of an incident.
 - Independent measurement on the live host, 2026-09-11, 14 samples over 14 minutes. Provenance matters here: these were taken on the build deployed at the time (`2387d522`), which already carried the issue #382 native-body fixes but **not** this change — so the RSS-only watchdog was still the live one being measured. Swap held 23–55% of the true footprint across every sample, median ~40%, meaning the live watchdog was under-reading its own target by `1/(1 - swap_share)`: 1.3x at the low end, 2.2x at the high end, about 1.7x at the median. That share is not a constant — it tracks host memory pressure, and a spot check on a fresh process 45 minutes after this fix was deployed, with the host no longer pressured, read about 5%. The point is not the specific ratio but that it is routinely large and entirely invisible to an RSS-only sample. `VmHWM` reached 5.14 GiB in that window without triggering a recycle, which is the anti-flap streak behaving correctly on a transient resident spike rather than a second miss; worth remembering before reading `VmHWM` against the threshold in isolation.

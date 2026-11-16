@@ -54,8 +54,8 @@ revision. Neither was observed in production.
   new runner with the current merged environment, so every drop-in and EnvironmentFile takes
   effect.
 - **Backend-only handoff**: the running runner (`scripts/run-ccflare-stack.sh`) stays up and
-  starts the candidate binary as its own child. `run-ccflare-stack.sh:919` points `CCFLARE_BIN`
-  at `manifest.candidateBinary`, and `run-ccflare-stack.sh:1004-1015` launches
+  starts the candidate binary as its own child. `run-ccflare-stack.sh:979` points `CCFLARE_BIN`
+  at `manifest.candidateBinary`, and `run-ccflare-stack.sh:1071-1081` launches
   `"$CCFLARE_BIN" --serve ... &`. The child inherits the runner's environment, which systemd
   fixed when the runner started; the launch overrides only a few fixed variables such as `PORT`
   and `LOG_LEVEL`. The runner sources no env file of its own.

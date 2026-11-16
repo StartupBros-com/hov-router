@@ -111,13 +111,15 @@ those paths either has nothing to lose, writes in place over blocks it already o
   no space has its refresh refused before the provider is called, so no rotation can exist that
   nothing can store. The refusal is never terminal and pauses nothing
   (`packages/proxy/src/handlers/token-manager.ts:145-150`).
-- **Runner (#839, #840).** The control directory lives under systemd's
+- **Runner (#839, #840, #865).** The control directory lives under systemd's
   `RuntimeDirectory=ccflare-stack`, on `/run`, not on the disk. Ownership and listener records
   are overwritten in place when a new file cannot be made. A start that fails for lack of space
   (the backend exits 28, the errno of `ENOSPC`, `apps/server/src/failed-start.ts:14`) is waited
-  out instead of counted toward the restart circuit (`scripts/run-ccflare-stack.sh:1285-1293`).
-  A stop that lands mid-start no longer leaves an ownership record at `spawning` that holds
-  every later start.
+  out instead of counted toward the restart circuit (`scripts/run-ccflare-stack.sh:1353-1361`).
+  A stop that lands mid-start is kept until the ownership record says what was started (#840).
+  A runner that leaves through its EXIT trap alone before the spawn, which bash 5.2 can do when
+  it drops a stop's handler, closes the record as unstarted (#865, see
+  [bash-5-2-drops-a-trap-handler-so-runner-cleanup-must-work-from-exit-alone.md](bash-5-2-drops-a-trap-handler-so-runner-cleanup-must-work-from-exit-alone.md)).
 
 `/health` reports the state in `runtime.storage.fullDisk` (`docs/api-http.md`, "Full-disk
 state"). The runner's wait is in `docs/systemd.md`, "Restart Policy Best Practices".
@@ -181,12 +183,18 @@ in every measured run.
   "Disk Full".
 
 What stays a mitigation: one reserve covers one start, so a second start on a disk that stayed
-full can fail, and the runner then waits. A runner killed with `SIGKILL` while starting a
-backend can still leave the `spawning` hold.
+full can fail, and the runner then waits. The `spawning` hold can still be left behind. A
+runner killed with `SIGKILL` while starting a backend leaves it. So does a close that fails,
+which the runner logs as `could not be closed; the next runner start may be held`. So does a
+runner that leaves through its EXIT trap between the backend's launch and the note of its pid.
+That last case is on purpose, since a backend the record does not name may be running.
 
 ## Related Issues
 
 - Issue #827 and PRs #837, #838, #839, #840.
+- Issues #859 and #861, fixed by PR #865:
+  [bash-5-2-drops-a-trap-handler-so-runner-cleanup-must-work-from-exit-alone.md](bash-5-2-drops-a-trap-handler-so-runner-cleanup-must-work-from-exit-alone.md),
+  why the runner's exit path must be correct from the EXIT trap alone.
 - [config-preservation-requires-persisted-oauth-recovery-key.md](config-preservation-requires-persisted-oauth-recovery-key.md):
   the slot store derives its key from the same local-control secret, so that secret must still
   persist.
