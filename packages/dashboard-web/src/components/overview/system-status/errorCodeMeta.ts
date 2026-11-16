@@ -137,14 +137,16 @@ const KNOWN_ERROR_META: Record<
 		description:
 			"Anthropic returned 403 permission_error for this account. Nothing " +
 			"about its own quota is wrong — the organization that owns it " +
-			"forbids the request, typically because an admin disabled OAuth " +
-			"apps or Claude Code subscription access. The account is benched " +
-			"and the request fails over to another account.",
+			"forbids the request: after a failed payment, or because an admin " +
+			"disabled OAuth apps or Claude Code subscription access. The account " +
+			"is benched and the request fails over to another account.",
 		suggestion:
-			"An organization admin has to re-enable OAuth app or Claude Code " +
-			"access for this account. Until that setting changes upstream, the " +
-			"recovery probe will keep rediscovering the same 403, so no amount " +
-			"of waiting or retrying clears it on the proxy side.",
+			"Check the account's billing on claude.ai first: a failed payment " +
+			"causes this, and it clears by itself once the payment goes through. " +
+			"Otherwise an organization admin has to re-enable OAuth app or Claude " +
+			"Code access. Until the cause is fixed upstream, the recovery probe " +
+			"keeps rediscovering the same 403, so waiting or retrying on the " +
+			"proxy side does not clear it.",
 		severity: "error",
 	},
 };

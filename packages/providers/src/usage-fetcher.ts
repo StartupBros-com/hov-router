@@ -957,7 +957,13 @@ class UsageCache {
 			acquiredAt: number;
 		}
 	>();
-	private usageRateLimitedUntil = new Map<string, number>(); // Tracks when usage API 429 clears
+	/**
+	 * When each account's usage-endpoint 429 clears (#869). A request sent
+	 * before then draws a fresh retry-after, so no fetch leaves while it is
+	 * live. Only a newer endpoint answer, expiry or `clear()` removes it:
+	 * a polling restart and a token reload's `delete()` keep it.
+	 */
+	private usageRateLimitedUntil = new Map<string, number>();
 	private modelScopedDepletions = new Map<
 		string,
 		Map<string, ModelScopedDepletion>
@@ -1022,6 +1028,15 @@ class UsageCache {
 				`Reusing in-flight fetch for account ${registration.accountId} — skipping duplicate request`,
 			);
 			return current.promise;
+		}
+
+		const lockedUntil = this.getRateLimitedUntil(registration.accountId);
+		if (lockedUntil !== null) {
+			const retryAfterMs = lockedUntil - Date.now();
+			log.debug(
+				`Usage endpoint asked account ${registration.accountId} to wait ${Math.ceil(retryAfterMs / 1000)}s more; skipping this fetch`,
+			);
+			return Promise.resolve({ success: false, retryAfterMs });
 		}
 
 		const promise = this._doFetchAndCache(registration);
@@ -1272,7 +1287,8 @@ class UsageCache {
 		// Clean up cache entry when polling stops to prevent memory leaks
 		this.deleteCacheEntry(accountId);
 		this.codexCreditEvidence.delete(accountId);
-		this.usageRateLimitedUntil.delete(accountId);
+		// usageRateLimitedUntil stays: a restart that dropped it would fetch at
+		// once and restart the endpoint's lockout (#869).
 		this.modelScopedDepletions.delete(accountId);
 		this.familyScopedDepletions.delete(accountId);
 		log.info(
@@ -1533,10 +1549,7 @@ class UsageCache {
 					result.retryAfterMs != null &&
 					result.retryAfterMs > 0
 				) {
-					this.usageRateLimitedUntil.set(
-						accountId,
-						Date.now() + result.retryAfterMs,
-					);
+					this.recordUsageRetryAfter(accountId, result.retryAfterMs);
 				} else if (
 					this.isCurrent(registration) &&
 					result.retryAfterMs == null
@@ -1616,10 +1629,7 @@ class UsageCache {
 					result.retryAfterMs != null &&
 					result.retryAfterMs > 0
 				) {
-					this.usageRateLimitedUntil.set(
-						accountId,
-						Date.now() + result.retryAfterMs,
-					);
+					this.recordUsageRetryAfter(accountId, result.retryAfterMs);
 				} else if (
 					this.isCurrent(registration) &&
 					result.retryAfterMs == null
@@ -2105,12 +2115,30 @@ class UsageCache {
 	 */
 	getRateLimitedUntil(accountId: string): number | null {
 		const until = this.usageRateLimitedUntil.get(accountId);
-		if (until === undefined) return null;
-		if (Date.now() >= until) {
-			this.usageRateLimitedUntil.delete(accountId);
-			return null;
+		// A pure read. An expired entry stays until this account's next fetch
+		// answers, so that fetch still knows it followed a lockout and can fire
+		// onCapacityRestored; the fetch guard, the proxy and the accounts page
+		// all call this.
+		return until !== undefined && Date.now() < until ? until : null;
+	}
+
+	/**
+	 * Record a usage-endpoint 429's retry-after for an account. Callers that
+	 * fetch usage outside polling (the Clear cooldown fallback) use this so the
+	 * poller honours their answer too. A non-positive or non-finite duration is
+	 * ignored.
+	 */
+	recordUsageRetryAfter(accountId: string, retryAfterMs: number): void {
+		if (!Number.isFinite(retryAfterMs) || retryAfterMs <= 0) return;
+		const now = Date.now();
+		// Deadlines outlive stopPolling and delete(), so drop expired ones of
+		// accounts no longer polled rather than keep one per removed account
+		// until shutdown. A polled account's entry is its next fetch's to clear.
+		for (const [id, until] of this.usageRateLimitedUntil) {
+			if (until <= now && !this.registrations.has(id))
+				this.usageRateLimitedUntil.delete(id);
 		}
-		return until;
+		this.usageRateLimitedUntil.set(accountId, now + retryAfterMs);
 	}
 
 	/**

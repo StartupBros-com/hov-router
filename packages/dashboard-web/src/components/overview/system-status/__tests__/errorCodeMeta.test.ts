@@ -8,6 +8,13 @@ describe("getErrorMeta", () => {
 		expect(meta.severity).toBe("error");
 	});
 
+	test("org_permission_denied points at billing before org settings", () => {
+		const meta = getErrorMeta("org_permission_denied");
+		expect(meta.description).toContain("payment");
+		expect(meta.suggestion).toContain("billing");
+		expect(meta.suggestion).toContain("Claude Code access");
+	});
+
 	test("model_fallback_429 with no context defaults to a warning that points at Model Mappings", () => {
 		const meta = getErrorMeta("model_fallback_429");
 		expect(meta.severity).toBe("warning");
