@@ -15,7 +15,7 @@ import {
 } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { Switch } from "../ui/switch";
+import { SwitchRow } from "../ui/switch-row";
 
 export function DataRetentionCleanupSummary({
 	cleanup,
@@ -71,7 +71,10 @@ export function DataRetentionCard() {
 			<CardContent className="space-y-3">
 				<div className="flex items-center gap-2">
 					<div className="flex items-center gap-2">
-						<Label htmlFor="retention-payload-days" className="w-28">
+						<Label
+							htmlFor="retention-payload-days"
+							className="inline-flex min-h-11 w-28 items-center"
+						>
 							Payloads
 						</Label>
 						<Input
@@ -83,12 +86,12 @@ export function DataRetentionCard() {
 							onChange={(e) =>
 								setPayloadDays(parseInt(e.target.value || "0", 10))
 							}
-							className="w-24"
+							className="h-11 w-24"
 						/>
 						<span className="text-sm text-muted-foreground">days</span>
 					</div>
 					<Button
-						size="sm"
+						size="touch-sm"
 						aria-label="Save payload retention"
 						disabled={disabled || !validPayload}
 						onClick={() => setRetention.mutate({ payloadDays })}
@@ -99,7 +102,10 @@ export function DataRetentionCard() {
 
 				<div className="flex items-center gap-2 pt-2">
 					<div className="flex items-center gap-2">
-						<Label htmlFor="retention-request-days" className="w-28">
+						<Label
+							htmlFor="retention-request-days"
+							className="inline-flex min-h-11 w-28 items-center"
+						>
 							Requests
 						</Label>
 						<Input
@@ -111,12 +117,12 @@ export function DataRetentionCard() {
 							onChange={(e) =>
 								setRequestDays(parseInt(e.target.value || "0", 10))
 							}
-							className="w-24"
+							className="h-11 w-24"
 						/>
 						<span className="text-sm text-muted-foreground">days</span>
 					</div>
 					<Button
-						size="sm"
+						size="touch-sm"
 						aria-label="Save request retention"
 						disabled={disabled || !validRequests}
 						onClick={() => setRetention.mutate({ requestDays })}
@@ -125,36 +131,35 @@ export function DataRetentionCard() {
 					</Button>
 				</div>
 
-				<div className="flex items-center justify-between pt-2 pb-1">
-					<div>
-						<Label htmlFor="retention-store-payloads" className="block">
-							Store message payloads
-						</Label>
-						<p className="text-xs text-muted-foreground">
-							Stores full request/response bodies (conversation text, images) in
-							the database. Disable to reduce database size and lower memory
-							pressure — token counts, costs, and analytics are always saved
-							regardless.
-						</p>
-						<p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-							Warning: storing payloads can significantly grow the database size
-							over time.
-						</p>
-					</div>
-					<Switch
-						id="retention-store-payloads"
-						checked={data?.storePayloads ?? true}
-						disabled={isLoading || setRetention.isPending}
-						onCheckedChange={(checked) =>
-							setRetention.mutate({ storePayloads: checked })
-						}
-					/>
-				</div>
+				<SwitchRow
+					id="retention-store-payloads"
+					className="pt-2 pb-1"
+					label="Store message payloads"
+					description={
+						<>
+							<p className="text-xs text-muted-foreground">
+								Stores full request/response bodies (conversation text, images)
+								in the database. Disable to reduce database size and lower
+								memory pressure — token counts, costs, and analytics are always
+								saved regardless.
+							</p>
+							<p className="text-xs text-(--warning) mt-0.5">
+								Warning: storing payloads can significantly grow the database
+								size over time.
+							</p>
+						</>
+					}
+					checked={data?.storePayloads ?? true}
+					disabled={isLoading || setRetention.isPending}
+					onCheckedChange={(checked) =>
+						setRetention.mutate({ storePayloads: checked })
+					}
+				/>
 
 				<div className="pt-1 flex items-center gap-2">
 					<Button
 						variant="secondary"
-						size="sm"
+						size="touch-sm"
 						onClick={() => cleanupNow.mutate()}
 						disabled={cleanupNow.isPending}
 					>
@@ -163,7 +168,7 @@ export function DataRetentionCard() {
 				</div>
 
 				{cleanupNow.isError && (
-					<p className="text-xs text-destructive">
+					<p role="alert" className="text-xs text-destructive">
 						Operation timed out — for large databases this may take several
 						minutes. Check server logs.
 					</p>

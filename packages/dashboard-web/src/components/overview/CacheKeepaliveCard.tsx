@@ -44,12 +44,16 @@ export function CacheKeepaliveCard() {
 					value={String(currentValue)}
 					onValueChange={(v) => setTtl.mutate({ ttlMinutes: parseInt(v, 10) })}
 				>
-					<SelectTrigger className="w-48" aria-label="Cache Keep-Alive">
+					<SelectTrigger className="h-11 w-48" aria-label="Cache Keep-Alive">
 						<SelectValue placeholder="Select TTL..." />
 					</SelectTrigger>
 					<SelectContent>
 						{TTL_OPTIONS.map((opt) => (
-							<SelectItem key={opt.value} value={String(opt.value)}>
+							<SelectItem
+								className="min-h-11"
+								key={opt.value}
+								value={String(opt.value)}
+							>
 								{opt.label}
 							</SelectItem>
 						))}

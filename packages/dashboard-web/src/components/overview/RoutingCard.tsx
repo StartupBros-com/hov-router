@@ -8,7 +8,6 @@ import {
 	useStrategy,
 } from "../../hooks/queries";
 import { useApiError } from "../../hooks/useApiError";
-import { Badge } from "../ui/badge";
 import {
 	Card,
 	CardContent,
@@ -25,6 +24,7 @@ import {
 	SelectValue,
 } from "../ui/select";
 import { EmptyState, ErrorState, LoadingState } from "../ui/state";
+import { StatusPill } from "../ui/status-pill";
 import { Switch } from "../ui/switch";
 
 // Only session-class strategies are offered from the dashboard. Per-request
@@ -91,6 +91,10 @@ export interface RoutingCardViewProps {
 	onCapacityChange: (mode: "off" | "exhausted") => void;
 	capacityDisabled: boolean;
 	routingAttempts?: RoutingAttemptSummaryViewState;
+	/** When given, the attempts error state offers Retry. */
+	onRetryRoutingAttempts?: () => void;
+	/** Keeps Retry visible but disabled while a retry is fetching. */
+	retryRoutingAttemptsDisabled?: boolean;
 }
 
 /**
@@ -108,6 +112,8 @@ export function RoutingCardView({
 	onCapacityChange,
 	capacityDisabled,
 	routingAttempts = { status: "loading" },
+	onRetryRoutingAttempts,
+	retryRoutingAttemptsDisabled,
 }: RoutingCardViewProps) {
 	const strategyEnvLocked = strategySource === "env";
 	const capacityEnvLocked = capacitySource === "env";
@@ -128,12 +134,12 @@ export function RoutingCardView({
 						<div className="flex items-center gap-2">
 							<Label htmlFor="routing-strategy">Load-balancing strategy</Label>
 							{strategyEnvLocked && (
-								<Badge
-									variant="outline"
+								<StatusPill
+									tone="warning"
 									title="Set by the LB_STRATEGY environment variable; change the env var to edit this."
 								>
 									env-locked
-								</Badge>
+								</StatusPill>
 							)}
 						</div>
 						<div className="text-sm text-muted-foreground">
@@ -155,12 +161,13 @@ export function RoutingCardView({
 							value={strategy}
 							onValueChange={onStrategyChange}
 						>
-							<SelectTrigger id="routing-strategy" className="w-64">
+							<SelectTrigger id="routing-strategy" className="h-11 w-64">
 								<SelectValue placeholder="Select strategy..." />
 							</SelectTrigger>
 							<SelectContent>
 								{strategyItems.map((opt) => (
 									<SelectItem
+										className="min-h-11"
 										key={opt.value}
 										value={opt.value}
 										disabled={opt.disabled}
@@ -180,16 +187,19 @@ export function RoutingCardView({
 					<div className="flex items-center justify-between gap-3">
 						<div className="space-y-1">
 							<div className="flex items-center gap-2">
-								<Label htmlFor="routing-capacity">
+								<Label
+									htmlFor="routing-capacity"
+									className="inline-flex min-h-11 items-center"
+								>
 									Model-scoped capacity routing
 								</Label>
 								{capacityEnvLocked && (
-									<Badge
-										variant="outline"
+									<StatusPill
+										tone="warning"
 										title="Set by the MODEL_SCOPED_CAPACITY_ROUTING environment variable; change the env var to edit this."
 									>
 										env-locked
-									</Badge>
+									</StatusPill>
 								)}
 							</div>
 							<div className="text-sm text-muted-foreground">
@@ -238,6 +248,8 @@ export function RoutingCardView({
 								size="inline"
 								title="Routing-attempt summary could not load"
 								message={routingAttempts.message}
+								onRetry={onRetryRoutingAttempts}
+								retryDisabled={retryRoutingAttemptsDisabled}
 							/>
 						)}
 						{routingAttempts.status === "success" &&
@@ -248,7 +260,7 @@ export function RoutingCardView({
 								/>
 							) : (
 								<div className="space-y-2 text-sm">
-									<p>
+									<p className="tabular-nums">
 										{routingAttempts.data.totalAttempts} attempts across{" "}
 										{routingAttempts.data.distinctRequests} logical requests
 									</p>
@@ -319,6 +331,8 @@ export function RoutingCard() {
 			onCapacityChange={(mode) => setCapacity.mutate(mode)}
 			capacityDisabled={capacityLoading || setCapacity.isPending}
 			routingAttempts={routingAttemptsView}
+			onRetryRoutingAttempts={() => routingAttempts.refetch()}
+			retryRoutingAttemptsDisabled={routingAttempts.isFetching}
 		/>
 	);
 }

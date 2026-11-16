@@ -16,6 +16,7 @@ import {
 	DialogTrigger,
 } from "../ui/dialog";
 import { Label } from "../ui/label";
+import { EmptyState, ErrorState, LoadingState } from "../ui/state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
 	providerFieldHint,
@@ -49,6 +50,46 @@ function sortFamilies<T extends { family: string }>(fields: T[]): T[] {
 		if (ib === -1) return -1;
 		return ia - ib;
 	});
+}
+
+/**
+ * Loading, load-error and empty rendering for the dialog body, split out so it
+ * can be rendered without opening the dialog.
+ */
+export function ProviderDefaultsStatus({
+	isLoading,
+	isError,
+	error,
+	isEmpty,
+	onRetry,
+}: {
+	isLoading: boolean;
+	isError: boolean;
+	error: unknown;
+	isEmpty: boolean;
+	onRetry: () => void;
+}) {
+	return (
+		<>
+			{isLoading && (
+				<LoadingState size="inline" label="Loading provider defaults" />
+			)}
+			{isError && (
+				<ErrorState
+					size="inline"
+					title="Could not load provider defaults"
+					message={error instanceof Error ? error.message : "unknown error"}
+					onRetry={onRetry}
+				/>
+			)}
+			{!isLoading && !isError && isEmpty && (
+				<EmptyState
+					size="inline"
+					title="No provider has a built-in default map to configure."
+				/>
+			)}
+		</>
+	);
 }
 
 /**
@@ -161,7 +202,7 @@ export function ProviderModelDefaultsDialog() {
 	return (
 		<Dialog>
 			<DialogTrigger asChild>
-				<Button variant="outline" size="sm">
+				<Button variant="outline" size="touch-sm">
 					Configure
 				</Button>
 			</DialogTrigger>
@@ -184,34 +225,23 @@ export function ProviderModelDefaultsDialog() {
 					only when they have none.
 				</p>
 
-				{query.isLoading && (
-					<div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-						<Loader2 className="h-4 w-4 animate-spin" />
-						Loading provider defaults...
-					</div>
-				)}
-
-				{query.isError && (
-					<p className="flex items-center gap-2 py-2 text-sm text-destructive">
-						<AlertCircle className="h-4 w-4 shrink-0" />
-						Could not load provider defaults.{" "}
-						{query.error instanceof Error
-							? query.error.message
-							: "unknown error"}
-					</p>
-				)}
-
-				{!query.isLoading && !query.isError && sortedProviders.length === 0 && (
-					<p className="py-2 text-sm text-muted-foreground">
-						No provider has a built-in default map to configure.
-					</p>
-				)}
+				<ProviderDefaultsStatus
+					isLoading={query.isLoading}
+					isError={query.isError}
+					error={query.error}
+					isEmpty={sortedProviders.length === 0}
+					onRetry={() => query.refetch()}
+				/>
 
 				{sortedProviders.length > 0 && activeTab && (
 					<Tabs value={activeTab} onValueChange={setActiveTab}>
 						<TabsList>
 							{sortedProviders.map((provider) => (
-								<TabsTrigger key={provider.provider} value={provider.provider}>
+								<TabsTrigger
+									key={provider.provider}
+									value={provider.provider}
+									className="min-h-11"
+								>
 									{provider.provider}
 								</TabsTrigger>
 							))}
@@ -243,14 +273,14 @@ export function ProviderModelDefaultsDialog() {
 													placeholder={providerFieldPlaceholder(field)}
 													hideClientModelOption
 													className="flex-1"
-													inputClassName="h-8"
+													inputClassName="h-11"
 													disabled={disableFields}
 												/>
 												{customized && (
 													<Button
 														type="button"
 														variant="ghost"
-														size="sm"
+														size="touch-icon"
 														title={providerFieldResetTitle(field)}
 														aria-label={providerFieldResetTitle(field)}
 														onClick={() =>
@@ -258,7 +288,7 @@ export function ProviderModelDefaultsDialog() {
 														}
 														disabled={save.isPending}
 													>
-														<RefreshCw className="h-3.5 w-3.5" />
+														<RefreshCw />
 													</Button>
 												)}
 											</div>
@@ -275,7 +305,7 @@ export function ProviderModelDefaultsDialog() {
 
 				<div className="flex items-center gap-2 pt-1">
 					<Button
-						size="sm"
+						size="touch"
 						onClick={handleSave}
 						disabled={
 							dirtyOverrides.length === 0 || save.isPending || query.isLoading
@@ -283,12 +313,12 @@ export function ProviderModelDefaultsDialog() {
 					>
 						{save.isPending ? (
 							<>
-								<Loader2 className="h-3.5 w-3.5 animate-spin" />
+								<Loader2 className="animate-spin" />
 								Saving...
 							</>
 						) : (
 							<>
-								<Save className="h-3.5 w-3.5" />
+								<Save />
 								Save
 							</>
 						)}
