@@ -48,7 +48,7 @@ export const AlertsView = React.memo(() => {
 
 	return (
 		<div className="space-y-4">
-			<div className="flex items-center justify-between">
+			<div className="flex flex-wrap items-center justify-between gap-2">
 				<h3 className="text-lg font-medium">
 					Unacknowledged: {unacknowledgedCount}
 				</h3>
@@ -74,7 +74,7 @@ export const AlertsView = React.memo(() => {
 									<div className="flex items-start justify-between gap-3">
 										<div className="space-y-1">
 											<div className="flex items-center gap-2">
-												<TriangleAlert className="h-4 w-4 text-amber-500" />
+												<TriangleAlert className="h-4 w-4 text-(--warning)" />
 												<span className="font-medium">{alert.title}</span>
 											</div>
 											<p className="text-sm text-muted-foreground">
