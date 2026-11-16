@@ -76,6 +76,12 @@ export interface RunnerFixture {
 	 * return. Set it before the runner gets to the command.
 	 */
 	holdCommand(command: string, hold: boolean): void;
+	/**
+	 * While set, the transaction command `command` runs and then exits with
+	 * `status`, the way a write that reached the disk and then failed would.
+	 * `null` lets it run as it is.
+	 */
+	failAfterCommand(command: string, status: number | null): void;
 	/** Resolves once a held `command` has run and is waiting to return. */
 	waitForHeld(command: string, timeoutMs?: number): Promise<void>;
 	exited(): { code: number | null; signal: NodeJS.Signals | null } | null;
@@ -208,6 +214,21 @@ export async function startRunner(
 			'	printf \'%s\\n\' "$2" >>"$CAPTURE_DIR/refused-commands.log"',
 			'	printf \'fixture: %s refused with status %s\\n\' "$2" "$status" >&2',
 			'	exit "$status"',
+			"fi",
+			'after="$CAPTURE_DIR/fail-after-command-${2:-}"',
+			'if [[ -n "${2:-}" && -f "$after" ]]; then',
+			`	${JSON.stringify(node)} "$@" || true`,
+			'	status="$(<"$after")"',
+			'	printf \'%s\\n\' "$2" >>"$CAPTURE_DIR/failed-after-commands.log"',
+			'	printf \'fixture: %s ran, then failed with status %s\\n\' "$2" "$status" >&2',
+			'	exit "$status"',
+			"fi",
+			// A deploy listener that takes no notice of the first N TERMs it
+			// is sent, N being the number in this file. A large N leaves
+			// SIGKILL as the only way to end it. It notes its pid once its
+			// handler is in place, so a test can wait until a TERM would meet it.
+			'if [[ "${2:-}" == serve && -f "$CAPTURE_DIR/serve-ignores-terms" ]]; then',
+			`	FIXTURE_IGNORED_TERMS="$(<"$CAPTURE_DIR/serve-ignores-terms")" exec ${JSON.stringify(node)} -e 'let left = Number(process.env.FIXTURE_IGNORED_TERMS); process.on("SIGTERM", () => { if (left-- <= 0) process.exit(0); }); require("node:fs").appendFileSync(process.env.CAPTURE_DIR + "/ignoring-listeners.log", process.pid + "\\n"); setInterval(() => {}, 1 << 30);'`,
 			"fi",
 			'hold="$CAPTURE_DIR/hold-command-${2:-}"',
 			'if [[ -n "${2:-}" && -f "$hold" ]]; then',
@@ -359,6 +380,8 @@ export async function startRunner(
 			control(`refuse-command-${command}`, status),
 		holdCommand: (command, hold) =>
 			control(`hold-command-${command}`, hold ? 1 : null),
+		failAfterCommand: (command, status) =>
+			control(`fail-after-command-${command}`, status),
 		async waitForHeld(command, timeoutMs = 20_000) {
 			const held = join(capture, `held-command-${command}`);
 			const deadline = Date.now() + timeoutMs;

@@ -16,6 +16,7 @@
  */
 import { afterEach, describe, expect, test } from "bun:test";
 import {
+	chmodSync,
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
@@ -323,6 +324,29 @@ describe("the ownership record after a start that was never recorded", () => {
 		// Refused for a reason other than space: counted, not waited out.
 		expect(runner.count(WAITING)).toBe(0);
 	}, 30_000);
+
+	test("is closed when its write reached the disk and then failed", async () => {
+		const where = layout();
+		const runner = await start(where, {
+			RUNNER_RESTART_MAX_FAILURES: "2",
+		});
+		// A record renamed into place whose directory could not then be
+		// synced: "spawning" is on disk, and the command still fails (#859).
+		runner.failAfterCommand("owner-spawning", 70);
+
+		const exit = await runner.waitForExit();
+
+		expect(exit.code).toBe(CIRCUIT_EXIT_STATUS);
+		expect(
+			readFileSync(join(runner.capture, "failed-after-commands.log"), "utf8"),
+		).toContain("owner-spawning");
+		expect(lifecycle(runner)).toEqual([]);
+		expect(ownerRecord(runner).phase).toBe("running");
+		expect(runner.recover()).toMatchObject({
+			status: 0,
+			stdout: '{"action":"start"}',
+		});
+	}, 30_000);
 });
 
 /** The ownership record as it is on disk. */
@@ -417,6 +441,74 @@ describe("a stop that lands while a backend is being started", () => {
 		expect((await next.stop()).code).toBe(STOPPED_EXIT_STATUS);
 	}, 60_000);
 
+	// Bash 5.2 can drop a stop's handler when the signal lands while it parses
+	// a command substitution, and leave through the EXIT trap alone (#859).
+	// One of those lies between the record and the backend's start. A signal
+	// the runner has no handler for ends it the same way at any moment, so it
+	// stands in for that here.
+	test("closes the record when the runner is ended without its stop handler as the record is written", async () => {
+		const where = layout();
+		holdFromTheStart(where, "owner-spawning");
+		const runner = await start(where);
+		await runner.waitForHeld("owner-spawning");
+		expect(ownerRecord(runner).phase).toBe("spawning");
+
+		runner.child.kill("SIGUSR1");
+		await Bun.sleep(150);
+		runner.holdCommand("owner-spawning", false);
+		const exit = await runner.waitForExit();
+
+		expect(exit.signal).toBe("SIGUSR1");
+		expect(lifecycle(runner)).toEqual([]);
+		expect(ownerRecord(runner).phase).toBe("running");
+		expect(runner.recover()).toMatchObject({
+			status: 0,
+			stdout: '{"action":"start"}',
+		});
+		expect(await nothingLeftRunning(where.root)).toEqual([]);
+
+		const next = await start(where);
+		await next.waitForOutput(READY);
+		expect((await next.stop()).code).toBe(STOPPED_EXIT_STATUS);
+	}, 60_000);
+
+	// Whatever a record that cannot be read says, it is not known to be this
+	// runner's unstarted one, and only that one may be closed. Left as it is,
+	// it holds the next start, which is what any doubt about who owns the
+	// database must do. Root reads a file whatever its mode.
+	test.skipIf(process.getuid?.() === 0)(
+		"leaves a record it cannot read, so the next start is held",
+		async () => {
+			const where = layout();
+			holdFromTheStart(where, "owner-spawning");
+			const runner = await start(where);
+			await runner.waitForHeld("owner-spawning");
+			const record = join(runner.handoff, "owner.json");
+			expect(ownerRecord(runner).phase).toBe("spawning");
+			chmodSync(record, 0o000);
+
+			runner.child.kill("SIGUSR1");
+			await Bun.sleep(150);
+			runner.holdCommand("owner-spawning", false);
+			const exit = await runner.waitForExit();
+
+			expect(exit.signal).toBe("SIGUSR1");
+			expect(runner.output()).not.toContain("closed the ownership record");
+			// A close writes a new file over the record, and that file is
+			// readable. This one is still the file that was there.
+			expect(statSync(record).mode & 0o777).toBe(0);
+			chmodSync(record, 0o600);
+			expect(ownerRecord(runner).phase).toBe("spawning");
+			expect(runner.recover()).toMatchObject({
+				status: 70,
+				stdout: '{"action":"hold","reason":"unreaped_or_ambiguous_owner"}',
+			});
+			expect(lifecycle(runner)).toEqual([]);
+			expect(await nothingLeftRunning(where.root)).toEqual([]);
+		},
+		60_000,
+	);
+
 	test("stops the backend it had just started, when it lands as that backend is recorded", async () => {
 		const where = layout();
 		holdFromTheStart(where, "owner-started");
@@ -442,6 +534,83 @@ describe("a stop that lands while a backend is being started", () => {
 	}, 60_000);
 });
 
+/** Make every deploy listener the runner starts ignore its first `n` TERMs. */
+function listenersIgnoreTerms(where: RunnerLayout, n: number): void {
+	const capture = join(where.scratch, "capture");
+	mkdirSync(capture, { recursive: true });
+	writeFileSync(join(capture, "serve-ignores-terms"), String(n));
+}
+
+/** Resolves once `n` listeners that ignore TERM have their handler in place. */
+async function ignoringListeners(
+	runner: RunnerFixture,
+	n: number,
+): Promise<void> {
+	const path = join(runner.capture, "ignoring-listeners.log");
+	const deadline = Date.now() + 15_000;
+	const seen = () =>
+		existsSync(path)
+			? readFileSync(path, "utf8").trim().split("\n").filter(Boolean).length
+			: 0;
+	while (seen() < n) {
+		if (Date.now() >= deadline)
+			throw new Error(
+				`${seen()} of ${n} listeners ignore TERM:\n${runner.output().slice(-3000)}`,
+			);
+		await Bun.sleep(10);
+	}
+}
+
+/** How long the runner gives a helper after its first TERM before SIGKILL. */
+const HELPER_STOP_BUDGET_MS = 5_000;
+
+describe("a deploy listener that does not stop when it is told to", () => {
+	// Once, a listener sent its one TERM a few milliseconds after it was
+	// started ran on, and the runner waited on it for good: no new backend,
+	// no restart circuit, nothing for systemd to act on (#861). Why that TERM
+	// did not end it is not known, so these listeners ignore TERM outright.
+	test("is told again, so a backend that exits is still replaced", async () => {
+		const where = layout();
+		listenersIgnoreTerms(where, 1);
+		const runner = await start(where);
+		await runner.waitForOutput(READY);
+		await ignoringListeners(runner, 1);
+		runner.crashBackend(1);
+
+		// Told once only, the runner waits on the listener for good and this
+		// times out; ended by SIGKILL instead, the runner says so.
+		await runner.waitForOutput(READY, { times: 2, timeoutMs: 15_000 });
+
+		expect(runner.output()).not.toContain("sending SIGKILL");
+		expect((await runner.stop()).code).toBe(STOPPED_EXIT_STATUS);
+	}, 60_000);
+
+	test("is killed once the stop budget is spent, on a restart and on a stop", async () => {
+		const where = layout();
+		listenersIgnoreTerms(where, 1_000_000);
+		const runner = await start(where);
+		await runner.waitForOutput(READY);
+		await ignoringListeners(runner, 1);
+		runner.crashBackend(1);
+
+		await runner.waitForOutput(READY, { times: 2, timeoutMs: 20_000 });
+		expect(runner.output()).toMatch(
+			/backend deployment listener pid=\d+ did not stop after 5000ms; sending SIGKILL/,
+		);
+
+		await ignoringListeners(runner, 2);
+		const stopping = Date.now();
+		const exit = await runner.stop(20_000);
+		const elapsedMs = Date.now() - stopping;
+
+		expect(exit.code).toBe(STOPPED_EXIT_STATUS);
+		expect(runner.count("sending SIGKILL")).toBe(2);
+		expect(elapsedMs).toBeGreaterThanOrEqual(HELPER_STOP_BUDGET_MS);
+		expect(elapsedMs).toBeLessThan(HELPER_STOP_BUDGET_MS + 5_000);
+		expect(await nothingLeftRunning(where.root)).toEqual([]);
+	}, 60_000);
+});
+
 describe("a start that fails because the disk is full", () => {
 	test("is waited out when the ownership record cannot be written", async () => {
 		const where = layout();
@@ -456,6 +625,9 @@ describe("a start that fails because the disk is full", () => {
 		expect(runner.count(CIRCUIT_OPEN)).toBe(0);
 		expect(lifecycle(runner)).toEqual([]);
 		expect(runner.output()).toContain("step=the ownership record");
+		// Nothing was written, so there is nothing to close at each try.
+		expect(runner.output()).not.toContain("could not be closed");
+		expect(runner.output()).not.toContain("a backend that was not started");
 
 		// Space comes back: the next try starts the stack.
 		runner.refuseCommand("owner-spawning", null);

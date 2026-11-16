@@ -125,11 +125,14 @@ rss_last_recycle_ms=0
 # or empty. Only a step before the stack is ready ever sets it.
 start_out_of_space=""
 out_of_space_retry_count=0
-# An ownership record this runner wrote as "spawning" that no "running" record
-# has followed, and the backend it was written for.
+# An ownership record this runner wrote as "spawning", or was writing, that no
+# "running" record has followed, and the backend it was written for.
 owner_open=0
 owner_open_pid=""
 owner_open_start=""
+# Set just before the backend for that record is spawned. Until then nothing
+# can be running under it, so the record can be closed as unstarted (#859).
+owner_spawn_begun=0
 
 log() {
 	printf '[%s] %s\n' "$(date -Is)" "$*"
@@ -291,19 +294,48 @@ NODE
  CCFLARE_DEPLOYMENT_RUNTIME="$runtime" "$NODE_BIN" "$TRANSACTION_MODULE" serve "$TRANSACTION_DIR" &
  deployment_pid=$!
 }
-# Signal an owned helper and reap it only if the signal reached it. A TERM
-# that interrupts this shell's own `wait` on the helper can leave bash 5.2
-# with a stale record of a child it already reaped; waiting on that pid again
-# blocks until another child exits, and the guard never does because it has
-# not been signalled yet. A failed kill means the helper is already gone.
+# How long a helper (the deploy listener, the retiring backend's reaper, a
+# guard control call) has to stop before it is sent SIGKILL, and how often it
+# is checked and told again meanwhile. A helper stops in milliseconds, so the
+# poll is short: every stop of the stack waits at least one.
+HELPER_STOP_BUDGET_MS=5000
+HELPER_STOP_POLL_S=0.05
+
+# Stop an owned helper within HELPER_STOP_BUDGET_MS. One TERM was once not
+# enough: a listener sent it a few milliseconds after it was started ran on,
+# and the runner waited on it for good (#861). So the TERM is sent again at
+# every poll, and SIGKILL follows once the budget is spent.
+#
+# It never calls `wait`. A TERM that interrupts this shell's own `wait` on the
+# helper can leave bash 5.2 with a stale record of a child it already reaped;
+# waiting on that pid again blocks until another child exits, and the guard
+# never does because it has not been signalled yet. The shell reaps an exited
+# child by itself while it waits on the poll's sleep, so `kill -0` stops
+# finding it. A failed first kill means the helper is already gone.
 stop_owned_helper() {
-	[[ -n "$1" ]] || return 0
-	if kill "$1" 2>/dev/null; then wait "$1" 2>/dev/null || true; fi
+	local pid="$1" name="$2" started_ms poll
+	[[ -n "$pid" ]] || return 0
+	kill "$pid" 2>/dev/null || return 0
+	started_ms="$(epoch_ms)"
+	while :; do
+		sleep "$HELPER_STOP_POLL_S" || true
+		kill -0 "$pid" 2>/dev/null || return 0
+		if (($(epoch_ms) - started_ms >= HELPER_STOP_BUDGET_MS)); then break; fi
+		kill "$pid" 2>/dev/null || return 0
+	done
+	log "${name} pid=${pid} did not stop after ${HELPER_STOP_BUDGET_MS}ms; sending SIGKILL"
+	kill -KILL "$pid" 2>/dev/null || return 0
+	# A few more polls for it to go, and no more: this wait must end too.
+	for poll in 1 2 3 4 5; do
+		sleep 0.1 || true
+		kill -0 "$pid" 2>/dev/null || return 0
+	done
+	log "${name} pid=${pid} was still there after SIGKILL; going on without it"
 }
 
 stop_stack_children() {
- stop_owned_helper "$deployment_pid"; deployment_pid=""
- stop_owned_helper "$reaper_pid"; reaper_pid=""
+ stop_owned_helper "$deployment_pid" "backend deployment listener"; deployment_pid=""
+ stop_owned_helper "$reaper_pid" "retiring backend reaper"; reaper_pid=""
 	# A retiring backend serves the guard's retiring generation, so it stops
 	# only after the guard drained, alongside the current backend.
 	if (($# == 0)); then
@@ -403,11 +435,32 @@ filesystem_out_of_space() {
 	return 1
 }
 
+# True when the ownership record on disk was read and says "spawning". A
+# record that is missing, says something else or cannot be read is not known
+# to be this runner's unstarted one, so it is left as it is: any doubt about
+# who owns the database must hold the next start, not allow it. It only reads,
+# so it works on a full disk.
+owner_record_spawning() {
+	grep -q -F '"phase":"spawning"' -- "$TRANSACTION_DIR/owner.json" 2>/dev/null
+}
+
 # Close an ownership record left at "spawning". Call it only once the backend
 # the record was written for has been stopped and waited for. Left as it is,
 # that record holds every later runner start until a person removes it (#827).
+#
+# A record no backend was spawned for is closed as unstarted. That covers a
+# runner leaving through its EXIT trap before the spawn, which bash 5.2 does
+# when it drops a stop's handler (#859), and a "spawning" write that reached
+# the disk although its command failed. Once the spawn has begun, a backend
+# may be running that the record does not name yet, so with no pid the record
+# is left to hold the next start. That is only before the pid is noted, when
+# the runner cannot stop that backend either.
 close_reaped_owner() {
 	((transaction_enabled && owner_open)) || return 0
+	if ((!owner_spawn_begun)); then
+		close_unstarted_owner
+		return 0
+	fi
 	[[ -n "$owner_open_pid" ]] || return 0
 	if "$NODE_BIN" "$TRANSACTION_MODULE" owner-reaped "$TRANSACTION_DIR" "$owner_open_pid" ${owner_open_start:+"$owner_open_start"}; then
 		owner_open=0
@@ -420,8 +473,15 @@ close_reaped_owner() {
 # Close an ownership record written for a backend that was then not started.
 # It takes the form a stopped backend leaves, under this runner's own pid and
 # a start time no process has, so it matches nothing. Only for a record this
-# runner wrote and started nothing for.
+# runner wrote, or was writing, and started nothing for. When the write never
+# reached the disk there is nothing to close, and nothing is written: on a
+# full disk that is every wait for space. A record that cannot be read is not
+# written over either (owner_record_spawning).
 close_unstarted_owner() {
+	if ! owner_record_spawning; then
+		owner_open=0
+		return 0
+	fi
 	if "$NODE_BIN" "$TRANSACTION_MODULE" owner-reaped "$TRANSACTION_DIR" "$$"; then
 		owner_open=0
 		log "closed the ownership record of a backend that was not started"
@@ -609,7 +669,7 @@ cleanup() {
 	fi
 	cleanup_ran=1
 	trap - EXIT TERM INT
-	stop_owned_helper "$control_pid"; control_pid=""
+	stop_owned_helper "$control_pid" "guard control call"; control_pid=""
 	log "stopping ccflare stack"
 	stop_stack_children
 	close_reaped_owner
@@ -985,15 +1045,19 @@ child_name_for_pid() {
 start_recorded_upstream() {
 	local owner_status
 	if ((transaction_enabled)); then
+		# Open before the write: a runner that leaves while it is being made,
+		# or a write that reached the disk and then failed, still has a
+		# record to close (#859).
+		owner_open=1
+		owner_open_pid=""
+		owner_open_start=""
+		owner_spawn_begun=0
 		owner_status=0
 		"$NODE_BIN" "$TRANSACTION_MODULE" owner-spawning "$TRANSACTION_DIR" || owner_status=$?
 		if ((owner_status != 0)); then
 			if ((owner_status == OUT_OF_SPACE_EXIT_STATUS)); then start_out_of_space="the ownership record"; fi
 			return 1
 		fi
-		owner_open=1
-		owner_open_pid=""
-		owner_open_start=""
 	fi
 	if ((shutdown_held)); then
 		# The stop came first. Nothing has been started, so the record
@@ -1002,6 +1066,8 @@ start_recorded_upstream() {
 		return 1
 	fi
 	log "starting better-ccflare upstream on 127.0.0.1:${UPSTREAM_PORT}"
+	# From here a backend may exist before the record names it.
+	owner_spawn_begun=1
 	HOME="$HOME" \
 		USER="$USER" \
 		BETTER_CCFLARE_HOST=127.0.0.1 \
@@ -1013,10 +1079,12 @@ start_recorded_upstream() {
 		CCFLARE_DEBUG_ANTHROPIC_BOUNDARY="${CCFLARE_DEBUG_ANTHROPIC_BOUNDARY:-1}" \
 		CCFLARE_DEBUG_CODEX_STREAM="${CCFLARE_DEBUG_CODEX_STREAM:-1}" \
 		"$CCFLARE_BIN" --serve --port "$UPSTREAM_PORT" &
-	upstream_pid=$!
+	# The record's pid is noted in the same command as the backend's, which
+	# narrows the moment at which cleanup could stop this backend while the
+	# record's close does not know which one it was (#859).
+	upstream_pid=$! owner_open_pid=$!
 	if ((transaction_enabled)); then
 		local candidate_start
-		owner_open_pid="$upstream_pid"
 		if ! candidate_start="$(proc_start_time "$upstream_pid" /proc)"; then
 			if ((pending_deployment)); then transaction_advance "$handoff_phase" held '{"reason":"candidate_start_identity_unavailable"}' || true; fi
 			log "backend start held: candidate_start_identity_unavailable"
