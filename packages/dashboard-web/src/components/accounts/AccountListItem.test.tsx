@@ -12,8 +12,9 @@
  */
 import { describe, expect, it, mock } from "bun:test";
 import type { BankedResets, FullUsageData } from "@better-ccflare/types";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement, ReactNode } from "react";
-import { renderToStaticMarkup as renderClosedMarkup } from "react-dom/server";
+import { renderToStaticMarkup as renderMarkup } from "react-dom/server";
 import type { Account } from "../../api";
 import { StatusPill } from "../ui/status-pill";
 import { AccountList, accountListItems } from "./AccountList";
@@ -39,6 +40,15 @@ mock.module("../ui/tabs", () => ({
 		value: string;
 	}) => <div data-tab-content={value}>{children}</div>,
 }));
+// The row's token mark reads a shared query, and the app always renders rows
+// inside its QueryClientProvider. With nothing cached the mark renders nothing.
+const rowQueryClient = new QueryClient();
+function renderClosedMarkup(node: ReactNode): string {
+	return renderMarkup(
+		<QueryClientProvider client={rowQueryClient}>{node}</QueryClientProvider>,
+	);
+}
+
 function renderToStaticMarkup(node: ReactNode): string {
 	const row = node as ReactElement;
 	return renderClosedMarkup(

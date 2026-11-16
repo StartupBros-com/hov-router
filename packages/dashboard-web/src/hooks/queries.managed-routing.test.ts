@@ -2,6 +2,7 @@ import { describe, expect, it, mock } from "bun:test";
 import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../lib/query-keys";
 import {
+	ACCOUNT_REAUTH_INVALIDATION,
 	ACCOUNT_ROUTING_INVALIDATION,
 	deviceSetupJobsNeedPolling,
 	FULL_MANAGED_ROUTING_INVALIDATION,
@@ -143,6 +144,30 @@ describe("invalidateManagedRouting", () => {
 		]);
 	});
 
+	it("refreshes cached model lists, per-provider lists included, in the models scope", async () => {
+		const { queryClient, invalidateQueries } = createQueryClientSpy();
+
+		await invalidateManagedRouting(queryClient, { models: true });
+
+		expect(invalidatedKeys(invalidateQueries)).toEqual([queryKeys.models()]);
+		expect(queryKeys.providerModels("codex", "acct-1").slice(0, 2)).toEqual([
+			...queryKeys.models(),
+		]);
+	});
+
+	it("refreshes account views and cached model lists after a re-login", async () => {
+		const { queryClient, invalidateQueries } = createQueryClientSpy();
+
+		await invalidateManagedRouting(queryClient, ACCOUNT_REAUTH_INVALIDATION);
+
+		expect(invalidatedKeys(invalidateQueries)).toEqual([
+			queryKeys.accounts(),
+			queryKeys.routingEffective(),
+			queryKeys.accountRoutingOverview(),
+			queryKeys.models(),
+		]);
+	});
+
 	it("honors a focused caller-selected invalidation scope", async () => {
 		const { queryClient, invalidateQueries } = createQueryClientSpy();
 
@@ -261,6 +286,9 @@ describe("canonical account mutation invalidation", () => {
 		...fullRoutingKeys,
 		queryKeys.providerModelDefaults(),
 	];
+	// A new custom endpoint also changes which models the server lists for the
+	// account, so cached model lists must refresh too (#866).
+	const endpointRoutingKeys = [...pinSourceRoutingKeys, queryKeys.models()];
 
 	for (const [name, getOptions, expectedKeys] of [
 		["pause", getPauseAccountMutationOptions, accountRoutingKeys],
@@ -270,7 +298,7 @@ describe("canonical account mutation invalidation", () => {
 		[
 			"custom endpoint",
 			getUpdateAccountCustomEndpointMutationOptions,
-			pinSourceRoutingKeys,
+			endpointRoutingKeys,
 		],
 		[
 			"model mappings",

@@ -46,18 +46,38 @@ it("renders nothing for accounts without a refresh token", () => {
 });
 
 import { spyOn } from "bun:test";
-import * as React from "react";
+import {
+	QueryClient,
+	QueryClientProvider,
+	QueryObserver,
+} from "@tanstack/react-query";
 import { api } from "../api";
+import {
+	getAccountTokenHealthQueryOptions,
+	resolveAccountTokenHealth,
+} from "../hooks/queries";
+import { queryKeys } from "../lib/query-keys";
 import { OAuthTokenStatus } from "./OAuthTokenStatus";
+
+type AccountHealthResponse = Awaited<
+	ReturnType<typeof api.getAccountTokenHealth>
+>;
+
+const accountHealth = (status: string, message: string) =>
+	({
+		success: true,
+		data: { status, message },
+	}) as unknown as AccountHealthResponse;
 
 for (const failure of ["throws", "unsuccessful", "missing account"] as const) {
 	it(`ends the OAuth fallback at a static unknown icon when global health ${failure}`, async () => {
-		const accountHealth = spyOn(api, "getAccountTokenHealth").mockResolvedValue(
-			{
-				success: false,
-				error: "Account health unavailable",
-			} as unknown as Awaited<ReturnType<typeof api.getAccountTokenHealth>>,
-		);
+		const accountHealthSpy = spyOn(
+			api,
+			"getAccountTokenHealth",
+		).mockResolvedValue({
+			success: false,
+			error: "Account health unavailable",
+		} as unknown as AccountHealthResponse);
 		const globalHealth = spyOn(api, "getTokenHealth").mockImplementation(
 			async () => {
 				if (failure === "throws") throw new Error("Global health unavailable");
@@ -68,68 +88,22 @@ for (const failure of ["throws", "unsuccessful", "missing account"] as const) {
 				) as Awaited<ReturnType<typeof api.getTokenHealth>>;
 			},
 		);
-		// Follow RateLimitProgress.lifecycle.test.tsx: execute real hooks/effects,
-		// then render the returned view. This does not claim browser mounting.
-		const internals = (
-			React as unknown as {
-				__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE: {
-					H: unknown;
-				};
-			}
-		).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
-		const previous = internals.H;
-		const states: unknown[] = [];
-		const effects: { deps: readonly unknown[]; cleanup?: () => void }[] = [];
-		let stateIndex = 0;
-		let effectIndex = 0;
-		let pending: (() => void)[] = [];
-		let dirty = false;
-		const dispatcher = {
-			useState: (initial: unknown) => {
-				const index = stateIndex++;
-				if (!(index in states)) states[index] = initial;
-				return [
-					states[index],
-					(value: unknown) => {
-						if (!Object.is(states[index], value)) dirty = true;
-						states[index] = value;
-					},
-				];
-			},
-			useEffect: (
-				callback: () => (() => void) | undefined,
-				deps: readonly unknown[],
-			) => {
-				const index = effectIndex++;
-				const old = effects[index];
-				if (old && deps.every((dep, i) => Object.is(dep, old.deps[i]))) return;
-				pending.push(() => {
-					old?.cleanup?.();
-					effects[index] = { deps, cleanup: callback() };
-				});
-			},
-		};
-		let view: ReturnType<typeof OAuthTokenStatus> | undefined;
 		try {
-			for (let round = 0; round < 10; round++) {
-				dirty = false;
-				stateIndex = 0;
-				effectIndex = 0;
-				internals.H = dispatcher;
-				view = OAuthTokenStatus({
-					accountName: "test-account",
-					hasRefreshToken: true,
-					provider: "anthropic",
-				});
-				internals.H = previous;
-				for (const effect of pending) effect();
-				pending = [];
-				await Promise.resolve();
-				await Promise.resolve();
-				if (!dirty) break;
-			}
+			const health = await resolveAccountTokenHealth("test-account");
+
 			expect(globalHealth).toHaveBeenCalledTimes(1);
-			const html = renderToStaticMarkup(view);
+			expect(health).toEqual({
+				status: "unknown",
+				message: "OAuth token status unavailable",
+			});
+			const html = renderToStaticMarkup(
+				<OAuthTokenStatusView
+					{...health}
+					accountName="test-account"
+					hasRefreshToken
+					provider="anthropic"
+				/>,
+			);
 			expect(html).toContain('title="OAuth token status unknown"');
 			expect(html).toContain("<svg");
 			expect(html).toContain(
@@ -137,10 +111,66 @@ for (const failure of ["throws", "unsuccessful", "missing account"] as const) {
 			);
 			expect(html).not.toContain("animate-spin");
 		} finally {
-			internals.H = previous;
-			for (const effect of effects) effect.cleanup?.();
-			accountHealth.mockRestore();
+			accountHealthSpy.mockRestore();
 			globalHealth.mockRestore();
 		}
 	});
 }
+
+it("re-checks the token mark whenever the accounts data is invalidated (#866)", async () => {
+	let current = accountHealth("expired", "Refresh token expired");
+	const accountHealthSpy = spyOn(
+		api,
+		"getAccountTokenHealth",
+	).mockImplementation(async () => current);
+	const queryClient = new QueryClient({
+		defaultOptions: { queries: { retry: false } },
+	});
+	// A subscribed observer stands in for the mounted row, so invalidation
+	// refetches it the way it would on the page.
+	const observer = new QueryObserver(
+		queryClient,
+		getAccountTokenHealthQueryOptions("test-account"),
+	);
+	const unsubscribe = observer.subscribe(() => {});
+	try {
+		await queryClient.refetchQueries({
+			queryKey: queryKeys.accountTokenHealth("test-account"),
+		});
+		expect(observer.getCurrentResult().data?.status).toBe("expired");
+
+		// A re-login (or Refresh usage) renews the token, then invalidates the
+		// accounts data, as every account mutation does.
+		current = accountHealth("healthy", "Token healthy");
+		await queryClient.invalidateQueries({ queryKey: queryKeys.accounts() });
+
+		expect(observer.getCurrentResult().data?.status).toBe("healthy");
+		expect(accountHealthSpy).toHaveBeenCalledTimes(2);
+	} finally {
+		unsubscribe();
+		queryClient.clear();
+		accountHealthSpy.mockRestore();
+	}
+});
+
+it("renders the token mark from the shared query cache", () => {
+	const queryClient = new QueryClient();
+	queryClient.setQueryData(queryKeys.accountTokenHealth("test-account"), {
+		status: "expired",
+		message: "Refresh token expired",
+	});
+	try {
+		const html = renderToStaticMarkup(
+			<QueryClientProvider client={queryClient}>
+				<OAuthTokenStatus
+					accountName="test-account"
+					hasRefreshToken
+					provider="anthropic"
+				/>
+			</QueryClientProvider>,
+		);
+		expect(html).toContain("OAuth token expired - Refresh token expired");
+	} finally {
+		queryClient.clear();
+	}
+});

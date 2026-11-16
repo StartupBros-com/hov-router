@@ -538,3 +538,114 @@ describe("refreshPollingAccessToken (R25: rotation no longer defeats the pause)"
 		]);
 	});
 });
+
+describe("startUsagePollingWithRefresh restart hand-off (#866)", () => {
+	// Production reads go through an async retry wrapper, so the lease check
+	// takes several microtask turns. A restart caller that asks the usage cache
+	// for a refresh before the new poll has registered gets `false`, and the
+	// Refresh usage endpoint then answered with no usage cached at all.
+	// Retire the lease and let any poll still in flight bail before a stub is
+	// restored, so a failing run can never reach the real usage endpoint.
+	const retireBeforeRestoring = async (
+		lifecycle: UsagePollingLifecycle<number>,
+		accountId: string,
+	) => {
+		lifecycle.retire(accountId);
+		for (let i = 0; i < 20; i++) await Promise.resolve();
+	};
+	const getAccountLikeProduction = (account: Account) => async () => {
+		await Promise.resolve();
+		await Promise.resolve();
+		return account;
+	};
+
+	it("resolves an immediate start only after the poll has registered with the usage cache", async () => {
+		const account = makeAccount({ id: "acct-restart-order", created_at: 100 });
+		const startPolling = spyOn(usageCache, "startPolling").mockImplementation(
+			() => {},
+		);
+		const lifecycle = new UsagePollingLifecycle<number>({
+			schedule: () => 1,
+			cancel: () => {},
+		});
+		try {
+			await startUsagePollingWithRefresh(
+				account,
+				{
+					dbOps: { getAccount: getAccountLikeProduction(account) },
+				} as never,
+				{} as never,
+				{} as never,
+				lifecycle,
+			);
+			expect(startPolling).toHaveBeenCalledTimes(1);
+		} finally {
+			await retireBeforeRestoring(lifecycle, account.id);
+			startPolling.mockRestore();
+		}
+	});
+
+	it("lets a refresh right after a restart join the new poll's first usage fetch", async () => {
+		const account = makeAccount({
+			id: "acct-restart-refresh",
+			created_at: 100,
+			paused: false,
+		});
+		const usageUrl = "https://api.anthropic.com/api/oauth/usage";
+		const fetchedUrls: string[] = [];
+		// Only the usage read is answered; anything else fails the test instead
+		// of leaving the process.
+		const fetchStub = spyOn(globalThis, "fetch").mockImplementation((async (
+			input: string | URL | Request,
+		) => {
+			const url =
+				typeof input === "string"
+					? input
+					: input instanceof URL
+						? input.href
+						: input.url;
+			fetchedUrls.push(url);
+			if (url !== usageUrl) throw new Error(`unexpected network call: ${url}`);
+			return new Response(
+				JSON.stringify({
+					five_hour: { utilization: 12, resets_at: "2026-11-16T20:00:00Z" },
+					seven_day: { utilization: 40, resets_at: "2026-11-20T00:00:00Z" },
+				}),
+				{ status: 200, headers: { "content-type": "application/json" } },
+			);
+		}) as typeof fetch);
+		const lifecycle = new UsagePollingLifecycle<number>({
+			schedule: () => 1,
+			cancel: () => {},
+		});
+		const proxyContext = {
+			dbOps: {
+				getAccount: getAccountLikeProduction(account),
+				recordUsageSnapshot: async () => {},
+			},
+			refreshInFlight: new Map(),
+		} as never;
+		try {
+			// The restarter's sequence: drop the old registration, start the new
+			// poll, then ask the cache for a refresh.
+			usageCache.stopPolling(account.id);
+			await startUsagePollingWithRefresh(
+				account,
+				proxyContext,
+				{ evaluateUsageSnapshot: async () => {} } as never,
+				{ observeSnapshot: async () => {} } as never,
+				lifecycle,
+			);
+			const refreshed = await usageCache.refreshNow(account.id);
+
+			expect(refreshed).toBe(true);
+			expect(usageCache.get(account.id)).toBeTruthy();
+			// The refresh joined the first fetch instead of sending a second one.
+			expect(fetchedUrls).toEqual([usageUrl]);
+		} finally {
+			await retireBeforeRestoring(lifecycle, account.id);
+			usageCache.stopPolling(account.id);
+			fetchStub.mockRestore();
+		}
+	});
+});
