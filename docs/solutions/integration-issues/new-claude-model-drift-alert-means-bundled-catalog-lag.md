@@ -1,7 +1,7 @@
 ---
 title: A drift alert naming a new Claude model means the bundled catalog lags, not that routing failed
 date: 2026-10-15
-last_updated: 2026-11-14
+last_updated: 2026-11-15
 category: integration-issues
 module: model-catalog
 problem_type: integration_issue
@@ -111,7 +111,7 @@ The long-context fix has to work per request. The tier depends on each request's
 - PR #362: same-family pass-through on bare-alias combo slots.
 - PR #390: the Sonnet 5.5 registration, which added the two parity tests.
 - PR #778: catalogue-gap, era-rate and unpriced-window alerts, and the first-sight catalogue refetch. PR #779: the era-floor test.
-- Open issues: #513 (Auto lightweight lane did not admit Haiku 5.5; moot once #816 removes the lane), #514 (`temperature`/`top_p` forwarded to 5.5 targets), #519 (advisor tier classification is per entry), #520 (pre-split closed windows stay unpriced).
+- Open issues: #513 (Auto lightweight lane did not admit Haiku 5.5; moot since PR #825 removed the lane), #514 (`temperature`/`top_p` forwarded to 5.5 targets), #519 (advisor tier classification is per entry), #520 (pre-split closed windows stay unpriced).
 - `docs/solutions/observability/diagnose-new-model-cache-alerts-by-context-mix-and-sample-support.md`: the other alert that follows a new model release.
 - `docs/solutions/integration-issues/route-profile-expected-physical-model-checked-before-provider-defaults.md`: route profiles, which carried most of this traffic to other providers.
 - `docs/solutions/integration-issues/claude-code-websearch-refused-as-no-implementation.md`: forced tool choice on the 5.5 models.

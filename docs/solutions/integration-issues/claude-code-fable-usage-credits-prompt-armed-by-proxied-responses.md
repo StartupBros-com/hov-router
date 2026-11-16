@@ -16,7 +16,6 @@ framework_version: claude-code 2.1.289
 related_components:
   - guard
   - usage-collector
-  - quality-routing
 retire_when: "Claude Code changes which responses set its Fable usage-credits latch; after a Claude Code upgrade, check the installed binary's strings for 'fableCreditsRequired' and 'anthropic-ratelimit-unified-overage-in-use' (both strings still present in 2.1.290; setter behavior not re-read there)"
 tags:
   - claude-code
@@ -58,7 +57,7 @@ Status as of this writing: PR #451 was deployed on 2026-10-06 at 01:25Z. Confirm
   - The plan is kept, marked superseded, at `docs/plans/2026-10-05-0117-feat-account-usage-window-cap-plan.md`. Its follow-ups #446 and #448 were closed as not planned, since the code they described is gone.
 - **Treating any response from an exhausted account as the trigger.** Since 2026-10-01, 61 of 204 sessions got responses from Fable-exhausted accounts, and only 2 switched. So exhaustion headers alone do not arm the prompt (auto memory [claude]).
 - **Consenting once.** Claude Code stores consent globally in `~/.claude.json` (`fableOverageConsentV2`). It honours that consent only when extra usage is enabled, or disabled for one of a few recoverable reasons. The login's org has extra usage disabled at the org level (`org_level_disabled`), so consenting changes nothing. This was read in the 2.1.289 binary.
-- **Quality routing policy lines.** `quality_routing_policy.accounts[].lines` applied to Auto routes only, and Claude Code sends the native `claude-fable-5-1` model, which never went through Auto. #816 removes the Auto lane, after which the setting does nothing.
+- **Quality routing policy lines.** `quality_routing_policy.accounts[].lines` applied to Auto routes only, and Claude Code sends the native `claude-fable-5-1` model, which never went through Auto. PR #825 removed the Auto lane on 2026-11-15 (#816), and the router now ignores the setting with a warning.
 
 ## Solution
 
@@ -94,7 +93,7 @@ Nobody captured the response that armed the prompt in either incident. So setter
 
 Not covered:
 
-- **Setter 2 on quality routes.** Quality attempts delivered an unproven `credits_required` 429 to the client rather than fail over. None of the 56 quality-routed requests on record by 2026-10-05 was a 429, and #816 removes the quality routes.
+- **Setter 2 on quality routes.** Quality attempts delivered an unproven `credits_required` 429 to the client rather than fail over. None of the 56 quality-routed requests on record by 2026-10-05 was a 429. PR #825 removed the quality routes on 2026-11-15 (#816), so this path no longer exists.
 - **The server flag.** No proxy change can affect it.
 - **The header has not been seen in traffic.** No captured Fable response has carried `overage-in-use: true` yet: 0 of 45 by 2026-10-05. Capture started with #445, after both incidents, so this sample cannot show what either incident received. This channel was closed by reading the client code.
 

@@ -114,7 +114,7 @@ That evidence comes only from the account's own wham poll. It is `null` when mis
   - capability route-profile selection (`:2716`).
 
   Drain skips only the session and weekly-all windows. It does not lift per-model weekly caps (`usage-throttling.ts:775`), which bind wherever model-scoped capacity is enforced: on force routes, or when model-scoped capacity routing is set to `exhausted` (`account-selector.ts:1315-1322`).
-- **Auto quality routes**, which never read the toggle and used `evaluateAutoCapacity` instead, are removed by #816.
+- **Auto quality routes** never read the toggle and used `evaluateAutoCapacity` instead. PR #825 removed them on 2026-11-15 (#816).
 
 ### 5. Look outside ccflare when kept credits fall
 
@@ -167,4 +167,4 @@ A live check that proves billing and never touches Anthropic-backed accounts (se
 - [Verify a capacity-exhausted provider lane against a mock upstream](./verify-capacity-exhausted-provider-lane-fixes-against-a-mock-upstream.md): the no-spend way to exercise this gate. A drain-active account is not "exhausted" in the gate's sense, so that doc's fail-closed rule still holds.
 - [Validate provider logic against live payloads](../validate-against-live-payloads.md): the same lesson for usage payloads in general.
 - [Rate-limit holds: scope, duration, and evidence](../rate-limit-scope-and-duration.md): the other capacity rules this gate sits beside.
-- Issue #419 and PR #421 (the toggle); PR #404 (owned Codex subscription-only admission); issue #398 (approved-quality Auto routing, open as of this writing).
+- Issue #419 and PR #421 (the toggle); PR #404 (owned Codex subscription-only admission); issue #398 (approved-quality Auto routing; PR #825 removed that lane).
