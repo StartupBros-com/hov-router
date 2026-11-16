@@ -12,7 +12,7 @@ status: superseded
 
 # Auto Quality Routing - Plan
 
-> **Superseded 2026-11-14 by #816.** The operator retired the Auto quality lane this plan built, and #816 removes its code. The plan is kept as history.
+> **Superseded 2026-11-14 by #816.** The operator retired the Auto quality lane this plan built. PR #825 removed it on 2026-11-15, and PR #841 removed the code it left unreachable the same day. The plan is kept as history.
 
 ## Goal Capsule
 
