@@ -44,6 +44,7 @@ describe("Overview states", () => {
 					);
 				});
 				expectHeader(html, "overview");
+				expect(html).toContain("No pool capacity yet.");
 				expect(html).toContain("Storage Integrity");
 				if (section === "analytics" && state === "loading") {
 					expect(html).toContain('aria-label="Time range"');

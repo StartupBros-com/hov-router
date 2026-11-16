@@ -6,34 +6,21 @@ import {
 	formatTokensPerSecond,
 } from "@better-ccflare/ui-common";
 import { format } from "date-fns";
-import {
-	Activity,
-	BarChart3,
-	Boxes,
-	CheckCircle,
-	Clock,
-	DollarSign,
-	Gauge,
-	Zap,
-} from "lucide-react";
+import { Activity, CheckCircle, Clock, DollarSign, Zap } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import type { Account } from "../api";
 import {
 	useAccounts,
 	useAnalytics,
+	useRedeemReset,
 	useRoutingObservations,
 } from "../hooks/queries";
 import { useApiError } from "../hooks/useApiError";
-import {
-	computePoolUsage,
-	computeScopedPoolUsage,
-	formatFamilyLabel,
-} from "../lib/pool-usage";
+import { buildPoolGroups } from "../lib/pool-forecast";
+import { UseResetDialog } from "./accounts/UseResetDialog";
 import { ChartsSection } from "./overview/ChartsSection";
 import { MetricCard } from "./overview/MetricCard";
-import {
-	PoolCapacitySection,
-	type PoolCapacitySectionPool,
-} from "./overview/PoolCapacitySection";
+import { PoolCapacitySection } from "./overview/PoolCapacitySection";
 import { RateLimitInfo } from "./overview/RateLimitInfo";
 import {
 	StorageIntegrityBanner,
@@ -77,60 +64,14 @@ export const OverviewTab = React.memo(() => {
 		});
 	}, []);
 
-	const fiveHourPool = useMemo(
-		() => computePoolUsage(accounts ?? [], "five_hour", now),
+	// isPrimary comes from strategy.peek() on the server and remains the
+	// single source for "next request". Never infer a pick from chart order.
+	const { groups, hidden } = useMemo(
+		() => buildPoolGroups(accounts ?? [], now),
 		[accounts, now],
 	);
-	const weeklyPool = useMemo(
-		() => computePoolUsage(accounts ?? [], "seven_day", now),
-		[accounts, now],
-	);
-	const scopedPools = useMemo(
-		() => computeScopedPoolUsage(accounts ?? [], now),
-		[accounts, now],
-	);
-
-	// The account the active load-balancing strategy would pick for the NEXT
-	// request (AccountResponse.isPrimary, filled server-side from
-	// strategy.peek() -- see packages/types/src/account.ts). This is the
-	// SINGLE source for "next request" display: PoolUsageRow must never
-	// recompute routing order itself, since that logic lives in the backend
-	// strategy and would drift from it. May be null if no account is primary
-	// right now.
-	const primaryAccountName = useMemo(
-		() => accounts?.find((a) => a.isPrimary)?.name ?? null,
-		[accounts],
-	);
-
-	const capacityPools: PoolCapacitySectionPool[] = useMemo(
-		() => [
-			{
-				id: "five_hour",
-				title: "5h Pool",
-				icon: Gauge,
-				result: fiveHourPool,
-				window: "five_hour" as const,
-			},
-			{
-				id: "seven_day",
-				title: "7d Pool",
-				icon: BarChart3,
-				result: weeklyPool,
-				window: "seven_day" as const,
-			},
-			...scopedPools.map(({ family, result }) => ({
-				id: `scoped:${family}`,
-				// `family` is the normalized routing key (e.g. "fable") --
-				// formatFamilyLabel re-capitalizes it for display ("Fable pool"),
-				// matching how ObservedRoutingTable titles the same key.
-				title: `${formatFamilyLabel(family)} pool`,
-				icon: Boxes,
-				result,
-				window: "weekly_scoped" as const,
-			})),
-		],
-		[fiveHourPool, weeklyPool, scopedPools],
-	);
+	const redeemReset = useRedeemReset();
+	const [useResetAccount, setUseResetAccount] = useState<Account | null>(null);
 
 	// Memoize percentage change calculation (must be at top level)
 	const pctChange = useCallback(
@@ -401,8 +342,10 @@ export const OverviewTab = React.memo(() => {
 					</>
 				)}
 				<PoolCapacitySection
-					pools={capacityPools}
-					primaryAccountName={primaryAccountName}
+					groups={groups}
+					hidden={hidden}
+					loading={accounts === undefined && !accountsFailed}
+					onUseReset={setUseResetAccount}
 					now={now}
 					observations={routingObservationsResponse?.observations}
 					loadError={
@@ -433,6 +376,16 @@ export const OverviewTab = React.memo(() => {
 
 				{accounts && <RateLimitInfo accounts={accounts} now={now} />}
 			</div>
+			{useResetAccount && (
+				<UseResetDialog
+					key={useResetAccount.id}
+					account={useResetAccount}
+					redeem={(accountId, requestId) =>
+						redeemReset.mutateAsync({ accountId, requestId })
+					}
+					onClose={() => setUseResetAccount(null)}
+				/>
+			)}
 		</div>
 	);
 });

@@ -3,6 +3,7 @@ import type {
 	ClosedUsageWindow,
 	OpenUsageWindow,
 } from "../../api";
+import { providerPlanTitle } from "../../utils/provider-utils";
 import { WindowValueComparisonTable } from "./WindowValueComparisonTable";
 import {
 	deltaVsPriorMedian,
@@ -42,12 +43,6 @@ type TimelineWindow = ClosedUsageWindow | OpenUsageWindow;
 export interface WindowValueTimelineProps {
 	accounts: readonly AccountUsageWindows[];
 	nowMs: number;
-}
-
-function providerTitle(provider: string): string {
-	if (provider === "codex") return "Codex Pro";
-	if (provider === "anthropic") return "Claude Max";
-	return provider;
 }
 
 function tickPositionPercent(atMs: number, domain: TimelineDomain): number {
@@ -317,7 +312,7 @@ export function WindowValueTimeline({
 		<div className="space-y-8">
 			{sections.map((section) => {
 				const subtotal = sectionLastFullWindowSubtotal(section.accounts);
-				const title = providerTitle(section.provider);
+				const title = providerPlanTitle(section.provider);
 
 				return (
 					<section

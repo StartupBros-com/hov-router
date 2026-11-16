@@ -381,6 +381,25 @@ describe("window-value timeline helpers", () => {
 });
 
 describe("WindowValueTimeline", () => {
+	it("uses shared plan names for Alibaba and Z.ai and preserves raw unknown providers", () => {
+		const html = renderToString(
+			<WindowValueTimeline
+				accounts={[
+					{ ...otherProvider, provider: "alibaba-coding-plan" },
+					{ ...otherProvider, accountId: "zai-test", provider: "zai" },
+					{
+						...otherProvider,
+						accountId: "custom-test",
+						provider: "custom-provider",
+					},
+				]}
+				nowMs={NOW_MS}
+			/>,
+		);
+		expect(html).toContain("Alibaba Coding Plan");
+		expect(html).toContain("Z.ai");
+		expect(html).toContain("custom-provider");
+	});
 	it("renders provider sections, muted partials, lower bounds, bonus-reset markers, and detailed titles", () => {
 		const html = renderToString(
 			<WindowValueTimeline
