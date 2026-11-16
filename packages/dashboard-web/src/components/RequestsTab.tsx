@@ -28,6 +28,12 @@ import {
 	describeRequestAgent,
 	groupAgentFilterOptions,
 } from "../lib/attribution";
+import {
+	type DatePreset,
+	datePresetFrom,
+	inRequestDateRange,
+	requestDateBounds,
+} from "../lib/request-date-range";
 import { activeRequestFilters } from "../lib/request-filters";
 import { requestModelLabel } from "../lib/request-model-label";
 import { httpStatusTone } from "../lib/request-status";
@@ -205,6 +211,7 @@ export function RequestsTab() {
 	// Filter requests based on selected filters - memoized to avoid recalculation on every render
 	const filteredRequests = useMemo(() => {
 		if (!data) return [];
+		const dateBounds = requestDateBounds(dateFrom, dateTo);
 		return data.requests.filter((request) => {
 			// Account filter
 			if (accountFilter !== "all") {
@@ -238,20 +245,7 @@ export function RequestsTab() {
 				}
 			}
 
-			// Date range filter
-			const requestDate = new Date(request.meta.timestamp);
-			if (dateFrom) {
-				const fromDate = new Date(dateFrom);
-				fromDate.setHours(0, 0, 0, 0);
-				if (requestDate < fromDate) return false;
-			}
-			if (dateTo) {
-				const toDate = new Date(dateTo);
-				toDate.setHours(23, 59, 59, 999);
-				if (requestDate > toDate) return false;
-			}
-
-			return true;
+			return inRequestDateRange(request.meta.timestamp, dateBounds);
 		});
 	}, [
 		data,
@@ -275,37 +269,9 @@ export function RequestsTab() {
 		});
 	};
 
-	// Date preset helpers
-	const applyDatePreset = (preset: string) => {
-		const now = new Date();
-		const toDate = now.toISOString().slice(0, 16);
-
-		switch (preset) {
-			case "1h": {
-				const fromDate = new Date(now.getTime() - 60 * 60 * 1000);
-				setDateFrom(fromDate.toISOString().slice(0, 16));
-				setDateTo(toDate);
-				break;
-			}
-			case "24h": {
-				const fromDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-				setDateFrom(fromDate.toISOString().slice(0, 16));
-				setDateTo(toDate);
-				break;
-			}
-			case "7d": {
-				const fromDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-				setDateFrom(fromDate.toISOString().slice(0, 16));
-				setDateTo(toDate);
-				break;
-			}
-			case "30d": {
-				const fromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-				setDateFrom(fromDate.toISOString().slice(0, 16));
-				setDateTo(toDate);
-				break;
-			}
-		}
+	const applyDatePreset = (preset: DatePreset) => {
+		setDateFrom(datePresetFrom(preset, Date.now()));
+		setDateTo("");
 	};
 
 	const toggleStatusCode = (code: string) => {

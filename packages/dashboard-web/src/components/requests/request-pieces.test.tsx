@@ -52,7 +52,8 @@ describe("ActiveFilterBar", () => {
 			dateFrom: "2026-11-14T20:00",
 			dateTo: "2026-11-15T09:30",
 		},
-		{ locale: "en-US" },
+		// Local noon on Nov 15, so the To time reads as today in any zone.
+		{ locale: "en-US", now: new Date("2026-11-15T12:00").getTime() },
 	);
 
 	it("renders nothing when no filter is on", () => {
@@ -69,7 +70,7 @@ describe("ActiveFilterBar", () => {
 		).toBe("");
 	});
 
-	it("labels each chip and the applied days, with a 44 px Clear all", () => {
+	it("labels each chip and the applied range, with a 44 px Clear all", () => {
 		const html = renderToStaticMarkup(
 			<ActiveFilterBar
 				filters={filters}
@@ -81,9 +82,11 @@ describe("ActiveFilterBar", () => {
 		);
 		const text = html.replace(/<[^>]+>/g, "");
 		expect(html).toContain('aria-label="Remove filter Account: max-primary"');
-		expect(html).toContain('aria-label="Remove filter Date: Nov 14 – Nov 15"');
+		expect(html).toContain(
+			'aria-label="Remove filter Date: Nov 14, 8:00 PM – 9:30 AM"',
+		);
 		expect(text).toContain("Account: max-primary");
-		expect(text).toContain("Date: Nov 14 – Nov 15");
+		expect(text).toContain("Date: Nov 14, 8:00 PM – 9:30 AM");
 		expect(text).toContain("3 of 9 requests");
 		expect(html).toMatch(/<button[^>]*min-h-11[^>]*>Clear all<\/button>/);
 	});
