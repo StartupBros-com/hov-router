@@ -514,12 +514,17 @@ export function ApiKeysTab() {
 														</DropdownMenuContent>
 													</DropdownMenu>
 												) : (
-													<StatusPill
-														tone={ROLE_TONE[key.role]}
-														title="First API key must remain admin"
-													>
-														{key.role === "admin" ? "Admin" : "API-only"}
-													</StatusPill>
+													<>
+														<StatusPill
+															tone={ROLE_TONE[key.role]}
+															title="First API key must remain admin"
+														>
+															{key.role === "admin" ? "Admin" : "API-only"}
+														</StatusPill>
+														<span className="text-xs text-muted-foreground">
+															First key stays admin
+														</span>
+													</>
 												)}
 											</div>
 											<div className="text-sm text-muted-foreground mt-1">

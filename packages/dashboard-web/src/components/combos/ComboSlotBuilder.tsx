@@ -290,6 +290,11 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 	const passthroughAllowed =
 		providerAllowsClientModelPassthrough(selectedProvider);
 	const missingRequiredModel = !passthroughAllowed && !newModel.trim();
+	// Named only once an account is chosen; before that the empty account select explains the disabled Add.
+	const requiredModelReason =
+		missingRequiredModel && selectedProvider
+			? `A model is required for ${selectedProvider}: this provider does not serve Claude model ids, so there is no passthrough.`
+			: undefined;
 	const families = familiesQuery.data?.families ?? [];
 	const effectiveRoutingUnavailable =
 		effectiveRoutingQuery.isError || effectiveRoutingQuery.isRefetchError;
@@ -518,6 +523,11 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 								this lane.
 							</p>
 						</div>
+						{requiredModelReason && (
+							<p className="text-xs text-muted-foreground">
+								{requiredModelReason}
+							</p>
+						)}
 						<div className="flex justify-end gap-2">
 							<Button variant="outline" size="touch-sm" onClick={closeAddForm}>
 								Cancel
@@ -531,11 +541,7 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 									parsedNewPriority === null ||
 									addSlot.isPending
 								}
-								title={
-									missingRequiredModel
-										? `A model is required for ${selectedProvider}: this provider does not serve Claude model ids, so there is no passthrough.`
-										: undefined
-								}
+								title={requiredModelReason}
 							>
 								{addSlot.isPending ? "Adding..." : "Add"}
 							</Button>

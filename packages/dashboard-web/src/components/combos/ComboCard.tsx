@@ -52,11 +52,16 @@ export function ComboCard({
 							</p>
 						)}
 					</div>
-					<SwitchHitArea
-						checked={combo.enabled}
-						onCheckedChange={onToggleEnabled}
-						aria-label={`${combo.name} enabled`}
-					/>
+					<div className="flex shrink-0 items-center gap-1">
+						<SwitchHitArea
+							checked={combo.enabled}
+							onCheckedChange={onToggleEnabled}
+							aria-label={`${combo.name} enabled`}
+						/>
+						<span className="text-sm text-muted-foreground">
+							{combo.enabled ? "Enabled" : "Disabled"}
+						</span>
+					</div>
 				</div>
 			</CardHeader>
 			<CardContent className="pt-0">

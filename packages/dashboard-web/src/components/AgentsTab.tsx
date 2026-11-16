@@ -129,7 +129,7 @@ export function AgentsTab() {
 						<Separator />
 						<div>
 							<h3 className="font-medium mb-2">Workspace Agents</h3>
-							<p className="text-sm text-muted-foreground">
+							<p className="text-sm text-muted-foreground break-words">
 								Workspace agents live in a project's .claude/agents/ directory.{" "}
 								{PRODUCT_NAME} registers projects only when
 								BETTER_CCFLARE_AGENT_WORKSPACE_AUTODISCOVER=true is set. It then
@@ -216,6 +216,7 @@ Your system prompt content here...`}
 										size="touch-icon"
 										onClick={() => refreshModels.mutate()}
 										disabled={refreshModels.isPending}
+										className="shrink-0"
 										aria-label="Refresh model list"
 										title="Refresh the live model list from Anthropic"
 									>
@@ -256,6 +257,7 @@ Your system prompt content here...`}
 												<ModelSelect
 													value={bulkUpdateModel}
 													onValueChange={setBulkUpdateModel}
+													triggerClassName="h-11"
 													ariaLabel="Model for all agents"
 												/>
 											</div>

@@ -96,7 +96,7 @@ export function AgentCard({ agent }: AgentCardProps) {
 									? "Plugin-managed agents cannot be edited — modify the source plugin instead"
 									: "Edit agent file"
 							}
-							className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity disabled:cursor-not-allowed"
+							className="shrink-0 disabled:cursor-not-allowed"
 						>
 							<Edit3 className="h-4 w-4" />
 						</Button>
@@ -112,7 +112,7 @@ export function AgentCard({ agent }: AgentCardProps) {
 					<Label className="text-muted-foreground">Model Preference</Label>
 					<AgentModelPreferenceSelect
 						agent={agent}
-						triggerClassName="w-full bg-background/60 backdrop-blur-sm"
+						triggerClassName="h-11 w-full bg-background/60 backdrop-blur-sm"
 					/>
 					<p className="text-xs text-muted-foreground">
 						Proxy override — applies instantly, never modifies the agent file.

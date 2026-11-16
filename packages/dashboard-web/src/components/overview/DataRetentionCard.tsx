@@ -69,7 +69,7 @@ export function DataRetentionCard() {
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-3">
-				<div className="flex items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2">
 					<div className="flex items-center gap-2">
 						<Label
 							htmlFor="retention-payload-days"
@@ -100,7 +100,7 @@ export function DataRetentionCard() {
 					</Button>
 				</div>
 
-				<div className="flex items-center gap-2 pt-2">
+				<div className="flex flex-wrap items-center gap-2 pt-2">
 					<div className="flex items-center gap-2">
 						<Label
 							htmlFor="retention-request-days"
@@ -131,30 +131,42 @@ export function DataRetentionCard() {
 					</Button>
 				</div>
 
-				<SwitchRow
-					id="retention-store-payloads"
-					className="pt-2 pb-1"
-					label="Store message payloads"
-					description={
-						<>
-							<p className="text-xs text-muted-foreground">
-								Stores full request/response bodies (conversation text, images)
-								in the database. Disable to reduce database size and lower
-								memory pressure — token counts, costs, and analytics are always
-								saved regardless.
-							</p>
-							<p className="text-xs text-(--warning) mt-0.5">
-								Warning: storing payloads can significantly grow the database
-								size over time.
-							</p>
-						</>
-					}
-					checked={data?.storePayloads ?? true}
-					disabled={isLoading || setRetention.isPending}
-					onCheckedChange={(checked) =>
-						setRetention.mutate({ storePayloads: checked })
-					}
-				/>
+				<div className="flex items-center gap-3">
+					<SwitchRow
+						id="retention-store-payloads"
+						className="flex-1 pt-2 pb-1"
+						label="Store message payloads"
+						description={
+							<>
+								<p className="text-xs text-muted-foreground">
+									Stores full request/response bodies (conversation text,
+									images) in the database. Disable to reduce database size and
+									lower memory pressure — token counts, costs, and analytics are
+									always saved regardless.
+								</p>
+								<p className="text-xs text-(--warning) mt-0.5">
+									Warning: storing payloads can significantly grow the database
+									size over time.
+								</p>
+							</>
+						}
+						checked={data?.storePayloads ?? true}
+						disabled={isLoading || setRetention.isPending}
+						onCheckedChange={(checked) =>
+							setRetention.mutate({ storePayloads: checked })
+						}
+					/>
+					<span className="text-sm text-muted-foreground">
+						{(data?.storePayloads ?? true) ? "Enabled" : "Disabled"}
+					</span>
+				</div>
+
+				{setRetention.isError && (
+					<p role="alert" className="text-xs text-destructive">
+						Could not save the retention settings. The previous values are still
+						in effect.
+					</p>
+				)}
 
 				<div className="pt-1 flex items-center gap-2">
 					<Button

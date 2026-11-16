@@ -484,6 +484,7 @@ export function AgentEditDialog({
 									value={modelValue}
 									onValueChange={setModelValue}
 									placeholder="Select a model"
+									triggerClassName="h-11"
 									ariaLabel="Default Model (agent file)"
 									defaultItem={{
 										label: "Inherit (session model)",
@@ -704,6 +705,12 @@ export function AgentEditDialog({
 						</TabsContent>
 					</div>
 				</Tabs>
+
+				{updateAgent.isError && (
+					<p role="alert" className="text-sm text-destructive">
+						Could not save this agent. Your changes are still here; try again.
+					</p>
+				)}
 
 				<DialogFooter className="border-t pt-6">
 					<Button

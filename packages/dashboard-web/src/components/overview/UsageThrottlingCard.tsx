@@ -28,36 +28,48 @@ export function UsageThrottlingCard() {
 			</CardHeader>
 			<CardContent>
 				<div className="space-y-4">
-					<SwitchRow
-						id="usage-throttling-five-hour"
-						label="5-hour window"
-						labelClassName="text-sm font-medium"
-						description="Throttle requests when 5-hour usage is ahead of its pacing line."
-						aria-label="5-hour window"
-						disabled={isLoading || setUsageThrottling.isPending}
-						checked={fiveHourEnabled}
-						onCheckedChange={(checked) =>
-							setUsageThrottling.mutate({
-								fiveHourEnabled: checked,
-								weeklyEnabled,
-							})
-						}
-					/>
-					<SwitchRow
-						id="usage-throttling-weekly"
-						label="Weekly window"
-						labelClassName="text-sm font-medium"
-						description="Throttle requests when weekly usage is ahead of its pacing line. Disable this if you expect usage to recover overnight."
-						aria-label="Weekly window"
-						disabled={isLoading || setUsageThrottling.isPending}
-						checked={weeklyEnabled}
-						onCheckedChange={(checked) =>
-							setUsageThrottling.mutate({
-								fiveHourEnabled,
-								weeklyEnabled: checked,
-							})
-						}
-					/>
+					<div className="flex items-center gap-3">
+						<SwitchRow
+							className="flex-1"
+							id="usage-throttling-five-hour"
+							label="5-hour window"
+							labelClassName="text-sm font-medium"
+							description="Throttle requests when 5-hour usage is ahead of its pacing line."
+							aria-label="5-hour window"
+							disabled={isLoading || setUsageThrottling.isPending}
+							checked={fiveHourEnabled}
+							onCheckedChange={(checked) =>
+								setUsageThrottling.mutate({
+									fiveHourEnabled: checked,
+									weeklyEnabled,
+								})
+							}
+						/>
+						<span className="text-sm text-muted-foreground">
+							{fiveHourEnabled ? "Enabled" : "Disabled"}
+						</span>
+					</div>
+					<div className="flex items-center gap-3">
+						<SwitchRow
+							className="flex-1"
+							id="usage-throttling-weekly"
+							label="Weekly window"
+							labelClassName="text-sm font-medium"
+							description="Throttle requests when weekly usage is ahead of its pacing line. Disable this if you expect usage to recover overnight."
+							aria-label="Weekly window"
+							disabled={isLoading || setUsageThrottling.isPending}
+							checked={weeklyEnabled}
+							onCheckedChange={(checked) =>
+								setUsageThrottling.mutate({
+									fiveHourEnabled,
+									weeklyEnabled: checked,
+								})
+							}
+						/>
+						<span className="text-sm text-muted-foreground">
+							{weeklyEnabled ? "Enabled" : "Disabled"}
+						</span>
+					</div>
 				</div>
 			</CardContent>
 		</Card>

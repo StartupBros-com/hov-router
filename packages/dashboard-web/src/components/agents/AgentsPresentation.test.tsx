@@ -101,7 +101,7 @@ describe("AgentCard presentation", () => {
 	it("makes the edit button a 44 px icon target that keeps its name", () => {
 		const tag = tagWith(render(agent()), 'aria-label="Edit Reviewer"');
 		expect(tag).toContain("h-11 w-11");
-		expect(tag).toContain("opacity-0 group-hover:opacity-100");
+		expect(tag).not.toContain("opacity-0");
 	});
 });
 

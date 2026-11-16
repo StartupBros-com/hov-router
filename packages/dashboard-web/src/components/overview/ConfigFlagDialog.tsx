@@ -11,6 +11,7 @@ import {
 	DialogTrigger,
 } from "../ui/dialog";
 import { Label } from "../ui/label";
+import { ErrorState } from "../ui/state";
 import { Switch } from "../ui/switch";
 
 /**
@@ -58,6 +59,15 @@ export function ConfigFlagDialog({
 					<DialogTitle>{title}</DialogTitle>
 					<DialogDescription>{description}</DialogDescription>
 				</DialogHeader>
+
+				{flagQuery.isError && (
+					<ErrorState
+						size="inline"
+						title="Could not load this setting"
+						onRetry={() => void flagQuery.refetch()}
+						retryDisabled={flagQuery.isFetching}
+					/>
+				)}
 
 				<div className="flex items-center justify-between gap-4 rounded-md border p-3">
 					<Label
