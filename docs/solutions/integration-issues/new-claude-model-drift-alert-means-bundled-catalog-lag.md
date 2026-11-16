@@ -1,7 +1,7 @@
 ---
 title: A drift alert naming a new Claude model means the bundled catalog lags, not that routing failed
 date: 2026-10-15
-last_updated: 2026-11-15
+last_updated: 2026-11-16
 category: integration-issues
 module: model-catalog
 problem_type: integration_issue
@@ -63,7 +63,7 @@ PR #515 registered the model. Each of these places keys off a model id, and each
   - Add a `LIST_PRICE_ERAS` entry, with `longContext` rates when the model has a tier.
   - Bump `VALUE_PRICING_VERSION`. At startup the ledger re-prices every closed window stamped with another version (`revalueStaleClosedWindows`).
 - **Model lists:** add the model to `COMMON_MODELS` in `packages/types/src/agent.ts`.
-- **Forced tool choice:** check the model against Anthropic's tool-use docs before deciding whether it belongs in `FORCED_TOOL_CHOICE_UNSUPPORTED` in `models.ts`. Haiku 5.5 accepts a forced `tool_choice`, unlike Opus 5.5, Sonnet 5.5 and Fable 5.1, so it is not in that set (auto memory [claude]).
+- **Forced tool choice:** check the model against Anthropic's tool-use docs before deciding whether it belongs in `FORCED_TOOL_CHOICE_UNSUPPORTED` in `models.ts`. Haiku 5.5 accepts a forced `tool_choice`, unlike Opus 5.5, Sonnet 5.5, Fable 5.1 and Fable 5.2, so it is not in that set (auto memory [claude]). The set is a denylist: a model left out is assumed to accept a forced choice, so leaving out one that rejects it fails silently (PR #771 added Fable 5.2 for that reason).
 - **Approved lines:** no longer a touch point for a Claude model. The Auto quality lane, which read the Claude lines in `SUPPORTED_IDENTITIES` (`packages/providers/src/auto-model-capabilities.ts`), was removed in #816, and the catalogue-gap alert now checks only the Codex lines a route profile can pin.
 - **Responses-adapter sampling parameters:** `temperature` and `top_p` are still forwarded to 5.5 targets that reject them (issue #514, open).
 
@@ -100,7 +100,8 @@ The long-context fix has to work per request. The tier depends on each request's
   - Each time the models.dev catalogue is fetched or read from its disk cache (the bundled fallback is skipped), a `model_routing_drift` `catalog_new_model` alert names an Anthropic or OpenAI model released in the last 30 days that has no list-price era, or an Anthropic model missing from `CLAUDE_MODEL_IDS`. An info-level alert also names one missing from the approved line its name places it in, for the Codex lines a route profile can pin (`findCatalogNewModels` in `packages/core/src/catalog-diff.ts`). This can fire before any request uses the model.
   - A warning fires when a model's catalogue rates differ from its current list-price era (`findEraRateMismatches`, same file).
   - A warning fires when a window closes holding tokens the list-price table could not price, with the cause (`evaluateClosedWindowPricing` in `packages/http-api/src/services/alerts.ts`).
-  - A request naming a first-party model the catalogue lacks starts one background catalogue refetch (`noteUnknownModel` in `packages/core/src/pricing.ts`). The unknown-model drift check also covers the served and advisor models, not only the requested one.
+  - A request naming a first-party model the catalogue lacks starts one background catalogue refetch (`noteUnknownModel` in `packages/core/src/pricing.ts`). The unknown-model drift check also covers the served and advisor models, not only the requested one. That coverage exists because Claude Fable 5.2 first arrived only as Claude Code's advisor model: 83 requests carried it in `advisor_usage` on its launch day and none as the main model, so the requested-model check raised no alert. Its first two advisor costs also went unrecorded until the 24-hour catalogue refresh happened to land (issue #774).
+  - The era-rate alert exists because the ledger's rates are copied by hand. The Sonnet 5.5 era held a $0.20/M cache-read rate against a published $0.10, which overstated closed-window value by about $1,722 until PR #778 fixed it (figure recorded at that deploy in #774, not re-measured). `VALUE_PRICING_VERSION` is still bumped by hand, so an era edit without a bump leaves closed windows priced at the old rates.
   - `packages/core/src/value-pricing.test.ts`, "starts every model's first era at the era floor", so a window that opened before a model's launch still prices its tokens.
 - **The gap with no general guardrail.** Nothing fails when a model has a bundled pricing tier (`cost.tiers` in `pricing.ts`) but no matching `longContext` rates on its list-price era. The era parity test passes an empty long-context subset, so a flat era still passes, and today only a Haiku-5.5-specific assertion covers the pairing. The era rate alert from PR #778 does not catch it either: it compares long-context rates only when the era already has `longContext`. When a model has a tier, add both halves together, plus a test that values a request above the threshold at the tier rate. `LONG_CONTEXT_PROMPT_TOKENS` is a single global threshold. A model whose tier starts at a different size needs the split extended, not a second constant.
 
@@ -111,7 +112,8 @@ The long-context fix has to work per request. The tier depends on each request's
 - PR #362: same-family pass-through on bare-alias combo slots.
 - PR #390: the Sonnet 5.5 registration, which added the two parity tests.
 - PR #778: catalogue-gap, era-rate and unpriced-window alerts, and the first-sight catalogue refetch. PR #779: the era-floor test.
-- Open issues: #513 (Auto lightweight lane did not admit Haiku 5.5; moot since PR #825 removed the lane), #514 (`temperature`/`top_p` forwarded to 5.5 targets), #519 (advisor tier classification is per entry), #520 (pre-split closed windows stay unpriced).
+- Closed issues: #513 (Auto lightweight lane did not admit Haiku 5.5; closed as not planned once PR #825 removed the lane), #774 (catalogue-gap detection and the Sonnet 5.5 rate; closed after PRs #778 and #779 went live).
+- Open issues: #514 (`temperature`/`top_p` forwarded to 5.5 targets), #519 (advisor tier classification is per entry), #520 (pre-split closed windows stay unpriced).
 - `docs/solutions/observability/diagnose-new-model-cache-alerts-by-context-mix-and-sample-support.md`: the other alert that follows a new model release.
 - `docs/solutions/integration-issues/route-profile-expected-physical-model-checked-before-provider-defaults.md`: route profiles, which carried most of this traffic to other providers.
 - `docs/solutions/integration-issues/claude-code-websearch-refused-as-no-implementation.md`: forced tool choice on the 5.5 models.
