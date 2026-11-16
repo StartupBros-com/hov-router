@@ -25,6 +25,19 @@ mock.module("../ui/dialog", () => {
 	};
 });
 
+// Radix renders only the active tab; draw every tab body so the Tools tab is in the markup.
+const tabsPrimitives = await import("../ui/tabs");
+mock.module("../ui/tabs", () => ({
+	...tabsPrimitives,
+	TabsContent: ({
+		children,
+		value,
+	}: {
+		children: ReactNode;
+		value: string;
+	}) => <div data-tab-content={value}>{children}</div>,
+}));
+
 const { renderPage } = await import("../page-state-test-helpers");
 const { AgentEditDialog } = await import("./AgentEditDialog");
 
@@ -52,6 +65,18 @@ function tagWith(html: string, needle: string) {
 }
 
 describe("AgentEditDialog visible state", () => {
+	it("draws a hovered custom tool row's text in the accent foreground on its orange fill", () => {
+		state.isError = false;
+		// Tools that match no preset open the dialog in custom mode, which lists every tool.
+		const custom = { ...agent, tools: ["Bash", "Read"] } as unknown as Agent;
+		const html = renderPage(
+			<AgentEditDialog agent={custom} open onOpenChange={() => {}} />,
+		);
+		const row = tagWith(html, 'class="flex min-h-11 items-center gap-3');
+		expect(row).toContain("hover:bg-accent");
+		expect(row).toContain("hover:text-accent-foreground");
+	});
+
 	it("shows no alert while the save has not failed", () => {
 		state.isError = false;
 		const html = render();
