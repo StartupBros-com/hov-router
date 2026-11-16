@@ -45,15 +45,15 @@ export function AgentCard({ agent }: AgentCardProps) {
 
 			<CardHeader className="relative">
 				<div className="space-y-3">
-					<div className="flex items-start justify-between">
-						<div className="flex items-center gap-3">
+					<div className="flex items-start justify-between gap-2">
+						<div className="flex min-w-0 items-center gap-3">
 							<div
-								className={`p-2.5 rounded-xl ${colors.bg} ${colors.border} border backdrop-blur-sm`}
+								className={`shrink-0 p-2.5 rounded-xl ${colors.bg} ${colors.border} border backdrop-blur-sm`}
 							>
 								<Bot className={`h-5 w-5 ${colors.icon}`} />
 							</div>
-							<div className="flex-1">
-								<CardTitle className="text-base font-semibold flex items-center gap-2">
+							<div className="min-w-0 flex-1">
+								<CardTitle className="text-base font-semibold flex items-center gap-2 break-words">
 									{displayName}
 									{agent.model?.includes("opus") && (
 										<Sparkles
@@ -62,7 +62,7 @@ export function AgentCard({ agent }: AgentCardProps) {
 										/>
 									)}
 								</CardTitle>
-								<div className="flex items-center gap-2 mt-1">
+								<div className="mt-1 flex flex-wrap items-center gap-2">
 									<Badge variant="outline" className="text-xs gap-1">
 										<SourceIcon className="h-3 w-3" />
 										{isWorkspaceAgent ? workspaceName : "Global"}

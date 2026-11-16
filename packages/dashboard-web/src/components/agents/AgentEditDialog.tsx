@@ -503,7 +503,10 @@ export function AgentEditDialog({
 								<Label className="text-base font-medium">
 									Model Preference (proxy override)
 								</Label>
-								<AgentModelPreferenceSelect agent={agent} />
+								<AgentModelPreferenceSelect
+									agent={agent}
+									triggerClassName="h-11"
+								/>
 								<p className="text-xs text-muted-foreground">
 									Proxy override — applies immediately, stored in the database,
 									never written to the agent file.

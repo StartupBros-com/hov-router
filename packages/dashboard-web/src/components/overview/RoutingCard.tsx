@@ -203,7 +203,7 @@ export function RoutingCardView({
 					</div>
 
 					<div className="flex items-center justify-between gap-3">
-						<div className="space-y-1">
+						<div className="min-w-0 space-y-1">
 							<div className="flex items-center gap-2">
 								<Label
 									htmlFor="routing-capacity"
@@ -220,7 +220,7 @@ export function RoutingCardView({
 									</StatusPill>
 								)}
 							</div>
-							<div className="text-sm text-muted-foreground">
+							<div className="break-words text-sm text-muted-foreground">
 								Accounts with no capacity left for the requested model are
 								skipped, and the remaining accounts still handle the request. If
 								none are left, the request fails with a retryable 503
@@ -240,7 +240,7 @@ export function RoutingCardView({
 								</p>
 							)}
 						</div>
-						<div className="flex items-center gap-3">
+						<div className="flex shrink-0 items-center gap-3">
 							<Switch
 								id="routing-capacity"
 								disabled={capacityDisabled || capacityEnvLocked}

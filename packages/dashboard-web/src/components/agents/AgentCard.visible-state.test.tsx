@@ -32,6 +32,15 @@ describe("AgentCard visible state", () => {
 		expect(tag).toContain("h-11 w-11");
 	});
 
+	it("lets a long name and its pills wrap instead of pushing the edit button out", () => {
+		// The card clips its overflow, so the header columns must shrink and the pill row must wrap.
+		expect(html).toContain('<div class="flex min-w-0 items-center gap-3">');
+		expect(html).toContain('<div class="min-w-0 flex-1">');
+		expect(html).toContain(
+			'<div class="mt-1 flex flex-wrap items-center gap-2">',
+		);
+	});
+
 	it("makes the model preference trigger 44 px tall", () => {
 		const tag = tagWith(html, 'aria-label="Model Preference for Reviewer"');
 		expect(tag).toContain("h-11");

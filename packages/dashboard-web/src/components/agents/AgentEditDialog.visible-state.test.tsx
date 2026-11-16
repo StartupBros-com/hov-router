@@ -76,4 +76,10 @@ describe("AgentEditDialog visible state", () => {
 		const tag = tagWith(render(), 'aria-label="Default Model (agent file)"');
 		expect(tag).toContain("h-11");
 	});
+
+	it("makes the model preference trigger 44 px tall", () => {
+		state.isError = false;
+		const tag = tagWith(render(), 'aria-label="Model Preference for Reviewer"');
+		expect(tag).toContain("h-11");
+	});
 });

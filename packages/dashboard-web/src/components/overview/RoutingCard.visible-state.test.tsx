@@ -63,6 +63,18 @@ describe("RoutingCard visible state", () => {
 		);
 	});
 
+	it("keeps the capacity switch and its word beside a description that can wrap", () => {
+		// At 320 px the unbreakable "(model_pool_exhausted)" pushed the row past the screen.
+		const html = render();
+		expect(html).toContain('<div class="min-w-0 space-y-1">');
+		expect(html).toMatch(
+			/<div class="break-words text-sm text-muted-foreground">Accounts with no capacity left/,
+		);
+		expect(html).toMatch(
+			/<div class="flex shrink-0 items-center gap-3"><button[^>]*id="routing-capacity"/,
+		);
+	});
+
 	it("spells out the env-lock reasons only when env-locked", () => {
 		const free = render();
 		expect(free).not.toContain("Set by the LB_STRATEGY environment variable");
