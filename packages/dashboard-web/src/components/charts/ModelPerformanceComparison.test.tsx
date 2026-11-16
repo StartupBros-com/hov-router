@@ -24,6 +24,8 @@ mock.module("recharts", () => ({
 	ResponsiveContainer: pass,
 	Scatter: none,
 	Tooltip: none,
+	useChartWidth: () => undefined,
+	useOffset: () => undefined,
 	XAxis: none,
 	YAxis: (props: AxisProps) => {
 		axes.push(props);

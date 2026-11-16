@@ -42,8 +42,7 @@ function render(request: RequestPayload, payloadMissing = false) {
 				request={request}
 				effective={request}
 				summary={undefined}
-				needsHydration={false}
-				payloadMissing={payloadMissing}
+				payloadStatus={payloadMissing ? "missing" : "ready"}
 			/>
 		</Dialog>,
 	);

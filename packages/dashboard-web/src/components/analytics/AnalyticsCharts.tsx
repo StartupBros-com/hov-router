@@ -7,7 +7,6 @@ import {
 	CartesianGrid,
 	Legend,
 	ResponsiveContainer,
-	Tooltip,
 	XAxis,
 	YAxis,
 } from "recharts";
@@ -31,6 +30,7 @@ import {
 	TokenSpeedChart,
 	TokenUsageChart,
 } from "../charts";
+import { ChartTooltip } from "../charts/ChartTooltip";
 import { Badge } from "../ui/badge";
 import {
 	Card,
@@ -335,7 +335,7 @@ export function MainMetricsChart({
 											className="text-xs"
 											tickFormatter={formatCompactCurrency}
 										/>
-										<Tooltip
+										<ChartTooltip
 											cursor={{ stroke: CHART_PROPS.cursorStroke }}
 											// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
 											formatter={costFormatter as any}
@@ -716,7 +716,7 @@ export function CumulativeGrowthChart({ data }: CumulativeGrowthChartProps) {
 							stroke={COLORS.warning}
 							tickFormatter={formatCompactCurrency}
 						/>
-						<Tooltip
+						<ChartTooltip
 							cursor={{ stroke: CHART_PROPS.cursorStroke }}
 							labelClassName="font-bold"
 							contentStyle={{

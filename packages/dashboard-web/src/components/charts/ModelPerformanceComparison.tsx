@@ -9,7 +9,6 @@ import {
 	Line,
 	ResponsiveContainer,
 	Scatter,
-	Tooltip,
 	XAxis,
 	YAxis,
 } from "recharts";
@@ -20,6 +19,7 @@ import {
 	COLORS,
 } from "../../constants";
 import { ChartContainer } from "./ChartContainer";
+import { ChartTooltip } from "./ChartTooltip";
 import { getTooltipStyles } from "./chart-utils";
 import { getModelColor } from "./model-colors";
 
@@ -149,7 +149,7 @@ export function ModelPerformanceComparison({
 								style: { textAnchor: "middle", fill: COLORS.warning },
 							}}
 						/>
-						<Tooltip
+						<ChartTooltip
 							cursor={{ stroke: CHART_PROPS.cursorStroke }}
 							contentStyle={{
 								...CHART_TOOLTIP_STYLE.default,
@@ -254,7 +254,7 @@ export function ModelPerformanceComparison({
 								style: { textAnchor: "middle" },
 							}}
 						/>
-						<Tooltip
+						<ChartTooltip
 							cursor={{ stroke: CHART_PROPS.cursorStroke }}
 							contentStyle={getTooltipStyles("dark")}
 							// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
@@ -344,7 +344,7 @@ export function ModelPerformanceComparison({
 							style: { textAnchor: "middle" },
 						}}
 					/>
-					<Tooltip
+					<ChartTooltip
 						cursor={{ stroke: CHART_PROPS.cursorStroke }}
 						contentStyle={{
 							...CHART_TOOLTIP_STYLE.default,

@@ -6,13 +6,13 @@ import {
 	Cell,
 	ErrorBar,
 	ResponsiveContainer,
-	Tooltip,
 	XAxis,
 	YAxis,
 } from "recharts";
 import { CHART_PROPS } from "../../constants";
 import { formatCompactNumber } from "../../lib/chart-utils";
 import { Skeleton } from "../ui/skeleton";
+import { ChartTooltip } from "./ChartTooltip";
 import { getTooltipStyles } from "./chart-utils";
 import { getModelColor } from "./model-colors";
 
@@ -114,7 +114,7 @@ export function ModelTokenSpeedChart({
 						},
 					}}
 				/>
-				<Tooltip
+				<ChartTooltip
 					itemStyle={{ color: "var(--popover-foreground)" }}
 					cursor={{ fill: CHART_PROPS.cursorFill }}
 					contentStyle={getTooltipStyles("default")}
