@@ -343,6 +343,29 @@ describe("runway card", () => {
 		expect(html).not.toContain(">next</span>");
 		expect(html).not.toContain(">Out</span>");
 	});
+	it("exact times badges a held account on credits as on credits, not its held reason", () => {
+		const g = {
+			...group,
+			accounts: [
+				{
+					...group.accounts[0],
+					id: "drain",
+					name: "drain",
+					state: "held" as const,
+					reason: "seven_day_exhausted" as const,
+					pct: 40,
+					resetMs: NOW + 2 * 3600000,
+					backMs: null,
+					onCredits: true,
+				},
+			],
+		};
+		const html = renderToStaticMarkup(
+			<AccountList group={g} now={NOW} open onToggle={() => {}} />,
+		);
+		expect(html).toContain(">on credits</span>");
+		expect(html).not.toContain("out of weekly quota");
+	});
 	it("with no forecast, speaks each account's state rather than claiming no data", () => {
 		const g = {
 			...group,
