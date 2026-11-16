@@ -1,12 +1,5 @@
 import type { ReactNode } from "react";
-import {
-	Cell,
-	Legend,
-	Pie,
-	PieChart,
-	ResponsiveContainer,
-	Tooltip,
-} from "recharts";
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer } from "recharts";
 import {
 	CHART_COLORS,
 	type CHART_HEIGHTS,
@@ -14,6 +7,7 @@ import {
 	type CHART_TOOLTIP_STYLE,
 } from "../../constants";
 import { ChartContainer } from "./ChartContainer";
+import { ChartTooltip } from "./ChartTooltip";
 import { getChartHeight, getTooltipStyles } from "./chart-utils";
 import type { ChartClickHandler, TooltipFormatterFunction } from "./types";
 
@@ -104,7 +98,7 @@ export function BasePieChart({
 							/>
 						))}
 					</Pie>
-					<Tooltip
+					<ChartTooltip
 						contentStyle={tooltipStyles}
 						// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
 						formatter={tooltipFormatter as any}

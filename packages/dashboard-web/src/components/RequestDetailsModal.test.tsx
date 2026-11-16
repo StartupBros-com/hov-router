@@ -28,7 +28,7 @@ function renderPanel(request: RequestPayload, summary?: RequestSummary) {
 				request={request}
 				effective={request}
 				summary={summary}
-				needsHydration={false}
+				payloadStatus="ready"
 			/>
 		</Dialog>,
 	);

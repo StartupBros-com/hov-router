@@ -5,12 +5,12 @@ import {
 	CartesianGrid,
 	Legend,
 	ResponsiveContainer,
-	Tooltip,
 	XAxis,
 	YAxis,
 } from "recharts";
 import { CHART_PROPS, COLORS } from "../../constants";
 import { ChartContainer } from "./ChartContainer";
+import { ChartTooltip } from "./ChartTooltip";
 import {
 	type CommonChartProps,
 	getChartHeight,
@@ -99,7 +99,7 @@ export function BaseAreaChart({
 						domain={yAxisDomain}
 						tickFormatter={yAxisTickFormatter}
 					/>
-					<Tooltip
+					<ChartTooltip
 						cursor={{ stroke: CHART_PROPS.cursorStroke }}
 						contentStyle={tooltipStyles}
 						// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined

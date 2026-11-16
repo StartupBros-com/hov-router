@@ -4,12 +4,12 @@ import {
 	CartesianGrid,
 	Legend,
 	ResponsiveContainer,
-	Tooltip,
 	XAxis,
 	YAxis,
 } from "recharts";
 import { CHART_PROPS, COLORS } from "../../constants";
 import { ChartContainer } from "./ChartContainer";
+import { ChartTooltip } from "./ChartTooltip";
 import {
 	type CommonChartProps,
 	getChartHeight,
@@ -140,7 +140,7 @@ export function BaseBarChart({
 							)}
 						</>
 					)}
-					<Tooltip
+					<ChartTooltip
 						cursor={{ fill: CHART_PROPS.cursorFill }}
 						contentStyle={tooltipStyles}
 						// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined

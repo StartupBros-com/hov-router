@@ -9,7 +9,6 @@ import {
 	Line,
 	ResponsiveContainer,
 	Scatter,
-	Tooltip,
 	XAxis,
 	YAxis,
 } from "recharts";
@@ -20,6 +19,7 @@ import {
 	COLORS,
 } from "../../constants";
 import { ChartContainer } from "./ChartContainer";
+import { ChartTooltip } from "./ChartTooltip";
 import { getTooltipStyles } from "./chart-utils";
 import { getModelColor } from "./model-colors";
 
@@ -38,6 +38,15 @@ interface ModelPerformanceComparisonProps {
 	height?: number;
 	viewMode?: "speed-cost" | "performance" | "efficiency";
 }
+
+// The speed-cost and efficiency tooltips share this panel. recharts ignores
+// contentStyle when a tooltip has custom content, so the efficiency view's
+// content applies it itself.
+const PANEL_TOOLTIP_STYLE = {
+	...CHART_TOOLTIP_STYLE.default,
+	borderRadius: "8px",
+	backdropFilter: "blur(8px)",
+};
 
 function speedCostTooltipFormatter(value: number, name: string) {
 	if (name === "Speed") return [formatTokensPerSecond(value), name];
@@ -149,13 +158,9 @@ export function ModelPerformanceComparison({
 								style: { textAnchor: "middle", fill: COLORS.warning },
 							}}
 						/>
-						<Tooltip
+						<ChartTooltip
 							cursor={{ stroke: CHART_PROPS.cursorStroke }}
-							contentStyle={{
-								...CHART_TOOLTIP_STYLE.default,
-								borderRadius: "8px",
-								backdropFilter: "blur(8px)",
-							}}
+							contentStyle={PANEL_TOOLTIP_STYLE}
 							// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
 							formatter={speedCostTooltipFormatter as any}
 						/>
@@ -254,7 +259,7 @@ export function ModelPerformanceComparison({
 								style: { textAnchor: "middle" },
 							}}
 						/>
-						<Tooltip
+						<ChartTooltip
 							cursor={{ stroke: CHART_PROPS.cursorStroke }}
 							contentStyle={getTooltipStyles("dark")}
 							// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
@@ -344,18 +349,13 @@ export function ModelPerformanceComparison({
 							style: { textAnchor: "middle" },
 						}}
 					/>
-					<Tooltip
+					<ChartTooltip
 						cursor={{ stroke: CHART_PROPS.cursorStroke }}
-						contentStyle={{
-							...CHART_TOOLTIP_STYLE.default,
-							borderRadius: "8px",
-							backdropFilter: "blur(8px)",
-						}}
 						content={({ active, payload }) => {
 							if (!active || !payload?.[0]) return null;
 							const data = payload[0].payload;
 							return (
-								<div className="p-3 space-y-1">
+								<div className="p-3 space-y-1" style={PANEL_TOOLTIP_STYLE}>
 									<p className="font-semibold">{data.model}</p>
 									<p className="text-sm">
 										Speed: {formatTokensPerSecond(data.avgTokensPerSecond)}

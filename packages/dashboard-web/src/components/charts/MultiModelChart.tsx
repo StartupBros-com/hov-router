@@ -10,7 +10,6 @@ import {
 	Line,
 	LineChart,
 	ResponsiveContainer,
-	Tooltip,
 	XAxis,
 	YAxis,
 } from "recharts";
@@ -20,6 +19,7 @@ import {
 	formatCompactNumber,
 } from "../../lib/chart-utils";
 import { ChartContainer } from "./ChartContainer";
+import { ChartTooltip } from "./ChartTooltip";
 import { getTooltipStyles } from "./chart-utils";
 import { getModelColor } from "./model-colors";
 
@@ -188,7 +188,7 @@ export function MultiModelChart({
 						style: { textAnchor: "middle", fontSize: 12 },
 					}}
 				/>
-				<Tooltip
+				<ChartTooltip
 					cursor={{ stroke: CHART_PROPS.cursorStroke }}
 					contentStyle={getTooltipStyles("dark")}
 					// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined

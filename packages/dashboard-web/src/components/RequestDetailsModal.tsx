@@ -23,6 +23,7 @@ import {
 } from "./ui/dialog";
 import { EventTime } from "./ui/event-time";
 import { Label } from "./ui/label";
+import { EmptyState, ErrorState, LoadingState } from "./ui/state";
 import { StatusPill } from "./ui/status-pill";
 import { Switch } from "./ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
@@ -40,37 +41,29 @@ export function RequestDetailsModal({
 	isOpen,
 	onClose,
 }: RequestDetailsModalProps) {
-	const [hydrated, setHydrated] = useState<RequestPayload | null>(null);
-	const [failedId, setFailedId] = useState<string | null>(null);
+	const [stored, setStored] = useState<RequestPayload | null>(null);
+	const [failure, setFailure] = useState<PayloadLookupFailure | null>(null);
 
-	const effective: RequestPayload =
-		hydrated && hydrated.id === request.id ? hydrated : request;
-
-	// Hydrate when we have no request payload at all (legacy case), or when
-	// the list view handed us a body-less summary placeholder.
-	const needsHydration =
-		isOpen &&
-		!effective.error &&
-		!effective.meta?.pending &&
-		(!effective.request || effective.meta?.bodiesOmitted === true) &&
-		failedId !== request.id;
+	const { effective, status } = resolvePayloadView(request, stored, failure);
+	const lookUp = isOpen && status === "loading";
 
 	useEffect(() => {
-		if (!needsHydration) return;
+		if (!lookUp) return;
 		let cancelled = false;
 		api
 			.getRequestPayload(request.id)
 			.then((payload) => {
-				if (!cancelled) setHydrated(payload);
+				if (!cancelled) setStored(payload);
 			})
 			.catch((err) => {
-				if (!cancelled && err instanceof HttpError && err.status === 404)
-					setFailedId(request.id);
+				if (cancelled) return;
+				const missing = err instanceof HttpError && err.status === 404;
+				setFailure({ id: request.id, kind: missing ? "missing" : "error" });
 			});
 		return () => {
 			cancelled = true;
 		};
-	}, [needsHydration, request.id]);
+	}, [lookUp, request.id]);
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
@@ -79,12 +72,58 @@ export function RequestDetailsModal({
 					request={request}
 					effective={effective}
 					summary={summary}
-					needsHydration={needsHydration}
-					payloadMissing={failedId === request.id}
+					payloadStatus={status}
+					onRetry={() => setFailure(null)}
 				/>
 			</DialogContent>
 		</Dialog>
 	);
+}
+
+/**
+ * Where the dialog's request and response bodies stand:
+ * - `ready`: `effective` holds them;
+ * - `pending`: the request is still running, so nothing is looked up yet;
+ * - `loading`: the stored payload is being fetched;
+ * - `missing`: the server answered 404, so it stores no bodies for this request;
+ * - `error`: the lookup failed some other way and can be retried.
+ */
+export type PayloadStatus =
+	| "ready"
+	| "pending"
+	| "loading"
+	| "missing"
+	| "error";
+
+export interface PayloadLookupFailure {
+	id: string;
+	kind: "missing" | "error";
+}
+
+/**
+ * What the dialog shows for `request`. List rows arrive without bodies
+ * (`bodiesOmitted`), failed rows included, so their stored payload is looked
+ * up. The stored payload has no `error` field, so the row's error is kept.
+ */
+export function resolvePayloadView(
+	request: RequestPayload,
+	stored: RequestPayload | null,
+	failure: PayloadLookupFailure | null,
+): { effective: RequestPayload; status: PayloadStatus } {
+	if (stored?.id === request.id) {
+		return {
+			effective: { ...stored, error: stored.error ?? request.error },
+			status: "ready",
+		};
+	}
+	if (request.request && request.meta?.bodiesOmitted !== true) {
+		return { effective: request, status: "ready" };
+	}
+	if (request.meta?.pending) return { effective: request, status: "pending" };
+	if (failure?.id === request.id) {
+		return { effective: request, status: failure.kind };
+	}
+	return { effective: request, status: "loading" };
 }
 
 const decodeBase64 = (str: string | null): string => {
@@ -122,21 +161,20 @@ const formatJson = (str: string): string => {
 /**
  * Header and tabs of the request details dialog. `request` is what the list
  * handed over (its meta drives time, status and metadata); `effective` is the
- * hydrated payload when one has loaded.
+ * stored payload once it has loaded.
  */
 export function RequestDetailsPanel({
 	request,
 	effective,
 	summary,
-	needsHydration,
-	payloadMissing = false,
+	payloadStatus,
+	onRetry,
 }: {
 	request: RequestPayload;
 	effective: RequestPayload;
 	summary: RequestSummary | undefined;
-	needsHydration: boolean;
-	/** The payload lookup answered 404: the server holds no bodies for this request. */
-	payloadMissing?: boolean;
+	payloadStatus: PayloadStatus;
+	onRetry?: () => void;
 }) {
 	const [beautifyMode, setBeautifyMode] = useState(true);
 
@@ -157,7 +195,11 @@ export function RequestDetailsPanel({
 
 	const pending = Boolean(request.meta.pending);
 	const isError = !pending && Boolean(effective.error || !request.meta.success);
-	const statusCode = effective.response?.status;
+	const statusCode = effective.response?.status ?? request.response?.status;
+	const bodiesShown = payloadStatus === "ready";
+	const payloadState = bodiesShown ? null : (
+		<StoredPayloadState status={payloadStatus} onRetry={onRetry} />
+	);
 	const totalTokens = summary?.totalTokens;
 
 	return (
@@ -250,17 +292,7 @@ export function RequestDetailsPanel({
 				</TabsList>
 
 				<TabsContent value="conversation" className="mt-4 flex-1 min-h-0">
-					{payloadMissing ? (
-						<div className="flex h-32 flex-col items-center justify-center gap-1 text-center">
-							<p className="text-muted-foreground">
-								No payload stored for this request
-							</p>
-							<p className="text-xs text-muted-foreground">
-								Payloads older than the retention window are deleted, and none
-								are stored while payload storage is off.
-							</p>
-						</div>
-					) : (
+					{payloadState ?? (
 						<ConversationView
 							requestBody={decodeBodyOrNull(effective.request?.body)}
 							responseBody={decodeBodyOrNull(effective.response?.body)}
@@ -272,51 +304,56 @@ export function RequestDetailsPanel({
 					value="request"
 					className="mt-4 space-y-4 overflow-y-auto max-h-[60vh]"
 				>
-					{effective.request ? (
-						<>
-							<PayloadBlock
-								title="Headers"
-								copyLabel="Copy request headers"
-								text={formatHeaders(effective.request.headers)}
-							/>
-							{effective.request.body && (
+					{payloadState ??
+						(effective.request ? (
+							<>
 								<PayloadBlock
-									title="Body"
-									copyLabel="Copy request body"
-									text={formatBody(effective.request.body)}
+									title="Headers"
+									copyLabel="Copy request headers"
+									text={formatHeaders(effective.request.headers)}
 								/>
-							)}
-						</>
-					) : (
-						<div className="text-center text-muted-foreground py-8">
-							{needsHydration
-								? "Loading payload…"
-								: "No request data available"}
-						</div>
-					)}
+								{effective.request.body && (
+									<PayloadBlock
+										title="Body"
+										copyLabel="Copy request body"
+										text={formatBody(effective.request.body)}
+									/>
+								)}
+							</>
+						) : (
+							<div className="text-center text-muted-foreground py-8">
+								No request data available
+							</div>
+						))}
 				</TabsContent>
 
 				<TabsContent
 					value="response"
 					className="mt-4 space-y-4 overflow-y-auto max-h-[60vh]"
 				>
-					{effective.response ? (
-						<>
-							<PayloadBlock
-								title="Headers"
-								copyLabel="Copy response headers"
-								text={formatHeaders(effective.response.headers)}
-							/>
-							{effective.response.body && (
-								<PayloadBlock
-									title="Body"
-									copyLabel="Copy response body"
-									text={formatBody(effective.response.body)}
-								/>
-							)}
-						</>
-					) : (
+					{bodiesShown && !effective.response ? (
 						<NoResponseMessage error={effective.error} />
+					) : (
+						<>
+							{effective.error && <RequestErrorLine error={effective.error} />}
+							{payloadState ??
+								(effective.response && (
+									<>
+										<PayloadBlock
+											title="Headers"
+											copyLabel="Copy response headers"
+											text={formatHeaders(effective.response.headers)}
+										/>
+										{effective.response.body && (
+											<PayloadBlock
+												title="Body"
+												copyLabel="Copy response body"
+												text={formatBody(effective.response.body)}
+											/>
+										)}
+									</>
+								))}
+						</>
 					)}
 				</TabsContent>
 
@@ -382,9 +419,7 @@ export function NoResponseMessage({ error }: { error?: string }) {
 		<div className="text-center text-muted-foreground py-8">
 			{error ? (
 				<>
-					<p className="text-left text-destructive font-medium break-words">
-						Error: {error}
-					</p>
+					<RequestErrorLine error={error} />
 					<p className="mt-2">No response data available</p>
 				</>
 			) : (
@@ -392,4 +427,48 @@ export function NoResponseMessage({ error }: { error?: string }) {
 			)}
 		</div>
 	);
+}
+
+/** The request's recorded error, left-aligned so a long one wraps readably. */
+function RequestErrorLine({ error }: { error: string }) {
+	return (
+		<p className="text-left text-destructive font-medium break-words">
+			Error: {error}
+		</p>
+	);
+}
+
+/** What a payload tab shows until the stored bodies are in hand. */
+function StoredPayloadState({
+	status,
+	onRetry,
+}: {
+	status: Exclude<PayloadStatus, "ready">;
+	onRetry?: () => void;
+}) {
+	switch (status) {
+		case "pending":
+			return (
+				<EmptyState
+					title="Request still running"
+					description="Its stored payload is looked up when it finishes."
+				/>
+			);
+		case "loading":
+			return <LoadingState label="Loading payload" rows={2} />;
+		case "missing":
+			return (
+				<EmptyState
+					title="No payload stored for this request"
+					description="The server has no request or response bodies for it. Payload storage may be off, the save may have been skipped or failed, the bodies may have been cleaned up, or the request may still be running."
+				/>
+			);
+		case "error":
+			return (
+				<ErrorState
+					title="Couldn't load the stored payload"
+					onRetry={onRetry}
+				/>
+			);
+	}
 }
