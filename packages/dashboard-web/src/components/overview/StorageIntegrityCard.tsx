@@ -20,6 +20,7 @@ import {
 	CardTitle,
 } from "../ui/card";
 import { ErrorState, LoadingState } from "../ui/state";
+import { StatusPill } from "../ui/status-pill";
 
 function formatRelative(iso: string | null): string {
 	if (!iso) return "never";
@@ -89,14 +90,7 @@ export function StorageIntegrityCard() {
 		if (data?.last_quick_skip_reason) {
 			description += " — quick check timed out (skipped)";
 		}
-		badgeNode = (
-			<Badge
-				variant="default"
-				className="bg-success text-green-800 dark:text-green-300"
-			>
-				Healthy
-			</Badge>
-		);
+		badgeNode = <StatusPill tone="success">Healthy</StatusPill>;
 	} else {
 		tone = "warn";
 		icon = <AlertTriangle className="h-5 w-5 text-warning" />;
@@ -187,7 +181,7 @@ export function StorageIntegrityCard() {
 							</div>
 						</dl>
 
-						<div className="flex gap-2">
+						<div className="flex flex-wrap gap-2">
 							<Button
 								variant="outline"
 								size="sm"

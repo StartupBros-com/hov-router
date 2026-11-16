@@ -51,7 +51,7 @@ export function ObservedRoutingTable({
 						<span className="inline-flex shrink-0 items-center justify-center rounded bg-muted px-2 py-0.5 text-xs font-semibold lg:w-20">
 							{formatFamilyLabel(family)}
 						</span>
-						<div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">
+						<div className="flex min-w-0 basis-full order-last flex-wrap items-center gap-1 sm:order-none sm:flex-1">
 							{observation.order.map((account, index) => {
 								const isFirst = index === 0;
 								return (
@@ -64,9 +64,9 @@ export function ObservedRoutingTable({
 										)}
 										<span
 											className={cn(
-												"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs",
+												"inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs",
 												isFirst
-													? "border-primary text-orange-700 dark:text-primary"
+													? "border-primary text-(--primary-text)"
 													: "border-border text-muted-foreground",
 											)}
 											title={`Position ${index + 1} of ${family} routing order`}
@@ -75,13 +75,15 @@ export function ObservedRoutingTable({
 												className={cn(
 													"flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
 													isFirst
-														? "bg-primary text-primary-foreground"
+														? "bg-(--primary-text) text-card"
 														: "bg-muted text-muted-foreground",
 												)}
 											>
 												{index + 1}
 											</span>
-											{account.name}
+											<span className="min-w-0 truncate" title={account.name}>
+												{account.name}
+											</span>
 										</span>
 									</Fragment>
 								);

@@ -3,6 +3,7 @@ import type {
 	ClosedUsageWindow,
 	OpenUsageWindow,
 } from "../../api";
+import { StatusPill } from "../ui/status-pill";
 import {
 	deltaVsPreviousQualifying,
 	deltaVsPriorMedian,
@@ -77,15 +78,12 @@ function DeltaCell({ delta }: { delta: number | null }) {
 	}
 
 	return (
-		<span
-			className={
-				delta < 0
-					? "rounded bg-destructive/15 px-1 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-300"
-					: "rounded bg-emerald-500/10 px-1 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300"
-			}
+		<StatusPill
+			tone={delta < 0 ? "danger" : "success"}
+			className="px-1 text-[10px]"
 		>
 			{formatDelta(delta)}
-		</span>
+		</StatusPill>
 	);
 }
 
