@@ -2,8 +2,8 @@
  * The runner fixture's `stop` (#859). Bash 5.2 can drop a stop's handler when
  * the signal lands while the shell parses a command substitution, and the
  * runner parses one right after it says it is ready. A stop sent on "ready"
- * then ended the runner with status 2 instead of 143, about once in thirty
- * CI runs. So `stop` waits for the deploy listener the runner starts next.
+ * then ended the runner with status 2 instead of 143, in 2 of 33 CI runs.
+ * So `stop` waits for the deploy listener the runner starts next.
  */
 import { afterEach, expect, test } from "bun:test";
 import {

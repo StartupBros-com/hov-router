@@ -84,7 +84,8 @@ export interface RunnerFixture {
 	): Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
 	/**
 	 * SIGTERM, then the exit. A runner that has said it is ready is sent the
-	 * signal only once it has started its deploy listener: see `stop` below.
+	 * signal only once it has started its deploy listener: see
+	 * `waitForListener` in `startRunner`.
 	 */
 	stop(
 		timeoutMs?: number,
