@@ -35,7 +35,8 @@ export function HelpPopover({
 					type="button"
 					aria-label={label}
 					className={cn(
-						"inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						// A 44 px box whose negative margin leaves the 20 px of layout the icon had.
+						"-m-3 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 						className,
 					)}
 				>
