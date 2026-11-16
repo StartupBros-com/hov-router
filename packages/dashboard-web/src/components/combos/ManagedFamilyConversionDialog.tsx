@@ -5,8 +5,6 @@ import type {
 	ComboRoutingPreviewResult,
 	ComboRoutingProposalPreview,
 } from "@better-ccflare/types";
-import { AlertTriangle, RefreshCw } from "lucide-react";
-import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
 	Dialog,
@@ -16,6 +14,10 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "../ui/dialog";
+import { Notice } from "../ui/notice";
+import { ErrorState, LoadingState } from "../ui/state";
+import { StatusPill } from "../ui/status-pill";
+import { confidenceTone } from "./combo-pill-tones";
 import {
 	formatPolicyModel,
 	projectFamilyConversionPreview,
@@ -204,6 +206,11 @@ export function canApplyManagedFamilyConversion(
 	return !proposalRequiresExplicitReview(proposal) || reviewAcknowledged;
 }
 
+/** ErrorState adds its own full stop after the title. */
+function withoutTrailingPeriod(message: string): string {
+	return message.endsWith(".") ? message.slice(0, -1) : message;
+}
+
 function titleCase(value: string): string {
 	return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
@@ -283,7 +290,7 @@ export function ManagedFamilyConversionReview({
 					conversion.proposals.map(({ proposal }) => (
 						<label
 							key={proposal.proposal_id}
-							className="flex cursor-pointer items-start gap-3 rounded border p-3"
+							className="flex min-h-11 cursor-pointer items-start gap-3 rounded border p-3"
 							data-proposal-id={proposal.proposal_id}
 						>
 							<input
@@ -298,13 +305,11 @@ export function ManagedFamilyConversionReview({
 								<span className="flex flex-wrap items-center gap-2">
 									<strong>{proposal.provider}</strong>
 									<code>{proposal.route_class}</code>
-									<Badge
-										variant={proposal.high_confidence ? "default" : "secondary"}
-									>
+									<StatusPill tone={confidenceTone(proposal.high_confidence)}>
 										{proposal.high_confidence
 											? "High confidence"
 											: "Low confidence"}
-									</Badge>
+									</StatusPill>
 								</span>
 								<span className="block text-xs text-muted-foreground">
 									Proposed rule · {proposal.provider} / {proposal.route_class} ·{" "}
@@ -373,23 +378,16 @@ export function ManagedFamilyConversionReview({
 			)}
 
 			{selected && hasTierChange(selected) && (
-				<p className="flex gap-2 rounded border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-					<AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-					<span>
-						The server preview includes a new or changed account-priority tier.
-						Review the exact member delta above.
-					</span>
-				</p>
+				<Notice tone="warning">
+					The server preview includes a new or changed account-priority tier.
+					Review the exact member delta above.
+				</Notice>
 			)}
 
 			{selectedWarning && (
-				<div className="space-y-2 rounded border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-					<p className="flex gap-2 font-medium">
-						<AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-						Explicit review required
-					</p>
+				<Notice tone="warning" title="Explicit review required">
 					<p>{selectedWarning}</p>
-					<label className="flex cursor-pointer items-start gap-2">
+					<label className="mt-2 flex min-h-11 cursor-pointer items-start gap-2">
 						<input
 							type="checkbox"
 							checked={reviewAcknowledged}
@@ -402,7 +400,7 @@ export function ManagedFamilyConversionReview({
 							billing warning.
 						</span>
 					</label>
-				</div>
+				</Notice>
 			)}
 
 			{selectedIsEmpty && (
@@ -431,18 +429,25 @@ export function ManagedFamilyConversionBody({
 }: ManagedFamilyConversionBodyProps) {
 	const previewFailure = managedFamilyConversionError(previewError);
 	const applyFailure = managedFamilyConversionError(applyError);
+	// One Refresh preview button serves both failures.
+	const showApplyRetry = !previewFailure && applyFailure?.retryable === true;
 
 	return (
 		<div className="space-y-3" aria-live="polite">
 			{isPreviewLoading && (
-				<p className="text-sm text-muted-foreground">
-					Loading the current server preview…
-				</p>
+				<LoadingState
+					size="inline"
+					label="Loading the current server preview"
+				/>
 			)}
 			{previewFailure && (
-				<p className="text-sm text-destructive" role="alert">
-					{previewFailure.message}
-				</p>
+				<ErrorState
+					size="inline"
+					title={withoutTrailingPeriod(previewFailure.message)}
+					retryLabel="Refresh preview"
+					onRetry={onRetry}
+					retryDisabled={isPreviewLoading || isApplying}
+				/>
 			)}
 			{!isPreviewLoading && !previewFailure && preview && (
 				<ManagedFamilyConversionReview
@@ -456,19 +461,13 @@ export function ManagedFamilyConversionBody({
 				/>
 			)}
 			{applyFailure && (
-				<p className="text-sm text-destructive" role="alert">
-					{applyFailure.message}
-				</p>
-			)}
-			{(previewFailure || applyFailure?.retryable) && (
-				<Button
-					variant="outline"
-					onClick={onRetry}
-					disabled={isPreviewLoading || isApplying}
-				>
-					<RefreshCw />
-					Refresh preview
-				</Button>
+				<ErrorState
+					size="inline"
+					title={withoutTrailingPeriod(applyFailure.message)}
+					retryLabel="Refresh preview"
+					onRetry={showApplyRetry ? onRetry : undefined}
+					retryDisabled={isPreviewLoading || isApplying}
+				/>
 			)}
 		</div>
 	);
@@ -558,12 +557,14 @@ export function ManagedFamilyConversionDialog({
 				<DialogFooter>
 					<Button
 						variant="outline"
+						size="touch"
 						onClick={() => onOpenChange(false)}
 						disabled={isApplying}
 					>
 						Cancel
 					</Button>
 					<Button
+						size="touch"
 						onClick={() => command && onApply(command)}
 						disabled={!canApply || !command}
 					>

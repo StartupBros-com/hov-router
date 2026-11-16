@@ -43,12 +43,15 @@ export function ErrorState({
 	message,
 	onRetry,
 	retryLabel = "Retry",
+	retryDisabled = false,
 	size = "page",
 }: {
 	title: string;
 	message?: string;
 	onRetry?: () => void;
 	retryLabel?: string;
+	/** Keeps Retry visible but disabled, e.g. while a retry is already fetching. */
+	retryDisabled?: boolean;
 	size?: StateSize;
 }) {
 	if (size === "inline") {
@@ -61,7 +64,12 @@ export function ErrorState({
 					{message ? `${title}. ${message}` : `${title}.`}
 				</p>
 				{onRetry && (
-					<Button variant="outline" size="touch-sm" onClick={onRetry}>
+					<Button
+						variant="outline"
+						size="touch-sm"
+						onClick={onRetry}
+						disabled={retryDisabled}
+					>
 						{retryLabel}
 					</Button>
 				)}
@@ -78,7 +86,12 @@ export function ErrorState({
 				<p className="min-w-0 break-words text-muted-foreground">{message}</p>
 			)}
 			{onRetry && (
-				<Button variant="outline" size="touch" onClick={onRetry}>
+				<Button
+					variant="outline"
+					size="touch"
+					onClick={onRetry}
+					disabled={retryDisabled}
+				>
 					{retryLabel}
 				</Button>
 			)}

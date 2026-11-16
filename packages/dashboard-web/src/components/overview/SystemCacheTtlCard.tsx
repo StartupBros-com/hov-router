@@ -6,7 +6,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "../ui/card";
-import { Switch } from "../ui/switch";
+import { SwitchHitArea } from "../ui/switch-row";
 
 export function SystemCacheTtlCard() {
 	const { data, isLoading } = useSystemCacheTtl();
@@ -26,7 +26,7 @@ export function SystemCacheTtlCard() {
 			</CardHeader>
 			<CardContent>
 				<div className="flex items-center gap-3">
-					<Switch
+					<SwitchHitArea
 						aria-label="System Prompt Cache TTL"
 						disabled={isLoading || setTtl.isPending}
 						checked={enabled}

@@ -5,7 +5,6 @@ import {
 	Folder,
 	FolderOpen,
 	Globe,
-	Info,
 	Package,
 	RefreshCw,
 	Settings,
@@ -130,7 +129,7 @@ export function AgentsTab() {
 						<Separator />
 						<div>
 							<h3 className="font-medium mb-2">Workspace Agents</h3>
-							<p className="text-sm text-muted-foreground">
+							<p className="text-sm text-muted-foreground break-words">
 								Workspace agents live in a project's .claude/agents/ directory.{" "}
 								{PRODUCT_NAME} registers projects only when
 								BETTER_CCFLARE_AGENT_WORKSPACE_AUTODISCOVER=true is set. It then
@@ -214,14 +213,15 @@ Your system prompt content here...`}
 									)}
 									<Button
 										variant="outline"
-										size="sm"
+										size="touch-icon"
 										onClick={() => refreshModels.mutate()}
 										disabled={refreshModels.isPending}
+										className="shrink-0"
 										aria-label="Refresh model list"
 										title="Refresh the live model list from Anthropic"
 									>
 										<RefreshCw
-											className={`h-3.5 w-3.5 ${refreshModels.isPending ? "animate-spin" : ""}`}
+											className={refreshModels.isPending ? "animate-spin" : ""}
 										/>
 									</Button>
 								</div>
@@ -240,7 +240,7 @@ Your system prompt content here...`}
 										onOpenChange={setBulkUpdateDialogOpen}
 									>
 										<DialogTrigger asChild>
-											<Button variant="outline" size="sm">
+											<Button variant="outline" size="touch-sm">
 												Force Update All
 											</Button>
 										</DialogTrigger>
@@ -257,17 +257,21 @@ Your system prompt content here...`}
 												<ModelSelect
 													value={bulkUpdateModel}
 													onValueChange={setBulkUpdateModel}
+													triggerClassName="h-11"
 													ariaLabel="Model for all agents"
 												/>
 											</div>
 											<DialogFooter>
 												<Button
 													variant="outline"
+													size="touch"
 													onClick={() => setBulkUpdateDialogOpen(false)}
 												>
 													Cancel
 												</Button>
 												<Button
+													variant="destructive"
+													size="touch"
 													onClick={handleBulkUpdate}
 													disabled={bulkUpdatePreferences.isPending}
 												>
@@ -305,6 +309,7 @@ Your system prompt content here...`}
 														: workspace.path,
 												)
 											}
+											aria-pressed={selectedWorkspace === workspace.path}
 											className="text-left w-full"
 										>
 											<WorkspaceCard
@@ -321,16 +326,16 @@ Your system prompt content here...`}
 
 				{/* Agents Tabs */}
 				<Tabs defaultValue="all" className="space-y-4">
-					<TabsList className="grid w-full max-w-md grid-cols-3">
-						<TabsTrigger value="all" className="gap-1.5">
+					<TabsList className="grid h-auto w-full max-w-md grid-cols-3">
+						<TabsTrigger value="all" className="min-h-11 gap-1.5">
 							<Package className="h-4 w-4" />
 							All Agents
 						</TabsTrigger>
-						<TabsTrigger value="global" className="gap-1.5">
+						<TabsTrigger value="global" className="min-h-11 gap-1.5">
 							<Globe className="h-4 w-4" />
 							Global
 						</TabsTrigger>
-						<TabsTrigger value="workspace" className="gap-1.5">
+						<TabsTrigger value="workspace" className="min-h-11 gap-1.5">
 							<Folder className="h-4 w-4" />
 							Workspace
 						</TabsTrigger>
@@ -361,7 +366,7 @@ Your system prompt content here...`}
 									{selectedWorkspace && (
 										<Button
 											variant="ghost"
-											size="sm"
+											size="touch-sm"
 											onClick={() => setSelectedWorkspace(null)}
 										>
 											Clear filter
@@ -393,17 +398,11 @@ Your system prompt content here...`}
 
 					<TabsContent value="global" className="space-y-4">
 						{globalAgents.length === 0 ? (
-							<Card>
-								<CardHeader>
-									<CardTitle className="flex items-center gap-2">
-										<Info className="h-5 w-5" />
-										No Global Agents
-									</CardTitle>
-									<CardDescription>
-										Create agent files in ~/.claude/agents/ to add global agents
-									</CardDescription>
-								</CardHeader>
-							</Card>
+							<EmptyState
+								size="inline"
+								title="No Global Agents"
+								description="Create agent files in ~/.claude/agents/ to add global agents"
+							/>
 						) : (
 							<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 								{globalAgents.map((agent) => (
@@ -415,20 +414,11 @@ Your system prompt content here...`}
 
 					<TabsContent value="workspace" className="space-y-4">
 						{workspaceAgents.length === 0 ? (
-							<Card>
-								<CardHeader>
-									<CardTitle className="flex items-center gap-2">
-										<Info className="h-5 w-5" />
-										No Workspace Agents
-									</CardTitle>
-									<CardDescription>
-										Workspace agents are automatically discovered from your
-										project directories. They should be able to discover local
-										project agents after you send a message from within that
-										directory.
-									</CardDescription>
-								</CardHeader>
-							</Card>
+							<EmptyState
+								size="inline"
+								title="No Workspace Agents"
+								description="Workspace agents are automatically discovered from your project directories. They should be able to discover local project agents after you send a message from within that directory."
+							/>
 						) : (
 							<>
 								{selectedWorkspace && (
@@ -440,7 +430,7 @@ Your system prompt content here...`}
 										</span>
 										<Button
 											variant="ghost"
-											size="sm"
+											size="touch-sm"
 											className="ml-auto"
 											onClick={() => setSelectedWorkspace(null)}
 										>

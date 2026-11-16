@@ -3,7 +3,9 @@ import { Edit, Trash2 } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Switch } from "../ui/switch";
+import { StatusPill } from "../ui/status-pill";
+import { SwitchHitArea } from "../ui/switch-row";
+import { membershipModeTone } from "./combo-pill-tones";
 import {
 	type FamilyRoutingProjection,
 	formatPolicyModel,
@@ -50,36 +52,41 @@ export function ComboCard({
 							</p>
 						)}
 					</div>
-					<Switch
-						checked={combo.enabled}
-						onCheckedChange={onToggleEnabled}
-						aria-label={`${combo.name} enabled`}
-					/>
+					<div className="flex shrink-0 items-center gap-1">
+						<SwitchHitArea
+							checked={combo.enabled}
+							onCheckedChange={onToggleEnabled}
+							aria-label={`${combo.name} enabled`}
+						/>
+						<span className="text-sm text-muted-foreground">
+							{combo.enabled ? "Enabled" : "Disabled"}
+						</span>
+					</div>
 				</div>
 			</CardHeader>
 			<CardContent className="pt-0">
 				<div className="space-y-4">
 					<div className="flex items-center justify-between gap-3">
-						<span className="text-sm text-muted-foreground">
+						<span className="text-sm tabular-nums text-muted-foreground">
 							{`${slotCount} persisted Manual ${slotCount === 1 ? "slot" : "slots"}`}
 						</span>
 						<div className="flex items-center gap-1">
 							<Button
 								variant="ghost"
-								size="sm"
+								size="touch-icon"
 								onClick={onEdit}
 								aria-label={`Edit ${combo.name}`}
 							>
-								<Edit className="h-4 w-4" />
+								<Edit />
 							</Button>
 							<Button
 								variant="ghost"
-								size="sm"
+								size="touch-icon"
 								onClick={onDelete}
 								className="text-destructive hover:text-destructive"
 								aria-label={`Delete ${combo.name}`}
 							>
-								<Trash2 className="h-4 w-4" />
+								<Trash2 />
 							</Button>
 						</div>
 					</div>
@@ -114,20 +121,13 @@ export function ComboCard({
 											<Badge variant="secondary" className="text-xs">
 												{displayFamily}
 											</Badge>
-											<Badge
-												variant={
-													assignment.membership_mode === "managed"
-														? "default"
-														: "outline"
-												}
-												className="text-xs"
+											<StatusPill
+												tone={membershipModeTone(assignment.membership_mode)}
 											>
 												{modeLabel}
-											</Badge>
+											</StatusPill>
 											{!assignment.enabled && (
-												<Badge variant="outline" className="text-xs">
-													Inactive
-												</Badge>
+												<StatusPill tone="neutral">Inactive</StatusPill>
 											)}
 										</div>
 
@@ -156,7 +156,7 @@ export function ComboCard({
 												<legend className="text-xs font-medium text-foreground">
 													Authoritative effective membership
 												</legend>
-												<div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-3">
+												<div className="grid gap-1 text-xs tabular-nums text-muted-foreground sm:grid-cols-3">
 													<span>{`Manual members: ${manualMemberCount}`}</span>
 													<span>{`Managed members: ${managedMemberCount}`}</span>
 													<span>{`Effective members: ${effectiveMemberCount}`}</span>

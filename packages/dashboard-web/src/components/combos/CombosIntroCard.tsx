@@ -7,7 +7,7 @@ import {
 	CardTitle,
 } from "../ui/card";
 import { HelpPopover } from "../ui/help-popover";
-import { Switch } from "../ui/switch";
+import { SwitchHitArea } from "../ui/switch-row";
 
 export const COMBOS_ENABLED_PATH = "/api/config/combos-enabled";
 
@@ -66,7 +66,7 @@ export function CombosIntroCard() {
 						<span className="text-sm text-muted-foreground">
 							{enabled ? "On" : "Off"}
 						</span>
-						<Switch
+						<SwitchHitArea
 							checked={enabled}
 							disabled={busy}
 							onCheckedChange={(next) => saveFlag.mutate(next)}
@@ -83,7 +83,7 @@ export function CombosIntroCard() {
 					</p>
 				)}
 				{saveFlag.isError && (
-					<p className="text-destructive">
+					<p className="text-destructive" role="alert">
 						Could not save the setting. Try again.
 					</p>
 				)}

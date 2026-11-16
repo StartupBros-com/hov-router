@@ -48,16 +48,23 @@ export function AgentModelPreferenceSelect({
 				: { label: "Agent default — session model", badgeLabel: "Inherited" };
 
 	return (
-		<ModelSelect
-			value={modelSelectValue}
-			onValueChange={(value) =>
-				updatePreference.mutate({ agentId: agent.id, model: value })
-			}
-			disabled={updatePreference.isPending}
-			placeholder="Inherit (session model)"
-			triggerClassName={triggerClassName}
-			ariaLabel={`Model Preference for ${agent.name}`}
-			defaultItem={modelDefaultItem}
-		/>
+		<div className="space-y-1">
+			<ModelSelect
+				value={modelSelectValue}
+				onValueChange={(value) =>
+					updatePreference.mutate({ agentId: agent.id, model: value })
+				}
+				disabled={updatePreference.isPending}
+				placeholder="Inherit (session model)"
+				triggerClassName={triggerClassName}
+				ariaLabel={`Model Preference for ${agent.name}`}
+				defaultItem={modelDefaultItem}
+			/>
+			{updatePreference.isError && (
+				<p role="alert" className="text-xs text-destructive">
+					Could not save the model preference.
+				</p>
+			)}
+		</div>
 	);
 }

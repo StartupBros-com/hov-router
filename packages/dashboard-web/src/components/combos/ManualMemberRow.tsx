@@ -118,7 +118,7 @@ export function ManualMemberRow({
 			<div className="flex shrink-0 items-center gap-1 pt-0.5">
 				<Label
 					htmlFor={`combo-slot-priority-${slot.id}`}
-					className="text-[10px] text-muted-foreground"
+					className="text-xs text-muted-foreground"
 				>
 					Tier
 				</Label>
@@ -139,19 +139,19 @@ export function ManualMemberRow({
 						});
 					}}
 					disabled={isUpdatingPriority}
-					className="h-7 w-16 px-2 text-xs"
+					className="h-11 w-16 px-2 text-xs"
 				/>
 			</div>
 
 			<Button
 				variant="ghost"
-				size="sm"
+				size="touch-icon"
 				aria-label={`Remove ${accountName}`}
 				onClick={onRemove}
 				disabled={isRemoving}
 				className="shrink-0 text-destructive hover:text-destructive"
 			>
-				<Trash2 className="h-4 w-4" />
+				<Trash2 />
 			</Button>
 		</div>
 	);

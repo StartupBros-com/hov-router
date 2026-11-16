@@ -11,6 +11,7 @@ import {
 	DialogTrigger,
 } from "../ui/dialog";
 import { Label } from "../ui/label";
+import { ErrorState } from "../ui/state";
 import { Switch } from "../ui/switch";
 
 /**
@@ -49,7 +50,7 @@ export function ConfigFlagDialog({
 	return (
 		<Dialog>
 			<DialogTrigger asChild>
-				<Button variant="outline" size="sm">
+				<Button variant="outline" size="touch-sm">
 					{triggerLabel}
 				</Button>
 			</DialogTrigger>
@@ -59,13 +60,35 @@ export function ConfigFlagDialog({
 					<DialogDescription>{description}</DialogDescription>
 				</DialogHeader>
 
+				{flagQuery.isError && (
+					<ErrorState
+						size="inline"
+						title="Could not load this setting"
+						onRetry={() => void flagQuery.refetch()}
+						retryDisabled={flagQuery.isFetching}
+					/>
+				)}
+
 				<div className="flex items-center justify-between gap-4 rounded-md border p-3">
-					<Label htmlFor={switchId} className="text-sm font-normal">
+					<Label
+						htmlFor={switchId}
+						className="inline-flex min-h-11 items-center text-sm font-normal"
+					>
 						{switchLabel}
 					</Label>
 					<div className="flex items-center gap-2">
 						{busy && (
-							<Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+							<span
+								role="status"
+								aria-label={
+									saveFlag.isPending ? "Saving setting" : "Loading setting"
+								}
+							>
+								<Loader2
+									aria-hidden="true"
+									className="h-3.5 w-3.5 animate-spin text-muted-foreground"
+								/>
+							</span>
 						)}
 						<Switch
 							id={switchId}
@@ -79,7 +102,7 @@ export function ConfigFlagDialog({
 				<div className="space-y-2 text-xs leading-relaxed text-muted-foreground">
 					{children}
 					{saveFlag.isError && (
-						<p className="text-destructive">
+						<p role="alert" className="text-destructive">
 							Could not save the setting. Try again.
 						</p>
 					)}

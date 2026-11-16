@@ -13,6 +13,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../ui/select";
+import { ErrorState } from "../ui/state";
 
 const TTL_OPTIONS = [
 	{ label: "Disabled", value: 0 },
@@ -23,7 +24,7 @@ const TTL_OPTIONS = [
 ];
 
 export function CacheKeepaliveCard() {
-	const { data, isLoading } = useKeepaliveTtl();
+	const { data, isLoading, isError, isFetching, refetch } = useKeepaliveTtl();
 	const setTtl = useSetKeepaliveTtl();
 
 	const currentValue = data?.ttlMinutes ?? 0;
@@ -39,22 +40,37 @@ export function CacheKeepaliveCard() {
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<Select
-					disabled={isLoading || setTtl.isPending}
-					value={String(currentValue)}
-					onValueChange={(v) => setTtl.mutate({ ttlMinutes: parseInt(v, 10) })}
-				>
-					<SelectTrigger className="w-48" aria-label="Cache Keep-Alive">
-						<SelectValue placeholder="Select TTL..." />
-					</SelectTrigger>
-					<SelectContent>
-						{TTL_OPTIONS.map((opt) => (
-							<SelectItem key={opt.value} value={String(opt.value)}>
-								{opt.label}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
+				{isError && !data ? (
+					<ErrorState
+						size="inline"
+						title="Could not load the keep-alive setting"
+						onRetry={() => void refetch()}
+						retryDisabled={isFetching}
+					/>
+				) : (
+					<Select
+						disabled={isLoading || setTtl.isPending}
+						value={String(currentValue)}
+						onValueChange={(v) =>
+							setTtl.mutate({ ttlMinutes: parseInt(v, 10) })
+						}
+					>
+						<SelectTrigger className="h-11 w-48" aria-label="Cache Keep-Alive">
+							<SelectValue placeholder="Select TTL..." />
+						</SelectTrigger>
+						<SelectContent>
+							{TTL_OPTIONS.map((opt) => (
+								<SelectItem
+									className="min-h-11"
+									key={opt.value}
+									value={String(opt.value)}
+								>
+									{opt.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				)}
 				{currentValue > 0 && (
 					<p className="text-xs text-muted-foreground mt-2">
 						Keepalive runs every {Math.max(1, currentValue - 1)} minute

@@ -42,6 +42,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "../ui/select";
+import { EmptyState, ErrorState, LoadingState } from "../ui/state";
+import { StatusPill } from "../ui/status-pill";
+import { membershipModeTone } from "./combo-pill-tones";
 import {
 	COMBO_REORDER_WARNING,
 	getDefaultComboSlotPriority,
@@ -121,7 +124,7 @@ function SortableManualMemberRow({
 					<button
 						type="button"
 						aria-label={`Reorder ${accountName}`}
-						className="mt-1 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+						className="inline-flex h-11 w-11 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
 						{...attributes}
 						{...listeners}
 					>
@@ -287,6 +290,11 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 	const passthroughAllowed =
 		providerAllowsClientModelPassthrough(selectedProvider);
 	const missingRequiredModel = !passthroughAllowed && !newModel.trim();
+	// Named only once an account is chosen; before that the empty account select explains the disabled Add.
+	const requiredModelReason =
+		missingRequiredModel && selectedProvider
+			? `A model is required for ${selectedProvider}: this provider does not serve Claude model ids, so there is no passthrough.`
+			: undefined;
 	const families = familiesQuery.data?.families ?? [];
 	const effectiveRoutingUnavailable =
 		effectiveRoutingQuery.isError || effectiveRoutingQuery.isRefetchError;
@@ -419,11 +427,11 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 		<Card>
 			<CardHeader className="pb-2">
 				<div className="flex items-center justify-between">
-					<CardTitle className="text-sm">
+					<CardTitle>
 						Persisted Manual slots ({persistedManualSlots.length})
 					</CardTitle>
-					<Button variant="outline" size="sm" onClick={toggleAddForm}>
-						<Plus className="mr-1 h-3 w-3" />
+					<Button variant="outline" size="touch-sm" onClick={toggleAddForm}>
+						<Plus />
 						Add Manual slot
 					</Button>
 				</div>
@@ -434,44 +442,26 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 					balance by comparable quota pressure. {COMBO_REORDER_WARNING}
 				</div>
 				{effectiveRoutingUnavailable && (
-					<div
-						className="flex items-start justify-between gap-3 rounded-md border border-destructive/50 bg-destructive/5 px-3 py-2"
-						role="alert"
-					>
-						<div className="space-y-1">
-							<p className="text-sm font-medium text-destructive">
-								Authoritative routing could not be refreshed.
-							</p>
-							<p className="text-xs text-muted-foreground">
-								Manual slot editing is using the current combo and family
-								configuration. Managed membership and exception actions are
-								unavailable until retry succeeds.
-							</p>
-						</div>
-						<Button
-							variant="outline"
-							size="sm"
-							aria-label="Retry authoritative routing"
-							onClick={() => void effectiveRoutingQuery.refetch()}
-							disabled={effectiveRoutingQuery.isFetching}
-						>
-							{effectiveRoutingQuery.isFetching
-								? "Retrying…"
-								: "Retry authoritative routing"}
-						</Button>
-					</div>
+					<ErrorState
+						size="inline"
+						title="Authoritative routing could not be refreshed"
+						message="Manual slot editing is using the current combo and family configuration. Managed membership and exception actions are unavailable until retry succeeds."
+						retryLabel="Retry authoritative routing"
+						onRetry={() => void effectiveRoutingQuery.refetch()}
+						retryDisabled={effectiveRoutingQuery.isFetching}
+					/>
 				)}
 				{assignedFamilyStates.length > 0 && (
 					<div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
 						<span>Assigned families:</span>
 						{assignedFamilyStates.map(({ family, assignment }) => (
-							<Badge
+							<StatusPill
 								key={family}
-								variant="default"
-								className="text-xs capitalize"
+								tone={membershipModeTone(assignment.membership_mode)}
+								className="capitalize"
 							>
-								{family} · {assignment.membership_mode}
-							</Badge>
+								{`${family} · ${assignment.membership_mode}`}
+							</StatusPill>
 						))}
 					</div>
 				)}
@@ -480,7 +470,7 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 						<div className="space-y-1.5">
 							<Label>Account</Label>
 							<Select value={newAccountId} onValueChange={setNewAccountId}>
-								<SelectTrigger>
+								<SelectTrigger className="h-11">
 									<SelectValue placeholder="Select account...">
 										{newAccountId &&
 											(() => {
@@ -491,7 +481,11 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 								</SelectTrigger>
 								<SelectContent>
 									{accounts.map((account) => (
-										<SelectItem key={account.id} value={account.id}>
+										<SelectItem
+											key={account.id}
+											value={account.id}
+											className="min-h-11"
+										>
 											<span className="flex items-center gap-2">
 												<Badge variant="secondary" className="text-xs">
 													{account.provider}
@@ -509,6 +503,7 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 								value={newModel}
 								onChange={(e) => setNewModel(e.target.value)}
 								placeholder="claude-3-opus"
+								className="h-11"
 							/>
 						</div>
 						<div className="space-y-1.5">
@@ -521,18 +516,24 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 								step={1}
 								value={newPriority}
 								onChange={(event) => setNewPriority(event.target.value)}
+								className="h-11"
 							/>
 							<p className="text-xs text-muted-foreground">
 								Use the same tier for accounts that should dynamically share
 								this lane.
 							</p>
 						</div>
+						{requiredModelReason && (
+							<p className="text-xs text-muted-foreground">
+								{requiredModelReason}
+							</p>
+						)}
 						<div className="flex justify-end gap-2">
-							<Button variant="outline" size="sm" onClick={closeAddForm}>
+							<Button variant="outline" size="touch-sm" onClick={closeAddForm}>
 								Cancel
 							</Button>
 							<Button
-								size="sm"
+								size="touch-sm"
 								onClick={handleAddSlot}
 								disabled={
 									!newAccountId ||
@@ -540,11 +541,7 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 									parsedNewPriority === null ||
 									addSlot.isPending
 								}
-								title={
-									missingRequiredModel
-										? `A model is required for ${selectedProvider}: this provider does not serve Claude model ids, so there is no passthrough.`
-										: undefined
-								}
+								title={requiredModelReason}
 							>
 								{addSlot.isPending ? "Adding..." : "Add"}
 							</Button>
@@ -558,9 +555,10 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 				)}
 
 				{persistedManualSlots.length === 0 && !showAddForm && (
-					<p className="py-2 text-center text-sm text-muted-foreground">
-						No slots yet. Add a slot to define the fallback chain.
-					</p>
+					<EmptyState
+						size="inline"
+						title="No slots yet. Add a slot to define the fallback chain."
+					/>
 				)}
 
 				{persistedManualSlots.length > 0 && (
@@ -655,9 +653,14 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 								<div key={family} className="space-y-3 rounded-md border p-3">
 									<div className="flex flex-wrap items-center gap-2">
 										<Badge className="capitalize">{family}</Badge>
-										<Badge variant="outline" className="capitalize">
+										<StatusPill
+											tone={membershipModeTone(
+												policyAssignment.membership_mode,
+											)}
+											className="capitalize"
+										>
 											{policyAssignment.membership_mode}
-										</Badge>
+										</StatusPill>
 										{policyAssignment.managed_model && (
 											<span className="font-mono text-xs text-muted-foreground">
 												{formatPolicyModel(
@@ -720,11 +723,14 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 												mutationPending={restoreAccount.isPending}
 											/>
 										</div>
+									) : effectiveRoutingQuery.isLoading ? (
+										<LoadingState
+											size="inline"
+											label="Loading authoritative routing"
+										/>
 									) : (
 										<p className="text-xs text-muted-foreground">
-											{effectiveRoutingQuery.isLoading
-												? "Loading authoritative routing…"
-												: "Authoritative routing is unavailable for this family."}
+											Authoritative routing is unavailable for this family.
 										</p>
 									)}
 								</div>

@@ -102,7 +102,7 @@ export function ManagedMemberList({
 									</div>
 									<Button
 										variant="outline"
-										size="sm"
+										size="touch-sm"
 										onClick={() => onExclude(target)}
 										disabled={mutationPending || isPending}
 										aria-label={`Exclude ${member.account_name} from ${label} managed routing`}

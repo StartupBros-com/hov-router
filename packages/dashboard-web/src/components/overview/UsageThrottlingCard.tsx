@@ -6,7 +6,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "../ui/card";
-import { Switch } from "../ui/switch";
+import { SwitchRow } from "../ui/switch-row";
 
 export function UsageThrottlingCard() {
 	const { data, isLoading } = useUsageThrottling();
@@ -28,14 +28,13 @@ export function UsageThrottlingCard() {
 			</CardHeader>
 			<CardContent>
 				<div className="space-y-4">
-					<div className="flex items-center justify-between gap-3">
-						<div className="space-y-1">
-							<div className="text-sm font-medium">5-hour window</div>
-							<div className="text-sm text-muted-foreground">
-								Throttle requests when 5-hour usage is ahead of its pacing line.
-							</div>
-						</div>
-						<Switch
+					<div className="flex items-center gap-3">
+						<SwitchRow
+							className="flex-1"
+							id="usage-throttling-five-hour"
+							label="5-hour window"
+							labelClassName="text-sm font-medium"
+							description="Throttle requests when 5-hour usage is ahead of its pacing line."
 							aria-label="5-hour window"
 							disabled={isLoading || setUsageThrottling.isPending}
 							checked={fiveHourEnabled}
@@ -46,16 +45,17 @@ export function UsageThrottlingCard() {
 								})
 							}
 						/>
+						<span className="text-sm text-muted-foreground">
+							{fiveHourEnabled ? "Enabled" : "Disabled"}
+						</span>
 					</div>
-					<div className="flex items-center justify-between gap-3">
-						<div className="space-y-1">
-							<div className="text-sm font-medium">Weekly window</div>
-							<div className="text-sm text-muted-foreground">
-								Throttle requests when weekly usage is ahead of its pacing line.
-								Disable this if you expect usage to recover overnight.
-							</div>
-						</div>
-						<Switch
+					<div className="flex items-center gap-3">
+						<SwitchRow
+							className="flex-1"
+							id="usage-throttling-weekly"
+							label="Weekly window"
+							labelClassName="text-sm font-medium"
+							description="Throttle requests when weekly usage is ahead of its pacing line. Disable this if you expect usage to recover overnight."
 							aria-label="Weekly window"
 							disabled={isLoading || setUsageThrottling.isPending}
 							checked={weeklyEnabled}
@@ -66,6 +66,9 @@ export function UsageThrottlingCard() {
 								})
 							}
 						/>
+						<span className="text-sm text-muted-foreground">
+							{weeklyEnabled ? "Enabled" : "Disabled"}
+						</span>
 					</div>
 				</div>
 			</CardContent>

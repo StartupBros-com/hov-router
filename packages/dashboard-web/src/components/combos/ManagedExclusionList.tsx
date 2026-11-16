@@ -122,7 +122,7 @@ export function ManagedExclusionList({
 								{isExcluded && (
 									<Button
 										variant="outline"
-										size="sm"
+										size="touch-sm"
 										onClick={() => onRestore(target)}
 										disabled={mutationPending || isPending}
 										aria-label={`Restore ${decision.account_name} to ${label} managed routing`}
@@ -167,7 +167,7 @@ export function ManagedExclusionList({
 							</div>
 							<Button
 								variant="outline"
-								size="sm"
+								size="touch-sm"
 								onClick={() => onRestore(target)}
 								disabled={mutationPending || isPending}
 								aria-label={`Restore ${accountName} to ${label} managed routing`}

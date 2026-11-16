@@ -8,7 +8,6 @@ import {
 	useStrategy,
 } from "../../hooks/queries";
 import { useApiError } from "../../hooks/useApiError";
-import { Badge } from "../ui/badge";
 import {
 	Card,
 	CardContent,
@@ -25,6 +24,7 @@ import {
 	SelectValue,
 } from "../ui/select";
 import { EmptyState, ErrorState, LoadingState } from "../ui/state";
+import { StatusPill } from "../ui/status-pill";
 import { Switch } from "../ui/switch";
 
 // Only session-class strategies are offered from the dashboard. Per-request
@@ -91,6 +91,14 @@ export interface RoutingCardViewProps {
 	onCapacityChange: (mode: "off" | "exhausted") => void;
 	capacityDisabled: boolean;
 	routingAttempts?: RoutingAttemptSummaryViewState;
+	/** When given, the attempts error state offers Retry. */
+	onRetryRoutingAttempts?: () => void;
+	/** Keeps Retry visible but disabled while a retry is fetching. */
+	retryRoutingAttemptsDisabled?: boolean;
+	/** True while the last strategy save has failed. */
+	strategySaveFailed?: boolean;
+	/** True while the last capacity-routing save has failed. */
+	capacitySaveFailed?: boolean;
 }
 
 /**
@@ -108,6 +116,10 @@ export function RoutingCardView({
 	onCapacityChange,
 	capacityDisabled,
 	routingAttempts = { status: "loading" },
+	onRetryRoutingAttempts,
+	retryRoutingAttemptsDisabled,
+	strategySaveFailed,
+	capacitySaveFailed,
 }: RoutingCardViewProps) {
 	const strategyEnvLocked = strategySource === "env";
 	const capacityEnvLocked = capacitySource === "env";
@@ -128,12 +140,12 @@ export function RoutingCardView({
 						<div className="flex items-center gap-2">
 							<Label htmlFor="routing-strategy">Load-balancing strategy</Label>
 							{strategyEnvLocked && (
-								<Badge
-									variant="outline"
+								<StatusPill
+									tone="warning"
 									title="Set by the LB_STRATEGY environment variable; change the env var to edit this."
 								>
 									env-locked
-								</Badge>
+								</StatusPill>
 							)}
 						</div>
 						<div className="text-sm text-muted-foreground">
@@ -150,17 +162,24 @@ export function RoutingCardView({
 							explicit owner-retention and route-circuit decisions remain
 							authoritative.
 						</div>
+						{strategyEnvLocked && (
+							<p className="text-xs text-muted-foreground">
+								Set by the LB_STRATEGY environment variable; change the env var
+								to edit this.
+							</p>
+						)}
 						<Select
 							disabled={strategyDisabled || strategyEnvLocked}
 							value={strategy}
 							onValueChange={onStrategyChange}
 						>
-							<SelectTrigger id="routing-strategy" className="w-64">
+							<SelectTrigger id="routing-strategy" className="h-11 w-64">
 								<SelectValue placeholder="Select strategy..." />
 							</SelectTrigger>
 							<SelectContent>
 								{strategyItems.map((opt) => (
 									<SelectItem
+										className="min-h-11"
 										key={opt.value}
 										value={opt.value}
 										disabled={opt.disabled}
@@ -175,39 +194,65 @@ export function RoutingCardView({
 							individual requests across accounts can trigger Claude's
 							anti-abuse systems and risk account bans.
 						</div>
+						{strategySaveFailed && (
+							<p role="alert" className="text-xs text-destructive">
+								Could not save the load-balancing strategy. The previous setting
+								is still in effect.
+							</p>
+						)}
 					</div>
 
 					<div className="flex items-center justify-between gap-3">
-						<div className="space-y-1">
+						<div className="min-w-0 space-y-1">
 							<div className="flex items-center gap-2">
-								<Label htmlFor="routing-capacity">
+								<Label
+									htmlFor="routing-capacity"
+									className="inline-flex min-h-11 items-center"
+								>
 									Model-scoped capacity routing
 								</Label>
 								{capacityEnvLocked && (
-									<Badge
-										variant="outline"
+									<StatusPill
+										tone="warning"
 										title="Set by the MODEL_SCOPED_CAPACITY_ROUTING environment variable; change the env var to edit this."
 									>
 										env-locked
-									</Badge>
+									</StatusPill>
 								)}
 							</div>
-							<div className="text-sm text-muted-foreground">
+							<div className="break-words text-sm text-muted-foreground">
 								Accounts with no capacity left for the requested model are
 								skipped, and the remaining accounts still handle the request. If
 								none are left, the request fails with a retryable 503
 								(model_pool_exhausted) instead of retrying accounts that are
 								certain to fail.
 							</div>
+							{capacityEnvLocked && (
+								<p className="text-xs text-muted-foreground">
+									Set by the MODEL_SCOPED_CAPACITY_ROUTING environment variable;
+									change the env var to edit this.
+								</p>
+							)}
+							{capacitySaveFailed && (
+								<p role="alert" className="text-xs text-destructive">
+									Could not save the model-scoped capacity routing setting. The
+									previous setting is still in effect.
+								</p>
+							)}
 						</div>
-						<Switch
-							id="routing-capacity"
-							disabled={capacityDisabled || capacityEnvLocked}
-							checked={capacityMode === "exhausted"}
-							onCheckedChange={(checked) =>
-								onCapacityChange(checked ? "exhausted" : "off")
-							}
-						/>
+						<div className="flex shrink-0 items-center gap-3">
+							<Switch
+								id="routing-capacity"
+								disabled={capacityDisabled || capacityEnvLocked}
+								checked={capacityMode === "exhausted"}
+								onCheckedChange={(checked) =>
+									onCapacityChange(checked ? "exhausted" : "off")
+								}
+							/>
+							<span className="text-sm text-muted-foreground">
+								{capacityMode === "exhausted" ? "Enabled" : "Disabled"}
+							</span>
+						</div>
 					</div>
 
 					<section
@@ -238,6 +283,8 @@ export function RoutingCardView({
 								size="inline"
 								title="Routing-attempt summary could not load"
 								message={routingAttempts.message}
+								onRetry={onRetryRoutingAttempts}
+								retryDisabled={retryRoutingAttemptsDisabled}
 							/>
 						)}
 						{routingAttempts.status === "success" &&
@@ -248,7 +295,7 @@ export function RoutingCardView({
 								/>
 							) : (
 								<div className="space-y-2 text-sm">
-									<p>
+									<p className="tabular-nums">
 										{routingAttempts.data.totalAttempts} attempts across{" "}
 										{routingAttempts.data.distinctRequests} logical requests
 									</p>
@@ -319,6 +366,10 @@ export function RoutingCard() {
 			onCapacityChange={(mode) => setCapacity.mutate(mode)}
 			capacityDisabled={capacityLoading || setCapacity.isPending}
 			routingAttempts={routingAttemptsView}
+			onRetryRoutingAttempts={() => routingAttempts.refetch()}
+			retryRoutingAttemptsDisabled={routingAttempts.isFetching}
+			strategySaveFailed={setStrategy.isError}
+			capacitySaveFailed={setCapacity.isError}
 		/>
 	);
 }

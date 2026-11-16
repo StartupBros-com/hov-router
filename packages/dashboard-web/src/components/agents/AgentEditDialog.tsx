@@ -26,6 +26,7 @@ import {
 import { Label } from "../ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { AgentModelPreferenceSelect } from "./AgentModelPreferenceSelect";
+import { AGENT_COLOR_CLASSES, AGENT_COLOR_NAMES } from "./agent-colors";
 import { ModelSelect } from "./ModelSelect";
 
 interface AgentEditDialogProps {
@@ -60,18 +61,49 @@ function getCombinations<T>(arr: T[], size: number): T[][] {
 	return result;
 }
 
-const COLORS = [
-	{ name: "gray", class: "bg-gray-500" },
-	{ name: "blue", class: "bg-blue-500" },
-	{ name: "green", class: "bg-green-500" },
-	{ name: "yellow", class: "bg-yellow-500" },
-	{ name: "orange", class: "bg-orange-500" },
-	{ name: "red", class: "bg-red-500" },
-	{ name: "purple", class: "bg-purple-500" },
-	{ name: "pink", class: "bg-pink-500" },
-	{ name: "indigo", class: "bg-indigo-500" },
-	{ name: "cyan", class: "bg-cyan-500" },
-];
+/** The theme colour picker: a named toggle button for each palette colour. */
+export function AgentColorSwatches({
+	color,
+	onColorChange,
+}: {
+	color: string;
+	onColorChange: (color: string) => void;
+}) {
+	return (
+		<div className="grid grid-cols-5 gap-3">
+			{AGENT_COLOR_NAMES.map((name) => {
+				const selected = color === name;
+				return (
+					<button
+						key={name}
+						type="button"
+						aria-label={name.charAt(0).toUpperCase() + name.slice(1)}
+						aria-pressed={selected}
+						onClick={() => onColorChange(name)}
+						className={cn(
+							"relative h-12 min-w-11 rounded-lg border-2 transition-all",
+							"hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+							selected ? "border-primary shadow-lg" : "border-transparent",
+						)}
+					>
+						<div
+							className={cn(
+								"h-full w-full rounded-md",
+								AGENT_COLOR_CLASSES[name].swatch,
+								"opacity-90",
+							)}
+						/>
+						{selected && (
+							<div className="absolute inset-0 flex items-center justify-center">
+								<div className="h-3 w-3 rounded-full bg-white shadow-sm" />
+							</div>
+						)}
+					</button>
+				);
+			})}
+		</div>
+	);
+}
 
 const TOOL_MODE_INFO = {
 	all: {
@@ -422,20 +454,20 @@ export function AgentEditDialog({
 				</DialogHeader>
 
 				<Tabs defaultValue="general" className="flex-1 overflow-y-auto">
-					<TabsList className="grid w-full grid-cols-4">
-						<TabsTrigger value="general" className="gap-2">
+					<TabsList className="grid h-auto w-full grid-cols-4">
+						<TabsTrigger value="general" className="min-h-11 gap-2">
 							<FileText className="h-4 w-4" />
 							General
 						</TabsTrigger>
-						<TabsTrigger value="description" className="gap-2">
+						<TabsTrigger value="description" className="min-h-11 gap-2">
 							<Edit3 className="h-4 w-4" />
 							Description
 						</TabsTrigger>
-						<TabsTrigger value="tools" className="gap-2">
+						<TabsTrigger value="tools" className="min-h-11 gap-2">
 							<Shield className="h-4 w-4" />
 							Tools
 						</TabsTrigger>
-						<TabsTrigger value="prompt" className="gap-2">
+						<TabsTrigger value="prompt" className="min-h-11 gap-2">
 							<Cpu className="h-4 w-4" />
 							Prompt
 						</TabsTrigger>
@@ -452,6 +484,7 @@ export function AgentEditDialog({
 									value={modelValue}
 									onValueChange={setModelValue}
 									placeholder="Select a model"
+									triggerClassName="h-11"
 									ariaLabel="Default Model (agent file)"
 									defaultItem={{
 										label: "Inherit (session model)",
@@ -470,7 +503,10 @@ export function AgentEditDialog({
 								<Label className="text-base font-medium">
 									Model Preference (proxy override)
 								</Label>
-								<AgentModelPreferenceSelect agent={agent} />
+								<AgentModelPreferenceSelect
+									agent={agent}
+									triggerClassName="h-11"
+								/>
 								<p className="text-xs text-muted-foreground">
 									Proxy override — applies immediately, stored in the database,
 									never written to the agent file.
@@ -483,35 +519,7 @@ export function AgentEditDialog({
 									<Palette className="h-4 w-4" />
 									Theme Color
 								</Label>
-								<div className="grid grid-cols-5 gap-3">
-									{COLORS.map(({ name, class: colorClass }) => (
-										<button
-											key={name}
-											type="button"
-											onClick={() => setColor(name)}
-											className={cn(
-												"relative h-12 rounded-lg border-2 transition-all",
-												"hover:scale-105 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-												color === name
-													? "border-primary shadow-lg"
-													: "border-transparent",
-											)}
-										>
-											<div
-												className={cn(
-													"h-full w-full rounded-md",
-													colorClass,
-													"opacity-90",
-												)}
-											/>
-											{color === name && (
-												<div className="absolute inset-0 flex items-center justify-center">
-													<div className="h-3 w-3 rounded-full bg-white shadow-sm" />
-												</div>
-											)}
-										</button>
-									))}
-								</div>
+								<AgentColorSwatches color={color} onColorChange={setColor} />
 							</div>
 						</TabsContent>
 
@@ -582,7 +590,7 @@ export function AgentEditDialog({
 														type="checkbox"
 														checked={isSelected && !isCustomMode}
 														onChange={() => {}}
-														className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+														className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
 														disabled={isCustomMode}
 													/>
 													<div className="text-2xl">{info.icon}</div>
@@ -620,7 +628,7 @@ export function AgentEditDialog({
 											type="checkbox"
 											checked={isCustomMode}
 											onChange={() => {}}
-											className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+											className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
 										/>
 										<div className="text-2xl">⚙️</div>
 										<div className="flex-1 space-y-1">
@@ -642,7 +650,7 @@ export function AgentEditDialog({
 													<Button
 														type="button"
 														variant="ghost"
-														size="sm"
+														size="touch-sm"
 														onClick={() => setCustomTools(ALL_TOOLS)}
 													>
 														Select All
@@ -650,7 +658,7 @@ export function AgentEditDialog({
 													<Button
 														type="button"
 														variant="ghost"
-														size="sm"
+														size="touch-sm"
 														onClick={() => setCustomTools([])}
 													>
 														Clear
@@ -661,13 +669,13 @@ export function AgentEditDialog({
 												{ALL_TOOLS.map((tool) => (
 													<label
 														key={tool}
-														className="flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer"
+														className="flex min-h-11 items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer"
 													>
 														<input
 															type="checkbox"
 															checked={customTools.includes(tool)}
 															onChange={() => handleToolToggle(tool)}
-															className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+															className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
 														/>
 														<span className="text-sm">{tool}</span>
 													</label>
@@ -701,17 +709,28 @@ export function AgentEditDialog({
 					</div>
 				</Tabs>
 
+				{updateAgent.isError && (
+					<p role="alert" className="text-sm text-destructive">
+						Could not save this agent. Your changes are still here; try again.
+					</p>
+				)}
+
 				<DialogFooter className="border-t pt-6">
 					<Button
 						variant="outline"
+						size="touch"
 						onClick={() => onOpenChange(false)}
 						disabled={updateAgent.isPending}
 					>
-						<X className="h-4 w-4 mr-2" />
+						<X />
 						Cancel
 					</Button>
-					<Button onClick={handleSave} disabled={updateAgent.isPending}>
-						<Save className="h-4 w-4 mr-2" />
+					<Button
+						size="touch"
+						onClick={handleSave}
+						disabled={updateAgent.isPending}
+					>
+						<Save />
 						{updateAgent.isPending ? "Saving..." : "Save Changes"}
 					</Button>
 				</DialogFooter>

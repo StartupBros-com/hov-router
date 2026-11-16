@@ -18,7 +18,6 @@ import {
 	useUpdateFamilyPolicy,
 } from "../../hooks/queries";
 import { useApiError } from "../../hooks/useApiError";
-import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
 	Card,
@@ -36,7 +35,9 @@ import {
 	SelectValue,
 } from "../ui/select";
 import { ErrorState, LoadingState } from "../ui/state";
+import { StatusPill } from "../ui/status-pill";
 import { Switch } from "../ui/switch";
+import { SwitchHitArea } from "../ui/switch-row";
 import {
 	type FamilyRoutingModelOption,
 	familyModelOptions as filterFamilyModelOptions,
@@ -433,7 +434,7 @@ export function FamilyActivationSection() {
 										<Label className="font-medium">
 											{FAMILY_LABELS[family]}
 										</Label>
-										<Switch
+										<SwitchHitArea
 											checked={isEnabled}
 											onCheckedChange={(checked) =>
 												handleToggle(family, checked)
@@ -449,15 +450,21 @@ export function FamilyActivationSection() {
 											disabled={!isEnabled || familyPolicyWritePending}
 										>
 											<SelectTrigger
-												className={!isEnabled ? "opacity-40" : ""}
+												className={!isEnabled ? "h-11 opacity-40" : "h-11"}
 												aria-label={`${FAMILY_LABELS[family]} active combo`}
 											>
 												<SelectValue placeholder="Select combo…" />
 											</SelectTrigger>
 											<SelectContent>
-												<SelectItem value="none">None</SelectItem>
+												<SelectItem value="none" className="min-h-11">
+													None
+												</SelectItem>
 												{enabledCombos.map((combo) => (
-													<SelectItem key={combo.id} value={combo.id}>
+													<SelectItem
+														key={combo.id}
+														value={combo.id}
+														className="min-h-11"
+													>
 														{combo.name}
 													</SelectItem>
 												))}
@@ -465,7 +472,7 @@ export function FamilyActivationSection() {
 										</Select>
 										<div className="min-w-20 text-right">
 											{isEnabled && activeComboId && (
-												<Badge variant="default">Active</Badge>
+												<StatusPill tone="success">Active</StatusPill>
 											)}
 										</div>
 									</div>
@@ -478,7 +485,8 @@ export function FamilyActivationSection() {
 											<div className="flex gap-2">
 												<Button
 													type="button"
-													size="sm"
+													size="touch-sm"
+													aria-pressed={membershipMode === "manual"}
 													variant={
 														membershipMode === "manual" ? "default" : "outline"
 													}
@@ -492,7 +500,8 @@ export function FamilyActivationSection() {
 												</Button>
 												<Button
 													type="button"
-													size="sm"
+													size="touch-sm"
+													aria-pressed={membershipMode === "managed"}
 													variant={
 														membershipMode === "managed" ? "default" : "outline"
 													}
@@ -530,12 +539,17 @@ export function FamilyActivationSection() {
 												<SelectTrigger
 													id={`${family}-managed-model`}
 													aria-label={`${FAMILY_LABELS[family]} managed logical model`}
+													className="h-11"
 												>
 													<SelectValue />
 												</SelectTrigger>
 												<SelectContent>
 													{modelOptions.map((model) => (
-														<SelectItem key={model.id} value={model.id}>
+														<SelectItem
+															key={model.id}
+															value={model.id}
+															className="min-h-11"
+														>
 															{model.displayName}
 														</SelectItem>
 													))}
@@ -572,7 +586,10 @@ export function FamilyActivationSection() {
 													);
 												}}
 											/>
-											<Label htmlFor={`${family}-exhaustion-policy`}>
+											<Label
+												htmlFor={`${family}-exhaustion-policy`}
+												className="inline-flex min-h-11 items-center"
+											>
 												Wait for native Claude quota
 											</Label>
 										</div>
