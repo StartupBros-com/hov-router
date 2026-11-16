@@ -11,6 +11,13 @@ type AxisProps = {
 	label?: { value?: string };
 };
 const axes: AxisProps[] = [];
+type TooltipProps = {
+	content?: (props: {
+		active: boolean;
+		payload: { payload: unknown }[];
+	}) => ReactNode;
+};
+const tooltips: TooltipProps[] = [];
 const pass = ({ children }: { children?: ReactNode }) => <>{children}</>;
 const none = () => null;
 mock.module("recharts", () => ({
@@ -23,7 +30,10 @@ mock.module("recharts", () => ({
 	Line: none,
 	ResponsiveContainer: pass,
 	Scatter: none,
-	Tooltip: none,
+	Tooltip: (props: TooltipProps) => {
+		tooltips.push(props);
+		return null;
+	},
 	useChartWidth: () => undefined,
 	useOffset: () => undefined,
 	XAxis: none,
@@ -58,6 +68,7 @@ const data = [
 
 beforeEach(() => {
 	axes.length = 0;
+	tooltips.length = 0;
 });
 
 describe("ModelPerformanceComparison axes", () => {
@@ -75,4 +86,24 @@ describe("ModelPerformanceComparison axes", () => {
 			// and "Efficiency Score" over 20000…60000.
 			for (const axis of axes) expect(axis.width).toBe("auto");
 		});
+});
+
+describe("ModelPerformanceComparison efficiency tooltip", () => {
+	it("draws its custom content on the popover background", () => {
+		renderToStaticMarkup(
+			<ModelPerformanceComparison data={data} viewMode="efficiency" />,
+		);
+		const content = tooltips[0]?.content;
+		expect(content).toBeFunction();
+		const html = renderToStaticMarkup(
+			content?.({ active: true, payload: [{ payload: data[1] }] }),
+		);
+		expect(html).toContain("synthetic-haiku-model");
+		// recharts ignores contentStyle when a tooltip has custom content, so
+		// the content itself must carry the background, or its text sits on
+		// the chart.
+		expect(html).toContain("background-color:var(--popover)");
+		expect(html).toContain("border:1px solid var(--border)");
+		expect(html).toContain("color:var(--popover-foreground)");
+	});
 });

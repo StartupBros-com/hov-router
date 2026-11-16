@@ -39,6 +39,15 @@ interface ModelPerformanceComparisonProps {
 	viewMode?: "speed-cost" | "performance" | "efficiency";
 }
 
+// The speed-cost and efficiency tooltips share this panel. recharts ignores
+// contentStyle when a tooltip has custom content, so the efficiency view's
+// content applies it itself.
+const PANEL_TOOLTIP_STYLE = {
+	...CHART_TOOLTIP_STYLE.default,
+	borderRadius: "8px",
+	backdropFilter: "blur(8px)",
+};
+
 function speedCostTooltipFormatter(value: number, name: string) {
 	if (name === "Speed") return [formatTokensPerSecond(value), name];
 	if (name === "Cost/1K") return [formatCost(value), name];
@@ -151,11 +160,7 @@ export function ModelPerformanceComparison({
 						/>
 						<ChartTooltip
 							cursor={{ stroke: CHART_PROPS.cursorStroke }}
-							contentStyle={{
-								...CHART_TOOLTIP_STYLE.default,
-								borderRadius: "8px",
-								backdropFilter: "blur(8px)",
-							}}
+							contentStyle={PANEL_TOOLTIP_STYLE}
 							// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
 							formatter={speedCostTooltipFormatter as any}
 						/>
@@ -346,16 +351,11 @@ export function ModelPerformanceComparison({
 					/>
 					<ChartTooltip
 						cursor={{ stroke: CHART_PROPS.cursorStroke }}
-						contentStyle={{
-							...CHART_TOOLTIP_STYLE.default,
-							borderRadius: "8px",
-							backdropFilter: "blur(8px)",
-						}}
 						content={({ active, payload }) => {
 							if (!active || !payload?.[0]) return null;
 							const data = payload[0].payload;
 							return (
-								<div className="p-3 space-y-1">
+								<div className="p-3 space-y-1" style={PANEL_TOOLTIP_STYLE}>
 									<p className="font-semibold">{data.model}</p>
 									<p className="text-sm">
 										Speed: {formatTokensPerSecond(data.avgTokensPerSecond)}
