@@ -4,6 +4,7 @@ import type {
 	OpenUsageWindow,
 } from "../../api";
 import { providerPlanTitle } from "../../utils/provider-utils";
+import { StatusPill } from "../ui/status-pill";
 import { WindowValueComparisonTable } from "./WindowValueComparisonTable";
 import {
 	deltaVsPriorMedian,
@@ -152,19 +153,38 @@ function TimelineAxis({
 	);
 }
 
+/**
+ * Chips on a segment sit on an opaque card: the soft tone fills are
+ * translucent and would let the segment's orange through.
+ */
+const SEGMENT_CHIP_CLASS = "shrink-0 bg-card px-1 text-[10px]";
+
 function DeltaChip({ delta }: { delta: number }) {
-	const isNerf = delta < 0;
 	return (
-		<span
-			className={
-				isNerf
-					? "shrink-0 rounded bg-destructive/15 px-1 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-300"
-					: "shrink-0 rounded bg-emerald-500/10 px-1 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300"
-			}
+		<StatusPill
+			tone={delta < 0 ? "danger" : "success"}
+			className={SEGMENT_CHIP_CLASS}
 		>
 			Δ {formatDelta(delta)}
-		</span>
+		</StatusPill>
 	);
+}
+
+/**
+ * Fill and text for one segment. Full windows carry dark text on a solid
+ * fill; partial windows (under 95 % used) a pale fill with full-strength text,
+ * so the "· N% used" qualifier stays as readable as any other label.
+ */
+function segmentToneClass(window: TimelineWindow, partial: boolean): string {
+	if (window.grantType === "early_reset")
+		return partial
+			? "window-value-segment--early-reset border-chart-warning/60 bg-chart-warning/25 text-foreground"
+			: "window-value-segment--early-reset border-chart-warning/60 bg-chart-warning/80 text-(--warning-solid-foreground) dark:bg-chart-warning";
+	if (window.grantType === "first_observed")
+		return "window-value-segment--first-observed border-muted-foreground/30 bg-muted text-muted-foreground";
+	return partial
+		? "border-chart-primary/60 bg-chart-primary/25 text-foreground"
+		: "border-chart-primary/35 bg-chart-primary/80 text-(--warning-solid-foreground) dark:bg-chart-primary";
 }
 
 function WindowValueSegment({
@@ -195,12 +215,8 @@ function WindowValueSegment({
 	const classNames = [
 		"window-value-segment",
 		"absolute inset-y-2 flex min-w-0 items-center gap-1 overflow-hidden rounded-sm border px-1.5 text-[11px] font-medium shadow-sm",
-		window.grantType === "early_reset"
-			? "window-value-segment--early-reset border-chart-warning/60 bg-chart-warning/80 text-(--warning-solid-foreground) dark:bg-chart-warning/70"
-			: window.grantType === "first_observed"
-				? "window-value-segment--first-observed border-muted-foreground/30 bg-muted text-muted-foreground"
-				: "border-chart-primary/35 bg-chart-primary/80 text-primary-foreground dark:bg-chart-primary/70",
-		partial ? "window-value-segment--partial opacity-45" : "",
+		segmentToneClass(window, partial),
+		partial ? "window-value-segment--partial border-dashed" : "",
 		open ? "border-r-2 border-r-dashed" : "",
 	]
 		.filter(Boolean)
@@ -221,9 +237,12 @@ function WindowValueSegment({
 				)}
 				{window.grantType === "early_reset" &&
 					geometry.widthPercent >= INLINE_DELTA_MIN_WIDTH_PERCENT && (
-						<span className="shrink-0 rounded bg-background/25 px-1 py-0.5 text-[10px] font-semibold">
+						<StatusPill
+							tone="warning"
+							className={`${SEGMENT_CHIP_CLASS} font-semibold`}
+						>
 							bonus reset
-						</span>
+						</StatusPill>
 					)}
 				{showInlineDelta && <DeltaChip delta={delta} />}
 			</div>

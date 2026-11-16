@@ -122,6 +122,7 @@ export function ModelPerformanceComparison({
 							stroke={CHART_PROPS.axisStroke}
 						/>
 						<YAxis
+							width="auto"
 							yAxisId="speed"
 							orientation="left"
 							stroke={COLORS.purple}
@@ -135,6 +136,7 @@ export function ModelPerformanceComparison({
 							}}
 						/>
 						<YAxis
+							width="auto"
 							yAxisId="cost"
 							orientation="right"
 							stroke={COLORS.warning}
@@ -225,6 +227,7 @@ export function ModelPerformanceComparison({
 							fontSize={12}
 						/>
 						<YAxis
+							width="auto"
 							stroke={CHART_PROPS.axisStroke}
 							yAxisId="time"
 							orientation="left"
@@ -238,6 +241,7 @@ export function ModelPerformanceComparison({
 							}}
 						/>
 						<YAxis
+							width="auto"
 							stroke={CHART_PROPS.axisStroke}
 							yAxisId="error"
 							orientation="right"
@@ -329,6 +333,7 @@ export function ModelPerformanceComparison({
 						fontSize={12}
 					/>
 					<YAxis
+						width="auto"
 						stroke={CHART_PROPS.axisStroke}
 						fontSize={12}
 						label={{

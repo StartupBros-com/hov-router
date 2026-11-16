@@ -80,6 +80,7 @@ export function RequestDetailsModal({
 					effective={effective}
 					summary={summary}
 					needsHydration={needsHydration}
+					payloadMissing={failedId === request.id}
 				/>
 			</DialogContent>
 		</Dialog>
@@ -101,6 +102,13 @@ const decodeBase64 = (str: string | null): string => {
 	}
 };
 
+/**
+ * A body for ConversationView: null when none was captured, never the
+ * "No data" placeholder, which it would show as an assistant message.
+ */
+const decodeBodyOrNull = (body: string | null | undefined): string | null =>
+	body ? decodeBase64(body) : null;
+
 const formatJson = (str: string): string => {
 	try {
 		const parsed = JSON.parse(str);
@@ -121,11 +129,14 @@ export function RequestDetailsPanel({
 	effective,
 	summary,
 	needsHydration,
+	payloadMissing = false,
 }: {
 	request: RequestPayload;
 	effective: RequestPayload;
 	summary: RequestSummary | undefined;
 	needsHydration: boolean;
+	/** The payload lookup answered 404: the server holds no bodies for this request. */
+	payloadMissing?: boolean;
 }) {
 	const [beautifyMode, setBeautifyMode] = useState(true);
 
@@ -239,10 +250,22 @@ export function RequestDetailsPanel({
 				</TabsList>
 
 				<TabsContent value="conversation" className="mt-4 flex-1 min-h-0">
-					<ConversationView
-						requestBody={decodeBase64(effective.request?.body ?? null)}
-						responseBody={decodeBase64(effective.response?.body || null)}
-					/>
+					{payloadMissing ? (
+						<div className="flex h-32 flex-col items-center justify-center gap-1 text-center">
+							<p className="text-muted-foreground">
+								No payload stored for this request
+							</p>
+							<p className="text-xs text-muted-foreground">
+								Payloads older than the retention window are deleted, and none
+								are stored while payload storage is off.
+							</p>
+						</div>
+					) : (
+						<ConversationView
+							requestBody={decodeBodyOrNull(effective.request?.body)}
+							responseBody={decodeBodyOrNull(effective.response?.body)}
+						/>
+					)}
 				</TabsContent>
 
 				<TabsContent

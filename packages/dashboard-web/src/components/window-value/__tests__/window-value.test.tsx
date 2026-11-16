@@ -439,6 +439,77 @@ describe("WindowValueTimeline", () => {
 		expect(html).not.toContain("bg-primary/");
 	});
 
+	it("writes segment values in dark text on solid fills, never white on orange", () => {
+		const html = renderToString(
+			<WindowValueTimeline accounts={[proPrimary]} nowMs={NOW_MS} />,
+		);
+		const segments = html.match(/<div class="window-value-segment [^"]*"/g);
+		expect(segments?.length).toBeGreaterThan(0);
+		for (const segment of segments ?? []) {
+			// White --primary-foreground on the chart orange measured 2.85:1.
+			expect(segment).not.toContain("text-primary-foreground");
+			// Translucent dark fills let the lane show through (3.98:1 on amber).
+			expect(segment).not.toMatch(/dark:bg-chart-(primary|warning)\//);
+		}
+		const natural = segments?.find(
+			(s) => !s.includes("--early-reset") && !s.includes("--partial"),
+		);
+		expect(natural).toContain(
+			"bg-chart-primary/80 text-(--warning-solid-foreground) dark:bg-chart-primary",
+		);
+		const early = segments?.find((s) => s.includes("--early-reset"));
+		expect(early).toContain("dark:bg-chart-warning");
+	});
+
+	it("draws partial windows as pale dashed segments with full-strength text", () => {
+		const html = renderToString(
+			<WindowValueTimeline
+				accounts={[maxPrimary, firstObservedOpen]}
+				nowMs={NOW_MS}
+			/>,
+		);
+		const partials =
+			html.match(/<div class="window-value-segment [^"]*--partial[^"]*"/g) ??
+			[];
+		expect(partials.length).toBeGreaterThan(0);
+		for (const segment of partials) {
+			// opacity-45 faded the label with the fill (1.25:1 in light).
+			expect(segment).not.toContain("opacity-");
+			expect(segment).toContain("border-dashed");
+		}
+		expect(
+			partials.some((s) => s.includes("bg-chart-primary/25 text-foreground")),
+		).toBe(true);
+	});
+
+	it("puts the delta and bonus-reset chips on an opaque card in the shared status tones", () => {
+		// proPrimary: an up delta and a bonus reset; maxPrimary: $3,000 against
+		// a $3,005 prior median, a down delta.
+		const html = renderToString(
+			<WindowValueTimeline
+				accounts={[proPrimary, maxPrimary]}
+				nowMs={NOW_MS}
+			/>,
+		);
+		// Each provider section ends in its own comparison table; keep the lanes.
+		const timeline = html.replace(/<table[\s\S]*?<\/table>/g, "");
+		const chips =
+			timeline.match(/<span data-tone="(danger|success|warning)"[^>]*>/g) ?? [];
+		const tones = new Set(chips.map((c) => c.match(/data-tone="(\w+)"/)?.[1]));
+		expect(tones).toEqual(new Set(["danger", "success", "warning"]));
+		for (const chip of chips) {
+			const tone = chip.match(/data-tone="(\w+)"/)?.[1];
+			expect(chip).toContain(`text-(--${tone})`);
+			expect(chip).toContain("bg-card");
+			expect(chip).toContain("text-[10px]");
+			// The soft tone fills are translucent; on a segment they let the
+			// orange through (1.77:1 to 2.98:1 measured).
+			expect(chip).not.toContain(`bg-(--${tone}-soft)`);
+		}
+		expect(timeline).toMatch(/data-tone="warning"[^>]*>bonus reset</);
+		expect(html).not.toMatch(/\b(red|emerald|green|amber)-\d/);
+	});
+
 	it("keeps lower bounds in titles and floats labels for too-narrow segments", () => {
 		const html = renderToString(
 			<WindowValueTimeline
@@ -535,5 +606,21 @@ describe("WindowValueTimeline", () => {
 		expect(openRow).toContain("open");
 		expect(openRow).toContain("—");
 		expect(openRow.match(/—/g)).toHaveLength(2);
+	});
+
+	it("shows comparison deltas in the shared danger and success tones", () => {
+		const html = renderToString(
+			<WindowValueComparisonTable accounts={[proPrimary]} nowMs={NOW_MS} />,
+		);
+		const rows = html.match(/<tr\b[\s\S]*?<\/tr>/g) ?? [];
+		const up = rows.find((row) => row.includes("+79.2%")) ?? "";
+		const down = rows.find((row) => row.includes("−34.5%")) ?? "";
+		expect(up).toMatch(
+			/data-tone="success"[^>]*text-\(--success\)[^>]*>\+79\.2%/,
+		);
+		expect(down).toMatch(
+			/data-tone="danger"[^>]*text-\(--danger\)[^>]*>−34\.5%/,
+		);
+		expect(html).not.toMatch(/\b(red|emerald)-\d/);
 	});
 });

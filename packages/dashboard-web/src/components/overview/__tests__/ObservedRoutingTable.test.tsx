@@ -81,6 +81,48 @@ describe("ObservedRoutingTable", () => {
 		expect(html).toContain('title="Position 3 of sonnet routing order"');
 	});
 
+	it("marks the first account with the primary text token, not a raw palette class", () => {
+		const html = renderToStaticMarkup(
+			<ObservedRoutingTable
+				observations={{
+					sonnet: mkObservation("sonnet", ["max-echo", "max-fox"], NOW - 1000),
+				}}
+				now={NOW}
+			/>,
+		);
+		expect(html).not.toContain("orange-");
+		expect(html).toContain("border-primary text-(--primary-text)");
+		// The rank digit on the first pill: card colour on the primary text
+		// token (white on the bright --primary orange measured 2.73:1).
+		expect(html).toMatch(/bg-\(--primary-text\) text-card"[^>]*>1</);
+		expect(html).not.toContain("bg-primary text-primary-foreground");
+	});
+
+	it("never breaks an account name across lines, and gives the chain its own line on phones", () => {
+		const html = renderToStaticMarkup(
+			<ObservedRoutingTable
+				observations={{
+					sonnet: mkObservation("sonnet", ["max-echo", "max-fox"], NOW - 1000),
+				}}
+				now={NOW}
+			/>,
+		);
+		const pills = html.match(/<span class="[^"]*rounded-full border[^"]*"/g);
+		expect(pills).toHaveLength(2);
+		for (const pill of pills ?? []) {
+			expect(pill).toContain("whitespace-nowrap");
+			expect(pill).toContain("max-w-full");
+		}
+		expect(html).toContain(
+			'class="min-w-0 truncate" title="max-echo">max-echo<',
+		);
+		// Below sm the chain drops under the family label and observed age;
+		// from sm up the row keeps its single-line layout.
+		expect(html).toContain(
+			"flex min-w-0 basis-full order-last flex-wrap items-center gap-1 sm:order-none sm:flex-1",
+		);
+	});
+
 	it("renders the observed-age text per family", () => {
 		const html = renderToStaticMarkup(
 			<ObservedRoutingTable

@@ -86,8 +86,8 @@ function BreakdownTable({ rows, nameLabel }: BreakdownTableProps) {
 					{rows.map((row) => (
 						<tr key={row.key} className="border-t">
 							<td className="px-3 py-2">
-								<div className="flex items-center gap-2">
-									<span className="text-muted-foreground break-all">
+								<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+									<span className="min-w-0 break-words text-muted-foreground">
 										{row.key}
 									</span>
 									{row.flagged && (
