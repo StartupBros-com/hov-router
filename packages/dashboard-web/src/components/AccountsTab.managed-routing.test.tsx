@@ -6,13 +6,65 @@ import type {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Account } from "../api";
-import { getAccountRoutingOverviewQueryOptions } from "../hooks/queries";
+import {
+	ACCOUNT_ROUTING_INVALIDATION,
+	getAccountRoutingOverviewQueryOptions,
+} from "../hooks/queries";
 import { queryKeys } from "../lib/query-keys";
 import {
 	AccountsTab,
 	buildRoutingByAccountId,
 	createAccountCreationCallbacks,
+	createRoutingSettingToggles,
 } from "./AccountsTab";
+
+describe("routing setting toggles (#866)", () => {
+	// Each switch changes how routing treats the account, so the write must be
+	// followed by a refresh of the routing views as well as the account
+	// records; refetching accounts alone left the row's routing notices stale.
+	for (const [toggle, method, field] of [
+		["autoFallback", "updateAccountAutoFallback", "autoFallbackEnabled"],
+		[
+			"autoPauseOnOverage",
+			"updateAccountAutoPauseOnOverage",
+			"autoPauseOnOverageEnabled",
+		],
+		[
+			"codexCreditDrain",
+			"updateAccountCodexCreditDrain",
+			"codexCreditDrainEnabled",
+		],
+		["peakHoursPause", "updateAccountPeakHoursPause", "peakHoursPauseEnabled"],
+	] as const) {
+		it(`${toggle} writes the flipped value, then refreshes accounts and routing views`, async () => {
+			const calls: unknown[][] = [];
+			const record =
+				(name: string) =>
+				async (...args: unknown[]) => {
+					calls.push([name, ...args]);
+				};
+			const client = {
+				updateAccountAutoFallback: record("updateAccountAutoFallback"),
+				updateAccountAutoPauseOnOverage: record(
+					"updateAccountAutoPauseOnOverage",
+				),
+				updateAccountCodexCreditDrain: record("updateAccountCodexCreditDrain"),
+				updateAccountPeakHoursPause: record("updateAccountPeakHoursPause"),
+			} as unknown as Parameters<typeof createRoutingSettingToggles>[0];
+			const invalidate = mock(async (options: unknown) => {
+				calls.push(["invalidate", options]);
+			});
+			const toggles = createRoutingSettingToggles(client, invalidate);
+
+			await toggles[toggle]({ id: "acct-1", [field]: false } as never);
+
+			expect(calls).toEqual([
+				[method, "acct-1", true],
+				["invalidate", ACCOUNT_ROUTING_INVALIDATION],
+			]);
+		});
+	}
+});
 
 // Exercise the real row's Routing tab from the production query-cache wiring.
 // SSR cannot click the disclosure; only its local open/tab state is supplied here.

@@ -4396,6 +4396,8 @@ export function createAccountRefreshUsageHandler(dbOps: DatabaseOperations) {
 			}
 
 			clearAccountRefreshCache(accountId);
+			// The restart resolves once the new poll has registered, so this
+			// refresh joins its first usage fetch and the reply waits for it.
 			const pollingRestarted = await restartUsagePollingForAccount(accountId);
 			const cacheRefreshed = await usageCache.refreshNow(accountId);
 
@@ -4405,10 +4407,10 @@ export function createAccountRefreshUsageHandler(dbOps: DatabaseOperations) {
 
 			return jsonResponse({
 				success: true,
-				message: pollingRestarted
-					? `Usage polling restarted for account '${account.name}'. Fresh usage data is now available.`
-					: cacheRefreshed
-						? `Usage cache refreshed for account '${account.name}'.`
+				message: cacheRefreshed
+					? `Usage refreshed for account '${account.name}'.`
+					: pollingRestarted
+						? `Usage polling restarted for account '${account.name}', but the first usage fetch did not finish; usage updates on the next poll.`
 						: `Polling could not be restarted for account '${account.name}' — usage data may not update.`,
 				pollingRestarted,
 				cacheRefreshed,

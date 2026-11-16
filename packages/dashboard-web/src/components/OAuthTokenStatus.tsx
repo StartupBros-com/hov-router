@@ -1,7 +1,7 @@
 import { reauthInstruction } from "@better-ccflare/core/reauth-instructions";
+import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, RefreshCw, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
-import { api } from "../api";
+import { getAccountTokenHealthQueryOptions } from "../hooks/queries";
 import { APIErrorBoundary } from "./ErrorBoundary";
 
 interface OAuthTokenStatusProps {
@@ -26,64 +26,16 @@ export function OAuthTokenStatus({
 	hasRefreshToken,
 	provider,
 }: OAuthTokenStatusProps) {
-	const [status, setStatus] = useState<TokenStatus>("loading");
-	const [message, setMessage] = useState("Loading...");
-
-	useEffect(() => {
-		if (!hasRefreshToken) {
-			// Immediately set status for non-OAuth accounts
-			setStatus("no-refresh-token");
-			setMessage("This account type doesn't support token health monitoring");
-			return;
-		}
-
-		// Add cancellation only - no artificial delay for better UX
-		let cancelled = false;
-
-		const fetchTokenStatus = async () => {
-			if (cancelled) return;
-
-			try {
-				const response = await api.getAccountTokenHealth(accountName);
-				if (cancelled) return;
-				if (response?.success) {
-					setStatus(response.data.status);
-					setMessage(response.data.message);
-					return;
-				}
-			} catch (error) {
-				if (cancelled) return;
-				console.error("Failed to fetch token status:", error);
-			}
-			setStatus("error");
-			try {
-				const response = await api.getTokenHealth();
-				if (cancelled) return;
-				const account = response?.success
-					? response.data?.accounts?.find(
-							(row) => row.accountName === accountName,
-						)
-					: undefined;
-				if (account) {
-					setStatus(account.status);
-					setMessage(account.message);
-					return;
-				}
-			} catch (error) {
-				if (cancelled) return;
-				console.error("Failed to fetch global health:", error);
-			}
-			setStatus("unknown");
-			setMessage("OAuth token status unavailable");
-		};
-
-		// Execute immediately without delay
-		fetchTokenStatus();
-
-		return () => {
-			cancelled = true;
-		};
-	}, [accountName, hasRefreshToken]);
+	// A shared query rather than a one-shot fetch: it re-checks whenever the
+	// accounts data is invalidated, so a re-login clears the mark (#866).
+	const { data } = useQuery({
+		...getAccountTokenHealthQueryOptions(accountName),
+		enabled: hasRefreshToken,
+	});
+	const status: TokenStatus = !hasRefreshToken
+		? "no-refresh-token"
+		: (data?.status ?? "loading");
+	const message = data?.message ?? "Loading...";
 
 	return (
 		<OAuthTokenStatusView

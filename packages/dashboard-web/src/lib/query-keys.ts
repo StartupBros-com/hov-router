@@ -5,6 +5,10 @@ export const queryKeys = {
 	accounts: () => [...queryKeys.all, "accounts"] as const,
 	// Nested under accounts so every accounts invalidation refreshes it too.
 	bankedResets: () => [...queryKeys.accounts(), "banked-resets"] as const,
+	// Also under accounts: a re-login or usage refresh renews the token and
+	// invalidates accounts, which must re-check the row's token mark.
+	accountTokenHealth: (accountName: string) =>
+		[...queryKeys.accounts(), "token-health", accountName] as const,
 	agents: () => [...queryKeys.all, "agents"] as const,
 	health: () => [...queryKeys.all, "health"] as const,
 	// Served by GET /api/stats/recent-errors.

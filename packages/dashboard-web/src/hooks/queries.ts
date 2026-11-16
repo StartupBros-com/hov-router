@@ -19,7 +19,12 @@ import {
 	useQueryClient,
 } from "@tanstack/react-query";
 import { useCallback } from "react";
-import { api, type RequestPayload, type RequestSummary } from "../api";
+import {
+	api,
+	type RequestPayload,
+	type RequestSummary,
+	type TokenHealthResponse,
+} from "../api";
 import { queryKeys } from "../lib/query-keys";
 import { captureRequestUpdates, getRequestsSseSeq } from "./useRequestStream";
 
@@ -147,6 +152,13 @@ export interface ManagedRoutingInvalidationOptions {
 	 * explicitly or that status goes stale until something else refetches it.
 	 */
 	providerModelDefaults?: boolean;
+	/**
+	 * `queryKeys.models()`, which also covers every per-provider, per-account
+	 * list. A new custom endpoint or a re-login can change which models the
+	 * server lists for the account, and those lists are otherwise fresh for
+	 * five minutes.
+	 */
+	models?: boolean;
 }
 
 export const FULL_MANAGED_ROUTING_INVALIDATION = {
@@ -161,6 +173,11 @@ export const ACCOUNT_ROUTING_INVALIDATION = {
 	accounts: true,
 	effective: true,
 	accountOverview: true,
+} as const satisfies ManagedRoutingInvalidationOptions;
+
+export const ACCOUNT_REAUTH_INVALIDATION = {
+	...ACCOUNT_ROUTING_INVALIDATION,
+	models: true,
 } as const satisfies ManagedRoutingInvalidationOptions;
 
 export const ROUTING_CONFIGURATION_INVALIDATION = {
@@ -215,6 +232,11 @@ export async function invalidateManagedRouting(
 			queryClient.invalidateQueries({
 				queryKey: queryKeys.providerModelDefaults(),
 			}),
+		);
+	}
+	if (options.models) {
+		invalidations.push(
+			queryClient.invalidateQueries({ queryKey: queryKeys.models() }),
 		);
 	}
 
@@ -326,6 +348,51 @@ export const useBankedResets = () => {
 		gcTime: 5 * 60 * 1000,
 	});
 };
+
+export interface AccountTokenHealth {
+	status: TokenHealthResponse["status"] | "unknown";
+	message: string;
+}
+
+/**
+ * One account's OAuth token health: the per-account endpoint first, then the
+ * fleet list, else `unknown`. The server recomputes it on every read.
+ */
+export async function resolveAccountTokenHealth(
+	accountName: string,
+): Promise<AccountTokenHealth> {
+	try {
+		const response = await api.getAccountTokenHealth(accountName);
+		if (response?.success) {
+			return { status: response.data.status, message: response.data.message };
+		}
+	} catch (error) {
+		console.error("Failed to fetch token status:", error);
+	}
+	try {
+		const response = await api.getTokenHealth();
+		const account = response?.success
+			? response.data?.accounts?.find((row) => row.accountName === accountName)
+			: undefined;
+		if (account) return { status: account.status, message: account.message };
+	} catch (error) {
+		console.error("Failed to fetch global health:", error);
+	}
+	return { status: "unknown", message: "OAuth token status unavailable" };
+}
+
+/**
+ * Keyed under `queryKeys.accounts()`, so every account mutation's
+ * invalidation (re-login, Refresh usage, pause and the rest) re-checks the
+ * token mark, and it polls on the accounts cadence like the row it sits on.
+ */
+export const getAccountTokenHealthQueryOptions = (accountName: string) => ({
+	queryKey: queryKeys.accountTokenHealth(accountName),
+	queryFn: () => resolveAccountTokenHealth(accountName),
+	staleTime: 20000,
+	refetchInterval: 60000,
+	refetchIntervalInBackground: false,
+});
 
 const ACTIVE_DEVICE_SETUP_STATUSES = new Set<DeviceSetupJobStatus>([
 	"awaiting_authorization",
@@ -899,10 +966,12 @@ export const getUpdateAccountCustomEndpointMutationOptions = (
 	// `custom_endpoint_mapping` pin source, so saving it can change the
 	// Automatic/Pinned status AccountModelMappingsDialog reads via
 	// `useCodexAccountEffectiveDefaults` (queryKeys.providerModelDefaults()).
+	// The endpoint also decides which models the server lists for the account.
 	onSuccess: () =>
 		invalidateManagedRouting(queryClient, {
 			...FULL_MANAGED_ROUTING_INVALIDATION,
 			providerModelDefaults: true,
+			models: true,
 		}),
 });
 

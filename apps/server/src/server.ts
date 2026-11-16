@@ -1085,7 +1085,7 @@ export function startUsagePollingWithRefresh(
 	startupDelayMs: number = 0,
 	intervalMs: number = 90000,
 	codexResetCredits?: Pick<CodexResetCreditObserver, "observeSnapshot">,
-) {
+): Promise<void> {
 	const logger = new Logger("UsagePolling");
 	const MAX_RETRY_ATTEMPTS = 10;
 	let retryCount = 0;
@@ -1385,9 +1385,12 @@ export function startUsagePollingWithRefresh(
 		lifecycle.scheduleStagger(lease, startupDelayMs, () => {
 			void pollWithRefresh();
 		});
-	} else {
-		void pollWithRefresh();
+		return Promise.resolve();
 	}
+	// An immediate start resolves once the poll has registered with the usage
+	// cache (or bailed), so a restart caller's refreshNow joins its first fetch
+	// instead of finding no registration (#866).
+	return pollWithRefresh();
 }
 
 // Above this WAL file size, the periodic checkpoint tick log escalates to WARN.
@@ -2334,7 +2337,7 @@ export default async function startServer(options?: {
 			`Restarting usage polling for account ${account.name} on ${serverId}`,
 		);
 		usageCache.stopPolling(accountId);
-		startUsagePollingWithRefresh(
+		await startUsagePollingWithRefresh(
 			account,
 			proxyContext,
 			alertService,
@@ -2979,7 +2982,7 @@ Available endpoints:
 				// Usage data fetching should work independently of account paused status.
 				// Stagger startup by 5s per account to avoid simultaneous rate-limit bursts.
 				const startupDelayMs = index * 5000;
-				startUsagePollingWithRefresh(
+				void startUsagePollingWithRefresh(
 					account,
 					proxyContext,
 					alertService,

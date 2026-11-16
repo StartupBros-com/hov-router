@@ -3,8 +3,10 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { type Account, api } from "../api";
 import {
+	ACCOUNT_REAUTH_INVALIDATION,
 	ACCOUNT_ROUTING_INVALIDATION,
 	FULL_MANAGED_ROUTING_INVALIDATION,
+	type ManagedRoutingInvalidationOptions,
 	useAccountRoutingOverview,
 	useAccounts,
 	useBankedResets,
@@ -88,6 +90,59 @@ async function immutableAccountIdentity(
 		onError?.(error);
 	}
 	return { accountId: response.accountId };
+}
+
+type RoutingSettingClient = Pick<
+	typeof api,
+	| "updateAccountAutoFallback"
+	| "updateAccountAutoPauseOnOverage"
+	| "updateAccountCodexCreditDrain"
+	| "updateAccountPeakHoursPause"
+>;
+
+/**
+ * The Details switches that change how routing treats an account. After each
+ * write the routing views refresh along with the account records; refetching
+ * accounts alone left the row's routing notices stale (#866).
+ */
+export function createRoutingSettingToggles(
+	client: RoutingSettingClient,
+	invalidate: (options: ManagedRoutingInvalidationOptions) => Promise<unknown>,
+) {
+	const afterWrite = async (write: Promise<unknown>) => {
+		await write;
+		await invalidate(ACCOUNT_ROUTING_INVALIDATION);
+	};
+	return {
+		autoFallback: (account: Account) =>
+			afterWrite(
+				client.updateAccountAutoFallback(
+					account.id,
+					!account.autoFallbackEnabled,
+				),
+			),
+		autoPauseOnOverage: (account: Account) =>
+			afterWrite(
+				client.updateAccountAutoPauseOnOverage(
+					account.id,
+					!account.autoPauseOnOverageEnabled,
+				),
+			),
+		codexCreditDrain: (account: Account) =>
+			afterWrite(
+				client.updateAccountCodexCreditDrain(
+					account.id,
+					!account.codexCreditDrainEnabled,
+				),
+			),
+		peakHoursPause: (account: Account) =>
+			afterWrite(
+				client.updateAccountPeakHoursPause(
+					account.id,
+					!account.peakHoursPauseEnabled,
+				),
+			),
+	};
 }
 
 export function createAccountCreationCallbacks(
@@ -363,6 +418,11 @@ export function AccountsTab() {
 			formatError,
 		);
 
+	const routingSettingToggles = createRoutingSettingToggles(
+		api,
+		invalidateManagedRouting,
+	);
+
 	const accountCreationCallbacks = createAccountCreationCallbacks(
 		api,
 		() => invalidateManagedRouting(FULL_MANAGED_ROUTING_INVALIDATION),
@@ -628,13 +688,7 @@ export function AccountsTab() {
 	};
 
 	const handleAutoFallbackToggle = (account: Account) =>
-		runSetting(account, async () => {
-			await api.updateAccountAutoFallback(
-				account.id,
-				!account.autoFallbackEnabled,
-			);
-			await loadAccounts();
-		});
+		runSetting(account, () => routingSettingToggles.autoFallback(account));
 
 	const handleBillingTypeToggle = (account: Account) =>
 		runSetting(account, async () => {
@@ -645,22 +699,12 @@ export function AccountsTab() {
 		});
 
 	const handleAutoPauseOnOverageToggle = (account: Account) =>
-		runSetting(account, async () => {
-			await api.updateAccountAutoPauseOnOverage(
-				account.id,
-				!account.autoPauseOnOverageEnabled,
-			);
-			await loadAccounts();
-		});
+		runSetting(account, () =>
+			routingSettingToggles.autoPauseOnOverage(account),
+		);
 
 	const handleCodexCreditDrainToggle = (account: Account) =>
-		runSetting(account, async () => {
-			await api.updateAccountCodexCreditDrain(
-				account.id,
-				!account.codexCreditDrainEnabled,
-			);
-			await loadAccounts();
-		});
+		runSetting(account, () => routingSettingToggles.codexCreditDrain(account));
 
 	const handlePublicValueToggle = (account: Account) =>
 		runSetting(account, async () => {
@@ -723,7 +767,9 @@ export function AccountsTab() {
 
 	const handleReauthSuccess = async (closeDialog: () => void) => {
 		try {
-			await invalidateManagedRouting(ACCOUNT_ROUTING_INVALIDATION);
+			// A re-login renews the token and can change which models the
+			// server lists for the account.
+			await invalidateManagedRouting(ACCOUNT_REAUTH_INVALIDATION);
 			closeDialog();
 			setActionError(null);
 		} catch (err) {
@@ -732,13 +778,7 @@ export function AccountsTab() {
 	};
 
 	const handlePeakHoursPauseToggle = (account: Account) =>
-		runSetting(account, async () => {
-			await api.updateAccountPeakHoursPause(
-				account.id,
-				!account.peakHoursPauseEnabled,
-			);
-			await loadAccounts();
-		});
+		runSetting(account, () => routingSettingToggles.peakHoursPause(account));
 
 	const handleUpdateCustomEndpoint = async (
 		accountId: string,
