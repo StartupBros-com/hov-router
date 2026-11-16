@@ -24,7 +24,7 @@ Display text uses the constants instead of hard-coded names: `PRODUCT_NAME` / `C
 
 ## ⚠️ CRITICAL: Generated files
 
-**NEVER TOUCH these auto-generated files** — must be excluded from all reads, edits, searches, and commits:
+**Never edit, stage or commit these auto-generated files.** Leave them out of searches too, since they are bundled build output and a match inside one is not a call site:
 - `packages/database/src/inline-vacuum-worker.ts`
 - `packages/database/src/inline-integrity-check-worker.ts`
 - `packages/database/src/inline-incremental-vacuum-worker.ts`
@@ -36,9 +36,9 @@ If one is accidentally modified, do not stage or commit it; re-run that build to
 restore it. A fresh worktree will not have them at all, and `bun test` crashes on
 import until you build once.
 
-`packages/proxy/src/inline-worker.ts` has no generator: its source worker was retired
-(`3ad4b5bce8`, `417520840d`) and `1ebdded1` untracked it. Its `.gitignore` entry stays
-as a guard. If an old checkout still holds a copy, never stage it.
+`packages/proxy/src/inline-worker.ts` is no longer generated or tracked: its source worker
+was retired. Its `.gitignore` entry stays as a guard; if an old checkout still holds a copy,
+never stage it.
 
 **`apps/cli/README.md`** is a short pointer to the root README. This fork publishes no npm package, and the upstream publish hooks that overwrote it with the root README are deleted. Keep product documentation in `./README.md` and `docs/`.
 
@@ -53,6 +53,8 @@ Branch from a freshly fetched `origin/main`; never change `main` directly. Befor
 
 ## Deployment source (production)
 Production is a root systemd service, `ccflare-stack.service` (guard on `:8788` in front of the binary on `:8789`). Deploys ship only the freshly fetched `origin/main` tip, via `scripts/deploy-ccflare.sh`. Run it from any checkout: it snapshots that tip and runs the snapshot's own copy of the script, so the invoking branch, HEAD and uncommitted files never ship. `scripts/deploy-ccflare.sh --check` prints the target and live SHAs and whether a deploy would be backend-only or a full restart (naming the first field that forces one), without a build, sudo or systemd. The binary embeds its git SHA at build time, verifiable at runtime via the health endpoint's `git_sha` field (no need to trust the binary filename). The systemd pin lives at `/etc/systemd/system/ccflare-stack.service.d/50-pinned-build.conf`. Never let a long-lived feature branch become the de-facto trunk again — merge to `main` and deploy from there. Merging never deploys; the script is the only deploy path.
+
+**Who may deploy.** The operator's standing decision (2026-10-15) lets a session deploy merged `main` through the script without a fresh ask when the deploy is a backend-only handoff: the running guard and runner stay up and in-flight streams finish within the guard's shutdown grace. A full restart restarts the whole unit and interrupts clients, so it needs the operator's go for that deploy; when unsure which one a deploy is, ask. Run `--check` first. Its verdict compares only the schema digest, the five ingress scripts (runner, guard, guard policy, timing, transaction) and the systemd pin, never other drop-ins or environment files, so a deploy that goes with a changed drop-in or environment file needs a full restart even when `--check` says backend-only ([why](docs/solutions/workflow-issues/backend-only-deploy-keeps-the-runners-environment.md)).
 
 ## Releases and versions
 
@@ -71,7 +73,7 @@ A squash commit is the PR title plus the description, and release-please silentl
 
 ## PR Review Against Current Main (MANDATORY)
 
-Before reviewing or merging any PR, always find the merge base and identify what main has added since the PR branched:
+Before reviewing or merging a PR you did not write, and after resolving conflicts while bringing `main` into your own PR, find the merge base and identify what main has added since the PR branched. The required checks run on a head that is up to date with `main`, so they show the merged result builds and passes tests, but not whether a conflict resolution undid something `main` changed. A clean update keeps both sides' changes, so your own PR needs this only after a conflicted one:
 
 ```bash
 git fetch origin pull/<PR_NUMBER>/head:<branch-name>
@@ -84,20 +86,17 @@ git diff $MERGE_BASE..origin/main --name-only        # files main changed since 
 Cross-check the PR's changed files against main's post-branch files. If they overlap, inspect those specific hunks to confirm the PR doesn't regress recent fixes. A PR based on an old main can silently overwrite hotfixes, security patches, or behaviour changes that landed after it branched.
 
 ## Merging PRs from External Contributors
-When merging a PR from an external contributor (someone other than the repository owner), **create a merge commit** instead of squashing or rebasing, so the contributor's commits and authorship stay in history. Do **not** use `gh pr merge` for these, since it may squash or rebase:
+When merging a PR from an external contributor (someone other than the repository owner), **create a merge commit** (a no-fast-forward merge) instead of squashing or rebasing, so the contributor's commits and authorship stay in history. `main` accepts changes only through a pull request, so merge it on GitHub, giving the merge commit the PR's conventional title as its subject:
 
 ```bash
-git fetch origin pull/<PR_NUMBER>/head:<branch-name>
-git merge --no-ff <branch-name>
+gh pr merge <PR_NUMBER> --merge --subject "<type>(<scope>): <PR title> (#<PR_NUMBER>)"
 ```
 
-A `--no-ff` merge commit's subject carries the PR title (e.g. `fix(proxy): ... (PR #N)`), **not** GitHub-UI's `Merge pull request #N from user/branch` format. Tooling that scans merge commits for contributor credit must handle both shapes.
+Without `--subject`, GitHub's merge commit subject is `Merge pull request #N from user/branch`. Tooling that scans merge commits for contributor credit must handle both shapes.
 
-Order, pushing only once at the end:
-1. `git merge --no-ff <branch-name>`
-2. Fix any still-unresolved review findings in a follow-up commit.
-3. Thank the contributor for their specific contribution in [docs/acknowledgements.md](docs/acknowledgements.md), committed as `chore: acknowledge <name> for PR #<N>` (excluded from release notes). Commit real fixes separately with their own prefix.
-4. Push merge, fixes and acknowledgement together.
+Then, in PRs of your own (each squash-merged as usual):
+1. Fix any still-unresolved review findings, with their own prefix.
+2. Thank the contributor for their specific contribution in [docs/acknowledgements.md](docs/acknowledgements.md), titled `chore: acknowledge <name> for PR #<N>` (excluded from release notes).
 
 The owner's own PRs merge normally (squash).
 
@@ -106,20 +105,24 @@ The owner's own PRs merge normally (squash).
 This is a product fork with intentional hard divergence, not a mirror. Take upstream fixes by cherry-pick only: wholesale release merges ended on 2026-11-03. Port a fix only after the four checks in [UPSTREAM.md](UPSTREAM.md), protecting the fork contracts listed there, and never port anything to the upstream surfaces it lists as removed. Never merge or cherry-pick upstream on ahead/behind counts alone. Upstream-only issue reports belong at tombii/better-ccflare.
 
 ## Issue Management
-- Never close issues automatically, and use `Refs #N` rather than closing keywords in commits and PR bodies.
-- Wait for the issue reporter to confirm that fixes work for them before closing.
+- Close an issue when its fix is live and its acceptance is met: the fix's merge commit is an ancestor of production's `git_sha` (`/health`), or, for a change that never deploys (docs, CI, release tooling), it is on `main`, and every acceptance item is delivered. Say what you checked in the closing comment.
+- An issue whose acceptance names a live observation stays open until that observation is seen.
+- Use `Refs #N`, not closing keywords, in commits and PR bodies: merging never deploys here, so `Closes` would close the issue before the fix is live (with the hov-stack harness, pass `wt-new.sh --refs-only`).
+- An issue reported by someone outside the project waits for that reporter to confirm.
 
 ## Issue Staleness Check (MANDATORY before implementing)
 Before implementing any GitHub issue, always run:
 ```bash
 git log origin/main --since='<issue-open-date>' --oneline --no-merges -- <relevant-paths>
+gh pr list --search "#<N>" --state all
 ```
-Check if recent commits already partially or fully address the issue. Rate limiting, health, and proxy code change frequently. Ask the user "does this issue still apply given recent changes?" before proceeding. Especially check: has the reported symptom been fixed? Does the proposal conflict with new architecture?
+Decide from the result whether the issue still applies, and state that conclusion with its evidence before proceeding. If it no longer applies, say so on the issue instead of implementing it. Rate limiting, health, and proxy code change frequently. Especially check: has the reported symptom been fixed? Does the proposal conflict with new architecture?
 
 ## Database
 - Default: `~/.config/better-ccflare/better-ccflare.db`
 - Custom: Set `BETTER_CCFLARE_DB_PATH=/path/to/dev.db` in env or .env
-- Query: `sqlite3 ~/.config/better-ccflare/better-ccflare.db "SELECT name, provider, custom_endpoint FROM accounts;"`
+- Query: `sqlite3 -readonly ~/.config/better-ccflare/better-ccflare.db "SELECT name, provider, custom_endpoint FROM accounts;"`
+- **The CLI opens `BETTER_CCFLARE_DB_PATH`, else the default path.** On a host where production runs as the same user, the default is the production database, and these commands change it with no prompt: `--remove` deletes the account, `--reset-stats` zeroes every account's request and session counters, and `--clear-history` deletes requests, payloads and routing attempts older than the configured retention, plus orphaned payloads. Point `BETTER_CCFLARE_DB_PATH` at a scratch copy before trying them.
 
 ## Database migrations
 
@@ -157,13 +160,13 @@ Run affected suites one file at a time (`bun test <file>`). A full `bun test` ba
 - Add: `bun run cli --add-account <name> --mode <mode> --priority <number>`
 - Accepted modes: `ACCOUNT_MODES` in `apps/cli/src/main.ts` is authoritative, and `--help` prints the same list. Read it rather than trusting a list in docs. `vertex-ai`, `openrouter`, `ollama-cloud` and `qwen` accounts are not in it; add those from the dashboard, or through the HTTP API (`POST /api/accounts/<type>`; for `qwen`, the device flow at `POST /api/oauth/qwen/init`).
 - List: `bun run cli --list`
-- Remove: `bun run cli --remove <name>`
+- Remove: `bun run cli --remove <name>` (deletes at once; see [Database](#database))
 - Reauth: `bun run cli --reauthenticate <name>` (preserves metadata, auto-notifies servers)
 - Priority: `bun run cli --set-priority <name> <priority>` (lower = higher priority, 0 = first)
 - Provider behavior: OAuth (5hr windows, session-based), API keys (pay-as-you-go, no sessions)
 
 ### Maintenance
-- `bun run cli --reset-stats|--clear-history|--stats|--analyze`
+- `bun run cli --reset-stats|--clear-history|--stats|--analyze` (`--reset-stats` and `--clear-history` write with no prompt; see [Database](#database))
 
 ### API Endpoints
 - `POST /api/accounts/:id/reload|pause|resume`
@@ -194,7 +197,7 @@ Add `"stream":true` to exercise the SSE translation path; a healthy stream ends
 with a `message_stop` event.
 
 ## Qwen Provider
-- When working on the Qwen provider or streaming transform, **always mirror the qwen-code implementation** using a locally available checkout of `QwenLM/qwen-code`. In the final response, state the checkout path and revision compared; if the comparison was not performed, explicitly say so and explain why.
+- When working on the Qwen provider or streaming transform, **always mirror the qwen-code implementation**: compare against `QwenLM/qwen-code`, either a local checkout or the upstream source at a named commit or tag. In the final response, state the checkout path or source URL and the commit or tag compared; if the comparison was not performed, explicitly say so and explain why.
 - Qwen/DashScope sends incremental tool call argument chunks (not cumulative like standard OpenAI). The streaming transform buffers all chunks and emits complete JSON at stream end, matching `StreamingToolCallParser` in qwen-code.
 
 ## Honest Work and Anti-Ceremony (binding for agents and humans alike)

@@ -382,7 +382,7 @@ Enhances the session-based strategy to better handle failover scenarios
 while maintaining session affinity. This reduces rate limit occurrences
 and improves overall reliability.
 
-Closes #123
+Refs #123
 
 ---
 
@@ -475,8 +475,10 @@ Add screenshots for UI changes.
 - [ ] Any dependent changes have been merged and published
 
 ## Related Issues
-Closes #(issue number)
+Refs #(issue number)
 ```
+
+Use `Refs`, not `Closes` or `Fixes`: merging never deploys this project, so a closing keyword would close the issue before the fix is live. A maintainer closes the issue once the fix is live and, if someone outside the project reported it, that reporter confirms it works for them.
 
 ### Review Process
 
@@ -484,7 +486,7 @@ Closes #(issue number)
 2. **Code Review**: A maintainer may review; `main` requires the two checks below, not an approving review
 3. **Testing**: Reviewer may ask for additional tests or manual testing
 4. **Documentation**: Ensure docs are updated if needed
-5. **Merge**: Maintainer will merge using "Squash and merge"
+5. **Merge**: A maintainer merges a PR from outside the project with a merge commit, so your commits and authorship stay in history; maintainers' own PRs are squash-merged
 
 **Note**: Every pull request runs two required checks, `managed-routing-foundation` (`.github/workflows/managed-routing-postgres.yml`) and `prepare` (`.github/workflows/prepare-router-artifacts.yml`), and `main` only accepts branches that are up to date with it. `prepare` also fails a pull request whose squash commit release-please cannot parse, and re-runs when you edit the title or description ([how to fix it](hov-router-releases.md#squash-commits-release-please-can-parse)). Run the local checks above before pushing. The repository has no PR template file; follow the template in this guide.
 
