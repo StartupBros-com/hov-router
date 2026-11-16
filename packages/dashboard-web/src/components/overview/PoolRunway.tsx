@@ -3,11 +3,11 @@ import { useLayoutEffect, useRef, useState } from "react";
 import {
 	type ForecastAccount,
 	forecastHeadline,
-	heldLabel,
 	inText,
 	laneText,
 	type PoolGroup,
 	shouldShowNextBadge,
+	stateLabel,
 } from "../../lib/pool-forecast";
 import { cn } from "../../lib/utils";
 import {
@@ -30,10 +30,11 @@ function NextBadge() {
 }
 /** Why a held-back account is not serving, or that it serves on credits; muted, because neither is an outage. */
 function StateBadge({ account }: { account: ForecastAccount }) {
-	if (account.state !== "held" && !account.onCredits) return null;
+	const label = stateLabel(account);
+	if (label == null) return null;
 	return (
 		<span className="shrink-0 whitespace-nowrap rounded-sm border px-1 text-[10px] leading-4 text-muted-foreground">
-			{account.onCredits ? "on credits" : heldLabel(account.reason)}
+			{label}
 		</span>
 	);
 }
@@ -337,9 +338,7 @@ export function PoolRunway({
 											fontSize={11}
 											fill="var(--chart-axis)"
 										>
-											{a.state === "held"
-												? heldLabel(a.reason)
-												: "no usage data"}
+											{stateLabel(a) ?? "no usage data"}
 										</text>
 									)}
 									{sureEnd < end && (

@@ -641,6 +641,15 @@ export function laneText(
 			: "";
 	return `${a.name}: ${Math.round(a.pct ?? 0)}% used${empty ? `, on pace to run out ${dayWord(empty, now, timeZone)}` : ""}, ${reset ? `refills ${reset}` : "no reset time"}${unused}`;
 }
+/**
+ * The badge an account carries, also its faded lane's note: on credits wins
+ * over a held reason, since that account is still serving. null: no badge.
+ */
+export function stateLabel(a: ForecastAccount): string | null {
+	if (a.onCredits) return "on credits";
+	if (a.state === "held") return heldLabel(a.reason);
+	return null;
+}
 /** Why a held account is not serving, in a few words, for its badge and lane note. */
 export function heldLabel(reason: ExcludedReason | undefined): string {
 	switch (reason) {

@@ -9,6 +9,7 @@ import {
 	laneText,
 	shouldShowNextBadge,
 	simulate,
+	stateLabel,
 } from "../pool-forecast";
 import { computePoolUsage, computeScopedPoolUsage } from "../pool-usage";
 
@@ -755,6 +756,52 @@ describe("review fixes", () => {
 		expect(weekly?.accounts.find((a) => a.name === "drain")?.state).toBe(
 			"active",
 		);
+	});
+	it("labels an account on credits the same in its badge and its lane", () => {
+		// Its spent weekly window reports no reset, so it never comes back on its own.
+		const drain = mkAccount({
+			id: "drain",
+			name: "drain",
+			provider: "codex",
+			codexCreditDrainEnabled: true,
+			codexCreditDrainActive: true,
+			codexCreditDrainServing: true,
+			usageData: {
+				five_hour: {
+					utilization: 40,
+					resets_at: new Date(NOW + 2 * H).toISOString(),
+				},
+				seven_day: { utilization: 100, resets_at: null },
+			},
+		});
+		const out = account("out", "codex", 100, NOW + 60 * H);
+		const five = buildPoolGroups([drain, out], NOW).groups.find(
+			(g) => g.title === "Codex Pro 5-hour",
+		);
+		const d = five?.accounts.find((a) => a.name === "drain");
+		if (!d) throw new Error("Expected the drain account");
+		expect(d.state).toBe("held");
+		expect(d.onCredits).toBe(true);
+		expect(d.backMs).toBeNull();
+		expect(stateLabel(d)).toBe("on credits");
+		// Off credits, a held account reads its reason; a serving one has no label.
+		const base = {
+			id: "x",
+			name: "x",
+			pct: 40,
+			resetMs: null,
+			isPrimary: false,
+			emptiesAtMs: null,
+			leftAtResetPct: null,
+		};
+		expect(
+			stateLabel({ ...base, state: "held", reason: "paused", backMs: null }),
+		).toBe("paused");
+		expect(stateLabel({ ...base, state: "active", onCredits: true })).toBe(
+			"on credits",
+		);
+		expect(stateLabel({ ...base, state: "active" })).toBeNull();
+		expect(stateLabel({ ...base, state: "unknown", pct: null })).toBeNull();
 	});
 	it("caps each account at 100% in the pool's used share", () => {
 		const drain = account("drain", "codex", 130, NOW + 30 * H);
