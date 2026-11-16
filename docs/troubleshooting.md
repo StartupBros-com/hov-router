@@ -401,6 +401,28 @@ Environment variables override config file settings:
 - Ensure sufficient disk space
 - Don't manually edit the database file
 
+### Disk Full
+
+**Symptom**: The disk holding `~/.config/better-ccflare` (or `/tmp`, where the log file lives) has no space left
+
+**What the router does**:
+- It keeps answering requests. Lines it cannot write to the log file are dropped and counted; console output (stdout and stderr) still works.
+- `GET /health` reports it under `runtime.storage.fullDisk` (see [Full-disk state](api-http.md#get-health)). `startReserveArmed: false` means the reserve described below is spent.
+- A start that cannot open the database for lack of space exits with status 28. Under the managed systemd unit, the runner then logs `start failed for lack of disk space; waiting for space instead of opening the restart circuit` and tries again until space returns, so the service comes back without anyone restarting it ([systemd](systemd.md#restart-policy-best-practices)).
+
+**Never delete these two kinds of file**, even though they look like spare data during a cleanup:
+- `~/.config/better-ccflare/better-ccflare.db.start-reserve` (64 KiB). The router removes it itself when a start on a full disk needs room to open the database, and writes it back once space returns. Deleting it takes away the margin the next start on a full disk depends on.
+- `~/.config/better-ccflare/pending-rotations/*.slot` (64 KiB each, one per OAuth account whose provider rotates refresh tokens). A slot can hold a rotated refresh token that is not in the database yet, and deleting it then costs that account its sign-in. Older installs may also have `.wal` files there; the router removes each one itself once a slot holds that account's rotation.
+
+**Solutions**:
+1. Free space on that disk. Nothing in the router's own directory needs removing for this.
+2. Check that the router recovered:
+   ```bash
+   curl -s http://localhost:8080/health
+   ```
+   `runtime.storage.fullDisk.logFile.suspended` returns to `false` once the log file can be written again, and `startReserveArmed` returns to `true` within a minute.
+3. If `runtime.storage.fullDisk.uncaughtErrors.count` is above zero, some write had no handling of its own. Report it with the `lastError` value.
+
 ### Database Path Problems
 
 **Symptom**: Server fails to start with database errors

@@ -12,6 +12,7 @@ root_cause: incorrect_assumption
 resolution_type: code_fix
 severity: high
 tags: [config-preservation, local-control-secret, oauth, recovery, encryption, persistence]
+last_updated: 2026-11-16
 ---
 
 # Config preservation also requires a persisted OAuth recovery key
@@ -34,22 +35,22 @@ During [PR #530](https://github.com/StartupBros-com/better-ccflare/pull/530), an
 
 ## Solution
 
-Trace the value beyond its authentication-oriented name. In `apps/server/src/server.ts:1501`, the result of `getLocalControlSecret()` feeds the recovery store:
+Trace the value beyond its authentication-oriented name. In `apps/server/src/server.ts:1597`, the result of `getLocalControlSecret()` feeds the recovery store built at `:1605-1606`:
 
 ```ts
 const localControlSecret = config.getLocalControlSecret();
 // Later in the same startup path:
 configurePendingRotationPersistence(
-    createPendingRotationWal({
+    createPendingRotationStore({
         directory: join(dirname(resolveConfigPath()), "pending-rotations"),
         secret: localControlSecret,
     }),
 );
 ```
 
-The store derives its AES-GCM key from that secret in `packages/proxy/src/handlers/pending-rotation-wal.ts:53`. Its save/load paths use the derived key to encrypt and decrypt persistent rotation records. The adjacent internal-probe secret in `apps/server/src/server.ts:1490` is intentionally regenerated on each start; it is not an interchangeable source for this store.
+When this was written the store was `createPendingRotationWal`, which saved each record as a new file. Since #837 the store writes fixed-size slot files and derives its AES-GCM key from that secret in `packages/proxy/src/handlers/pending-rotation-slots.ts:117`. It still reads the older `.wal` files at start, with their own key derived from the same secret (`packages/proxy/src/handlers/pending-rotation-wal.ts:53`). Both formats use the derived key to encrypt and decrypt persistent rotation records, so the dependency below is unchanged. The adjacent internal-probe secret in `apps/server/src/server.ts:1592` is intentionally regenerated on each start; it is not an interchangeable source for this store.
 
-The merged fix makes the new-key path consume a save acknowledgement in `packages/config/src/index.ts:1730`:
+The merged fix makes the new-key path consume a save acknowledgement in `packages/config/src/index.ts:1850-1856`:
 
 ```ts
 const secret = randomUUID();
@@ -66,7 +67,7 @@ After a failed initial load, a secret actually read from a repaired on-disk conf
 
 The fix separates two invariants: **do not overwrite a config snapshot that could not be loaded**, and **do not hand a persistent-data consumer a newly generated key whose save failed or was suppressed**. Failing before recovery-store construction is safer than accepting encrypted writes that a subsequent process cannot recover.
 
-The save acknowledgement means the existing synchronous write returned successfully. It is not an added guarantee of atomic config replacement, fsync/power-loss durability, or safe arbitrary key rotation. The recovery store's own atomic file replacement cannot compensate for losing the separate secret used to derive its key.
+The save acknowledgement means the existing synchronous write returned successfully. It is not an added guarantee of atomic config replacement, fsync/power-loss durability, or safe arbitrary key rotation. However carefully the recovery store writes its own files, that cannot compensate for losing the separate secret used to derive its key.
 
 ## Prevention
 
@@ -80,3 +81,4 @@ Retire or rewrite this dependency-specific guidance if OAuth recovery stops deri
 
 - [PR #530: merged config-preservation fix](https://github.com/StartupBros-com/better-ccflare/pull/530).
 - [Issue #529: specification and functional-confirmation tracking](https://github.com/StartupBros-com/better-ccflare/issues/529).
+- [full-disk-outage-was-the-runner-giving-up.md](full-disk-outage-was-the-runner-giving-up.md): why the store moved to slot files that a save overwrites in place.

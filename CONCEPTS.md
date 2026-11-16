@@ -493,6 +493,21 @@ Unlike a disposable process-local credential, it must remain available across re
 recovery records depend on it. A newly generated value whose save failed cannot fulfill this
 role, even when ordinary settings are allowed to continue in memory.
 
+### Rotation slot
+
+A fixed-size encrypted file per account whose provider rotates its refresh token, made while
+there is space and overwritten in place after that, holding a rotation the provider has
+committed but the database has not stored yet.
+
+Because a save rewrites blocks the file already owns, it works on a full disk; an account with
+no slot and no space has its token refresh refused before the provider is called, so no
+rotation can exist that nothing can store. A slot can hold the only copy of the refresh token
+the provider still accepts, so deleting one can cost that account its sign-in. Only deleting
+the account itself proves no live account can still own a slot's rotation. The slots replaced
+an older store that wrote a new file for every save, which a full disk refused; files left by
+it are still read at start and removed once a slot holds the account's current rotation. The
+slots are encrypted with a key derived from the *Local-control secret*.
+
 ## Process supervision
 
 ### Memory recycle
@@ -533,6 +548,29 @@ wait for one boot instead of for the longest old stream. It is not blue/green. A
 exactly one process admits requests, and at most one quiesced process only finishes. A backend
 that cannot prove it quiesced, because it lacks the capability or still holds the port, is
 drained instead.
+
+### Out-of-space start
+
+A start of the upstream, or of anything the supervisor needs before it, that failed only
+because the disk has no space left.
+
+The supervisor waits one out and tries again, for as long as the disk stays full, instead of
+counting it toward the restart circuit. Exiting would hand the restart to the service manager,
+whose start limit leaves the service failed until a person resets it, long after the space has
+come back. Only failures that report a full disk qualify. An I/O error does not, because a
+failing device raises one on a disk with room, and waiting for space would never end. Nor does
+a failure after the stack was ready, or during a deployment or its rollback: those keep the
+bounded circuit.
+
+### Start reserve
+
+A small file of written bytes kept beside the database, which the server removes when its
+start cannot open the database for lack of space, so that the immediate retry has blocks to use.
+
+One reserve covers one start: it is written back only once space returns, so a second start on
+a disk that stayed full has no margin. Only the server's start spends it. Command-line commands
+opening the same database never do, so they cannot use up the margin the next start depends on.
+Deleting it by hand removes that margin without any other effect.
 
 ### Managed pin
 

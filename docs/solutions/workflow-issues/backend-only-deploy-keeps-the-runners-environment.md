@@ -25,6 +25,7 @@ tags:
   - member-notices
   - config-file
   - saveconfig
+last_updated: 2026-11-16
 ---
 
 # A backend-only deploy keeps the runner's environment, so a new systemd env file needs a full restart
@@ -47,21 +48,21 @@ revision. Neither was observed in production.
 
 ### 1. Service environment changes reach the backend only on a full restart
 
-`scripts/deploy-ccflare.sh` takes one of two paths (`:609-623`):
+`scripts/deploy-ccflare.sh` takes one of two paths (`:609-624`):
 
-- **Full restart**: `sudo systemctl restart ccflare-stack.service` (`:745`). systemd starts a
+- **Full restart**: `sudo systemctl restart ccflare-stack.service` (`:746`). systemd starts a
   new runner with the current merged environment, so every drop-in and EnvironmentFile takes
   effect.
 - **Backend-only handoff**: the running runner (`scripts/run-ccflare-stack.sh`) stays up and
-  starts the candidate binary as its own child. `run-ccflare-stack.sh:787` points `CCFLARE_BIN`
-  at `manifest.candidateBinary`, and `run-ccflare-stack.sh:896-906` launches
+  starts the candidate binary as its own child. `run-ccflare-stack.sh:919` points `CCFLARE_BIN`
+  at `manifest.candidateBinary`, and `run-ccflare-stack.sh:1004-1015` launches
   `"$CCFLARE_BIN" --serve ... &`. The child inherits the runner's environment, which systemd
   fixed when the runner started; the launch overrides only a few fixed variables such as `PORT`
   and `LOG_LEVEL`. The runner sources no env file of its own.
 
-The eligibility check (`backend_handoff_eligible`, `scripts/deploy-ccflare-lib.sh:1625`)
-compares three things: the schema digest (`:1657`); the runner, guard, policy, timing and
-transaction bytes (`:1658`); and the managed pin `50-pinned-build.conf` (`:1660`). The checks
+The eligibility check (`backend_handoff_eligible`, `scripts/deploy-ccflare-lib.sh:1634`)
+compares three things: the schema digest (`:1666`); the runner, guard, policy, timing and
+transaction bytes (`:1667`); and the managed pin `50-pinned-build.conf` (`:1669`). The checks
 after that only confirm the running generation is alive. It reads no other drop-in and no
 EnvironmentFile. A deploy after you add a drop-in can therefore still be
 backend-only, and the new backend then runs without the new variables.
@@ -93,14 +94,14 @@ What to do:
 
 ### 2. Never stage keys in better-ccflare.json while the router runs
 
-`ConfigManager` reads `better-ccflare.json` once (`packages/config/src/index.ts:1535`) and keeps
-it in memory. Every write serializes that whole copy back to disk (`saveConfig`, `:1558-1561`),
-and ordinary reads write too: `get(key, default)` calls `set` when the key is absent (`:1594`),
-and `set` saves (`:1605`). Nothing watches the file. A key you add by hand while the process
+`ConfigManager` reads `better-ccflare.json` once (`packages/config/src/index.ts:1520`) and keeps
+it in memory. Every write serializes that whole copy back to disk (`saveConfig`, `:1546-1554`),
+and ordinary reads write too: `get(key, default)` calls `set` when the key is absent (`:1579`),
+and `set` saves (`:1589`). Nothing watches the file. A key you add by hand while the process
 runs is overwritten the next time the process writes any config value, so the file ends up as
 if you never edited it.
 
-Member notices read the environment first and the file second (`:2687-2703`). Put them in the
+Member notices read the environment first and the file second (`:2632-2648`). Put them in the
 service environment. If a file key is unavoidable, stop the service, edit the file, and start it
 again.
 
