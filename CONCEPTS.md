@@ -590,9 +590,9 @@ upstream is launched, and completed with that process's identity once it is runn
 
 A record left between those two writes names nothing that can be checked, so the next
 supervisor start holds rather than risk a second owner, and stays held until a person settles
-it. The supervisor closes such a record itself only when it knows nothing was launched for it.
-Once a launch has begun, a record without the new process's identity is left to hold, because
-that process may be running. A record that cannot be read holds the same way, since only a
+it. The supervisor closes such a record itself when it knows nothing was launched for it, or
+when it knows which process was launched and has stopped it. Between a launch and learning which
+process it started, the record is left to hold, because a process it cannot name may be running. A record that cannot be read holds the same way, since only a
 missing file proves there is no record. The supervisor's exit path decides all of this from what it has done so
 far, never from how it was asked to stop, because a shell can leave through its exit handler
 without running the handler for the signal that stopped it.

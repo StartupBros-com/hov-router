@@ -63,7 +63,10 @@ correct whichever handler ran, and must end.
   | `sleep 0.05` | SIGTERM | 0 of 300 |
 
   The window is the moment bash parses the substitution, not the life of the command inside it.
-  At a rate near 1.5%, 0 of 300 does not show that backticks are safe.
+  The slow `$(sleep 0.05; ...)` loop parses far less often, so its 0 says little. Backticks lost
+  no handler in 300 rounds here or in the 300 measured for #859. At the `$(...)` rate, about four
+  would be expected in each run, so their rate looks lower. It is not shown to be zero, and the
+  runner does not rely on it.
 - The #859 reproduction used a scratch copy of the runner with an injected `exit 2` at the
   `log` in the held start section, whose `$(date -Is)` is where bash can drop the handler. It
   left `owner.json` at `{"phase":"spawning"}`, and `recover` answered

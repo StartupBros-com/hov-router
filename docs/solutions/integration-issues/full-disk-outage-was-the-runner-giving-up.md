@@ -183,10 +183,11 @@ in every measured run.
   "Disk Full".
 
 What stays a mitigation: one reserve covers one start, so a second start on a disk that stayed
-full can fail, and the runner then waits. Two exits still leave the `spawning` hold: a runner
-killed with `SIGKILL` while starting a backend, and one that leaves through its EXIT trap
-between the backend's launch and the note of its pid. The second is on purpose, since a backend
-the record does not name may be running.
+full can fail, and the runner then waits. The `spawning` hold can still be left behind. A
+runner killed with `SIGKILL` while starting a backend leaves it. So does a close that fails,
+which the runner logs as `could not be closed; the next runner start may be held`. So does a
+runner that leaves through its EXIT trap between the backend's launch and the note of its pid.
+That last case is on purpose, since a backend the record does not name may be running.
 
 ## Related Issues
 
