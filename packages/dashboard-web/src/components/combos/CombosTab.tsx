@@ -89,8 +89,8 @@ export function CombosTab() {
 			<RoutePageHeader
 				page="combos"
 				actions={
-					<Button onClick={() => setIsCreateDialogOpen(true)}>
-						<Plus className="mr-2 h-4 w-4" />
+					<Button size="touch" onClick={() => setIsCreateDialogOpen(true)}>
+						<Plus />
 						Create Combo
 					</Button>
 				}
@@ -119,8 +119,11 @@ export function CombosTab() {
 							title="No combos yet"
 							description="Create one to define a fallback chain."
 							action={
-								<Button onClick={() => setIsCreateDialogOpen(true)}>
-									<Plus className="mr-2 h-4 w-4" />
+								<Button
+									size="touch"
+									onClick={() => setIsCreateDialogOpen(true)}
+								>
+									<Plus />
 									Create Combo
 								</Button>
 							}

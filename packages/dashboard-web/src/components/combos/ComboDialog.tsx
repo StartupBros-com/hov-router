@@ -11,7 +11,8 @@ import {
 } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { Switch } from "../ui/switch";
+import { ErrorState, LoadingState } from "../ui/state";
+import { SwitchRow } from "../ui/switch-row";
 import { ComboSlotBuilder } from "./ComboSlotBuilder";
 
 interface ComboDialogProps {
@@ -77,12 +78,14 @@ export function ComboDialog({ isOpen, onClose, comboId }: ComboDialogProps) {
 				{isEditMode ? (
 					<div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-2">
 						{comboQuery.isLoading && (
-							<p className="text-sm text-muted-foreground">Loading combo...</p>
+							<LoadingState size="inline" label="Loading combo" />
 						)}
 						{comboQuery.isError && (
-							<p className="text-sm text-destructive" role="alert">
-								Could not load this combo or its persisted Manual slots.
-							</p>
+							<ErrorState
+								size="inline"
+								title="Could not load this combo or its persisted Manual slots"
+								onRetry={() => void comboQuery.refetch()}
+							/>
 						)}
 						{combo && <ComboSlotBuilder combo={combo} />}
 					</div>
@@ -96,6 +99,7 @@ export function ComboDialog({ isOpen, onClose, comboId }: ComboDialogProps) {
 								onChange={(e) => setName(e.target.value)}
 								placeholder="My Combo"
 								maxLength={100}
+								className="h-11"
 							/>
 						</div>
 
@@ -106,19 +110,18 @@ export function ComboDialog({ isOpen, onClose, comboId }: ComboDialogProps) {
 								value={description}
 								onChange={(e) => setDescription(e.target.value)}
 								placeholder="Optional description"
+								className="h-11"
 							/>
 						</div>
 
-						<div className="flex items-center justify-between rounded-md border px-3 py-2">
-							<Label htmlFor="combo-enabled" className="cursor-pointer">
-								Enabled
-							</Label>
-							<Switch
-								id="combo-enabled"
-								checked={enabled}
-								onCheckedChange={setEnabled}
-							/>
-						</div>
+						<SwitchRow
+							id="combo-enabled"
+							label="Enabled"
+							labelClassName="cursor-pointer"
+							className="rounded-md border px-3"
+							checked={enabled}
+							onCheckedChange={setEnabled}
+						/>
 
 						<p className="text-xs text-muted-foreground">
 							Slots can be configured after creation.
@@ -127,7 +130,7 @@ export function ComboDialog({ isOpen, onClose, comboId }: ComboDialogProps) {
 				)}
 
 				{createCombo.isError && (
-					<p className="text-sm text-destructive">
+					<p className="text-sm text-destructive" role="alert">
 						Failed to create combo. Please try again.
 					</p>
 				)}
@@ -135,6 +138,7 @@ export function ComboDialog({ isOpen, onClose, comboId }: ComboDialogProps) {
 				<DialogFooter>
 					<Button
 						variant="outline"
+						size="touch"
 						onClick={handleClose}
 						disabled={createCombo.isPending}
 					>
@@ -142,10 +146,11 @@ export function ComboDialog({ isOpen, onClose, comboId }: ComboDialogProps) {
 					</Button>
 					{!isEditMode && (
 						<Button
+							size="touch"
 							onClick={handleCreate}
 							disabled={!isNameValid || createCombo.isPending}
 						>
-							{createCombo.isPending ? "Creating..." : "Create"}
+							{createCombo.isPending ? "Creating…" : "Create"}
 						</Button>
 					)}
 				</DialogFooter>
