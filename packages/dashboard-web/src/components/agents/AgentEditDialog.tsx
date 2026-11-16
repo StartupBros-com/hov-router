@@ -669,7 +669,7 @@ export function AgentEditDialog({
 												{ALL_TOOLS.map((tool) => (
 													<label
 														key={tool}
-														className="flex min-h-11 items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer"
+														className="flex min-h-11 items-center gap-3 p-2 rounded-md hover:bg-accent hover:text-accent-foreground cursor-pointer"
 													>
 														<input
 															type="checkbox"
