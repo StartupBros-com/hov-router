@@ -204,6 +204,17 @@ are refused once a plan window reads full even while the provider still reports 
 allowed: the provider's allowed flag can lag its usage percentage, and the request that
 crosses the line is billed to credits.
 
+### Extra usage
+
+Paid usage on a Claude subscription: a setting on the subscriber's own Anthropic account that
+lets Anthropic keep serving requests after a plan limit is spent and bill them. Anthropic now
+calls it usage credits; its response headers and this codebase's identifiers call it overage.
+
+The router reads the setting from the account's usage readings and from response headers, and
+never changes it. A request Anthropic reports as served this way is recorded with the billing
+label `overage`. It is the Claude counterpart of the purchased credits that credit drain spends
+on a Codex account.
+
 ### Banked reset
 
 A free credit a provider grants to an account that, when redeemed, resets the account's usage
