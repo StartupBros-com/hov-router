@@ -28,11 +28,12 @@ function NextBadge() {
 		</span>
 	);
 }
-/** Why a held-back account is not serving; muted, because it is not an outage. */
-function HeldBadge({ account }: { account: ForecastAccount }) {
+/** Why a held-back account is not serving, or that it serves on credits; muted, because neither is an outage. */
+function StateBadge({ account }: { account: ForecastAccount }) {
+	if (account.state !== "held" && !account.onCredits) return null;
 	return (
 		<span className="shrink-0 whitespace-nowrap rounded-sm border px-1 text-[10px] leading-4 text-muted-foreground">
-			{heldLabel(account.reason)}
+			{account.onCredits ? "on credits" : heldLabel(account.reason)}
 		</span>
 	);
 }
@@ -257,7 +258,12 @@ export function PoolRunway({
 							style={{ height: LANE_H }}
 						>
 							<span className="flex min-w-0 items-center justify-end gap-x-1 text-xs">
-								<span className="truncate font-medium" title={a.name}>
+								{/* The sr-only line below names the account. */}
+								<span
+									className="truncate font-medium"
+									title={a.name}
+									aria-hidden="true"
+								>
 									{a.name}
 								</span>
 								{shouldShowNextBadge(a) && <NextBadge />}
@@ -373,7 +379,7 @@ export function AccountList({
 			<button
 				type="button"
 				aria-expanded={open}
-				aria-controls={id}
+				aria-controls={open ? id : undefined}
 				onClick={onToggle}
 				className="inline-flex min-h-11 items-center gap-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 			>
@@ -386,7 +392,7 @@ export function AccountList({
 			{open && (
 				<ol
 					id={id}
-					aria-label={`${group.title} accounts, soonest reset first`}
+					aria-label={`${group.title} exact times`}
 					className="divide-y rounded-md border text-xs"
 				>
 					{group.accounts.map((a) => {
@@ -402,7 +408,7 @@ export function AccountList({
 								<span className="flex min-w-0 items-center gap-1.5">
 									<span className="truncate font-medium">{a.name}</span>
 									{shouldShowNextBadge(a) && <NextBadge />}
-									{a.state === "held" && <HeldBadge account={a} />}
+									<StateBadge account={a} />
 								</span>
 								<span
 									className={cn(

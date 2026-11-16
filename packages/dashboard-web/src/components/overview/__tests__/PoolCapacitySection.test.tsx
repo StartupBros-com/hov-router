@@ -4,7 +4,7 @@ import type { RoutingObservation } from "../../../api";
 import type { PoolGroup } from "../../../lib/pool-forecast";
 import type { PoolUsageResult } from "../../../lib/pool-usage";
 import { PoolCapacitySection } from "../PoolCapacitySection";
-import { AccountList } from "../PoolRunway";
+import { AccountList, PoolRunway } from "../PoolRunway";
 
 const NOW = 1_700_000_000_000;
 
@@ -400,5 +400,79 @@ describe("runway card", () => {
 		expect(html).toContain(
 			"Not shown: Codex Pro weekly, Codex Pro 5-hour, and Z.ai 5-hour. No account in them reports when the limit resets.",
 		);
+	});
+	it("describes the charts only when a chart is drawn", () => {
+		for (const hidden of [[group], []]) {
+			const html = renderToStaticMarkup(
+				<PoolCapacitySection
+					groups={[]}
+					hidden={hidden}
+					now={NOW}
+					onUseReset={() => {}}
+				/>,
+			);
+			expect(html).not.toContain("Each chart is the pool");
+			expect(html).not.toContain("Forecast: each account keeps");
+		}
+		const shown = renderToStaticMarkup(
+			<PoolCapacitySection
+				groups={[group]}
+				hidden={[]}
+				now={NOW}
+				onUseReset={() => {}}
+			/>,
+		);
+		expect(shown).toContain("Each chart is the pool");
+		expect(shown).toContain("Forecast: each account keeps");
+	});
+	it("names each lane once for screen readers", () => {
+		const g: PoolGroup = {
+			...group,
+			accounts: [{ ...group.accounts[0], state: "active", pct: 50 }],
+			forecast: {
+				series: [{ t: NOW, left: 50 }],
+				capacity: 100,
+				dry: null,
+				nextRefill: null,
+				refills: [],
+				returns: [],
+				lanes: { "acct-a": [50] },
+				horizonMs: 168 * 3600000,
+			},
+		};
+		const html = renderToStaticMarkup(
+			<PoolRunway group={g} now={NOW} open={false} onToggle={() => {}} />,
+		);
+		expect(html).toContain('title="acct-a" aria-hidden="true">acct-a</span>');
+		expect(html).toContain('<span class="sr-only">acct-a: 50% used');
+	});
+	it("gives the exact-times list its own name and references it only while open", () => {
+		const closed = renderToStaticMarkup(
+			<AccountList group={group} now={NOW} open={false} onToggle={() => {}} />,
+		);
+		expect(closed).not.toContain("aria-controls");
+		const open = renderToStaticMarkup(
+			<AccountList group={group} now={NOW} open onToggle={() => {}} />,
+		);
+		expect(open).toContain('aria-controls="runway-codex:weekly-accounts"');
+		expect(open).toContain('aria-label="Codex Pro weekly exact times"');
+	});
+	it("marks an account serving on purchased credits", () => {
+		const g = {
+			...group,
+			accounts: [
+				{
+					...group.accounts[0],
+					state: "active" as const,
+					pct: 100,
+					onCredits: true,
+				},
+			],
+		};
+		const html = renderToStaticMarkup(
+			<AccountList group={g} now={NOW} open onToggle={() => {}} />,
+		);
+		expect(html).toContain(">on credits</span>");
+		expect(html).toContain("100% used");
 	});
 });

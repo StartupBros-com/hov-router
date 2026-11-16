@@ -565,3 +565,130 @@ describe("simulation and wording", () => {
 		expect(bankedResetAccounts(active, NOW)).toEqual([]);
 	});
 });
+
+describe("review fixes", () => {
+	const held = (a: AccountResponse, count = 1) => {
+		a.bankedResets = {
+			tracked: true,
+			availableCount: count,
+			stale: false,
+		} as AccountResponse["bankedResets"];
+		return a;
+	};
+	it("spends a third pass when the second empties another account", () => {
+		// a empties in pass 1, b in pass 2; only a third pass gives c the rest.
+		const sim = simulate(
+			[
+				base("active", 99, NOW + 4 * H),
+				{ ...base("active", 80, NOW + 4 * H), id: "b", name: "b" },
+				{ ...base("active", 30, NOW + 4 * H), id: "c", name: "c" },
+			],
+			5,
+			NOW,
+		);
+		if (!sim) throw new Error("Expected a simulation");
+		const demand = (99 + 80 + 30) / 6;
+		expect(sim.forecast.lanes.a[1]).toBe(0);
+		expect(sim.forecast.lanes.b[1]).toBe(0);
+		expect(sim.forecast.lanes.c[1]).toBeCloseTo(70 - (demand - 1 - 20));
+		expect(sim.forecast.series[1].left).toBeCloseTo(91 - demand);
+	});
+	it("never lets quota left go below zero", () => {
+		const sim = simulate([base("active", 105, NOW + 4 * H)], 5, NOW);
+		if (!sim) throw new Error("Expected a simulation");
+		expect(sim.forecast.series[0].left).toBe(0);
+		expect(sim.forecast.lanes.a[0]).toBe(0);
+	});
+	it("a paused account with quota left means nothing available, not out of quota", () => {
+		const out = held(account("out", "codex", 100, NOW + 30 * H));
+		const paused = account("paused", "codex", 30, NOW + 60 * H);
+		paused.paused = true;
+		const g = buildPoolGroups([out, paused], NOW).groups[0];
+		expect(forecastHeadline(g, NOW, "UTC")).toEqual({
+			tone: "dry-now",
+			headline: "Nothing available now",
+			detail: "Back in 1d 6h, when out refills",
+		});
+		// Only a refill ends this outage, so the out account's reset is offered.
+		expect(bankedResetAccounts(g, NOW).map((a) => a.name)).toEqual(["out"]);
+		// A paused account that is itself spent leaves the pool out of quota.
+		const spentPaused = account("paused", "codex", 100, NOW + 60 * H);
+		spentPaused.paused = true;
+		const allOut = buildPoolGroups([out, spentPaused], NOW).groups[0];
+		expect(forecastHeadline(allOut, NOW, "UTC").headline).toBe(
+			"Out of quota now",
+		);
+	});
+	it("offers no reset when an account comes back on its own before any refill", () => {
+		const out = held(account("out", "codex", 100, NOW + 30 * H));
+		const cooling = account("cooling", "codex", 40, NOW + 92 * H);
+		cooling.rateLimitedUntil = NOW + 5 * 60_000;
+		const g = buildPoolGroups([out, cooling], NOW).groups[0];
+		expect(forecastHeadline(g, NOW, "UTC").detail).toBe(
+			"Back in 5m, when cooling is back",
+		);
+		expect(bankedResetAccounts(g, NOW)).toEqual([]);
+	});
+	it("an account serving on purchased credits is serving, and is never offered a reset", () => {
+		const drain = held(account("drain", "codex", 100, NOW + 30 * H));
+		drain.codexCreditDrainEnabled = true;
+		drain.codexCreditDrainActive = true;
+		drain.codexCreditDrainServing = true;
+		const out = held(account("out", "codex", 100, NOW + 60 * H));
+		const g = buildPoolGroups([drain, out], NOW).groups[0];
+		const d = g.accounts.find((a) => a.name === "drain");
+		expect(d?.state).toBe("active");
+		expect(d?.onCredits).toBe(true);
+		expect(forecastHeadline(g, NOW, "UTC")).toEqual({
+			tone: "later",
+			headline: "Serving on credits",
+			detail: "Plan quota back in 1d 6h, when drain refills",
+		});
+		expect(bankedResetAccounts(g, NOW)).toEqual([]);
+		if (!d) throw new Error("Expected the drain account");
+		expect(laneText(d, NOW)).toBe(
+			"drain: serving on credits, plan quota refills in 1d 6h",
+		);
+		expect(shouldShowNextBadge({ ...d, isPrimary: true })).toBe(false);
+	});
+	it("never offers a reset on an account set to drain credits", () => {
+		const armed = held(account("armed", "codex", 98, NOW + 30 * H));
+		armed.codexCreditDrainEnabled = true;
+		armed.codexCreditDrainActive = true;
+		const low = held(account("low", "codex", 97, NOW + 40 * H));
+		const g = buildPoolGroups([armed, low], NOW).groups[0];
+		expect(forecastHeadline(g, NOW).tone).toBe("soon");
+		expect(g.accounts.find((a) => a.name === "armed")?.onCredits).toBeFalsy();
+		expect(bankedResetAccounts(g, NOW).map((a) => a.name)).toEqual(["low"]);
+	});
+	it("a reset time that has already passed reads as due now", () => {
+		const out = account("a", "codex", 100, NOW - 10 * 60_000);
+		const g = buildPoolGroups([out], NOW).groups[0];
+		expect(forecastHeadline(g, NOW, "UTC")).toEqual({
+			tone: "dry-now",
+			headline: "Out of quota now",
+			detail: "a is due to refill now",
+		});
+		const lane = g.accounts[0];
+		expect(laneText(lane, NOW)).toBe("a: out of quota, back now");
+		const lasts = buildPoolGroups(
+			[
+				account("a", "anthropic", 40, NOW - 10 * 60_000),
+				account("b", "anthropic", 10, NOW + 100 * H),
+			],
+			NOW,
+		).groups[0];
+		const summary = forecastHeadline(lasts, NOW, "UTC");
+		expect(summary.tone).toBe("lasts");
+		expect(summary.detail).toBe("a is due to refill now");
+	});
+	it("keeps a pool on screen when its accounts are all held back but report reset times", () => {
+		const paused = ["a", "b"].map((name) => {
+			const a = account(name, "codex", 40, NOW + 50 * H);
+			a.paused = true;
+			return a;
+		});
+		const built = buildPoolGroups(paused, NOW);
+		expect(built.groups.map((g) => g.title)).toContain("Codex Pro weekly");
+	});
+});

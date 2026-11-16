@@ -166,10 +166,12 @@ function BankedLever({
 }
 function CardFooter({
 	hidden,
+	hasCharts,
 	observations,
 	now,
 }: {
 	hidden: PoolGroup[];
+	hasCharts: boolean;
 	observations?: Record<string, RoutingObservation> | null;
 	now: number;
 }) {
@@ -184,10 +186,12 @@ function CardFooter({
 					limit resets.
 				</p>
 			)}
-			<p className="max-w-prose">
-				Forecast: each account keeps the pace it has averaged since its window
-				opened, and traffic moves to accounts with quota left.
-			</p>
+			{hasCharts && (
+				<p className="max-w-prose">
+					Forecast: each account keeps the pace it has averaged since its window
+					opened, and traffic moves to accounts with quota left.
+				</p>
+			)}
 			{hasObservations && (
 				<details className="group/routing">
 					<summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-md text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -257,13 +261,15 @@ export function PoolCapacitySection({
 					<LoadingState size="inline" label="Loading pool capacity" />
 				) : (
 					<>
-						<p className="mb-1 max-w-prose text-xs text-muted-foreground">
-							Each chart is the pool's quota left; the rows under it are its
-							accounts, soonest reset first, each on its own 0–100% scale, so a
-							jump is that account refilling. Red: nothing left in the pool.
-							Past the dotted line (2 days out) the forecast is a rougher guess
-							and is dashed.
-						</p>
+						{groups.length > 0 && (
+							<p className="mb-1 max-w-prose text-xs text-muted-foreground">
+								Each chart is the pool's quota left; the rows under it are its
+								accounts, soonest reset first, each on its own 0–100% scale, so
+								a jump is that account refilling. Red: nothing left in the pool.
+								Past the dotted line (2 days out) the forecast is a rougher
+								guess and is dashed.
+							</p>
+						)}
 						{groups.length === 0 && hidden.length === 0 && (
 							<EmptyState size="inline" title="No pool capacity yet." />
 						)}
@@ -287,7 +293,12 @@ export function PoolCapacitySection({
 								/>
 							</section>
 						))}
-						<CardFooter hidden={hidden} observations={observations} now={now} />
+						<CardFooter
+							hidden={hidden}
+							hasCharts={groups.length > 0}
+							observations={observations}
+							now={now}
+						/>
 					</>
 				)}
 			</CardContent>

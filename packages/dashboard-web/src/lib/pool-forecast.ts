@@ -37,6 +37,8 @@ export interface ForecastAccount {
 	reason?: ExcludedReason;
 	/** held only: when it can serve again; null when it will not on its own. */
 	backMs?: number | null;
+	/** active only: this window is spent, and it serves on purchased credits. */
+	onCredits?: boolean;
 	isPrimary: boolean;
 	emptiesAtMs: number | null; // simulated time this account first hits 0, within the horizon
 	leftAtResetPct: number | null; // simulated quota still unused when its window resets (lost)
@@ -114,8 +116,18 @@ function accountsOf(
 				isPrimary: account.isPrimary === true,
 			});
 	};
-	for (const c of result.contributing)
-		add(c.name, { pct: c.pct, resetMs: c.resetMs, state: "active" });
+	for (const c of result.contributing) {
+		// The shared computation keeps a credit-draining account serving past 100%.
+		const onCredits =
+			(c.pct ?? 0) >= 100 &&
+			byName.get(c.name)?.codexCreditDrainServing === true;
+		add(c.name, {
+			pct: c.pct,
+			resetMs: c.resetMs,
+			state: "active",
+			...(onCredits ? { onCredits } : {}),
+		});
+	}
 	// The shared pool computation files every account that cannot serve under
 	// `exhausted`, whatever the cause, with that cause's reset. Only a spent
 	// window of this pool is "out"; the rest keep their own use of this window.
@@ -196,7 +208,7 @@ export function simulate(
 		const backMs = a.state === "held" ? (a.backMs ?? null) : null;
 		return {
 			name: a.name,
-			left: a.state === "out" ? 0 : 100 - (a.pct ?? 0),
+			left: a.state === "out" ? 0 : Math.max(0, 100 - (a.pct ?? 0)),
 			pace,
 			resetMs: a.resetMs,
 			backMs,
@@ -465,26 +477,37 @@ export function forecastHeadline(
 			headline: "No forecast yet",
 			detail: "Every account in this pool is paused.",
 		};
+	// Spent: its own use of this window is gone. Unknown use is not spent.
 	const spent = (a: ForecastAccount) =>
-		a.state === "out" || (a.state === "active" && (a.pct ?? 0) >= 100);
-	const usable = (a: ForecastAccount) =>
-		a.state === "active" ? (a.pct ?? 0) < 100 : false;
-	if (counted.length > 0 && !counted.some(usable)) {
-		// "Out of quota" only when every account the forecast counts is spent;
-		// one that is only cooling down will be back on its own.
-		const forecastable = counted.filter(inForecast);
-		const quotaOut = forecastable.length > 0 && forecastable.every(spent);
-		const end = f?.dry?.startMs === now ? f.dry.endedBy : null;
+		a.state === "out" || (!a.onCredits && (a.pct ?? 0) >= 100);
+	const onPlan = (a: ForecastAccount) =>
+		a.state === "active" && (a.pct ?? 0) < 100;
+	const end = dryNowEnd(f, now);
+	const back = (prefix: string) =>
+		!end
+			? null
+			: end.t <= now
+				? `${end.name} is due to refill now`
+				: `${prefix} ${formatDuration(end.t - now)}, when ${end.name} ${end.kind === "refill" ? "refills" : "is back"}`;
+	if (counted.length > 0 && !counted.some((a) => onPlan(a) || a.onCredits)) {
+		// "Out of quota" only when every counted account is spent; a paused or
+		// cooling account with quota left means the quota is there, held back.
+		const quotaOut = counted.every(spent);
 		return {
 			tone: "dry-now",
 			headline: quotaOut ? "Out of quota now" : "Nothing available now",
-			detail: end
-				? `Back in ${formatDuration(end.t - now)}, when ${end.name} ${end.kind === "refill" ? "refills" : "is back"}`
-				: quotaOut
-					? "No refill this week"
-					: "Nothing is due back this week",
+			detail:
+				back("Back in") ??
+				(quotaOut ? "No refill this week" : "Nothing is due back this week"),
 		};
 	}
+	// Still serving, but only on purchased credits: the operator's choice, not an outage.
+	if (counted.some((a) => a.onCredits) && !counted.some(onPlan))
+		return {
+			tone: "later",
+			headline: "Serving on credits",
+			detail: back("Plan quota back in") ?? "No plan quota back this week",
+		};
 	if (!f || !group.hasPace)
 		return {
 			tone: "none",
@@ -510,10 +533,23 @@ export function forecastHeadline(
 	return {
 		tone: "lasts",
 		headline: "On pace to last the week",
-		detail: next
-			? `${next.name} refills next, in ${formatDuration(next.t - now)}${left != null && left >= 10 ? `, with about ${Math.round(left)}% unused` : ""}`
-			: "No refill this week",
+		detail: !next
+			? "No refill this week"
+			: next.t <= now
+				? `${next.name} is due to refill now`
+				: `${next.name} refills next, in ${formatDuration(next.t - now)}${left != null && left >= 10 ? `, with about ${Math.round(left)}% unused` : ""}`,
 	};
+}
+
+/**
+ * What ends a dry stretch that starts now. A reported reset already in the
+ * past refills at the first step, so the forecast is not dry; the account is
+ * due to refill now, waiting for its next usage report.
+ */
+function dryNowEnd(f: Forecast | null, now: number): DryPeriod["endedBy"] {
+	if (f?.dry?.startMs === now) return f.dry.endedBy;
+	const due = f?.refills.find((r) => r.t <= now);
+	return due ? { t: due.t, name: due.name, kind: "refill" } : null;
 }
 
 export function emptyBeforeReset(a: ForecastAccount): number | null {
@@ -526,7 +562,9 @@ export function emptyBeforeReset(a: ForecastAccount): number | null {
 	return a.emptiesAtMs;
 }
 export function inText(ms: number | null, now: number): string | null {
-	return ms == null || ms <= now ? null : `in ${formatDuration(ms - now)}`;
+	if (ms == null) return null;
+	// A reported time already past: due now, waiting for the next usage report.
+	return ms <= now ? "now" : `in ${formatDuration(ms - now)}`;
 }
 export function laneText(
 	a: ForecastAccount,
@@ -546,6 +584,8 @@ export function laneText(
 		const back = inText(a.backMs ?? null, now);
 		return `${a.name}: ${heldLabel(a.reason)}${back ? `, back ${back}` : ""}${used}`;
 	}
+	if (a.onCredits)
+		return `${a.name}: serving on credits, plan quota ${reset ? `refills ${reset}` : "has no reset time"}`;
 	const empty = emptyBeforeReset(a);
 	const unused =
 		a.leftAtResetPct != null && a.leftAtResetPct >= 10 && !empty
@@ -581,11 +621,17 @@ export function bankedResetAccounts(
 	group: PoolGroup,
 	now: number,
 ): AccountResponse[] {
+	if (group.provider !== "codex") return [];
 	const tone = forecastHeadline(group, now).tone;
-	if (group.provider !== "codex" || (tone !== "dry-now" && tone !== "soon"))
-		return [];
+	// Out of quota now, unless an account comes back on its own before any
+	// refill (a cooldown); or on pace to run dry within 48 hours.
+	const red =
+		tone === "soon" ||
+		(tone === "dry-now" && dryNowEnd(group.forecast, now)?.kind !== "return");
+	if (!red) return [];
 	// A reset restores quota, so offer it only where quota is what is missing:
-	// never on a paused, cooling or signed-out account. It cannot be undone.
+	// never on a paused, cooling or signed-out account, nor on one the operator
+	// set to spend purchased credits. It cannot be undone.
 	const serving = new Set(
 		group.accounts
 			.filter((a) => a.state === "active" || a.state === "out")
@@ -594,6 +640,7 @@ export function bankedResetAccounts(
 	return group.members.filter(
 		(a) =>
 			serving.has(a.id) &&
+			a.codexCreditDrainActive !== true &&
 			a.bankedResets &&
 			resetActionAvailability(a.bankedResets).shown,
 	);
