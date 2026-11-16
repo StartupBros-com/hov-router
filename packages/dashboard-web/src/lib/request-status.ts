@@ -34,34 +34,3 @@ export function requestStatusDisplay({
 	if (pending) return { text: "Pending", tone: "neutral" };
 	return { text: "No response", tone: isError ? "danger" : "neutral" };
 }
-
-function localDay(value: string): Date | null {
-	if (!value) return null;
-	const date = new Date(value);
-	return Number.isNaN(date.getTime()) ? null : date;
-}
-
-/**
- * The days the Requests date filter applies, read the way the filter reads its
- * inputs: each value parsed as local time and widened to the whole local day.
- */
-export function appliedDateRangeLabel(
-	dateFrom: string,
-	dateTo: string,
-	opts: { locale?: string } = {},
-): string {
-	const format = new Intl.DateTimeFormat(opts.locale, {
-		month: "short",
-		day: "numeric",
-	});
-	const from = localDay(dateFrom);
-	const to = localDay(dateTo);
-	if (from && to) {
-		const start = format.format(from);
-		const end = format.format(to);
-		return start === end ? start : `${start} – ${end}`;
-	}
-	if (from) return `from ${format.format(from)}`;
-	if (to) return `until ${format.format(to)}`;
-	return "any time";
-}

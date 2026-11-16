@@ -1,9 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-	appliedDateRangeLabel,
-	httpStatusTone,
-	requestStatusDisplay,
-} from "../request-status";
+import { httpStatusTone, requestStatusDisplay } from "../request-status";
 
 describe("httpStatusTone", () => {
 	it.each([
@@ -61,36 +57,5 @@ describe("requestStatusDisplay", () => {
 		expect(
 			requestStatusDisplay({ statusCode: 0, pending: false, isError: false }),
 		).toEqual({ text: "No response", tone: "neutral" });
-	});
-});
-
-describe("appliedDateRangeLabel", () => {
-	const en = { locale: "en-US" };
-
-	it("shows the whole local days the filter applies, not the input times", () => {
-		expect(
-			appliedDateRangeLabel("2026-11-14T20:00", "2026-11-15T08:30", en),
-		).toBe("Nov 14 – Nov 15");
-	});
-
-	it("names a single bound", () => {
-		expect(appliedDateRangeLabel("2026-11-14T20:00", "", en)).toBe(
-			"from Nov 14",
-		);
-		expect(appliedDateRangeLabel("", "2026-11-15T08:30", en)).toBe(
-			"until Nov 15",
-		);
-	});
-
-	it("shows one day when both bounds fall on it", () => {
-		expect(
-			appliedDateRangeLabel("2026-11-14T08:00", "2026-11-14T20:00", en),
-		).toBe("Nov 14");
-	});
-
-	it("ignores a value the filter cannot parse, as the filter does", () => {
-		expect(appliedDateRangeLabel("not a date", "2026-11-15T08:30", en)).toBe(
-			"until Nov 15",
-		);
 	});
 });

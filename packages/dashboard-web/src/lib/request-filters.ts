@@ -1,4 +1,4 @@
-import { appliedDateRangeLabel } from "./request-status";
+import { appliedDateRangeLabel } from "./request-date-range";
 
 export type RequestFilterKey =
 	| "account"
@@ -15,7 +15,7 @@ export interface ActiveRequestFilter {
 
 /**
  * The Requests filters that are on, in display order, each as "<label>: <value>".
- * The date value names the whole local days the filter matches.
+ * The date value names the times the filter applies.
  */
 export function activeRequestFilters(
 	filters: {
@@ -28,7 +28,7 @@ export function activeRequestFilters(
 		dateFrom: string;
 		dateTo: string;
 	},
-	opts: { locale?: string } = {},
+	opts: { locale?: string; now?: number } = {},
 ): ActiveRequestFilter[] {
 	const active: ActiveRequestFilter[] = [];
 	if (filters.account !== "all") {
