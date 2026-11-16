@@ -62,27 +62,6 @@ export function AgentCard({ agent }: AgentCardProps) {
 										/>
 									)}
 								</CardTitle>
-								<div className="mt-1 flex flex-wrap items-center gap-2">
-									<Badge variant="outline" className="text-xs gap-1">
-										<SourceIcon className="h-3 w-3" />
-										{isWorkspaceAgent ? workspaceName : "Global"}
-									</Badge>
-									{agent.model?.includes("opus") && (
-										<StatusPill tone="secondary">
-											<Cpu className="h-3 w-3" />
-											Premium
-										</StatusPill>
-									)}
-									{agent.modelSource === "frontmatter" && (
-										<StatusPill tone="neutral">Default</StatusPill>
-									)}
-									{agent.modelSource === "inherit" && (
-										<StatusPill tone="neutral">Inherited</StatusPill>
-									)}
-									{agent.modelSource === "preference" && (
-										<StatusPill tone="primary">Override</StatusPill>
-									)}
-								</div>
 							</div>
 						</div>
 						<Button
@@ -100,6 +79,27 @@ export function AgentCard({ agent }: AgentCardProps) {
 						>
 							<Edit3 className="h-4 w-4" />
 						</Button>
+					</div>
+					<div className="flex flex-wrap items-center gap-2">
+						<Badge variant="outline" className="text-xs gap-1">
+							<SourceIcon className="h-3 w-3" />
+							{isWorkspaceAgent ? workspaceName : "Global"}
+						</Badge>
+						{agent.model?.includes("opus") && (
+							<StatusPill tone="secondary">
+								<Cpu className="h-3 w-3" />
+								Premium
+							</StatusPill>
+						)}
+						{agent.modelSource === "frontmatter" && (
+							<StatusPill tone="neutral">Default</StatusPill>
+						)}
+						{agent.modelSource === "inherit" && (
+							<StatusPill tone="neutral">Inherited</StatusPill>
+						)}
+						{agent.modelSource === "preference" && (
+							<StatusPill tone="primary">Override</StatusPill>
+						)}
 					</div>
 					<CardDescription className="text-sm leading-relaxed line-clamp-3 whitespace-pre-wrap">
 						{agent.description.replace(/\\n/g, "\n")}

@@ -36,9 +36,15 @@ describe("AgentCard visible state", () => {
 		// The card clips its overflow, so the header columns must shrink and the pill row must wrap.
 		expect(html).toContain('<div class="flex min-w-0 items-center gap-3">');
 		expect(html).toContain('<div class="min-w-0 flex-1">');
+	});
+
+	it("puts the pills on their own full-width row under the name and edit button", () => {
+		// Beside the icon and the 44 px edit button, a three-column card leaves the
+		// title column about 150 px, which stacks the pills one per line.
 		expect(html).toContain(
-			'<div class="mt-1 flex flex-wrap items-center gap-2">',
+			'</button></div><div class="flex flex-wrap items-center gap-2">',
 		);
+		expect(html).not.toContain("mt-1 flex flex-wrap");
 	});
 
 	it("makes the model preference trigger 44 px tall", () => {
