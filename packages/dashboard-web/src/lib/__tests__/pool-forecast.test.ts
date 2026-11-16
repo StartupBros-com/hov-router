@@ -691,4 +691,80 @@ describe("review fixes", () => {
 		const built = buildPoolGroups(paused, NOW);
 		expect(built.groups.map((g) => g.title)).toContain("Codex Pro weekly");
 	});
+	it("offers no reset while a reported reset time is already past", () => {
+		// The window has rolled over; the next usage report will show it refilled.
+		const due = held(account("due", "codex", 100, NOW - 10 * 60_000));
+		const alone = buildPoolGroups([due], NOW).groups[0];
+		expect(forecastHeadline(alone, NOW, "UTC").detail).toBe(
+			"due is due to refill now",
+		);
+		expect(bankedResetAccounts(alone, NOW)).toEqual([]);
+		// The pool refills now, so another out account is not offered one either.
+		const later = held(account("later", "codex", 100, NOW + 30 * H));
+		const pair = buildPoolGroups([due, later], NOW).groups[0];
+		expect(bankedResetAccounts(pair, NOW)).toEqual([]);
+		// Running dry soon, an account whose window already reset is never offered one.
+		const fast = held(account("fast", "codex", 90, NOW + 160 * H));
+		const soon = buildPoolGroups([due, fast], NOW).groups[0];
+		expect(forecastHeadline(soon, NOW, "UTC").tone).toBe("soon");
+		expect(bankedResetAccounts(soon, NOW).map((a) => a.name)).toEqual(["fast"]);
+	});
+	it("an account on credits because its other window is spent has no plan quota in this pool", () => {
+		const drain = held(
+			mkAccount({
+				id: "drain",
+				name: "drain",
+				provider: "codex",
+				codexCreditDrainEnabled: true,
+				codexCreditDrainActive: true,
+				codexCreditDrainServing: true,
+				usageData: {
+					five_hour: {
+						utilization: 40,
+						resets_at: new Date(NOW + 2 * H).toISOString(),
+					},
+					seven_day: {
+						utilization: 100,
+						resets_at: new Date(NOW + 30 * H).toISOString(),
+					},
+				},
+			}),
+		);
+		const out = held(account("out", "codex", 100, NOW + 60 * H));
+		const groups = buildPoolGroups([drain, out], NOW).groups;
+		const five = groups.find((g) => g.title === "Codex Pro 5-hour");
+		if (!five) throw new Error("Expected the 5-hour pool");
+		const d = five.accounts.find((a) => a.name === "drain");
+		if (!d) throw new Error("Expected the drain account");
+		// Like an account out of its weekly quota, back when that window refills.
+		expect(d.state).toBe("held");
+		expect(d.onCredits).toBe(true);
+		expect(d.pct).toBe(40);
+		expect(d.backMs).toBe(NOW + 30 * H);
+		expect(forecastHeadline(five, NOW, "UTC")).toEqual({
+			tone: "later",
+			headline: "Serving on credits",
+			detail: "Plan quota back in 1d 6h, when drain is back",
+		});
+		expect(laneText(d, NOW)).toBe(
+			"drain: serving on credits, plan quota back in 1d 6h",
+		);
+		expect(bankedResetAccounts(five, NOW)).toEqual([]);
+		// In the weekly pool its own window is the spent one.
+		const weekly = groups.find((g) => g.title === "Codex Pro weekly");
+		expect(weekly?.accounts.find((a) => a.name === "drain")?.state).toBe(
+			"active",
+		);
+	});
+	it("caps each account at 100% in the pool's used share", () => {
+		const drain = account("drain", "codex", 130, NOW + 30 * H);
+		drain.codexCreditDrainEnabled = true;
+		drain.codexCreditDrainActive = true;
+		drain.codexCreditDrainServing = true;
+		const g = buildPoolGroups(
+			[drain, account("b", "codex", 40, NOW + 60 * H)],
+			NOW,
+		).groups[0];
+		expect(g.usedPct).toBe(70);
+	});
 });

@@ -402,10 +402,16 @@ describe("runway card", () => {
 		);
 	});
 	it("describes the charts only when a chart is drawn", () => {
-		for (const hidden of [[group], []]) {
+		// Only hidden pools, nothing at all, or a pool with no forecast (no chart).
+		const cases: Array<[PoolGroup[], PoolGroup[]]> = [
+			[[], [group]],
+			[[], []],
+			[[group], []],
+		];
+		for (const [groups, hidden] of cases) {
 			const html = renderToStaticMarkup(
 				<PoolCapacitySection
-					groups={[]}
+					groups={groups}
 					hidden={hidden}
 					now={NOW}
 					onUseReset={() => {}}
@@ -414,9 +420,23 @@ describe("runway card", () => {
 			expect(html).not.toContain("Each chart is the pool");
 			expect(html).not.toContain("Forecast: each account keeps");
 		}
+		const charted: PoolGroup = {
+			...group,
+			id: "codex:charted",
+			forecast: {
+				series: [{ t: NOW, left: 0 }],
+				capacity: 200,
+				dry: null,
+				nextRefill: null,
+				refills: [],
+				returns: [],
+				lanes: { "acct-a": [0], "acct-b": [0] },
+				horizonMs: 168 * 3600000,
+			},
+		};
 		const shown = renderToStaticMarkup(
 			<PoolCapacitySection
-				groups={[group]}
+				groups={[group, charted]}
 				hidden={[]}
 				now={NOW}
 				onUseReset={() => {}}

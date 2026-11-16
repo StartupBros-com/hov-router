@@ -37,7 +37,10 @@ export interface ForecastAccount {
 	reason?: ExcludedReason;
 	/** held only: when it can serve again; null when it will not on its own. */
 	backMs?: number | null;
-	/** active only: this window is spent, and it serves on purchased credits. */
+	/**
+	 * Serving on purchased credits. active: this window is spent. held: another
+	 * plan window is, so this one's quota is back only at backMs.
+	 */
 	onCredits?: boolean;
 	isPrimary: boolean;
 	emptiesAtMs: number | null; // simulated time this account first hits 0, within the horizon
@@ -118,9 +121,24 @@ function accountsOf(
 	};
 	for (const c of result.contributing) {
 		// The shared computation keeps a credit-draining account serving past 100%.
-		const onCredits =
-			(c.pct ?? 0) >= 100 &&
-			byName.get(c.name)?.codexCreditDrainServing === true;
+		const account = byName.get(c.name);
+		const drainServing = account?.codexCreditDrainServing === true;
+		const other =
+			account && drainServing && (c.pct ?? 0) < 100
+				? otherSpentWindow(account, window, now)
+				: null;
+		if (other) {
+			add(c.name, {
+				pct: c.pct,
+				resetMs: c.resetMs,
+				state: "held",
+				reason: other.reason,
+				backMs: other.backMs,
+				onCredits: true,
+			});
+			continue;
+		}
+		const onCredits = drainServing && (c.pct ?? 0) >= 100;
 		add(c.name, {
 			pct: c.pct,
 			resetMs: c.resetMs,
@@ -170,6 +188,30 @@ function accountsOf(
 		if (b.resetMs == null) return -1;
 		return a.resetMs - b.resetMs || a.name.localeCompare(b.name);
 	});
+}
+
+/**
+ * The spent plan window, other than this pool's, that has a credit-draining
+ * account serving on credits, with the latest such reset: its plan quota here
+ * is back only then. This is how the shared computation treats an account
+ * that is not draining (out of its other window), which it skips for drain.
+ */
+function otherSpentWindow(
+	account: AccountResponse,
+	window: PoolCardWindow,
+	now: number,
+): { reason: ExcludedReason; backMs: number | null } | null {
+	let latest: { reason: ExcludedReason; backMs: number | null } | null = null;
+	for (const w of ["five_hour", "seven_day"] as const) {
+		if (w === window) continue;
+		const usage = accountWindowUsage(account, w, now);
+		if (usage?.pct == null || usage.pct < 100) continue;
+		// An unknown reset on any spent window leaves the return time unknown.
+		if (usage.resetMs == null) return { reason: OWN_REASON[w], backMs: null };
+		if (latest?.backMs == null || usage.resetMs > latest.backMs)
+			latest = { reason: OWN_REASON[w], backMs: usage.resetMs };
+	}
+	return latest;
 }
 
 /** In the forecast: serving, spent, or held back with a known return and its own usage. */
@@ -307,7 +349,9 @@ export function simulate(
 function usedAcross(list: BaseAccount[]): number | null {
 	const known = list.filter((a) => a.state !== "unknown" && a.pct != null);
 	if (known.length === 0) return null;
-	return known.reduce((sum, a) => sum + (a.pct ?? 0), 0) / known.length;
+	// An account serving on credits can report past 100%; it counts as spent.
+	const share = (a: BaseAccount) => Math.min(100, Math.max(0, a.pct ?? 0));
+	return known.reduce((sum, a) => sum + share(a), 0) / known.length;
 }
 
 function buildGroup(
@@ -575,6 +619,12 @@ export function laneText(
 	if (a.state === "unknown") return `${a.name}: no usage data`;
 	if (a.state === "out")
 		return `${a.name}: out of quota, ${reset ? `back ${reset}` : "no reset time"}`;
+	if (a.onCredits) {
+		// Held: another plan window is spent, and its refill brings this one back.
+		const held = a.state === "held";
+		const when = held ? inText(a.backMs ?? null, now) : reset;
+		return `${a.name}: serving on credits, plan quota ${when ? `${held ? "back" : "refills"} ${when}` : "has no reset time"}`;
+	}
 	if (a.state === "held") {
 		const used = a.pct != null ? `, ${Math.round(a.pct)}% used` : "";
 		if (a.reason === "paused")
@@ -584,8 +634,6 @@ export function laneText(
 		const back = inText(a.backMs ?? null, now);
 		return `${a.name}: ${heldLabel(a.reason)}${back ? `, back ${back}` : ""}${used}`;
 	}
-	if (a.onCredits)
-		return `${a.name}: serving on credits, plan quota ${reset ? `refills ${reset}` : "has no reset time"}`;
 	const empty = emptyBeforeReset(a);
 	const unused =
 		a.leftAtResetPct != null && a.leftAtResetPct >= 10 && !empty
@@ -623,18 +671,24 @@ export function bankedResetAccounts(
 ): AccountResponse[] {
 	if (group.provider !== "codex") return [];
 	const tone = forecastHeadline(group, now).tone;
-	// Out of quota now, unless an account comes back on its own before any
-	// refill (a cooldown); or on pace to run dry within 48 hours.
-	const red =
-		tone === "soon" ||
-		(tone === "dry-now" && dryNowEnd(group.forecast, now)?.kind !== "return");
+	// Out of quota now, unless quota comes back on its own first: an account
+	// returning (a cooldown), or a reported reset already past (it refills at
+	// its next usage report). Or on pace to run dry within 48 hours.
+	const end = dryNowEnd(group.forecast, now);
+	const comesBack = end != null && (end.kind === "return" || end.t <= now);
+	const red = tone === "soon" || (tone === "dry-now" && !comesBack);
 	if (!red) return [];
 	// A reset restores quota, so offer it only where quota is what is missing:
-	// never on a paused, cooling or signed-out account, nor on one the operator
-	// set to spend purchased credits. It cannot be undone.
+	// never on a paused, cooling or signed-out account, nor on one whose window
+	// has already reset, nor on one the operator set to spend purchased
+	// credits. It cannot be undone.
 	const serving = new Set(
 		group.accounts
-			.filter((a) => a.state === "active" || a.state === "out")
+			.filter(
+				(a) =>
+					(a.state === "active" || a.state === "out") &&
+					!(a.resetMs != null && a.resetMs <= now),
+			)
 			.map((a) => a.id),
 	);
 	return group.members.filter(

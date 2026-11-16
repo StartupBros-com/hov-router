@@ -231,6 +231,8 @@ export function PoolCapacitySection({
 }) {
 	const { isExpanded, toggle } = usePersistedExpansion(STORAGE_KEY);
 	const resets = offeredResets(groups, now);
+	// A pool with no forecast is drawn as a plain list, not a chart.
+	const hasCharts = groups.some((g) => g.forecast != null);
 	if (loadError) {
 		return (
 			<Card>
@@ -261,7 +263,7 @@ export function PoolCapacitySection({
 					<LoadingState size="inline" label="Loading pool capacity" />
 				) : (
 					<>
-						{groups.length > 0 && (
+						{hasCharts && (
 							<p className="mb-1 max-w-prose text-xs text-muted-foreground">
 								Each chart is the pool's quota left; the rows under it are its
 								accounts, soonest reset first, each on its own 0–100% scale, so
@@ -295,7 +297,7 @@ export function PoolCapacitySection({
 						))}
 						<CardFooter
 							hidden={hidden}
-							hasCharts={groups.length > 0}
+							hasCharts={hasCharts}
 							observations={observations}
 							now={now}
 						/>
