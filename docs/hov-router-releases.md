@@ -1,6 +1,6 @@
 # HoV Router release automation (draft-only)
 
-For the current published release, 6.0.0 (Linux x86_64), follow the technical
+For the current published release, 6.1.0 (Linux x86_64), follow the technical
 reference's [consumer installation and verification instructions](reference.md#install-the-linux-x86_64-release).
 
 This is the operator guide for HoV Router release automation at
@@ -29,22 +29,22 @@ Attestation lookup may require your existing GitHub CLI authentication. If a too
 flag, authentication, or verification step fails, stop and resolve it; do not treat
 an incomplete provenance check as successful.
 
-Release 6.0.0 was built and signed in this repository under its current name, so
+Release 6.1.0 was built and signed in this repository under its current name, so
 it is retrieved from and verified against the same repository, `StartupBros/hov-router`.
 
 <!-- router-release-provenance -->
 ```bash
 (
   set -eu
-  binary="$HOME/.local/lib/hov-router/6.0.0/hov-router"
-  source_sha=0db6b0de4e3e1d19719780714f4a67a7f7a3b60e
-  digest=cc9338d70d37430c3b566f7796a84bb04cbf423a14ee133a4c78382d733b239f
+  binary="$HOME/.local/lib/hov-router/6.1.0/hov-router"
+  source_sha=157f4bc0e7c3b29dffae48ab777ad05225848069
+  digest=b3109dc051fbd0ba0b0269776ea841c55586289f5047748a6236d450363627e1
   printf '%s  %s\n' "$digest" "$binary" | sha256sum --check --strict -
   gh attestation verify "$binary" \
     --repo StartupBros/hov-router \
     --source-digest "$source_sha" \
-    --source-ref refs/tags/v6.0.0 \
-    --cert-identity https://github.com/StartupBros/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.0.0 \
+    --source-ref refs/tags/v6.1.0 \
+    --cert-identity https://github.com/StartupBros/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.1.0 \
     --signer-digest "$source_sha" \
     --deny-self-hosted-runners
 )
@@ -63,17 +63,17 @@ release auditing; neither is required by the consumer install above. The operato
 pipeline below still verifies the complete inventory and both attestations before
 executing release smoke checks. Its strict verification policy is unchanged.
 
-Release ID **446462440** and tag `refs/tags/v6.0.0` identify source commit
-`0db6b0de4e3e1d19719780714f4a67a7f7a3b60e`. The exact certificate is
-`https://github.com/StartupBros/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.0.0`.
+Release ID **446610050** and tag `refs/tags/v6.1.0` identify source commit
+`157f4bc0e7c3b29dffae48ab777ad05225848069`. The exact certificate is
+`https://github.com/StartupBros/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.1.0`.
 
-| 6.0.0 asset | Asset ID | Size (bytes) | SHA-256 |
+| 6.1.0 asset | Asset ID | Size (bytes) | SHA-256 |
 | --- | --- | --- | --- |
-| `better-ccflare-linux-amd64` | 752788293 | 95765984 | `cc9338d70d37430c3b566f7796a84bb04cbf423a14ee133a4c78382d733b239f` |
-| `release-manifest.json` | 752788705 | 805 | `0347f55f182e13b0f0395698fc4c32b985a0250dd4a9d7aa0d4b99a83ba76fee` |
-| `SHA256SUMS` | 752787972 | 93 | `bdf5e1f1090e79595a5d550c579076c74e5aeadc85881a67ba1a564cb141d368` |
+| `better-ccflare-linux-amd64` | 753461519 | 95835616 | `b3109dc051fbd0ba0b0269776ea841c55586289f5047748a6236d450363627e1` |
+| `release-manifest.json` | 753462170 | 805 | `4c5c6108957af6f5257c991f96aca94fab3b62b2a22bd55bb6f6f94cfb25cb38` |
+| `SHA256SUMS` | 753461124 | 93 | `c59d9376a85aa3f7a090192a2cefe1cf69125f08ea7d0d9bd9813126b054601b` |
 
-For a manifest audit, download `release-manifest.json` from the v6.0.0 release,
+For a manifest audit, download `release-manifest.json` from the v6.1.0 release,
 check its digest above, then run the same verify command with `binary` set to that
 local manifest and `digest` set to its SHA-256. The signed manifest names repository
 `StartupBros/hov-router`. Its distribution token is
@@ -88,7 +88,7 @@ original token.
 Release 3.7.1 is the last release that supports PostgreSQL (see
 [PostgreSQL support removed](hov-router-migration.md#postgresql-support-removed)).
 It was signed under this repository's current name, so the block above verifies it
-once `6.0.0` becomes `3.7.1` in the binary path and both tag refs, with
+once `6.1.0` becomes `3.7.1` in the binary path and both tag refs, with
 `source_sha` and `digest` set from this release. Release ID **423574844** and tag
 `refs/tags/v3.7.1` identify source commit `6b88f789e30c3a86ee918d35a6673e7be12f9243`.
 
@@ -99,7 +99,7 @@ once `6.0.0` becomes `3.7.1` in the binary path and both tag refs, with
 | `SHA256SUMS` | 675764852 | 93 | `923d6041201ba6ade61ff3dcd2ec200970475076ae7b9af261058211394545e5` |
 
 To install it, use the reference's install block the same way: `3.7.1` in place of
-`6.0.0` in the version directory and download URL, and the binary's digest above.
+`6.1.0` in the version directory and download URL, and the binary's digest above.
 
 ### Verify the historical 3.6.2 release
 
