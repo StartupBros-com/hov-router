@@ -8,6 +8,21 @@ import {
 	supportsUsageTracking,
 } from "@better-ccflare/types";
 
+export function providerPlanTitle(provider: string): string {
+	switch (provider) {
+		case "anthropic":
+			return "Claude Max";
+		case "codex":
+			return "Codex Pro";
+		case "alibaba-coding-plan":
+			return "Alibaba Coding Plan";
+		case "zai":
+			return "Z.ai";
+		default:
+			return provider;
+	}
+}
+
 /**
  * Check if a provider supports auto-fallback
  * Anthropic, Codex and Zai accounts support it

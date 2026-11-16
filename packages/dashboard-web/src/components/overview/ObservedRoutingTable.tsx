@@ -3,11 +3,25 @@ import { Fragment } from "react";
 import type { RoutingObservation } from "../../api";
 import { formatFamilyLabel, listObservedFamilies } from "../../lib/pool-usage";
 import { cn } from "../../lib/utils";
-import { formatShortDuration } from "./pool-usage-shared";
+export function formatShortDuration(ms: number): string {
+	const totalMinutes = Math.max(0, Math.round(ms / 60000));
+	// Sub-30s-rounding-to-a-minute durations get seconds granularity for
+	// routing-observation ages. Longer durations keep the prior minute/hour form.
+	if (totalMinutes === 0) {
+		const totalSeconds = Math.max(0, Math.round(ms / 1000));
+		return `${totalSeconds}s`;
+	}
+	const hours = Math.floor(totalMinutes / 60);
+	const minutes = totalMinutes % 60;
+	if (hours > 0) return `${hours}h ${minutes}m`;
+	return `${minutes}m`;
+}
 
 export interface ObservedRoutingTableProps {
 	observations: Record<string, RoutingObservation> | undefined | null;
 	now: number;
+	/** Shorter inside a disclosure whose summary already names the table. */
+	title?: string;
 }
 
 /**
@@ -20,15 +34,14 @@ export interface ObservedRoutingTableProps {
 export function ObservedRoutingTable({
 	observations,
 	now,
+	title = "Observed routing order — the last decision the proxy actually made",
 }: ObservedRoutingTableProps) {
 	const families = listObservedFamilies(observations);
 	if (families.length === 0) return null;
 
 	return (
 		<div className="mt-4 border-t pt-3">
-			<h4 className="mb-2 text-xs text-muted-foreground">
-				Observed routing order — the last decision the proxy actually made
-			</h4>
+			<h4 className="mb-2 text-xs text-muted-foreground">{title}</h4>
 			<div className="space-y-2.5">
 				{families.map(({ family, observation }) => (
 					<div

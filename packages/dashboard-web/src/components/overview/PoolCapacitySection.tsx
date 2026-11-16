@@ -1,61 +1,232 @@
-import type { ComponentType } from "react";
-import type { RoutingObservation } from "../../api";
+import {
+	BarChart3,
+	Boxes,
+	ChevronRight,
+	Gauge,
+	RotateCcw,
+	TriangleAlert,
+} from "lucide-react";
+import type { Account, RoutingObservation } from "../../api";
 import { usePersistedExpansion } from "../../hooks/usePersistedExpansion";
-import type { PoolCardWindow, PoolUsageResult } from "../../lib/pool-usage";
+import {
+	bankedResetAccounts,
+	type ForecastTone,
+	forecastHeadline,
+	type PoolGroup,
+} from "../../lib/pool-forecast";
+import { listObservedFamilies } from "../../lib/pool-usage";
+import { cn } from "../../lib/utils";
+import { resetActionAvailability } from "../accounts/reset-redemption-flow";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
-import { ErrorState } from "../ui/state";
+import { EmptyState, ErrorState, LoadingState } from "../ui/state";
 import { ObservedRoutingTable } from "./ObservedRoutingTable";
-import { PoolUsageRow } from "./PoolUsageRow";
+import { PoolRunway } from "./PoolRunway";
 
 const STORAGE_KEY = "ccflare.poolCapacity.expanded";
+const HIDDEN_LIST = new Intl.ListFormat("en", {
+	style: "long",
+	type: "conjunction",
+});
+const TONE_TEXT: Record<ForecastTone, string> = {
+	"dry-now": "text-(--danger)",
+	soon: "text-(--danger)",
+	later: "text-foreground",
+	lasts: "text-foreground",
+	none: "text-muted-foreground",
+};
 
-export interface PoolCapacitySectionPool {
-	id: string;
-	title: string;
-	icon: ComponentType<{ className?: string }>;
-	result: PoolUsageResult;
-	window: PoolCardWindow;
+function GroupIcon({
+	group,
+	className,
+}: {
+	group: PoolGroup;
+	className?: string;
+}) {
+	const Icon =
+		group.kind === "family"
+			? Boxes
+			: group.kind === "five_hour"
+				? Gauge
+				: BarChart3;
+	return <Icon className={className} aria-hidden="true" />;
 }
 
-interface PoolCapacitySectionProps {
-	pools: PoolCapacitySectionPool[];
-	// Name of the account the active load-balancing strategy would pick next
-	// (AccountResponse.isPrimary), passed through to every PoolUsageRow for
-	// its "next" badge. Resolved once by the caller (OverviewTab) -- see its
-	// comment for why this must never be recomputed here.
-	primaryAccountName?: string | null;
-	// Current time (ms), refreshed every 30s by the caller (OverviewTab) --
-	// drives the ObservedRoutingTable's "observed Xs/Xm ago" age label and
-	// each pool row's per-segment relative reset time.
+/** The left block of a pool row: what the pool is, then when it runs dry. */
+function ForecastBlock({
+	group,
+	now,
+	resets,
+	onUseReset,
+}: {
+	group: PoolGroup;
 	now: number;
-	// The full /api/routing/observations response map, keyed by the proxy's
-	// (lowercase) getModelFamily() result -- rendered in full by
-	// ObservedRoutingTable (the single place the observed routing order is
-	// shown). Undefined/null while the query hasn't loaded yet, or once
-	// loaded but empty -- both simply render no extra block.
-	observations?: Record<string, RoutingObservation> | null;
-	// Set when the accounts the pools are built from never loaded. The rows
-	// would read as an empty pool, so the card says it could not load instead.
-	loadError?: { message: string; onRetry: () => void } | null;
+	resets: Account[];
+	onUseReset: (account: Account) => void;
+}) {
+	const summary = forecastHeadline(group, now);
+	const alarm = summary.tone === "soon" || summary.tone === "dry-now";
+	return (
+		<div className="flex min-w-0 flex-col gap-1">
+			<div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+				<GroupIcon group={group} className="h-3.5 w-3.5 shrink-0" />
+				<span className="font-medium text-foreground">{group.title}</span>
+				<span aria-hidden="true">·</span>
+				<span>{group.subtitle}</span>
+			</div>
+			<div
+				className={cn(
+					"flex items-start gap-1.5 text-lg font-semibold leading-snug",
+					TONE_TEXT[summary.tone],
+				)}
+			>
+				{alarm && (
+					<TriangleAlert className="mt-1 h-4 w-4 shrink-0" aria-hidden="true" />
+				)}
+				<span>{summary.headline}</span>
+			</div>
+			<p className="text-sm text-muted-foreground">{summary.detail}</p>
+			<p className="text-xs text-muted-foreground tabular-nums">
+				{group.usedPct == null
+					? "Usage unknown"
+					: `${Math.round(group.usedPct)}% used across the pool`}
+			</p>
+			<BankedLever group={group} accounts={resets} onUseReset={onUseReset} />
+		</div>
+	);
 }
 
 /**
- * The "Pool capacity" card that replaces the previous separate 5h/7d/family
- * PoolMetricCards: one row per pool (PoolUsageRow), each independently
- * expandable into a per-account segmented bar. Expansion state is persisted
- * across reloads via usePersistedExpansion.
+ * Which pool offers each banked reset: one button per account per card, in
+ * the first red pool that lists it, so a Codex outage seen by both its weekly
+ * and 5-hour pools does not offer the same irreversible action twice.
  */
+function offeredResets(
+	groups: PoolGroup[],
+	now: number,
+): Map<string, Account[]> {
+	const offered = new Set<string>();
+	const byGroup = new Map<string, Account[]>();
+	for (const group of groups) {
+		const accounts = bankedResetAccounts(group, now).filter(
+			(a) => !offered.has(a.id),
+		);
+		for (const a of accounts) offered.add(a.id);
+		byGroup.set(group.id, accounts);
+	}
+	return byGroup;
+}
+
+/** "Use a banked reset" beside a Codex dry warning. Gated on the held count only. */
+function BankedLever({
+	group,
+	accounts,
+	onUseReset,
+}: {
+	group: PoolGroup;
+	accounts: Account[];
+	onUseReset: (account: Account) => void;
+}) {
+	return accounts.map((account) => {
+		const resets = account.bankedResets;
+		if (!resets) return null;
+		const availability = resetActionAvailability(resets);
+		const noteId = `reset-note-${group.id}-${account.id}`;
+		return (
+			<div
+				key={account.id}
+				className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1"
+			>
+				<Button
+					type="button"
+					variant="outline"
+					size="touch-sm"
+					className="h-auto whitespace-normal text-left"
+					disabled={!availability.enabled}
+					aria-describedby={availability.note ? noteId : undefined}
+					onClick={() => onUseReset(account)}
+				>
+					<RotateCcw className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+					<span>
+						Use a banked reset on{" "}
+						<span className="whitespace-nowrap">{account.name}</span>
+					</span>
+				</Button>
+				<span className="text-xs text-muted-foreground tabular-nums">
+					{resets.availableCount} held
+				</span>
+				{availability.note && (
+					<p id={noteId} className="text-xs text-muted-foreground">
+						{availability.note}
+					</p>
+				)}
+			</div>
+		);
+	});
+}
+function CardFooter({
+	hidden,
+	observations,
+	now,
+}: {
+	hidden: PoolGroup[];
+	observations?: Record<string, RoutingObservation> | null;
+	now: number;
+}) {
+	// Only when something was observed, so the disclosure never opens onto nothing.
+	const hasObservations = listObservedFamilies(observations).length > 0;
+	return (
+		<div className="mt-2 flex flex-col gap-3 border-t pt-4 text-xs text-muted-foreground">
+			{hidden.length > 0 && (
+				<p>
+					Not shown: {HIDDEN_LIST.format(hidden.map((g) => g.title))}. No
+					account in {hidden.length === 1 ? "it" : "them"} reports when the
+					limit resets.
+				</p>
+			)}
+			<p className="max-w-prose">
+				Forecast: each account keeps the pace it has averaged since its window
+				opened, and traffic moves to accounts with quota left.
+			</p>
+			{hasObservations && (
+				<details className="group/routing">
+					<summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-md text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+						<ChevronRight
+							className="h-4 w-4 transition-transform group-open/routing:rotate-90"
+							aria-hidden="true"
+						/>
+						Observed routing order
+					</summary>
+					<ObservedRoutingTable
+						observations={observations}
+						now={now}
+						title="The last decision the proxy actually made, for each model family"
+					/>
+				</details>
+			)}
+		</div>
+	);
+}
+
 export function PoolCapacitySection({
-	pools,
-	primaryAccountName,
+	groups,
+	hidden,
 	now,
 	observations,
 	loadError,
-}: PoolCapacitySectionProps) {
-	const { isExpanded, toggle, expandAll, collapseAll, expandedCount } =
-		usePersistedExpansion(STORAGE_KEY);
-
+	loading,
+	onUseReset,
+}: {
+	groups: PoolGroup[];
+	hidden: PoolGroup[];
+	now: number;
+	observations?: Record<string, RoutingObservation> | null;
+	loadError?: { message: string; onRetry: () => void } | null;
+	loading?: boolean;
+	onUseReset: (account: Account) => void;
+}) {
+	const { isExpanded, toggle } = usePersistedExpansion(STORAGE_KEY);
+	const resets = offeredResets(groups, now);
 	if (loadError) {
 		return (
 			<Card>
@@ -73,44 +244,52 @@ export function PoolCapacitySection({
 		);
 	}
 
-	if (pools.length === 0) return null;
-
-	const allExpanded = expandedCount >= pools.length;
-
 	return (
 		<Card>
-			<CardContent className="p-6">
-				<div className="mb-2 flex items-center justify-between">
+			<CardContent className="p-4 sm:p-6">
+				<div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
 					<h3 className="text-sm font-medium">Pool capacity</h3>
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={() =>
-							allExpanded
-								? collapseAll()
-								: expandAll(pools.map((pool) => pool.id))
-						}
-					>
-						{allExpanded ? "Collapse all" : "Expand all"}
-					</Button>
+					<span className="text-xs text-muted-foreground">
+						Quota left over the next 7 days
+					</span>
 				</div>
-				<div>
-					{pools.map((pool) => (
-						<PoolUsageRow
-							key={pool.id}
-							id={pool.id}
-							title={pool.title}
-							icon={pool.icon}
-							result={pool.result}
-							window={pool.window}
-							isExpanded={isExpanded(pool.id)}
-							onToggle={() => toggle(pool.id)}
-							primaryAccountName={primaryAccountName}
-							now={now}
-						/>
-					))}
-				</div>
-				<ObservedRoutingTable observations={observations} now={now} />
+				{loading ? (
+					<LoadingState size="inline" label="Loading pool capacity" />
+				) : (
+					<>
+						<p className="mb-1 max-w-prose text-xs text-muted-foreground">
+							Each chart is the pool's quota left; the rows under it are its
+							accounts, soonest reset first, each on its own 0–100% scale, so a
+							jump is that account refilling. Red: nothing left in the pool.
+							Past the dotted line (2 days out) the forecast is a rougher guess
+							and is dashed.
+						</p>
+						{groups.length === 0 && hidden.length === 0 && (
+							<EmptyState size="inline" title="No pool capacity yet." />
+						)}
+						{groups.map((group) => (
+							<section
+								key={group.id}
+								aria-label={group.title}
+								className="grid gap-4 border-t py-5 first:border-t-0 first:pt-2 lg:grid-cols-[15.5rem_1fr] lg:gap-5"
+							>
+								<ForecastBlock
+									group={group}
+									now={now}
+									resets={resets.get(group.id) ?? []}
+									onUseReset={onUseReset}
+								/>
+								<PoolRunway
+									group={group}
+									now={now}
+									open={isExpanded(group.id)}
+									onToggle={() => toggle(group.id)}
+								/>
+							</section>
+						))}
+						<CardFooter hidden={hidden} observations={observations} now={now} />
+					</>
+				)}
 			</CardContent>
 		</Card>
 	);

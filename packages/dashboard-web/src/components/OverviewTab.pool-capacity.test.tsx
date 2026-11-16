@@ -13,7 +13,7 @@ const analyticsKey = queryKeys.analytics(
 	"normal",
 );
 
-function render(state: TestState) {
+function render(state: TestState, accounts: unknown[] = []) {
 	return renderPage(<OverviewTab />, (client) => {
 		client.setQueryData(analyticsKey, {
 			timeSeries: [],
@@ -22,7 +22,7 @@ function render(state: TestState) {
 		});
 		client.setQueryData(queryKeys.storage(), { integrity_status: "unchecked" });
 		client.setQueryData(queryKeys.recentErrors(24), []);
-		seedState(client, queryKeys.accounts(), state, []);
+		seedState(client, queryKeys.accounts(), state, accounts);
 	});
 }
 
@@ -38,11 +38,43 @@ describe("Overview Pool capacity when accounts fail", () => {
 	});
 
 	for (const state of ["loading", "cached", "empty"] as const) {
-		it(`keeps the pool rows while accounts are ${state}`, () => {
+		it(`keeps the shared pool state while accounts are ${state}`, () => {
 			const html = render(state);
-			expect(html).toContain("5h Pool");
-			expect(html).toContain("7d Pool");
+			expect(html).toContain("Pool capacity");
+			expect(html).toContain(
+				state === "loading" ? "Loading pool capacity" : "No pool capacity yet.",
+			);
 			expect(html).not.toContain("Pool capacity could not load");
 		});
 	}
+	it("keeps cached provider pools and their shipped averages after a refresh error", () => {
+		const reset = new Date(Date.now() + 3600000).toISOString();
+		const html = render("cached", [
+			{
+				id: "a",
+				name: "a",
+				provider: "anthropic",
+				isPrimary: true,
+				usageData: {
+					five_hour: { utilization: 40, resets_at: reset },
+					seven_day: { utilization: 40, resets_at: reset },
+				},
+			},
+			{
+				id: "b",
+				name: "b",
+				provider: "codex",
+				usageData: {
+					five_hour: { utilization: 80, resets_at: reset },
+					seven_day: { utilization: 80, resets_at: reset },
+				},
+			},
+		]);
+		expect(html).toContain('aria-label="Claude Max weekly"');
+		expect(html).toContain('aria-label="Codex Pro weekly"');
+		expect(html).toContain("40% used across the pool");
+		expect(html).toContain("80% used across the pool");
+		expect(html).toContain(">next</span>");
+		expect(html).not.toContain("Pool capacity could not load");
+	});
 });
