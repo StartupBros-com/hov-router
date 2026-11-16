@@ -2115,12 +2115,11 @@ class UsageCache {
 	 */
 	getRateLimitedUntil(accountId: string): number | null {
 		const until = this.usageRateLimitedUntil.get(accountId);
-		if (until === undefined) return null;
-		if (Date.now() >= until) {
-			this.usageRateLimitedUntil.delete(accountId);
-			return null;
-		}
-		return until;
+		// A pure read. An expired entry stays until this account's next fetch
+		// answers, so that fetch still knows it followed a lockout and can fire
+		// onCapacityRestored; the fetch guard, the proxy and the accounts page
+		// all call this.
+		return until !== undefined && Date.now() < until ? until : null;
 	}
 
 	/**
@@ -2132,10 +2131,12 @@ class UsageCache {
 	recordUsageRetryAfter(accountId: string, retryAfterMs: number): void {
 		if (!Number.isFinite(retryAfterMs) || retryAfterMs <= 0) return;
 		const now = Date.now();
-		// Deadlines outlive stopPolling and delete(), so drop expired ones here
-		// rather than keep one per removed account until shutdown.
+		// Deadlines outlive stopPolling and delete(), so drop expired ones of
+		// accounts no longer polled rather than keep one per removed account
+		// until shutdown. A polled account's entry is its next fetch's to clear.
 		for (const [id, until] of this.usageRateLimitedUntil) {
-			if (until <= now) this.usageRateLimitedUntil.delete(id);
+			if (until <= now && !this.registrations.has(id))
+				this.usageRateLimitedUntil.delete(id);
 		}
 		this.usageRateLimitedUntil.set(accountId, now + retryAfterMs);
 	}

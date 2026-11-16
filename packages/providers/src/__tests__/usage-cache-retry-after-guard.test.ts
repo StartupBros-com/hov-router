@@ -75,15 +75,62 @@ describe.serial("usage retry-after deadline", () => {
 			// Refresh usage restarts polling: stop, then start with a fetch.
 			usageCache.stopPolling(id);
 			expect(usageCache.getRateLimitedUntil(id)).not.toBeNull();
-			usageCache.startPolling(id, "fake-token", "anthropic", 60_000);
+			const restored: string[] = [];
+			usageCache.startPolling(
+				id,
+				"fake-token",
+				"anthropic",
+				60_000,
+				undefined,
+				undefined,
+				(restoredId) => restored.push(restoredId),
+			);
 			await new Promise((resolve) => setTimeout(resolve, 20));
 			expect(await usageCache.refreshNow(id)).toBe(false);
 			expect(endpoint.count()).toBe(1);
 
 			// The restarted poll waits out the deadline instead of the 60 s interval.
 			await until(() => endpoint.count() === 2);
-			await until(() => usageCache.get(id) !== undefined);
+			await until(() => usageCache.get(id) !== null);
 			expect(usageCache.getRateLimitedUntil(id)).toBeNull();
+			// The first reading after the lockout still knows it followed one, so
+			// a stale router cooldown can be cleared (seat reassignment).
+			expect(restored).toEqual([id]);
+		},
+	);
+
+	it.serial(
+		"a read or another account's 429 after the deadline keeps the lockout marker for the next reading",
+		async () => {
+			const id = accountId();
+			const restored: string[] = [];
+			const endpoint = stubFetch([
+				() => rateLimited("3600"),
+				() => Response.json(usagePayload()),
+			]);
+			usageCache.startPolling(
+				id,
+				"fake-token",
+				"anthropic",
+				60_000,
+				undefined,
+				undefined,
+				(restoredId) => restored.push(restoredId),
+			);
+			await until(() => usageCache.getRateLimitedUntil(id) !== null);
+
+			const clock = spyOn(Date, "now").mockReturnValue(Date.now() + 3_600_001);
+			try {
+				// The accounts page and the proxy both read the deadline.
+				expect(usageCache.getRateLimitedUntil(id)).toBeNull();
+				// Another account's 429 sweeps expired entries.
+				usageCache.recordUsageRetryAfter(accountId(), 1_000);
+				expect(await usageCache.refreshNow(id)).toBe(true);
+				expect(endpoint.count()).toBe(2);
+				expect(restored).toEqual([id]);
+			} finally {
+				clock.mockRestore();
+			}
 		},
 	);
 
