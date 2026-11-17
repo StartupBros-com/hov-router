@@ -604,10 +604,10 @@ describe("a deploy listener that does not stop when it is told to", () => {
 		const elapsedMs = Date.now() - stopping;
 
 		expect(exit.code).toBe(STOPPED_EXIT_STATUS);
-		// CI once saw this stop end in 4,783 ms, and nothing in its log said
-		// why (#880). The order of the runner's own lines does: whether the
-		// stop was asked for before the second SIGKILL, and which helper that
-		// SIGKILL was for.
+		// CI saw this stop end in 4,783 and 4,929 ms while the runner's clock
+		// read up to a second ahead, which spent the budget early (#880). The
+		// runner's own lines are printed so a short stop shows which helper's
+		// budget ran out.
 		const printed = `stop to exit took ${elapsedMs} ms; the runner printed:\n${runner.output().slice(-4000)}`;
 		expect(runner.count("sending SIGKILL"), printed).toBe(2);
 		expect(elapsedMs, printed).toBeGreaterThanOrEqual(HELPER_STOP_BUDGET_MS);

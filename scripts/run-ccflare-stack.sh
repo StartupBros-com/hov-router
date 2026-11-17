@@ -230,8 +230,16 @@ sleep_ms() {
 	done
 }
 
+# Milliseconds since the epoch, from bash's own clock. Not `date +%s%3N`:
+# uutils date 0.10, the date of Ubuntu 26.04, keeps the first three digits of
+# the nanoseconds after dropping their leading zeros, so in the first ~100 ms
+# of each second it read as much as 963 ms ahead, and every stop budget and
+# restart window timed with it could end up to a second early (#880).
+# EPOCHREALTIME's separator follows the locale, so only its digits are kept:
+# microseconds, then milliseconds.
 epoch_ms() {
-	date +%s%3N
+	local us="${EPOCHREALTIME//[![:digit:]]/}"
+	printf '%s\n' "$((us / 1000))"
 }
 
 stop_child() {

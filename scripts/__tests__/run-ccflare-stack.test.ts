@@ -465,6 +465,54 @@ async function stopRunner(
 	}
 }
 
+describe("run-ccflare-stack millisecond clock", () => {
+	// uutils date 0.10, the date of Ubuntu 26.04 and so of CI, keeps the first
+	// three digits of the nanoseconds after dropping their leading zeros. In
+	// the first ~100 ms of each second `date +%s%3N` therefore read as much as
+	// 963 ms ahead, and the stop budgets and restart windows the runner timed
+	// with it ended up to a second early (#880). Sampled across two seconds,
+	// each reading must fall between the shell's own clock read just before
+	// and just after it.
+	test("reads the shell's own time in every part of a second", () => {
+		const source = readFileSync(runnerScript, "utf8");
+		const start = source.indexOf("epoch_ms() {");
+		const end = source.indexOf("\n}\n", start) + 3;
+		expect(start).toBeGreaterThanOrEqual(0);
+		const probe = [
+			source.slice(start, end),
+			// Split at EPOCHREALTIME's separator, which the locale sets: a
+			// reading of its own, not the runner's way of reading it.
+			'shell_ms() { local t="$EPOCHREALTIME"; printf "%s" "$(( ${t%[.,]*} * 1000 + 10#${t#*[.,]} / 1000 ))"; }',
+			"samples=0 early=0 off=0",
+			"until_ms=$(( $(shell_ms) + 2100 ))",
+			"while :; do",
+			"\tbefore=$(shell_ms); read_ms=$(epoch_ms); after=$(shell_ms)",
+			"\tsamples=$((samples + 1))",
+			"\t((before % 1000 < 100)) && early=$((early + 1))",
+			'\tif ((read_ms < before || read_ms > after)); then off=$((off + 1)); printf "off: %s then %s then %s\\n" "$before" "$read_ms" "$after"; fi',
+			"\t((after < until_ms)) || break",
+			"\tsleep 0.005",
+			"done",
+			'printf "samples=%s early=%s off=%s\\n" "$samples" "$early" "$off"',
+		].join("\n");
+		const result = spawnSync("bash", ["-c", probe], {
+			encoding: "utf8",
+			timeout: 20_000,
+		});
+		const report = JSON.stringify({
+			stdout: result.stdout.slice(-2_000),
+			stderr: result.stderr.slice(-2_000),
+		});
+		expect(result.status, report).toBe(0);
+		// The readings that went wrong all fell in a second's first 100 ms.
+		expect(
+			Number(result.stdout.match(/early=(\d+)/)?.[1]),
+			report,
+		).toBeGreaterThanOrEqual(3);
+		expect(result.stdout, report).toContain(" off=0\n");
+	}, 30_000);
+});
+
 describe("run-ccflare-stack upstream environment", () => {
 	test("uses one owned sleep per RSS sample instead of the restart backoff slicer", () => {
 		const source = readFileSync(runnerScript, "utf8");
@@ -1200,8 +1248,9 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 			"restart circuit open; exiting for service supervisor",
 		);
 		expect(output.stdout).not.toContain("paused until operator restart");
-		// CI once counted 3 starts here, and nothing in its log said why (#880).
-		// The runner's own lines show whether a failure went uncounted.
+		// CI once counted 3 starts here: a runner clock reading up to a second
+		// ahead closed the restart window early and reset the count (#880). The
+		// runner's own lines are printed so a repeat shows how it was counted.
 		expect(
 			(output.stdout.match(/starting better-ccflare upstream/g) ?? []).length,
 			JSON.stringify(output),
