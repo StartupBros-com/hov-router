@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
 	type AccountUsageSnapshot,
+	coveringExtraUsageHolds,
 	getConfiguredModelMapping,
 	getInPlaceRetryDrainTimeoutMs,
 	getModelFamily,
@@ -120,6 +121,7 @@ import {
 	isClaudeCodeSubagent,
 } from "../claude-code-request";
 import { ensureCodexModelDefaults } from "../codex-model-catalog";
+import { readForcedAccountHeader } from "../force-account-header";
 
 export type {
 	CacheBodyStagingAction,
@@ -857,6 +859,65 @@ export interface ContextAdmissionEstimate {
 
 /** A request-local policy veto before bytes; never account-health evidence. */
 class NativeQuotaAdmissionDenied extends Error {}
+
+/**
+ * The login's extra-usage hold covers the model about to be sent. Handled
+ * exactly as a native-quota veto: the in-login fallback moves to its next
+ * model, and otherwise the login is skipped.
+ */
+class ExtraUsageHoldDenied extends NativeQuotaAdmissionDenied {}
+
+/** The forced-route refusal for a hold; nothing was sent, so no transport error. */
+class ExtraUsageHoldForceRefusal extends ForceRouteUnavailableError {}
+
+/**
+ * Reread a Claude login's hold columns just before a send, so a hold written
+ * after selection still stops it. Reads nothing unless the selected login is
+ * a Claude login with the extra-usage switch on.
+ */
+async function assertNoExtraUsageHold(
+	account: Account,
+	model: string | null,
+	requestMeta: RequestMeta,
+	ctx: ProxyContext,
+): Promise<void> {
+	if (
+		account.provider !== "anthropic" ||
+		!account.auto_pause_on_overage_enabled
+	)
+		return;
+	const stored = await ctx.dbOps.getExtraUsageHoldInputs(account.id);
+	if (!stored || stored.provider !== "anthropic" || !stored.switchOn) return;
+	const billedHold = stored.paused && stored.pauseReason === "overage";
+	const holds = coveringExtraUsageHolds(
+		{
+			provider: stored.provider,
+			auto_pause_on_overage_enabled: stored.switchOn,
+			extra_usage_holds: stored.holds,
+		},
+		// With no model name only a hold on every model can cover the send.
+		model ?? "",
+		Date.now(),
+	);
+	if (!billedHold && holds.length === 0) return;
+	const namesLogin =
+		requestMeta.forcedAccountId === account.id ||
+		readForcedAccountHeader(requestMeta.headers) === account.id;
+	if (namesLogin) {
+		throw new ExtraUsageHoldForceRefusal(
+			account.id,
+			billedHold
+				? "paused"
+				: holds.some((hold) => hold.scope === "account")
+					? "account_capacity_exhausted"
+					: "model_capacity_exhausted",
+		);
+	}
+	log.info(
+		`Not sending ${model ?? "request"} on ${account.name}: an extra-usage hold covers it`,
+	);
+	throw new ExtraUsageHoldDenied();
+}
 
 /**
  * Request-orchestrator boundary for implicit account-local model fallbacks.
@@ -4345,6 +4406,17 @@ export async function proxyWithAccount(
 				) {
 					if (reservation) cancelPhysicalSendReservation(reservation);
 					throw new NativeQuotaAdmissionDenied();
+				}
+				try {
+					await assertNoExtraUsageHold(
+						account,
+						resolvedModel ?? null,
+						requestMeta,
+						ctx,
+					);
+				} catch (error) {
+					if (reservation) cancelPhysicalSendReservation(reservation);
+					throw error;
 				}
 				const isSynthetic = isSyntheticProviderResponse(transportRequest);
 				latestPhysicalAnthropicCohortKey = isSynthetic
@@ -8083,7 +8155,10 @@ export async function proxyWithAccount(
 				"client_cancelled",
 				"cancelled",
 			);
-		else if (!(err instanceof NativeQuotaAdmissionDenied))
+		else if (
+			!(err instanceof NativeQuotaAdmissionDenied) &&
+			!(err instanceof ExtraUsageHoldForceRefusal)
+		)
 			routingAttemptLedger?.recordPhysicalOutcome("transport_error");
 		const committedLifecycle = anthropicDegradedState?.lifecycle;
 		if (req.signal.aborted) {
