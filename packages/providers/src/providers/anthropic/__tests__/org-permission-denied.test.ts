@@ -9,7 +9,9 @@ import {
  * disabled OAuth for Claude Code. Captured from `GET /api/oauth/usage`, but
  * `/v1/messages` rejects the same account with the same status + error.type
  * and a differently worded, Claude-Code-specific message — which is exactly
- * why the predicate must key on `error.type`, not on the message.
+ * why the predicate must key on `error.type`, not on the message. The same
+ * body came back on 2026-11-16 after the organization's subscription payment
+ * failed, so it does not by itself mean an admin disabled anything.
  */
 const OAUTH_NOT_ALLOWED_BODY = {
 	type: "error",

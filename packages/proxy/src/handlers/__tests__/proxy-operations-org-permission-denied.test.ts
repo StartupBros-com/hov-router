@@ -17,7 +17,8 @@ import { resetRateLimitProbeGatesForTests } from "../rate-limit-cooldown";
 
 /**
  * Anthropic answers 403 `permission_error` when an account's organization has
- * disabled OAuth or Claude Code access. Before this fix, a 403 matched none
+ * disabled OAuth or Claude Code access, or its subscription payment failed.
+ * Before this fix, a 403 matched none
  * of the failover guards (401 / 429 / 529 / model-unavailable) and fell
  * through to forwardToClient, so the client saw the error even with healthy
  * accounts still in the pool. This exercises the proxy-operations.ts wiring

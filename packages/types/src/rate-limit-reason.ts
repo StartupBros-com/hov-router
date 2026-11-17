@@ -46,10 +46,10 @@
  * - `xai_capacity_402` — native xAI capacity 402; account-wide cooldown.
  *   Counts as a circuit failure.
  * - `org_permission_denied` — 403 `permission_error`: the account's
- *   organization forbids the request (OAuth disabled org-wide, Claude Code
- *   subscription access turned off). Account-wide and not quota-related, but
- *   the account cannot serve anything, so it is benched and DOES trip the
- *   breaker.
+ *   organization forbids the request (a failed subscription payment, OAuth
+ *   disabled org-wide, Claude Code subscription access turned off).
+ *   Account-wide and not quota-related, but the account cannot serve
+ *   anything, so it is benched and DOES trip the breaker.
  */
 import type { RateLimitReason } from "./account";
 

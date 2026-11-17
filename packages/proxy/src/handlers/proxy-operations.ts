@@ -5466,10 +5466,10 @@ export async function proxyWithAccount(
 
 		/**
 		 * Anthropic answers 403 `permission_error` when an account's ORGANIZATION
-		 * forbids the request — OAuth disabled org-wide, Claude Code subscription
-		 * access turned off by an admin — not a per-account quota problem. The
-		 * account cannot serve ANY request until someone changes a setting
-		 * upstream, so like handlePaymentRequired402 below it is benched
+		 * forbids the request — a failed subscription payment, OAuth disabled
+		 * org-wide, Claude Code subscription access turned off by an admin — not
+		 * a per-account quota problem. The account cannot serve ANY request until
+		 * the organization is fixed upstream, so like handlePaymentRequired402 below it is benched
 		 * account-wide and the request fails over without model cycling (cycling
 		 * models would just re-earn the same organization-level rejection on
 		 * every one of them). isAnthropicOrgPermissionDenied is narrowed to the
@@ -5478,10 +5478,10 @@ export async function proxyWithAccount(
 		 * keeps today's pass-through behavior untouched.
 		 *
 		 * POOL-WIDE DRAIN CAVEAT: if every account in the pool belongs to the
-		 * same org and that org has disabled access, every account benches in
-		 * turn and the pool goes fully dark — bench, cooldown expiry,
-		 * single-flight probe, re-bench, repeat — until an admin changes the
-		 * org setting. There is no pool-wide/provider-wide circuit here, only
+		 * same org and that org is refused (access disabled, or its payment
+		 * failed), every account benches in turn and the pool goes fully dark —
+		 * bench, cooldown expiry, single-flight probe, re-bench, repeat — until
+		 * the org is fixed upstream. There is no pool-wide/provider-wide circuit here, only
 		 * this per-account exponential cooldown, so nothing short-circuits that
 		 * loop early. The warn log below fires on every account as it benches,
 		 * so an "all accounts benched with org_permission_denied" pattern across
