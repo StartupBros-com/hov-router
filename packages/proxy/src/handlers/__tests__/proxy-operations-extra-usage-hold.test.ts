@@ -429,6 +429,64 @@ describe("the check just before each send", () => {
 		}
 	});
 
+	it("on a route naming the login, a fallback within it skips the held Opus and sends Sonnet", async () => {
+		cacheFableSpent(ACCOUNT_ID);
+		standIn((model, index) => (index === 0 ? rateLimited() : success(model)));
+		const { ctx } = makeCtx(opusHeld());
+		const account = makeAccount({
+			model_mappings: JSON.stringify({
+				fable: ["claude-fable-5", "claude-opus-4-8", "claude-sonnet-4-5"],
+			}),
+		});
+		const meta = makeRequestMeta({ forcedAccountId: ACCOUNT_ID });
+		expect(await send(account, ctx, "claude-fable-5", meta)).toBe("sent");
+		expect(sent).toEqual(["claude-fable-5", "claude-sonnet-4-5"]);
+	});
+
+	describe("when the hold read fails", () => {
+		function failingCtx() {
+			const { ctx, getExtraUsageHoldInputs } = makeCtx(null);
+			getExtraUsageHoldInputs.mockImplementation(async () => {
+				throw new Error("database is locked");
+			});
+			return ctx;
+		}
+
+		it("uses the hold the login was selected with, without a transport error", async () => {
+			standIn((model) => success(model));
+			const { ledger, outcomes } = observedLedger();
+			const selected = makeAccount({ extra_usage_holds: opusHeld().holds });
+			expect(
+				await send(
+					selected,
+					failingCtx(),
+					"claude-opus-4-8",
+					makeRequestMeta(),
+					ledger,
+				),
+			).toBeNull();
+			expect(outcomes).not.toContain("transport_error");
+			expect(sent).toEqual([]);
+		});
+
+		it("keeps a billed pause the login was selected with", async () => {
+			standIn((model) => success(model));
+			const selected = makeAccount({ paused: true, pause_reason: "overage" });
+			expect(
+				await send(selected, failingCtx(), "claude-sonnet-4-5"),
+			).toBeNull();
+			expect(sent).toEqual([]);
+		});
+
+		it("sends a model the selected state does not hold", async () => {
+			standIn((model) => success(model));
+			expect(await send(makeAccount(), failingCtx(), "claude-opus-4-8")).toBe(
+				"sent",
+			);
+			expect(sent).toEqual(["claude-opus-4-8"]);
+		});
+	});
+
 	it("a route naming a different login is skipped, not refused", async () => {
 		standIn((model) => success(model));
 		const { ctx } = makeCtx(opusHeld());

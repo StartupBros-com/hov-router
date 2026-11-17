@@ -65,6 +65,7 @@ import {
 } from "@better-ccflare/providers/stream-drain";
 import type {
 	Account,
+	ExtraUsageHoldInputs,
 	RequestMeta,
 	ServerToolCapabilityDecision,
 	ServerToolCapabilityTuple,
@@ -886,7 +887,27 @@ async function assertNoExtraUsageHold(
 		!account.auto_pause_on_overage_enabled
 	)
 		return;
-	const stored = await ctx.dbOps.getExtraUsageHoldInputs(account.id);
+	let stored: ExtraUsageHoldInputs | null;
+	try {
+		stored = await ctx.dbOps.getExtraUsageHoldInputs(account.id);
+	} catch (error) {
+		// A failed reread is no evidence about the login, so check the state it
+		// was selected with rather than send blind or blame the login.
+		log.warn(
+			`Could not reread extra-usage holds for ${account.name}; checking the state it was selected with`,
+			error,
+		);
+		stored = {
+			provider: account.provider,
+			createdAt: account.created_at,
+			switchOn: account.auto_pause_on_overage_enabled,
+			holds: account.extra_usage_holds ?? null,
+			paused: account.paused,
+			pauseReason: account.pause_reason ?? null,
+			overageBilledAt: null,
+			overageBilledFamily: null,
+		};
+	}
 	if (!stored || stored.provider !== "anthropic" || !stored.switchOn) return;
 	const billedHold = stored.paused && stored.pauseReason === "overage";
 	const holds = coveringExtraUsageHolds(
@@ -6860,8 +6881,11 @@ export async function proxyWithAccount(
 							// Evidence can change while transforming or staging this model.
 							// A pre-send veto spends no physical route; remaining configured
 							// alternatives still pass their own admission and dispatch fences.
+							// An extra-usage hold on a fallback model is skipped even on a
+							// route naming the login: the client's own model was not held.
 							if (
-								error instanceof NativeQuotaAdmissionDenied &&
+								(error instanceof NativeQuotaAdmissionDenied ||
+									error instanceof ExtraUsageHoldForceRefusal) &&
 								!req.signal.aborted
 							)
 								continue;
