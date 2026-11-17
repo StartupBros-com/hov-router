@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
-import { validateModelMappings as validateCoreModelMappings } from "@better-ccflare/core";
+import {
+	coveringExtraUsageHolds,
+	validateModelMappings as validateCoreModelMappings,
+} from "@better-ccflare/core";
 import type { ComboResolverDependencies } from "@better-ccflare/core/managed-routing";
 import {
 	proposeComboEnrollmentRules,
@@ -70,6 +73,9 @@ function isLogicalModelExhausted(
 	logicalModel: string,
 	now: number,
 ): boolean {
+	if (coveringExtraUsageHolds(account, logicalModel, now).length > 0) {
+		return true;
+	}
 	if (
 		usageCache.getModelScopedExhaustion(account.id, logicalModel, null, now) !==
 			null ||

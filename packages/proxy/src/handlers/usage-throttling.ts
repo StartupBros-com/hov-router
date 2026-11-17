@@ -660,6 +660,11 @@ export function getBindingConstraint(
 export type HardCapacityScope = "account" | "family";
 
 export interface HardCapacityExclusion {
+	/**
+	 * Set only on a native-quota admission row built from a stored extra-usage
+	 * hold. `evaluateHardCapacity` never sets it.
+	 */
+	readonly source?: "extra_usage_hold";
 	readonly scope: HardCapacityScope;
 	readonly window: string;
 	readonly windowKind: "session" | "weekly_all" | "weekly_scoped";

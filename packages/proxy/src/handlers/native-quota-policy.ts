@@ -1,4 +1,6 @@
 import {
+	coveringExtraUsageHolds,
+	extraUsageHoldWindowKind,
 	getModelList,
 	getStrictClaudeModelFamily,
 	resolveStoredPolicyAliasModel,
@@ -13,6 +15,7 @@ import type {
 	ComboFamily,
 	ComboRoutingPolicySnapshot,
 	EffectiveComboMember,
+	ExtraUsageHold,
 } from "@better-ccflare/types";
 import {
 	collectWindows,
@@ -260,6 +263,20 @@ function hardEvidence(
 	}
 }
 
+function extraUsageHoldExclusion(hold: ExtraUsageHold): HardCapacityExclusion {
+	return {
+		source: "extra_usage_hold",
+		scope: hold.scope,
+		window: hold.windowKey,
+		windowKind: extraUsageHoldWindowKind(hold),
+		modelFamily: hold.modelFamily,
+		// Holds start only at 100% or more; the stored hold keeps no reading.
+		utilization: 100,
+		resetAtMs: hold.resetsAtMs,
+		evidenceExpiresAt: hold.resetsAtMs,
+	};
+}
+
 function familyProof(
 	snapshot: UsageSnapshot | null,
 	marker: NativeQuotaFamilyMarker | null,
@@ -416,7 +433,14 @@ export function evaluateNativeQuotaPolicy(
 			getModelList(member.logical_model, account) ?? [member.logical_model],
 		);
 		const snapshot = snapshots.get(member.account_id) ?? null;
-		const blockers = [...hardEvidence(snapshot, member.logical_model, now)];
+		// A stored extra-usage hold refuses first: the extra-usage filter in
+		// hardEvidence would otherwise admit a spent limit Anthropic bills past.
+		const blockers: HardCapacityExclusion[] = [
+			...coveringExtraUsageHolds(account, member.logical_model, now).map(
+				extraUsageHoldExclusion,
+			),
+			...hardEvidence(snapshot, member.logical_model, now),
+		];
 		const proof =
 			family === context.family
 				? familyProofs.get(member.account_id)

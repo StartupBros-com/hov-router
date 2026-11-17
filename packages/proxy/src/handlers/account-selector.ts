@@ -3,6 +3,8 @@ import type {
 	ModelScopedCapacityRoutingMode,
 } from "@better-ccflare/config";
 import {
+	coveringExtraUsageHolds,
+	extraUsageHoldWindowKind,
 	getConfiguredModelMapping,
 	getModelFamily,
 	getModelList,
@@ -40,6 +42,7 @@ import type {
 	ComboRouteClass,
 	ComboRoutingPolicySnapshot,
 	ComboSlotInfo,
+	ExtraUsageHold,
 	RequestMeta,
 	RoutingCandidateMetadata,
 	RoutingCandidateServerToolCapability,
@@ -949,7 +952,11 @@ export class ForceRouteUnavailableError extends Error {
 const comboSlotInfoMap = new WeakMap<RequestMeta, ComboSlotInfo>();
 
 export interface RoutingCapacityBlocker {
-	readonly source: "usage_snapshot" | "reactive_marker";
+	/**
+	 * `extra_usage_hold`: a stored hold on a Claude login whose extra-usage
+	 * switch is on. It lasts until its reset, whatever the routing mode.
+	 */
+	readonly source: "usage_snapshot" | "reactive_marker" | "extra_usage_hold";
 	readonly scope: "account" | "family" | "model";
 	readonly window: string;
 	readonly windowKind:
@@ -1431,6 +1438,19 @@ function snapshotBlocker(
 	};
 }
 
+function extraUsageHoldBlocker(hold: ExtraUsageHold): RoutingCapacityBlocker {
+	return {
+		source: "extra_usage_hold",
+		scope: hold.scope,
+		window: hold.windowKey,
+		windowKind: extraUsageHoldWindowKind(hold),
+		modelFamily: hold.modelFamily,
+		utilization: null,
+		resetAtMs: hold.resetsAtMs,
+		evidenceExpiresAt: hold.resetsAtMs,
+	};
+}
+
 /**
  * Look up exact model+client-beta direct failure evidence in one place. Family
  * markers can extend this helper without duplicating selector paths.
@@ -1566,6 +1586,12 @@ function evaluateCandidateCapacity(
 			};
 		}
 	}
+
+	// A stored extra-usage hold applies whatever the routing mode, the route
+	// intent or the probe kind: the login would bill for this model.
+	blockers.push(
+		...coveringExtraUsageHolds(account, model, now).map(extraUsageHoldBlocker),
+	);
 
 	if (!options.syntheticProbe && enforceModelScopedCapacity) {
 		const reactive = getReactiveModelCapacityBlocker(
@@ -4298,9 +4324,16 @@ async function selectAccountsForRequestInternal(
 								beta,
 								now,
 							);
-							const blockers: RoutingCapacityBlocker[] = (capacity ?? []).map(
-								snapshotBlocker,
-							);
+							// Holds keep the blockers built above; native admission
+							// carries its own copy only to refuse and time the wait.
+							const blockers: RoutingCapacityBlocker[] = [
+								...evaluation.blockers.filter(
+									(blocker) => blocker.source === "extra_usage_hold",
+								),
+								...(capacity ?? [])
+									.filter((row) => row.source !== "extra_usage_hold")
+									.map(snapshotBlocker),
+							];
 							if (exactMarker) {
 								const exact = getReactiveModelCapacityBlocker(
 									account.id,

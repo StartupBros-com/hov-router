@@ -343,10 +343,13 @@ function finiteCandidateRecovery(
 	now: number,
 ): number | null {
 	if (candidate.exclusions.length === 0) return null;
+	// A usage reading and an extra-usage hold both end at a known reset.
 	if (
 		candidate.exclusions.some(
 			(blocker) =>
-				blocker.scope === "account" && blocker.source !== "usage_snapshot",
+				blocker.scope === "account" &&
+				blocker.source !== "usage_snapshot" &&
+				blocker.source !== "extra_usage_hold",
 		)
 	) {
 		return null;

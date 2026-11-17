@@ -2,8 +2,10 @@ import { describe, expect, it } from "bun:test";
 import type { ExtraUsageHoldState } from "@better-ccflare/types";
 import {
 	coveringExtraUsageHold,
+	coveringExtraUsageHolds,
 	deriveExtraUsageHolds,
 	extraUsageHoldCoversModel,
+	extraUsageHoldWindowKind,
 	liveExtraUsageHolds,
 	resolveExtraUsageState,
 	sameExtraUsageHolds,
@@ -528,5 +530,85 @@ describe("displayed extra-usage state", () => {
 		expect(
 			resolveExtraUsageState(livePayload(), NOW - MAX_AGE, NOW, MAX_AGE),
 		).toBe("off");
+	});
+});
+
+describe("holds covering a login", () => {
+	const held = (
+		overrides: Partial<{
+			provider: string;
+			auto_pause_on_overage_enabled: boolean;
+		}> = {},
+	) => ({
+		provider: "anthropic",
+		auto_pause_on_overage_enabled: true,
+		extra_usage_holds: deriveExtraUsageHolds(null, opusSpent(), NOW),
+		...overrides,
+	});
+
+	it("a Claude login with the switch on returns the live holds that cover the model", () => {
+		expect(
+			coveringExtraUsageHolds(held(), "claude-opus-5-5", NOW).map(
+				(hold) => hold.windowKey,
+			),
+		).toEqual(["seven_day_opus"]);
+		expect(coveringExtraUsageHolds(held(), "claude-sonnet-5-5", NOW)).toEqual(
+			[],
+		);
+	});
+
+	it("with the switch off, a stored hold covers nothing", () => {
+		expect(
+			coveringExtraUsageHolds(
+				held({ auto_pause_on_overage_enabled: false }),
+				"claude-opus-5-5",
+				NOW,
+			),
+		).toEqual([]);
+	});
+
+	it("a login that is not a Claude login has no holds, whatever is stored", () => {
+		expect(
+			coveringExtraUsageHolds(
+				held({ provider: "codex" }),
+				"claude-opus-5-5",
+				NOW,
+			),
+		).toEqual([]);
+	});
+
+	it("a hold whose reset has passed covers nothing", () => {
+		expect(
+			coveringExtraUsageHolds(held(), "claude-opus-5-5", WEEK_RESET),
+		).toEqual([]);
+	});
+
+	it("a login with no stored holds has none", () => {
+		expect(
+			coveringExtraUsageHolds(
+				{ ...held(), extra_usage_holds: null },
+				"claude-opus-5-5",
+				NOW,
+			),
+		).toEqual([]);
+	});
+
+	it("names the usage window kind each hold came from", () => {
+		const hold = (windowKey: string, scope: "account" | "family") => ({
+			windowKey,
+			scope,
+			modelFamily: scope === "family" ? "opus" : null,
+			resetsAtMs: WEEK_RESET,
+			startedAt: NOW,
+		});
+		expect(extraUsageHoldWindowKind(hold("five_hour", "account"))).toBe(
+			"session",
+		);
+		expect(extraUsageHoldWindowKind(hold("seven_day", "account"))).toBe(
+			"weekly_all",
+		);
+		expect(extraUsageHoldWindowKind(hold("seven_day_opus", "family"))).toBe(
+			"weekly_scoped",
+		);
 	});
 });

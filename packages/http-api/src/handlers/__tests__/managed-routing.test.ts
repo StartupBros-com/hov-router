@@ -741,6 +741,35 @@ describe("managed routing HTTP control plane", () => {
 		}
 	});
 
+	it("shows a model held for extra usage as exhausted, only while the switch is on", async () => {
+		const opusHold = {
+			readingAt: Date.now() - 60_000,
+			holds: [
+				{
+					windowKey: "seven_day_opus",
+					scope: "family" as const,
+					modelFamily: "opus",
+					resetsAtMs: Date.now() + 3_600_000,
+					startedAt: Date.now() - 60_000,
+				},
+			],
+		};
+		const reasons = async (switchOn: boolean) => {
+			const state = statefulDb();
+			state.mutateAccount("a", {
+				auto_pause_on_overage_enabled: switchOn,
+				extra_usage_holds: opusHold,
+			});
+			const response = await createEffectiveRoutingHandler(state.dbOps)("opus");
+			return (await response.json()).data.resolution.members.map(
+				(member: { availability: { reason: string } }) =>
+					member.availability.reason,
+			);
+		};
+		expect(await reasons(true)).toEqual(["model_exhausted", "available"]);
+		expect(await reasons(false)).toEqual(["available", "available"]);
+	});
+
 	describe("Codex credit drain in the effective routing preview", () => {
 		const originalFetch = globalThis.fetch;
 		const drainId = "a";

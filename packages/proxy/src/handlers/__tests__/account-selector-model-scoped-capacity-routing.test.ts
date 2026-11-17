@@ -565,4 +565,57 @@ describe("native quota wait combo isolation", () => {
 		).toEqual(["claude-fable-5"]);
 		expect(after.routingCandidateCatalog).toHaveLength(2);
 	});
+
+	it("keeps a Fable route held for extra usage out of the combo while the reading says extra usage is on", async () => {
+		const reset = Date.now() + 2 * 3_600_000;
+		const held = makeAccount({
+			id: "native-held",
+			auto_pause_on_overage_enabled: true,
+			extra_usage_holds: {
+				readingAt: Date.now() - 60_000,
+				holds: [
+					{
+						windowKey: "seven_day_fable",
+						scope: "family",
+						modelFamily: "fable",
+						resetsAtMs: reset,
+						startedAt: Date.now() - 60_000,
+					},
+				],
+			},
+		});
+		const ready = makeAccount({ id: "native-held-peer" });
+		// Edited from familyUsage: Fable spent with extra usage on, which
+		// native admission otherwise admits because Anthropic bills past it.
+		cacheUsage(held.id, {
+			spend: { enabled: true },
+			limits: [
+				{
+					kind: "weekly_scoped",
+					percent: 100,
+					resets_at: new Date(reset).toISOString(),
+					is_active: true,
+					scope: { model: { id: null, display_name: "Fable" }, surface: null },
+				},
+			],
+		});
+		familyUsage(ready.id, 30);
+		const { ctx } = nativeSetup([held, ready]);
+		const meta = makeRequestMeta();
+		expect(await selectAccountsForRequest(meta, ctx, "claude-fable-5")).toEqual(
+			[ready],
+		);
+		expect(
+			getRoutingCapacityContext(meta)?.exclusions.find(
+				(entry) =>
+					entry.accountId === held.id && entry.model === "claude-fable-5",
+			)?.exclusions,
+		).toMatchObject([
+			{
+				source: "extra_usage_hold",
+				window: "seven_day_fable",
+				resetAtMs: reset,
+			},
+		]);
+	});
 });

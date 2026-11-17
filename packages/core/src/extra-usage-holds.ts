@@ -124,6 +124,39 @@ export function extraUsageHoldCoversModel(
  * The live hold that covers `model`, choosing the one that ends last when
  * several do (that end is when the model can be sent again), or null.
  */
+/** The fields of a login the hold rules read; an `Account` has all of them. */
+export interface ExtraUsageHoldLogin {
+	readonly provider: string;
+	readonly auto_pause_on_overage_enabled: boolean;
+	readonly extra_usage_holds?: ExtraUsageHoldState | null;
+}
+
+/**
+ * The live holds on a login that cover `model`. A login whose extra-usage
+ * switch is off, or one that is not a Claude login, has none, whatever is
+ * stored.
+ */
+export function coveringExtraUsageHolds(
+	login: ExtraUsageHoldLogin,
+	model: string,
+	now: number,
+): ExtraUsageHold[] {
+	if (login.provider !== "anthropic" || !login.auto_pause_on_overage_enabled) {
+		return [];
+	}
+	return liveExtraUsageHolds(login.extra_usage_holds, now).filter((hold) =>
+		extraUsageHoldCoversModel(hold, model),
+	);
+}
+
+/** The usage window kind a hold came from, in the routing selector's terms. */
+export function extraUsageHoldWindowKind(
+	hold: ExtraUsageHold,
+): "session" | "weekly_all" | "weekly_scoped" {
+	if (hold.scope === "family") return "weekly_scoped";
+	return hold.windowKey === "five_hour" ? "session" : "weekly_all";
+}
+
 export function coveringExtraUsageHold(
 	state: ExtraUsageHoldState | null | undefined,
 	model: string,
