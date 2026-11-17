@@ -136,6 +136,18 @@ the selected lane once an irreversible dispatch or meaningful response makes rep
 Availability is flexible while candidates are hypothetical and strict after work may have
 happened.
 
+### In-place retry
+
+A bounded resend of the same request to the same login after a short randomized backoff, made
+when the upstream reports it is temporarily overloaded, without going back to account
+selection.
+
+Each resend reuses the login picked for the request and the account state read when it was
+picked, so a condition that must see changes made since then, such as an
+[extra-usage hold](#extra-usage-hold), is read again from storage before every send. Each
+resend is its own [physical attempt](#physical-attempt-usage). It is distinct from a failover,
+which moves the request to another account.
+
 ### Child route home
 
 The first successful provider, account class, and physical-model lane selected for one child
@@ -219,9 +231,12 @@ on a Codex account.
 
 A period in which the router sends a Claude login no request for the models a spent plan limit
 covers, so Anthropic does not bill those requests as extra usage. Holds exist only while the
-login's "Don't use extra usage on this login" switch is on (stored as
-`auto_pause_on_overage_enabled`), and the router checks them both when it picks a login and
-just before each send.
+login's "Don't use extra usage on this login" switch is on, and the router checks them both
+when it picks a login and just before each send. The check before each send reads the switch
+and holds as they are stored at that moment, not as they were when the login was picked, so a
+switch turned on or a hold written in between, as during an [in-place retry](#in-place-retry),
+still stops the send. Only when that read fails does the check use the state the login was
+picked with.
 
 A fresh usage reading that shows a limit spent holds the models that limit covers until the
 reset the reading gave. A response Anthropic reports as billed to extra usage holds every model
