@@ -1,5 +1,13 @@
 import { Database } from "bun:sqlite";
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	mock,
+	spyOn,
+} from "bun:test";
 import { EventEmitter } from "node:events";
 import type { Config } from "@better-ccflare/config";
 import { orgPermissionDeniedEvents, requestEvents } from "@better-ccflare/core";
@@ -87,9 +95,31 @@ function served(
 
 describe("AlertService org_permission_denied episodes", () => {
 	let sqlite: Database;
+	let adapter: BunSqlAdapter;
 	let service: AlertService;
 	let originalFetch: typeof globalThis.fetch;
 	let fetchMock: ReturnType<typeof mock>;
+
+	/** Make the next insert of an org_permission_denied alert throw, as a
+	 * locked database would; every other write goes through. */
+	const failNextOrgAlertWrite = () => {
+		const real = adapter.runWithChanges.bind(adapter);
+		let armed = true;
+		spyOn(adapter, "runWithChanges").mockImplementation(
+			async (sqlStr: string, params: unknown[] = []) => {
+				const id = params[0];
+				if (
+					armed &&
+					typeof id === "string" &&
+					id.startsWith("org_permission_denied:")
+				) {
+					armed = false;
+					throw new Error("database is locked");
+				}
+				return real(sqlStr, params);
+			},
+		);
+	};
 	// Ten minutes ago, so every refusal and request below stays in one
 	// cooldown hour unless the test means otherwise.
 	let t0: number;
@@ -100,7 +130,8 @@ describe("AlertService org_permission_denied episodes", () => {
 	beforeEach(() => {
 		sqlite = new Database(":memory:");
 		ensureSchema(sqlite);
-		service = new AlertService(new BunSqlAdapter(sqlite), makeConfig());
+		adapter = new BunSqlAdapter(sqlite);
+		service = new AlertService(adapter, makeConfig());
 		originalFetch = globalThis.fetch;
 		fetchMock = mock(async () => new Response(null, { status: 204 }));
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
@@ -190,6 +221,31 @@ describe("AlertService org_permission_denied episodes", () => {
 		const alerts = await service.listAlerts();
 		expect(ofPhase(alerts, "refused")).toHaveLength(2);
 		expect(ofPhase(alerts, "recovered")).toHaveLength(1);
+	});
+
+	it("alerts on the next refusal when the first alert could not be saved", async () => {
+		failNextOrgAlertWrite();
+		refuse(t0);
+		await Bun.sleep(30);
+		expect(await service.listAlerts()).toHaveLength(0);
+
+		refuse(t0 + 120_000);
+		await waitFor(() => fetchMock.mock.calls.length === 1);
+		expect(ofPhase(await service.listAlerts(), "refused")).toHaveLength(1);
+	});
+
+	it("alerts recovery on the next success when the recovered alert could not be saved", async () => {
+		refuse(t0);
+		await waitFor(() => fetchMock.mock.calls.length === 1);
+
+		failNextOrgAlertWrite();
+		served(t0 + 60_000);
+		await Bun.sleep(30);
+		expect(ofPhase(await service.listAlerts(), "recovered")).toHaveLength(0);
+
+		served(t0 + 120_000);
+		await waitFor(() => fetchMock.mock.calls.length === 2);
+		expect(ofPhase(await service.listAlerts(), "recovered")).toHaveLength(1);
 	});
 
 	it("tracks each account's refusal separately", async () => {

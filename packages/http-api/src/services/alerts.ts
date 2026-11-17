@@ -2231,6 +2231,8 @@ export class AlertService {
 	 * the episode start, so a refusal that returns after a recovery pings again
 	 * even inside one cooldown hour. The episode map changes before the first
 	 * await, so two refusals arriving together cannot both open an episode.
+	 * If the alert cannot be saved, the episode is dropped so the next refusal
+	 * tries again; otherwise the refusal would go unreported until recovery.
 	 */
 	async handleOrgPermissionDenied(
 		event: OrgPermissionDeniedEvt,
@@ -2240,12 +2242,13 @@ export class AlertService {
 			open.lastRefusedAt = Math.max(open.lastRefusedAt, event.timestamp);
 			return;
 		}
-		this.orgRefusals.set(event.accountId, {
+		const config = getAlertsConfig(this.config);
+		const episode = {
 			accountName: event.accountName,
 			since: event.timestamp,
 			lastRefusedAt: event.timestamp,
-		});
-		const config = getAlertsConfig(this.config);
+		};
+		this.orgRefusals.set(event.accountId, episode);
 		const alert: AlertEvent = {
 			id: `org_permission_denied:refused:${event.accountId}:${event.timestamp}`,
 			timestamp: event.timestamp,
@@ -2264,14 +2267,19 @@ export class AlertService {
 			requestId: null,
 			acknowledged: false,
 		};
-		await this.persistAndEmit(alert, config.webhookUrl);
+		const recorded = await this.persistAndEmit(alert, config.webhookUrl);
+		if (!recorded && this.orgRefusals.get(event.accountId) === episode) {
+			this.orgRefusals.delete(event.accountId);
+		}
 	}
 
 	/**
 	 * Close an open org refusal episode on the first successful request the
 	 * account served that started after its latest refusal (#877). A stream
 	 * that began before the refusal and finished after it proves nothing about
-	 * the organization now, so it is ignored.
+	 * the organization now, so it is ignored. If the recovered alert cannot be
+	 * saved and no new refusal has opened an episode since, the episode is put
+	 * back so the next success tries again.
 	 */
 	async noteOrgRefusalRecovery(request: RequestResponse): Promise<void> {
 		if (!request.accountUsed || !request.success) return;
@@ -2302,7 +2310,10 @@ export class AlertService {
 			requestId: request.id,
 			acknowledged: false,
 		};
-		await this.persistAndEmit(alert, config.webhookUrl);
+		const recorded = await this.persistAndEmit(alert, config.webhookUrl);
+		if (!recorded && !this.orgRefusals.has(request.accountUsed)) {
+			this.orgRefusals.set(request.accountUsed, open);
+		}
 	}
 
 	/**
@@ -3114,7 +3125,10 @@ export class AlertService {
 		suppressIfExistingIds: string[] = [],
 		accountId?: string,
 		expectedCreatedAt?: number,
-	): Promise<void> {
+	): Promise<boolean> {
+		// Resolves false only when the write threw, so a caller holding state
+		// for this alert can undo it and try again (#877). An ignored duplicate
+		// resolves true: that alert is already on record.
 		try {
 			// The unique alert ID is the cooldown guard. Only the caller whose insert
 			// actually wins may emit SSE or deliver the webhook; checking first would
@@ -3167,7 +3181,7 @@ export class AlertService {
 					...suppressIfExistingIds,
 				],
 			);
-			if (inserted === 0) return;
+			if (inserted === 0) return true;
 		} catch (error) {
 			// Alerts are best-effort telemetry — a persistence failure must not
 			// terminate the proxy (the listener is invoked from an async event
@@ -3175,9 +3189,10 @@ export class AlertService {
 			log.error(
 				`Failed to persist ${alert.type} alert: ${(error as Error).message}`,
 			);
-			return;
+			return false;
 		}
 		this.publishPersistedAlert(alert, webhookUrl);
+		return true;
 	}
 
 	/** Both ordinary insert winners and atomic cache-state winners use this
