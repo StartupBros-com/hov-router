@@ -34,9 +34,12 @@ export interface ExtraUsageHoldLine {
 	why: string;
 	/** How the hold ends, as a sentence. */
 	ends: string;
+	/** The usage window a reading hold is for; null for a billed hold. */
+	windowKey: string | null;
 	/**
-	 * The hold in a few words for the collapsed row, or null when the row's
-	 * status already says it (a billed hold always comes with an overage pause).
+	 * The hold in a few words for the collapsed row, or null when the row
+	 * already says it: a billed hold always comes with an overage pause, and a
+	 * whole-login hold that lasts at least as long covers any other hold.
 	 */
 	cue: string | null;
 }
@@ -94,6 +97,7 @@ function billedHoldLine(
 		held: "Every model",
 		why,
 		ends: `Ends ${joinOr(ways)}.`,
+		windowKey: null,
 		cue: null,
 	};
 }
@@ -129,9 +133,25 @@ export function extraUsageStatus(
 				billedHoldLine(account, account.extraUsageBilledHold, now, clock),
 			);
 		}
-		for (const hold of account.extraUsageHolds ?? []) {
-			// The list is only as fresh as the last fetch.
-			if (hold.resetsAtMs <= now) continue;
+		// The list is only as fresh as the last fetch.
+		const live = (account.extraUsageHolds ?? []).filter(
+			(hold) => hold.resetsAtMs > now,
+		);
+		// The whole-login hold that ends last; the row needs no other cue for
+		// the time it covers.
+		let longest: (typeof live)[number] | null = null;
+		for (const hold of live) {
+			if (
+				hold.scope === "account" &&
+				(longest === null || hold.resetsAtMs > longest.resetsAtMs)
+			)
+				longest = hold;
+		}
+		for (const hold of live) {
+			const covered =
+				longest !== null &&
+				hold !== longest &&
+				hold.resetsAtMs <= longest.resetsAtMs;
 			const family =
 				hold.scope === "family" && hold.modelFamily
 					? familyName(hold.modelFamily)
@@ -142,9 +162,10 @@ export function extraUsageStatus(
 				held: family ?? "Every model",
 				why: `${formatWindowName(hold.windowKey)} limit spent`,
 				ends: `Ends at ${until} or when you turn the switch off.`,
+				windowKey: hold.windowKey,
 				// A stored hold outlives a failed reading, so the row's usage bars
 				// cannot be relied on to show it.
-				cue: `${family ?? "All models"} held until ${until}`,
+				cue: covered ? null : `${family ?? "All models"} held until ${until}`,
 			});
 		}
 	}

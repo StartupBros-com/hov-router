@@ -119,6 +119,7 @@ describe("extraUsageStatus", () => {
 		expect(status?.holds).toEqual([
 			{
 				key: "reading:seven_day_opus:opus",
+				windowKey: "seven_day_opus",
 				held: "Opus",
 				why: "Opus (Weekly) limit spent",
 				ends: `Ends at ${at(opusHold.resetsAtMs)} or when you turn the switch off.`,
@@ -148,6 +149,68 @@ describe("extraUsageStatus", () => {
 		expect(status?.holds[0]?.cue).toBe(
 			`All models held until ${at(opusHold.resetsAtMs)}`,
 		);
+	});
+
+	it("gives the row one cue while a whole-login hold lasts at least as long as the others", () => {
+		const status = extraUsageStatus(
+			login({
+				autoPauseOnOverageEnabled: true,
+				extraUsageHolds: [
+					opusHold,
+					{
+						...opusHold,
+						windowKey: "five_hour",
+						scope: "account",
+						modelFamily: null,
+						resetsAtMs: now + HOUR,
+					},
+					{
+						...opusHold,
+						windowKey: "seven_day",
+						scope: "account",
+						modelFamily: null,
+						resetsAtMs: now + 40 * HOUR,
+					},
+				],
+			}),
+			now,
+			clock,
+		);
+		// Every hold keeps its full line for Settings; only the row's cue is shared.
+		expect(status?.holds.map((hold) => hold.windowKey)).toEqual([
+			"seven_day_opus",
+			"five_hour",
+			"seven_day",
+		]);
+		expect(status?.holds.map((hold) => hold.cue)).toEqual([
+			null,
+			null,
+			`All models held until ${at(now + 40 * HOUR)}`,
+		]);
+	});
+
+	it("keeps a model hold's cue when it outlasts the whole-login hold", () => {
+		const status = extraUsageStatus(
+			login({
+				autoPauseOnOverageEnabled: true,
+				extraUsageHolds: [
+					opusHold,
+					{
+						...opusHold,
+						windowKey: "five_hour",
+						scope: "account",
+						modelFamily: null,
+						resetsAtMs: now + HOUR,
+					},
+				],
+			}),
+			now,
+			clock,
+		);
+		expect(status?.holds.map((hold) => hold.cue)).toEqual([
+			`Opus held until ${at(opusHold.resetsAtMs)}`,
+			`All models held until ${at(now + HOUR)}`,
+		]);
 	});
 
 	it("drops a hold whose reset has passed since the list was fetched", () => {
@@ -188,6 +251,7 @@ describe("extraUsageStatus", () => {
 		expect(status?.holds).toEqual([
 			{
 				key: "billed",
+				windowKey: null,
 				held: "Every model",
 				why: `Anthropic billed an Opus request as extra usage at ${at(billedAt)}`,
 				ends: "Ends when you resume this login or when you turn the switch off.",

@@ -1718,6 +1718,87 @@ describe("extra usage on a Claude row", () => {
 		expect(row).not.toContain("at limit");
 	});
 
+	it("drops the at-limit label for a window the router holds, since the cue says it", () => {
+		const resetsAtMs = now + 3 * HOUR;
+		const resets_at = new Date(resetsAtMs).toISOString();
+		const scoped = (id: string, display_name: string) => ({
+			kind: "weekly_scoped",
+			percent: 100,
+			resets_at,
+			is_active: false,
+			scope: { model: { id, display_name } },
+		});
+		const account = (switchOn: boolean) => ({
+			paused: false,
+			rateLimitStatus: "allowed",
+			usageWindow: "seven_day",
+			usageUtilization: 32,
+			usageData: {
+				limits: [
+					{ kind: "weekly_all", percent: 32, resets_at, is_active: false },
+					scoped("opus", "Opus"),
+					scoped("fable", "Fable"),
+				],
+			},
+			autoPauseOnOverageEnabled: switchOn,
+			extraUsage: { state: "off" as const, readingAt: now },
+			extraUsageHolds: [
+				{
+					windowKey: "seven_day_opus",
+					scope: "family" as const,
+					modelFamily: "opus",
+					resetsAtMs,
+					startedAt: now - HOUR,
+				},
+			],
+		});
+		// Without a hold the status column names both spent windows. The usage
+		// column names Opus (Weekly) either way, so check the label, not the name.
+		expect(text(glance(account(false)))).toContain(
+			"Opus (Weekly), Fable (Weekly) at limit",
+		);
+		const row = text(glance(account(true)));
+		expect(row).toContain("Ready");
+		expect(row).toContain(
+			`Opus held until ${formatClockTime(resetsAtMs, now)}`,
+		);
+		expect(row).not.toContain("Opus (Weekly), ");
+		expect(row).not.toContain("Opus (Weekly) at limit");
+		// A spent window with no hold still says so.
+		expect(row).toContain("Fable (Weekly) at limit");
+	});
+
+	it("shows one cue on a row whose whole-login hold outlasts its model hold", () => {
+		const row = text(
+			glance({
+				paused: true,
+				pauseReason: "manual",
+				autoPauseOnOverageEnabled: true,
+				extraUsage: { state: "off", readingAt: now },
+				extraUsageHolds: [
+					{
+						windowKey: "seven_day_opus",
+						scope: "family",
+						modelFamily: "opus",
+						resetsAtMs: now + 3 * HOUR,
+						startedAt: now - HOUR,
+					},
+					{
+						windowKey: "seven_day",
+						scope: "account",
+						modelFamily: null,
+						resetsAtMs: now + 40 * HOUR,
+						startedAt: now - HOUR,
+					},
+				],
+			}),
+		);
+		expect(row).toContain(
+			`All models held until ${formatClockTime(now + 40 * HOUR, now)}`,
+		);
+		expect(row).not.toContain("Opus held until");
+	});
+
 	it("leaves a billed hold to the row's Paused status and puts its cause and end in Settings", () => {
 		const billedAt = now - HOUR;
 		const account = {

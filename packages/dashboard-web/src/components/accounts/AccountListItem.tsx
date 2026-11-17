@@ -432,6 +432,8 @@ export function AccountListItem({
 		...rateLimitProgressProps,
 		compact: true,
 	}).usages;
+	// A held window's cue already says it is spent, and until when.
+	const heldWindows = new Set(extraUsage?.holds.map((hold) => hold.windowKey));
 	// A ready account can still have one window spent (often a per-model cap).
 	const fullWindowLabels =
 		status.reason === "normal"
@@ -440,7 +442,8 @@ export function AccountListItem({
 						(row) =>
 							!row.synthetic &&
 							typeof row.utilization === "number" &&
-							row.utilization >= 100,
+							row.utilization >= 100 &&
+							!heldWindows.has(row.window),
 					)
 					.map(displayLabel)
 			: [];
