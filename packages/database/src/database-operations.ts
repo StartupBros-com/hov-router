@@ -1387,7 +1387,6 @@ OAuth tokens will need to be re-authenticated.
 		});
 	}
 
-	/** The columns the extra-usage hold step and the send-time check read, fresh by id. */
 	async getExtraUsageHoldInputs(
 		accountId: string,
 	): Promise<ExtraUsageHoldInputs | null> {
@@ -1726,7 +1725,6 @@ OAuth tokens will need to be re-authenticated.
 		);
 	}
 
-	/** Store holds derived from a usage reading; see AccountRepository.writeExtraUsageHolds. */
 	async writeExtraUsageHolds(
 		accountId: string,
 		state: ExtraUsageHoldState,

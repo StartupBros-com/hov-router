@@ -340,9 +340,6 @@ async function getCachedOrPersistedCodexUsage(
 }
 
 /**
- * Create an accounts list handler
- */
-/**
  * What the account row and the setup agent read about a Claude login's extra
  * usage: the setting from its cached reading, and the holds that stop routing
  * to it. Holds are listed only while the switch is on, as only then do they
@@ -394,6 +391,9 @@ function extraUsageFields(
 	};
 }
 
+/**
+ * Create an accounts list handler
+ */
 export function createAccountsListHandler(
 	dbOps: DatabaseOperations,
 	config: Config,

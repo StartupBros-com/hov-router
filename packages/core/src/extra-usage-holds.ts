@@ -120,10 +120,6 @@ export function extraUsageHoldCoversModel(
 	);
 }
 
-/**
- * The live hold that covers `model`, choosing the one that ends last when
- * several do (that end is when the model can be sent again), or null.
- */
 /** The fields of a login the hold rules read; an `Account` has all of them. */
 export interface ExtraUsageHoldLogin {
 	readonly provider: string;
@@ -157,6 +153,10 @@ export function extraUsageHoldWindowKind(
 	return hold.windowKey === "five_hour" ? "session" : "weekly_all";
 }
 
+/**
+ * The live hold that covers `model`, choosing the one that ends last when
+ * several do (that end is when the model can be sent again), or null.
+ */
 export function coveringExtraUsageHold(
 	state: ExtraUsageHoldState | null | undefined,
 	model: string,

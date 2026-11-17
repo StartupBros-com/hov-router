@@ -51,7 +51,6 @@ function familyName(family: string): string {
 	return family.charAt(0).toUpperCase() + family.slice(1);
 }
 
-/** "a", "a or b", "a, b or c". */
 function joinOr(parts: string[]): string {
 	if (parts.length < 2) return parts.join("");
 	return `${parts.slice(0, -1).join(", ")} or ${parts[parts.length - 1]}`;
@@ -115,7 +114,6 @@ export function extraUsageStatus(
 				}`
 			: null;
 
-	// Holds stop routing only while the switch is on.
 	const holds: ExtraUsageHoldLine[] = [];
 	if (switchOn) {
 		if (account.extraUsageBilledHold) {

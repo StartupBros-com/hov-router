@@ -891,8 +891,6 @@ async function assertNoExtraUsageHold(
 	try {
 		stored = await ctx.dbOps.getExtraUsageHoldInputs(account.id);
 	} catch (error) {
-		// A failed reread is no evidence about the login, so check the state it
-		// was selected with rather than send blind or blame the login.
 		log.warn(
 			`Could not reread extra-usage holds for ${account.name}; checking the state it was selected with`,
 			error,
