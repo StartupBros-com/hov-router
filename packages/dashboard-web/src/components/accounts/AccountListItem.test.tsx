@@ -678,6 +678,9 @@ describe("AccountListItem row actions", () => {
 			(button) => button.includes(text),
 		);
 	}
+	function classes(button: string | undefined): string[] {
+		return (button?.match(/class="([^"]*)"/)?.[1] ?? "").split(/\s+/);
+	}
 	function visibleRow(account: Account, extra: Record<string, unknown> = {}) {
 		return withoutDetailsContent(
 			renderToStaticMarkup(
@@ -686,7 +689,7 @@ describe("AccountListItem row actions", () => {
 		);
 	}
 
-	it("puts Clear cooldown beside the router retry, without the refresh icon", () => {
+	it("puts Clear cooldown beside the router retry unless the action line has room, without the refresh icon", () => {
 		const html = visibleRow(
 			makeAccount({
 				paused: false,
@@ -694,15 +697,31 @@ describe("AccountListItem row actions", () => {
 				usageUtilization: 20,
 			}),
 		);
-		expect(cluster(html)).not.toContain("Clear cooldown");
 		const status = statusColumn(html);
 		expect(status).toContain("Router retry");
-		const clear = buttonWith(status, "Clear cooldown");
-		expect(clear).toBeDefined();
-		expect(clear).not.toContain("<svg");
-		expect(clear).toContain('aria-label="Clear cooldown for acc-1"');
-		// A 44px target that adds no 44px line to the status column.
-		expect(clear).toContain("after:h-11");
+		// Beside the retry time on wide screens (the action column is full) and on
+		// the narrowest phones (the action line has no room beside Pause).
+		const wide = buttonWith(status, "Clear cooldown");
+		expect(classes(wide)).toEqual(
+			expect.arrayContaining(["min-[24rem]:hidden", "xl:inline-flex"]),
+		);
+		expect(classes(wide)).not.toContain("hidden");
+		// In between, the action line has room left of Pause, so the same link sits
+		// there and costs the card no extra line.
+		const narrow = buttonWith(cluster(html), "Clear cooldown");
+		expect(classes(narrow)).toEqual(
+			expect.arrayContaining([
+				"hidden",
+				"min-[24rem]:inline-flex",
+				"xl:hidden",
+			]),
+		);
+		for (const clear of [wide, narrow]) {
+			expect(clear).not.toContain("<svg");
+			expect(clear).toContain('aria-label="Clear cooldown for acc-1"');
+			// A 44px target that adds no 44px line where it sits.
+			expect(clear).toContain("after:h-11");
+		}
 	});
 
 	it("offers Clear cooldown for a clearable hard limit with no retry time", () => {
@@ -713,20 +732,41 @@ describe("AccountListItem row actions", () => {
 		);
 		expect(status).toContain("Reported hard limit");
 		expect(status).not.toContain("Router retry");
-		expect(buttonWith(status, "Clear cooldown")).toBeDefined();
+		const wide = buttonWith(status, "Clear cooldown");
+		expect(classes(wide)).toContain("xl:inline-flex");
+		// With no retry time the link's line shows only where the link does, so
+		// the status row never gains an empty item.
+		const line = status.slice(
+			status.lastIndexOf("<span", status.indexOf(wide as string)),
+		);
+		expect(classes(line)).toEqual(
+			expect.arrayContaining(["min-[24rem]:hidden", "xl:flex"]),
+		);
 	});
 
-	it("puts Re-authenticate beside the status it fixes", () => {
+	it("puts Re-authenticate beside the status it fixes unless the action line has room", () => {
 		const html = visibleRow(
 			makeAccount({ pauseReason: "oauth_invalid_grant" }),
 			{
 				onAnthropicReauth: noop,
 			},
 		);
-		expect(cluster(html)).not.toContain("Re-authenticate");
 		const status = statusColumn(html);
 		expect(status).toContain("Reconnect required");
-		expect(reauthButton(status)).toContain(" bg-primary ");
+		const wide = reauthButton(status);
+		expect(wide).toContain(" bg-primary ");
+		expect(classes(wide)).toEqual(
+			expect.arrayContaining(["min-[24rem]:hidden", "xl:inline-flex"]),
+		);
+		const narrow = reauthButton(cluster(html));
+		expect(narrow).toContain(" bg-primary ");
+		expect(classes(narrow)).toEqual(
+			expect.arrayContaining([
+				"hidden",
+				"min-[24rem]:inline-flex",
+				"xl:hidden",
+			]),
+		);
 	});
 
 	it("shows Refresh usage beside the usage, only where the router can refresh it", () => {

@@ -101,6 +101,12 @@ const SETTING_SWITCH_CLASS =
 // hit area grows to 44px tall around the words.
 const INLINE_ACTION_CLASS =
 	"relative h-auto p-0 text-xs text-foreground underline underline-offset-2 after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2 after:content-['']";
+// Where a remedy (Clear cooldown, Re-authenticate) shows. From 24rem up to xl the
+// action line has room left of Pause, Details and More, so the remedy sits there
+// and adds no line. Narrower, it would wrap the action line; on xl the action
+// column is full. There it sits beside the status it fixes.
+const REMEDY_ON_ACTION_LINE = "hidden min-[24rem]:inline-flex xl:hidden";
+const REMEDY_BESIDE_STATUS = "min-[24rem]:hidden xl:inline-flex";
 
 /**
  * Codex-only usage extras (plan_type, credits_balance) come from the free
@@ -431,6 +437,37 @@ export function AccountListItem({
 								"Re-authenticate this Codex account (preserves all metadata)",
 						}
 					: null;
+	// Each remedy renders twice and shows once; see REMEDY_ON_ACTION_LINE.
+	const clearCooldownAction = (display: string) =>
+		showForceReset && (
+			<Button
+				variant="link"
+				className={`${INLINE_ACTION_CLASS} ${display}`}
+				onClick={() => onForceResetRateLimit(account)}
+				aria-label={`Clear cooldown for ${account.name}`}
+				title={
+					staleLockDetected
+						? "Clear a possibly stale router cooldown. Provider usage limits are unchanged."
+						: "Clear the router’s saved rate-limit state. Provider usage limits are unchanged."
+				}
+			>
+				Clear cooldown
+			</Button>
+		);
+	const reauthAction = (display: string) =>
+		reauth &&
+		reauthRequired && (
+			<Button
+				variant="default"
+				size="touch-sm"
+				className={`gap-1 text-xs text-black hover:text-black ${display}`}
+				onClick={() => reauth.handler(account)}
+				title={reauth.title}
+			>
+				<KeyRound className="h-4 w-4" />
+				Re-authenticate
+			</Button>
+		);
 	const rateLimitProgressProps = {
 		resetIso: account.rateLimitReset,
 		usageUtilization: account.usageUtilization,
@@ -563,9 +600,11 @@ export function AccountListItem({
 						)}
 					</div>
 				</div>
-				{/* Pause, Details and More only, so they hold one place on every row.
-				    Remedies sit beside the status they fix; refresh sits by the usage. */}
+				{/* Pause, Details and More hold one place on every row; a remedy joins
+				    them, to their left, only where the line has room for it. */}
 				<div className="ml-auto flex shrink-0 flex-wrap items-center gap-1 min-w-0 max-w-full justify-end xl:col-start-4 xl:row-start-1">
+					{clearCooldownAction(REMEDY_ON_ACTION_LINE)}
+					{reauthAction(REMEDY_ON_ACTION_LINE)}
 					<Button
 						variant="ghost"
 						size="touch-icon"
@@ -687,18 +726,7 @@ export function AccountListItem({
 					{/* The status track's 10rem floor fits the longest label on one line. */}
 					<span className="whitespace-nowrap">{status.label}</span>
 				</StatusPill>
-				{reauth && reauthRequired && (
-					<Button
-						variant="default"
-						size="touch-sm"
-						className="gap-1 text-xs text-black hover:text-black"
-						onClick={() => reauth.handler(account)}
-						title={reauth.title}
-					>
-						<KeyRound className="h-4 w-4" />
-						Re-authenticate
-					</Button>
-				)}
+				{reauthAction(REMEDY_BESIDE_STATUS)}
 				{status.reason === "paused" && pauseReasonLabel && (
 					<span className="text-xs text-muted-foreground">
 						{`Auto-paused: ${pauseReasonLabel}`}
@@ -721,7 +749,13 @@ export function AccountListItem({
 						),
 				)}
 				{(status.routerRetryAt != null || showForceReset) && (
-					<span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+					<span
+						className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground ${
+							// With no retry time the line holds only the link, so it shows
+							// only where the link does.
+							status.routerRetryAt != null ? "" : "min-[24rem]:hidden xl:flex"
+						}`}
+					>
 						{status.routerRetryAt != null && (
 							<span
 								title={new Date(
@@ -736,21 +770,7 @@ export function AccountListItem({
 								)}
 							</span>
 						)}
-						{showForceReset && (
-							<Button
-								variant="link"
-								className={INLINE_ACTION_CLASS}
-								onClick={() => onForceResetRateLimit(account)}
-								aria-label={`Clear cooldown for ${account.name}`}
-								title={
-									staleLockDetected
-										? "Clear a possibly stale router cooldown. Provider usage limits are unchanged."
-										: "Clear the router’s saved rate-limit state. Provider usage limits are unchanged."
-								}
-							>
-								Clear cooldown
-							</Button>
-						)}
+						{clearCooldownAction(REMEDY_BESIDE_STATUS)}
 					</span>
 				)}
 				{staleLockDetected && (
@@ -777,8 +797,8 @@ export function AccountListItem({
 				)}
 			</div>
 
-			<div className="flex min-w-0 items-start gap-1 border-t pt-3 xl:col-start-2 xl:row-start-1 xl:border-t-0 xl:pt-0">
-				<div className="min-w-0 flex-1">
+			<div className="relative min-w-0 border-t pt-3 xl:col-start-2 xl:row-start-1 xl:flex xl:items-start xl:gap-1 xl:border-t-0 xl:pt-0">
+				<div className="min-w-0 xl:flex-1">
 					<RateLimitProgress
 						compact
 						bindingWindow={representedBinding?.window}
@@ -806,11 +826,13 @@ export function AccountListItem({
 					)}
 				</div>
 				{canRefreshUsage ? (
-					// Lifted so the icon centres on the usage block's first line.
+					// Narrow: pinned to the right end of the "Usage and resets" line, so the
+					// bars keep their full width. Wide: its own column, lifted so the icon
+					// centres on the first bar.
 					<Button
 						variant="ghost"
 						size="touch-icon"
-						className="-mt-3 shrink-0"
+						className="absolute -top-0.5 -right-3 xl:static xl:-mt-3 xl:shrink-0"
 						disabled={isRefreshingUsage}
 						onClick={refreshUsage}
 						aria-label={`Refresh usage for ${account.name}`}
