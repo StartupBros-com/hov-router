@@ -9,7 +9,10 @@ import type {
 	WindowTokenAggregate,
 } from "@better-ccflare/core";
 import {
+	deriveExtraUsageHolds,
 	PAUSE_REASON_NEEDS_REAUTH,
+	sameExtraUsageHolds,
+	shouldNarrowBilledHold,
 	TIME_CONSTANTS,
 } from "@better-ccflare/core";
 import {
@@ -32,6 +35,7 @@ import type {
 	ComboRoutingPolicySnapshot,
 	ComboSlot,
 	ComboWithSlots,
+	ExtraUsageHoldInputs,
 	ExtraUsageHoldState,
 	FamilyAliasPolicyApplyInput,
 	FamilyAliasPolicyApplyResult,
@@ -1300,18 +1304,94 @@ OAuth tokens will need to be re-authenticated.
 		return this.usageHistory;
 	}
 
+	/**
+	 * Persist one usage reading's windows, then apply the reading to the
+	 * login's extra-usage holds. The hold step runs even when the history write
+	 * failed, and its own failure is logged rather than thrown, so neither step
+	 * can cost the other its write.
+	 */
 	async recordUsageSnapshot(
 		accountId: string,
 		usage: import("@better-ccflare/types").CanonicalUsageWindow[],
 		now: number,
 		expectedCreatedAt?: number,
 	): Promise<void> {
-		await this.usageHistory.recordSnapshot(
-			accountId,
-			usage,
-			now,
-			expectedCreatedAt,
+		try {
+			await this.usageHistory.recordSnapshot(
+				accountId,
+				usage,
+				now,
+				expectedCreatedAt,
+			);
+		} finally {
+			try {
+				await this.applyReadingToExtraUsageHolds(
+					accountId,
+					usage,
+					now,
+					expectedCreatedAt,
+				);
+			} catch (err) {
+				new Logger("ExtraUsageHolds").warn(
+					`Failed to apply a usage reading to extra-usage holds for account ${accountId}: ${err}`,
+				);
+			}
+		}
+	}
+
+	/**
+	 * Bring a Claude login's stored extra-usage holds up to date with one
+	 * reading taken at `readingAt`. Acts only for provider `anthropic` with the
+	 * switch on and, when given, the expected account generation; writes only
+	 * when the holds change or the reading narrows a hold from a billed
+	 * response.
+	 */
+	private async applyReadingToExtraUsageHolds(
+		accountId: string,
+		windows: import("@better-ccflare/types").CanonicalUsageWindow[],
+		readingAt: number,
+		expectedCreatedAt?: number,
+	): Promise<void> {
+		const inputs = await this.accounts.getExtraUsageHoldInputs(accountId);
+		if (!inputs || inputs.provider !== "anthropic" || !inputs.switchOn) return;
+		if (
+			expectedCreatedAt !== undefined &&
+			inputs.createdAt !== expectedCreatedAt
+		) {
+			return;
+		}
+		const next = deriveExtraUsageHolds(inputs.holds, windows, readingAt);
+		if (next === inputs.holds) return;
+		const narrow =
+			inputs.paused &&
+			inputs.pauseReason === "overage" &&
+			shouldNarrowBilledHold(
+				{
+					billedAt: inputs.overageBilledAt,
+					family: inputs.overageBilledFamily,
+				},
+				windows,
+				readingAt,
+			);
+		const unchanged = sameExtraUsageHolds(
+			inputs.holds?.holds ?? [],
+			next.holds,
 		);
+		if (unchanged && !narrow) return;
+		await this.accounts.writeExtraUsageHolds(accountId, next, {
+			expectedCreatedAt: inputs.createdAt,
+			narrowBilledAt:
+				narrow && inputs.overageBilledAt !== null
+					? inputs.overageBilledAt
+					: undefined,
+		});
+	}
+
+	/** The columns the extra-usage hold step and the send-time check read, fresh by id. */
+	async getExtraUsageHoldInputs(
+		accountId: string,
+	): Promise<ExtraUsageHoldInputs | null> {
+		return this.accounts.getExtraUsageHoldInputs(accountId);
 	}
 
 	async getUsageHistory(opts: {

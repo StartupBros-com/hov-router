@@ -267,6 +267,21 @@ export function parseExtraUsageHoldState(
 	};
 }
 
+/**
+ * What applying a usage reading to holds, and checking holds just before a
+ * send, read from one account row, fresh by id.
+ */
+export interface ExtraUsageHoldInputs {
+	provider: string;
+	createdAt: number;
+	switchOn: boolean;
+	holds: ExtraUsageHoldState | null;
+	paused: boolean;
+	pauseReason: string | null;
+	overageBilledAt: number | null;
+	overageBilledFamily: string | null;
+}
+
 // Database row types that match the actual database schema
 export interface AccountRow {
 	id: string;

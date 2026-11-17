@@ -2,7 +2,9 @@ import { Logger } from "@better-ccflare/logger";
 import {
 	type Account,
 	type AccountRow,
+	type ExtraUsageHoldInputs,
 	type ExtraUsageHoldState,
+	parseExtraUsageHoldState,
 	type RateLimitReason,
 	toAccount,
 } from "@better-ccflare/types";
@@ -707,6 +709,41 @@ export class AccountRepository extends BaseRepository<Account> {
 			[billedAt, billedAt, family, family, accountId],
 		);
 		return changes > 0;
+	}
+
+	/** The columns the extra-usage hold step and the send-time check read, fresh by id. */
+	async getExtraUsageHoldInputs(
+		accountId: string,
+	): Promise<ExtraUsageHoldInputs | null> {
+		const row = await this.get<{
+			provider: string | null;
+			created_at: number;
+			switch_on: number;
+			extra_usage_holds: string | null;
+			paused: number;
+			pause_reason: string | null;
+			overage_billed_at: number | null;
+			overage_billed_family: string | null;
+		}>(
+			`SELECT provider, created_at,
+				COALESCE(auto_pause_on_overage_enabled, 0) AS switch_on,
+				extra_usage_holds, COALESCE(paused, 0) AS paused, pause_reason,
+				overage_billed_at, overage_billed_family
+			 FROM accounts WHERE id = ?`,
+			[accountId],
+		);
+		if (!row) return null;
+		return {
+			provider: row.provider ?? "anthropic",
+			createdAt: Number(row.created_at),
+			switchOn: row.switch_on === 1,
+			holds: parseExtraUsageHoldState(row.extra_usage_holds),
+			paused: row.paused === 1,
+			pauseReason: row.pause_reason,
+			overageBilledAt:
+				row.overage_billed_at === null ? null : Number(row.overage_billed_at),
+			overageBilledFamily: row.overage_billed_family,
+		};
 	}
 
 	/**
