@@ -485,6 +485,18 @@ describe("the check just before each send", () => {
 			);
 			expect(sent).toEqual(["claude-opus-4-8"]);
 		});
+
+		it("sends as today for a login selected with the switch off", async () => {
+			standIn((model) => success(model));
+			const selected = makeAccount({
+				auto_pause_on_overage_enabled: false,
+				extra_usage_holds: opusHeld().holds,
+			});
+			expect(await send(selected, failingCtx(), "claude-opus-4-8")).toBe(
+				"sent",
+			);
+			expect(sent).toEqual(["claude-opus-4-8"]);
+		});
 	});
 
 	it("a route naming a different login is skipped, not refused", async () => {
@@ -495,12 +507,24 @@ describe("the check just before each send", () => {
 		expect(sent).toEqual([]);
 	});
 
-	it("with the switch off, no hold read happens and the request is sent as today", async () => {
+	it("a switch turned on after selection is read at send time, and its stored hold stops the send", async () => {
 		standIn((model) => success(model));
 		const { ctx, getExtraUsageHoldInputs } = makeCtx(opusHeld());
+		// Selected while the switch was off, as a retry is after its backoff.
+		const selected = makeAccount({
+			auto_pause_on_overage_enabled: false,
+			extra_usage_holds: null,
+		});
+		expect(await send(selected, ctx, "claude-opus-4-8")).toBeNull();
+		expect(getExtraUsageHoldInputs).toHaveBeenCalled();
+		expect(sent).toEqual([]);
+	});
+
+	it("with the switch off in the store, the request is sent as today", async () => {
+		standIn((model) => success(model));
+		const { ctx } = makeCtx({ ...opusHeld(), switchOn: false });
 		const account = makeAccount({ auto_pause_on_overage_enabled: false });
 		expect(await send(account, ctx, "claude-opus-4-8")).toBe("sent");
-		expect(getExtraUsageHoldInputs).not.toHaveBeenCalled();
 		expect(sent).toEqual(["claude-opus-4-8"]);
 	});
 

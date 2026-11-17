@@ -872,9 +872,10 @@ class ExtraUsageHoldDenied extends NativeQuotaAdmissionDenied {}
 class ExtraUsageHoldForceRefusal extends ForceRouteUnavailableError {}
 
 /**
- * Reread a Claude login's hold columns just before a send, so a hold written
- * after selection still stops it. Reads nothing unless the selected login is
- * a Claude login with the extra-usage switch on.
+ * Reread a Claude login's switch and hold columns just before a send, so a
+ * hold written after selection, or a switch turned on after it (a retry keeps
+ * the login it was selected with), still stops it. Reads nothing for a login
+ * that is not a Claude login.
  */
 async function assertNoExtraUsageHold(
 	account: Account,
@@ -882,11 +883,7 @@ async function assertNoExtraUsageHold(
 	requestMeta: RequestMeta,
 	ctx: ProxyContext,
 ): Promise<void> {
-	if (
-		account.provider !== "anthropic" ||
-		!account.auto_pause_on_overage_enabled
-	)
-		return;
+	if (account.provider !== "anthropic") return;
 	let stored: ExtraUsageHoldInputs | null;
 	try {
 		stored = await ctx.dbOps.getExtraUsageHoldInputs(account.id);
