@@ -747,6 +747,38 @@ describe("AccountListItem row actions", () => {
 		);
 	});
 
+	it("shows a link-only retry line where Clear cooldown sits beside Re-authenticate", () => {
+		const status = statusColumn(
+			visibleRow(
+				makeAccount({
+					paused: false,
+					requiresReauth: true,
+					rateLimitStatus: "rate_limited",
+				}),
+				{ onAnthropicReauth: noop },
+			),
+		);
+		expect(reauthButton(status)).toBeDefined();
+		expect(status).not.toContain("Router retry");
+		const link = buttonWith(status, "Clear cooldown");
+		expect(classes(link)).toEqual(
+			expect.arrayContaining(["min-[21rem]:hidden", "min-[24rem]:inline-flex"]),
+		);
+		// The line follows the link: hidden where Clear cooldown is on the action
+		// line, spaced off Re-authenticate where the link sits right below it.
+		const line = status.slice(
+			status.lastIndexOf("<span", status.indexOf(link as string)),
+		);
+		expect(classes(line)).toEqual(
+			expect.arrayContaining([
+				"min-[21rem]:hidden",
+				"min-[24rem]:flex",
+				"max-[21rem]:mt-2",
+				"xl:mt-2",
+			]),
+		);
+	});
+
 	it("puts Re-authenticate beside the status it fixes unless the action line has room", () => {
 		const html = visibleRow(
 			makeAccount({ pauseReason: "oauth_invalid_grant" }),
