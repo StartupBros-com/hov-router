@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { ExtraUsageHoldState } from "@better-ccflare/types";
 import {
-	coveringExtraUsageHold,
 	coveringExtraUsageHolds,
 	deriveExtraUsageHolds,
 	extraUsageHoldCoversModel,
@@ -326,46 +325,47 @@ describe("whether a hold applies", () => {
 	it("applies before the reset and not at the reset instant", () => {
 		expect(liveExtraUsageHolds(state, WEEK_RESET - 1)).toHaveLength(1);
 		expect(liveExtraUsageHolds(state, WEEK_RESET)).toEqual([]);
-		expect(
-			coveringExtraUsageHold(state, "claude-opus-5-5", WEEK_RESET - 1),
-		).toBe(state.holds[0] ?? null);
-		expect(
-			coveringExtraUsageHold(state, "claude-opus-5-5", WEEK_RESET),
-		).toBeNull();
 	});
 
 	it("a family hold covers only that family", () => {
-		expect(coveringExtraUsageHold(state, "claude-sonnet-5-5", NOW)).toBeNull();
-		expect(
-			coveringExtraUsageHold(state, "claude-opus-5-5", NOW)?.windowKey,
-		).toBe("seven_day_opus");
+		const hold = state.holds[0];
+		if (!hold) throw new Error("fixture has no hold");
+		expect(extraUsageHoldCoversModel(hold, "claude-sonnet-5-5")).toBe(false);
+		expect(extraUsageHoldCoversModel(hold, "claude-opus-5-5")).toBe(true);
 	});
 
-	it("of several covering holds, the one that ends last is returned", () => {
-		const both: ExtraUsageHoldState = {
-			readingAt: NOW,
-			holds: [
-				...state.holds,
-				{
-					windowKey: "five_hour",
-					scope: "account",
-					modelFamily: null,
-					resetsAtMs: SESSION_RESET,
-					startedAt: NOW,
-				},
-			],
+	it("an account-wide hold covers every family alongside a family hold", () => {
+		const login = {
+			provider: "anthropic",
+			auto_pause_on_overage_enabled: true,
+			extra_usage_holds: {
+				readingAt: NOW,
+				holds: [
+					...state.holds,
+					{
+						windowKey: "five_hour",
+						scope: "account",
+						modelFamily: null,
+						resetsAtMs: SESSION_RESET,
+						startedAt: NOW,
+					},
+				],
+			} satisfies ExtraUsageHoldState,
 		};
 		expect(
-			coveringExtraUsageHold(both, "claude-opus-5-5", NOW)?.resetsAtMs,
-		).toBe(WEEK_RESET);
+			coveringExtraUsageHolds(login, "claude-opus-5-5", NOW).map(
+				(hold) => hold.windowKey,
+			),
+		).toEqual(["seven_day_opus", "five_hour"]);
 		expect(
-			coveringExtraUsageHold(both, "claude-sonnet-5-5", NOW)?.windowKey,
-		).toBe("five_hour");
+			coveringExtraUsageHolds(login, "claude-sonnet-5-5", NOW).map(
+				(hold) => hold.windowKey,
+			),
+		).toEqual(["five_hour"]);
 	});
 
 	it("no stored state applies nothing", () => {
 		expect(liveExtraUsageHolds(null, NOW)).toEqual([]);
-		expect(coveringExtraUsageHold(null, "claude-opus-5-5", NOW)).toBeNull();
 	});
 });
 

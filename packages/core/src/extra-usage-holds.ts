@@ -154,23 +154,6 @@ export function extraUsageHoldWindowKind(
 }
 
 /**
- * The live hold that covers `model`, choosing the one that ends last when
- * several do (that end is when the model can be sent again), or null.
- */
-export function coveringExtraUsageHold(
-	state: ExtraUsageHoldState | null | undefined,
-	model: string,
-	now: number,
-): ExtraUsageHold | null {
-	let covering: ExtraUsageHold | null = null;
-	for (const hold of liveExtraUsageHolds(state, now)) {
-		if (!extraUsageHoldCoversModel(hold, model)) continue;
-		if (!covering || hold.resetsAtMs > covering.resetsAtMs) covering = hold;
-	}
-	return covering;
-}
-
-/**
  * Whether a reading narrows a hold from a billed response (the `overage`
  * pause, which holds every model) to the reading's own holds.
  *
