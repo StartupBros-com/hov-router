@@ -268,6 +268,25 @@ export function parseExtraUsageHoldState(
 }
 
 /**
+ * A Claude login's extra-usage setting at Anthropic, read from its cached
+ * usage reading. `unknown` covers no reading, an out-of-date one, and a state
+ * the router cannot place as on or off.
+ */
+export interface AccountExtraUsage {
+	state: "on" | "off" | "unknown";
+	/** When the cached reading was taken; null when none is cached. */
+	readingAt: number | null;
+}
+
+/** A hold from a response billed to extra usage. */
+export interface AccountExtraUsageBilledHold {
+	/** When the billed response arrived; null for a pause from before holds were recorded. */
+	billedAt: number | null;
+	/** The model family of the billed response; null when not recorded. */
+	family: string | null;
+}
+
+/**
  * What applying a usage reading to holds, and checking holds just before a
  * send, read from one account row, fresh by id.
  */
@@ -584,6 +603,15 @@ export interface AccountResponse {
 	priority: number;
 	autoFallbackEnabled: boolean;
 	autoPauseOnOverageEnabled?: boolean;
+	/** Claude logins only: the extra-usage setting at Anthropic. */
+	extraUsage?: AccountExtraUsage;
+	/**
+	 * Claude logins only: holds from usage readings that stop routing while
+	 * the switch is on, listing only those whose reset is still ahead.
+	 */
+	extraUsageHolds?: ExtraUsageHold[];
+	/** Claude logins only: the hold from a billed response, while the switch is on. */
+	extraUsageBilledHold?: AccountExtraUsageBilledHold | null;
 	codexCreditDrainEnabled?: boolean;
 	/** Published on the public subscription value feed (#536). */
 	publicValueEnabled?: boolean;
