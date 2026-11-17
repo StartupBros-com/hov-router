@@ -206,6 +206,8 @@ describe("documented source install", () => {
 		expect(section).toContain(
 			"Turn the switch on only when the member says yes",
 		);
+		expect(section).toContain("tell the member in one sentence");
+		expect(section).toContain("Otherwise leave it off.");
 		// Ask for a first reading only when there is none; otherwise report it.
 		expect(section).toContain(
 			"Only when `extraUsage.readingAt` is `null`, call `POST /api/accounts/<id>/refresh-usage` once",

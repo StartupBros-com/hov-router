@@ -19,7 +19,8 @@ const iso = (ms: number) => new Date(ms).toISOString();
  * nobody has recorded a spent per-model limit.
  */
 function reading(
-	opus: { percent: number; reset: number } | null,
+	scoped: { percent: number; reset: number | null } | null,
+	model = "Opus",
 ): CanonicalUsageWindow[] {
 	const limits: unknown[] = [
 		{
@@ -37,12 +38,12 @@ function reading(
 			is_active: true,
 		},
 	];
-	if (opus) {
+	if (scoped) {
 		limits.push({
 			kind: "weekly_scoped",
-			percent: opus.percent,
-			resets_at: iso(opus.reset),
-			scope: { model: { id: null, display_name: "Opus" }, surface: null },
+			percent: scoped.percent,
+			resets_at: scoped.reset === null ? null : iso(scoped.reset),
+			scope: { model: { id: null, display_name: model }, surface: null },
 			is_active: true,
 		});
 	}
@@ -137,6 +138,23 @@ describe("a usage reading updates the stored holds", () => {
 			readingAt: NOW + HOUR,
 			holds: [],
 		});
+	});
+
+	it("a spent limit with no reset time, or one already past, stores no hold", async () => {
+		await seed("no-reset");
+		await seed("past-reset");
+		await dbOps.recordUsageSnapshot(
+			"no-reset",
+			reading({ percent: 100, reset: null }),
+			NOW,
+		);
+		await dbOps.recordUsageSnapshot(
+			"past-reset",
+			reading({ percent: 100, reset: NOW - HOUR }),
+			NOW,
+		);
+		for (const id of ["no-reset", "past-reset"])
+			expect((await inputs(id))?.holds?.holds ?? []).toEqual([]);
 	});
 
 	it("a reading that changes no hold leaves the stored reading time on the one that last changed it", async () => {
@@ -238,6 +256,24 @@ describe("a reading narrows a hold from a billed response", () => {
 		const after = await inputs("a");
 		expect(after?.paused).toBe(true);
 		expect(after?.pauseReason).toBe("overage");
+	});
+
+	it("a reading with only weekly Fable spent leaves an Opus billed hold on every model", async () => {
+		await seed("a", {
+			paused: true,
+			pauseReason: "overage",
+			billedAt: BILLED_AT,
+			billedFamily: "opus",
+		});
+		await dbOps.recordUsageSnapshot(
+			"a",
+			reading({ percent: 100, reset: WEEK_RESET }, "Fable"),
+			NOW,
+		);
+		const after = await inputs("a");
+		expect(after?.paused).toBe(true);
+		expect(after?.pauseReason).toBe("overage");
+		expect(after?.holds?.holds.map((h) => h.modelFamily)).toEqual(["fable"]);
 	});
 
 	it("a pause from before the upgrade, with no billed time, is never narrowed", async () => {

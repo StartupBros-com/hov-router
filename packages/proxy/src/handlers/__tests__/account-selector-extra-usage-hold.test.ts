@@ -126,6 +126,18 @@ function opusHeld(
 	});
 }
 
+/** A context with the real session strategy, which leaves paused logins out. */
+function withSessionStrategy(accounts: Account[]): ProxyContext {
+	const ctx = makeCtx(accounts);
+	const strategy = new SessionStrategy();
+	strategy.initialize({
+		resetAccountSession: mock(() => {}),
+		resumeAccount: mock(async () => ({ resumed: true, pauseReason: null })),
+	} as unknown as StrategyStore);
+	ctx.strategy = strategy;
+	return ctx;
+}
+
 const cachedAccountIds = new Set<string>();
 function cacheUsage(accountId: string, data: unknown): void {
 	usageCache.set(accountId, data as never);
@@ -378,16 +390,7 @@ describe("selection with extra-usage holds", () => {
 	it("a login with an Opus hold and an overage pause takes nothing; after resume it takes Sonnet and still refuses Opus until the reset", async () => {
 		// The real strategy, not the pass-through stub: it is the strategy that
 		// leaves a paused login out of ordinary selection.
-		const withStrategy = (accounts: Account[]) => {
-			const ctx = makeCtx(accounts);
-			const strategy = new SessionStrategy();
-			strategy.initialize({
-				resetAccountSession: mock(() => {}),
-				resumeAccount: mock(async () => ({ resumed: true, pauseReason: null })),
-			} as unknown as StrategyStore);
-			ctx.strategy = strategy;
-			return ctx;
-		};
+		const withStrategy = withSessionStrategy;
 		const paused = opusHeld({ paused: true, pause_reason: "overage" });
 		for (const model of [OPUS, SONNET]) {
 			expect(
@@ -416,6 +419,85 @@ describe("selection with extra-usage holds", () => {
 				OPUS,
 			),
 		).toEqual([]);
+	});
+
+	it("a login paused by a billed response gets the refusal a paused login gets today", async () => {
+		const refusal = async (login: Account) => {
+			const meta = makeRequestMeta();
+			expect(
+				await selectAccountsForRequest(
+					meta,
+					withSessionStrategy([login]),
+					OPUS,
+				),
+			).toEqual([]);
+			const terminal = createRoutingTerminalResponse({
+				source: "selection",
+				accounts: [login],
+				capacityContext: getRoutingCapacityContext(meta),
+				rateLimitOutcomes: [],
+				upstreamAttempts: 0,
+			});
+			return { kind: terminal.kind, status: terminal.response.status };
+		};
+		const billed = await refusal(
+			makeAccount({
+				id: "billed",
+				auto_pause_on_overage_enabled: true,
+				paused: true,
+				pause_reason: "overage",
+				overage_billed_at: Date.now() - 60_000,
+				overage_billed_family: "opus",
+			}),
+		);
+		// Today's pauses: an extra-usage pause with the switch off, and a manual one.
+		expect(billed).toEqual(
+			await refusal(
+				makeAccount({ id: "off", paused: true, pause_reason: "overage" }),
+			),
+		);
+		expect(billed).toEqual(
+			await refusal(
+				makeAccount({ id: "manual", paused: true, pause_reason: "manual" }),
+			),
+		);
+	});
+
+	it("with the switch on, a reading that shows Opus spent with no reset time, or one already past, and no stored hold routes Opus as with the switch off", async () => {
+		for (const resetsAt of [null, new Date(Date.now() - HOUR).toISOString()]) {
+			const picked = async (switchOn: boolean) => {
+				const login = makeAccount({
+					id: `switch-${switchOn ? "on" : "off"}`,
+					auto_pause_on_overage_enabled: switchOn,
+				});
+				cacheUsage(
+					login.id,
+					readingWith({
+						limits: [
+							{
+								kind: "weekly_scoped",
+								percent: 100,
+								resets_at: resetsAt,
+								scope: {
+									model: { id: null, display_name: "Opus" },
+									surface: null,
+								},
+								is_active: true,
+							},
+						],
+					}),
+				);
+				return (
+					await selectAccountsForRequest(
+						makeRequestMeta(),
+						makeCtx([login]),
+						OPUS,
+					)
+				).length;
+			};
+			expect(await picked(true)).toBe(1);
+			expect(await picked(false)).toBe(1);
+		}
 	});
 
 	it("a spent 5-hour reading still excludes the login with the switch off, as before", async () => {

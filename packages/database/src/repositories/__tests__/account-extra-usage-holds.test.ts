@@ -183,6 +183,17 @@ describe("stored extra-usage holds", () => {
 			expect(acct?.overage_billed_family).toBeNull();
 		});
 
+		it("keeps the holds from a reading when a billed response pauses the login", async () => {
+			const state = opusHold(T0 - 60_000, T0 + 3_600_000);
+			seed(db, { holds: state });
+			expect(await repo.holdForBilledResponse("a1", T0, "sonnet")).toBe(true);
+			const acct = await repo.findById("a1");
+			expect(acct?.paused).toBe(true);
+			expect(acct?.pause_reason).toBe("overage");
+			expect(acct?.overage_billed_family).toBe("sonnet");
+			expect(acct?.extra_usage_holds).toEqual(state);
+		});
+
 		it("holds a resumed login again and overwrites the old billed columns", async () => {
 			seed(db, { billedAt: T0 - 100, billedFamily: "sonnet" });
 			expect(await repo.holdForBilledResponse("a1", T0, "opus")).toBe(true);

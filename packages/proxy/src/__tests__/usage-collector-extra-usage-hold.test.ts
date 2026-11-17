@@ -194,6 +194,19 @@ describe("a billed response holds the login", () => {
 		]);
 	});
 
+	it("a Sonnet response billed to extra usage writes the billed hold with family sonnet", async () => {
+		await record({
+			accounting: {
+				accountGeneration: 1,
+				provider: "anthropic",
+				model: "claude-sonnet-5-5",
+				nativeCache: true,
+				internal: false,
+			},
+		});
+		expect(holdCalls.map(([, , family]) => family)).toEqual(["sonnet"]);
+	});
+
 	it("with no model on the start message, the billed family is null", async () => {
 		await record({
 			accounting: {
