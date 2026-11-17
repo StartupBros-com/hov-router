@@ -43,14 +43,18 @@ export type RateLimitReason =
 	 *  rotation. */
 	| "windowless_429"
 	/** Anthropic 403 `permission_error` — the account's ORGANIZATION forbids the
-	 *  request (OAuth disabled org-wide, Claude Code subscription access turned
-	 *  off by an admin). Nothing about the account's own quota is wrong, but it
-	 *  cannot serve any request until an admin changes a setting upstream, so it
-	 *  is benched like an exhausted window and the request fails over. Unlike
-	 *  `out_of_credits` / `extra_usage_exhausted` this is account-wide, not
-	 *  scoped to a model or surface, so it DOES count as a circuit failure.
-	 *  Not time-bounded: the bench will expire and the single-flight recovery
-	 *  probe will rediscover the 403 until the org setting actually changes. */
+	 *  request: a failed subscription payment, OAuth disabled org-wide, or Claude
+	 *  Code subscription access turned off by an admin. Nothing about the
+	 *  account's own quota is wrong, but it cannot serve any request until the
+	 *  organization is fixed upstream (the payment made or the setting
+	 *  restored), so it is benched like an exhausted window and the request
+	 *  fails over. Unlike `out_of_credits` / `extra_usage_exhausted` this is
+	 *  account-wide, not scoped to a model or surface, so it DOES count as a
+	 *  circuit failure. Not time-bounded: the bench will expire and the
+	 *  single-flight recovery probe will rediscover the 403 until the
+	 *  organization is fixed. On 2026-11-16 a failed payment produced
+	 *  `oauth_not_allowed_for_organization`; after renewal the account served
+	 *  again with no router action. */
 	| "org_permission_denied";
 
 // Usage data types for Anthropic accounts

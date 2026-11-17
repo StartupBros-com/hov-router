@@ -752,7 +752,7 @@ Force-clear persisted rate-limit lock state for an account and trigger immediate
 - Clears `rate_limit_reset`
 - Clears `rate_limit_status`
 - Clears `rate_limit_remaining`
-- Triggers immediate usage poll for the account (if polling is configured in-process)
+- Triggers immediate usage poll for the account (if polling is configured in-process), except while the usage endpoint's last 429 `retry-after` is still running. Any usage request inside that wait restarts it, so none is sent and `usagePollTriggered` is `false`; polling resumes when the wait ends. A 429 drawn by this call starts such a wait.
 
 **Response:**
 ```json

@@ -961,7 +961,10 @@ class UsageCache {
 	 * When each account's usage-endpoint 429 clears (#869). A request sent
 	 * before then draws a fresh retry-after, so no fetch leaves while it is
 	 * live. Only a newer endpoint answer, expiry or `clear()` removes it:
-	 * a polling restart and a token reload's `delete()` keep it.
+	 * a polling restart and a token reload's `delete()` keep it. Observed in
+	 * production on 2026-11-16: Anthropic answered `retry-after: 3600`, each
+	 * request inside the wait restarted the full hour, and a poll sent at the
+	 * deadline succeeded, so no padding past the deadline is needed.
 	 */
 	private usageRateLimitedUntil = new Map<string, number>();
 	private modelScopedDepletions = new Map<

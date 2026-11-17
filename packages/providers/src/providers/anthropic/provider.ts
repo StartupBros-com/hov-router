@@ -92,10 +92,10 @@ export async function isAnthropicExtraUsageExhausted(
 
 /**
  * Anthropic returns 403 `permission_error` when the account's ORGANIZATION —
- * not the account's quota — forbids the request: OAuth disabled org-wide,
- * Claude Code subscription access turned off by an admin, and the like. The
- * account cannot serve ANY request until someone changes a setting upstream,
- * so it must be benched and the request failed over, exactly like an exhausted
+ * not the account's quota — forbids the request: a failed subscription
+ * payment, OAuth disabled org-wide, Claude Code subscription access turned off
+ * by an admin, and the like. The account cannot serve ANY request until the
+ * organization is fixed upstream, so it must be benched and the request failed over, exactly like an exhausted
  * quota window. Distinct from `out_of_credits` / `extra_usage_exhausted`,
  * which are scoped to a model or surface and leave the account routable.
  */

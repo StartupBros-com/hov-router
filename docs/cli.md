@@ -209,7 +209,7 @@ bun run cli --force-reset-rate-limit <name>
 - Clears `rate_limit_reset`
 - Clears `rate_limit_status`
 - Clears `rate_limit_remaining`
-- Attempts to trigger immediate usage polling on running local servers
+- Attempts to trigger immediate usage polling on running local servers. A server skips that poll while the usage endpoint's last 429 `retry-after` is still running, because any usage request inside the wait restarts it.
 
 #### `--resume <name>`
 
