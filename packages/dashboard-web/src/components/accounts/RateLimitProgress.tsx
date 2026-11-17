@@ -265,7 +265,10 @@ export function RateLimitProgress({
 	return (
 		<div
 			className={cn(
-				compact ? "@container min-w-0 space-y-1.5" : "space-y-3",
+				// Compact rows lay out by the width of a container their caller marks
+				// with @container, so a control the caller puts beside the bars does
+				// not push them into the stacked layout.
+				compact ? "min-w-0 space-y-1.5" : "space-y-3",
 				className,
 			)}
 		>

@@ -703,7 +703,7 @@ describe("AccountListItem row actions", () => {
 		// the narrowest phones (the action line has no room beside Pause).
 		const wide = buttonWith(status, "Clear cooldown");
 		expect(classes(wide)).toEqual(
-			expect.arrayContaining(["min-[24rem]:hidden", "xl:inline-flex"]),
+			expect.arrayContaining(["min-[21rem]:hidden", "xl:inline-flex"]),
 		);
 		expect(classes(wide)).not.toContain("hidden");
 		// In between, the action line has room left of Pause, so the same link sits
@@ -712,15 +712,18 @@ describe("AccountListItem row actions", () => {
 		expect(classes(narrow)).toEqual(
 			expect.arrayContaining([
 				"hidden",
-				"min-[24rem]:inline-flex",
+				"min-[21rem]:inline-flex",
 				"xl:hidden",
 			]),
 		);
 		for (const clear of [wide, narrow]) {
 			expect(clear).not.toContain("<svg");
 			expect(clear).toContain('aria-label="Clear cooldown for acc-1"');
-			// A 44px target that adds no 44px line where it sits.
-			expect(clear).toContain("after:h-11");
+			// A 44px target that adds no 44px line where it sits, lifted so the
+			// usage block below, which is positioned, cannot cover its lower half.
+			expect(classes(clear)).toEqual(
+				expect.arrayContaining(["after:h-11", "relative", "z-10"]),
+			);
 		}
 	});
 
@@ -740,7 +743,7 @@ describe("AccountListItem row actions", () => {
 			status.lastIndexOf("<span", status.indexOf(wide as string)),
 		);
 		expect(classes(line)).toEqual(
-			expect.arrayContaining(["min-[24rem]:hidden", "xl:flex"]),
+			expect.arrayContaining(["min-[21rem]:hidden", "xl:flex"]),
 		);
 	});
 
@@ -2245,6 +2248,23 @@ it("keeps priority in identity, lifetime requests in Details, and refresh on the
 	// One refresh control, on the row beside the usage it re-reads.
 	expect(visible).toContain('aria-label="Refresh usage for acc-1"');
 	expect(html.match(/aria-label="Refresh usage/g)).toHaveLength(1);
+});
+
+it("lays the usage bars out by the whole usage cell, refresh column included", () => {
+	// The bars switch to one line per window at a container width. Measuring the
+	// whole cell keeps that switch where it was before the refresh column took
+	// 48px of it on wide screens; measuring only the bars stacked them at 1440px.
+	const html = withoutDetailsContent(
+		renderToStaticMarkup(
+			<AccountListItem account={makeAccount()} {...requiredHandlers} />,
+		),
+	);
+	expect(html.match(/@container/g)).toHaveLength(1);
+	const cell = html.slice(
+		html.lastIndexOf("<div", html.indexOf("xl:col-start-2 xl:row-start-1")),
+	);
+	expect(cell.slice(0, cell.indexOf(">"))).toContain("@container");
+	expect(cell).toContain('aria-label="Refresh usage for acc-1"');
 });
 
 it("represents a matching scoped binding inline and preserves unmatched exceptions", () => {

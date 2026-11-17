@@ -98,15 +98,26 @@ const SETTING_CLASS =
 const SETTING_SWITCH_CLASS =
 	"relative after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']";
 // A text action inside a status line: the line keeps its text height while the
-// hit area grows to 44px tall around the words.
+// hit area grows to 44px tall around the words. z-10 keeps the lower half of that
+// area above the usage block, which is positioned and comes later in the row.
 const INLINE_ACTION_CLASS =
-	"relative h-auto p-0 text-xs text-foreground underline underline-offset-2 after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2 after:content-['']";
-// Where a remedy (Clear cooldown, Re-authenticate) shows. From 24rem up to xl the
-// action line has room left of Pause, Details and More, so the remedy sits there
-// and adds no line. Narrower, it would wrap the action line; on xl the action
-// column is full. There it sits beside the status it fixes.
-const REMEDY_ON_ACTION_LINE = "hidden min-[24rem]:inline-flex xl:hidden";
-const REMEDY_BESIDE_STATUS = "min-[24rem]:hidden xl:inline-flex";
+	"relative z-10 h-auto p-0 text-xs text-foreground underline underline-offset-2 after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2 after:content-['']";
+// Where each remedy shows. From its breakpoint up to xl the action line has room
+// for it left of Pause, Details and More, so it sits there and adds no line.
+// Narrower, it would wrap the action line; on xl the action column is full. There
+// it sits beside the status it fixes. That room is the viewport width less 236px,
+// so each breakpoint leaves 8px to spare: Clear cooldown is 92px wide,
+// Re-authenticate 140px.
+const CLEAR_COOLDOWN_PLACEMENT = {
+	actionLine: "hidden min-[21rem]:inline-flex xl:hidden",
+	besideStatus: "min-[21rem]:hidden xl:inline-flex",
+	// The retry line when it holds only the link.
+	linkOnlyLine: "min-[21rem]:hidden xl:flex",
+};
+const REAUTH_PLACEMENT = {
+	actionLine: "hidden min-[24rem]:inline-flex xl:hidden",
+	besideStatus: "min-[24rem]:hidden xl:inline-flex",
+};
 
 /**
  * Codex-only usage extras (plan_type, credits_balance) come from the free
@@ -437,7 +448,7 @@ export function AccountListItem({
 								"Re-authenticate this Codex account (preserves all metadata)",
 						}
 					: null;
-	// Each remedy renders twice and shows once; see REMEDY_ON_ACTION_LINE.
+	// Each remedy renders twice and shows once; see CLEAR_COOLDOWN_PLACEMENT.
 	const clearCooldownAction = (display: string) =>
 		showForceReset && (
 			<Button
@@ -603,8 +614,8 @@ export function AccountListItem({
 				{/* Pause, Details and More hold one place on every row; a remedy joins
 				    them, to their left, only where the line has room for it. */}
 				<div className="ml-auto flex shrink-0 flex-wrap items-center gap-1 min-w-0 max-w-full justify-end xl:col-start-4 xl:row-start-1">
-					{clearCooldownAction(REMEDY_ON_ACTION_LINE)}
-					{reauthAction(REMEDY_ON_ACTION_LINE)}
+					{clearCooldownAction(CLEAR_COOLDOWN_PLACEMENT.actionLine)}
+					{reauthAction(REAUTH_PLACEMENT.actionLine)}
 					<Button
 						variant="ghost"
 						size="touch-icon"
@@ -726,7 +737,7 @@ export function AccountListItem({
 					{/* The status track's 10rem floor fits the longest label on one line. */}
 					<span className="whitespace-nowrap">{status.label}</span>
 				</StatusPill>
-				{reauthAction(REMEDY_BESIDE_STATUS)}
+				{reauthAction(REAUTH_PLACEMENT.besideStatus)}
 				{status.reason === "paused" && pauseReasonLabel && (
 					<span className="text-xs text-muted-foreground">
 						{`Auto-paused: ${pauseReasonLabel}`}
@@ -753,7 +764,9 @@ export function AccountListItem({
 						className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground ${
 							// With no retry time the line holds only the link, so it shows
 							// only where the link does.
-							status.routerRetryAt != null ? "" : "min-[24rem]:hidden xl:flex"
+							status.routerRetryAt != null
+								? ""
+								: CLEAR_COOLDOWN_PLACEMENT.linkOnlyLine
 						}`}
 					>
 						{status.routerRetryAt != null && (
@@ -770,7 +783,7 @@ export function AccountListItem({
 								)}
 							</span>
 						)}
-						{clearCooldownAction(REMEDY_BESIDE_STATUS)}
+						{clearCooldownAction(CLEAR_COOLDOWN_PLACEMENT.besideStatus)}
 					</span>
 				)}
 				{staleLockDetected && (
@@ -797,7 +810,9 @@ export function AccountListItem({
 				)}
 			</div>
 
-			<div className="relative min-w-0 border-t pt-3 xl:col-start-2 xl:row-start-1 xl:flex xl:items-start xl:gap-1 xl:border-t-0 xl:pt-0">
+			{/* The container for the compact bars' layout: the whole cell, so the
+			    refresh column beside them does not change where they switch. */}
+			<div className="@container relative min-w-0 border-t pt-3 xl:col-start-2 xl:row-start-1 xl:flex xl:items-start xl:gap-1 xl:border-t-0 xl:pt-0">
 				<div className="min-w-0 xl:flex-1">
 					<RateLimitProgress
 						compact
