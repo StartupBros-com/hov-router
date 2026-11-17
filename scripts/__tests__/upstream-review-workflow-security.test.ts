@@ -75,8 +75,11 @@ jobs:
 
 		// The self-hosted main-branch lane (linux-x64-bccf-main) was retired with
 		// the move out of StartupBros-com; no job here may route to LAN hardware.
+		// The image is pinned to the production host's Ubuntu release so the suite
+		// runs production's bash and coreutils. ubuntu-latest moved to 26.04 on
+		// 2026-11-17 (bash 5.3, uutils date; #880). Move the pin with production.
 		expect(workflow.jobs["managed-routing-foundation"]["runs-on"]).toBe(
-			"ubuntu-latest",
+			"ubuntu-24.04",
 		);
 	});
 

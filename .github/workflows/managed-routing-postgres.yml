@@ -12,7 +12,11 @@ permissions:
 
 jobs:
   managed-routing-foundation:
-    runs-on: ubuntu-latest
+    # The production host's Ubuntu release, so the suite runs production's bash
+    # (5.2.21) and GNU coreutils. ubuntu-latest moved to 26.04 under this gate on
+    # 2026-11-17, bringing bash 5.3 and uutils date, and the runner's clock read
+    # wrong only here (#880). Move this pin when production moves.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     steps:
