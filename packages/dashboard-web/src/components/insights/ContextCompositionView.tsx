@@ -116,7 +116,7 @@ function ContributorsTable({ contributors }: ContributorsTableProps) {
 								</Badge>
 							</td>
 							<td className="px-3 py-2">
-								<span className="text-muted-foreground break-all">
+								<span className="text-muted-foreground break-words">
 									{contributor.label}
 								</span>
 							</td>
@@ -202,12 +202,12 @@ function PerRequestTable({ rows }: PerRequestTableProps) {
 									{new Date(row.timestamp).toLocaleString()}
 								</td>
 								<td className="px-3 py-2">
-									<span className="text-muted-foreground break-all">
+									<span className="text-muted-foreground break-words">
 										{row.model ?? "—"}
 									</span>
 								</td>
 								<td className="px-3 py-2">
-									<span className="text-muted-foreground break-all">
+									<span className="text-muted-foreground break-words">
 										{row.project ?? "—"}
 									</span>
 								</td>

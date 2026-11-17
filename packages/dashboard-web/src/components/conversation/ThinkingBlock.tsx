@@ -35,7 +35,7 @@ function ThinkingBlockComponent({ content }: ThinkingBlockProps) {
 					</Button>
 				)}
 			</div>
-			<div className="text-xs text-yellow-700 dark:text-yellow-300 whitespace-pre overflow-x-auto">
+			<div className="text-xs text-yellow-700 dark:text-yellow-300 whitespace-pre-wrap break-words">
 				{display}
 			</div>
 		</div>

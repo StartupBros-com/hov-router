@@ -18,6 +18,8 @@ import {
 	CHART_TOOLTIP_STYLE,
 	COLORS,
 } from "../../constants";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { PHONE_MODEL_AXIS_HEIGHT, phoneModelLabel } from "./axis-labels";
 import { ChartContainer } from "./ChartContainer";
 import { ChartTooltip } from "./ChartTooltip";
 import { getTooltipStyles } from "./chart-utils";
@@ -66,6 +68,18 @@ export function ModelPerformanceComparison({
 	height = CHART_HEIGHTS.large,
 	viewMode = "speed-cost",
 }: ModelPerformanceComparisonProps) {
+	// On a phone the side margins and rotated axis titles left the plot about
+	// 50 px wide. Below sm both go; the legend still names each series and the
+	// tooltip gives its units.
+	const isWide = useMediaQuery("(min-width: 640px)");
+	const plotMargin = isWide
+		? { top: 20, right: 30, left: 20, bottom: 80 }
+		: { top: 20, right: 8, left: 0, bottom: 80 };
+	// Model names stand upright on a phone; see phoneModelLabel.
+	const modelLabelAngle = isWide ? -45 : -90;
+	const modelAxisHeight = isWide ? 80 : PHONE_MODEL_AXIS_HEIGHT;
+	const modelLabelFormatter = isWide ? undefined : phoneModelLabel;
+
 	// Filter and prepare data
 	const chartData = data
 		.filter((d) => d.avgTokensPerSecond !== null && d.avgTokensPerSecond > 0)
@@ -84,10 +98,7 @@ export function ModelPerformanceComparison({
 				}
 			>
 				<ResponsiveContainer width="100%" height={height}>
-					<ComposedChart
-						data={chartData}
-						margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
-					>
+					<ComposedChart data={chartData} margin={plotMargin}>
 						<defs>
 							<linearGradient id="speedGradient" x1="0" y1="0" x2="0" y2="1">
 								<stop offset="0%" stopColor={COLORS.purple} stopOpacity={0.9} />
@@ -123,9 +134,10 @@ export function ModelPerformanceComparison({
 						/>
 						<XAxis
 							dataKey="model"
-							angle={-45}
+							angle={modelLabelAngle}
 							textAnchor="end"
-							height={80}
+							height={modelAxisHeight}
+							tickFormatter={modelLabelFormatter}
 							interval={0}
 							fontSize={12}
 							stroke={CHART_PROPS.axisStroke}
@@ -136,13 +148,17 @@ export function ModelPerformanceComparison({
 							orientation="left"
 							stroke={COLORS.purple}
 							fontSize={12}
-							label={{
-								fill: COLORS.purple,
-								value: "Tokens/Second",
-								angle: -90,
-								position: "insideLeft",
-								style: { textAnchor: "middle", fill: COLORS.purple },
-							}}
+							label={
+								isWide
+									? {
+											fill: COLORS.purple,
+											value: "Tokens/Second",
+											angle: -90,
+											position: "insideLeft",
+											style: { textAnchor: "middle", fill: COLORS.purple },
+										}
+									: undefined
+							}
 						/>
 						<YAxis
 							width="auto"
@@ -150,13 +166,17 @@ export function ModelPerformanceComparison({
 							orientation="right"
 							stroke={COLORS.warning}
 							fontSize={12}
-							label={{
-								fill: COLORS.warning,
-								value: "Cost per 1K Tokens ($)",
-								angle: 90,
-								position: "insideRight",
-								style: { textAnchor: "middle", fill: COLORS.warning },
-							}}
+							label={
+								isWide
+									? {
+											fill: COLORS.warning,
+											value: "Cost per 1K Tokens ($)",
+											angle: 90,
+											position: "insideRight",
+											style: { textAnchor: "middle", fill: COLORS.warning },
+										}
+									: undefined
+							}
 						/>
 						<ChartTooltip
 							cursor={{ stroke: CHART_PROPS.cursorStroke }}
@@ -166,7 +186,6 @@ export function ModelPerformanceComparison({
 						/>
 						<Legend
 							verticalAlign="top"
-							height={36}
 							iconType="rect"
 							wrapperStyle={{ paddingBottom: "10px" }}
 						/>
@@ -207,10 +226,7 @@ export function ModelPerformanceComparison({
 				}
 			>
 				<ResponsiveContainer width="100%" height={height}>
-					<ComposedChart
-						data={chartData}
-						margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
-					>
+					<ComposedChart data={chartData} margin={plotMargin}>
 						<defs>
 							<linearGradient id="responseGradient" x1="0" y1="0" x2="0" y2="1">
 								<stop offset="0%" stopColor={COLORS.blue} stopOpacity={0.9} />
@@ -225,9 +241,10 @@ export function ModelPerformanceComparison({
 						<XAxis
 							stroke={CHART_PROPS.axisStroke}
 							dataKey="model"
-							angle={-45}
+							angle={modelLabelAngle}
 							textAnchor="end"
-							height={80}
+							height={modelAxisHeight}
+							tickFormatter={modelLabelFormatter}
 							interval={0}
 							fontSize={12}
 						/>
@@ -237,13 +254,17 @@ export function ModelPerformanceComparison({
 							yAxisId="time"
 							orientation="left"
 							fontSize={12}
-							label={{
-								fill: CHART_PROPS.axisStroke,
-								value: "Response Time (ms)",
-								angle: -90,
-								position: "insideLeft",
-								style: { textAnchor: "middle" },
-							}}
+							label={
+								isWide
+									? {
+											fill: CHART_PROPS.axisStroke,
+											value: "Response Time (ms)",
+											angle: -90,
+											position: "insideLeft",
+											style: { textAnchor: "middle" },
+										}
+									: undefined
+							}
 						/>
 						<YAxis
 							width="auto"
@@ -251,13 +272,17 @@ export function ModelPerformanceComparison({
 							yAxisId="error"
 							orientation="right"
 							fontSize={12}
-							label={{
-								fill: CHART_PROPS.axisStroke,
-								value: "Error Rate (%)",
-								angle: 90,
-								position: "insideRight",
-								style: { textAnchor: "middle" },
-							}}
+							label={
+								isWide
+									? {
+											fill: CHART_PROPS.axisStroke,
+											value: "Error Rate (%)",
+											angle: 90,
+											position: "insideRight",
+											style: { textAnchor: "middle" },
+										}
+									: undefined
+							}
 						/>
 						<ChartTooltip
 							cursor={{ stroke: CHART_PROPS.cursorStroke }}
@@ -265,7 +290,11 @@ export function ModelPerformanceComparison({
 							// biome-ignore lint/suspicious/noExplicitAny: recharts v3.8 widened Formatter to include undefined
 							formatter={performanceTooltipFormatter as any}
 						/>
-						<Legend verticalAlign="top" height={36} iconType="rect" />
+						<Legend
+							verticalAlign="top"
+							iconType="rect"
+							wrapperStyle={{ paddingBottom: "10px" }}
+						/>
 						<Bar
 							yAxisId="time"
 							dataKey="avgResponseTime"

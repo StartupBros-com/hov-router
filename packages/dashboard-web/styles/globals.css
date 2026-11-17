@@ -184,6 +184,18 @@
 		overflow: visible;
 	}
 
+	/*
+	 * A tooltip that appears again slides from where it last was (recharts
+	 * animates its transform), and on the way it can reach past the chart's
+	 * right edge. On a phone that makes the whole page wider, and the page
+	 * stays zoomed out after the tooltip settles. Clip sideways overflow at the
+	 * chart: a settled tooltip always fits inside it (ChartTooltip caps its
+	 * width), and nothing is clipped vertically.
+	 */
+	.recharts-responsive-container {
+		overflow-x: clip;
+	}
+
 	/* Smooth transitions for theme switching */
 	* {
 		transition:

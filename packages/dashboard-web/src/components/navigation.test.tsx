@@ -38,6 +38,39 @@ function status(
 	};
 }
 
+function renderDrawerOpening(matchesLg: boolean): string {
+	const g = globalThis as unknown as { window?: unknown };
+	const original = g.window;
+	g.window = { matchMedia: () => ({ matches: matchesLg }) };
+	const theme = spyOn(themeContext, "useTheme").mockReturnValue({
+		theme: "light",
+		setTheme: () => {},
+	});
+	try {
+		const markup = renderToStaticMarkup(
+			<QueryClientProvider client={new QueryClient()}>
+				<MemoryRouter>
+					<Navigation />
+				</MemoryRouter>
+			</QueryClientProvider>,
+		);
+		return markup.split("<aside")[1].split(">")[0];
+	} finally {
+		theme.mockRestore();
+		g.window = original;
+	}
+}
+
+describe("navigation drawer focus", () => {
+	it("makes the closed drawer inert below lg", () => {
+		expect(renderDrawerOpening(false)).toContain("inert");
+	});
+
+	it("keeps the sidebar usable at lg and up", () => {
+		expect(renderDrawerOpening(true)).not.toContain("inert");
+	});
+});
+
 describe("navigation identity", () => {
 	it("loads display identity directly without the runtime core barrel", () => {
 		for (const path of ["navigation.tsx", "../lib/page-meta.ts"]) {

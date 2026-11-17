@@ -1,10 +1,19 @@
+import { type RefObject, useLayoutEffect, useRef } from "react";
 import type {
 	AccountUsageWindows,
 	ClosedUsageWindow,
 	OpenUsageWindow,
 } from "../../api";
+import { useElementWidth } from "../../hooks/useElementWidth";
 import { providerPlanTitle } from "../../utils/provider-utils";
 import { StatusPill } from "../ui/status-pill";
+import {
+	layoutLaneLabels,
+	type SegmentLabelPlacement,
+	tickLabelAlign,
+	tickLabelPx,
+	tickLabelStride,
+} from "./timeline-label-layout";
 import { WindowValueComparisonTable } from "./WindowValueComparisonTable";
 import {
 	deltaVsPriorMedian,
@@ -12,32 +21,38 @@ import {
 	formatTimelineDate,
 	formatWindowValue,
 	groupByProvider,
+	type ProviderWindowSection,
 	sectionLastFullWindowSubtotal,
 	type TimelineDomain,
+	type TimelineSegmentGeometry,
 	type TimelineTick,
 	timeDomain,
 	timelineSegmentGeometry,
 	weeklyTimelineTicks,
 } from "./window-value-utils";
 
-const INLINE_DELTA_MIN_WIDTH_PERCENT = 14;
+/** Track width assumed before the first measurement (and in server rendering). */
+const FALLBACK_TRACK_PX = 640;
 
 /**
- * Below this width a segment cannot fit its own label (`overflow-hidden` +
- * `truncate` would clip it), so the label renders as a callout chip floating
- * NEXT to the segment instead. This is load-bearing for data honesty: the
- * production phantom-nerf window ($85 at 6% utilization, one day wide) must
- * always show its "· 6% used" qualifier, and on a multi-week domain even a
- * full 7-day window is only ~15% of the lane.
+ * Lane geometry in px: segments fill 8-48 (top-2 h-10), callouts sit in rows
+ * of 22 below them, and a lane with no callouts keeps its original 56.
  */
-const INLINE_LABEL_MIN_WIDTH_PERCENT = 9;
+const CALLOUT_TOP_PX = 50;
+const CALLOUT_ROW_PX = 22;
+const LANE_BOTTOM_PAD_PX = 4;
+const LANE_MIN_HEIGHT_PX = 56;
+
+function laneHeightPx(calloutRows: number): number {
+	if (calloutRows === 0) return LANE_MIN_HEIGHT_PX;
+	return CALLOUT_TOP_PX + calloutRows * CALLOUT_ROW_PX + LANE_BOTTOM_PAD_PX;
+}
 
 /**
- * When a narrow segment ends past this point, its callout chip anchors to the
- * segment's left side instead of the right so it stays inside the clipped
- * lane track.
+ * The name column stays put while the bars scroll sideways on a narrow
+ * screen; it covers the column gap too, so bars pass under it cleanly.
  */
-const OUTSIDE_LABEL_FLIP_PERCENT = 80;
+const STICKY_NAME_CELL_CLASS = "sticky left-0 z-20 -mr-3 bg-background pr-3";
 
 type TimelineWindow = ClosedUsageWindow | OpenUsageWindow;
 
@@ -127,28 +142,57 @@ function TimelineGridlines({
 	);
 }
 
+const TICK_LABEL_TRANSLATE = {
+	start: "translateX(0)",
+	center: "translateX(-50%)",
+	end: "translateX(-100%)",
+} as const;
+
 function TimelineAxis({
 	domain,
 	ticks,
+	trackPx,
+	trackRef,
 }: {
 	domain: TimelineDomain;
 	ticks: readonly TimelineTick[];
+	trackPx: number;
+	trackRef: RefObject<HTMLDivElement | null>;
 }) {
+	const labelPx = Math.max(0, ...ticks.map((tick) => tickLabelPx(tick.label)));
+	const [first, second] = ticks;
+	const tickSpacingPx =
+		first && second
+			? ((second.atMs - first.atMs) /
+					Math.max(1, domain.endMs - domain.startMs)) *
+				trackPx
+			: 0;
+	const stride = tickLabelStride(labelPx, tickSpacingPx);
+
 	return (
-		<div className="relative h-8 border-b border-border">
+		<div className="relative h-8 border-b border-border" ref={trackRef}>
 			<TimelineGridlines domain={domain} ticks={ticks} />
-			{ticks.map((tick) => (
-				<span
-					className="absolute top-1 text-[10px] text-muted-foreground"
-					key={tick.atMs}
-					style={{
-						left: `${tickPositionPercent(tick.atMs, domain)}%`,
-						transform: "translateX(-50%)",
-					}}
-				>
-					{tick.label}
-				</span>
-			))}
+			{ticks.map((tick, index) => {
+				if (index % stride !== 0) return null;
+				const percent = tickPositionPercent(tick.atMs, domain);
+				const align = tickLabelAlign(
+					(percent / 100) * trackPx,
+					tickLabelPx(tick.label),
+					trackPx,
+				);
+				return (
+					<span
+						className="absolute top-1 whitespace-nowrap text-[10px] text-muted-foreground"
+						key={tick.atMs}
+						style={{
+							left: `${percent}%`,
+							transform: TICK_LABEL_TRANSLATE[align],
+						}}
+					>
+						{tick.label}
+					</span>
+				);
+			})}
 		</div>
 	);
 }
@@ -159,13 +203,19 @@ function TimelineAxis({
  */
 const SEGMENT_CHIP_CLASS = "shrink-0 bg-card px-1 text-[10px]";
 
+const BONUS_RESET_CHIP = "bonus reset";
+
+function deltaChipText(delta: number): string {
+	return `Δ ${formatDelta(delta)}`;
+}
+
 function DeltaChip({ delta }: { delta: number }) {
 	return (
 		<StatusPill
 			tone={delta < 0 ? "danger" : "success"}
 			className={SEGMENT_CHIP_CLASS}
 		>
-			Δ {formatDelta(delta)}
+			{deltaChipText(delta)}
 		</StatusPill>
 	);
 }
@@ -187,34 +237,27 @@ function segmentToneClass(window: TimelineWindow, partial: boolean): string {
 		: "border-chart-primary/35 bg-chart-primary/80 text-(--warning-solid-foreground) dark:bg-chart-primary";
 }
 
-function WindowValueSegment({
-	window,
-	windowIndex,
-	closedWindows,
-	domain,
-	nowMs,
-}: {
+interface LaneSegment {
 	window: TimelineWindow;
-	windowIndex: number | null;
-	closedWindows: readonly ClosedUsageWindow[];
-	domain: TimelineDomain;
-	nowMs: number;
+	geometry: TimelineSegmentGeometry;
+	delta: number | null;
+	label: string;
+	title: string;
+}
+
+function WindowValueSegment({
+	segment,
+	placement,
+}: {
+	segment: LaneSegment;
+	placement: SegmentLabelPlacement;
 }) {
-	const geometry = timelineSegmentGeometry(window, domain, nowMs);
+	const { window, geometry, delta, label, title } = segment;
 	const partial = isPartialWindow(window);
 	const open = isOpenWindow(window);
-	const delta =
-		windowIndex === null
-			? null
-			: deltaVsPriorMedian(closedWindows, windowIndex);
-	const showInlineDelta =
-		delta !== null && geometry.widthPercent >= INLINE_DELTA_MIN_WIDTH_PERCENT;
-	const labelInside = geometry.widthPercent >= INLINE_LABEL_MIN_WIDTH_PERCENT;
-	const rightEdgePercent = geometry.leftPercent + geometry.widthPercent;
-	const title = segmentTitle(window, nowMs, delta);
 	const classNames = [
 		"window-value-segment",
-		"absolute inset-y-2 flex min-w-0 items-center gap-1 overflow-hidden rounded-sm border px-1.5 text-[11px] font-medium shadow-sm",
+		"absolute top-2 flex h-10 min-w-0 items-center gap-1 overflow-hidden rounded-sm border px-1.5 text-[11px] font-medium shadow-sm",
 		segmentToneClass(window, partial),
 		partial ? "window-value-segment--partial border-dashed" : "",
 		open ? "border-r-2 border-r-dashed" : "",
@@ -232,31 +275,27 @@ function WindowValueSegment({
 				}}
 				title={title}
 			>
-				{labelInside && (
-					<span className="truncate">{segmentLabel(window)}</span>
+				{placement.labelInside && <span className="truncate">{label}</span>}
+				{placement.showBonus && (
+					<StatusPill
+						tone="warning"
+						className={`${SEGMENT_CHIP_CLASS} font-semibold`}
+					>
+						{BONUS_RESET_CHIP}
+					</StatusPill>
 				)}
-				{window.grantType === "early_reset" &&
-					geometry.widthPercent >= INLINE_DELTA_MIN_WIDTH_PERCENT && (
-						<StatusPill
-							tone="warning"
-							className={`${SEGMENT_CHIP_CLASS} font-semibold`}
-						>
-							bonus reset
-						</StatusPill>
-					)}
-				{showInlineDelta && <DeltaChip delta={delta} />}
+				{placement.showDelta && delta !== null && <DeltaChip delta={delta} />}
 			</div>
-			{!labelInside && (
+			{placement.callout && (
 				<span
-					className="window-value-segment-label--outside absolute inset-y-2 z-10 flex items-center whitespace-nowrap rounded border border-border bg-background/95 px-1 text-[11px] font-medium text-foreground shadow-sm"
-					style={
-						rightEdgePercent > OUTSIDE_LABEL_FLIP_PERCENT
-							? { right: `${100 - geometry.leftPercent}%` }
-							: { left: `${rightEdgePercent}%` }
-					}
+					className="window-value-segment-label--outside absolute z-10 flex h-5 items-center whitespace-nowrap rounded border border-border bg-background/95 px-1 text-[11px] font-medium text-foreground shadow-sm"
+					style={{
+						left: `${placement.callout.leftPx}px`,
+						top: `${CALLOUT_TOP_PX + placement.callout.row * CALLOUT_ROW_PX}px`,
+					}}
 					title={title}
 				>
-					{segmentLabel(window)}
+					{label}
 				</span>
 			)}
 		</>
@@ -268,22 +307,46 @@ function AccountTimelineLane({
 	domain,
 	ticks,
 	nowMs,
+	trackPx,
 }: {
 	account: AccountUsageWindows;
 	domain: TimelineDomain;
 	ticks: readonly TimelineTick[];
 	nowMs: number;
+	trackPx: number;
 }) {
-	const closedSegments = account.windows
-		.map((window, index) => ({ window, index }))
-		.reverse();
-	const openSegment = account.openWindow
-		? { window: account.openWindow, index: null }
-		: null;
+	// Oldest closed window first, the open window last.
+	const ordered: { window: TimelineWindow; index: number | null }[] = [
+		...account.windows.map((window, index) => ({ window, index })).reverse(),
+		...(account.openWindow
+			? [{ window: account.openWindow, index: null }]
+			: []),
+	];
+	const segments: LaneSegment[] = ordered.map(({ window, index }) => {
+		const delta =
+			index === null ? null : deltaVsPriorMedian(account.windows, index);
+		return {
+			window,
+			geometry: timelineSegmentGeometry(window, domain, nowMs),
+			delta,
+			label: segmentLabel(window),
+			title: segmentTitle(window, nowMs, delta),
+		};
+	});
+	const { placements, calloutRows } = layoutLaneLabels(
+		segments.map(({ window, geometry, delta, label }) => ({
+			leftPercent: geometry.leftPercent,
+			widthPercent: geometry.widthPercent,
+			label,
+			bonusChip: window.grantType === "early_reset" ? BONUS_RESET_CHIP : null,
+			deltaChip: delta === null ? null : deltaChipText(delta),
+		})),
+		trackPx,
+	);
 
 	return (
 		<div className="grid grid-cols-[8rem_minmax(0,1fr)] gap-x-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
-			<div className="flex min-w-0 items-center">
+			<div className={`flex min-w-0 items-center ${STICKY_NAME_CELL_CLASS}`}>
 				<p
 					className="truncate text-sm font-medium text-foreground"
 					title={account.accountName}
@@ -291,30 +354,95 @@ function AccountTimelineLane({
 					{account.accountName}
 				</p>
 			</div>
-			<div className="relative h-14 overflow-hidden rounded-md bg-muted/30">
+			<div
+				className="relative overflow-hidden rounded-md bg-muted/30"
+				style={{ height: `${laneHeightPx(calloutRows)}px` }}
+			>
 				<TimelineGridlines domain={domain} ticks={ticks} />
-				{closedSegments.map(({ window, index }) => (
+				{segments.map((segment, index) => (
 					<WindowValueSegment
-						closedWindows={account.windows}
-						domain={domain}
-						key={window.id}
-						nowMs={nowMs}
-						window={window}
-						windowIndex={index}
+						key={segment.window.id}
+						placement={placements[index]}
+						segment={segment}
 					/>
 				))}
-				{openSegment && (
-					<WindowValueSegment
-						closedWindows={account.windows}
-						domain={domain}
-						key={openSegment.window.id}
-						nowMs={nowMs}
-						window={openSegment.window}
-						windowIndex={openSegment.index}
-					/>
-				)}
 			</div>
 		</div>
+	);
+}
+
+function ProviderTimelineSection({
+	section,
+	domain,
+	ticks,
+	nowMs,
+}: {
+	section: ProviderWindowSection;
+	domain: TimelineDomain;
+	ticks: readonly TimelineTick[];
+	nowMs: number;
+}) {
+	const subtotal = sectionLastFullWindowSubtotal(section.accounts);
+	const title = providerPlanTitle(section.provider);
+	const { ref: trackRef, width } = useElementWidth<HTMLDivElement>();
+	const trackPx = width || FALLBACK_TRACK_PX;
+	const scrollerRef = useRef<HTMLDivElement>(null);
+
+	// On a screen narrower than the timeline, open on the latest windows.
+	useLayoutEffect(() => {
+		const scroller = scrollerRef.current;
+		if (scroller) scroller.scrollLeft = scroller.scrollWidth;
+	}, []);
+
+	return (
+		<section
+			aria-label={`${title} usage-window timeline`}
+			className="space-y-3"
+		>
+			<div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+				<h2 className="text-lg font-semibold tracking-tight text-foreground">
+					{title}
+				</h2>
+				<p className="text-sm text-muted-foreground">
+					{`last full window: ${formatWindowValue(subtotal)}`}
+				</p>
+			</div>
+
+			<div className="overflow-x-auto" ref={scrollerRef}>
+				<div className="min-w-[36rem] space-y-3">
+					<div className="grid grid-cols-[8rem_minmax(0,1fr)] gap-x-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
+						{/* Fills the axis row's full height, so dates scrolled under it
+						    never show above the heading. */}
+						<p
+							className={`flex items-end pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground ${STICKY_NAME_CELL_CLASS}`}
+						>
+							Account
+						</p>
+						<TimelineAxis
+							domain={domain}
+							ticks={ticks}
+							trackPx={trackPx}
+							trackRef={trackRef}
+						/>
+					</div>
+
+					<div className="space-y-2">
+						{section.accounts.map((account) => (
+							<AccountTimelineLane
+								account={account}
+								domain={domain}
+								key={account.accountId}
+								nowMs={nowMs}
+								ticks={ticks}
+								trackPx={trackPx}
+							/>
+						))}
+					</div>
+				</div>
+			</div>
+
+			<WindowValueComparisonTable accounts={section.accounts} nowMs={nowMs} />
+		</section>
 	);
 }
 
@@ -329,51 +457,15 @@ export function WindowValueTimeline({
 
 	return (
 		<div className="space-y-8">
-			{sections.map((section) => {
-				const subtotal = sectionLastFullWindowSubtotal(section.accounts);
-				const title = providerPlanTitle(section.provider);
-
-				return (
-					<section
-						aria-label={`${title} usage-window timeline`}
-						className="space-y-3"
-						key={section.provider}
-					>
-						<div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-							<h2 className="text-lg font-semibold tracking-tight text-foreground">
-								{title}
-							</h2>
-							<p className="text-sm text-muted-foreground">
-								{`last full window: ${formatWindowValue(subtotal)}`}
-							</p>
-						</div>
-
-						<div className="grid grid-cols-[8rem_minmax(0,1fr)] gap-x-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
-							<p className="self-end pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-								Account
-							</p>
-							<TimelineAxis domain={domain} ticks={ticks} />
-						</div>
-
-						<div className="space-y-2">
-							{section.accounts.map((account) => (
-								<AccountTimelineLane
-									account={account}
-									domain={domain}
-									key={account.accountId}
-									nowMs={nowMs}
-									ticks={ticks}
-								/>
-							))}
-						</div>
-
-						<WindowValueComparisonTable
-							accounts={section.accounts}
-							nowMs={nowMs}
-						/>
-					</section>
-				);
-			})}
+			{sections.map((section) => (
+				<ProviderTimelineSection
+					domain={domain}
+					key={section.provider}
+					nowMs={nowMs}
+					section={section}
+					ticks={ticks}
+				/>
+			))}
 		</div>
 	);
 }

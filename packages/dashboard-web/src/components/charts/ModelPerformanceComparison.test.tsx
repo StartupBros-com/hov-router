@@ -11,6 +11,13 @@ type AxisProps = {
 	label?: { value?: string };
 };
 const axes: AxisProps[] = [];
+type XAxisProps = {
+	angle?: number;
+	textAnchor?: string;
+	height?: number;
+	tickFormatter?: (value: string) => string;
+};
+const xAxes: XAxisProps[] = [];
 type TooltipProps = {
 	content?: (props: {
 		active: boolean;
@@ -18,6 +25,8 @@ type TooltipProps = {
 	}) => ReactNode;
 };
 const tooltips: TooltipProps[] = [];
+type LegendProps = { wrapperStyle?: { paddingBottom?: string } };
+const legends: LegendProps[] = [];
 const pass = ({ children }: { children?: ReactNode }) => <>{children}</>;
 const none = () => null;
 mock.module("recharts", () => ({
@@ -26,7 +35,10 @@ mock.module("recharts", () => ({
 	Bar: none,
 	CartesianGrid: none,
 	ComposedChart: pass,
-	Legend: none,
+	Legend: (props: LegendProps) => {
+		legends.push(props);
+		return null;
+	},
 	Line: none,
 	ResponsiveContainer: pass,
 	Scatter: none,
@@ -36,7 +48,10 @@ mock.module("recharts", () => ({
 	},
 	useChartWidth: () => undefined,
 	useOffset: () => undefined,
-	XAxis: none,
+	XAxis: (props: XAxisProps) => {
+		xAxes.push(props);
+		return null;
+	},
 	YAxis: (props: AxisProps) => {
 		axes.push(props);
 		return null;
@@ -68,8 +83,23 @@ const data = [
 
 beforeEach(() => {
 	axes.length = 0;
+	xAxes.length = 0;
 	tooltips.length = 0;
+	legends.length = 0;
 });
+
+// The chart reads the viewport through matchMedia, which a server render
+// lacks; stub it for the width each test describes.
+const g = globalThis as unknown as { window?: unknown };
+function renderAtWidth(wide: boolean, node: ReactNode): void {
+	const original = g.window;
+	g.window = { matchMedia: () => ({ matches: wide }) };
+	try {
+		renderToStaticMarkup(node);
+	} finally {
+		g.window = original;
+	}
+}
 
 describe("ModelPerformanceComparison axes", () => {
 	for (const [viewMode, titles] of [
@@ -78,7 +108,8 @@ describe("ModelPerformanceComparison axes", () => {
 		["efficiency", ["Efficiency Score"]],
 	] as const)
 		it(`sizes every titled y-axis to its ticks in the ${viewMode} view`, () => {
-			renderToStaticMarkup(
+			renderAtWidth(
+				true,
 				<ModelPerformanceComparison data={data} viewMode={viewMode} />,
 			);
 			expect(axes.map((axis) => axis.label?.value)).toEqual([...titles]);
@@ -86,6 +117,83 @@ describe("ModelPerformanceComparison axes", () => {
 			// and "Efficiency Score" over 20000…60000.
 			for (const axis of axes) expect(axis.width).toBe("auto");
 		});
+
+	for (const viewMode of ["speed-cost", "performance"] as const)
+		it(`drops the rotated axis titles on a phone in the ${viewMode} view`, () => {
+			renderAtWidth(
+				false,
+				<ModelPerformanceComparison data={data} viewMode={viewMode} />,
+			);
+			// The titles and margins left the plot about 50 px wide at 320-360 px.
+			expect(axes).toHaveLength(2);
+			expect(axes.map((axis) => axis.label)).toEqual([undefined, undefined]);
+			for (const axis of axes) expect(axis.width).toBe("auto");
+		});
+});
+
+describe("ModelPerformanceComparison legend", () => {
+	for (const viewMode of ["speed-cost", "performance"] as const)
+		it(`leaves a gap under the legend in the ${viewMode} view`, () => {
+			renderAtWidth(
+				false,
+				<ModelPerformanceComparison data={data} viewMode={viewMode} />,
+			);
+			// recharts sizes the legend from its box and starts the plot right
+			// under it. The top tick label is centred on the plot's top edge, so
+			// without the padding its upper half ran 4 px into a one-row legend
+			// at 360 px.
+			expect(legends).toHaveLength(1);
+			expect(legends[0]?.wrapperStyle?.paddingBottom).toBe("10px");
+		});
+});
+
+describe("ModelPerformanceComparison model labels", () => {
+	for (const viewMode of ["speed-cost", "performance"] as const) {
+		it(`stands the model names upright on a phone in the ${viewMode} view`, () => {
+			renderAtWidth(
+				false,
+				<ModelPerformanceComparison data={data} viewMode={viewMode} />,
+			);
+			// At -45 degrees the first name hung up to 41 px left of a 238 px
+			// chart; upright, each name hangs straight down from its bar.
+			expect(xAxes).toHaveLength(1);
+			expect(xAxes[0]?.angle).toBe(-90);
+			expect(xAxes[0]?.textAnchor).toBe("end");
+			// Upright, a name's length is its depth below the plot: the axis
+			// holds about 184 px, and 26 characters of 12 px text measure up to
+			// about 180 px. Every catalogue id fits whole; longer names are cut
+			// at the end, and the tooltip carries them in full.
+			expect(xAxes[0]?.height).toBe(112);
+			const format = xAxes[0]?.tickFormatter;
+			expect(format?.("claude-sonnet-4-5-20250929")).toBe(
+				"claude-sonnet-4-5-20250929",
+			);
+			expect(format?.("qwen3-coder-480b-a35b-instruct")).toBe(
+				"qwen3-coder-480b-a35b-ins…",
+			);
+		});
+
+		it(`keeps the model names at -45 degrees from sm up in the ${viewMode} view`, () => {
+			renderAtWidth(
+				true,
+				<ModelPerformanceComparison data={data} viewMode={viewMode} />,
+			);
+			expect(xAxes).toHaveLength(1);
+			expect(xAxes[0]?.angle).toBe(-45);
+			expect(xAxes[0]?.textAnchor).toBe("end");
+			expect(xAxes[0]?.height).toBe(80);
+			expect(xAxes[0]?.tickFormatter).toBeUndefined();
+		});
+	}
+
+	it("leaves the efficiency view's labels at -45 degrees on a phone", () => {
+		renderAtWidth(
+			false,
+			<ModelPerformanceComparison data={data} viewMode="efficiency" />,
+		);
+		expect(xAxes).toHaveLength(1);
+		expect(xAxes[0]?.angle).toBe(-45);
+	});
 });
 
 describe("ModelPerformanceComparison efficiency tooltip", () => {

@@ -33,6 +33,8 @@ interface BaseBarChartProps extends CommonChartProps {
 	yAxisWidth?: number;
 	yAxisOrientation?: "left" | "right";
 	secondaryYAxis?: boolean;
+	/** Recharts tick interval for the category x-axis; omit for automatic. */
+	xAxisInterval?: number;
 }
 
 export function BaseBarChart({
@@ -53,6 +55,7 @@ export function BaseBarChart({
 	yAxisTickFormatter,
 	yAxisOrientation = "left",
 	secondaryYAxis = false,
+	xAxisInterval,
 	tooltipFormatter,
 	tooltipLabelFormatter,
 	tooltipStyle = "default",
@@ -118,6 +121,7 @@ export function BaseBarChart({
 								angle={xAxisAngle}
 								textAnchor={xAxisTextAnchor}
 								height={xAxisHeight}
+								interval={xAxisInterval}
 								tickFormatter={xAxisTickFormatter}
 							/>
 							<YAxis

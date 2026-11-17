@@ -113,6 +113,11 @@ describe("Requests rows", () => {
 		expect(markup).toContain('<span class="sr-only">Error: </span>');
 	});
 
+	it("keeps the full request path in a tooltip when the row truncates it", () => {
+		const markup = row(renderRows().rows, "ok-200");
+		expect(markup).toContain('title="/v1/messages"');
+	});
+
 	it("explains peak hours instead of only saying Peak", () => {
 		const markup = row(renderRows().rows, "ok-200");
 		expect(markup).toContain(

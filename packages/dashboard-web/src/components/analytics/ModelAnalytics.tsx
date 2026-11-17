@@ -93,12 +93,14 @@ export function ModelAnalytics({
 			<Tabs defaultValue="comparison" className="space-y-4">
 				<TabsList className="grid w-full grid-cols-2">
 					<TabsTrigger value="comparison" className="flex items-center gap-2">
-						<TrendingUp className="h-4 w-4" />
-						Multi-Metric Comparison
+						<TrendingUp className="hidden h-4 w-4 sm:block" />
+						<span className="sm:hidden">Compare</span>
+						<span className="hidden sm:inline">Multi-Metric Comparison</span>
 					</TabsTrigger>
 					<TabsTrigger value="detailed" className="flex items-center gap-2">
-						<BarChart3 className="h-4 w-4" />
-						Detailed Analysis
+						<BarChart3 className="hidden h-4 w-4 sm:block" />
+						<span className="sm:hidden">Details</span>
+						<span className="hidden sm:inline">Detailed Analysis</span>
 					</TabsTrigger>
 				</TabsList>
 
