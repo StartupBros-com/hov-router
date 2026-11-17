@@ -1380,9 +1380,12 @@ OAuth tokens will need to be re-authenticated.
 		if (unchanged && !narrow) return;
 		await this.accounts.writeExtraUsageHolds(accountId, next, {
 			expectedCreatedAt: inputs.createdAt,
-			narrowBilledAt:
+			narrowBilled:
 				narrow && inputs.overageBilledAt !== null
-					? inputs.overageBilledAt
+					? {
+							billedAt: inputs.overageBilledAt,
+							family: inputs.overageBilledFamily,
+						}
 					: undefined,
 		});
 	}
@@ -1728,7 +1731,7 @@ OAuth tokens will need to be re-authenticated.
 	async writeExtraUsageHolds(
 		accountId: string,
 		state: ExtraUsageHoldState,
-		options: { expectedCreatedAt?: number; narrowBilledAt?: number } = {},
+		options: Parameters<AccountRepository["writeExtraUsageHolds"]>[2] = {},
 	): Promise<boolean> {
 		return this.accounts.writeExtraUsageHolds(accountId, state, options);
 	}

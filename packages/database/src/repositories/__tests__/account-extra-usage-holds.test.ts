@@ -258,13 +258,54 @@ describe("stored extra-usage holds", () => {
 			const state = opusHold(T0, T0 + 3_600_000);
 			expect(
 				await repo.writeExtraUsageHolds("a1", state, {
-					narrowBilledAt: T0 - 50,
+					narrowBilled: { billedAt: T0 - 50, family: "opus" },
 				}),
 			).toBe(true);
 			const acct = await repo.findById("a1");
 			expect(acct?.paused).toBe(false);
 			expect(acct?.pause_reason).toBeNull();
 			expect(acct?.extra_usage_holds).toEqual(state);
+		});
+
+		it("keeps the billed pause when a billed response in the same millisecond changed the family read", async () => {
+			seed(db, {
+				paused: true,
+				pauseReason: "overage",
+				billedAt: T0 - 50,
+				billedFamily: "opus",
+			});
+			// The reading saw an Opus billed hold; a Sonnet response billed at the
+			// same instant then marked the hold as mixed before the write.
+			expect(await repo.holdForBilledResponse("a1", T0 - 50, "sonnet")).toBe(
+				true,
+			);
+			const state = opusHold(T0, T0 + 3_600_000);
+			expect(
+				await repo.writeExtraUsageHolds("a1", state, {
+					narrowBilled: { billedAt: T0 - 50, family: "opus" },
+				}),
+			).toBe(true);
+			const acct = await repo.findById("a1");
+			expect(acct?.paused).toBe(true);
+			expect(acct?.pause_reason).toBe("overage");
+			expect(acct?.overage_billed_family).toBeNull();
+			expect(acct?.extra_usage_holds).toEqual(state);
+		});
+
+		it("ends a billed pause with no family when the reading saw no family", async () => {
+			seed(db, {
+				paused: true,
+				pauseReason: "overage",
+				billedAt: T0 - 50,
+				billedFamily: null,
+			});
+			const state = opusHold(T0, T0 + 3_600_000);
+			expect(
+				await repo.writeExtraUsageHolds("a1", state, {
+					narrowBilled: { billedAt: T0 - 50, family: null },
+				}),
+			).toBe(true);
+			expect((await repo.findById("a1"))?.paused).toBe(false);
 		});
 
 		it("keeps the billed pause when a newer billed response replaced the time read", async () => {
@@ -277,7 +318,7 @@ describe("stored extra-usage holds", () => {
 			const state = opusHold(T0, T0 + 3_600_000);
 			expect(
 				await repo.writeExtraUsageHolds("a1", state, {
-					narrowBilledAt: T0 - 50,
+					narrowBilled: { billedAt: T0 - 50, family: "opus" },
 				}),
 			).toBe(true);
 			const acct = await repo.findById("a1");

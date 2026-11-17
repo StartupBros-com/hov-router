@@ -752,27 +752,41 @@ export class AccountRepository extends BaseRepository<Account> {
 	 * stored reading time: a reading older than the one that last wrote the
 	 * holds never replaces them.
 	 *
-	 * With `narrowBilledAt`, the same statement also ends an `overage` pause
-	 * whose billed time is still that value, so the reading's hold replaces the
-	 * hold on every model; a newer billed response (a different time) keeps
-	 * its pause.
+	 * With `narrowBilled`, the same statement also ends an `overage` pause whose
+	 * billed time and family are still the ones the reading was judged
+	 * against, so the reading's hold replaces the hold on every model. A
+	 * billed response written since keeps the pause: a later one moves the
+	 * time, and one in the same millisecond for another family clears the
+	 * family.
 	 *
 	 * Returns true when the row was written.
 	 */
 	async writeExtraUsageHolds(
 		accountId: string,
 		state: ExtraUsageHoldState,
-		options: { expectedCreatedAt?: number; narrowBilledAt?: number } = {},
+		options: {
+			expectedCreatedAt?: number;
+			narrowBilled?: { billedAt: number; family: string | null };
+		} = {},
 	): Promise<boolean> {
-		const { expectedCreatedAt, narrowBilledAt } = options;
+		const { expectedCreatedAt, narrowBilled } = options;
+		const stillBilled =
+			"pause_reason = 'overage' AND overage_billed_at = ? AND overage_billed_family IS ?";
 		const narrowSet =
-			narrowBilledAt === undefined
+			narrowBilled === undefined
 				? ""
 				: `,
-				paused = CASE WHEN pause_reason = 'overage' AND overage_billed_at = ? THEN 0 ELSE paused END,
-				pause_reason = CASE WHEN pause_reason = 'overage' AND overage_billed_at = ? THEN NULL ELSE pause_reason END`;
+				paused = CASE WHEN ${stillBilled} THEN 0 ELSE paused END,
+				pause_reason = CASE WHEN ${stillBilled} THEN NULL ELSE pause_reason END`;
 		const narrowParams =
-			narrowBilledAt === undefined ? [] : [narrowBilledAt, narrowBilledAt];
+			narrowBilled === undefined
+				? []
+				: [
+						narrowBilled.billedAt,
+						narrowBilled.family,
+						narrowBilled.billedAt,
+						narrowBilled.family,
+					];
 		const generationClause =
 			expectedCreatedAt === undefined ? "" : " AND created_at = ?";
 		const generationParams =
