@@ -660,17 +660,20 @@ export function AccountsTab() {
 		}
 	};
 
-	const handleRefreshUsage = async (account: Account) => {
+	const handleRefreshUsage = async (
+		account: Account,
+	): Promise<string | null> => {
 		try {
 			// The endpoint answers 200 even when the refresh failed (`success:
 			// false` plus a reason), so discarding the body makes a failed refresh
 			// indistinguishable from a successful one — the button just appears to
-			// do nothing. Surface the reason while retaining the managed-routing
-			// invalidation performed by the mutation hook.
+			// do nothing. The row that was pressed shows the reason, beside the
+			// usage it tried to refresh; the mutation hook still invalidates
+			// managed routing.
 			const result = await refreshUsage.mutateAsync(account.id);
-			setActionError(result.success ? null : result.message);
+			return result.success ? null : result.message;
 		} catch (err) {
-			setActionError(formatError(err));
+			return formatError(err);
 		}
 	};
 

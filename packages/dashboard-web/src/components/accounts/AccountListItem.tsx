@@ -97,6 +97,10 @@ const SETTING_CLASS =
 // Explicit dimensions avoid the switch's border shrinking an inset-based target.
 const SETTING_SWITCH_CLASS =
 	"relative after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']";
+// A text action inside a status line: the line keeps its text height while the
+// hit area grows to 44px tall around the words.
+const INLINE_ACTION_CLASS =
+	"relative h-auto p-0 text-xs text-foreground underline underline-offset-2 after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2 after:content-['']";
 
 /**
  * Codex-only usage extras (plan_type, credits_balance) come from the free
@@ -165,7 +169,8 @@ interface AccountListItemProps {
 	isPrimary?: boolean;
 	onPauseToggle: (account: Account) => void;
 	onForceResetRateLimit: (account: Account) => void;
-	onRefreshUsage: (account: Account) => Promise<void>;
+	/** Resolves to the reason a refresh failed, or null when it did not. */
+	onRefreshUsage: (account: Account) => Promise<string | null>;
 	onRemove: (account: Account) => void;
 	onRename: (account: Account) => void;
 	onPriorityChange: (account: Account) => void;
@@ -340,6 +345,15 @@ export function AccountListItem({
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	const detailsId = useId();
 	const [detailsTab, setDetailsTab] = useState("usage");
+	const [refreshError, setRefreshError] = useState<string | null>(null);
+	const refreshUsage = async () => {
+		setIsRefreshingUsage(true);
+		try {
+			setRefreshError(await onRefreshUsage(account));
+		} finally {
+			setIsRefreshingUsage(false);
+		}
+	};
 	const changeDetailsOpen = (open: boolean) => {
 		onClearSettingsError?.(account.id);
 		setDetailsOpen(open);
@@ -549,36 +563,9 @@ export function AccountListItem({
 						)}
 					</div>
 				</div>
+				{/* Pause, Details and More only, so they hold one place on every row.
+				    Remedies sit beside the status they fix; refresh sits by the usage. */}
 				<div className="ml-auto flex shrink-0 flex-wrap items-center gap-1 min-w-0 max-w-full justify-end xl:col-start-4 xl:row-start-1">
-					{showForceReset && (
-						<Button
-							variant="outline"
-							size="touch-sm"
-							className="gap-1 text-xs"
-							onClick={() => onForceResetRateLimit(account)}
-							title={
-								staleLockDetected
-									? "Clear a possibly stale router cooldown. Provider usage limits are unchanged."
-									: "Clear the router’s saved rate-limit state. Provider usage limits are unchanged."
-							}
-						>
-							<RefreshCw className="h-3.5 w-3.5" />
-							Clear cooldown
-						</Button>
-					)}
-					{reauth && reauthRequired && (
-						<Button
-							variant="default"
-							size="touch-sm"
-							className="gap-1 text-xs text-black hover:text-black"
-							onClick={() => reauth.handler(account)}
-							title={reauth.title}
-						>
-							<KeyRound className="h-4 w-4" />
-							Re-authenticate
-						</Button>
-					)}
-
 					<Button
 						variant="ghost"
 						size="touch-icon"
@@ -700,6 +687,18 @@ export function AccountListItem({
 					{/* The status track's 10rem floor fits the longest label on one line. */}
 					<span className="whitespace-nowrap">{status.label}</span>
 				</StatusPill>
+				{reauth && reauthRequired && (
+					<Button
+						variant="default"
+						size="touch-sm"
+						className="gap-1 text-xs text-black hover:text-black"
+						onClick={() => reauth.handler(account)}
+						title={reauth.title}
+					>
+						<KeyRound className="h-4 w-4" />
+						Re-authenticate
+					</Button>
+				)}
 				{status.reason === "paused" && pauseReasonLabel && (
 					<span className="text-xs text-muted-foreground">
 						{`Auto-paused: ${pauseReasonLabel}`}
@@ -721,17 +720,36 @@ export function AccountListItem({
 							</span>
 						),
 				)}
-				{status.routerRetryAt != null && (
-					<span
-						className="text-xs text-muted-foreground"
-						title={new Date(
-							account.rateLimitedUntil as number,
-						).toLocaleString()}
-					>
-						Router retry{" "}
-						{formatClockTime(
-							Math.ceil((account.rateLimitedUntil as number) / 60_000) * 60_000,
-							now,
+				{(status.routerRetryAt != null || showForceReset) && (
+					<span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+						{status.routerRetryAt != null && (
+							<span
+								title={new Date(
+									account.rateLimitedUntil as number,
+								).toLocaleString()}
+							>
+								Router retry{" "}
+								{formatClockTime(
+									Math.ceil((account.rateLimitedUntil as number) / 60_000) *
+										60_000,
+									now,
+								)}
+							</span>
+						)}
+						{showForceReset && (
+							<Button
+								variant="link"
+								className={INLINE_ACTION_CLASS}
+								onClick={() => onForceResetRateLimit(account)}
+								aria-label={`Clear cooldown for ${account.name}`}
+								title={
+									staleLockDetected
+										? "Clear a possibly stale router cooldown. Provider usage limits are unchanged."
+										: "Clear the router’s saved rate-limit state. Provider usage limits are unchanged."
+								}
+							>
+								Clear cooldown
+							</Button>
 						)}
 					</span>
 				)}
@@ -759,25 +777,58 @@ export function AccountListItem({
 				)}
 			</div>
 
-			<div className="min-w-0 border-t pt-3 xl:col-start-2 xl:row-start-1 xl:border-t-0 xl:pt-0">
-				<RateLimitProgress
-					compact
-					bindingWindow={representedBinding?.window}
-					highlightReset={sortReset}
-					{...rateLimitProgressProps}
-				/>
-				{account.provider === "codex" &&
-					account.bankedResets &&
-					!quietBankedBalance && (
-						<div className="mt-1">
-							<BankedResetsStatus
-								compact
-								resets={account.bankedResets}
-								accountName={account.name}
-								onUseReset={onUseReset ? () => onUseReset(account) : undefined}
-							/>
-						</div>
+			<div className="flex min-w-0 items-start gap-1 border-t pt-3 xl:col-start-2 xl:row-start-1 xl:border-t-0 xl:pt-0">
+				<div className="min-w-0 flex-1">
+					<RateLimitProgress
+						compact
+						bindingWindow={representedBinding?.window}
+						highlightReset={sortReset}
+						{...rateLimitProgressProps}
+					/>
+					{account.provider === "codex" &&
+						account.bankedResets &&
+						!quietBankedBalance && (
+							<div className="mt-1">
+								<BankedResetsStatus
+									compact
+									resets={account.bankedResets}
+									accountName={account.name}
+									onUseReset={
+										onUseReset ? () => onUseReset(account) : undefined
+									}
+								/>
+							</div>
+						)}
+					{refreshError && (
+						<p role="alert" className="mt-1 text-xs text-destructive">
+							{refreshError}
+						</p>
 					)}
+				</div>
+				{canRefreshUsage ? (
+					// Lifted so the icon centres on the usage block's first line.
+					<Button
+						variant="ghost"
+						size="touch-icon"
+						className="-mt-3 shrink-0"
+						disabled={isRefreshingUsage}
+						onClick={refreshUsage}
+						aria-label={`Refresh usage for ${account.name}`}
+						title={
+							account.provider === "codex"
+								? "Refresh usage data (free ChatGPT usage endpoint; falls back to a minimal quota-consuming request on custom endpoints or when the free endpoint fails)"
+								: "Refresh usage data (restarts usage polling and refreshes token if expired)"
+						}
+					>
+						<RefreshCw
+							aria-hidden="true"
+							className={`h-3.5 w-3.5 ${isRefreshingUsage ? "animate-spin" : ""}`}
+						/>
+					</Button>
+				) : (
+					// Holds the refresh column so bar ends line up down the table.
+					<span aria-hidden="true" className="hidden w-11 shrink-0 xl:block" />
+				)}
 			</div>
 
 			{routingStates.some(routingNeedsNotice) && (
@@ -879,31 +930,6 @@ export function AccountListItem({
 								>
 									{account.paused ? "Resume account" : "Pause account"}
 								</Button>
-								{canRefreshUsage && (
-									<Button
-										variant="ghost"
-										size="touch-icon"
-										disabled={isRefreshingUsage}
-										onClick={async () => {
-											setIsRefreshingUsage(true);
-											try {
-												await onRefreshUsage(account);
-											} finally {
-												setIsRefreshingUsage(false);
-											}
-										}}
-										aria-label="Refresh usage"
-										title={
-											account.provider === "codex"
-												? "Refresh usage data (free ChatGPT usage endpoint; falls back to a minimal quota-consuming request on custom endpoints or when the free endpoint fails)"
-												: "Refresh usage data (restarts usage polling and refreshes token if expired)"
-										}
-									>
-										<RefreshCw
-											className={`h-3.5 w-3.5 ${isRefreshingUsage ? "animate-spin" : ""}`}
-										/>
-									</Button>
-								)}
 							</div>
 							<p
 								className="text-xs text-muted-foreground"

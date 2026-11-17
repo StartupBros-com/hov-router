@@ -141,7 +141,9 @@ function withoutDetailsContent(html: string): string {
 	}
 	throw new Error("Unclosed details content");
 }
-async function noopAsync() {}
+async function noRefreshFailure(): Promise<string | null> {
+	return null;
+}
 
 describe("account scan layout", () => {
 	it("pairs status color with a decorative icon and the unchanged label", () => {
@@ -629,7 +631,7 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 const requiredHandlers = {
 	onPauseToggle: noop,
 	onForceResetRateLimit: noop,
-	onRefreshUsage: noopAsync,
+	onRefreshUsage: noRefreshFailure,
 	onRemove: noop,
 	onRename: noop,
 	onPriorityChange: noop,
@@ -656,6 +658,129 @@ function routingState(
 		...overrides,
 	};
 }
+
+describe("AccountListItem row actions", () => {
+	// Only Pause, Details and More sit in the action cluster, so they hold the
+	// same place on every row. A remedy sits beside the status it fixes, and
+	// refresh sits beside the usage it re-reads.
+	function cluster(html: string): string {
+		const start = html.indexOf('class="ml-auto flex shrink-0');
+		return html.slice(start, html.indexOf("Router status"));
+	}
+	function statusColumn(html: string): string {
+		return html.slice(
+			html.indexOf("Router status"),
+			html.indexOf("Usage and resets"),
+		);
+	}
+	function buttonWith(html: string, text: string): string | undefined {
+		return (html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? []).find(
+			(button) => button.includes(text),
+		);
+	}
+	function visibleRow(account: Account, extra: Record<string, unknown> = {}) {
+		return withoutDetailsContent(
+			renderToStaticMarkup(
+				<AccountListItem account={account} {...requiredHandlers} {...extra} />,
+			),
+		);
+	}
+
+	it("puts Clear cooldown beside the router retry, without the refresh icon", () => {
+		const html = visibleRow(
+			makeAccount({
+				paused: false,
+				rateLimitedUntil: Date.now() + 60_000,
+				usageUtilization: 20,
+			}),
+		);
+		expect(cluster(html)).not.toContain("Clear cooldown");
+		const status = statusColumn(html);
+		expect(status).toContain("Router retry");
+		const clear = buttonWith(status, "Clear cooldown");
+		expect(clear).toBeDefined();
+		expect(clear).not.toContain("<svg");
+		expect(clear).toContain('aria-label="Clear cooldown for acc-1"');
+		// A 44px target that adds no 44px line to the status column.
+		expect(clear).toContain("after:h-11");
+	});
+
+	it("offers Clear cooldown for a clearable hard limit with no retry time", () => {
+		const status = statusColumn(
+			visibleRow(
+				makeAccount({ paused: false, rateLimitStatus: "rate_limited" }),
+			),
+		);
+		expect(status).toContain("Reported hard limit");
+		expect(status).not.toContain("Router retry");
+		expect(buttonWith(status, "Clear cooldown")).toBeDefined();
+	});
+
+	it("puts Re-authenticate beside the status it fixes", () => {
+		const html = visibleRow(
+			makeAccount({ pauseReason: "oauth_invalid_grant" }),
+			{
+				onAnthropicReauth: noop,
+			},
+		);
+		expect(cluster(html)).not.toContain("Re-authenticate");
+		const status = statusColumn(html);
+		expect(status).toContain("Reconnect required");
+		expect(reauthButton(status)).toContain(" bg-primary ");
+	});
+
+	it("shows Refresh usage beside the usage, only where the router can refresh it", () => {
+		for (const provider of ["anthropic", "codex"]) {
+			const html = visibleRow(makeAccount({ provider, paused: false }));
+			expect(cluster(html)).not.toContain("Refresh usage");
+			expect(html.slice(html.indexOf("Usage and resets"))).toContain(
+				'aria-label="Refresh usage for acc-1"',
+			);
+		}
+		for (const provider of ["xai", "openrouter", "zai"]) {
+			const html = renderToStaticMarkup(
+				<AccountListItem
+					account={makeAccount({ provider, paused: false })}
+					{...requiredHandlers}
+				/>,
+			);
+			expect(html).not.toContain('aria-label="Refresh usage');
+		}
+	});
+
+	it("keeps a failed refresh's reason for the row it was pressed on", async () => {
+		const changes: unknown[] = [];
+		const tree = rowTree(
+			{
+				account: makeAccount(),
+				...requiredHandlers,
+				onRefreshUsage: async () => "Codex usage endpoint returned 401.",
+			},
+			false,
+			changes,
+		);
+		const refresh = treeNodes(tree).find(
+			(node) => node.props["aria-label"] === "Refresh usage for acc-1",
+		);
+		await (refresh?.props.onClick as () => Promise<void>)();
+		expect(changes).toEqual([
+			true,
+			"Codex usage endpoint returned 401.",
+			false,
+		]);
+	});
+
+	it("shows that reason under the usage it tried to refresh", () => {
+		const html = renderClosedMarkup(
+			rowTree({ account: makeAccount(), ...requiredHandlers }, false, [], {
+				3: "Codex usage endpoint returned 401.",
+			}),
+		);
+		const usage = html.slice(html.indexOf("Usage and resets"));
+		expect(usage).toContain('role="alert"');
+		expect(usage).toContain("Codex usage endpoint returned 401.");
+	});
+});
 
 describe("account model mapping edits", () => {
 	it("preserves unrelated exact pins and one-element ordered arrays", () => {
@@ -1567,7 +1692,7 @@ describe("AccountListItem row layout", () => {
 		const paused = render(makeAccount({ name: "max-a", paused: true }));
 		expect(paused).toContain('aria-label="Resume max-a"');
 		expect(paused).toContain('aria-label="More actions for max-a"');
-		expect(paused).toContain('aria-label="Refresh usage"');
+		expect(paused).toContain('aria-label="Refresh usage for max-a"');
 		expect(render(makeAccount({ paused: false }))).toContain(
 			'aria-label="Pause acc-1"',
 		);
@@ -2066,7 +2191,7 @@ describe("Details settings errors", () => {
 	});
 });
 
-it("keeps priority in identity and lifetime requests and refresh in Details", () => {
+it("keeps priority in identity, lifetime requests in Details, and refresh on the row", () => {
 	const html = renderToStaticMarkup(
 		<AccountListItem
 			account={makeAccount({ priority: 31, requestCount: 1234 })}
@@ -2077,8 +2202,9 @@ it("keeps priority in identity and lifetime requests and refresh in Details", ()
 	expect(visible.match(/Priority /g)).toHaveLength(1);
 	expect(visible).not.toContain("1,234 requests");
 	expect(html).toContain("1,234 requests");
-	expect(visible).not.toContain('aria-label="Refresh usage"');
-	expect(html).toContain('aria-label="Refresh usage"');
+	// One refresh control, on the row beside the usage it re-reads.
+	expect(visible).toContain('aria-label="Refresh usage for acc-1"');
+	expect(html.match(/aria-label="Refresh usage/g)).toHaveLength(1);
 });
 
 it("represents a matching scoped binding inline and preserves unmatched exceptions", () => {
@@ -2114,6 +2240,7 @@ function rowTree(
 	props: Parameters<typeof AccountListItem>[0],
 	open: boolean,
 	changes: unknown[] = [],
+	states: Record<number, unknown> = {},
 ) {
 	const React = require("react");
 	const internals =
@@ -2121,10 +2248,13 @@ function rowTree(
 	const previous = internals.H;
 	let index = 0;
 	internals.H = {
-		useState: (initial: unknown) => [
-			index++ === 1 ? open : initial,
-			(value: unknown) => changes.push(value),
-		],
+		useState: (initial: unknown) => {
+			const slot = index++;
+			return [
+				slot === 1 ? open : slot in states ? states[slot] : initial,
+				(value: unknown) => changes.push(value),
+			];
+		},
 		useId: () => "account-details-test",
 	};
 	try {
