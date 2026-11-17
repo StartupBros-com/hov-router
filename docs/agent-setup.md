@@ -54,13 +54,27 @@ For CLI account setup instead, read [First-time Setup](cli.md#first-time-setup) 
 
 Continue when the account exists and the intended routing review is complete. Waiting for sign-in is a legitimate pause, not a successful installation claim.
 
+### Check extra usage on each Claude login
+
+When extra usage is on at Anthropic, Anthropic bills a Claude login's requests past a spent plan limit. The router never changes that setting. Its **Don’t use extra usage on this login** switch stops the router sending the login a request once it learns that a limit is spent; it is best effort, because Anthropic can bill a request before the router learns.
+
+After each Claude login is signed in, and before its first request:
+
+1. Read the login from `GET /api/accounts` on the confirmed origin ([fields](api-http.md#get-apiaccounts)). `extraUsage.state` is `on`, `off` or `unknown`, and `extraUsage.readingAt` is the time of the usage reading it comes from.
+2. Only when `extraUsage.readingAt` is `null`, call `POST /api/accounts/<id>/refresh-usage` once ([route](api-http.md#post-apiaccountsaccountidrefresh-usage)). A reply with `cacheRefreshed: true` means a reading arrived, so read the login again. Do not call it for a login that already has a reading, or call it again: it drops the cached reading and the router's per-model limit markers.
+3. If the state is `on`, tell the member in one sentence that Anthropic bills this login's requests past a plan limit, and ask whether to turn on **Don’t use extra usage on this login**. Turn the switch on only when the member says yes, through `POST /api/accounts/<id>/auto-pause-on-overage` with `{"enabled": 1}` ([route](api-http.md#post-apiaccountsaccountidauto-pause-on-overage)) or the switch under the login's **Details > Settings** on the **Accounts** page. Otherwise leave it off.
+4. If the state is `unknown`, or still has no reading after the refresh, report the state as not yet known, never as off, and point the member to the login's row on the **Accounts** page, which shows the state once a reading arrives.
+5. If the state is `off`, report it.
+
+Ask the member before turning the switch off and before resuming a held login, too. On a shared router, only report the state to the owner, whose switch it is. A 401 or 403 from `GET /api/accounts` means this client cannot read accounts: report the state as not yet known and ask the owner.
+
 ## 5. Connect Claude Code and prove the route
 
 Read [Configure Claude SDK](reference.md#configure-claude-sdk) and select the authentication branch that matches the existing client and Router. Prefer a session-scoped `ANTHROPIC_BASE_URL` using the confirmed origin, leaving saved settings and login untouched.
 
 An existing OAuth login and a new `ANTHROPIC_AUTH_TOKEN` conflict. Don't blindly execute the manual's logout alternative. For a protected Router, the client needs a valid **Router** key, not a provider credential: explain the API-key branch and have the human choose it before changing authentication. Reuse working Router authentication; only if a key is needed, have them supply it privately in the client session. If that would displace a working login, pause for their decision and agree on how to restore it. For a deliberately selected Codex client, use [its separate configuration and restrictions](reference.md#codex-cli-as-a-client); it is not a substitute for testing Anthropic OAuth through Claude Code.
 
-Before sending, confirm the selected route's cost and get approval for paid usage or overages; if pricing is unclear, pause.
+Before sending, confirm the selected route's cost and get approval for paid usage or overages; for a Claude login, [check its extra usage](#check-extra-usage-on-each-claude-login) first. If pricing is unclear, pause.
 
 For Anthropic-backed accounts, ask the human to send a small request in a **real interactive Claude Code CLI session**. Only an explicitly operator-approved, bounded, managed gateway-routed headless Claude Code CLI check may substitute. Never probe Anthropic inference using raw curl or a diagnostic script, directly or through Router. Non-Anthropic local/synthetic checks can establish that route's behavior, but are not proof of Anthropic OAuth success.
 
