@@ -1200,8 +1200,11 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 			"restart circuit open; exiting for service supervisor",
 		);
 		expect(output.stdout).not.toContain("paused until operator restart");
+		// CI once counted 3 starts here, and nothing in its log said why (#880).
+		// The runner's own lines show whether a failure went uncounted.
 		expect(
 			(output.stdout.match(/starting better-ccflare upstream/g) ?? []).length,
+			JSON.stringify(output),
 		).toBe(2);
 
 		const upstreamRecords = readFileSync(
