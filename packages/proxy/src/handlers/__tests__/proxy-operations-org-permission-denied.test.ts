@@ -7,6 +7,10 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
+import {
+	type OrgPermissionDeniedEvt,
+	orgPermissionDeniedEvents,
+} from "@better-ccflare/core";
 import { usageCache } from "@better-ccflare/providers";
 import type { Account, RequestMeta } from "@better-ccflare/types";
 import { resetDefaultCircuitBreaker } from "../../circuit-breaker";
@@ -287,6 +291,58 @@ describe("proxyWithAccount — org_permission_denied (403 permission_error)", ()
 
 		expect(result).toBeNull();
 		expect(markCalls(ctx)[0][2]).toBe("org_permission_denied");
+	});
+
+	// Issue #877: the alert service turns these into one operator ping per
+	// refusal episode.
+	it("announces each org refusal on the org-permission-denied event bus", async () => {
+		globalThis.fetch = mock(async () => orgPermissionDenied403());
+		const events: OrgPermissionDeniedEvt[] = [];
+		const listener = (event: OrgPermissionDeniedEvt) => events.push(event);
+		orgPermissionDeniedEvents.on("event", listener);
+		const before = Date.now();
+		try {
+			const ctx = makeCtx();
+			const account = makeAccount();
+			const body = makeRequestBody();
+			await runProxy(account, ctx, makeRequest(body), body);
+		} finally {
+			orgPermissionDeniedEvents.off("event", listener);
+		}
+
+		expect(events).toHaveLength(1);
+		expect(events[0]).toMatchObject({
+			accountId: "acc-anthropic-1",
+			accountName: "claude-pro",
+			provider: "anthropic",
+		});
+		expect(events[0]?.timestamp).toBeGreaterThanOrEqual(before);
+	});
+
+	it("announces nothing for a 403 that is not an org refusal", async () => {
+		globalThis.fetch = mock(
+			async () =>
+				new Response(
+					JSON.stringify({
+						type: "error",
+						error: { type: "authentication_error", message: "invalid" },
+					}),
+					{ status: 403, headers: { "content-type": "application/json" } },
+				),
+		);
+		const events: OrgPermissionDeniedEvt[] = [];
+		const listener = (event: OrgPermissionDeniedEvt) => events.push(event);
+		orgPermissionDeniedEvents.on("event", listener);
+		try {
+			const ctx = makeCtx();
+			const account = makeAccount();
+			const body = makeRequestBody();
+			await runProxy(account, ctx, makeRequest(body), body);
+		} finally {
+			orgPermissionDeniedEvents.off("event", listener);
+		}
+
+		expect(events).toHaveLength(0);
 	});
 
 	it("leaves a 403 whose error.type is not permission_error untouched", async () => {

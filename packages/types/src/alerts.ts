@@ -65,7 +65,13 @@ export type AlertType =
 	| "codex_identity_record_stale"
 	/** warning: the member notice address refused a notice, so it will not
 	 * be retried. The alert never names the address. */
-	| "member_notice_delivery_failed";
+	| "member_notice_delivery_failed"
+	/** Anthropic refuses an account's organization (403 `permission_error`,
+	 * rate-limit reason `org_permission_denied`): critical when a refusal
+	 * episode starts, info when the account serves a request again. The phase
+	 * is the second segment of the id (`org_permission_denied:refused:…` or
+	 * `…:recovered:…`). See AlertService.handleOrgPermissionDenied (#877). */
+	| "org_permission_denied";
 
 /**
  * Every known `AlertType` value, in the same order as the union above. The
@@ -98,6 +104,7 @@ export const ALERT_TYPES: readonly AlertType[] = [
 	"codex_route_role_unavailable",
 	"codex_identity_record_stale",
 	"member_notice_delivery_failed",
+	"org_permission_denied",
 ];
 
 const ALERT_TYPE_SET: ReadonlySet<string> = new Set(ALERT_TYPES);

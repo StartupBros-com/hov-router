@@ -10,6 +10,7 @@ import {
 	isOfficialXaiEndpoint,
 	isUsageExhausted,
 	logError,
+	orgPermissionDeniedEvents,
 	ProviderError,
 	supportsForcedToolChoice,
 	TIME_CONSTANTS,
@@ -5524,6 +5525,22 @@ export async function proxyWithAccount(
 					"organization forbids OAuth/Claude Code access for this account; " +
 					"benching account and failing over to next account",
 			);
+			// Every refusal is announced; the alert service turns the first of an
+			// episode into one operator ping (#877).
+			try {
+				orgPermissionDeniedEvents.emit("event", {
+					accountId: account.id,
+					accountName: account.name,
+					provider: account.provider,
+					timestamp: Date.now(),
+				});
+			} catch (eventErr) {
+				// Alerting is best-effort and must never undo the bench or failover.
+				log.error(
+					`Failed to publish org refusal event for ${account.name}:`,
+					eventErr,
+				);
+			}
 			recordRoutingAttempt({
 				parentRequestId: requestMeta.id,
 				timestamp: Date.now(),

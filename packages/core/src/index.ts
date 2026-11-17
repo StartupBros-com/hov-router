@@ -63,6 +63,7 @@ export {
 	MAX_OAUTH_ERROR_INPUT_LENGTH,
 	readBoundedOAuthResponseText,
 } from "./oauth-response";
+export * from "./org-permission-denied-events";
 export * from "./reauth-instructions";
 
 // Export types for model mappings - defined inline in model-mappings.ts
