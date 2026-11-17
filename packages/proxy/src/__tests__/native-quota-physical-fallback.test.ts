@@ -213,9 +213,14 @@ function success(model: string) {
 	return Response.json({ type: "message", model, content: [] });
 }
 
-function putUsage(account: Account, fable = 20, shared = 20) {
+function putUsage(
+	account: Account,
+	fable = 20,
+	shared = 20,
+	spendEnabled = false,
+) {
 	usageCache.set(account.id, {
-		spend: { enabled: false },
+		spend: { enabled: spendEnabled },
 		limits: [
 			{
 				kind: "session",
@@ -399,6 +404,44 @@ describe("native quota physical model fallbacks", () => {
 		expect(response.status).toBe(200);
 		expect((await response.json()).model).toBe(OPUS);
 		expect(pool.calls).toEqual([DATED_FABLE, datedOpus, OPUS]);
+	});
+
+	it("sends only to the login's Opus backup when the extra-usage switch holds Fable and extra usage is on", async () => {
+		const pool = nativePool();
+		const holds = {
+			readingAt: Date.now() - 60_000,
+			holds: [
+				{
+					windowKey: "seven_day_fable",
+					scope: "family" as const,
+					modelFamily: "fable",
+					resetsAtMs: Date.now() + 86_400_000,
+					startedAt: Date.now() - 60_000,
+				},
+			],
+		};
+		pool.account.auto_pause_on_overage_enabled = true;
+		pool.account.extra_usage_holds = holds;
+		Object.assign(pool.ctx.dbOps, {
+			getExtraUsageHoldInputs: async () => ({
+				provider: "anthropic",
+				createdAt: 0,
+				switchOn: true,
+				holds,
+				paused: false,
+				pauseReason: null,
+				overageBilledAt: null,
+				overageBilledFamily: null,
+			}),
+		});
+		// Anthropic would bill past the spent Fable limit, so the reading alone
+		// proves nothing; the hold is what keeps Fable off this login.
+		putUsage(pool.account, 100, 20, true);
+		pool.fetch((model) => success(model));
+		const response = await pool.send();
+		expect(response.status).toBe(200);
+		expect((await response.json()).model).toBe(OPUS);
+		expect(pool.calls).toEqual([OPUS]);
 	});
 
 	it("waits when a shared window closes before the second Fable model", async () => {
