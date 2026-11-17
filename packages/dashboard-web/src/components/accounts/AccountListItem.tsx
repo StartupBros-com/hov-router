@@ -113,10 +113,24 @@ const CLEAR_COOLDOWN_PLACEMENT = {
 	besideStatus: "min-[21rem]:hidden xl:inline-flex",
 	// The retry line when it holds only the link.
 	linkOnlyLine: "min-[21rem]:hidden xl:flex",
+	retryLineGap: "",
 };
 const REAUTH_PLACEMENT = {
 	actionLine: "hidden min-[24rem]:inline-flex xl:hidden",
 	besideStatus: "min-[24rem]:hidden xl:inline-flex",
+};
+// The re-login flag is written with a pause, but an unpaused account can still
+// carry it (a failed pause write, or a later resume) while cooling down. Both
+// remedies never fit on the action line, so Clear cooldown takes it only from
+// 21rem until Re-authenticate takes it at 24rem.
+const CLEAR_COOLDOWN_BESIDE_REAUTH = {
+	actionLine: "hidden min-[21rem]:inline-flex min-[24rem]:hidden",
+	besideStatus: "min-[21rem]:hidden min-[24rem]:inline-flex",
+	linkOnlyLine: "min-[21rem]:hidden min-[24rem]:flex",
+	// Below 21rem and from xl both sit in the status column, Re-authenticate just
+	// above the retry line. The link's tap area reaches 14px above its text and
+	// the lines are 6px apart, so 8px more keeps the two tap areas apart.
+	retryLineGap: "max-[21rem]:mt-2 xl:mt-2",
 };
 
 /**
@@ -449,6 +463,10 @@ export function AccountListItem({
 						}
 					: null;
 	// Each remedy renders twice and shows once; see CLEAR_COOLDOWN_PLACEMENT.
+	const reauthShown = Boolean(reauth && reauthRequired);
+	const clearPlacement = reauthShown
+		? CLEAR_COOLDOWN_BESIDE_REAUTH
+		: CLEAR_COOLDOWN_PLACEMENT;
 	const clearCooldownAction = (display: string) =>
 		showForceReset && (
 			<Button
@@ -467,11 +485,12 @@ export function AccountListItem({
 		);
 	const reauthAction = (display: string) =>
 		reauth &&
-		reauthRequired && (
+		reauthShown && (
 			<Button
 				variant="default"
 				size="touch-sm"
-				className={`gap-1 text-xs text-black hover:text-black ${display}`}
+				// Above Clear cooldown's tap area wherever the two meet.
+				className={`relative z-20 gap-1 text-xs text-black hover:text-black ${display}`}
 				onClick={() => reauth.handler(account)}
 				title={reauth.title}
 			>
@@ -614,7 +633,7 @@ export function AccountListItem({
 				{/* Pause, Details and More hold one place on every row; a remedy joins
 				    them, to their left, only where the line has room for it. */}
 				<div className="ml-auto flex shrink-0 flex-wrap items-center gap-1 min-w-0 max-w-full justify-end xl:col-start-4 xl:row-start-1">
-					{clearCooldownAction(CLEAR_COOLDOWN_PLACEMENT.actionLine)}
+					{clearCooldownAction(clearPlacement.actionLine)}
 					{reauthAction(REAUTH_PLACEMENT.actionLine)}
 					<Button
 						variant="ghost"
@@ -764,10 +783,8 @@ export function AccountListItem({
 						className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground ${
 							// With no retry time the line holds only the link, so it shows
 							// only where the link does.
-							status.routerRetryAt != null
-								? ""
-								: CLEAR_COOLDOWN_PLACEMENT.linkOnlyLine
-						}`}
+							status.routerRetryAt != null ? "" : clearPlacement.linkOnlyLine
+						} ${showForceReset ? clearPlacement.retryLineGap : ""}`}
 					>
 						{status.routerRetryAt != null && (
 							<span
@@ -783,7 +800,7 @@ export function AccountListItem({
 								)}
 							</span>
 						)}
-						{clearCooldownAction(CLEAR_COOLDOWN_PLACEMENT.besideStatus)}
+						{clearCooldownAction(clearPlacement.besideStatus)}
 					</span>
 				)}
 				{staleLockDetected && (

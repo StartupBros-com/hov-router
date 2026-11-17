@@ -772,6 +772,73 @@ describe("AccountListItem row actions", () => {
 		);
 	});
 
+	it("never puts Clear cooldown and Re-authenticate on the action line at the same width", () => {
+		// The re-login flag is written with a pause, but an unpaused account can
+		// still carry it (a failed pause write, or a later resume) while cooling
+		// down. Both remedies would not fit left of Pause, Details and More.
+		const html = visibleRow(
+			makeAccount({
+				paused: false,
+				requiresReauth: true,
+				rateLimitedUntil: Date.now() + 60_000,
+			}),
+			{ onAnthropicReauth: noop },
+		);
+		// Re-authenticate holds the action line from 24rem until xl, so Clear
+		// cooldown holds it only from 21rem to 24rem.
+		expect(classes(reauthButton(cluster(html)))).toEqual(
+			expect.arrayContaining([
+				"hidden",
+				"min-[24rem]:inline-flex",
+				"xl:hidden",
+			]),
+		);
+		expect(classes(buttonWith(cluster(html), "Clear cooldown"))).toEqual(
+			expect.arrayContaining([
+				"hidden",
+				"min-[21rem]:inline-flex",
+				"min-[24rem]:hidden",
+			]),
+		);
+		const clear = buttonWith(statusColumn(html), "Clear cooldown");
+		expect(classes(clear)).toEqual(
+			expect.arrayContaining(["min-[21rem]:hidden", "min-[24rem]:inline-flex"]),
+		);
+		expect(classes(clear)).not.toContain("hidden");
+	});
+
+	it("keeps Clear cooldown's tap area off Re-authenticate where both sit beside the status", () => {
+		const html = visibleRow(
+			makeAccount({
+				paused: false,
+				requiresReauth: true,
+				rateLimitedUntil: Date.now() + 60_000,
+			}),
+			{ onAnthropicReauth: noop },
+		);
+		// Below 21rem and from xl both sit in the status column, Re-authenticate
+		// just above the retry line. The link's tap area reaches 14px above its
+		// text and the lines are 6px apart, so the retry line gets 8px more there.
+		const retryLine = statusColumn(html).match(
+			/<span class="([^"]*)"><span title="[^"]*">Router retry/,
+		)?.[1];
+		expect(retryLine?.split(/\s+/)).toEqual(
+			expect.arrayContaining(["max-[21rem]:mt-2", "xl:mt-2"]),
+		);
+		// If text metrics ever shift, the visible button still wins the overlap.
+		expect(classes(reauthButton(statusColumn(html)))).toEqual(
+			expect.arrayContaining(["relative", "z-20"]),
+		);
+	});
+
+	it("adds no space above the retry line when Re-authenticate is not shown", () => {
+		const html = visibleRow(
+			makeAccount({ paused: false, rateLimitedUntil: Date.now() + 60_000 }),
+		);
+		expect(statusColumn(html)).toContain("Router retry");
+		expect(statusColumn(html)).not.toContain("mt-2");
+	});
+
 	it("shows Refresh usage beside the usage, only where the router can refresh it", () => {
 		for (const provider of ["anthropic", "codex"]) {
 			const html = visibleRow(makeAccount({ provider, paused: false }));
