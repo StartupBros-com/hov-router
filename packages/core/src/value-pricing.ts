@@ -39,7 +39,7 @@ import type { TokenBreakdown } from "./pricing";
  * (UsageWindowLedger.revalueStaleClosedWindows), so history follows the
  * current rates instead of keeping the price it was closed at.
  */
-export const VALUE_PRICING_VERSION = "2026-11-10.2";
+export const VALUE_PRICING_VERSION = "2026-11-17.1";
 
 /**
  * Prompt-token threshold (input + cache read + cache creation, per request)
@@ -288,6 +288,37 @@ export const LIST_PRICE_ERAS: Record<string, ListPriceEra[]> = {
 			// retention", Output $5); launch 2026-10-26 per
 			// https://developers.openai.com/api/docs/changelog. The 30-minute write
 			// rate is used, as for the other GPT-6 entries. checked 2026-11-10.
+		},
+	],
+
+	"gpt-6.2-astra": [
+		{
+			sinceMs: INITIAL_ERA_FLOOR_MS,
+			inputPerM: 8.0,
+			cacheReadPerM: 0.4,
+			cacheCreationPerM: 10.0,
+			outputPerM: 40.0,
+			// sources: https://developers.openai.com/api/docs/pricing (Standard)
+			// and https://developers.openai.com/api/docs/models/gpt-6.2-astra:
+			// input $8, cached input $0.40, 30-minute write $10, output $40 per 1M.
+			// The 12-hour write rate is $20; use 30-minute retention, as for the
+			// other GPT-6 entries. No longContext: see the OpenAI note above.
+			// Launch and verification: 2026-11-17.
+		},
+	],
+	"gpt-6.2-sol": [
+		{
+			sinceMs: INITIAL_ERA_FLOOR_MS,
+			inputPerM: 2.0,
+			cacheReadPerM: 0.1,
+			cacheCreationPerM: 2.5,
+			outputPerM: 10.0,
+			// sources: https://developers.openai.com/api/docs/pricing (Standard)
+			// and https://developers.openai.com/api/docs/models/gpt-6.2-sol:
+			// input $2, cached input $0.10, 30-minute write $2.50, output $10 per 1M.
+			// The 12-hour write rate is $5; use 30-minute retention, as for the
+			// other GPT-6 entries. No longContext: see the OpenAI note above.
+			// Launch and verification: 2026-11-17.
 		},
 	],
 
