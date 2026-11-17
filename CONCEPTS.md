@@ -589,8 +589,8 @@ manager decides what happens next. Only an explicit hold, outside a service mana
 supervisor running and paused until an operator restarts it. The count starts over once the
 window has passed, or when the stack had stayed up long enough to count as stable before it
 failed. Below the cap, each restart waits a backoff that doubles with each failure up to a
-ceiling. A completed *Memory recycle* and an *Out-of-space start* are not counted; their entries
-say when each applies.
+ceiling. A *Memory recycle* that completes is not counted, but one that fails counts like any
+other failure. An *Out-of-space start* is not counted, within the limits its entry gives.
 
 ### Out-of-space start
 
