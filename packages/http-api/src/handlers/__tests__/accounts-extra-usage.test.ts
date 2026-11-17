@@ -224,19 +224,16 @@ describe("holds on GET /api/accounts", () => {
 	});
 
 	it("lists each hold from a reading whose reset is still ahead, and no other", async () => {
-		const ahead = Date.now() + 2 * HOUR;
+		const opus = hold("seven_day_opus", Date.now() + 2 * HOUR);
 		await seed("a", {
 			switchOn: true,
 			holds: {
 				readingAt: Date.now() - HOUR,
-				holds: [
-					hold("seven_day_opus", ahead),
-					hold("five_hour", Date.now() - MINUTE),
-				],
+				holds: [opus, hold("five_hour", Date.now() - MINUTE)],
 			},
 		});
 		const account = (await list()).get("a");
-		expect(account?.extraUsageHolds).toEqual([hold("seven_day_opus", ahead)]);
+		expect(account?.extraUsageHolds).toEqual([opus]);
 		expect(account?.extraUsageBilledHold).toBeNull();
 	});
 
