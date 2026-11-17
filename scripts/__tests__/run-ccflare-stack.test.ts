@@ -420,6 +420,25 @@ function setRssKiB(
 	writeFileSync(join(runner.captureDir, "rss-kib"), `${rssKiB}\n`);
 }
 
+// Ends the mock upstream's held `/hold` response.
+function releaseHold(runner: Awaited<ReturnType<typeof spawnRunner>>): void {
+	writeFileSync(join(runner.captureDir, "release-hold"), "");
+}
+
+async function waitForGuardWaiting(
+	base: string,
+	count: number,
+	timeoutMs = 5_000,
+): Promise<void> {
+	const started = Date.now();
+	while (Date.now() - started < timeoutMs) {
+		const health = await (await fetch(`${base}/_guard/health`)).json();
+		if (health.lifecycle.waiting >= count) return;
+		await Bun.sleep(10);
+	}
+	throw new Error(`guard did not hold ${count} request(s) during the drain`);
+}
+
 function setSwapRaw(
 	runner: Awaited<ReturnType<typeof spawnRunner>>,
 	raw: string,
@@ -1366,9 +1385,12 @@ describe("persistent guard memory replacement (real Node guard, mock upstream on
 			"res.end('{}');",
 			"res.end(JSON.stringify({git_sha:existsSync(`${process.env.CAPTURE_DIR}/bad-health`) ? 'wrong-sha' : '01234567'}));",
 		);
+		// `/hold` stays open until the test calls releaseHold(). It used to end
+		// itself after 250 ms, and on a loaded machine the recycle can begin later
+		// than that: the guard then drained nothing and reported "absent" (#882).
 		source = source.replace(
 			"const server = http.createServer((_req, res) => {",
-			"const server = http.createServer((_req, res) => { if(_req.url === '/hold') { res.writeHead(200); res.write('first'); setTimeout(()=>res.end('last'), 250); return; }",
+			"const server = http.createServer((_req, res) => { if(_req.url === '/hold') { res.writeHead(200); res.write('first'); const release = setInterval(() => { if (existsSync(`${process.env.CAPTURE_DIR}/release-hold`)) { clearInterval(release); res.end('last'); } }, 5); res.on('close', () => clearInterval(release)); return; }",
 		);
 		writeFileSync(programs.upstream, source);
 		const guardPort = await allocatePort();
@@ -1453,6 +1475,8 @@ describe("persistent guard memory replacement (real Node guard, mock upstream on
 				method: "POST",
 				body: "fixture",
 			});
+			await waitForGuardWaiting(base, 1);
+			releaseHold(runner);
 			expect(await body).toBe("firstlast");
 			expect((await next).status).toBe(200);
 			const after = await (await fetch(`${base}/_guard/health`)).json();
@@ -1554,6 +1578,8 @@ describe("persistent guard memory replacement (real Node guard, mock upstream on
 		await waitForOutput(runner, "guard_recycle_begin");
 		const exit = waitForExit(runner.child);
 		runner.child.kill("SIGTERM");
+		await waitForOutput(runner, "shutdown requested");
+		releaseHold(runner);
 		expect((await exit).code).toBe(143);
 		await body;
 		expect(generationCount(runner)).toBe(1);
