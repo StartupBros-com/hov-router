@@ -1607,18 +1607,29 @@ describe("extra usage on a Claude row", () => {
 	const opened = (overrides: Partial<Account>) =>
 		renderToStaticMarkup(<AccountListItem {...props(overrides)} />);
 
-	it("shows extra usage on with its reading time, the warning and the settings link on a closed row", () => {
+	// What a collapsed row shows: Details content stripped, as the member sees it at a glance.
+	const glance = (overrides: Partial<Account>) =>
+		withoutDetailsContent(closed(overrides));
+	const SETTINGS_LINK = 'href="https://claude.ai/settings/usage"';
+
+	it("shows extra usage on as one warning pill, with the state, warning and link in Settings", () => {
 		const readingAt = now - 60_000;
-		const html = closed({ extraUsage: { state: "on", readingAt } });
+		const account = { extraUsage: { state: "on" as const, readingAt } };
+		const row = glance(account);
+		expect(text(row)).toContain("Extra usage on");
+		expect(row).toMatch(/data-tone="warning"[^>]*>Extra usage on</);
+		expect(text(row)).not.toContain("Anthropic bills");
+		expect(text(row)).not.toContain("Extra usage is on at Anthropic");
+		expect(row).not.toContain(SETTINGS_LINK);
+
+		const html = opened(account);
 		expect(text(html)).toContain(
-			`Extra usage at Anthropic: on · read ${formatClockTime(readingAt, now)}`,
+			`Extra usage is on at Anthropic as of ${formatClockTime(readingAt, now)}.`,
 		);
 		expect(text(html)).toContain(
-			"Anthropic bills requests past a spent plan limit as extra usage.",
+			"Anthropic bills this login’s requests past a spent plan limit.",
 		);
-		expect(text(html)).toContain(`The router’s “${LABEL}” switch is off.`);
-		expect(html).toContain('href="https://claude.ai/settings/usage"');
-		expect(html).toContain('data-tone="warning"');
+		expect(html).toContain(SETTINGS_LINK);
 	});
 
 	it("names the switch with its best-effort text in Settings", () => {
@@ -1630,61 +1641,106 @@ describe("extra usage on a Claude row", () => {
 		expect(html).toContain('aria-label="Don’t use extra usage on acc-1"');
 	});
 
-	it("shows off with no warning and still offers the switch", () => {
-		const closedHtml = closed({ extraUsage: { state: "off", readingAt: now } });
-		expect(text(closedHtml)).toContain("Extra usage at Anthropic: off");
-		expect(text(closedHtml)).not.toContain("bills requests");
-		expect(closedHtml).not.toContain('data-tone="warning"');
-		expect(closedHtml).toContain('href="https://claude.ai/settings/usage"');
-		expect(opened({ extraUsage: { state: "off", readingAt: now } })).toContain(
-			'aria-label="Don’t use extra usage on acc-1"',
+	it("says nothing about extra usage on a collapsed row while it reads off", () => {
+		const account = { extraUsage: { state: "off" as const, readingAt: now } };
+		const row = glance(account);
+		expect(text(row)).not.toContain("Extra usage");
+		expect(row).not.toContain(SETTINGS_LINK);
+		expect(row).not.toContain('data-tone="warning"');
+
+		const html = opened(account);
+		expect(text(html)).toContain(
+			`Extra usage is off at Anthropic as of ${formatClockTime(now, now)}.`,
 		);
+		expect(text(html)).not.toContain("bills");
+		expect(html).toContain(SETTINGS_LINK);
+		expect(html).toContain('aria-label="Don’t use extra usage on acc-1"');
 	});
 
-	it("shows not known when there is no reading", () => {
-		const html = closed({ extraUsage: { state: "unknown", readingAt: null } });
-		expect(text(html)).toContain("Extra usage at Anthropic: not known");
-		expect(text(html)).not.toContain("· read");
+	it("says nothing on a collapsed row while the state is not known, and says not known in Settings", () => {
+		const account = {
+			extraUsage: { state: "unknown" as const, readingAt: null },
+		};
+		expect(text(glance(account))).not.toContain("Extra usage");
+		const html = opened(account);
+		expect(text(html)).toContain("Extra usage at Anthropic is not known.");
+		expect(text(html)).not.toContain("off at Anthropic");
+		expect(text(html)).not.toContain("last reading");
 	});
 
-	it("shows a model hold, its reset time and that turning the switch off ends it on a closed row", () => {
+	it("shows a model hold as a short cue on a collapsed row and in full in Settings", () => {
 		const resetsAtMs = now + 3 * HOUR;
-		const html = closed({
+		const account = {
 			autoPauseOnOverageEnabled: true,
-			extraUsage: { state: "on", readingAt: now },
+			extraUsage: { state: "on" as const, readingAt: now },
 			extraUsageHolds: [
 				{
 					windowKey: "seven_day_opus",
-					scope: "family",
+					scope: "family" as const,
 					modelFamily: "opus",
 					resetsAtMs,
 					startedAt: now - HOUR,
 				},
 			],
-		});
-		expect(text(html)).toContain(
-			`Held: Opus — Opus (Weekly) limit spent. Ends at ${formatClockTime(resetsAtMs, now)} or when you turn the switch off.`,
+		};
+		const time = formatClockTime(resetsAtMs, now);
+		expect(text(glance(account))).toContain(`Opus held until ${time}`);
+		expect(text(glance(account))).not.toContain("Held:");
+		expect(text(opened(account))).toContain(
+			`Held: Opus — Opus (Weekly) limit spent. Ends at ${time} or when you turn the switch off.`,
 		);
 	});
 
-	it("shows a billed hold ending only on resume while Return after reset is off", () => {
+	it("keeps the hold cue when nothing else on the row says the model is held", () => {
+		// A stored hold outlives a failed usage reading, and a paused row hides
+		// the at-limit labels, so only the cue says Opus is held and until when.
+		const resetsAtMs = now + 3 * HOUR;
+		const row = text(
+			glance({
+				paused: true,
+				pauseReason: "manual",
+				autoPauseOnOverageEnabled: true,
+				extraUsage: { state: "off", readingAt: now },
+				extraUsageHolds: [
+					{
+						windowKey: "seven_day_opus",
+						scope: "family",
+						modelFamily: "opus",
+						resetsAtMs,
+						startedAt: now - HOUR,
+					},
+				],
+			}),
+		);
+		expect(row).toContain(
+			`Opus held until ${formatClockTime(resetsAtMs, now)}`,
+		);
+		expect(row).not.toContain("at limit");
+	});
+
+	it("leaves a billed hold to the row's Paused status and puts its cause and end in Settings", () => {
 		const billedAt = now - HOUR;
-		const html = closed({
+		const account = {
 			paused: true,
 			pauseReason: "overage",
 			autoPauseOnOverageEnabled: true,
 			rateLimitReset: new Date(now + 2 * HOUR).toISOString(),
-			extraUsage: { state: "on", readingAt: now },
+			extraUsage: { state: "on" as const, readingAt: now },
 			extraUsageBilledHold: { billedAt, family: "opus" },
-		});
-		expect(text(html)).toContain(
+		};
+		const row = text(glance(account));
+		expect(row).toContain("Paused");
+		expect(row).toContain("Auto-paused: overage");
+		expect(row).not.toContain("Held:");
+		expect(row).not.toContain("held until");
+		expect(text(opened(account))).toContain(
 			`Held: Every model — Anthropic billed an Opus request as extra usage at ${formatClockTime(billedAt, now)}. Ends when you resume this login or when you turn the switch off.`,
 		);
 	});
 
 	it("adds the stored reset time to a billed hold with Return after reset on", () => {
 		const reset = now + 2 * HOUR;
-		const html = closed({
+		const html = opened({
 			paused: true,
 			pauseReason: "overage",
 			autoPauseOnOverageEnabled: true,
@@ -1696,6 +1752,22 @@ describe("extra usage on a Claude row", () => {
 		expect(text(html)).toContain(
 			`Ends when you resume this login, after ${formatClockTime(reset, now)} or when you turn the switch off.`,
 		);
+	});
+
+	it("shows the state in Settings even when the row has no switch handler", () => {
+		const html = renderToStaticMarkup(
+			<AccountListItem
+				now={now}
+				account={makeAccount({
+					paused: false,
+					extraUsage: { state: "off", readingAt: now },
+				})}
+				{...requiredHandlers}
+			/>,
+		);
+		expect(text(html)).toContain("Extra usage is off at Anthropic as of");
+		expect(html).toContain(SETTINGS_LINK);
+		expect(html).not.toContain('aria-label="Don’t use extra usage on acc-1"');
 	});
 
 	it("no longer shows Pause on extra usage anywhere on the row", () => {
@@ -1723,8 +1795,9 @@ describe("extra usage on a Claude row", () => {
 	});
 
 	it("shows nothing about extra usage on another provider's row", () => {
-		const html = closed({ provider: "codex" });
-		expect(text(html)).not.toContain("Extra usage at Anthropic");
+		const html = opened({ provider: "codex" });
+		expect(text(html)).not.toContain("Extra usage on");
+		expect(text(html)).not.toContain("at Anthropic");
 		expect(html).not.toContain("claude.ai/settings/usage");
 	});
 

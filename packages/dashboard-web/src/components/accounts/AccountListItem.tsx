@@ -34,7 +34,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { Notice } from "../ui/notice";
 import { StatusPill } from "../ui/status-pill";
 import { Switch } from "../ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
@@ -276,35 +275,24 @@ export function PublicValueControl({
 
 /**
  * A Claude login's extra-usage state, its warning while the state reads on,
- * and each hold, shown without opening Details. Hook-free for the row tests.
+ * and each hold in full, for Details > Settings beside the switch. The
+ * collapsed row carries only the pill and the hold cues.
  */
-function ExtraUsageSummary({ status }: { status: ExtraUsageStatus }) {
-	const settingsLink = (
-		<a
-			href={ANTHROPIC_USAGE_SETTINGS_URL}
-			target="_blank"
-			rel="noopener noreferrer"
-			className="text-primary underline"
-		>
-			Change it at Anthropic
-		</a>
-	);
+function ExtraUsageDetails({ status }: { status: ExtraUsageStatus }) {
 	return (
-		<section
-			aria-label="Extra usage"
-			className="space-y-1 text-xs xl:col-span-full"
-		>
-			{status.warning ? (
-				<Notice tone="warning" title={status.stateLine} className="p-2 text-xs">
-					<p>
-						{status.warning} {settingsLink}
-					</p>
-				</Notice>
-			) : (
-				<p className="text-muted-foreground">
-					{status.stateLine} · {settingsLink}
-				</p>
-			)}
+		<div className="basis-full space-y-1 text-xs">
+			<p className="text-muted-foreground">
+				{status.stateLine}{" "}
+				<a
+					href={ANTHROPIC_USAGE_SETTINGS_URL}
+					target="_blank"
+					rel="noopener noreferrer"
+					className="text-primary underline"
+				>
+					Change at claude.ai
+				</a>
+			</p>
+			{status.warning && <p>{status.warning}</p>}
 			{status.holds.length > 0 && (
 				<ul className="space-y-1" aria-label="Extra-usage holds">
 					{status.holds.map((hold) => (
@@ -315,7 +303,7 @@ function ExtraUsageSummary({ status }: { status: ExtraUsageStatus }) {
 					))}
 				</ul>
 			)}
-		</section>
+		</div>
 	);
 }
 
@@ -486,7 +474,8 @@ export function AccountListItem({
 		showAutoPause ||
 		showCreditDrain ||
 		Boolean(onPublicValueToggle) ||
-		showPeakHoursPause;
+		showPeakHoursPause ||
+		extraUsage !== null;
 
 	return (
 		<article
@@ -706,6 +695,14 @@ export function AccountListItem({
 						{fullWindowLabels.join(", ")} at limit
 					</span>
 				)}
+				{extraUsage?.holds.map(
+					(hold) =>
+						hold.cue && (
+							<span key={hold.key} className="text-xs text-muted-foreground">
+								{hold.cue}
+							</span>
+						),
+				)}
 				{status.routerRetryAt != null && (
 					<span
 						className="text-xs text-muted-foreground"
@@ -726,6 +723,11 @@ export function AccountListItem({
 						title="Reported usage is below 100%, but the router still has a rate-limit block."
 					>
 						Possible stale cooldown
+					</StatusPill>
+				)}
+				{extraUsage?.state === "on" && (
+					<StatusPill tone="warning" title={extraUsage.warning ?? undefined}>
+						Extra usage on
 					</StatusPill>
 				)}
 
@@ -783,8 +785,6 @@ export function AccountListItem({
 					))}
 				</section>
 			)}
-
-			{extraUsage && <ExtraUsageSummary status={extraUsage} />}
 
 			{bindingConstraint && !representedBinding && (
 				// Deliberately NOT a replacement for the routing utilization badge
@@ -1140,25 +1140,32 @@ export function AccountListItem({
 											</p>
 										</div>
 									)}
-									{showAutoPause && onAutoPauseOnOverageToggle && (
+									{(showAutoPause || extraUsage) && (
 										<div className={SETTING_CLASS}>
-											<span className="text-sm font-medium">
-												Don’t use extra usage on this login
-											</span>
-											<Switch
-												className={SETTING_SWITCH_CLASS}
-												checked={account.autoPauseOnOverageEnabled ?? false}
-												aria-label={`Don’t use extra usage on ${account.name}`}
-												onCheckedChange={() =>
-													onAutoPauseOnOverageToggle(account)
-												}
-												title="Keeps the router from sending this login a request that a spent plan limit covers, so Anthropic does not bill it as extra usage. A login paused for extra usage comes back when you resume it, or after its stored reset time only if Return after reset is on. Turning this switch off ends every hold at once."
-											/>
-											<p className="basis-full text-xs text-muted-foreground">
-												Best effort: Anthropic can bill a request before the
-												router learns that a limit is spent. The router never
-												changes your setting at Anthropic.
-											</p>
+											{showAutoPause && onAutoPauseOnOverageToggle && (
+												<>
+													<span className="text-sm font-medium">
+														Don’t use extra usage on this login
+													</span>
+													<Switch
+														className={SETTING_SWITCH_CLASS}
+														checked={account.autoPauseOnOverageEnabled ?? false}
+														aria-label={`Don’t use extra usage on ${account.name}`}
+														onCheckedChange={() =>
+															onAutoPauseOnOverageToggle(account)
+														}
+														title="Keeps the router from sending this login a request that a spent plan limit covers, so Anthropic does not bill it as extra usage. A login paused for extra usage comes back when you resume it, or after its stored reset time only if Return after reset is on. Turning this switch off ends every hold at once."
+													/>
+												</>
+											)}
+											{extraUsage && <ExtraUsageDetails status={extraUsage} />}
+											{showAutoPause && (
+												<p className="basis-full text-xs text-muted-foreground">
+													Best effort: Anthropic can bill a request before the
+													router learns that a limit is spent. The router never
+													changes your setting at Anthropic.
+												</p>
+											)}
 										</div>
 									)}
 									{showCreditDrain && onCodexCreditDrainToggle && (

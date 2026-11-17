@@ -41,7 +41,7 @@ describe("extraUsageStatus", () => {
 		);
 	});
 
-	it("reads on with its reading time and warns that the switch is off", () => {
+	it("reads on with its reading time and one sentence of warning", () => {
 		const status = extraUsageStatus(
 			login({ extraUsage: { state: "on", readingAt: now - 60_000 } }),
 			now,
@@ -49,25 +49,25 @@ describe("extraUsageStatus", () => {
 		);
 		expect(status?.state).toBe("on");
 		expect(status?.stateLine).toBe(
-			`Extra usage at Anthropic: on · read ${at(now - 60_000)}`,
+			`Extra usage is on at Anthropic as of ${at(now - 60_000)}.`,
 		);
-		expect(status?.warning).toContain(
-			"Anthropic bills requests past a spent plan limit",
+		expect(status?.warning).toBe(
+			"Anthropic bills this login’s requests past a spent plan limit.",
 		);
-		expect(status?.warning).toContain("switch is off.");
 	});
 
-	it("says the switch is on in the warning when it is", () => {
-		const status = extraUsageStatus(
-			login({
-				autoPauseOnOverageEnabled: true,
-				extraUsage: { state: "on", readingAt: now },
-			}),
-			now,
-			clock,
-		);
-		expect(status?.warning).toContain("switch is on, so it holds this login");
-		expect(status?.warning).not.toContain("switch is off");
+	it("keeps the warning to the billing fact, since the switch sits beside it", () => {
+		const on = (autoPauseOnOverageEnabled: boolean) =>
+			extraUsageStatus(
+				login({
+					autoPauseOnOverageEnabled,
+					extraUsage: { state: "on", readingAt: now },
+				}),
+				now,
+				clock,
+			)?.warning;
+		expect(on(true)).toBe(on(false));
+		expect(on(true)).not.toContain("switch");
 	});
 
 	it("reads off with no warning", () => {
@@ -77,15 +77,24 @@ describe("extraUsageStatus", () => {
 			clock,
 		);
 		expect(status?.stateLine).toBe(
-			`Extra usage at Anthropic: off · read ${at(now)}`,
+			`Extra usage is off at Anthropic as of ${at(now)}.`,
 		);
 		expect(status?.warning).toBeNull();
+	});
+
+	it("leaves out the time when an on or off state has no reading time", () => {
+		const status = extraUsageStatus(
+			login({ extraUsage: { state: "off", readingAt: null } }),
+			now,
+			clock,
+		);
+		expect(status?.stateLine).toBe("Extra usage is off at Anthropic.");
 	});
 
 	it("reads not known with no reading time when there is no reading", () => {
 		const status = extraUsageStatus(login(), now, clock);
 		expect(status?.state).toBe("unknown");
-		expect(status?.stateLine).toBe("Extra usage at Anthropic: not known");
+		expect(status?.stateLine).toBe("Extra usage at Anthropic is not known.");
 		expect(status?.warning).toBeNull();
 	});
 
@@ -97,11 +106,11 @@ describe("extraUsageStatus", () => {
 			clock,
 		);
 		expect(status?.stateLine).toBe(
-			`Extra usage at Anthropic: not known · read ${at(readingAt)}`,
+			`Extra usage at Anthropic is not known (last reading ${at(readingAt)}).`,
 		);
 	});
 
-	it("shows a model hold with the model, the spent limit and how it ends", () => {
+	it("shows a model hold with the model, the spent limit, how it ends and a short cue", () => {
 		const status = extraUsageStatus(
 			login({ autoPauseOnOverageEnabled: true, extraUsageHolds: [opusHold] }),
 			now,
@@ -113,6 +122,7 @@ describe("extraUsageStatus", () => {
 				held: "Opus",
 				why: "Opus (Weekly) limit spent",
 				ends: `Ends at ${at(opusHold.resetsAtMs)} or when you turn the switch off.`,
+				cue: `Opus held until ${at(opusHold.resetsAtMs)}`,
 			},
 		]);
 	});
@@ -135,6 +145,9 @@ describe("extraUsageStatus", () => {
 		);
 		expect(status?.holds[0]?.held).toBe("Every model");
 		expect(status?.holds[0]?.why).toBe("Weekly limit spent");
+		expect(status?.holds[0]?.cue).toBe(
+			`All models held until ${at(opusHold.resetsAtMs)}`,
+		);
 	});
 
 	it("drops a hold whose reset has passed since the list was fetched", () => {
@@ -178,6 +191,8 @@ describe("extraUsageStatus", () => {
 				held: "Every model",
 				why: `Anthropic billed an Opus request as extra usage at ${at(billedAt)}`,
 				ends: "Ends when you resume this login or when you turn the switch off.",
+				// The row already reads Paused and Auto-paused: overage for this hold.
+				cue: null,
 			},
 		]);
 	});

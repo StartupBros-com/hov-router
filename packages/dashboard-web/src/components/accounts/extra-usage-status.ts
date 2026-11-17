@@ -1,6 +1,8 @@
 /**
  * What a Claude login's row says about extra usage: the setting Anthropic
  * reports, a warning while it reads on, and each hold the router keeps.
+ * The collapsed row shows only a pill while the state reads on and each
+ * hold's short cue; Details > Settings shows the rest.
  * Pure, so the row and its tests share one source for the copy.
  */
 import { formatClockTime } from "@better-ccflare/ui-common";
@@ -32,20 +34,23 @@ export interface ExtraUsageHoldLine {
 	why: string;
 	/** How the hold ends, as a sentence. */
 	ends: string;
+	/**
+	 * The hold in a few words for the collapsed row, or null when the row's
+	 * status already says it (a billed hold always comes with an overage pause).
+	 */
+	cue: string | null;
 }
 
 export interface ExtraUsageStatus {
 	state: "on" | "off" | "unknown";
-	/** The state with the time of the reading it comes from. */
+	/** The state with the time of the reading it comes from, as a sentence. */
 	stateLine: string;
-	/** Shown only while the state reads on. */
+	/** Shown only while the state reads on; the switch sits beside it. */
 	warning: string | null;
 	holds: ExtraUsageHoldLine[];
 }
 
 type ClockOptions = { locale?: string; timeZone?: string };
-
-const STATE_LABEL = { on: "on", off: "off", unknown: "not known" } as const;
 
 function familyName(family: string): string {
 	return family.charAt(0).toUpperCase() + family.slice(1);
@@ -89,6 +94,7 @@ function billedHoldLine(
 		held: "Every model",
 		why,
 		ends: `Ends ${joinOr(ways)}.`,
+		cue: null,
 	};
 }
 
@@ -101,17 +107,19 @@ export function extraUsageStatus(
 	const { state, readingAt } = account.extraUsage;
 	const switchOn = account.autoPauseOnOverageEnabled === true;
 
+	const readAt =
+		readingAt === null ? null : formatClockTime(readingAt, now, clock);
 	const stateLine =
-		readingAt === null
-			? `Extra usage at Anthropic: ${STATE_LABEL[state]}`
-			: `Extra usage at Anthropic: ${STATE_LABEL[state]} · read ${formatClockTime(readingAt, now, clock)}`;
+		state === "unknown"
+			? readAt === null
+				? "Extra usage at Anthropic is not known."
+				: `Extra usage at Anthropic is not known (last reading ${readAt}).`
+			: readAt === null
+				? `Extra usage is ${state} at Anthropic.`
+				: `Extra usage is ${state} at Anthropic as of ${readAt}.`;
 	const warning =
 		state === "on"
-			? `Anthropic bills requests past a spent plan limit as extra usage. ${
-					switchOn
-						? "The router’s “Don’t use extra usage on this login” switch is on, so it holds this login once it learns a limit is spent."
-						: "The router’s “Don’t use extra usage on this login” switch is off."
-				}`
+			? "Anthropic bills this login’s requests past a spent plan limit."
 			: null;
 
 	const holds: ExtraUsageHoldLine[] = [];
@@ -124,14 +132,19 @@ export function extraUsageStatus(
 		for (const hold of account.extraUsageHolds ?? []) {
 			// The list is only as fresh as the last fetch.
 			if (hold.resetsAtMs <= now) continue;
+			const family =
+				hold.scope === "family" && hold.modelFamily
+					? familyName(hold.modelFamily)
+					: null;
+			const until = formatClockTime(hold.resetsAtMs, now, clock);
 			holds.push({
 				key: `reading:${hold.windowKey}:${hold.modelFamily ?? "account"}`,
-				held:
-					hold.scope === "family" && hold.modelFamily
-						? familyName(hold.modelFamily)
-						: "Every model",
+				held: family ?? "Every model",
 				why: `${formatWindowName(hold.windowKey)} limit spent`,
-				ends: `Ends at ${formatClockTime(hold.resetsAtMs, now, clock)} or when you turn the switch off.`,
+				ends: `Ends at ${until} or when you turn the switch off.`,
+				// A stored hold outlives a failed reading, so the row's usage bars
+				// cannot be relied on to show it.
+				cue: `${family ?? "All models"} held until ${until}`,
 			});
 		}
 	}
