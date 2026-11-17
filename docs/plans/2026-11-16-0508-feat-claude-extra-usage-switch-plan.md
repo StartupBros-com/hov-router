@@ -435,6 +435,7 @@ U1 and U2 have no dependencies, and U3 to U6 need both. U7 needs U3, and U8 and 
 - Open PR #488 (`advisor-codex-emulation`) touches `account-selector.ts`, `proxy-operations.ts`, `routing-terminal.ts` and `proxy.ts`. Check its state before U5 and U6; whichever merges second rebases.
 - The Accounts page and the account row belong to the live "accounts page redesign" session. Message it before U8 and rebase onto its work; U8 cites symbols, not line numbers.
 - A spent per-model limit that Anthropic marks inactive starts no hold (KTD5); Dependencies / Assumptions records what that costs.
+- Under KTD14, a login with extra usage off may never read off. Over the 30 days to 2026-11-16, every Anthropic response on the operator's five Claude logins, all with extra usage off, carried an `anthropic-ratelimit-unified-overage-disabled-reason` header: `org_level_disabled` on four logins and `out_of_credits` on one. The usage recorder already treats `org_level_disabled` as plan billing. Nobody has seen whether the usage reading's `disabled_reason` uses the same values. If it does, all five rows read not known rather than off: safe under R3, but the setup guide then sends members to a row that never says off. The first usage reading after deploy settles it. Reading `org_level_disabled` as off would change KTD14, which the operator approved, so it needs their OK.
 
 ---
 
@@ -658,7 +659,7 @@ U1 and U2 have no dependencies, and U3 to U6 need both. U7 needs U3, and U8 and 
 - **Approach:**
   1. Message the "accounts page redesign" session first, and rebase onto its row changes.
   2. In the Details panel's Settings tab, where the old switch sits, replace the "Pause on extra usage" row with a UI kit `switch-row` labelled "Don't use extra usage on this login". Its help text reads: "Best effort: Anthropic can bill a request before the router learns that a limit is spent. The router never changes your setting at Anthropic."
-  3. Beside the switch, show the state with its reading time. While the state reads on, a `notice` warns that Anthropic bills requests past a spent plan limit and says whether the switch is on, with a link to `https://claude.ai/settings/usage`. The notice goes in the part of the row that shows while Details is collapsed, beside the existing "Routing notices" section, so the member sees it without opening Details.
+  3. In the part of the row that shows while Details is collapsed, beside the existing "Routing notices" section, show the state (on, off or not known) with its reading time and a link to `https://claude.ai/settings/usage`, so the member sees it without opening Details. While the state reads on, show it as a `notice` that warns that Anthropic bills requests past a spent plan limit and says whether the switch is on.
   4. In that same always-visible part, list each hold with what is held, why and how it ends. A hold from a billed response reads "until you resume this login", plus "or after <time>" when "Return after reset" is on and a reset is stored.
   5. Keep the toggle on `createRoutingSettingToggles` and `handleAutoPauseOnOverageToggle`, so the routing views refresh after each change.
 - **Patterns to follow:** `packages/dashboard-web/src/components/ui/switch-row.tsx`, `notice.tsx` and `help-popover.tsx`; `pause-status.ts` for a tested view model.
@@ -670,10 +671,10 @@ U1 and U2 have no dependencies, and U3 to U6 need both. U7 needs U3, and U8 and 
   - Covers AE17. A hold from a billed response shows how it ends.
   - Covers AE22. With "Return after reset" off the text names only resume; with it on, it adds the stored reset time.
   - Covers AE28. The row has no "Pause on extra usage" text.
-  - With Details collapsed, a row whose state reads on shows the warning, and a held row shows its hold.
+  - Rendered closed with the row test's `renderClosedMarkup`, which leaves out the Details tabs, a row shows its state and reading time, a row whose state reads on shows the warning, and a held row shows its hold. The file's default render opens Details, so it cannot catch content placed there.
   - Covers AE30. An `overage` pause with the switch off shows today's pause status.
   - Toggling the switch calls the old route and refreshes the routing views.
-- **Verification:** The row meets R1, R5, R6, R23, R24 and R27 in component tests, and no other row field changes.
+- **Verification:** The row meets R1, R5, R6, R23, R24 and R27 in component tests, with R1, R5, R6 and R23 checked on a closed row, and no other row field changes.
 
 ### U9. Setup guide
 
