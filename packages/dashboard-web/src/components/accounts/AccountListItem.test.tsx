@@ -475,6 +475,79 @@ describe("account scan layout", () => {
 				),
 			).not.toContain("at limit");
 	});
+	it("leaves a spent family window to that family's routing notice", () => {
+		const reset = new Date(Date.now() + 3600000).toISOString();
+		// Both shapes the server sends: the limits[] list and the legacy keys.
+		const shapes = [
+			{
+				limits: [
+					{
+						kind: "weekly_all",
+						percent: 32,
+						resets_at: reset,
+						is_active: false,
+					},
+					{
+						kind: "weekly_scoped",
+						percent: 100,
+						resets_at: reset,
+						is_active: false,
+						scope: { model: { id: "claude-fable-5-2", display_name: "Fable" } },
+					},
+				],
+			},
+			{
+				seven_day: { utilization: 32, resets_at: reset },
+				seven_day_fable: { utilization: 100, resets_at: reset },
+			},
+		];
+		for (const usageData of shapes) {
+			const render = (states: AccountFamilyRoutingState[]) =>
+				withoutDetailsContent(
+					renderToStaticMarkup(
+						<AccountListItem
+							account={makeAccount({
+								paused: false,
+								rateLimitStatus: "allowed",
+								usageWindow: "seven_day",
+								usageUtilization: 32,
+								usageData: usageData as Account["usageData"],
+							})}
+							{...requiredHandlers}
+							routingStates={states}
+						/>,
+					),
+				);
+			const covered = render([
+				routingState({ family: "fable", availability: "model_exhausted" }),
+			]);
+			expect(covered).toContain("Ready");
+			expect(covered).toContain("Model exhausted");
+			expect(covered).not.toContain("at limit");
+			// The line stays unless a plain notice names that same window.
+			for (const states of [
+				[],
+				[routingState({ family: "opus", availability: "model_exhausted" })],
+				[
+					routingState({
+						family: "fable",
+						availability: "model_exhausted",
+						reason: "ambiguous",
+						reasonLabel: "Ambiguous",
+					}),
+				],
+				[
+					routingState({
+						family: "fable",
+						availability: "model_exhausted",
+						managedRouteAvailable: true,
+					}),
+				],
+				[routingState({ family: "fable", availability: "rate_limited" })],
+			])
+				expect(render(states)).toContain("Fable (Weekly) at limit");
+		}
+	});
 	it("keeps force reset outside disclosures and missing quota explicit", () => {
 		const html = renderToStaticMarkup(
 			<AccountListItem

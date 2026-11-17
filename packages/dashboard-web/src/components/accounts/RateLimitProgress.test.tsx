@@ -1241,7 +1241,7 @@ describe("status primitives reset presentation", () => {
 		expect(weekly).toBeDefined();
 		expect(visible(weekly!)).toMatch(/Weekly\s*limiting/);
 	});
-	it("marks an exhausted compact window with visible exhausted text", () => {
+	it("marks an exhausted compact window by its numeral, not a repeated word", () => {
 		const html = renderResets(
 			[reset, reset + 30 * 60_000],
 			true,
@@ -1252,7 +1252,30 @@ describe("status primitives reset presentation", () => {
 			/<fieldset[^>]*aria-label="5-hour used"[\s\S]*?<\/fieldset>/,
 		)?.[0];
 		expect(fiveHour).toBeDefined();
-		expect(visible(fiveHour!)).toMatch(/5-hour\s*exhausted/);
+		expect(visible(fiveHour!)).toMatch(/5-hour\s*100%/);
+		expect(visible(fiveHour!)).not.toContain("exhausted");
+		// Assistive tech and hover still get the word and its scope.
+		expect(fiveHour).toContain("Exhausted; ");
+		expect(fiveHour).toMatch(/title="Exhausted\. Account-wide limit\."/);
+	});
+	it("prints 100% only for a spent window, in both views", () => {
+		for (const compact of [true, false]) {
+			setSystemTime(now);
+			const html = renderToStaticMarkup(
+				<RateLimitProgress
+					compact={compact}
+					provider="anthropic"
+					resetIso={null}
+					showWeekly
+					usageData={{
+						five_hour: { utilization: 99.6, resets_at: iso(reset) },
+						seven_day: { utilization: 100, resets_at: iso(reset + 3_600_000) },
+					}}
+				/>,
+			);
+			expect(html.match(/>99%</g)).toHaveLength(1);
+			expect(html.match(/>100%</g)).toHaveLength(1);
+		}
 	});
 	it("omits the duplicate relative time after Resets in full view", () => {
 		const text = visible(renderResets([reset, reset + 30 * 60_000], false));

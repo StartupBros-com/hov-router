@@ -21,6 +21,7 @@ import { StatusPill } from "../ui/status-pill";
 import { accountUsageWindows } from "./account-usage-windows";
 import {
 	displayLabel,
+	formatUsagePercent,
 	formatWindowName,
 	severityColor,
 } from "./rate-limit-helpers";
@@ -398,29 +399,28 @@ export function RateLimitProgress({
 									"text-muted-foreground",
 									binding && "font-medium text-foreground",
 								)}
+								title={
+									exhausted || binding
+										? `${exhausted ? "Exhausted. " : ""}${binding ? "Currently limiting. " : ""}${usage.window?.startsWith("seven_day_") ? "This limit applies to this model, separately from account-wide usage." : "Account-wide limit."}`
+										: undefined
+								}
 							>
 								{label}
+								{/* A spent window shows 100%, so only a limiting one names itself. */}
+								{binding && !exhausted && (
+									<span className="ml-1 font-medium text-muted-foreground">
+										{" "}
+										limiting
+									</span>
+								)}
 								{(exhausted || binding) && (
-									<span
-										className="ml-1"
-										title={`${exhausted ? "Exhausted. " : ""}${binding ? "Currently limiting. " : ""}${usage.window?.startsWith("seven_day_") ? "This limit applies to this model, separately from account-wide usage." : "Account-wide limit."}`}
-									>
-										<span
-											className={cn(
-												"font-medium",
-												exhausted ? "text-(--danger)" : "text-muted-foreground",
-											)}
-										>
-											{" "}
-											{exhausted ? "exhausted" : "limiting"}
-										</span>
-										<span className="sr-only">
-											{exhausted ? "Exhausted; " : ""}
-											{binding ? "currently limiting; " : ""}
-											{usage.window?.startsWith("seven_day_")
-												? "limit for this model"
-												: "account-wide limit"}
-										</span>
+									<span className="sr-only">
+										{" "}
+										{exhausted ? "Exhausted; " : ""}
+										{binding ? "currently limiting; " : ""}
+										{usage.window?.startsWith("seven_day_")
+											? "limit for this model"
+											: "account-wide limit"}
 									</span>
 								)}
 							</span>
@@ -457,7 +457,7 @@ export function RateLimitProgress({
 											exhausted && "font-medium",
 										)}
 									>
-										{Math.round(percentage)}%
+										{formatUsagePercent(percentage)}
 										{pacePct !== null && (
 											<span className="sr-only">
 												; even pace {Math.round(pacePct)}%
@@ -610,7 +610,7 @@ export function RateLimitProgress({
 												isWindowThrottled && "text-(--warning)",
 											)}
 										>
-											{isAvailable ? `${percentage?.toFixed(0)}%` : "N/A"}
+											{isAvailable ? formatUsagePercent(percentage) : "N/A"}
 										</span>
 									</div>
 									<div className="group relative">

@@ -98,6 +98,15 @@ export function displayLabel(row: UsageDisplay): string {
 	return row.label ?? formatWindowName(row.window);
 }
 
+/**
+ * Whole-number percent for a usage reading. Only a spent window prints 100%:
+ * 99.5-99.99 stays 99%, because the row no longer spells "exhausted" beside it.
+ */
+export function formatUsagePercent(utilization: number): string {
+	const rounded = Math.round(utilization);
+	return `${utilization < 100 ? Math.min(99, rounded) : rounded}%`;
+}
+
 /** Rendered form of the server's display-only binding constraint. */
 export interface BindingConstraintDisplay {
 	/** Human label for the binding window, e.g. "Fable (Weekly)". */
