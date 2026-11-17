@@ -2,6 +2,7 @@ import { Logger } from "@better-ccflare/logger";
 import {
 	type Account,
 	type AccountRow,
+	type ExtraUsageHoldState,
 	type RateLimitReason,
 	toAccount,
 } from "@better-ccflare/types";
@@ -66,7 +67,10 @@ export class AccountRepository extends BaseRepository<Account> {
 				billing_type,
 				pause_reason,
 				refresh_token_issued_at,
-				COALESCE(consecutive_rate_limits, 0) as consecutive_rate_limits
+				COALESCE(consecutive_rate_limits, 0) as consecutive_rate_limits,
+				extra_usage_holds,
+				overage_billed_at,
+				overage_billed_family
 			FROM accounts
 			ORDER BY priority DESC
 		`);
@@ -99,7 +103,10 @@ export class AccountRepository extends BaseRepository<Account> {
 				billing_type,
 				pause_reason,
 				refresh_token_issued_at,
-				COALESCE(consecutive_rate_limits, 0) as consecutive_rate_limits
+				COALESCE(consecutive_rate_limits, 0) as consecutive_rate_limits,
+				extra_usage_holds,
+				overage_billed_at,
+				overage_billed_family
 			FROM accounts
 			WHERE id = ?
 		`,
@@ -623,14 +630,134 @@ export class AccountRepository extends BaseRepository<Account> {
 		);
 	}
 
+	/**
+	 * Change the extra-usage switch (stored as auto_pause_on_overage_enabled),
+	 * acting only on a real change of the stored value so posting the current
+	 * value again changes nothing.
+	 *
+	 * Off from on clears the holds from readings and the billed columns and
+	 * ends an `overage` pause; any other pause keeps its reason. On from off
+	 * stores `holdsOnEnable` (holds derived from a recent cached reading, or
+	 * null) and leaves an existing `overage` pause in place.
+	 *
+	 * Returns true when the stored value changed.
+	 */
 	async setAutoPauseOnOverageEnabled(
 		accountId: string,
 		enabled: boolean,
-	): Promise<void> {
-		await this.run(
-			`UPDATE accounts SET auto_pause_on_overage_enabled = ? WHERE id = ?`,
-			[enabled ? 1 : 0, accountId],
+		holdsOnEnable: ExtraUsageHoldState | null = null,
+	): Promise<boolean> {
+		if (enabled) {
+			const changes = await this.runWithChanges(
+				`UPDATE accounts SET auto_pause_on_overage_enabled = 1, extra_usage_holds = ?
+				 WHERE id = ? AND COALESCE(auto_pause_on_overage_enabled, 0) = 0`,
+				[holdsOnEnable ? JSON.stringify(holdsOnEnable) : null, accountId],
+			);
+			return changes > 0;
+		}
+		const changes = await this.runWithChanges(
+			`UPDATE accounts SET
+				auto_pause_on_overage_enabled = 0,
+				extra_usage_holds = NULL,
+				overage_billed_at = NULL,
+				overage_billed_family = NULL,
+				paused = CASE WHEN pause_reason = 'overage' THEN 0 ELSE paused END,
+				pause_reason = CASE WHEN pause_reason = 'overage' THEN NULL ELSE pause_reason END
+			 WHERE id = ? AND COALESCE(auto_pause_on_overage_enabled, 0) = 1`,
+			[accountId],
 		);
+		return changes > 0;
+	}
+
+	/**
+	 * Hold a login on every model after Anthropic billed a response as extra
+	 * usage: the `overage` pause plus the billed time and family. Applies only
+	 * while the switch is on and the login is not paused for another reason, so
+	 * a manual pause keeps its reason.
+	 *
+	 * On a login already held this way the billed time moves to the later
+	 * response, and the family is kept only when both responses share it. A
+	 * pause from before the billed columns existed keeps a NULL time and family,
+	 * so no later reading can end it.
+	 *
+	 * Returns true when the row was written.
+	 */
+	async holdForBilledResponse(
+		accountId: string,
+		billedAt: number,
+		family: string | null,
+	): Promise<boolean> {
+		const changes = await this.runWithChanges(
+			`UPDATE accounts SET
+				overage_billed_at = CASE
+					WHEN COALESCE(paused, 0) = 0 THEN ?
+					WHEN overage_billed_at IS NULL THEN NULL
+					ELSE MAX(overage_billed_at, ?)
+				END,
+				overage_billed_family = CASE
+					WHEN COALESCE(paused, 0) = 0 THEN ?
+					WHEN overage_billed_at IS NOT NULL AND overage_billed_family IS ? THEN overage_billed_family
+					ELSE NULL
+				END,
+				paused = 1,
+				pause_reason = 'overage'
+			 WHERE id = ?
+				AND COALESCE(auto_pause_on_overage_enabled, 0) = 1
+				AND (COALESCE(paused, 0) = 0 OR pause_reason = 'overage')`,
+			[billedAt, billedAt, family, family, accountId],
+		);
+		return changes > 0;
+	}
+
+	/**
+	 * Store the holds a usage reading derived. Guarded on the switch being on,
+	 * on the account generation when `expectedCreatedAt` is given, and on the
+	 * stored reading time: a reading older than the one that last wrote the
+	 * holds never replaces them.
+	 *
+	 * With `narrowBilledAt`, the same statement also ends an `overage` pause
+	 * whose billed time is still that value, so the reading's hold replaces the
+	 * hold on every model; a newer billed response (a different time) keeps
+	 * its pause.
+	 *
+	 * Returns true when the row was written.
+	 */
+	async writeExtraUsageHolds(
+		accountId: string,
+		state: ExtraUsageHoldState,
+		options: { expectedCreatedAt?: number; narrowBilledAt?: number } = {},
+	): Promise<boolean> {
+		const { expectedCreatedAt, narrowBilledAt } = options;
+		const narrowSet =
+			narrowBilledAt === undefined
+				? ""
+				: `,
+				paused = CASE WHEN pause_reason = 'overage' AND overage_billed_at = ? THEN 0 ELSE paused END,
+				pause_reason = CASE WHEN pause_reason = 'overage' AND overage_billed_at = ? THEN NULL ELSE pause_reason END`;
+		const narrowParams =
+			narrowBilledAt === undefined ? [] : [narrowBilledAt, narrowBilledAt];
+		const generationClause =
+			expectedCreatedAt === undefined ? "" : " AND created_at = ?";
+		const generationParams =
+			expectedCreatedAt === undefined ? [] : [expectedCreatedAt];
+		const changes = await this.runWithChanges(
+			`UPDATE accounts SET extra_usage_holds = ?${narrowSet}
+			 WHERE id = ?
+				AND COALESCE(auto_pause_on_overage_enabled, 0) = 1
+				AND COALESCE(
+					CASE WHEN json_valid(extra_usage_holds)
+						THEN json_extract(extra_usage_holds, '$.readingAt') END,
+					-1
+				) <= ?${generationClause}`,
+			[
+				JSON.stringify(state),
+				...narrowParams,
+				accountId,
+				state.readingAt,
+				...generationParams,
+			],
+		);
+		return changes > 0;
 	}
 
 	async setCodexCreditDrainEnabled(

@@ -203,6 +203,70 @@ export type FullUsageData =
 	| XaiUsageData
 	| MinimaxUsageData;
 
+/**
+ * One spent plan limit the router keeps a Claude login off for, taken from a
+ * usage reading while the login's extra-usage switch is on. A `family` hold
+ * covers one model family; an `account` hold (5-hour or weekly) covers every
+ * model. It applies while the clock is before `resetsAtMs`.
+ */
+export interface ExtraUsageHold {
+	windowKey: string;
+	scope: "account" | "family";
+	modelFamily: string | null;
+	resetsAtMs: number;
+	startedAt: number;
+}
+
+/**
+ * The holds from usage readings stored on one login, with the time of the
+ * reading that last changed them. A reading older than `readingAt` never
+ * replaces them.
+ */
+export interface ExtraUsageHoldState {
+	readingAt: number;
+	holds: ExtraUsageHold[];
+}
+
+function isExtraUsageHold(value: unknown): value is ExtraUsageHold {
+	if (!value || typeof value !== "object") return false;
+	const hold = value as Record<string, unknown>;
+	return (
+		typeof hold.windowKey === "string" &&
+		(hold.scope === "account" || hold.scope === "family") &&
+		(hold.modelFamily === null || typeof hold.modelFamily === "string") &&
+		typeof hold.resetsAtMs === "number" &&
+		Number.isFinite(hold.resetsAtMs) &&
+		typeof hold.startedAt === "number" &&
+		Number.isFinite(hold.startedAt)
+	);
+}
+
+/** Parse the stored `extra_usage_holds` value; anything malformed reads as no holds. */
+export function parseExtraUsageHoldState(
+	raw: string | null | undefined,
+): ExtraUsageHoldState | null {
+	if (!raw) return null;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return null;
+	}
+	if (!parsed || typeof parsed !== "object") return null;
+	const state = parsed as Record<string, unknown>;
+	if (
+		typeof state.readingAt !== "number" ||
+		!Number.isFinite(state.readingAt) ||
+		!Array.isArray(state.holds)
+	) {
+		return null;
+	}
+	return {
+		readingAt: state.readingAt,
+		holds: state.holds.filter(isExtraUsageHold),
+	};
+}
+
 // Database row types that match the actual database schema
 export interface AccountRow {
 	id: string;
@@ -243,6 +307,9 @@ export interface AccountRow {
 	pause_reason?: string | null; // null=not paused, 'manual'=user paused, 'failure_threshold'=auto-refresh failures (setter removed; legacy rows), 'overage'=billing overage
 	refresh_token_issued_at?: number | null; // Timestamp when the current refresh token was issued (updated on each token refresh)
 	consecutive_rate_limits?: number | null;
+	extra_usage_holds?: string | null; // JSON ExtraUsageHoldState
+	overage_billed_at?: number | null;
+	overage_billed_family?: string | null;
 }
 
 // Domain model - used throughout the application
@@ -295,6 +362,19 @@ export interface Account {
 	pause_reason: string | null; // null=not paused, 'manual'=user paused, 'failure_threshold'=auto-refresh failures (setter removed; legacy rows), 'overage'=billing overage
 	refresh_token_issued_at: number | null; // Timestamp when the current refresh token was issued (updated on each token refresh)
 	consecutive_rate_limits: number;
+	/**
+	 * Holds from usage readings while the extra-usage switch is on. Optional
+	 * like the drain flag so existing fixtures need no edit: absent = none.
+	 * toAccount always sets it.
+	 */
+	extra_usage_holds?: ExtraUsageHoldState | null;
+	/**
+	 * When a billed response started the current `overage` pause, and the
+	 * billed model's family (null when unknown or mixed). Read only while
+	 * that pause is set; a pause from before these columns has no time.
+	 */
+	overage_billed_at?: number | null;
+	overage_billed_family?: string | null;
 }
 
 // Session statistics for 5-hour token window
@@ -647,6 +727,9 @@ export function toAccount(row: AccountRow): Account {
 		pause_reason: row.pause_reason || null,
 		refresh_token_issued_at: toNumOrNull(row.refresh_token_issued_at),
 		consecutive_rate_limits: toNum(row.consecutive_rate_limits),
+		extra_usage_holds: parseExtraUsageHoldState(row.extra_usage_holds),
+		overage_billed_at: toNumOrNull(row.overage_billed_at),
+		overage_billed_family: row.overage_billed_family ?? null,
 	};
 }
 

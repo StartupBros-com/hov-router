@@ -32,6 +32,7 @@ import type {
 	ComboRoutingPolicySnapshot,
 	ComboSlot,
 	ComboWithSlots,
+	ExtraUsageHoldState,
 	FamilyAliasPolicyApplyInput,
 	FamilyAliasPolicyApplyResult,
 	FamilyAliasPolicyPreview,
@@ -1610,11 +1611,48 @@ OAuth tokens will need to be re-authenticated.
 		await this.accounts.setAutoFallbackEnabled(accountId, enabled);
 	}
 
+	/**
+	 * Change the extra-usage switch. Acts only on a real change of the stored
+	 * value; see AccountRepository.setAutoPauseOnOverageEnabled for what each
+	 * direction does to holds and to an `overage` pause. Returns true when the
+	 * stored value changed.
+	 */
 	async setAutoPauseOnOverageEnabled(
 		accountId: string,
 		enabled: boolean,
-	): Promise<void> {
-		await this.accounts.setAutoPauseOnOverageEnabled(accountId, enabled);
+		holdsOnEnable: ExtraUsageHoldState | null = null,
+	): Promise<boolean> {
+		return this.accounts.setAutoPauseOnOverageEnabled(
+			accountId,
+			enabled,
+			holdsOnEnable,
+		);
+	}
+
+	/**
+	 * Hold a login on every model after a billed response, written straight to
+	 * SQLite (not through a write queue) and retried on a busy database, so a
+	 * full queue cannot drop it. Returns true when the row was written.
+	 */
+	async holdForBilledResponse(
+		accountId: string,
+		billedAt: number,
+		family: string | null,
+	): Promise<boolean> {
+		return withDatabaseRetry(
+			() => this.accounts.holdForBilledResponse(accountId, billedAt, family),
+			this.retryConfig,
+			"holdForBilledResponse",
+		);
+	}
+
+	/** Store holds derived from a usage reading; see AccountRepository.writeExtraUsageHolds. */
+	async writeExtraUsageHolds(
+		accountId: string,
+		state: ExtraUsageHoldState,
+		options: { expectedCreatedAt?: number; narrowBilledAt?: number } = {},
+	): Promise<boolean> {
+		return this.accounts.writeExtraUsageHolds(accountId, state, options);
 	}
 
 	async setCodexCreditDrainEnabled(

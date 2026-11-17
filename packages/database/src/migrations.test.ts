@@ -685,6 +685,160 @@ describe("Database Migrations - codex_credit_drain_enabled", () => {
 	});
 });
 
+describe("Database Migrations - extra-usage hold columns", () => {
+	const HOLD_COLUMNS = [
+		"extra_usage_holds",
+		"overage_billed_at",
+		"overage_billed_family",
+	];
+	type ColInfo = { name: string; notnull: number; dflt_value: string | null };
+	const holdCols = (db: Database) =>
+		(db.prepare("PRAGMA table_info(accounts)").all() as ColInfo[]).filter((c) =>
+			HOLD_COLUMNS.includes(c.name),
+		);
+	const holdValues = (db: Database, id: string) =>
+		db
+			.prepare(
+				"SELECT extra_usage_holds h, overage_billed_at b, overage_billed_family f FROM accounts WHERE id = ?",
+			)
+			.get(id);
+
+	it("creates the columns as nullable with no default on a fresh DB and is idempotent", () => {
+		const db = new Database(":memory:");
+		try {
+			ensureSchema(db);
+			expect(
+				holdCols(db)
+					.map((c) => c.name)
+					.sort(),
+			).toEqual([...HOLD_COLUMNS].sort());
+			runMigrations(db);
+			for (const col of holdCols(db)) {
+				expect(col.notnull).toBe(0);
+				expect(col.dflt_value).toBeNull();
+			}
+			db.prepare(
+				"INSERT INTO accounts (id, name, provider, created_at) VALUES ('a1','a1','anthropic',1)",
+			).run();
+			expect(holdValues(db, "a1")).toEqual({ h: null, b: null, f: null });
+			expect(() => runMigrations(db)).not.toThrow();
+			expect(holdCols(db)).toHaveLength(3);
+		} finally {
+			db.close();
+		}
+	});
+
+	// A database built by today's schema: the current tables with the three
+	// columns removed again. A login paused for extra usage before the upgrade
+	// keeps its pause and its switch, and has no billed time.
+	it("upgrades an existing DB without touching its pauses or switch values", () => {
+		const db = new Database(":memory:");
+		try {
+			ensureSchema(db);
+			runMigrations(db);
+			db.exec(
+				"ALTER TABLE accounts DROP COLUMN extra_usage_holds; ALTER TABLE accounts DROP COLUMN overage_billed_at; ALTER TABLE accounts DROP COLUMN overage_billed_family;",
+			);
+			expect(holdCols(db)).toHaveLength(0);
+			const insert = db.prepare(
+				"INSERT INTO accounts (id, name, provider, created_at, paused, pause_reason, auto_pause_on_overage_enabled) VALUES (?, ?, 'anthropic', 1, ?, ?, ?)",
+			);
+			insert.run("held-on", "held-on", 1, "overage", 1);
+			insert.run("held-off", "held-off", 1, "overage", 0);
+			insert.run("manual", "manual", 1, "manual", 1);
+			insert.run("active", "active", 0, null, 1);
+
+			runMigrations(db);
+
+			expect(holdCols(db)).toHaveLength(3);
+			const rows = db
+				.prepare(
+					"SELECT id, paused, pause_reason, auto_pause_on_overage_enabled s FROM accounts ORDER BY id",
+				)
+				.all();
+			expect(rows).toEqual([
+				{ id: "active", paused: 0, pause_reason: null, s: 1 },
+				{ id: "held-off", paused: 1, pause_reason: "overage", s: 0 },
+				{ id: "held-on", paused: 1, pause_reason: "overage", s: 1 },
+				{ id: "manual", paused: 1, pause_reason: "manual", s: 1 },
+			]);
+			for (const id of ["active", "held-off", "held-on", "manual"]) {
+				expect(holdValues(db, id)).toEqual({ h: null, b: null, f: null });
+			}
+		} finally {
+			db.close();
+		}
+	});
+
+	// Both legacy rebuilds run after the ADD COLUMNs in the same pass, so a
+	// rebuild that drops a column leaves it missing until the next boot, and
+	// findAll/findById (which select it) fail until then.
+	it("keeps the columns through the legacy nullable-refresh_token rebuild", () => {
+		const db = new Database(":memory:");
+		try {
+			db.exec(`
+				CREATE TABLE accounts (
+					id TEXT PRIMARY KEY,
+					name TEXT NOT NULL,
+					provider TEXT DEFAULT 'anthropic',
+					api_key TEXT,
+					refresh_token TEXT NOT NULL,
+					access_token TEXT,
+					expires_at INTEGER,
+					created_at INTEGER NOT NULL,
+					last_used INTEGER,
+					request_count INTEGER DEFAULT 0,
+					total_requests INTEGER DEFAULT 0
+				)
+			`);
+			db.prepare(
+				"INSERT INTO accounts (id, name, provider, refresh_token, created_at) VALUES ('c1','c1','anthropic','rt',1)",
+			).run();
+
+			runMigrations(db);
+
+			expect(holdCols(db)).toHaveLength(3);
+			expect(holdValues(db, "c1")).toEqual({ h: null, b: null, f: null });
+		} finally {
+			db.close();
+		}
+	});
+
+	it("keeps the columns through the legacy account_tier rebuild", () => {
+		const db = new Database(":memory:");
+		try {
+			db.exec(`
+				CREATE TABLE accounts (
+					id TEXT PRIMARY KEY,
+					name TEXT NOT NULL,
+					provider TEXT DEFAULT 'anthropic',
+					api_key TEXT,
+					refresh_token TEXT,
+					access_token TEXT,
+					expires_at INTEGER,
+					created_at INTEGER NOT NULL,
+					last_used INTEGER,
+					request_count INTEGER DEFAULT 0,
+					total_requests INTEGER DEFAULT 0,
+					priority INTEGER DEFAULT 0,
+					billing_type TEXT DEFAULT NULL,
+					account_tier TEXT DEFAULT 'free'
+				)
+			`);
+			db.prepare(
+				"INSERT INTO accounts (id, name, provider, refresh_token, created_at, account_tier) VALUES ('c1','c1','anthropic','',1,'pro')",
+			).run();
+
+			runMigrations(db);
+
+			expect(holdCols(db)).toHaveLength(3);
+			expect(holdValues(db, "c1")).toEqual({ h: null, b: null, f: null });
+		} finally {
+			db.close();
+		}
+	});
+});
+
 describe("Database Migrations - Tier Column Removal", () => {
 	let db: Database;
 
