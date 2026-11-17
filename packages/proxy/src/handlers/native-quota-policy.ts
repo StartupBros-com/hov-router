@@ -57,7 +57,7 @@ export interface NativeQuotaFamilyMarker {
 }
 
 export interface NativeQuotaFamilyProof {
-	readonly source: "usage_snapshot" | "reactive_family";
+	readonly source: "usage_snapshot" | "reactive_family" | "extra_usage_hold";
 	readonly expiresAt: number;
 	readonly resetAt: number;
 }
@@ -335,6 +335,26 @@ function familyProof(
 	};
 }
 
+/**
+ * A family hold the extra-usage switch enforces proves that family spent on
+ * the login, even while Anthropic would bill past the limit and so the
+ * reading alone proves nothing.
+ */
+function extraUsageHoldProof(
+	account: Account | undefined,
+	model: string,
+	family: ComboFamily,
+	now: number,
+): NativeQuotaFamilyProof | null {
+	if (!account) return null;
+	const resets = coveringExtraUsageHolds(account, model, now)
+		.filter((hold) => hold.scope === "family" && hold.modelFamily === family)
+		.map((hold) => hold.resetsAtMs);
+	if (resets.length === 0) return null;
+	const resetAt = Math.max(...resets);
+	return { source: "extra_usage_hold", expiresAt: resetAt, resetAt };
+}
+
 /** Evaluate pool membership before cooldown/circuit/auth availability filtering. */
 export function evaluateNativeQuotaPolicy(
 	context: NativeQuotaContext,
@@ -399,13 +419,20 @@ export function evaluateNativeQuotaPolicy(
 				getStrictClaudeModelFamily(member.logical_model) === context.family,
 		);
 		if (!primary) continue;
-		const proof = familyProof(
-			snapshots.get(id) ?? null,
-			getFamilyMarker(id, primary.logical_model, now),
-			primary.logical_model,
-			context.family,
-			now,
-		);
+		const proof =
+			familyProof(
+				snapshots.get(id) ?? null,
+				getFamilyMarker(id, primary.logical_model, now),
+				primary.logical_model,
+				context.family,
+				now,
+			) ??
+			extraUsageHoldProof(
+				accounts.find((entry) => entry.id === id),
+				primary.logical_model,
+				context.family,
+				now,
+			);
 		if (proof) familyProofs.set(id, proof);
 	}
 	const backupAllowedAccountIds = primaryAccountIds.filter(

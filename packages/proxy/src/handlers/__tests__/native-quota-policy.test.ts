@@ -688,4 +688,63 @@ describe("native quota admission with extra-usage holds", () => {
 		);
 		expect(result.admittedCandidateIds).toContain("a:claude-fable-5");
 	});
+
+	describe("the login's own Opus backup", () => {
+		const opusHold = {
+			windowKey: "seven_day_opus",
+			scope: "family" as const,
+			modelFamily: "opus",
+			resetsAtMs: RESET + 30000,
+			startedAt: NOW - 60_000,
+		};
+		const evaluateAlone = (login: Account) =>
+			evaluateNativeQuotaPolicy(
+				createNativeQuotaContext({
+					family: "fable",
+					comboId: "combo",
+					members: [
+						member("a", "claude-fable-5"),
+						member("a", "claude-opus-5", 10),
+					],
+					accounts: [login],
+					requestedModel: "claude-fable-5",
+				}),
+				{
+					now: NOW,
+					getSnapshot: () => usage(100, 20, true),
+					getFamilyMarker: () => null,
+				},
+			);
+
+		it("takes the request when a Fable hold holds the primary and extra usage is on", () => {
+			const result = evaluateAlone(fableHeld());
+			expect(result.backupAllowedAccountIds).toEqual(["a"]);
+			expect(result.admittedCandidateIds).toEqual(["a:claude-opus-5"]);
+			expect(result.wait).toBeNull();
+		});
+
+		it("is still refused by its own Opus hold", () => {
+			const held = fableHeld();
+			const login = {
+				...held,
+				extra_usage_holds: {
+					readingAt: NOW - 60_000,
+					holds: [...(held.extra_usage_holds?.holds ?? []), opusHold],
+				},
+			} as Account;
+			const result = evaluateAlone(login);
+			expect(result.backupAllowedAccountIds).toEqual(["a"]);
+			expect(result.admittedCandidateIds).toEqual([]);
+			expect(result.capacities.get("a:claude-opus-5")).toMatchObject([
+				{ source: "extra_usage_hold", modelFamily: "opus" },
+			]);
+			expect(result.wait).toMatchObject({ kind: "quota_wait" });
+		});
+
+		it("with the switch off, Fable is admitted as today and the backup stays closed", () => {
+			const result = evaluateAlone(fableHeld(false));
+			expect(result.backupAllowedAccountIds).toEqual([]);
+			expect(result.admittedCandidateIds).toEqual(["a:claude-fable-5"]);
+		});
+	});
 });
