@@ -1246,17 +1246,25 @@ export class UsageCollector {
 			msg.responseHeaders["anthropic-ratelimit-unified-overage-status"];
 		if (overageInUse === "true") {
 			state.billingType = "overage";
-			// Auto-pause on overage: if the account has auto_pause_on_overage enabled and we're
-			// in overage mode, pause the account so future requests route to other accounts
+			// Extra-usage switch: hold the login on every model so later requests
+			// route elsewhere. Written straight to the database, not through the
+			// write queue, so a full queue cannot drop it; the guarded write
+			// rechecks the switch and leaves any other pause reason alone.
 			if (msg.accountAutoPauseOnOverageEnabled === 1 && msg.accountId) {
 				const accountId = msg.accountId;
 				const accountName = msg.accountName || "unknown";
+				const model = msg.accounting?.model ?? null;
+				const family = model ? getModelFamily(model) : null;
 				log.info(
-					`Auto-pausing account '${accountName}' (${accountId}) due to overage detection (auto-pause-on-overage enabled)`,
+					`Holding account '${accountName}' (${accountId}): a response was billed to extra usage (extra-usage switch on)`,
 				);
-				this.asyncWriter.enqueue(async () => {
-					await this.dbOps.pauseAccount(accountId, "overage");
-				});
+				void this.dbOps
+					.holdForBilledResponse(accountId, Date.now(), family)
+					.catch((err) =>
+						log.warn(
+							`Failed to hold account '${accountName}' (${accountId}) after a billed response: ${err}`,
+						),
+					);
 			}
 		} else if (
 			overageStatus === "rejected" ||
