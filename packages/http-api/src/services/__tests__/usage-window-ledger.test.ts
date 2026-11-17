@@ -934,6 +934,7 @@ describe("UsageWindowLedger.revalueStaleClosedWindows", () => {
 	/** Seeds a closed window straight through the repository, bypassing the
 	 * ledger, so its stored version/values can be arbitrarily stale. */
 	async function seedClosed(opts: {
+		startedAt?: number;
 		resetsAt: number;
 		breakdown: Record<string, ReturnType<typeof entry>> | null;
 		valueUsd: number;
@@ -945,7 +946,7 @@ describe("UsageWindowLedger.revalueStaleClosedWindows", () => {
 		const opened = await dbOps.openUsageWindow({
 			accountId: ACCOUNT_ID,
 			windowKey: "seven_day",
-			startedAt: STARTED_AT,
+			startedAt: opts.startedAt ?? STARTED_AT,
 			resetsAt: opts.resetsAt,
 			grantType: "natural",
 		});
@@ -1536,30 +1537,75 @@ describe("UsageWindowLedger.revalueStaleClosedWindows", () => {
 		});
 	});
 
-	it("prices a model that was unpriced at the old version and drops unpriced_tokens", async () => {
-		const unpriced = 1_000_000 + 1_000_000 + 100_000;
+	it.each([
+		{ model: TERRA, tokens: entry(terraTokens, null), expected: TERRA_CURRENT },
+		{
+			model: "gpt-6.2-astra",
+			tokens: {
+				...entry(
+					{ input: 1_000_000, cacheRead: 1_000_000, output: 1_000_000 },
+					null,
+				),
+				cacheCreationInputTokens: 1_000_000,
+			},
+			expected: 58.4,
+		},
+		{
+			model: "gpt-6.2-sol",
+			tokens: {
+				...entry(
+					{ input: 1_000_000, cacheRead: 1_000_000, output: 1_000_000 },
+					null,
+				),
+				cacheCreationInputTokens: 1_000_000,
+			},
+			expected: 14.6,
+		},
+	])("revalues previously unpriced $model from its stored breakdown", async ({
+		model,
+		tokens,
+		expected,
+	}) => {
+		// This window opens before GPT-6.2 launches, but closes after it.
+		const startedAt = Date.parse("2026-11-16T00:00:00Z");
+		const unpriced =
+			tokens.inputTokens +
+			tokens.cacheReadInputTokens +
+			tokens.cacheCreationInputTokens +
+			tokens.outputTokens;
 		const w = await seedClosed({
-			resetsAt: STARTED_AT + 7 * DAY_MS,
+			startedAt,
+			resetsAt: startedAt + 7 * DAY_MS,
 			breakdown: {
-				[TERRA]: entry(terraTokens, null),
+				[model]: tokens,
 				[LUNA]: entry(lunaTokens, LUNA_VALUE),
 			},
 			valueUsd: LUNA_VALUE,
 			unpricedTokens: unpriced,
-			version: "old-version",
+			version: "2026-11-10.2",
 		});
-		const summary = await new UsageWindowLedger(
-			dbOps,
-		).revalueStaleClosedWindows();
-		expect(summary.valueChanged).toBe(1);
-		expect(summary.valueDeltaUsd).toBeCloseTo(TERRA_CURRENT, 9);
+		const ledger = new UsageWindowLedger(dbOps);
+		const summary = await ledger.revalueStaleClosedWindows();
+		expect(summary).toMatchObject({ stamped: 1, valueChanged: 1, skipped: 0 });
+		expect(summary.valueDeltaUsd).toBeCloseTo(expected, 9);
 		const after = await reload(w.id);
 		expect(after.unpricedTokens).toBe(0);
-		expect(after.valueUsd).toBeCloseTo(TERRA_CURRENT + LUNA_VALUE, 9);
+		expect(after.valueUsd).toBeCloseTo(expected + LUNA_VALUE, 9);
+		expect(after.projectionVersion).toBe(VALUE_PRICING_VERSION);
 		const breakdown = after.modelBreakdown as Record<
 			string,
 			ReturnType<typeof entry>
 		>;
-		expect(breakdown[TERRA].valueUsd).toBeCloseTo(TERRA_CURRENT, 9);
+		expect(breakdown[model]).toEqual({
+			...tokens,
+			valueUsd: expect.closeTo(expected, 9),
+		});
+		expect(breakdown[LUNA]).toEqual(entry(lunaTokens, LUNA_VALUE));
+		expect(await ledger.revalueStaleClosedWindows()).toMatchObject({
+			scanned: 0,
+			stamped: 0,
+			valueChanged: 0,
+		});
+		expect(await reload(w.id)).toEqual(after);
 	});
 });

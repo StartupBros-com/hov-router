@@ -156,8 +156,47 @@ describe("priceTokensAtListPrice long-context tier", () => {
 });
 
 describe("priceTokensAtListPrice", () => {
-	it("advances VALUE_PRICING_VERSION for the GPT-6 era floor and gpt-6.1-terra", () => {
-		expect(VALUE_PRICING_VERSION).toBe("2026-11-10.2");
+	it("advances VALUE_PRICING_VERSION for GPT-6.2 Astra and Sol", () => {
+		expect(VALUE_PRICING_VERSION).toBe("2026-11-17.1");
+	});
+
+	it.each([
+		{
+			model: "gpt-6.2-astra",
+			input: 8,
+			cacheRead: 0.4,
+			cacheWrite: 10,
+			output: 40,
+		},
+		{
+			model: "gpt-6.2-sol",
+			input: 2,
+			cacheRead: 0.1,
+			cacheWrite: 2.5,
+			output: 10,
+		},
+	])("prices $model token kinds at their published standard rates", ({
+		model,
+		input,
+		cacheRead,
+		cacheWrite,
+		output,
+	}) => {
+		const at = Date.parse("2026-11-17T18:00:00Z");
+		expect(priceTokensAtListPrice(model, at, { inputTokens: 1_000_000 })).toBe(
+			input,
+		);
+		expect(
+			priceTokensAtListPrice(model, at, { cacheReadInputTokens: 1_000_000 }),
+		).toBe(cacheRead);
+		expect(
+			priceTokensAtListPrice(model, at, {
+				cacheCreationInputTokens: 1_000_000,
+			}),
+		).toBe(cacheWrite);
+		expect(priceTokensAtListPrice(model, at, { outputTokens: 1_000_000 })).toBe(
+			output,
+		);
 	});
 
 	it("starts every model's first era at the era floor", () => {
@@ -187,6 +226,8 @@ describe("priceTokensAtListPrice", () => {
 			"gpt-6-luna": ["2026-09-22T00:00:00Z", 0.1 + 0.01 + 0.125 + 0.5],
 			"gpt-6.1-sol": ["2026-09-29T00:00:00Z", 2 + 0.1 + 2.5 + 10],
 			"gpt-6.1-terra": ["2026-10-26T00:00:00Z", 1 + 0.05 + 1.25 + 5],
+			"gpt-6.2-astra": ["2026-11-17T00:00:00Z", 8 + 0.4 + 10 + 40],
+			"gpt-6.2-sol": ["2026-11-17T00:00:00Z", 2 + 0.1 + 2.5 + 10],
 		};
 
 		it("prices from the era floor, so a window opened before launch is valued", () => {
