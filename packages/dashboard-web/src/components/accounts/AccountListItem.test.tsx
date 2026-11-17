@@ -12,6 +12,7 @@
  */
 import { describe, expect, it, mock } from "bun:test";
 import type { BankedResets, FullUsageData } from "@better-ccflare/types";
+import { formatClockTime } from "@better-ccflare/ui-common";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup as renderMarkup } from "react-dom/server";
@@ -1560,11 +1561,13 @@ describe("account settings switches", () => {
 		expect(html).not.toContain("Auto-refresh");
 	});
 
-	it("explains automatic return and paid-usage detection in visible text", () => {
+	it("explains automatic return and the best-effort extra-usage switch in visible text", () => {
 		const html = render(makeAccount({ provider: "anthropic" }));
 		const text = html.replace(/<[^>]+>/g, "");
 		expect(text).toContain("Switch back from lower-priority accounts");
-		expect(text).toContain("Some paid usage may occur before detection.");
+		expect(text).toContain(
+			"Best effort: Anthropic can bill a request before the router learns that a limit is spent. The router never changes your setting at Anthropic.",
+		);
 	});
 
 	it("keeps the peak-hours toggle on a zai row", () => {
@@ -1580,8 +1583,167 @@ describe("account settings switches", () => {
 	it("says an overage pause resumes at window reset only with auto-fallback on", () => {
 		const html = render(makeAccount({ provider: "anthropic" }));
 		expect(html).toContain(
-			"Account resumes when the usage window resets only if Return after reset is on.",
+			"A login paused for extra usage comes back when you resume it, or after its stored reset time only if Return after reset is on.",
 		);
+	});
+});
+
+describe("extra usage on a Claude row", () => {
+	const now = Date.UTC(2026, 10, 16, 12, 0);
+	const HOUR = 60 * 60 * 1000;
+	const LABEL = "Don’t use extra usage on this login";
+	const text = (html: string) => html.replace(/<[^>]+>/g, "");
+	function props(overrides: Partial<Account>) {
+		return {
+			now,
+			account: makeAccount({ paused: false, ...overrides }),
+			...requiredHandlers,
+			onAutoPauseOnOverageToggle: noop,
+		};
+	}
+	// Closed: Details is collapsed, so this is what the member sees at a glance.
+	const closed = (overrides: Partial<Account>) =>
+		renderClosedMarkup(<AccountListItem {...props(overrides)} />);
+	const opened = (overrides: Partial<Account>) =>
+		renderToStaticMarkup(<AccountListItem {...props(overrides)} />);
+
+	it("shows extra usage on with its reading time, the warning and the settings link on a closed row", () => {
+		const readingAt = now - 60_000;
+		const html = closed({ extraUsage: { state: "on", readingAt } });
+		expect(text(html)).toContain(
+			`Extra usage at Anthropic: on · read ${formatClockTime(readingAt, now)}`,
+		);
+		expect(text(html)).toContain(
+			"Anthropic bills requests past a spent plan limit as extra usage.",
+		);
+		expect(text(html)).toContain(`The router’s “${LABEL}” switch is off.`);
+		expect(html).toContain('href="https://claude.ai/settings/usage"');
+		expect(html).toContain('data-tone="warning"');
+	});
+
+	it("names the switch with its best-effort text in Settings", () => {
+		const html = opened({ extraUsage: { state: "on", readingAt: now } });
+		expect(text(html)).toContain(LABEL);
+		expect(text(html)).toContain(
+			"Best effort: Anthropic can bill a request before the router learns that a limit is spent.",
+		);
+		expect(html).toContain('aria-label="Don’t use extra usage on acc-1"');
+	});
+
+	it("shows off with no warning and still offers the switch", () => {
+		const closedHtml = closed({ extraUsage: { state: "off", readingAt: now } });
+		expect(text(closedHtml)).toContain("Extra usage at Anthropic: off");
+		expect(text(closedHtml)).not.toContain("bills requests");
+		expect(closedHtml).not.toContain('data-tone="warning"');
+		expect(closedHtml).toContain('href="https://claude.ai/settings/usage"');
+		expect(opened({ extraUsage: { state: "off", readingAt: now } })).toContain(
+			'aria-label="Don’t use extra usage on acc-1"',
+		);
+	});
+
+	it("shows not known when there is no reading", () => {
+		const html = closed({ extraUsage: { state: "unknown", readingAt: null } });
+		expect(text(html)).toContain("Extra usage at Anthropic: not known");
+		expect(text(html)).not.toContain("· read");
+	});
+
+	it("shows a model hold, its reset time and that turning the switch off ends it on a closed row", () => {
+		const resetsAtMs = now + 3 * HOUR;
+		const html = closed({
+			autoPauseOnOverageEnabled: true,
+			extraUsage: { state: "on", readingAt: now },
+			extraUsageHolds: [
+				{
+					windowKey: "seven_day_opus",
+					scope: "family",
+					modelFamily: "opus",
+					resetsAtMs,
+					startedAt: now - HOUR,
+				},
+			],
+		});
+		expect(text(html)).toContain(
+			`Held: Opus — Opus (Weekly) limit spent. Ends at ${formatClockTime(resetsAtMs, now)} or when you turn the switch off.`,
+		);
+	});
+
+	it("shows a billed hold ending only on resume while Return after reset is off", () => {
+		const billedAt = now - HOUR;
+		const html = closed({
+			paused: true,
+			pauseReason: "overage",
+			autoPauseOnOverageEnabled: true,
+			rateLimitReset: new Date(now + 2 * HOUR).toISOString(),
+			extraUsage: { state: "on", readingAt: now },
+			extraUsageBilledHold: { billedAt, family: "opus" },
+		});
+		expect(text(html)).toContain(
+			`Held: Every model — Anthropic billed an Opus request as extra usage at ${formatClockTime(billedAt, now)}. Ends when you resume this login or when you turn the switch off.`,
+		);
+	});
+
+	it("adds the stored reset time to a billed hold with Return after reset on", () => {
+		const reset = now + 2 * HOUR;
+		const html = closed({
+			paused: true,
+			pauseReason: "overage",
+			autoPauseOnOverageEnabled: true,
+			autoFallbackEnabled: true,
+			rateLimitReset: new Date(reset).toISOString(),
+			extraUsage: { state: "on", readingAt: now },
+			extraUsageBilledHold: { billedAt: now - HOUR, family: "opus" },
+		});
+		expect(text(html)).toContain(
+			`Ends when you resume this login, after ${formatClockTime(reset, now)} or when you turn the switch off.`,
+		);
+	});
+
+	it("no longer shows Pause on extra usage anywhere on the row", () => {
+		const html = opened({
+			autoPauseOnOverageEnabled: true,
+			extraUsage: { state: "on", readingAt: now },
+		});
+		expect(html).not.toContain("Pause on extra usage");
+		expect(text(html)).toContain(LABEL);
+	});
+
+	it("keeps today's pause status for an overage pause with the switch off", () => {
+		const html = withoutDetailsContent(
+			closed({
+				paused: true,
+				pauseReason: "overage",
+				autoPauseOnOverageEnabled: false,
+				extraUsage: { state: "on", readingAt: now },
+				extraUsageBilledHold: null,
+			}),
+		);
+		expect(text(html)).toContain("Paused");
+		expect(text(html)).toContain("Auto-paused: overage");
+		expect(text(html)).not.toContain("Held:");
+	});
+
+	it("shows nothing about extra usage on another provider's row", () => {
+		const html = closed({ provider: "codex" });
+		expect(text(html)).not.toContain("Extra usage at Anthropic");
+		expect(html).not.toContain("claude.ai/settings/usage");
+	});
+
+	it("calls the old route's toggle with the account when switched", () => {
+		const account = makeAccount({ paused: false });
+		const calls: Account[] = [];
+		const tree = rowTree(
+			{
+				now,
+				account,
+				...requiredHandlers,
+				onAutoPauseOnOverageToggle: (a: Account) => calls.push(a),
+			},
+			true,
+		);
+		const found = findSwitchByTitle(tree, "comes back when you resume it");
+		expect(found).not.toBeNull();
+		found?.onCheckedChange?.(true);
+		expect(calls).toEqual([account]);
 	});
 });
 
