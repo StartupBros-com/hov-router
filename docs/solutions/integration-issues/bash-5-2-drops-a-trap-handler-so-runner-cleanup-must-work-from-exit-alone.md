@@ -1,6 +1,7 @@
 ---
 title: "bash 5.2 can drop a stop's trap handler, so the runner's exit path must be correct from the EXIT trap alone"
 date: 2026-11-16
+last_updated: 2026-11-17
 category: integration-issues
 module: stack-runner
 problem_type: integration_issue
@@ -31,7 +32,8 @@ tags:
 ## Problem
 
 `scripts/run-ccflare-stack.sh` assumed that a trapped TERM always runs its handler. Under bash
-5.2.21 (Ubuntu 24.04, which is also CI's `ubuntu-latest`), it does not. A trapped signal that
+5.2.21 (Ubuntu 24.04, which production runs and which CI's `ubuntu-latest` was until
+2026-11-17), it does not. A trapped signal that
 lands while bash parses a `$(...)` loses its handler. bash prints
 ``trap: line 2: unexpected EOF while looking for matching `)'``, runs only the EXIT trap and
 exits 2. Cleanup that relied on the handler, or on state only the handler sets, was wrong on
@@ -46,7 +48,7 @@ correct whichever handler ran, and must end.
 
 ## Symptoms
 
-- On CI, 2 of 33 `managed-routing-foundation` runs failed with `Expected: 143`,
+- On CI, then on `ubuntu-24.04`, 2 of 33 `managed-routing-foundation` runs failed with `Expected: 143`,
   `Received: 2` after the test sent SIGTERM. In a local loop with a bash trace, 4 of 149 rounds
   failed the same way, and in each trace only the EXIT trap ran.
 - On a shell shaped like the runner (`set -Eeuo pipefail`, `trap cleanup EXIT`,
@@ -184,6 +186,11 @@ second one.
   grep -c -F 'unexpected EOF while looking for matching' trap-probe.err
   ```
 
+  On 2026-11-17 this probe dropped the handler in 10 of 500 rounds in an `ubuntu:24.04`
+  container (bash 5.2.21) and in 0 of 1,000 in an `ubuntu:26.04` one (bash 5.3.9), the image
+  CI's `ubuntu-latest` moved to that day. CI therefore no longer shows the drop by chance, while
+  production's bash still can. The SIGUSR1 tests above cover the EXIT-only path on any bash.
+
   A result of 0 on a later bash does not make the EXIT-only design unnecessary. An untrapped
   signal still ends a script through its EXIT trap alone.
 
@@ -194,3 +201,5 @@ second one.
   the ownership record, the `spawning` hold and the held start section this fix closes.
 - [backend-only-deploy-keeps-the-runners-environment.md](../workflow-issues/backend-only-deploy-keeps-the-runners-environment.md):
   why a runner change like #865 ships only with a full restart.
+- [ci-only-timing-flake-check-the-runner-image-first.md](../workflow-issues/ci-only-timing-flake-check-the-runner-image-first.md):
+  the next CI-only runner flake, caused by the move to `ubuntu-26.04`, and how to check the image.

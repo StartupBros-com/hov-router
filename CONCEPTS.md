@@ -544,8 +544,8 @@ A deliberate stop-and-restart of the supervised upstream, triggered because its 
 footprint stayed above a configured ceiling for a sustained run of consecutive samples —
 not because it crashed and not because an operator asked.
 
-A recycle drains before it stops (see *Guard-first drain*) and deliberately does not consume
-the ordinary child-failure circuit, so it never feeds restart backoff: a recycled process
+A recycle drains before it stops (see *Guard-first drain*) and deliberately does not count
+toward the *Restart circuit*, so it never feeds restart backoff: a recycled process
 returns immediately, while a crash-looping one is held off. Recycles are bounded per rolling
 window. Exhausting that budget is recorded and then leaves the process uncontained rather
 than restarting forever, which makes budget exhaustion an incident signal rather than routine
@@ -576,6 +576,21 @@ wait for one boot instead of for the longest old stream. It is not blue/green. A
 exactly one process admits requests, and at most one quiesced process only finishes. A backend
 that cannot prove it quiesced, because it lacks the capability or still holds the port, is
 drained instead.
+
+### Restart circuit
+
+The supervisor's bound on restarting a stack whose children keep failing: failures are counted
+inside a rolling window, and once the count reaches a cap the circuit opens and the supervisor
+stops restarting.
+*Avoid:* child-failure circuit
+
+An open circuit normally ends the supervisor with an exit status of its own, so the service
+manager decides what happens next. Only an explicit hold, outside a service manager, keeps the
+supervisor running and paused until an operator restarts it. The count starts over once the
+window has passed, or when the stack had stayed up long enough to count as stable before it
+failed. Below the cap, each restart waits a backoff that doubles with each failure up to a
+ceiling. A completed *Memory recycle* and an *Out-of-space start* are not counted; their entries
+say when each applies.
 
 ### Out-of-space start
 
