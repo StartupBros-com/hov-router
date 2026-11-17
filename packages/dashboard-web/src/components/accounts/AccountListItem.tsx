@@ -51,6 +51,7 @@ import {
 	describeBindingConstraint,
 	displayLabel,
 	formatRateLimitStatus,
+	formatUsagePercent,
 } from "./rate-limit-helpers";
 import { STATUS_PILL_TONE } from "./status-tones";
 
@@ -434,6 +435,19 @@ export function AccountListItem({
 	}).usages;
 	// A held window's cue already says it is spent, and until when.
 	const heldWindows = new Set(extraUsage?.holds.map((hold) => hold.windowKey));
+	// A plain "{Family}: Model exhausted" notice on this row already says that
+	// family's own weekly window is spent. Keyed by window id, never by label.
+	const noticedWindows = new Set(
+		routingStates
+			.filter(
+				(state) =>
+					state.availability === "model_exhausted" &&
+					state.reason !== "ambiguous" &&
+					state.reason !== "new_billing_class" &&
+					!state.managedRouteAvailable,
+			)
+			.map((state) => `seven_day_${state.family}`),
+	);
 	// A ready account can still have one window spent (often a per-model cap).
 	const fullWindowLabels =
 		status.reason === "normal"
@@ -443,7 +457,8 @@ export function AccountListItem({
 							!row.synthetic &&
 							typeof row.utilization === "number" &&
 							row.utilization >= 100 &&
-							!heldWindows.has(row.window),
+							!heldWindows.has(row.window) &&
+							!noticedWindows.has(row.window ?? ""),
 					)
 					.map(displayLabel)
 			: [];
@@ -801,7 +816,7 @@ export function AccountListItem({
 					{bindingConstraint.divergesFromRouting ? (
 						<>
 							Closest limit: {bindingConstraint.label}{" "}
-							{Math.round(bindingConstraint.utilization)}%
+							{formatUsagePercent(bindingConstraint.utilization)}
 							{bindingConstraint.scope === "family"
 								? " used — applies to this model, separate from account-wide usage"
 								: " used — a different window from the routing limit"}
@@ -809,7 +824,8 @@ export function AccountListItem({
 					) : (
 						<>
 							Closest limit: {bindingConstraint.label}{" "}
-							{Math.round(bindingConstraint.utilization)}% used — account-wide
+							{formatUsagePercent(bindingConstraint.utilization)} used —
+							account-wide
 						</>
 					)}
 				</div>
