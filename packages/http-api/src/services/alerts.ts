@@ -27,7 +27,9 @@ import {
 	isWellFormedConcreteClaudeModelId,
 	LATEST_MODEL_BY_FAMILY,
 	LIST_PRICE_ERAS,
+	type OrgPermissionDeniedEvt,
 	onPricingCatalogLoaded,
+	orgPermissionDeniedEvents,
 	type PricingCatalog,
 	type PricingCatalogLoadSource,
 	type RequestEvt,
@@ -1413,6 +1415,19 @@ export function buildDiscordAlertContent(alert: AlertEvent): string {
 			action =
 				"Check the requested and routed models in the dashboard and confirm the intended routing policy.";
 		}
+	} else if (alert.type === "org_permission_denied") {
+		// The phase is the id's second segment (see handleOrgPermissionDenied).
+		if (alert.id.split(":")[1] === "recovered") {
+			condition = "Anthropic accepts this account's organization again.";
+			impact = "The account is serving requests again.";
+			action = "No action needed.";
+		} else {
+			condition = "Anthropic is refusing this account's organization.";
+			impact =
+				"The account serves no requests until the organization is fixed; the router fails over to other accounts and keeps retrying it.";
+			action =
+				"Check the organization's billing and Claude Code access on claude.ai. A failed subscription payment causes this; once it is fixed the router picks the account up again on its own.";
+		}
 	} else {
 		const guidance: Record<
 			Exclude<
@@ -1422,6 +1437,7 @@ export function buildDiscordAlertContent(alert: AlertEvent): string {
 				| "cache_efficiency_critical"
 				| "cache_efficiency_recovered"
 				| "cache_telemetry_gap"
+				| "org_permission_denied"
 			>,
 			[string, string]
 		> = {
@@ -1769,7 +1785,19 @@ export class AlertService {
 	private readonly requestListener: (event: RequestEvt) => void;
 	private readonly authFailureListener: (event: AuthFailureEvt) => void;
 	private readonly codexCatalogListener: (event: CodexCatalogEvt) => void;
+	private readonly orgRefusalListener: (event: OrgPermissionDeniedEvt) => void;
 	private readonly configChangeListener: ({ key }: { key: string }) => void;
+	/**
+	 * Open org refusal episodes by account id (#877). An episode opens on the
+	 * first refusal the proxy reports and closes on the first successful
+	 * request the account serves that started after its latest refusal. In
+	 * memory only: a restart during a refusal pings once more, and a recovery
+	 * before any refusal is seen after a restart sends no recovered alert.
+	 */
+	private readonly orgRefusals = new Map<
+		string,
+		{ accountName: string; since: number; lastRefusedAt: number }
+	>();
 	private anomalyTimer: ReturnType<typeof setInterval> | null = null;
 	private cacheHealthTimer: ReturnType<typeof setInterval> | null = null;
 	private cacheHealthFlight: Promise<void> | null = null;
@@ -1801,6 +1829,11 @@ export class AlertService {
 						`Alert evaluation failed for request ${event.payload.id}: ${(error as Error).message}`,
 					);
 				});
+				this.noteOrgRefusalRecovery(event.payload).catch((error) => {
+					log.error(
+						`Org refusal recovery alert failed for request ${event.payload.id}: ${(error as Error).message}`,
+					);
+				});
 			}
 		};
 		this.authFailureListener = (event) => {
@@ -1818,6 +1851,15 @@ export class AlertService {
 			this.evaluateCodexCatalogEvent(event).catch((error) => {
 				log.error(
 					`Codex catalog alert evaluation failed for ${event.type}: ${(error as Error).message}`,
+				);
+			});
+		};
+		this.orgRefusalListener = (event) => {
+			// Emitted synchronously from the proxy's 403 handler; contain
+			// persistence failures here, as for auth failures.
+			this.handleOrgPermissionDenied(event).catch((error) => {
+				log.error(
+					`Org refusal alert failed for account ${event.accountId}: ${(error as Error).message}`,
 				);
 			});
 		};
@@ -1845,6 +1887,7 @@ export class AlertService {
 		this.config.on("change", this.configChangeListener);
 		authFailureEvents.on("event", this.authFailureListener);
 		codexCatalogEvents.on("event", this.codexCatalogListener);
+		orgPermissionDeniedEvents.on("event", this.orgRefusalListener);
 		this.restartAnomalyTimer();
 		this.restartCacheHealthTimer();
 	}
@@ -1855,6 +1898,7 @@ export class AlertService {
 		this.config.off("change", this.configChangeListener);
 		authFailureEvents.off("event", this.authFailureListener);
 		codexCatalogEvents.off("event", this.codexCatalogListener);
+		orgPermissionDeniedEvents.off("event", this.orgRefusalListener);
 		if (this.anomalyTimer) {
 			clearInterval(this.anomalyTimer);
 			this.anomalyTimer = null;
@@ -2178,6 +2222,98 @@ export class AlertService {
 			acknowledged: false,
 		};
 		await this.persistAndEmit(alert, config.webhookUrl);
+	}
+
+	/**
+	 * One org refusal reported by the proxy (#877). The first refusal of an
+	 * episode raises a critical alert; later ones only move the episode's
+	 * latest refusal time, which a recovery must start after. Both ids carry
+	 * the episode start, so a refusal that returns after a recovery pings again
+	 * even inside one cooldown hour. The episode map changes before the first
+	 * await, so two refusals arriving together cannot both open an episode.
+	 * If the alert cannot be saved, the episode is dropped so the next refusal
+	 * tries again; otherwise the refusal would go unreported until recovery.
+	 */
+	async handleOrgPermissionDenied(
+		event: OrgPermissionDeniedEvt,
+	): Promise<void> {
+		const open = this.orgRefusals.get(event.accountId);
+		if (open) {
+			open.lastRefusedAt = Math.max(open.lastRefusedAt, event.timestamp);
+			return;
+		}
+		const config = getAlertsConfig(this.config);
+		const episode = {
+			accountName: event.accountName,
+			since: event.timestamp,
+			lastRefusedAt: event.timestamp,
+		};
+		this.orgRefusals.set(event.accountId, episode);
+		const alert: AlertEvent = {
+			id: `org_permission_denied:refused:${event.accountId}:${event.timestamp}`,
+			timestamp: event.timestamp,
+			type: "org_permission_denied",
+			severity: "critical",
+			title: "Anthropic refused an account",
+			message:
+				`Anthropic is refusing account ${event.accountName}'s organization (403 permission_error). ` +
+				"A failed subscription payment causes this, as does an admin turning off OAuth or Claude Code access. " +
+				"Check billing and Claude Code access on claude.ai; the router fails over to other accounts and keeps retrying this one.",
+			value: null,
+			threshold: null,
+			account: event.accountName,
+			model: null,
+			project: null,
+			requestId: null,
+			acknowledged: false,
+		};
+		const recorded = await this.persistAndEmit(alert, config.webhookUrl);
+		if (!recorded && this.orgRefusals.get(event.accountId) === episode) {
+			this.orgRefusals.delete(event.accountId);
+		}
+	}
+
+	/**
+	 * Close an open org refusal episode on the first successful request the
+	 * account served that started after its latest refusal (#877). A stream
+	 * that began before the refusal and finished after it proves nothing about
+	 * the organization now, so it is ignored. If the recovered alert cannot be
+	 * saved and no new refusal has opened an episode since, the episode is put
+	 * back so the next success tries again.
+	 */
+	async noteOrgRefusalRecovery(request: RequestResponse): Promise<void> {
+		if (!request.accountUsed || !request.success) return;
+		const status = request.statusCode;
+		if (status === null || status < 200 || status >= 300) return;
+		const open = this.orgRefusals.get(request.accountUsed);
+		if (!open) return;
+		const startedAt = Date.parse(request.timestamp);
+		if (!Number.isFinite(startedAt) || startedAt <= open.lastRefusedAt) return;
+		this.orgRefusals.delete(request.accountUsed);
+		const config = getAlertsConfig(this.config);
+		const refusedMinutes = Math.max(
+			1,
+			Math.round((startedAt - open.since) / 60_000),
+		);
+		const alert: AlertEvent = {
+			id: `org_permission_denied:recovered:${request.accountUsed}:${open.since}`,
+			timestamp: Date.now(),
+			type: "org_permission_denied",
+			severity: "info",
+			title: "Anthropic accepts an account again",
+			message: `Account ${open.accountName} served a request again, ${refusedMinutes} min after Anthropic first refused its organization.`,
+			value: null,
+			threshold: null,
+			account: open.accountName,
+			model: null,
+			project: null,
+			requestId: request.id,
+			acknowledged: false,
+		};
+		const recorded = await this.persistAndEmit(alert, config.webhookUrl);
+		if (!recorded && !this.orgRefusals.has(request.accountUsed)) {
+			this.orgRefusals.set(request.accountUsed, open);
+		}
 	}
 
 	/**
@@ -2989,7 +3125,10 @@ export class AlertService {
 		suppressIfExistingIds: string[] = [],
 		accountId?: string,
 		expectedCreatedAt?: number,
-	): Promise<void> {
+	): Promise<boolean> {
+		// Resolves false only when the write threw, so a caller holding state
+		// for this alert can undo it and try again (#877). An ignored duplicate
+		// resolves true: that alert is already on record.
 		try {
 			// The unique alert ID is the cooldown guard. Only the caller whose insert
 			// actually wins may emit SSE or deliver the webhook; checking first would
@@ -3042,7 +3181,7 @@ export class AlertService {
 					...suppressIfExistingIds,
 				],
 			);
-			if (inserted === 0) return;
+			if (inserted === 0) return true;
 		} catch (error) {
 			// Alerts are best-effort telemetry — a persistence failure must not
 			// terminate the proxy (the listener is invoked from an async event
@@ -3050,9 +3189,10 @@ export class AlertService {
 			log.error(
 				`Failed to persist ${alert.type} alert: ${(error as Error).message}`,
 			);
-			return;
+			return false;
 		}
 		this.publishPersistedAlert(alert, webhookUrl);
+		return true;
 	}
 
 	/** Both ordinary insert winners and atomic cache-state winners use this
