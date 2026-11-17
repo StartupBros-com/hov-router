@@ -10,8 +10,10 @@ import {
 	YAxis,
 } from "recharts";
 import { CHART_PROPS } from "../../constants";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { formatCompactNumber } from "../../lib/chart-utils";
 import { Skeleton } from "../ui/skeleton";
+import { PHONE_MODEL_AXIS_HEIGHT, phoneModelLabel } from "./axis-labels";
 import { ChartTooltip } from "./ChartTooltip";
 import { getTooltipStyles } from "./chart-utils";
 import { getModelColor } from "./model-colors";
@@ -40,11 +42,23 @@ function tokenSpeedLabelFormatter(label: string) {
 	return `Model: ${label}`;
 }
 
+const DESKTOP_MODEL_AXIS_HEIGHT = 80;
+
 export function ModelTokenSpeedChart({
 	data,
 	loading = false,
 	height = 300,
 }: ModelTokenSpeedChartProps) {
+	// On a phone the 60 px left margin and the rotated axis title left the
+	// plot 88 px of a 238 px chart. Below sm both go, and the model names
+	// stand upright; the chart grows by the deeper axis so the plot keeps its
+	// height. The tooltip still names the model and its units.
+	const isWide = useMediaQuery("(min-width: 640px)");
+	const modelAxisHeight = isWide
+		? DESKTOP_MODEL_AXIS_HEIGHT
+		: PHONE_MODEL_AXIS_HEIGHT;
+	const chartHeight = height + modelAxisHeight - DESKTOP_MODEL_AXIS_HEIGHT;
+
 	if (loading)
 		return (
 			<Skeleton
@@ -80,10 +94,14 @@ export function ModelTokenSpeedChart({
 	}
 
 	return (
-		<ResponsiveContainer width="100%" height={height}>
+		<ResponsiveContainer width="100%" height={chartHeight}>
 			<BarChart
 				data={chartData}
-				margin={{ top: 20, right: 30, left: 60, bottom: 80 }}
+				margin={
+					isWide
+						? { top: 20, right: 30, left: 60, bottom: 80 }
+						: { top: 20, right: 8, left: 0, bottom: 80 }
+				}
 			>
 				<CartesianGrid
 					stroke={CHART_PROPS.gridStroke}
@@ -94,25 +112,30 @@ export function ModelTokenSpeedChart({
 					stroke={CHART_PROPS.axisStroke}
 					dataKey="model"
 					fontSize={12}
-					angle={-45}
+					angle={isWide ? -45 : -90}
 					textAnchor="end"
-					height={80}
+					height={modelAxisHeight}
+					tickFormatter={isWide ? undefined : phoneModelLabel}
 					interval={0}
 				/>
 				<YAxis
 					stroke={CHART_PROPS.axisStroke}
 					fontSize={12}
 					tickFormatter={formatCompactNumber}
-					label={{
-						fill: CHART_PROPS.axisStroke,
-						value: "Tokens/Second",
-						angle: -90,
-						position: "insideLeft",
-						style: {
-							textAnchor: "middle",
-							fontSize: 12,
-						},
-					}}
+					label={
+						isWide
+							? {
+									fill: CHART_PROPS.axisStroke,
+									value: "Tokens/Second",
+									angle: -90,
+									position: "insideLeft",
+									style: {
+										textAnchor: "middle",
+										fontSize: 12,
+									},
+								}
+							: undefined
+					}
 				/>
 				<ChartTooltip
 					itemStyle={{ color: "var(--popover-foreground)" }}

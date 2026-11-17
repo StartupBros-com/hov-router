@@ -743,7 +743,10 @@ export function RequestsTab() {
 													</span>
 												)}
 												{path && (
-													<span className="order-last basis-full truncate pl-6 text-xs font-mono text-muted-foreground min-w-0 sm:order-none sm:basis-auto sm:flex-1 sm:pl-0">
+													<span
+														title={path}
+														className="order-last basis-full truncate pl-6 text-xs font-mono text-muted-foreground min-w-0 sm:order-none sm:basis-auto sm:flex-1 sm:pl-0"
+													>
 														{path}
 													</span>
 												)}

@@ -541,6 +541,36 @@ describe("WindowValueTimeline", () => {
 		expect(html).toContain('class="truncate">$3.1k');
 	});
 
+	it("puts a floated label in a strip under the bar, not over the next window", () => {
+		const html = renderToString(
+			<WindowValueTimeline accounts={[maxPrimary]} nowMs={NOW_MS} />,
+		);
+		// Segments fill 8-48 px of the lane; the callout row starts at 50 px and
+		// the lane grows from 56 px to hold it.
+		expect(html).toMatch(
+			/window-value-segment-label--outside[^"]*" style="left:\d+px;top:50px"[^>]*>\$85\.00 · 6% used/,
+		);
+		expect(html).toContain('style="height:76px"');
+		// On a narrow screen the bars scroll sideways instead of shrinking away.
+		expect(html).toMatch(/class="overflow-x-auto"><div class="min-w-\[36rem\]/);
+	});
+
+	it("covers the whole date row with the sticky Account header", () => {
+		const html = renderToString(
+			<WindowValueTimeline accounts={[maxPrimary]} nowMs={NOW_MS} />,
+		);
+		const headerClasses = (
+			html.match(/<p class="([^"]*)">Account<\/p>/)?.[1] ?? ""
+		).split(" ");
+		// The dates sit at the top of the 32 px axis row and scroll under this
+		// cell on a phone. A cell that hugs the bottom of the row left their top
+		// edge showing above "Account"; it stretches to the row and keeps its
+		// text at the bottom instead.
+		expect(headerClasses).toContain("sticky");
+		expect(headerClasses).not.toContain("self-end");
+		expect(headerClasses).toContain("items-end");
+	});
+
 	it("renders a semantic period-over-period comparison table for every provider", () => {
 		expect(WindowValueComparisonTable).toBeDefined();
 

@@ -41,8 +41,8 @@ export function ComboCard({
 	return (
 		<Card>
 			<CardHeader className="pb-3">
-				<div className="flex items-start justify-between gap-2">
-					<div className="min-w-0 flex-1">
+				<div className="flex flex-wrap items-start justify-between gap-2">
+					<div className="min-w-[10rem] flex-1">
 						<CardTitle className="text-base leading-snug">
 							{combo.name}
 						</CardTitle>
@@ -156,7 +156,7 @@ export function ComboCard({
 												<legend className="text-xs font-medium text-foreground">
 													Authoritative effective membership
 												</legend>
-												<div className="grid gap-1 text-xs tabular-nums text-muted-foreground sm:grid-cols-3">
+												<div className="flex flex-wrap gap-x-3 gap-y-1 text-xs tabular-nums text-muted-foreground">
 													<span>{`Manual members: ${manualMemberCount}`}</span>
 													<span>{`Managed members: ${managedMemberCount}`}</span>
 													<span>{`Effective members: ${effectiveMemberCount}`}</span>

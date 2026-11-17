@@ -131,7 +131,7 @@ export function CombosTab() {
 					) : null}
 
 					{combos.length > 0 && (
-						<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+						<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 							{combos.map((combo) => (
 								<ComboCard
 									key={combo.id}

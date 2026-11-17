@@ -21,6 +21,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAlerts, useHealth } from "../hooks/queries";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { PAGE_META, type PageKey } from "../lib/page-meta";
 import { cn } from "../lib/utils";
 import { version } from "../lib/version";
@@ -185,6 +186,8 @@ export function Navigation({ onLogout }: NavigationProps = {}) {
 	const unacknowledgedCount = alertData?.unacknowledgedCount ?? 0;
 	const location = useLocation();
 	const isMountedRef = useRef(true);
+	// Below lg the closed drawer is off-canvas; keep it out of the tab order.
+	const isDesktop = useMediaQuery("(min-width: 1024px)");
 
 	// Build nav items with the current alert badge
 	const navItems: NavItem[] = useMemo(() => {
@@ -276,6 +279,7 @@ export function Navigation({ onLogout }: NavigationProps = {}) {
 
 			{/* Sidebar */}
 			<aside
+				inert={!isDesktop && !isMobileMenuOpen}
 				className={cn(
 					"fixed left-0 top-0 z-40 h-screen w-64 bg-card border-r transition-transform duration-300 lg:translate-x-0",
 					isMobileMenuOpen

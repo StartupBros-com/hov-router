@@ -1,12 +1,14 @@
 import { formatCost, formatPercentage } from "@better-ccflare/ui-common";
 import { useMemo } from "react";
 import { CHART_COLORS, COLORS } from "../../constants";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import {
 	BaseAreaChart,
 	BaseBarChart,
 	BaseLineChart,
 	BasePieChart,
 } from "../charts";
+import { middleEllipsis } from "../charts/axis-labels";
 import {
 	Card,
 	CardContent,
@@ -52,6 +54,22 @@ interface ChartsSectionProps {
 	loading: boolean;
 }
 
+/**
+ * On a phone, account names are angled so every bar keeps its label, and cut
+ * in the middle to cap how far they hang below the plot; the tooltip carries
+ * the full name.
+ */
+const NARROW_ACCOUNT_LABEL_CHARS = 12;
+// A 12-character label in the axis's 16 px text, turned 45°, reaches 98 px
+// below the axis line in lower case ("synth…ount-a") and 119 px in capitals
+// (measured in Chromium), so the axis reserves 120 px or the labels run into
+// the legend. The taller chart keeps the plot from shrinking to match.
+const NARROW_ACCOUNT_AXIS_HEIGHT = 120;
+
+function narrowAccountLabel(value: number | string): string {
+	return middleEllipsis(String(value), NARROW_ACCOUNT_LABEL_CHARS);
+}
+
 export function ChartsSection({
 	timeSeriesData,
 	modelData,
@@ -60,6 +78,8 @@ export function ChartsSection({
 	apiKeyPerformanceData,
 	loading,
 }: ChartsSectionProps) {
+	const isNarrow = !useMediaQuery("(min-width: 640px)");
+
 	// Aggregate account-model usage into per-account totals for the donut chart
 	const accountUsageDonutData = useMemo(() => {
 		const totals = new Map<string, number>();
@@ -313,28 +333,45 @@ export function ChartsSection({
 								},
 							]}
 							xAxisKey="name"
+							xAxisInterval={isNarrow ? 0 : undefined}
+							xAxisAngle={isNarrow ? -45 : 0}
+							xAxisTextAnchor={isNarrow ? "end" : "middle"}
+							xAxisHeight={isNarrow ? NARROW_ACCOUNT_AXIS_HEIGHT : 30}
+							xAxisTickFormatter={isNarrow ? narrowAccountLabel : undefined}
 							loading={loading}
-							height="small"
+							height={isNarrow ? "medium" : "small"}
 							secondaryYAxis={true}
 							showLegend={true}
 						/>
-						<div className="mt-4 border rounded-md overflow-hidden">
+						<div className="mt-4 border rounded-md overflow-x-auto">
 							<table
 								aria-label="Account cost breakdown"
 								className="w-full text-sm"
 							>
 								<thead className="bg-muted/50">
 									<tr>
-										<th scope="col" className="text-left px-3 py-2">
+										<th
+											scope="col"
+											className="text-left px-3 py-2 whitespace-nowrap"
+										>
 											Account
 										</th>
-										<th scope="col" className="text-right px-3 py-2">
+										<th
+											scope="col"
+											className="text-right px-3 py-2 whitespace-nowrap"
+										>
 											Plan Value
 										</th>
-										<th scope="col" className="text-right px-3 py-2">
+										<th
+											scope="col"
+											className="text-right px-3 py-2 whitespace-nowrap"
+										>
 											API Value
 										</th>
-										<th scope="col" className="text-right px-3 py-2">
+										<th
+											scope="col"
+											className="text-right px-3 py-2 whitespace-nowrap"
+										>
 											Total
 										</th>
 									</tr>
@@ -346,13 +383,13 @@ export function ChartsSection({
 												<td className="px-3 py-2 text-muted-foreground">
 													{row.name}
 												</td>
-												<td className="px-3 py-2 text-right">
+												<td className="px-3 py-2 text-right whitespace-nowrap">
 													{formatCost(row.planCostUsd)}
 												</td>
-												<td className="px-3 py-2 text-right">
+												<td className="px-3 py-2 text-right whitespace-nowrap">
 													{formatCost(row.apiCostUsd)}
 												</td>
-												<td className="px-3 py-2 text-right font-medium">
+												<td className="px-3 py-2 text-right font-medium whitespace-nowrap">
 													{formatCost(row.totalCostUsd)}
 												</td>
 											</tr>
@@ -373,13 +410,13 @@ export function ChartsSection({
 										<th scope="row" className="px-3 py-2 font-medium text-left">
 											Total
 										</th>
-										<td className="px-3 py-2 text-right font-medium">
+										<td className="px-3 py-2 text-right font-medium whitespace-nowrap">
 											{formatCost(accountCostTotals.planCostUsd)}
 										</td>
-										<td className="px-3 py-2 text-right font-medium">
+										<td className="px-3 py-2 text-right font-medium whitespace-nowrap">
 											{formatCost(accountCostTotals.apiCostUsd)}
 										</td>
-										<td className="px-3 py-2 text-right font-medium">
+										<td className="px-3 py-2 text-right font-medium whitespace-nowrap">
 											{formatCost(accountCostTotals.totalCostUsd)}
 										</td>
 									</tr>

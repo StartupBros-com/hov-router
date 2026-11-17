@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useElementWidth } from "../../hooks/useElementWidth";
 import {
 	type ForecastAccount,
 	forecastHeadline,
@@ -38,24 +38,6 @@ function StateBadge({ account }: { account: ForecastAccount }) {
 		</span>
 	);
 }
-function useWidth<T extends HTMLElement>(enabled: boolean) {
-	const ref = useRef<T>(null);
-	const [width, setWidth] = useState(0);
-	useLayoutEffect(() => {
-		if (!enabled) return;
-		const el = ref.current;
-		if (!el) return;
-		setWidth(Math.round(el.getBoundingClientRect().width));
-		if (typeof ResizeObserver === "undefined") return;
-		const observer = new ResizeObserver(([entry]) =>
-			setWidth(Math.round(entry.contentRect.width)),
-		);
-		observer.observe(el);
-		return () => observer.disconnect();
-	}, [enabled]);
-	return { ref, width };
-}
-
 export function PoolRunway({
 	group,
 	now,
@@ -67,7 +49,9 @@ export function PoolRunway({
 	open: boolean;
 	onToggle: () => void;
 }) {
-	const { ref, width } = useWidth<HTMLDivElement>(group.forecast !== null);
+	const { ref, width } = useElementWidth<HTMLDivElement>(
+		group.forecast !== null,
+	);
 	const f = group.forecast;
 	if (!f)
 		return (
