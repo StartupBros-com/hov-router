@@ -34,12 +34,18 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { Notice } from "../ui/notice";
 import { StatusPill } from "../ui/status-pill";
 import { Switch } from "../ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import type { AccountFamilyRoutingState } from "./account-routing";
 import { accountUsageWindows } from "./account-usage-windows";
 import { BankedResetsStatus } from "./BankedResetsStatus";
+import {
+	ANTHROPIC_USAGE_SETTINGS_URL,
+	type ExtraUsageStatus,
+	extraUsageStatus,
+} from "./extra-usage-status";
 import { ProviderMark } from "./ProviderMark";
 import { RateLimitProgress } from "./RateLimitProgress";
 import {
@@ -268,6 +274,51 @@ export function PublicValueControl({
 	);
 }
 
+/**
+ * A Claude login's extra-usage state, its warning while the state reads on,
+ * and each hold, shown without opening Details. Hook-free for the row tests.
+ */
+function ExtraUsageSummary({ status }: { status: ExtraUsageStatus }) {
+	const settingsLink = (
+		<a
+			href={ANTHROPIC_USAGE_SETTINGS_URL}
+			target="_blank"
+			rel="noopener noreferrer"
+			className="text-primary underline"
+		>
+			Change it at Anthropic
+		</a>
+	);
+	return (
+		<section
+			aria-label="Extra usage"
+			className="space-y-1 text-xs xl:col-span-full"
+		>
+			{status.warning ? (
+				<Notice tone="warning" title={status.stateLine} className="p-2 text-xs">
+					<p>
+						{status.warning} {settingsLink}
+					</p>
+				</Notice>
+			) : (
+				<p className="text-muted-foreground">
+					{status.stateLine} · {settingsLink}
+				</p>
+			)}
+			{status.holds.length > 0 && (
+				<ul className="space-y-1" aria-label="Extra-usage holds">
+					{status.holds.map((hold) => (
+						<li key={hold.key}>
+							<span className="font-medium">Held: {hold.held}</span> —{" "}
+							{hold.why}. {hold.ends}
+						</li>
+					))}
+				</ul>
+			)}
+		</section>
+	);
+}
+
 export function AccountListItem({
 	now = Date.now(),
 	sortReset,
@@ -311,6 +362,7 @@ export function AccountListItem({
 		!account.bankedResets.stale;
 	const presenter = new AccountPresenter(account, now);
 	const status = presenter.status;
+	const extraUsage = extraUsageStatus(account, now);
 	const StatusIcon = STATUS_ICON[status.tone];
 	// Display-only: the window actually closest to blocking this account,
 	// including per-model caps that the routing utilization deliberately omits.
@@ -732,6 +784,8 @@ export function AccountListItem({
 				</section>
 			)}
 
+			{extraUsage && <ExtraUsageSummary status={extraUsage} />}
+
 			{bindingConstraint && !representedBinding && (
 				// Deliberately NOT a replacement for the routing utilization badge
 				// above: routing asks how much account-wide capacity is left, this
@@ -1089,20 +1143,21 @@ export function AccountListItem({
 									{showAutoPause && onAutoPauseOnOverageToggle && (
 										<div className={SETTING_CLASS}>
 											<span className="text-sm font-medium">
-												Pause on extra usage
+												Don’t use extra usage on this login
 											</span>
 											<Switch
 												className={SETTING_SWITCH_CLASS}
 												checked={account.autoPauseOnOverageEnabled ?? false}
-												aria-label={`Pause on extra usage for ${account.name}`}
+												aria-label={`Don’t use extra usage on ${account.name}`}
 												onCheckedChange={() =>
 													onAutoPauseOnOverageToggle(account)
 												}
-												title="Automatically pause account when overage usage is detected. Note: detection only happens when Anthropic API reports overage, so some overage usage may occur before pausing. Account resumes when the usage window resets only if Return after reset is on."
+												title="Keeps the router from sending this login a request that a spent plan limit covers, so Anthropic does not bill it as extra usage. A login paused for extra usage comes back when you resume it, or after its stored reset time only if Return after reset is on. Turning this switch off ends every hold at once."
 											/>
 											<p className="basis-full text-xs text-muted-foreground">
-												Pause when the provider reports extra usage. Some paid
-												usage may occur before detection.
+												Best effort: Anthropic can bill a request before the
+												router learns that a limit is spent. The router never
+												changes your setting at Anthropic.
 											</p>
 										</div>
 									)}

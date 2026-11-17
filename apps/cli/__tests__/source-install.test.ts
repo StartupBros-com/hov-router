@@ -191,6 +191,42 @@ describe("documented source install", () => {
 		}
 	});
 
+	it("has the setup agent check each Claude login's extra usage before the first request", () => {
+		const guide = readFileSync(join(root, "docs/agent-setup.md"), "utf8");
+		const heading = "### Check extra usage on each Claude login";
+		const section = guide.split(`${heading}\n`)[1]?.split(/\n#{1,3} /)[0];
+		expect(section).toBeDefined();
+		// Read the state, and change the switch only at the member's word.
+		expect(section).toContain("`GET /api/accounts`");
+		expect(section).toContain("`extraUsage.state`");
+		expect(section).toContain(
+			'`POST /api/accounts/<id>/auto-pause-on-overage` with `{"enabled": 1}`',
+		);
+		expect(section).toContain("**Don’t use extra usage on this login**");
+		expect(section).toContain(
+			"Turn the switch on only when the member says yes",
+		);
+		expect(section).toContain("tell the member in one sentence");
+		expect(section).toContain("Otherwise leave it off.");
+		// Ask for a first reading only when there is none; otherwise report it.
+		expect(section).toContain(
+			"Only when `extraUsage.readingAt` is `null`, call `POST /api/accounts/<id>/refresh-usage` once",
+		);
+		expect(section).toContain("`cacheRefreshed: true`");
+		expect(section).toContain("report the state as not yet known");
+		expect(section).toContain("never as off");
+		// A shared router's owner keeps the switch.
+		expect(section).toContain("On a shared router, only report the state");
+		expect(section).toContain("401 or 403");
+		// The paid-usage check before the first request leads here.
+		const beforeSending = guide
+			.split("\n")
+			.find((line) => line.startsWith("Before sending,"));
+		expect(beforeSending).toContain(
+			"(#check-extra-usage-on-each-claude-login)",
+		);
+	});
+
 	it("installs the built fork under both names with identical version/source evidence and config behavior while preserving legacy storage", () => {
 		const reference = readFileSync(join(root, "docs/reference.md"), "utf8");
 		expect(reference).toContain(

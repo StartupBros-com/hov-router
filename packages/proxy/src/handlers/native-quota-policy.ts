@@ -1,4 +1,6 @@
 import {
+	coveringExtraUsageHolds,
+	extraUsageHoldWindowKind,
 	getModelList,
 	getStrictClaudeModelFamily,
 	resolveStoredPolicyAliasModel,
@@ -13,6 +15,7 @@ import type {
 	ComboFamily,
 	ComboRoutingPolicySnapshot,
 	EffectiveComboMember,
+	ExtraUsageHold,
 } from "@better-ccflare/types";
 import {
 	collectWindows,
@@ -54,7 +57,7 @@ export interface NativeQuotaFamilyMarker {
 }
 
 export interface NativeQuotaFamilyProof {
-	readonly source: "usage_snapshot" | "reactive_family";
+	readonly source: "usage_snapshot" | "reactive_family" | "extra_usage_hold";
 	readonly expiresAt: number;
 	readonly resetAt: number;
 }
@@ -260,6 +263,20 @@ function hardEvidence(
 	}
 }
 
+function extraUsageHoldExclusion(hold: ExtraUsageHold): HardCapacityExclusion {
+	return {
+		source: "extra_usage_hold",
+		scope: hold.scope,
+		window: hold.windowKey,
+		windowKind: extraUsageHoldWindowKind(hold),
+		modelFamily: hold.modelFamily,
+		// Holds start only at 100% or more; the stored hold keeps no reading.
+		utilization: 100,
+		resetAtMs: hold.resetsAtMs,
+		evidenceExpiresAt: hold.resetsAtMs,
+	};
+}
+
 function familyProof(
 	snapshot: UsageSnapshot | null,
 	marker: NativeQuotaFamilyMarker | null,
@@ -316,6 +333,26 @@ function familyProof(
 		),
 		resetAt: Math.max(...scoped.map((row) => row.resetAtMs)),
 	};
+}
+
+/**
+ * A family hold the extra-usage switch enforces proves that family spent on
+ * the login, even while Anthropic would bill past the limit and so the
+ * reading alone proves nothing.
+ */
+function extraUsageHoldProof(
+	account: Account | undefined,
+	model: string,
+	family: ComboFamily,
+	now: number,
+): NativeQuotaFamilyProof | null {
+	if (!account) return null;
+	const resets = coveringExtraUsageHolds(account, model, now)
+		.filter((hold) => hold.scope === "family" && hold.modelFamily === family)
+		.map((hold) => hold.resetsAtMs);
+	if (resets.length === 0) return null;
+	const resetAt = Math.max(...resets);
+	return { source: "extra_usage_hold", expiresAt: resetAt, resetAt };
 }
 
 /** Evaluate pool membership before cooldown/circuit/auth availability filtering. */
@@ -382,13 +419,20 @@ export function evaluateNativeQuotaPolicy(
 				getStrictClaudeModelFamily(member.logical_model) === context.family,
 		);
 		if (!primary) continue;
-		const proof = familyProof(
-			snapshots.get(id) ?? null,
-			getFamilyMarker(id, primary.logical_model, now),
-			primary.logical_model,
-			context.family,
-			now,
-		);
+		const proof =
+			familyProof(
+				snapshots.get(id) ?? null,
+				getFamilyMarker(id, primary.logical_model, now),
+				primary.logical_model,
+				context.family,
+				now,
+			) ??
+			extraUsageHoldProof(
+				accounts.find((entry) => entry.id === id),
+				primary.logical_model,
+				context.family,
+				now,
+			);
 		if (proof) familyProofs.set(id, proof);
 	}
 	const backupAllowedAccountIds = primaryAccountIds.filter(
@@ -416,7 +460,14 @@ export function evaluateNativeQuotaPolicy(
 			getModelList(member.logical_model, account) ?? [member.logical_model],
 		);
 		const snapshot = snapshots.get(member.account_id) ?? null;
-		const blockers = [...hardEvidence(snapshot, member.logical_model, now)];
+		// A stored extra-usage hold refuses first: the extra-usage filter in
+		// hardEvidence would otherwise admit a spent limit Anthropic bills past.
+		const blockers: HardCapacityExclusion[] = [
+			...coveringExtraUsageHolds(account, member.logical_model, now).map(
+				extraUsageHoldExclusion,
+			),
+			...hardEvidence(snapshot, member.logical_model, now),
+		];
 		const proof =
 			family === context.family
 				? familyProofs.get(member.account_id)

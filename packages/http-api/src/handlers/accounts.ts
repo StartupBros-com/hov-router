@@ -5,10 +5,13 @@ import { join } from "node:path";
 import * as cliCommands from "@better-ccflare/cli-commands";
 import type { Config } from "@better-ccflare/config";
 import {
+	deriveExtraUsageHolds,
+	liveExtraUsageHolds,
 	normalizeProviderUsageWindows,
 	PAUSE_REASON_NEEDS_REAUTH,
 	patterns,
 	REAUTHENTICATION_REQUIRED_CODE,
+	resolveExtraUsageState,
 	sanitizers,
 	validateAndSanitizeModelMappings,
 	validateBoolean,
@@ -37,6 +40,7 @@ import {
 	META_DEFAULT_ENDPOINT,
 	parseCodexUsageHeaders,
 	type UsageData,
+	type UsageSnapshot,
 	usageCache,
 } from "@better-ccflare/providers";
 import {
@@ -50,16 +54,23 @@ import {
 	refreshCodexUsageForAccount,
 	restartUsagePollingForAccount,
 } from "@better-ccflare/proxy";
-import { isCodexCreditDrainActive } from "@better-ccflare/proxy/usage-throttling";
+import {
+	DEFAULT_CAPACITY_SNAPSHOT_FRESHNESS_MS,
+	isCodexCreditDrainActive,
+} from "@better-ccflare/proxy/usage-throttling";
 import type {
 	Account,
 	AnthropicUsageData,
 	BankedResets,
+	ExtraUsageHoldState,
 	FullUsageData,
 	LoadBalancingStrategy,
 	RateLimitReason,
 } from "@better-ccflare/types";
-import { requiresSessionDurationTracking } from "@better-ccflare/types";
+import {
+	parseExtraUsageHoldState,
+	requiresSessionDurationTracking,
+} from "@better-ccflare/types";
 import {
 	bumpPublicRosterGeneration,
 	runExclusiveRosterWrite,
@@ -329,6 +340,58 @@ async function getCachedOrPersistedCodexUsage(
 }
 
 /**
+ * What the account row and the setup agent read about a Claude login's extra
+ * usage: the setting from its cached reading, and the holds that stop routing
+ * to it. Holds are listed only while the switch is on, as only then do they
+ * stop routing.
+ */
+function extraUsageFields(
+	account: {
+		auto_pause_on_overage_enabled: 0 | 1;
+		paused: 0 | 1;
+		pause_reason: string | null;
+		extra_usage_holds: string | null;
+		overage_billed_at: number | null;
+		overage_billed_family: string | null;
+	},
+	reading: UsageSnapshot | null,
+	now: number,
+): Pick<
+	AccountResponse,
+	"extraUsage" | "extraUsageHolds" | "extraUsageBilledHold"
+> {
+	const switchOn = account.auto_pause_on_overage_enabled === 1;
+	const readingAt = reading?.observedAt ?? null;
+	return {
+		extraUsage: {
+			state: resolveExtraUsageState(
+				reading?.data ?? null,
+				readingAt,
+				now,
+				DEFAULT_CAPACITY_SNAPSHOT_FRESHNESS_MS,
+			),
+			readingAt,
+		},
+		extraUsageHolds: switchOn
+			? liveExtraUsageHolds(
+					parseExtraUsageHoldState(account.extra_usage_holds),
+					now,
+				)
+			: [],
+		extraUsageBilledHold:
+			switchOn && account.paused === 1 && account.pause_reason === "overage"
+				? {
+						billedAt:
+							account.overage_billed_at != null
+								? Number(account.overage_billed_at)
+								: null,
+						family: account.overage_billed_family ?? null,
+					}
+				: null,
+	};
+}
+
+/**
  * Create an accounts list handler
  */
 export function createAccountsListHandler(
@@ -379,6 +442,9 @@ export function createAccountsListHandler(
 			model_fallbacks: string | null;
 			billing_type: string | null;
 			pause_reason: string | null;
+			extra_usage_holds: string | null;
+			overage_billed_at: number | null;
+			overage_billed_family: string | null;
 		}>(
 			`
 				SELECT
@@ -415,6 +481,9 @@ export function createAccountsListHandler(
 					model_fallbacks,
 					billing_type,
 					pause_reason,
+					extra_usage_holds,
+					overage_billed_at,
+					overage_billed_family,
 					-- API-key accounts never expire: expires_at is NULL (no expiry),
 					-- not 0 (already expired). Treat NULL as valid so a freshly
 					-- created static-key account does not immediately list as expired.
@@ -814,6 +883,9 @@ export function createAccountsListHandler(
 					autoFallbackEnabled: account.auto_fallback_enabled === 1,
 					autoPauseOnOverageEnabled:
 						account.auto_pause_on_overage_enabled === 1,
+					...(account.provider === "anthropic"
+						? extraUsageFields(account, usageCache.getSnapshot(account.id), now)
+						: {}),
 					peakHoursPauseEnabled: account.peak_hours_pause_enabled === 1,
 					codexCreditDrainEnabled: account.codex_credit_drain_enabled === 1,
 					publicValueEnabled: Number(account.public_value_enabled) === 1,
@@ -3141,7 +3213,16 @@ export function createAccountCodexCreditDrainHandler(
  */
 export function createAccountAutoPauseOnOverageHandler(
 	dbOps: DatabaseOperations,
+	deps: {
+		getUsageSnapshot?: (
+			accountId: string,
+		) => { data: unknown; observedAt: number } | null;
+		now?: () => number;
+	} = {},
 ) {
+	const getUsageSnapshot =
+		deps.getUsageSnapshot ?? ((id: string) => usageCache.getSnapshot(id));
+	const now = deps.now ?? Date.now;
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
@@ -3176,8 +3257,30 @@ export function createAccountAutoPauseOnOverageHandler(
 				);
 			}
 
-			// Update auto-pause-on-overage setting
-			await dbOps.setAutoPauseOnOverageEnabled(accountId, enabled === 1);
+			// This setting is the extra-usage switch. Turning it on holds the
+			// limits a recent cached reading already shows spent, so the login is
+			// not sent a request Anthropic would bill before the next poll; an
+			// older reading (or none) starts no hold. Nothing here contacts
+			// Anthropic, and posting the stored value again changes nothing.
+			let holdsOnEnable: ExtraUsageHoldState | null = null;
+			if (enabled === 1) {
+				const snapshot = getUsageSnapshot(accountId);
+				if (
+					snapshot &&
+					now() - snapshot.observedAt <= DEFAULT_CAPACITY_SNAPSHOT_FRESHNESS_MS
+				) {
+					holdsOnEnable = deriveExtraUsageHolds(
+						null,
+						normalizeProviderUsageWindows(snapshot.data, "anthropic"),
+						snapshot.observedAt,
+					);
+				}
+			}
+			await dbOps.setAutoPauseOnOverageEnabled(
+				accountId,
+				enabled === 1,
+				holdsOnEnable,
+			);
 
 			const action = enabled === 1 ? "enabled" : "disabled";
 

@@ -583,7 +583,10 @@ export function ensureSchema(db: Database): void {
 			rate_limit_reset INTEGER,
 			rate_limit_reset_at INTEGER,
 			consecutive_rate_limits INTEGER NOT NULL DEFAULT 0,
-			requires_reauth INTEGER DEFAULT 0
+			requires_reauth INTEGER DEFAULT 0,
+			extra_usage_holds TEXT,
+			overage_billed_at INTEGER,
+			overage_billed_family TEXT
 		)
 	`);
 
@@ -2476,6 +2479,30 @@ export function runMigrations(db: Database, dbPath?: string): void {
 			log.info("Added public_value_id column to accounts table");
 		}
 
+		// Extra-usage holds on Claude logins. extra_usage_holds is JSON: the time
+		// of the usage reading that last changed it plus one entry per spent limit
+		// held. overage_billed_at / overage_billed_family describe the billed
+		// response behind an 'overage' pause; a pause from before these columns
+		// keeps a NULL time, so no reading ever ends it. No backfill.
+		if (!initialAccountsColumnNames.includes("extra_usage_holds")) {
+			db.prepare(
+				"ALTER TABLE accounts ADD COLUMN extra_usage_holds TEXT",
+			).run();
+			log.info("Added extra_usage_holds column to accounts table");
+		}
+		if (!initialAccountsColumnNames.includes("overage_billed_at")) {
+			db.prepare(
+				"ALTER TABLE accounts ADD COLUMN overage_billed_at INTEGER",
+			).run();
+			log.info("Added overage_billed_at column to accounts table");
+		}
+		if (!initialAccountsColumnNames.includes("overage_billed_family")) {
+			db.prepare(
+				"ALTER TABLE accounts ADD COLUMN overage_billed_family TEXT",
+			).run();
+			log.info("Added overage_billed_family column to accounts table");
+		}
+
 		// Add pause_reason column to track why an account is paused (issue #139)
 		// Possible values: null (not paused), 'manual' (user paused via CLI/API),
 		// 'failure_threshold' (auto-refresh failures; the scheduler that set it was
@@ -2562,7 +2589,10 @@ export function runMigrations(db: Database, dbPath?: string): void {
 					codex_credit_drain_enabled INTEGER NOT NULL DEFAULT 0,
 					public_value_enabled INTEGER NOT NULL DEFAULT 0,
 					public_value_label TEXT,
-					public_value_id TEXT
+					public_value_id TEXT,
+					extra_usage_holds TEXT,
+					overage_billed_at INTEGER,
+					overage_billed_family TEXT
 				)
 			`).run();
 
@@ -2580,7 +2610,8 @@ export function runMigrations(db: Database, dbPath?: string): void {
 					model_mappings, cross_region_mode, model_fallbacks,
 					auto_pause_on_overage_enabled, pause_reason, requires_reauth,
 					codex_credit_drain_enabled,
-					public_value_enabled, public_value_label, public_value_id
+					public_value_enabled, public_value_label, public_value_id,
+					extra_usage_holds, overage_billed_at, overage_billed_family
 				FROM accounts
 			`).run();
 
@@ -2919,7 +2950,8 @@ export function runMigrations(db: Database, dbPath?: string): void {
 			       auto_fallback_enabled, custom_endpoint, auto_refresh_enabled, model_mappings,
 			       cross_region_mode, model_fallbacks, billing_type, auto_pause_on_overage_enabled,
 			       pause_reason, requires_reauth, codex_credit_drain_enabled,
-			       public_value_enabled, public_value_label, public_value_id
+			       public_value_enabled, public_value_label, public_value_id,
+			       extra_usage_holds, overage_billed_at, overage_billed_family
 			FROM accounts
 		`).run();
 

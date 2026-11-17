@@ -593,3 +593,158 @@ describe("native quota admission evidence", () => {
 		expect(result.admittedCandidateIds).toEqual([]);
 	});
 });
+
+describe("native quota admission with extra-usage holds", () => {
+	/** Account `a` with the extra-usage switch on and a stored Fable hold. */
+	const fableHeld = (switchOn = true) =>
+		account("a", {
+			auto_pause_on_overage_enabled: switchOn,
+			extra_usage_holds: {
+				readingAt: NOW - 60_000,
+				holds: [
+					{
+						windowKey: "seven_day_fable",
+						scope: "family",
+						modelFamily: "fable",
+						resetsAtMs: RESET + 20000,
+						startedAt: NOW - 60_000,
+					},
+				],
+			},
+		});
+	const evaluateWith = (
+		accountA: Account,
+		a: UsageSnapshot,
+		b: UsageSnapshot,
+	) =>
+		evaluateNativeQuotaPolicy(
+			createNativeQuotaContext({
+				family: "fable",
+				comboId: "combo",
+				members,
+				accounts: [accountA, account("b")],
+				requestedModel: "claude-fable-5",
+			}),
+			{
+				now: NOW,
+				getSnapshot: (id) => (id === "a" ? a : b),
+				getFamilyMarker: () => null,
+			},
+		);
+
+	it("a spent Fable limit with extra usage on is admitted today, so the login would bill", () => {
+		const result = evaluateWith(account("a"), usage(100, 20, true), usage());
+		expect(result.admittedCandidateIds).toContain("a:claude-fable-5");
+	});
+
+	it("refuses a Fable route on a held login whose reading says extra usage is on", () => {
+		const result = evaluateWith(fableHeld(), usage(100, 20, true), usage());
+		expect(result.admittedCandidateIds).not.toContain("a:claude-fable-5");
+		expect(result.admittedCandidateIds).toContain("b:claude-fable-5");
+		expect(result.capacities.get("a:claude-fable-5")).toMatchObject([
+			{
+				source: "extra_usage_hold",
+				scope: "family",
+				window: "seven_day_fable",
+				modelFamily: "fable",
+				resetAtMs: RESET + 20000,
+			},
+		]);
+	});
+
+	it("refuses the held route even with no cached reading for the login", () => {
+		const result = evaluateWith(fableHeld(), null as never, usage());
+		expect(result.admittedCandidateIds).not.toContain("a:claude-fable-5");
+	});
+
+	it("when every route is held, the wait carries the hold's reset", () => {
+		const result = evaluateNativeQuotaPolicy(
+			createNativeQuotaContext({
+				family: "fable",
+				comboId: "combo",
+				members: [member("a", "claude-fable-5")],
+				accounts: [fableHeld()],
+				requestedModel: "claude-fable-5",
+			}),
+			{
+				now: NOW,
+				getSnapshot: () => usage(100, 20, true),
+				getFamilyMarker: () => null,
+			},
+		);
+		expect(result.admittedCandidateIds).toEqual([]);
+		expect(result.wait).toMatchObject({
+			kind: "quota_wait",
+			reason: "family_capacity",
+			resetAt: RESET + 20000,
+		});
+	});
+
+	it("with the switch off, a stored hold is ignored", () => {
+		const result = evaluateWith(
+			fableHeld(false),
+			usage(100, 20, true),
+			usage(),
+		);
+		expect(result.admittedCandidateIds).toContain("a:claude-fable-5");
+	});
+
+	describe("the login's own Opus backup", () => {
+		const opusHold = {
+			windowKey: "seven_day_opus",
+			scope: "family" as const,
+			modelFamily: "opus",
+			resetsAtMs: RESET + 30000,
+			startedAt: NOW - 60_000,
+		};
+		const evaluateAlone = (login: Account) =>
+			evaluateNativeQuotaPolicy(
+				createNativeQuotaContext({
+					family: "fable",
+					comboId: "combo",
+					members: [
+						member("a", "claude-fable-5"),
+						member("a", "claude-opus-5", 10),
+					],
+					accounts: [login],
+					requestedModel: "claude-fable-5",
+				}),
+				{
+					now: NOW,
+					getSnapshot: () => usage(100, 20, true),
+					getFamilyMarker: () => null,
+				},
+			);
+
+		it("takes the request when a Fable hold holds the primary and extra usage is on", () => {
+			const result = evaluateAlone(fableHeld());
+			expect(result.backupAllowedAccountIds).toEqual(["a"]);
+			expect(result.admittedCandidateIds).toEqual(["a:claude-opus-5"]);
+			expect(result.wait).toBeNull();
+		});
+
+		it("is still refused by its own Opus hold", () => {
+			const held = fableHeld();
+			const login = {
+				...held,
+				extra_usage_holds: {
+					readingAt: NOW - 60_000,
+					holds: [...(held.extra_usage_holds?.holds ?? []), opusHold],
+				},
+			} as Account;
+			const result = evaluateAlone(login);
+			expect(result.backupAllowedAccountIds).toEqual(["a"]);
+			expect(result.admittedCandidateIds).toEqual([]);
+			expect(result.capacities.get("a:claude-opus-5")).toMatchObject([
+				{ source: "extra_usage_hold", modelFamily: "opus" },
+			]);
+			expect(result.wait).toMatchObject({ kind: "quota_wait" });
+		});
+
+		it("with the switch off, Fable is admitted as today and the backup stays closed", () => {
+			const result = evaluateAlone(fableHeld(false));
+			expect(result.backupAllowedAccountIds).toEqual([]);
+			expect(result.admittedCandidateIds).toEqual(["a:claude-fable-5"]);
+		});
+	});
+});

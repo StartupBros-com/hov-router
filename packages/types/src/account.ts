@@ -203,6 +203,104 @@ export type FullUsageData =
 	| XaiUsageData
 	| MinimaxUsageData;
 
+/**
+ * One spent plan limit the router keeps a Claude login off for, taken from a
+ * usage reading while the login's extra-usage switch is on. A `family` hold
+ * covers one model family; an `account` hold (5-hour or weekly) covers every
+ * model. It applies while the clock is before `resetsAtMs`.
+ */
+export interface ExtraUsageHold {
+	windowKey: string;
+	scope: "account" | "family";
+	modelFamily: string | null;
+	resetsAtMs: number;
+	startedAt: number;
+}
+
+/**
+ * The holds from usage readings stored on one login, with the time of the
+ * reading that last changed them. A reading older than `readingAt` never
+ * replaces them.
+ */
+export interface ExtraUsageHoldState {
+	readingAt: number;
+	holds: ExtraUsageHold[];
+}
+
+function isExtraUsageHold(value: unknown): value is ExtraUsageHold {
+	if (!value || typeof value !== "object") return false;
+	const hold = value as Record<string, unknown>;
+	return (
+		typeof hold.windowKey === "string" &&
+		(hold.scope === "account" || hold.scope === "family") &&
+		(hold.modelFamily === null || typeof hold.modelFamily === "string") &&
+		typeof hold.resetsAtMs === "number" &&
+		Number.isFinite(hold.resetsAtMs) &&
+		typeof hold.startedAt === "number" &&
+		Number.isFinite(hold.startedAt)
+	);
+}
+
+/** Parse the stored `extra_usage_holds` value; anything malformed reads as no holds. */
+export function parseExtraUsageHoldState(
+	raw: string | null | undefined,
+): ExtraUsageHoldState | null {
+	if (!raw) return null;
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return null;
+	}
+	if (!parsed || typeof parsed !== "object") return null;
+	const state = parsed as Record<string, unknown>;
+	if (
+		typeof state.readingAt !== "number" ||
+		!Number.isFinite(state.readingAt) ||
+		!Array.isArray(state.holds)
+	) {
+		return null;
+	}
+	return {
+		readingAt: state.readingAt,
+		holds: state.holds.filter(isExtraUsageHold),
+	};
+}
+
+/**
+ * A Claude login's extra-usage setting at Anthropic, read from its cached
+ * usage reading. `unknown` covers no reading, an out-of-date one, and a state
+ * the router cannot place as on or off.
+ */
+export interface AccountExtraUsage {
+	state: "on" | "off" | "unknown";
+	/** When the cached reading was taken; null when none is cached. */
+	readingAt: number | null;
+}
+
+/** A hold from a response billed to extra usage. */
+export interface AccountExtraUsageBilledHold {
+	/** When the billed response arrived; null for a pause from before holds were recorded. */
+	billedAt: number | null;
+	/** The model family of the billed response; null when not recorded. */
+	family: string | null;
+}
+
+/**
+ * What applying a usage reading to holds, and checking holds just before a
+ * send, read from one account row, fresh by id.
+ */
+export interface ExtraUsageHoldInputs {
+	provider: string;
+	createdAt: number;
+	switchOn: boolean;
+	holds: ExtraUsageHoldState | null;
+	paused: boolean;
+	pauseReason: string | null;
+	overageBilledAt: number | null;
+	overageBilledFamily: string | null;
+}
+
 // Database row types that match the actual database schema
 export interface AccountRow {
 	id: string;
@@ -243,6 +341,9 @@ export interface AccountRow {
 	pause_reason?: string | null; // null=not paused, 'manual'=user paused, 'failure_threshold'=auto-refresh failures (setter removed; legacy rows), 'overage'=billing overage
 	refresh_token_issued_at?: number | null; // Timestamp when the current refresh token was issued (updated on each token refresh)
 	consecutive_rate_limits?: number | null;
+	extra_usage_holds?: string | null; // JSON ExtraUsageHoldState
+	overage_billed_at?: number | null;
+	overage_billed_family?: string | null;
 }
 
 // Domain model - used throughout the application
@@ -295,6 +396,19 @@ export interface Account {
 	pause_reason: string | null; // null=not paused, 'manual'=user paused, 'failure_threshold'=auto-refresh failures (setter removed; legacy rows), 'overage'=billing overage
 	refresh_token_issued_at: number | null; // Timestamp when the current refresh token was issued (updated on each token refresh)
 	consecutive_rate_limits: number;
+	/**
+	 * Holds from usage readings while the extra-usage switch is on. Optional
+	 * like the drain flag so existing fixtures need no edit: absent = none.
+	 * toAccount always sets it.
+	 */
+	extra_usage_holds?: ExtraUsageHoldState | null;
+	/**
+	 * When a billed response started the current `overage` pause, and the
+	 * billed model's family (null when unknown or mixed). Read only while
+	 * that pause is set; a pause from before these columns has no time.
+	 */
+	overage_billed_at?: number | null;
+	overage_billed_family?: string | null;
 }
 
 // Session statistics for 5-hour token window
@@ -489,6 +603,15 @@ export interface AccountResponse {
 	priority: number;
 	autoFallbackEnabled: boolean;
 	autoPauseOnOverageEnabled?: boolean;
+	/** Claude logins only: the extra-usage setting at Anthropic. */
+	extraUsage?: AccountExtraUsage;
+	/**
+	 * Claude logins only: holds from usage readings that stop routing while
+	 * the switch is on, listing only those whose reset is still ahead.
+	 */
+	extraUsageHolds?: ExtraUsageHold[];
+	/** Claude logins only: the hold from a billed response, while the switch is on. */
+	extraUsageBilledHold?: AccountExtraUsageBilledHold | null;
 	codexCreditDrainEnabled?: boolean;
 	/** Published on the public subscription value feed (#536). */
 	publicValueEnabled?: boolean;
@@ -647,6 +770,9 @@ export function toAccount(row: AccountRow): Account {
 		pause_reason: row.pause_reason || null,
 		refresh_token_issued_at: toNumOrNull(row.refresh_token_issued_at),
 		consecutive_rate_limits: toNum(row.consecutive_rate_limits),
+		extra_usage_holds: parseExtraUsageHoldState(row.extra_usage_holds),
+		overage_billed_at: toNumOrNull(row.overage_billed_at),
+		overage_billed_family: row.overage_billed_family ?? null,
 	};
 }
 

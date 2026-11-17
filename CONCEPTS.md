@@ -215,6 +215,23 @@ never changes it. A request Anthropic reports as served this way is recorded wit
 label `overage`. It is the Claude counterpart of the purchased credits that credit drain spends
 on a Codex account.
 
+### Extra-usage hold
+
+A period in which the router sends a Claude login no request for the models a spent plan limit
+covers, so Anthropic does not bill those requests as extra usage. Holds exist only while the
+login's "Don't use extra usage on this login" switch is on (stored as
+`auto_pause_on_overage_enabled`), and the router checks them both when it picks a login and
+just before each send.
+
+A fresh usage reading that shows a limit spent holds the models that limit covers until the
+reset the reading gave. A response Anthropic reports as billed to extra usage holds every model
+by pausing the login with reason `overage`; that hold ends when the member resumes the login,
+when Return after reset returns it after the stored reset, or when a later reading holds a
+limit that covers the billed model. Turning the switch off ends every hold at once.
+
+It is not a warm-owner hold, which delays a drain to keep a prompt cache warm and never stops
+a login from serving.
+
 ### Banked reset
 
 A free credit a provider grants to an account that, when redeemed, resets the account's usage

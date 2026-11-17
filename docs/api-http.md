@@ -263,6 +263,29 @@ List all configured accounts with their current status.
 curl http://localhost:8080/api/accounts
 ```
 
+**Extra usage (Claude logins only).** Each account whose provider is `anthropic` also carries three fields. Accounts of other providers carry none of them.
+
+```json
+{
+  "autoPauseOnOverageEnabled": true,
+  "extraUsage": { "state": "on", "readingAt": 1797000000000 },
+  "extraUsageHolds": [
+    {
+      "windowKey": "seven_day_opus",
+      "scope": "family",
+      "modelFamily": "opus",
+      "resetsAtMs": 1797300000000,
+      "startedAt": 1796990000000
+    }
+  ],
+  "extraUsageBilledHold": null
+}
+```
+
+- `extraUsage.state` is the login's extra-usage setting at Anthropic, read from its cached usage reading: `spend.enabled`, or `extra_usage.is_enabled` when the reading has no `spend`. `unknown` means there is no cached reading, the reading is older than 3 minutes, or Anthropic reported off with a `disabled_reason` the router does not map. Do not treat `unknown` as off. `readingAt` is when the cached reading was taken (milliseconds), or `null` when there is none.
+- `extraUsageHolds` lists the holds from usage readings that stop the router sending this login a request Anthropic would bill as extra usage. A hold with `scope` `"account"` comes from a spent `five_hour` or `seven_day` limit and covers every model. A hold with `scope` `"family"` comes from a spent weekly per-model limit and covers the models of `modelFamily`. A hold ends at `resetsAtMs`, and only holds whose reset is still ahead are listed. The list is empty while the switch (`autoPauseOnOverageEnabled`) is off.
+- `extraUsageBilledHold` is set while the switch is on and the login is paused because a response was billed to extra usage (`pauseReason` `"overage"`); otherwise it is `null`. `billedAt` is when that response arrived and `family` its model family. Both are `null` for a pause from before the router recorded them.
+
 ---
 
 ### Session Account
@@ -569,6 +592,53 @@ Routing honors the flag only while fresh, poll-verified credit evidence exists (
 ```
 
 `GET /api/accounts` returns `codexCreditDrainEnabled` (the setting) and `codexCreditDrainActive` (the setting AND fresh credit evidence, i.e. currently in effect). `codexCreditDrainServing` is true only while the account is active AND an account-wide plan window (`five_hour`/`seven_day`) is spent, i.e. requests are being served from purchased credits right now. While active, a spent window is not reported as `usage_exhausted` or throttled, and `/health` counts the account as routable.
+
+#### POST /api/accounts/:accountId/auto-pause-on-overage
+
+Turn the extra-usage switch on or off for a Claude login. The route and the `autoPauseOnOverageEnabled` field keep their original names so existing clients keep working. `anthropic` accounts only; other providers get `400`, unknown accounts `404`. The router never changes the extra-usage setting at Anthropic, and this route contacts nothing.
+
+While the switch is on, the router does not send the login a request for a model a hold covers (`extraUsageHolds` and `extraUsageBilledHold` under [`GET /api/accounts`](#get-apiaccounts)):
+
+- A usage reading that shows a limit spent holds the models that limit covers until its reset.
+- A response Anthropic bills to extra usage pauses the login with `pauseReason` `"overage"`.
+
+Turning the switch on also holds the limits that a cached reading no older than 3 minutes already shows spent; an older reading, or none, starts no hold until the next poll. Turning it off clears the holds and ends an `"overage"` pause; a pause for any other reason stays. Posting the value already stored changes nothing.
+
+**Request Body:**
+```json
+{ "enabled": 1 }
+```
+`enabled` must be `0` or `1`.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Auto-pause on overage enabled for account 'name'",
+  "autoPauseOnOverageEnabled": true
+}
+```
+
+#### POST /api/accounts/:accountId/refresh-usage
+
+Fetch a fresh usage reading for an `anthropic`, `codex` or `xai` account now instead of waiting for the next poll. Other providers get `400`, unknown accounts `404`, and an account with no tokens `400`.
+
+For an Anthropic or xAI login the route restarts its usage poll, which first drops the cached reading and the per-model refusal markers, then waits for the poll's first fetch. Until a new reading arrives, a Claude login's `extraUsage.state` reads `unknown`.
+
+**Response (Anthropic or xAI):**
+```json
+{
+  "success": true,
+  "message": "Usage refreshed for account 'name'.",
+  "pollingRestarted": true,
+  "cacheRefreshed": true
+}
+```
+
+- `pollingRestarted`: the usage poll was restarted.
+- `cacheRefreshed`: the first fetch finished and the cached reading is new. When it is `false`, `message` says why: the usage endpoint asked the router to wait (with the time), or the fetch did not finish and usage updates on the next poll.
+
+A Codex account replies with `success`, `message` and `pollingRestarted: false`, and no `cacheRefreshed`.
 
 #### Banked resets (Codex)
 

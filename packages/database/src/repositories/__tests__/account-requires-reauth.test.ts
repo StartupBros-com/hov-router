@@ -55,7 +55,10 @@ describe("AccountRepository requires_reauth", () => {
 				billing_type TEXT,
 				pause_reason TEXT,
 				refresh_token_issued_at INTEGER,
-				consecutive_rate_limits INTEGER DEFAULT 0
+				consecutive_rate_limits INTEGER DEFAULT 0,
+				extra_usage_holds TEXT,
+				overage_billed_at INTEGER,
+				overage_billed_family TEXT
 			)
 		`);
 		db.run(
