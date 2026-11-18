@@ -1,5 +1,9 @@
 import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
-import { AccountPresenter, formatClockTime } from "@better-ccflare/ui-common";
+import {
+	AccountPresenter,
+	type AccountStatusReason,
+	formatClockTime,
+} from "@better-ccflare/ui-common";
 import {
 	ChevronDown,
 	CircleCheck,
@@ -37,7 +41,10 @@ import {
 import { StatusPill } from "../ui/status-pill";
 import { Switch } from "../ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import type { AccountFamilyRoutingState } from "./account-routing";
+import {
+	type AccountFamilyRoutingState,
+	routingNeedsReview,
+} from "./account-routing";
 import { accountUsageWindows } from "./account-usage-windows";
 import { BankedResetsStatus } from "./BankedResetsStatus";
 import {
@@ -141,26 +148,17 @@ function routingAvailabilityOverlay(
 	}
 }
 
-// The server copies the account's pause, re-login and cooldown into every
-// family (availabilityFor in account-routing-operations.ts). The status column
-// shows those once, so the row notice skips them; any other unavailable state
-// differs by family and keeps its notice. Details still lists every family.
-const ACCOUNT_WIDE_AVAILABILITY = new Set([
+// Statuses that already say the account takes no requests. Every model family
+// is out along with it, so the row names none; Details still lists each family.
+const ACCOUNT_BLOCKED_STATUS = new Set<AccountStatusReason>([
+	"reauth",
 	"paused",
-	"requires_reauth",
-	"rate_limited",
+	"refused",
+	"cooldown",
+	"exhausted",
+	"hard-limit",
 ]);
 
-function routingNeedsNotice(state: AccountFamilyRoutingState) {
-	return (
-		state.reason === "ambiguous" ||
-		state.reason === "new_billing_class" ||
-		state.managedRouteAvailable ||
-		(state.availability !== null &&
-			state.availability !== "available" &&
-			!ACCOUNT_WIDE_AVAILABILITY.has(state.availability))
-	);
-}
 interface AccountListItemProps {
 	now?: number;
 	sortReset?: { label: string; resetTime: string } | null;
@@ -452,33 +450,37 @@ export function AccountListItem({
 	}).usages;
 	// A held window's cue already says it is spent, and until when.
 	const heldWindows = new Set(extraUsage?.holds.map((hold) => hold.windowKey));
-	// A plain "{Family}: Model exhausted" notice on this row already says that
-	// family's own weekly window is spent. Keyed by window id, never by label.
-	const noticedWindows = new Set(
-		routingStates
-			.filter(
-				(state) =>
-					state.availability === "model_exhausted" &&
-					state.reason !== "ambiguous" &&
-					state.reason !== "new_billing_class" &&
-					!state.managedRouteAvailable,
-			)
-			.map((state) => `seven_day_${state.family}`),
+	const isSpent = (row: (typeof visibleWindows)[number]) =>
+		!row.synthetic &&
+		typeof row.utilization === "number" &&
+		row.utilization >= 100;
+	const spentWindows = new Set(
+		visibleWindows.filter(isSpent).map((row) => row.window),
 	);
 	// A ready account can still have one window spent (often a per-model cap).
 	const fullWindowLabels =
 		status.reason === "normal"
 			? visibleWindows
-					.filter(
-						(row) =>
-							!row.synthetic &&
-							typeof row.utilization === "number" &&
-							row.utilization >= 100 &&
-							!heldWindows.has(row.window) &&
-							!noticedWindows.has(row.window ?? ""),
-					)
+					.filter((row) => isSpent(row) && !heldWindows.has(row.window))
 					.map(displayLabel)
 			: [];
+	// A family the router skips while the account still routes. Its own weekly
+	// bar says so when that bar is full or held, keyed by window id, never label.
+	const spentFamilyLabels = ACCOUNT_BLOCKED_STATUS.has(status.reason)
+		? []
+		: [
+				...new Set(
+					routingStates
+						.filter(
+							(state) =>
+								state.availability === "model_exhausted" &&
+								!spentWindows.has(`seven_day_${state.family}`) &&
+								!heldWindows.has(`seven_day_${state.family}`),
+						)
+						.map((state) => formatRoutingFamily(state.family)),
+				),
+			];
+	const atLimitLabels = [...fullWindowLabels, ...spentFamilyLabels];
 	// Match the exact window, scope, value and reset. A same-named limit with
 	// different observations must retain its exception instead of disappearing.
 	const representedBinding = visibleWindows.find((row) => {
@@ -735,9 +737,9 @@ export function AccountListItem({
 				{status.hint && (
 					<span className="text-xs text-muted-foreground">{status.hint}</span>
 				)}
-				{fullWindowLabels.length > 0 && (
+				{atLimitLabels.length > 0 && (
 					<span className="text-xs text-muted-foreground">
-						{fullWindowLabels.join(", ")} at limit
+						{`${atLimitLabels.join(", ")} at limit`}
 					</span>
 				)}
 				{extraUsage?.holds.map(
@@ -840,25 +842,27 @@ export function AccountListItem({
 				)}
 			</div>
 
-			{routingStates.some(routingNeedsNotice) && (
+			{/* Only decisions for Combos get a line here; whether a family is
+			    available shows once, in the status column and Details. */}
+			{routingStates.some(routingNeedsReview) && (
 				<section
 					className="space-y-1 text-sm xl:col-span-full"
 					aria-label="Routing notices"
 				>
-					{routingStates.filter(routingNeedsNotice).map((state) => (
+					{routingStates.filter(routingNeedsReview).map((state) => (
 						<p
 							key={`${state.family}:${state.comboId}`}
 							className="text-(--warning)"
 						>
-							{formatRoutingFamily(state.family)}:{" "}
-							{state.reason === "ambiguous" ||
-							state.reason === "new_billing_class"
-								? `Action required — ${state.reasonLabel}. Review in Combos. `
-								: ""}
-							{state.managedRouteAvailable
-								? "Managed route available — Review in Combos. "
-								: ""}
-							{routingAvailabilityOverlay(state)?.label}
+							{`${formatRoutingFamily(state.family)}: ${[
+								(state.reason === "ambiguous" ||
+									state.reason === "new_billing_class") &&
+									`Action required — ${state.reasonLabel}. Review in Combos.`,
+								state.managedRouteAvailable &&
+									"Managed route available — Review in Combos.",
+							]
+								.filter(Boolean)
+								.join(" ")}`}
 						</p>
 					))}
 				</section>

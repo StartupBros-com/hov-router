@@ -455,6 +455,17 @@ const AVAILABILITY_LABELS: Record<ComboRoutingAvailabilityReason, string> = {
 	model_exhausted: "Model usage exhausted; membership is unchanged",
 };
 
+/** A routing decision the operator makes in Combos: the only routing notice on a row. */
+export function routingNeedsReview(
+	state: Pick<AccountFamilyRoutingState, "reason" | "managedRouteAvailable">,
+): boolean {
+	return (
+		state.reason === "ambiguous" ||
+		state.reason === "new_billing_class" ||
+		state.managedRouteAvailable
+	);
+}
+
 export function routingReasonLabel(reason: ComboMembershipReasonCode): string {
 	return REASON_LABELS[reason];
 }
