@@ -1,6 +1,7 @@
 ---
 title: Per-unit green gates hide cross-unit regressions — sweep the whole repo, then diff against a baseline worktree
 date: 2026-09-10
+last_updated: 2026-11-18
 category: workflow-issues
 module: upstream-integration
 problem_type: workflow_issue
@@ -79,9 +80,14 @@ git -C ../baseline-check ...   # build first: a fresh worktree has no inline wor
 A fresh worktree lacks the generated inline workers and `bun test` crashes on import
 until `bun run build:cli` runs there once.
 
-Then classify: **BASELINE-PASS and fails now = you broke it. BASELINE-FAIL = pre-existing.**
+Compare only after establishing matching runtime, dependencies and usable test
+inputs in both environments. **BASELINE-PASS and a repeatable candidate-only
+failure supports a regression; BASELINE-FAIL means the failure also occurs at the
+baseline, not necessarily that the product has a pre-existing defect.** Inspect the
+first failed operation before classifying it. An unchanged rerun passing does not,
+by itself, establish the original failure's cause.
 
-This turned 33 unexplained failures into a precise split:
+In the original investigation, this turned 33 unexplained failures into a precise split:
 
 | Class | Count | Cause |
 |---|---|---|
@@ -94,6 +100,31 @@ dereference in `migrations-pg.ts` that threw out of `runMigrationsPg` — the up
 path for existing PostgreSQL installs. A live `psql` check had passed earlier
 because real PostgreSQL 16 returned the expected row shape; the parity tests used a
 different adapter shape.
+
+### Read-only, offline worktrees need their non-secret inputs too
+
+The later [decomposition baseline audit (#905)](https://github.com/StartupBros/hov-router/issues/905)
+reproduced three sandbox setup failures on unchanged source. Correcting only the
+missing input or private output made each of the four suites listed below pass
+three repetitions:
+
+| First failed operation | Narrow correction | Observed rerun result |
+|---|---|---|
+| `git ls-files` / `git check-ignore` could not follow the worktree's `.git` pointer outside the mount | Supply the worktree index and HEAD read-only, with scratch Git metadata; these discovery checks did not need the host's Git configuration or credentials | Date-fraction check 1/1 and agent-instructions checks 6/6, each three times |
+| Deployment fixture reported `awk: command not found` although `/usr` was mounted | Supply the missing `/etc/alternatives/awk` link read-only; mounting `/usr` alone did not resolve the alternative | 134 passed, 1 skipped, each three times; all 33 original failures cleared |
+| Artifact preparation tried to replace generated files on a read-only source mount and failed `EROFS` | Give the fixture private writable build outputs while leaving host source read-only | 16/16, each three times |
+
+Keep outbound networking disabled, HOME credential-free, and the database pointed
+at scratch storage. Fixing a missing mount does not justify exposing the real HOME,
+making host source writable, widening deadlines, or changing assertions. Preserve
+both the original failed logs and the cause-specific reruns; recovered files are
+not a replacement all-green full-suite run.
+
+The audit still had an offline-install failure and intermittent release deadlines.
+Its separate [live-provider forwarding-test defect (#906)](https://github.com/StartupBros/hov-router/issues/906)
+was filed, not repaired by these sandbox changes. Those unresolved results must
+not be relabelled as passing. The audit also records limitations in its external
+proof scripts; this learning does not certify that gate or any proposed split.
 
 ## Why per-unit gates missed it
 
