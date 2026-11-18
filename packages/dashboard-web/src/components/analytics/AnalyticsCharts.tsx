@@ -813,15 +813,7 @@ export function CumulativeTokenComposition({
 															: COLORS.warning
 											} 100%)`,
 										}}
-									>
-										<div className="flex items-center justify-center h-full">
-											{width > 10 && (
-												<span className="text-white font-medium text-xs">
-													{item.percentage}%
-												</span>
-											)}
-										</div>
-									</div>
+									></div>
 								);
 							});
 						})()}
@@ -846,6 +838,9 @@ export function CumulativeTokenComposition({
 									<p className="text-xs text-muted-foreground">{item.type}</p>
 									<p className="text-sm font-medium">
 										{formatTokens(item.value)}
+										<span className="ml-1 text-xs font-normal text-muted-foreground">
+											{item.percentage}%
+										</span>
 									</p>
 								</div>
 							</div>

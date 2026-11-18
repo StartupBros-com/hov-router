@@ -56,6 +56,54 @@ function contrast(a: Rgb, b: Rgb): number {
 	return (hi + 0.05) / (lo + 0.05);
 }
 
+/** `token` as a colour, following one `var(--other)` hop within the theme. */
+function resolved(theme: string, token: string): Rgb {
+	const line = theme
+		.split("\n")
+		.map((l) => l.trim())
+		.find((l) => l.startsWith(`${token}:`));
+	expect(line).toBeDefined();
+	const value = line?.slice(token.length + 1, line.indexOf(";")).trim() ?? "";
+	const hop = /^var\((--[a-z-]+)\)$/.exec(value);
+	return hsl(theme, hop ? hop[1] : token);
+}
+
+describe("orange as a text colour", () => {
+	// --primary-text drives text-primary-text: the nav item, "View release" and
+	// the authorization links. It sits on the page, the card and the nav item's
+	// bg-primary/10 and hover:bg-primary/20 tints (on the card).
+	it("reaches 4.5:1 on the page, the card and the 10 % and 20 % primary tints", () => {
+		for (const [name, theme] of Object.entries(THEMES)) {
+			const text = resolved(theme, "--primary-text");
+			const card = hsl(theme, "--card");
+			const grounds = {
+				background: hsl(theme, "--background"),
+				card,
+				"primary 10%": over(hsl(theme, "--primary"), 0.1, card),
+				"primary 20%": over(hsl(theme, "--primary"), 0.2, card),
+			};
+			for (const [ground, rgb] of Object.entries(grounds)) {
+				const ratio = contrast(text, rgb);
+				expect({ name, ground, passes: ratio >= 4.5, ratio }).toEqual({
+					name,
+					ground,
+					passes: true,
+					ratio,
+				});
+			}
+		}
+	});
+
+	it("is not orange in light mode, and stays orange in dark mode", () => {
+		expect(THEMES.light).toContain("--primary-text: var(--foreground);");
+		expect(THEMES.dark).toContain("--primary-text: hsl(24 89% 58%);");
+	});
+
+	it("is exposed as a text-primary-text utility", () => {
+		expect(css).toContain("--color-primary-text: var(--primary-text);");
+	});
+});
+
 describe("text on the orange fills", () => {
 	// Default buttons and badges, the user's message bubble, highlighted select
 	// and menu items, and hovered outline and ghost buttons all draw their text

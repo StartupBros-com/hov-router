@@ -293,7 +293,7 @@ function ExtraUsageDetails({ status }: { status: ExtraUsageStatus }) {
 					href={ANTHROPIC_USAGE_SETTINGS_URL}
 					target="_blank"
 					rel="noopener noreferrer"
-					className="text-primary underline"
+					className="text-primary-text underline"
 				>
 					Change at claude.ai
 				</a>

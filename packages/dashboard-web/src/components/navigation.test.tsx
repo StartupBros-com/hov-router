@@ -141,6 +141,11 @@ describe("navigation identity", () => {
 			expect(html).not.toContain("lucide-shield");
 			expect(html).not.toContain(">wstack Router<");
 			expect(html).not.toContain(">better-ccflare<");
+			// Light mode draws the active item's label in the foreground colour, its icon in orange.
+			expect(html).toContain(
+				"bg-primary/10 text-primary-text hover:bg-primary/20",
+			);
+			expect(html).toMatch(/<svg[^>]*class="[^"]*h-4 w-4 text-primary"/);
 		} finally {
 			theme.mockRestore();
 			queryClient.clear();

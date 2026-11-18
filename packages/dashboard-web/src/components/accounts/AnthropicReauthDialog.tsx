@@ -115,7 +115,7 @@ export function AnthropicReauthDialog({
 									href={authUrl}
 									target="_blank"
 									rel="noopener noreferrer"
-									className="text-sm text-primary underline break-all"
+									className="text-sm text-primary-text underline break-all"
 								>
 									Open authorization page
 								</a>
