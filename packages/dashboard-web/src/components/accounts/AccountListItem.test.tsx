@@ -141,7 +141,9 @@ function withoutDetailsContent(html: string): string {
 	}
 	throw new Error("Unclosed details content");
 }
-async function noopAsync() {}
+async function noRefreshFailure(): Promise<string | null> {
+	return null;
+}
 
 describe("account scan layout", () => {
 	it("pairs status color with a decorative icon and the unchanged label", () => {
@@ -629,7 +631,7 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 const requiredHandlers = {
 	onPauseToggle: noop,
 	onForceResetRateLimit: noop,
-	onRefreshUsage: noopAsync,
+	onRefreshUsage: noRefreshFailure,
 	onRemove: noop,
 	onRename: noop,
 	onPriorityChange: noop,
@@ -656,6 +658,271 @@ function routingState(
 		...overrides,
 	};
 }
+
+describe("AccountListItem row actions", () => {
+	// Only Pause, Details and More sit in the action cluster, so they hold the
+	// same place on every row. A remedy sits beside the status it fixes, and
+	// refresh sits beside the usage it re-reads.
+	function cluster(html: string): string {
+		const start = html.indexOf('class="ml-auto flex shrink-0');
+		return html.slice(start, html.indexOf("Router status"));
+	}
+	function statusColumn(html: string): string {
+		return html.slice(
+			html.indexOf("Router status"),
+			html.indexOf("Usage and resets"),
+		);
+	}
+	function buttonWith(html: string, text: string): string | undefined {
+		return (html.match(/<button\b[^>]*>[\s\S]*?<\/button>/g) ?? []).find(
+			(button) => button.includes(text),
+		);
+	}
+	function classes(button: string | undefined): string[] {
+		return (button?.match(/class="([^"]*)"/)?.[1] ?? "").split(/\s+/);
+	}
+	function visibleRow(account: Account, extra: Record<string, unknown> = {}) {
+		return withoutDetailsContent(
+			renderToStaticMarkup(
+				<AccountListItem account={account} {...requiredHandlers} {...extra} />,
+			),
+		);
+	}
+
+	it("puts Clear cooldown beside the router retry unless the action line has room, without the refresh icon", () => {
+		const html = visibleRow(
+			makeAccount({
+				paused: false,
+				rateLimitedUntil: Date.now() + 60_000,
+				usageUtilization: 20,
+			}),
+		);
+		const status = statusColumn(html);
+		expect(status).toContain("Router retry");
+		// Beside the retry time on wide screens (the action column is full) and on
+		// the narrowest phones (the action line has no room beside Pause).
+		const wide = buttonWith(status, "Clear cooldown");
+		expect(classes(wide)).toEqual(
+			expect.arrayContaining(["min-[21rem]:hidden", "xl:inline-flex"]),
+		);
+		expect(classes(wide)).not.toContain("hidden");
+		// In between, the action line has room left of Pause, so the same link sits
+		// there and costs the card no extra line.
+		const narrow = buttonWith(cluster(html), "Clear cooldown");
+		expect(classes(narrow)).toEqual(
+			expect.arrayContaining([
+				"hidden",
+				"min-[21rem]:inline-flex",
+				"xl:hidden",
+			]),
+		);
+		for (const clear of [wide, narrow]) {
+			expect(clear).not.toContain("<svg");
+			expect(clear).toContain('aria-label="Clear cooldown for acc-1"');
+			// A 44px target that adds no 44px line where it sits, lifted so the
+			// usage block below, which is positioned, cannot cover its lower half.
+			expect(classes(clear)).toEqual(
+				expect.arrayContaining(["after:h-11", "relative", "z-10"]),
+			);
+		}
+	});
+
+	it("offers Clear cooldown for a clearable hard limit with no retry time", () => {
+		const status = statusColumn(
+			visibleRow(
+				makeAccount({ paused: false, rateLimitStatus: "rate_limited" }),
+			),
+		);
+		expect(status).toContain("Reported hard limit");
+		expect(status).not.toContain("Router retry");
+		const wide = buttonWith(status, "Clear cooldown");
+		expect(classes(wide)).toContain("xl:inline-flex");
+		// With no retry time the link's line shows only where the link does, so
+		// the status row never gains an empty item.
+		const line = status.slice(
+			status.lastIndexOf("<span", status.indexOf(wide as string)),
+		);
+		expect(classes(line)).toEqual(
+			expect.arrayContaining(["min-[21rem]:hidden", "xl:flex"]),
+		);
+	});
+
+	it("shows a link-only retry line where Clear cooldown sits beside Re-authenticate", () => {
+		const status = statusColumn(
+			visibleRow(
+				makeAccount({
+					paused: false,
+					requiresReauth: true,
+					rateLimitStatus: "rate_limited",
+				}),
+				{ onAnthropicReauth: noop },
+			),
+		);
+		expect(reauthButton(status)).toBeDefined();
+		expect(status).not.toContain("Router retry");
+		const link = buttonWith(status, "Clear cooldown");
+		expect(classes(link)).toEqual(
+			expect.arrayContaining(["min-[21rem]:hidden", "min-[24rem]:inline-flex"]),
+		);
+		// The line follows the link: hidden where Clear cooldown is on the action
+		// line, spaced off Re-authenticate where the link sits right below it.
+		const line = status.slice(
+			status.lastIndexOf("<span", status.indexOf(link as string)),
+		);
+		expect(classes(line)).toEqual(
+			expect.arrayContaining([
+				"min-[21rem]:hidden",
+				"min-[24rem]:flex",
+				"max-[21rem]:mt-2",
+				"xl:mt-2",
+			]),
+		);
+	});
+
+	it("puts Re-authenticate beside the status it fixes unless the action line has room", () => {
+		const html = visibleRow(
+			makeAccount({ pauseReason: "oauth_invalid_grant" }),
+			{
+				onAnthropicReauth: noop,
+			},
+		);
+		const status = statusColumn(html);
+		expect(status).toContain("Reconnect required");
+		const wide = reauthButton(status);
+		expect(wide).toContain(" bg-primary ");
+		expect(classes(wide)).toEqual(
+			expect.arrayContaining(["min-[24rem]:hidden", "xl:inline-flex"]),
+		);
+		const narrow = reauthButton(cluster(html));
+		expect(narrow).toContain(" bg-primary ");
+		expect(classes(narrow)).toEqual(
+			expect.arrayContaining([
+				"hidden",
+				"min-[24rem]:inline-flex",
+				"xl:hidden",
+			]),
+		);
+	});
+
+	it("never puts Clear cooldown and Re-authenticate on the action line at the same width", () => {
+		// The re-login flag is written with a pause, but an unpaused account can
+		// still carry it (a failed pause write, or a later resume) while cooling
+		// down. Both remedies would not fit left of Pause, Details and More.
+		const html = visibleRow(
+			makeAccount({
+				paused: false,
+				requiresReauth: true,
+				rateLimitedUntil: Date.now() + 60_000,
+			}),
+			{ onAnthropicReauth: noop },
+		);
+		// Re-authenticate holds the action line from 24rem until xl, so Clear
+		// cooldown holds it only from 21rem to 24rem.
+		expect(classes(reauthButton(cluster(html)))).toEqual(
+			expect.arrayContaining([
+				"hidden",
+				"min-[24rem]:inline-flex",
+				"xl:hidden",
+			]),
+		);
+		expect(classes(buttonWith(cluster(html), "Clear cooldown"))).toEqual(
+			expect.arrayContaining([
+				"hidden",
+				"min-[21rem]:inline-flex",
+				"min-[24rem]:hidden",
+			]),
+		);
+		const clear = buttonWith(statusColumn(html), "Clear cooldown");
+		expect(classes(clear)).toEqual(
+			expect.arrayContaining(["min-[21rem]:hidden", "min-[24rem]:inline-flex"]),
+		);
+		expect(classes(clear)).not.toContain("hidden");
+	});
+
+	it("keeps Clear cooldown's tap area off Re-authenticate where both sit beside the status", () => {
+		const html = visibleRow(
+			makeAccount({
+				paused: false,
+				requiresReauth: true,
+				rateLimitedUntil: Date.now() + 60_000,
+			}),
+			{ onAnthropicReauth: noop },
+		);
+		// Below 21rem and from xl both sit in the status column, Re-authenticate
+		// just above the retry line. The link's tap area reaches 14px above its
+		// text and the lines are 6px apart, so the retry line gets 8px more there.
+		const retryLine = statusColumn(html).match(
+			/<span class="([^"]*)"><span title="[^"]*">Router retry/,
+		)?.[1];
+		expect(retryLine?.split(/\s+/)).toEqual(
+			expect.arrayContaining(["max-[21rem]:mt-2", "xl:mt-2"]),
+		);
+		// If text metrics ever shift, the visible button still wins the overlap.
+		expect(classes(reauthButton(statusColumn(html)))).toEqual(
+			expect.arrayContaining(["relative", "z-20"]),
+		);
+	});
+
+	it("adds no space above the retry line when Re-authenticate is not shown", () => {
+		const html = visibleRow(
+			makeAccount({ paused: false, rateLimitedUntil: Date.now() + 60_000 }),
+		);
+		expect(statusColumn(html)).toContain("Router retry");
+		expect(statusColumn(html)).not.toContain("mt-2");
+	});
+
+	it("shows Refresh usage beside the usage, only where the router can refresh it", () => {
+		for (const provider of ["anthropic", "codex"]) {
+			const html = visibleRow(makeAccount({ provider, paused: false }));
+			expect(cluster(html)).not.toContain("Refresh usage");
+			expect(html.slice(html.indexOf("Usage and resets"))).toContain(
+				'aria-label="Refresh usage for acc-1"',
+			);
+		}
+		for (const provider of ["xai", "openrouter", "zai"]) {
+			const html = renderToStaticMarkup(
+				<AccountListItem
+					account={makeAccount({ provider, paused: false })}
+					{...requiredHandlers}
+				/>,
+			);
+			expect(html).not.toContain('aria-label="Refresh usage');
+		}
+	});
+
+	it("keeps a failed refresh's reason for the row it was pressed on", async () => {
+		const changes: unknown[] = [];
+		const tree = rowTree(
+			{
+				account: makeAccount(),
+				...requiredHandlers,
+				onRefreshUsage: async () => "Codex usage endpoint returned 401.",
+			},
+			false,
+			changes,
+		);
+		const refresh = treeNodes(tree).find(
+			(node) => node.props["aria-label"] === "Refresh usage for acc-1",
+		);
+		await (refresh?.props.onClick as () => Promise<void>)();
+		expect(changes).toEqual([
+			true,
+			"Codex usage endpoint returned 401.",
+			false,
+		]);
+	});
+
+	it("shows that reason under the usage it tried to refresh", () => {
+		const html = renderClosedMarkup(
+			rowTree({ account: makeAccount(), ...requiredHandlers }, false, [], {
+				3: "Codex usage endpoint returned 401.",
+			}),
+		);
+		const usage = html.slice(html.indexOf("Usage and resets"));
+		expect(usage).toContain('role="alert"');
+		expect(usage).toContain("Codex usage endpoint returned 401.");
+	});
+});
 
 describe("account model mapping edits", () => {
 	it("preserves unrelated exact pins and one-element ordered arrays", () => {
@@ -1567,7 +1834,7 @@ describe("AccountListItem row layout", () => {
 		const paused = render(makeAccount({ name: "max-a", paused: true }));
 		expect(paused).toContain('aria-label="Resume max-a"');
 		expect(paused).toContain('aria-label="More actions for max-a"');
-		expect(paused).toContain('aria-label="Refresh usage"');
+		expect(paused).toContain('aria-label="Refresh usage for max-a"');
 		expect(render(makeAccount({ paused: false }))).toContain(
 			'aria-label="Pause acc-1"',
 		);
@@ -2066,7 +2333,7 @@ describe("Details settings errors", () => {
 	});
 });
 
-it("keeps priority in identity and lifetime requests and refresh in Details", () => {
+it("keeps priority in identity, lifetime requests in Details, and refresh on the row", () => {
 	const html = renderToStaticMarkup(
 		<AccountListItem
 			account={makeAccount({ priority: 31, requestCount: 1234 })}
@@ -2077,8 +2344,26 @@ it("keeps priority in identity and lifetime requests and refresh in Details", ()
 	expect(visible.match(/Priority /g)).toHaveLength(1);
 	expect(visible).not.toContain("1,234 requests");
 	expect(html).toContain("1,234 requests");
-	expect(visible).not.toContain('aria-label="Refresh usage"');
-	expect(html).toContain('aria-label="Refresh usage"');
+	// One refresh control, on the row beside the usage it re-reads.
+	expect(visible).toContain('aria-label="Refresh usage for acc-1"');
+	expect(html.match(/aria-label="Refresh usage/g)).toHaveLength(1);
+});
+
+it("lays the usage bars out by the whole usage cell, refresh column included", () => {
+	// The bars switch to one line per window at a container width. Measuring the
+	// whole cell keeps that switch where it was before the refresh column took
+	// 48px of it on wide screens; measuring only the bars stacked them at 1440px.
+	const html = withoutDetailsContent(
+		renderToStaticMarkup(
+			<AccountListItem account={makeAccount()} {...requiredHandlers} />,
+		),
+	);
+	expect(html.match(/@container/g)).toHaveLength(1);
+	const cell = html.slice(
+		html.lastIndexOf("<div", html.indexOf("xl:col-start-2 xl:row-start-1")),
+	);
+	expect(cell.slice(0, cell.indexOf(">"))).toContain("@container");
+	expect(cell).toContain('aria-label="Refresh usage for acc-1"');
 });
 
 it("represents a matching scoped binding inline and preserves unmatched exceptions", () => {
@@ -2114,6 +2399,7 @@ function rowTree(
 	props: Parameters<typeof AccountListItem>[0],
 	open: boolean,
 	changes: unknown[] = [],
+	states: Record<number, unknown> = {},
 ) {
 	const React = require("react");
 	const internals =
@@ -2121,10 +2407,13 @@ function rowTree(
 	const previous = internals.H;
 	let index = 0;
 	internals.H = {
-		useState: (initial: unknown) => [
-			index++ === 1 ? open : initial,
-			(value: unknown) => changes.push(value),
-		],
+		useState: (initial: unknown) => {
+			const slot = index++;
+			return [
+				slot === 1 ? open : slot in states ? states[slot] : initial,
+				(value: unknown) => changes.push(value),
+			];
+		},
 		useId: () => "account-details-test",
 	};
 	try {
