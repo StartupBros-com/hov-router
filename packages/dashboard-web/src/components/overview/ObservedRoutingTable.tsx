@@ -75,7 +75,7 @@ export function ObservedRoutingTable({
 												className={cn(
 													"flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
 													isFirst
-														? "bg-(--primary-text) text-card"
+														? "bg-primary text-primary-foreground"
 														: "bg-muted text-muted-foreground",
 												)}
 											>

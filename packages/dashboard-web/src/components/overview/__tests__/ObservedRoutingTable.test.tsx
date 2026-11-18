@@ -92,10 +92,12 @@ describe("ObservedRoutingTable", () => {
 		);
 		expect(html).not.toContain("orange-");
 		expect(html).toContain("border-primary text-(--primary-text)");
-		// The rank digit on the first pill: card colour on the primary text
-		// token (white on the bright --primary orange measured 2.73:1).
-		expect(html).toMatch(/bg-\(--primary-text\) text-card"[^>]*>1</);
-		expect(html).not.toContain("bg-primary text-primary-foreground");
+		// The rank digit on the first pill sits on the orange fill in the fill's
+		// own foreground (black since #860; theme-foreground-tokens.test.ts pins
+		// its contrast). --primary-text is a text colour, and light mode draws it
+		// in the foreground colour, so as a fill it would paint the disc black.
+		expect(html).toMatch(/bg-primary text-primary-foreground"[^>]*>1</);
+		expect(html).not.toContain("bg-(--primary-text)");
 	});
 
 	it("never breaks an account name across lines, and gives the chain its own line on phones", () => {
