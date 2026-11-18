@@ -5,7 +5,16 @@ import type {
 	AgentUpdatePayload,
 } from "@better-ccflare/types";
 import { ALL_TOOLS } from "@better-ccflare/types";
-import { Cpu, Edit3, FileText, Palette, Save, Shield, X } from "lucide-react";
+import {
+	Check,
+	Cpu,
+	Edit3,
+	FileText,
+	Palette,
+	Save,
+	Shield,
+	X,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { TOOL_PRESETS } from "../../constants";
 import {
@@ -59,6 +68,23 @@ function getCombinations<T>(arr: T[], size: number): T[][] {
 
 	combine(0, []);
 	return result;
+}
+
+/** Decorative tick for a toggle button; the button's aria-pressed carries the state. */
+function ToolTick({ checked }: { checked: boolean }) {
+	return (
+		<span
+			aria-hidden="true"
+			className={cn(
+				"mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+				checked
+					? "border-primary bg-primary text-primary-foreground"
+					: "border-border",
+			)}
+		>
+			{checked && <Check className="h-3 w-3" />}
+		</span>
+	);
 }
 
 /** The theme colour picker: a named toggle button for each palette colour. */
@@ -577,6 +603,7 @@ export function AgentEditDialog({
 													type="button"
 													onClick={() => handleModeToggle(mode)}
 													disabled={isCustomMode}
+													aria-pressed={isSelected && !isCustomMode}
 													className={cn(
 														"relative flex items-start gap-4 rounded-lg border p-4 text-left transition-all",
 														"hover:bg-accent/50",
@@ -586,13 +613,7 @@ export function AgentEditDialog({
 														isCustomMode && "opacity-50 cursor-not-allowed",
 													)}
 												>
-													<input
-														type="checkbox"
-														checked={isSelected && !isCustomMode}
-														onChange={() => {}}
-														className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
-														disabled={isCustomMode}
-													/>
+													<ToolTick checked={isSelected && !isCustomMode} />
 													<div className="text-2xl">{info.icon}</div>
 													<div className="flex-1 space-y-1">
 														<div className="font-medium">{info.label}</div>
@@ -616,6 +637,7 @@ export function AgentEditDialog({
 									<button
 										type="button"
 										onClick={handleCustomModeToggle}
+										aria-pressed={isCustomMode}
 										className={cn(
 											"relative flex items-start gap-4 rounded-lg border p-4 text-left transition-all w-full",
 											"hover:bg-accent/50",
@@ -624,12 +646,7 @@ export function AgentEditDialog({
 												: "border-border",
 										)}
 									>
-										<input
-											type="checkbox"
-											checked={isCustomMode}
-											onChange={() => {}}
-											className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
-										/>
+										<ToolTick checked={isCustomMode} />
 										<div className="text-2xl">⚙️</div>
 										<div className="flex-1 space-y-1">
 											<div className="font-medium">Custom Selection</div>

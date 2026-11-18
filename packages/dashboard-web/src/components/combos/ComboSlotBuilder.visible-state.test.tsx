@@ -1,5 +1,6 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import type { ComboWithSlots } from "@better-ccflare/types";
+import type { ReactNode } from "react";
 import { queryKeys } from "../../lib/query-keys";
 
 // The add form opens from a click on local state, which a static render
@@ -14,6 +15,20 @@ React.useState = (initial: unknown) => {
 	if (flags.open && flags.calls === 2) return [flags.accountId, () => {}];
 	return realUseState(initial);
 };
+
+// Record the props the list hands to DndContext, then draw its children as usual.
+const dnd = await import("@dnd-kit/core");
+const dndProps: { sensors?: Array<{ sensor: unknown }> } = {};
+mock.module("@dnd-kit/core", () => ({
+	...dnd,
+	DndContext: (props: {
+		sensors?: Array<{ sensor: unknown }>;
+		children?: ReactNode;
+	}) => {
+		dndProps.sensors = props.sensors;
+		return <>{props.children}</>;
+	},
+}));
 
 const { renderPage } = await import("../page-state-test-helpers");
 const { ComboSlotBuilder } = await import("./ComboSlotBuilder");
@@ -44,6 +59,40 @@ function render(open: boolean, accountId = "") {
 }
 
 describe("ComboSlotBuilder visible state", () => {
+	it("labels the add-slot account and model fields by id", () => {
+		const html = render(true);
+		for (const id of ["new-combo-slot-account", "new-combo-slot-model"]) {
+			expect(html).toContain(`for="${id}"`);
+			expect(html).toContain(`id="${id}"`);
+		}
+	});
+
+	it("lets the member list be reordered from the keyboard", () => {
+		dndProps.sensors = undefined;
+		renderPage(
+			<ComboSlotBuilder
+				combo={{
+					...combo,
+					slots: [
+						{
+							id: "s1",
+							combo_id: "combo-1",
+							account_id: "acct-codex",
+							model: "m",
+							priority: 0,
+							enabled: true,
+						},
+					],
+				}}
+			/>,
+			(client) => client.setQueryData(queryKeys.accounts(), accounts),
+		);
+		const captured = dndProps.sensors as Array<{ sensor: unknown }> | undefined;
+		const sensors = (captured ?? []).map((entry) => entry.sensor);
+		expect(sensors).toContain(dnd.KeyboardSensor);
+		expect(sensors).toContain(dnd.PointerSensor);
+	});
+
 	it("shows no add form and no reason while the form is closed", () => {
 		const html = render(false);
 		expect(html).not.toContain("Priority tier");
