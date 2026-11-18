@@ -4,7 +4,7 @@ issue: 823
 refs: [821, 823]
 base: 7535ddc4
 date: 2026-11-14
-status: ready
+status: completed
 ---
 
 # UI kit PR 1: status primitives, Accounts first
