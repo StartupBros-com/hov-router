@@ -204,6 +204,97 @@ function normalizeCodexUsageData(
 		: null;
 }
 
+/** One stored window, in the shape usage readings carry. */
+type StoredUsageWindow = { utilization: number; resets_at: string | null };
+
+/**
+ * Rebuild a display reading from the latest stored snapshot of each window key
+ * given (null when none is usable). Deliberately NOT written back to
+ * usageCache: the cache stands for "fresh enough to serve as current" and feeds
+ * routing, pacing and /health, while a snapshot can be days old. The card shows
+ * the percentage without an age label (product decision), so it must at least
+ * not shadow fresher data on the next request.
+ *
+ * A window whose stored reset has already passed has rolled over and how much
+ * was used since is unknown, so it is left out (the caller treats a missing
+ * window as unknown) rather than reporting its old percentage. This matches
+ * normalizeCodexUsageData. getLatestUsageSnapshot already returns null for a
+ * closed window. A failed read logs a warning and yields null.
+ */
+async function readStoredUsageWindows(
+	dbOps: DatabaseOperations,
+	accountId: string,
+	accountName: string,
+	windowKeys: readonly string[],
+): Promise<Record<string, StoredUsageWindow> | null> {
+	try {
+		const snapshots = await Promise.all(
+			windowKeys.map((key) => dbOps.getLatestUsageSnapshot(accountId, key)),
+		);
+		const now = Date.now();
+		const windows: Record<string, StoredUsageWindow> = {};
+		snapshots.forEach((snapshot, index) => {
+			if (!snapshot) return;
+			if (snapshot.resetsAt != null && snapshot.resetsAt <= now) return;
+			windows[windowKeys[index]] = {
+				utilization: snapshot.utilization,
+				resets_at:
+					snapshot.resetsAt == null
+						? null
+						: new Date(snapshot.resetsAt).toISOString(),
+			};
+		});
+		return Object.keys(windows).length > 0 ? windows : null;
+	} catch (error) {
+		log.warn(
+			`Failed to read usage history for ${accountName}:`,
+			error instanceof Error ? error.message : String(error),
+		);
+		return null;
+	}
+}
+
+/**
+ * Window keys usage_snapshots holds for a Claude login: the flat windows
+ * normalizeProviderUsageWindows records (five_hour, seven_day and every
+ * seven_day_* key). five_hour is not read: production stores none and an
+ * absent window is shown as unknown. Per-model weekly keys that exist only as
+ * limits[] entries are open-ended and not listed.
+ */
+const ANTHROPIC_STORED_WEEKLY_KEYS = [
+	"seven_day",
+	"seven_day_fable",
+	"seven_day_opus",
+	"seven_day_sonnet",
+	"seven_day_oauth_apps",
+] as const;
+
+/**
+ * A Claude login's last stored usage, for when the cache has no fresh reading
+ * (after a restart until the first poll, or a usage-fetch outage longer than
+ * the cache TTL). Without it the row says "Usage unavailable" and a spent
+ * account falls back to its stored header status instead of usage_exhausted.
+ */
+async function getPersistedAnthropicUsage(
+	dbOps: DatabaseOperations,
+	accountId: string,
+	accountName: string,
+): Promise<FullUsageData | null> {
+	const stored = await readStoredUsageWindows(
+		dbOps,
+		accountId,
+		accountName,
+		ANTHROPIC_STORED_WEEKLY_KEYS,
+	);
+	if (!stored) return null;
+	log.debug(`Recovered Claude usage from history for ${accountName}`);
+	return {
+		five_hour: { ...UNKNOWN_WINDOW },
+		seven_day: { ...UNKNOWN_WINDOW },
+		...stored,
+	} as unknown as FullUsageData;
+}
+
 /**
  * Best available Codex usage, in descending order of freshness:
  *   1. the in-memory cache (10-minute TTL, empty after a restart)
@@ -304,36 +395,19 @@ async function getCachedOrPersistedCodexUsage(
 		}
 	}
 
-	// Last resort: the durable weekly snapshot. Deliberately NOT written back to
-	// usageCache — the cache stands for "fresh enough to serve as current", and a
-	// snapshot can be days old. The card shows the percentage without an age
-	// label (product decision), so it must at least not shadow fresher data on the
-	// next request.
-	try {
-		const snapshot = await dbOps.getLatestUsageSnapshot(accountId, "seven_day");
-		if (snapshot) {
-			const normalizedSnapshot = normalizeCodexUsageData({
-				five_hour: { ...UNKNOWN_WINDOW },
-				seven_day: {
-					utilization: snapshot.utilization,
-					resets_at:
-						snapshot.resetsAt == null
-							? null
-							: new Date(snapshot.resetsAt).toISOString(),
-				},
-			});
-			if (normalizedSnapshot) {
-				log.debug(
-					`Recovered Codex weekly usage from history for ${accountName}`,
-				);
-				return normalizedSnapshot;
-			}
+	// Last resort: the durable weekly snapshot (see readStoredUsageWindows).
+	const stored = await readStoredUsageWindows(dbOps, accountId, accountName, [
+		"seven_day",
+	]);
+	if (stored) {
+		const normalizedSnapshot = normalizeCodexUsageData({
+			five_hour: { ...UNKNOWN_WINDOW },
+			seven_day: stored.seven_day,
+		});
+		if (normalizedSnapshot) {
+			log.debug(`Recovered Codex weekly usage from history for ${accountName}`);
+			return normalizedSnapshot;
 		}
-	} catch (error) {
-		log.warn(
-			`Failed to read Codex usage history for ${accountName}:`,
-			error instanceof Error ? error.message : String(error),
-		);
 	}
 
 	return null;
@@ -575,6 +649,12 @@ export function createAccountsListHandler(
 						account.id,
 						account.name,
 						usageData,
+					);
+				} else if (account.provider === "anthropic" && !usageData) {
+					usageData = await getPersistedAnthropicUsage(
+						dbOps,
+						account.id,
+						account.name,
 					);
 				}
 				let usageUtilization: number | null = null;
