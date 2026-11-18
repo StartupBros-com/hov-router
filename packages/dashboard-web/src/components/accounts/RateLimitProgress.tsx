@@ -131,7 +131,7 @@ function computeProjectedMessage(
 function MissingQuota({ provider }: { provider: string }) {
 	return providerHasNoQuotaTracking(provider) ? (
 		<div
-			className="grid min-w-0 grid-cols-[minmax(0,7rem)_minmax(2rem,1fr)_2.5rem] items-center gap-x-2 text-xs text-muted-foreground @[28rem]:grid-cols-[minmax(0,7rem)_minmax(2rem,1fr)_2.5rem_4.75rem]"
+			className="grid min-w-0 grid-cols-[minmax(0,7rem)_minmax(2rem,1fr)_2.5rem] items-center gap-x-2 text-xs text-muted-foreground @[25rem]:grid-cols-[minmax(0,7rem)_minmax(2rem,1fr)_2.5rem_4.75rem]"
 			title="The router doesn't poll this provider for quota or credit usage."
 		>
 			<span>Quota not tracked</span>
@@ -266,8 +266,7 @@ export function RateLimitProgress({
 		<div
 			className={cn(
 				// Compact rows lay out by the width of a container their caller marks
-				// with @container, so a control the caller puts beside the bars does
-				// not push them into the stacked layout.
+				// with @container.
 				compact ? "min-w-0 space-y-1.5" : "space-y-3",
 				className,
 			)}
@@ -395,7 +394,7 @@ export function RateLimitProgress({
 						<fieldset
 							key={`${usage.window}:${usage.label ?? "default"}`}
 							aria-label={`${label} used`}
-							className="grid min-w-0 grid-cols-[minmax(0,7rem)_minmax(2rem,1fr)_2.5rem] items-center gap-x-2 gap-y-1 text-xs @[28rem]:grid-cols-[minmax(0,7rem)_minmax(2rem,1fr)_2.5rem_4.75rem]"
+							className="grid min-w-0 grid-cols-[minmax(0,7rem)_minmax(2rem,1fr)_2.5rem] items-center gap-x-2 gap-y-1 text-xs @[25rem]:grid-cols-[minmax(0,7rem)_minmax(2rem,1fr)_2.5rem_4.75rem]"
 						>
 							<span
 								className={cn(
@@ -476,7 +475,7 @@ export function RateLimitProgress({
 							{usage.resetTime ? (
 								<time
 									className={cn(
-										"col-span-full text-muted-foreground tabular-nums @[28rem]:col-span-1 @[28rem]:text-right",
+										"col-span-full text-muted-foreground tabular-nums @[25rem]:col-span-1 @[25rem]:text-right",
 										highlighted && "font-semibold text-foreground",
 									)}
 									dateTime={usage.resetTime}
@@ -494,7 +493,7 @@ export function RateLimitProgress({
 											: formatRelativeReset(Date.parse(usage.resetTime), now)}
 								</time>
 							) : (
-								<span className="col-span-full text-muted-foreground @[28rem]:col-span-1 @[28rem]:text-right">
+								<span className="col-span-full text-muted-foreground @[25rem]:col-span-1 @[25rem]:text-right">
 									<span className="sr-only">Reset </span>unknown
 								</span>
 							)}
