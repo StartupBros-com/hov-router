@@ -188,8 +188,9 @@ second one.
 
   On 2026-11-17 this probe dropped the handler in 10 of 500 rounds in an `ubuntu:24.04`
   container (bash 5.2.21) and in 0 of 1,000 in an `ubuntu:26.04` one (bash 5.3.9), the image
-  CI's `ubuntu-latest` moved to that day. CI therefore no longer shows the drop by chance, while
-  production's bash still can. The SIGUSR1 tests above cover the EXIT-only path on any bash.
+  CI's `ubuntu-latest` moved to that day. The gate job now names `ubuntu-24.04`, production's
+  release, so CI runs bash 5.2.21 again and can show the drop. The SIGUSR1 tests above cover
+  the EXIT-only path on any bash.
 
   A result of 0 on a later bash does not make the EXIT-only design unnecessary. An untrapped
   signal still ends a script through its EXIT trap alone.

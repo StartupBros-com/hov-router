@@ -121,6 +121,12 @@ show by chance: bash 5.2 dropping a trap handler, which the runner's EXIT-only c
 for and which its SIGUSR1 tests still exercise directly. See
 [the bash 5.2 learning](../integration-issues/bash-5-2-drops-a-trap-handler-so-runner-cleanup-must-work-from-exit-alone.md).
 
+The gate job in `.github/workflows/managed-routing-postgres.yml` therefore names `ubuntu-24.04`,
+the production host's release, instead of `ubuntu-latest`, and
+`scripts/__tests__/upstream-review-workflow-security.test.ts` fails if that changes unnoticed.
+Move the pin when production moves. The other workflows still use `ubuntu-latest`. None of
+them runs the test suite.
+
 Not every CI-only runner flake is the image. The runner flake the day before (exit 2 instead of
 143) was that bash 5.2 handler drop, on `ubuntu-24.04`. The guard drain test's `"absent"`
 (#882) was a mock response that ended itself 250 ms after its headers and raced a recycle
