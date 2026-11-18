@@ -443,6 +443,13 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 	 * arrives piggybacked on real traffic — Codex has no polling endpoint, so
 	 * after a restart this table is the only place its weekly percentage
 	 * survives (see getCachedOrPersistedCodexUsage in the accounts handler).
+	 * Claude logins read it too while their usage cache is empty.
+	 *
+	 * It stays on the main connection on purpose. The accounts list falls back
+	 * to it when the interactive reader is busy or failing, so moving it onto
+	 * that reader takes the fallback down with the reader
+	 * (packages/http-api/src/handlers/__tests__/off-thread-reads.test.ts;
+	 * tried and closed in #903).
 	 */
 	async getLatestSnapshot(
 		accountId: string,
