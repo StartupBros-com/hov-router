@@ -55,8 +55,9 @@
 	--chart-orange: #ea580c;
 	--chart-grid: var(--border);
 	--chart-axis: var(--muted-foreground);
-	/* Brand orange as text: orange-700 passes 4.5:1 on light backgrounds */
-	--primary-text: oklch(55.3% 0.195 38.402);
+	/* Light mode never draws text in orange: no orange reaches 4.5:1 on the
+	   active-nav tint. Orange stays on fills and icons; links keep their underline. */
+	--primary-text: var(--foreground);
 }
 
 .dark {
@@ -108,7 +109,8 @@
 	--chart-orange: #f97316;
 	--chart-grid: var(--border);
 	--chart-axis: var(--muted-foreground);
-	--primary-text: var(--primary);
+	/* --primary lightened 2 points: plain --primary is 4.49:1 on the hovered nav tint */
+	--primary-text: hsl(24 89% 58%);
 }
 
 @theme inline {
@@ -120,6 +122,7 @@
 	--color-popover-foreground: var(--popover-foreground);
 	--color-primary: var(--primary);
 	--color-primary-foreground: var(--primary-foreground);
+	--color-primary-text: var(--primary-text);
 	--color-secondary: var(--secondary);
 	--color-secondary-foreground: var(--secondary-foreground);
 	--color-muted: var(--muted);

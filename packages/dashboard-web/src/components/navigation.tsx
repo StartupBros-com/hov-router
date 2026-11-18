@@ -128,7 +128,7 @@ export function UpdateStatusDetails({
 				{result.action?.kind === "url" && (
 					<a
 						href={result.action.value}
-						className="text-xs text-primary underline"
+						className="text-xs text-primary-text underline"
 					>
 						View release
 					</a>
@@ -318,7 +318,7 @@ export function Navigation({ onLogout }: NavigationProps = {}) {
 									className={cn(
 										"w-full justify-start gap-3 transition-all",
 										isActive &&
-											"bg-primary/10 text-primary hover:bg-primary/20",
+											"bg-primary/10 text-primary-text hover:bg-primary/20",
 									)}
 								>
 									<Link
@@ -326,10 +326,12 @@ export function Navigation({ onLogout }: NavigationProps = {}) {
 										aria-current={isActive ? "page" : undefined}
 										onClick={() => setIsMobileMenuOpen(false)}
 									>
-										<Icon className="h-4 w-4" />
+										<Icon
+											className={cn("h-4 w-4", isActive && "text-primary")}
+										/>
 										{item.label}
 										{item.badge && (
-											<span className="ml-auto rounded-full bg-primary/20 px-2 py-0.5 text-xs font-medium">
+											<span className="ml-auto rounded-full bg-primary/20 text-foreground px-2 py-0.5 text-xs font-medium">
 												{item.badge}
 											</span>
 										)}
