@@ -443,18 +443,22 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 	 * arrives piggybacked on real traffic — Codex has no polling endpoint, so
 	 * after a restart this table is the only place its weekly percentage
 	 * survives (see getCachedOrPersistedCodexUsage in the accounts handler).
+	 * Claude logins read it too while their cache is empty, once per stored
+	 * window, so it runs on the interactive reader with the accounts page's
+	 * other stored reads (#606/#709) rather than on the serving thread.
 	 */
 	async getLatestSnapshot(
 		accountId: string,
 		windowKey: string,
 	): Promise<UsageSnapshotRow | null> {
-		const rows = await this.query<SnapshotDbRow>(
+		const rows = await this.queryOffThread<SnapshotDbRow>(
 			`SELECT account_id, timestamp, window_key, utilization, resets_at, active
 			 FROM usage_snapshots
 			 WHERE account_id = ? AND window_key = ?
 			 ORDER BY timestamp DESC, append_order DESC
 			 LIMIT 1`,
 			[accountId, windowKey],
+			"interactive",
 		);
 		const row = rows[0];
 		if (!row || (row.active != null && Number(row.active) === 0)) return null;

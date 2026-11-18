@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, spyOn } from "bun:test";
 import { normalizeProviderUsageWindows } from "@better-ccflare/core";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { DatabaseOperations } from "../../database-operations";
@@ -614,10 +614,57 @@ describe("UsageHistoryRepository", () => {
 		}
 	});
 
+	it("getLatestSnapshot reads on the interactive reader, off the main thread", async () => {
+		// The accounts page reads this once per window of every account whose
+		// usage cache is empty (after a restart, or a usage outage longer than the
+		// cache TTL), on the lane its other stored reads use (#606/#709).
+		const db = makeDb();
+		const adapter = new BunSqlAdapter(db);
+		const repo = new UsageHistoryRepository(adapter);
+		await writeSnapshot(
+			repo,
+			"acc1",
+			{ seven_day: { utilization: 64, resets_at: null } },
+			1000,
+		);
+		const interactiveSql: string[] = [];
+		adapter.setOffThreadReader(
+			{
+				all: async <R>(sql: string, params: unknown[] = []) => {
+					interactiveSql.push(sql);
+					return db.query(sql).all(...(params as never[])) as R[];
+				},
+				get: async () => {
+					throw new Error("unexpected get");
+				},
+			},
+			"interactive",
+		);
+		adapter.setOffThreadReader({
+			all: async () => {
+				throw new Error("bulk reader used");
+			},
+			get: async () => {
+				throw new Error("bulk reader used");
+			},
+		});
+		const query = spyOn(adapter, "query");
+		try {
+			expect(
+				(await repo.getLatestSnapshot("acc1", "seven_day"))?.utilization,
+			).toBe(64);
+			expect(interactiveSql).toHaveLength(1);
+			expect(interactiveSql[0]).toContain("FROM usage_snapshots");
+			expect(query).not.toHaveBeenCalled();
+		} finally {
+			db.close();
+		}
+	});
+
 	it("uses append_order as the latest-snapshot append tie-break", async () => {
 		let latestSql = "";
 		const stubAdapter = {
-			query: async <R>(sql: string): Promise<R[]> => {
+			queryOffThread: async <R>(sql: string): Promise<R[]> => {
 				latestSql = sql;
 				return [
 					{
