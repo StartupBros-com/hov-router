@@ -6,12 +6,14 @@ import {
 	closestCenter,
 	DndContext,
 	type DragEndEvent,
+	KeyboardSensor,
 	PointerSensor,
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
 import {
 	SortableContext,
+	sortableKeyboardCoordinates,
 	useSortable,
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
@@ -344,6 +346,9 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+		useSensor(KeyboardSensor, {
+			coordinateGetter: sortableKeyboardCoordinates,
+		}),
 	);
 
 	const getAccountInfo = (accountId: string) => {
@@ -468,9 +473,9 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 				{showAddForm && (
 					<div className="space-y-3 rounded-md border border-dashed p-3">
 						<div className="space-y-1.5">
-							<Label>Account</Label>
+							<Label htmlFor="new-combo-slot-account">Account</Label>
 							<Select value={newAccountId} onValueChange={setNewAccountId}>
-								<SelectTrigger className="h-11">
+								<SelectTrigger id="new-combo-slot-account" className="h-11">
 									<SelectValue placeholder="Select account...">
 										{newAccountId &&
 											(() => {
@@ -498,8 +503,9 @@ export function ComboSlotBuilder({ combo }: ComboSlotBuilderProps) {
 							</Select>
 						</div>
 						<div className="space-y-1.5">
-							<Label>Model</Label>
+							<Label htmlFor="new-combo-slot-model">Model</Label>
 							<Input
+								id="new-combo-slot-model"
 								value={newModel}
 								onChange={(e) => setNewModel(e.target.value)}
 								placeholder="claude-3-opus"

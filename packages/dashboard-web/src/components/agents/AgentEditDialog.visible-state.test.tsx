@@ -107,4 +107,34 @@ describe("AgentEditDialog visible state", () => {
 		const tag = tagWith(render(), 'aria-label="Model Preference for Reviewer"');
 		expect(tag).toContain("h-11");
 	});
+
+	it("marks tool presets pressed by selection and nests no input in a button", () => {
+		state.isError = false;
+		const presetHtml = render();
+		const buttons = (html: string) =>
+			[...html.matchAll(/<button[^>]*>[\s\S]*?<\/button>/g)].map((m) => m[0]);
+		const toolButtons = (html: string) =>
+			buttons(html).filter((b) => b.includes("gap-4 rounded-lg border"));
+		expect(toolButtons(presetHtml).length).toBeGreaterThan(1);
+		for (const b of toolButtons(presetHtml))
+			expect(b).toContain("aria-pressed=");
+		expect(
+			toolButtons(presetHtml).find((b) => b.includes("All Tools")),
+		).toContain('aria-pressed="true"');
+		for (const b of buttons(presetHtml)) expect(b).not.toContain("<input");
+		// Custom mode: the Custom button is pressed, every preset is not.
+		const custom = { ...agent, tools: ["Bash", "Read"] } as unknown as Agent;
+		const customHtml = renderPage(
+			<AgentEditDialog agent={custom} open onOpenChange={() => {}} />,
+		);
+		const pressed = toolButtons(customHtml).map((b) =>
+			b.includes('aria-pressed="true"'),
+		);
+		expect(pressed.filter(Boolean).length).toBe(1);
+		const customButton = toolButtons(customHtml).find((b) =>
+			b.includes("Custom Selection"),
+		);
+		expect(customButton).toContain('aria-pressed="true"');
+		for (const b of buttons(customHtml)) expect(b).not.toContain("<input");
+	});
 });
