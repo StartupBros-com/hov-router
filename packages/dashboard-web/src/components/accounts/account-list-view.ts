@@ -1,7 +1,10 @@
 import { classifyAccountStatus } from "@better-ccflare/ui-common";
 import type { Account } from "../../api";
 import { providerShowsWeeklyUsage } from "../../utils/provider-utils";
-import type { AccountFamilyRoutingState } from "./account-routing";
+import {
+	type AccountFamilyRoutingState,
+	routingNeedsReview,
+} from "./account-routing";
 import { accountUsageWindows } from "./account-usage-windows";
 import { displayLabel } from "./rate-limit-helpers";
 export const ACCOUNT_SORTS = [
@@ -79,18 +82,17 @@ function accountAttentionReason(
 	if (status.reauth) return "reconnect";
 	if (status.capacityAttention) return "limited";
 	if (status.refreshDelayed) return "refresh";
+	if (routing.some(routingNeedsReview)) return "routing";
+	// A family the router skips here is a limit; the row names it with "at limit".
 	if (
 		routing.some(
 			(state) =>
-				state.reason === "ambiguous" ||
-				state.reason === "new_billing_class" ||
-				state.managedRouteAvailable ||
-				(state.availability !== null &&
-					state.availability !== "available" &&
-					state.availability !== "paused"),
+				state.availability !== null &&
+				state.availability !== "available" &&
+				state.availability !== "paused",
 		)
 	)
-		return "routing";
+		return "limited";
 	return null;
 }
 

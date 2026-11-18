@@ -208,18 +208,24 @@ test("attention reasons count each account once and ignore view filters", () => 
 				paused: true,
 			}),
 			account("throttle", { usageThrottledUntil: 101 }),
+			account("family-spent"),
 			account("routing"),
 			account("manual", { paused: true }),
 		],
 		{ search: "missing" },
-		{ routing: [{ availability: "model_exhausted" } as never] },
+		{
+			// A spent family is a limit, which the row names on its at-limit line;
+			// only a decision for Combos counts as a routing notice.
+			"family-spent": [{ availability: "model_exhausted" } as never],
+			routing: [{ reason: "ambiguous" } as never],
+		},
 		100,
 	);
 	expect(view.accounts).toEqual([]);
-	expect(view.counts.attention).toBe(4);
+	expect(view.counts.attention).toBe(5);
 	expect(view.attentionReasons).toEqual({
 		reconnect: 2,
-		limited: 1,
+		limited: 2,
 		refresh: 0,
 		routing: 1,
 	});

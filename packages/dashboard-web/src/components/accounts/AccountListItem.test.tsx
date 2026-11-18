@@ -477,7 +477,7 @@ describe("account scan layout", () => {
 				),
 			).not.toContain("at limit");
 	});
-	it("leaves a spent family window to that family's routing notice", () => {
+	it("names a spent family window once, in the status column", () => {
 		const reset = new Date(Date.now() + 3600000).toISOString();
 		// Both shapes the server sends: the limits[] list and the legacy keys.
 		const shapes = [
@@ -520,16 +520,17 @@ describe("account scan layout", () => {
 						/>,
 					),
 				);
+			// The family's own bar is full, so the window's label says it and the
+			// row adds no "Model exhausted" line under it.
 			const covered = render([
 				routingState({ family: "fable", availability: "model_exhausted" }),
 			]);
 			expect(covered).toContain("Ready");
-			expect(covered).toContain("Model exhausted");
-			expect(covered).not.toContain("at limit");
-			// The line stays unless a plain notice names that same window.
+			expect(covered).toContain(">Fable (Weekly) at limit<");
+			expect(covered).not.toContain("Model exhausted");
+			expect(covered).not.toContain('aria-label="Routing notices"');
 			for (const states of [
 				[],
-				[routingState({ family: "opus", availability: "model_exhausted" })],
 				[
 					routingState({
 						family: "fable",
@@ -546,8 +547,17 @@ describe("account scan layout", () => {
 					}),
 				],
 				[routingState({ family: "fable", availability: "rate_limited" })],
-			])
-				expect(render(states)).toContain("Fable (Weekly) at limit");
+			]) {
+				const visible = render(states);
+				expect(visible).toContain(">Fable (Weekly) at limit<");
+				expect(visible).not.toContain("Model exhausted");
+			}
+			// Another family with no full bar of its own joins the same line.
+			expect(
+				render([
+					routingState({ family: "opus", availability: "model_exhausted" }),
+				]),
+			).toContain(">Fable (Weekly), Opus at limit<");
 		}
 	});
 	it("keeps force reset outside disclosures and missing quota explicit", () => {
@@ -1134,20 +1144,93 @@ describe("AccountListItem authoritative family routing", () => {
 		});
 	}
 
-	it("keeps a row notice for a family-specific model exhaustion", () => {
-		const visible = withoutDetailsContent(
-			renderToStaticMarkup(
-				<AccountListItem
-					account={makeAccount({ paused: false })}
-					{...requiredHandlers}
-					routingStates={[
-						routingState({ family: "fable", availability: "model_exhausted" }),
-					]}
-				/>,
-			),
-		);
-		expect(visible).toContain('aria-label="Routing notices"');
-		expect(visible).toContain("Model exhausted");
+	it("names a spent model family on the status line of a row that still routes", () => {
+		const visible = (
+			account: Partial<Account>,
+			states: AccountFamilyRoutingState[],
+		) =>
+			withoutDetailsContent(
+				renderToStaticMarkup(
+					<AccountListItem
+						account={makeAccount({ paused: false, ...account })}
+						{...requiredHandlers}
+						routingStates={states}
+					/>,
+				),
+			);
+		// No usage bar shows these families spent, so the status line names them,
+		// each once, even when two combos report the same family.
+		const states = [
+			routingState({ family: "fable", availability: "model_exhausted" }),
+			routingState({
+				family: "fable",
+				comboId: "combo-fable-2",
+				availability: "model_exhausted",
+			}),
+			routingState({ family: "opus", availability: "model_exhausted" }),
+		];
+		for (const [account, statusLabel] of [
+			[{}, "Ready"],
+			[{ usageThrottledUntil: Date.now() + 600000 }, "Pacing active"],
+		] as const) {
+			const row = visible(account, states);
+			expect(row).toContain(`>${statusLabel}<`);
+			expect(row).toContain(">Fable, Opus at limit<");
+			expect(row).not.toContain("Model exhausted");
+			expect(row).not.toContain('aria-label="Routing notices"');
+		}
+		// A blocked account takes no requests at all, which its status already
+		// says, so the row names no family (Details still lists each one).
+		for (const [account, statusLabel] of [
+			[{ rateLimitStatus: "usage_exhausted" }, "Usage exhausted"],
+			[{ rateLimitedUntil: Date.now() + 600000 }, "Cooling down"],
+			[{ rateLimitStatus: "rate_limited" }, "Reported hard limit"],
+			[{ paused: true, pauseReason: "manual" }, "Paused"],
+			[{ requiresReauth: true }, "Reconnect required"],
+		] as const) {
+			const row = visible(account, states);
+			expect(row).toContain(`>${statusLabel}<`);
+			expect(row).not.toContain("at limit");
+			expect(row).not.toContain("Model exhausted");
+			expect(row).not.toContain('aria-label="Routing notices"');
+		}
+	});
+
+	it("keeps availability out of the routing notices that ask for action", () => {
+		const notices = (account: Partial<Account>) => {
+			const html = withoutDetailsContent(
+				renderToStaticMarkup(
+					<AccountListItem
+						account={makeAccount({ paused: false, ...account })}
+						{...requiredHandlers}
+						routingStates={[
+							routingState({
+								family: "fable",
+								availability: "model_exhausted",
+								reason: "ambiguous",
+								reasonLabel: "Ambiguous server proposal",
+							}),
+							routingState({
+								availability: "paused",
+								managedRouteAvailable: true,
+							}),
+						]}
+					/>,
+				),
+			);
+			const section = html.match(
+				/<section[^>]*aria-label="Routing notices"[^>]*>([\s\S]*?)<\/section>/,
+			);
+			return [...(section?.[1] ?? "").matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map(
+				(p) => p[1].replace(/<[^>]+>/g, ""),
+			);
+		};
+		const expected = [
+			"Fable: Action required — Ambiguous server proposal. Review in Combos.",
+			"Opus: Managed route available — Review in Combos.",
+		];
+		expect(notices({})).toEqual(expected);
+		expect(notices({ paused: true, pauseReason: "manual" })).toEqual(expected);
 	});
 
 	for (const [reason, expected, actionRequired] of [
@@ -2098,6 +2181,27 @@ describe("extra usage on a Claude row", () => {
 		expect(row).not.toContain("Opus (Weekly) at limit");
 		// A spent window with no hold still says so.
 		expect(row).toContain("Fable (Weekly) at limit");
+		// A spent family whose window is held or shown full adds nothing more.
+		const routed = text(
+			withoutDetailsContent(
+				renderClosedMarkup(
+					<AccountListItem
+						{...props(account(true))}
+						routingStates={[
+							routingState({ family: "opus", availability: "model_exhausted" }),
+							routingState({
+								family: "fable",
+								availability: "model_exhausted",
+							}),
+						]}
+					/>,
+				),
+			),
+		);
+		expect(routed).toContain("Fable (Weekly) at limit");
+		expect(routed).not.toContain("Opus at limit");
+		expect(routed).not.toContain("Fable at limit");
+		expect(routed).not.toContain("Model exhausted");
 	});
 
 	it("shows one cue on a row whose whole-login hold outlasts its model hold", () => {
