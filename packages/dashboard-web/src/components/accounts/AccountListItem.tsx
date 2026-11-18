@@ -97,41 +97,12 @@ const SETTING_CLASS =
 // Explicit dimensions avoid the switch's border shrinking an inset-based target.
 const SETTING_SWITCH_CLASS =
 	"relative after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']";
-// A text action inside a status line: the line keeps its text height while the
-// hit area grows to 44px tall around the words. z-10 keeps the lower half of that
-// area above the usage block, which is positioned and comes later in the row.
-const INLINE_ACTION_CLASS =
-	"relative z-10 h-auto p-0 text-xs text-foreground underline underline-offset-2 after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2 after:content-['']";
-// Where each remedy shows. From its breakpoint up to xl the action line has room
-// for it left of Pause, Details and More, so it sits there and adds no line.
-// Narrower, it would wrap the action line; on xl the action column is full. There
-// it sits beside the status it fixes. That room is the viewport width less 236px,
-// so each breakpoint leaves 8px to spare: Clear cooldown is 92px wide,
-// Re-authenticate 140px.
-const CLEAR_COOLDOWN_PLACEMENT = {
-	actionLine: "hidden min-[21rem]:inline-flex xl:hidden",
-	besideStatus: "min-[21rem]:hidden xl:inline-flex",
-	// The retry line when it holds only the link.
-	linkOnlyLine: "min-[21rem]:hidden xl:flex",
-	retryLineGap: "",
-};
-const REAUTH_PLACEMENT = {
-	actionLine: "hidden min-[24rem]:inline-flex xl:hidden",
-	besideStatus: "min-[24rem]:hidden xl:inline-flex",
-};
-// The re-login flag is written with a pause, but an unpaused account can still
-// carry it (a failed pause write, or a later resume) while cooling down. Both
-// remedies never fit on the action line, so Clear cooldown takes it only from
-// 21rem until Re-authenticate takes it at 24rem.
-const CLEAR_COOLDOWN_BESIDE_REAUTH = {
-	actionLine: "hidden min-[21rem]:inline-flex min-[24rem]:hidden",
-	besideStatus: "min-[21rem]:hidden min-[24rem]:inline-flex",
-	linkOnlyLine: "min-[21rem]:hidden min-[24rem]:flex",
-	// Below 21rem and from xl both sit in the status column, Re-authenticate just
-	// above the retry line. The link's tap area reaches 14px above its text and
-	// the lines are 6px apart, so 8px more keeps the two tap areas apart.
-	retryLineGap: "max-[21rem]:mt-2 xl:mt-2",
-};
+// Clear cooldown: a small bordered button on the router retry line. The border
+// marks it as a control; at 20px it is no taller than the status pills, while
+// the hit area is still 44px tall. z-10 keeps the lower half of that area above
+// the usage block, which comes later in the row.
+const CLEAR_COOLDOWN_CLASS =
+	"relative z-10 h-5 px-2 py-0 text-xs leading-4 text-foreground after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2 after:content-['']";
 
 /**
  * Codex-only usage extras (plan_type, credits_balance) come from the free
@@ -462,42 +433,7 @@ export function AccountListItem({
 								"Re-authenticate this Codex account (preserves all metadata)",
 						}
 					: null;
-	// Each remedy renders twice and shows once; see CLEAR_COOLDOWN_PLACEMENT.
 	const reauthShown = Boolean(reauth && reauthRequired);
-	const clearPlacement = reauthShown
-		? CLEAR_COOLDOWN_BESIDE_REAUTH
-		: CLEAR_COOLDOWN_PLACEMENT;
-	const clearCooldownAction = (display: string) =>
-		showForceReset && (
-			<Button
-				variant="link"
-				className={`${INLINE_ACTION_CLASS} ${display}`}
-				onClick={() => onForceResetRateLimit(account)}
-				aria-label={`Clear cooldown for ${account.name}`}
-				title={
-					staleLockDetected
-						? "Clear a possibly stale router cooldown. Provider usage limits are unchanged."
-						: "Clear the router’s saved rate-limit state. Provider usage limits are unchanged."
-				}
-			>
-				Clear cooldown
-			</Button>
-		);
-	const reauthAction = (display: string) =>
-		reauth &&
-		reauthShown && (
-			<Button
-				variant="default"
-				size="touch-sm"
-				// Above Clear cooldown's tap area wherever the two meet.
-				className={`relative z-20 gap-1 text-xs text-black hover:text-black ${display}`}
-				onClick={() => reauth.handler(account)}
-				title={reauth.title}
-			>
-				<KeyRound className="h-4 w-4" />
-				Re-authenticate
-			</Button>
-		);
 	const rateLimitProgressProps = {
 		resetIso: account.rateLimitReset,
 		usageUtilization: account.usageUtilization,
@@ -579,7 +515,7 @@ export function AccountListItem({
 	return (
 		<article
 			aria-label={account.name}
-			className={`min-w-0 space-y-3 border-b bg-card px-3 py-3 transition-colors [overflow-wrap:anywhere] xl:grid xl:grid-cols-[minmax(12.5rem,1.6fr)_minmax(0,3.2fr)_minmax(10rem,0.9fr)_11rem] xl:items-center xl:gap-3 xl:space-y-0 ${
+			className={`min-w-0 space-y-3 border-b bg-card px-3 py-3 transition-colors [overflow-wrap:anywhere] xl:grid xl:grid-cols-[minmax(12.5rem,1.6fr)_minmax(0,3.2fr)_minmax(10rem,0.9fr)_14rem] xl:items-start xl:gap-3 xl:space-y-0 ${
 				// The Primary marker is an inset shadow, not a border, so every row
 				// keeps the column header's content box and names share one edge.
 				isPrimary
@@ -607,13 +543,16 @@ export function AccountListItem({
 							provider={account.provider}
 						/>
 					</div>
-					{/* No bullet separators: they strand at line ends when this wraps. */}
-					<div className="col-start-2 row-start-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+					{/* No bullet separators: they strand at line ends when this wraps.
+					    The pills overhang the text line by 2px each way instead of
+					    making it taller, so every row's actions sit at one height;
+					    the 6px line gap keeps pills on wrapped lines apart. */}
+					<div className="col-start-2 row-start-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
 						<span className="inline-flex items-center gap-1.5">
 							{account.provider}
 						</span>
 						{codexUsageExtras?.plan_type && (
-							<StatusPill tone="secondary">
+							<StatusPill tone="secondary" className="-my-0.5">
 								{codexUsageExtras.plan_type}
 							</StatusPill>
 						)}
@@ -623,6 +562,7 @@ export function AccountListItem({
 						{isPrimary && (
 							<StatusPill
 								tone="primary"
+								className="-my-0.5"
 								title="The account the router picks next"
 							>
 								Primary
@@ -630,11 +570,29 @@ export function AccountListItem({
 						)}
 					</div>
 				</div>
-				{/* Pause, Details and More hold one place on every row; a remedy joins
-				    them, to their left, only where the line has room for it. */}
-				<div className="ml-auto flex shrink-0 flex-wrap items-center gap-1 min-w-0 max-w-full justify-end xl:col-start-4 xl:row-start-1">
-					{clearCooldownAction(clearPlacement.actionLine)}
-					{reauthAction(REAUTH_PLACEMENT.actionLine)}
+				{/* Refresh, Pause, Details and More hold one place on every row. Wide
+				    rows are top-aligned, and the 44px buttons rise 12px to centre on
+				    the name's line. */}
+				<div className="ml-auto flex shrink-0 flex-wrap items-center gap-1 min-w-0 max-w-full justify-end xl:col-start-4 xl:row-start-1 xl:-my-3">
+					{canRefreshUsage && (
+						<Button
+							variant="ghost"
+							size="touch-icon"
+							disabled={isRefreshingUsage}
+							onClick={refreshUsage}
+							aria-label={`Refresh usage for ${account.name}`}
+							title={
+								account.provider === "codex"
+									? "Refresh usage data (free ChatGPT usage endpoint; falls back to a minimal quota-consuming request on custom endpoints or when the free endpoint fails)"
+									: "Refresh usage data (restarts usage polling and refreshes token if expired)"
+							}
+						>
+							<RefreshCw
+								aria-hidden="true"
+								className={`h-4 w-4 motion-reduce:animate-none ${isRefreshingUsage ? "animate-spin" : ""}`}
+							/>
+						</Button>
+					)}
 					<Button
 						variant="ghost"
 						size="touch-icon"
@@ -756,7 +714,19 @@ export function AccountListItem({
 					{/* The status track's 10rem floor fits the longest label on one line. */}
 					<span className="whitespace-nowrap">{status.label}</span>
 				</StatusPill>
-				{reauthAction(REAUTH_PLACEMENT.besideStatus)}
+				{reauth && reauthShown && (
+					<Button
+						variant="default"
+						size="touch-sm"
+						// Above Clear cooldown's tap area where the two meet.
+						className="relative z-20 gap-1 text-xs text-black hover:text-black"
+						onClick={() => reauth.handler(account)}
+						title={reauth.title}
+					>
+						<KeyRound className="h-4 w-4" />
+						Re-authenticate
+					</Button>
+				)}
 				{status.reason === "paused" && pauseReasonLabel && (
 					<span className="text-xs text-muted-foreground">
 						{`Auto-paused: ${pauseReasonLabel}`}
@@ -778,13 +748,23 @@ export function AccountListItem({
 							</span>
 						),
 				)}
+				{/* State, then why, then when, then the fix. */}
+				{staleLockDetected && (
+					<StatusPill
+						tone="warning"
+						title="Reported usage is below 100%, but the router still has a rate-limit block."
+					>
+						Possible stale cooldown
+					</StatusPill>
+				)}
 				{(status.routerRetryAt != null || showForceReset) && (
 					<span
 						className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground ${
-							// With no retry time the line holds only the link, so it shows
-							// only where the link does.
-							status.routerRetryAt != null ? "" : clearPlacement.linkOnlyLine
-						} ${showForceReset ? clearPlacement.retryLineGap : ""}`}
+							// Re-authenticate can sit just above. Clear cooldown's tap area
+							// reaches 12px above the button and the lines are 6px apart, so
+							// 6px more keeps the two tap areas apart.
+							showForceReset && reauthShown ? "mt-1.5" : ""
+						}`}
 					>
 						{status.routerRetryAt != null && (
 							<span
@@ -800,16 +780,22 @@ export function AccountListItem({
 								)}
 							</span>
 						)}
-						{clearCooldownAction(clearPlacement.besideStatus)}
+						{showForceReset && (
+							<Button
+								variant="outline"
+								className={CLEAR_COOLDOWN_CLASS}
+								onClick={() => onForceResetRateLimit(account)}
+								aria-label={`Clear cooldown for ${account.name}`}
+								title={
+									staleLockDetected
+										? "Clear a possibly stale router cooldown. Provider usage limits are unchanged."
+										: "Clear the router’s saved rate-limit state. Provider usage limits are unchanged."
+								}
+							>
+								Clear cooldown
+							</Button>
+						)}
 					</span>
-				)}
-				{staleLockDetected && (
-					<StatusPill
-						tone="warning"
-						title="Reported usage is below 100%, but the router still has a rate-limit block."
-					>
-						Possible stale cooldown
-					</StatusPill>
 				)}
 				{extraUsage?.state === "on" && (
 					<StatusPill tone="warning" title={extraUsage.warning ?? undefined}>
@@ -827,61 +813,30 @@ export function AccountListItem({
 				)}
 			</div>
 
-			{/* The container for the compact bars' layout: the whole cell, so the
-			    refresh column beside them does not change where they switch. */}
-			<div className="@container relative min-w-0 border-t pt-3 xl:col-start-2 xl:row-start-1 xl:flex xl:items-start xl:gap-1 xl:border-t-0 xl:pt-0">
-				<div className="min-w-0 xl:flex-1">
-					<RateLimitProgress
-						compact
-						bindingWindow={representedBinding?.window}
-						highlightReset={sortReset}
-						{...rateLimitProgressProps}
-					/>
-					{account.provider === "codex" &&
-						account.bankedResets &&
-						!quietBankedBalance && (
-							<div className="mt-1">
-								<BankedResetsStatus
-									compact
-									resets={account.bankedResets}
-									accountName={account.name}
-									onUseReset={
-										onUseReset ? () => onUseReset(account) : undefined
-									}
-								/>
-							</div>
-						)}
-					{refreshError && (
-						<p role="alert" className="mt-1 text-xs text-destructive">
-							{refreshError}
-						</p>
+			{/* The container for the compact bars' layout. */}
+			<div className="@container min-w-0 border-t pt-3 xl:col-start-2 xl:row-start-1 xl:border-t-0 xl:pt-0">
+				<RateLimitProgress
+					compact
+					bindingWindow={representedBinding?.window}
+					highlightReset={sortReset}
+					{...rateLimitProgressProps}
+				/>
+				{account.provider === "codex" &&
+					account.bankedResets &&
+					!quietBankedBalance && (
+						<div className="mt-1">
+							<BankedResetsStatus
+								compact
+								resets={account.bankedResets}
+								accountName={account.name}
+								onUseReset={onUseReset ? () => onUseReset(account) : undefined}
+							/>
+						</div>
 					)}
-				</div>
-				{canRefreshUsage ? (
-					// Narrow: pinned to the right end of the "Usage and resets" line, so the
-					// bars keep their full width. Wide: its own column, lifted so the icon
-					// centres on the first bar.
-					<Button
-						variant="ghost"
-						size="touch-icon"
-						className="absolute -top-0.5 -right-3 xl:static xl:-mt-3 xl:shrink-0"
-						disabled={isRefreshingUsage}
-						onClick={refreshUsage}
-						aria-label={`Refresh usage for ${account.name}`}
-						title={
-							account.provider === "codex"
-								? "Refresh usage data (free ChatGPT usage endpoint; falls back to a minimal quota-consuming request on custom endpoints or when the free endpoint fails)"
-								: "Refresh usage data (restarts usage polling and refreshes token if expired)"
-						}
-					>
-						<RefreshCw
-							aria-hidden="true"
-							className={`h-3.5 w-3.5 ${isRefreshingUsage ? "animate-spin" : ""}`}
-						/>
-					</Button>
-				) : (
-					// Holds the refresh column so bar ends line up down the table.
-					<span aria-hidden="true" className="hidden w-11 shrink-0 xl:block" />
+				{refreshError && (
+					<p role="alert" className="mt-1 text-xs text-destructive">
+						{refreshError}
+					</p>
 				)}
 			</div>
 
