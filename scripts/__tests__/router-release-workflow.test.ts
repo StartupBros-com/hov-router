@@ -38,6 +38,8 @@ for (const module of ["router-release.ts", "router-release-assets.ts"]) {
 }
 
 const repository = "StartupBros/hov-router";
+// The same repository ID after the transfer to the organization (#911).
+const transferredRepository = "StartupBros-com/hov-router";
 // GitHub reports the current name for this ID; the former name is never an authority.
 const formerRepository = "StartupBros/wstack-router";
 const repositoryId = 1278801682;
@@ -45,7 +47,7 @@ const metadata = (full_name: string = repository) => ({
 	id: repositoryId,
 	full_name,
 	name: full_name.split("/")[1],
-	owner: { login: "StartupBros" },
+	owner: { login: full_name.split("/")[0] },
 });
 const sha = "a".repeat(40);
 const identity = {
@@ -330,12 +332,18 @@ test("attestation policy fixtures preserve historical identity and bind future b
 test.each([
 	"old",
 	"new",
-	"renamed",
+	"transferred",
 	"wrong-id",
 	"unrelated-redirect",
 ])("stage CLI transport fixture %s uses validated API/upload destinations and preserves producing attestation policy", (scenario) => {
-	const producer = scenario === "new" ? "StartupBros/hov-router" : repository;
-	const current = scenario === "old" ? repository : "StartupBros/hov-router";
+	// old: personal account throughout; new: organization throughout;
+	// transferred: produced under the personal account, which GitHub now
+	// reports under the organization (#911).
+	const producer = scenario === "new" ? transferredRepository : repository;
+	const current =
+		scenario === "new" || scenario === "transferred"
+			? transferredRepository
+			: repository;
 	const returnedMetadata =
 		scenario === "wrong-id"
 			? { ...metadata(current), id: 1 }
@@ -378,9 +386,10 @@ const sha = ${JSON.stringify(sha)};
 const version = ${JSON.stringify(identity.version)};
 const metadata = ${JSON.stringify(returnedMetadata)};
 const current = ${JSON.stringify(current)};
+const producer = ${JSON.stringify(producer)};
 GitHub.create = async (options) => {
- if (options.owner !== "StartupBros" || options.repo !== current.split("/")[1]) throw new Error("Unvalidated SCM destination");
- return {repository: {owner: "StartupBros", repo: current.split("/")[1]},
+ if (options.owner !== current.split("/")[0] || options.repo !== current.split("/")[1]) throw new Error("Unvalidated SCM destination");
+ return {repository: {owner: current.split("/")[0], repo: current.split("/")[1]},
  getFileJson: async () => ({version, ".": version}),
  getFileContentsOnBranch: async () => ({parsedContent: JSON.stringify({workspaces: {"apps/cli": {version}}})})};
 };
@@ -395,7 +404,8 @@ globalThis.fetch = async (input, init) => {
  const url = String(input);
  appendFileSync(${JSON.stringify(join(root, "api-requests"))}, url + "\\n");
  let data;
- if (url === "https://api.github.com/repos/StartupBros/hov-router") return Response.json(metadata);
+ // The producing name resolves first; later reads use the name GitHub returned.
+ if (url === "https://api.github.com/repos/" + producer || url === "https://api.github.com/repos/" + current) return Response.json(metadata);
  if (url.startsWith("https://uploads.github.com/repos/" + current + "/releases/17/assets?")) {
    if (init.method !== "POST" || init.redirect !== "error") throw new Error("Invalid upload request");
    uploaded.add(new URL(url).searchParams.get("name"));
@@ -510,6 +520,7 @@ globalThis.fetch = async (input, init) => {
 			version: identity.version,
 			repository: current,
 			repositoryName: current.split("/")[1],
+			repositoryOwner: current.split("/")[0],
 		});
 		const before = readFileSync(join(root, "api-requests"), "utf8");
 		for (const GITHUB_REPOSITORY_ID of [
@@ -857,7 +868,7 @@ test("release App is pinned, repo-scoped and minted only immediately before PR r
 	expect(mint.with).toEqual({
 		"client-id": `\${{ vars.ROUTER_RELEASE_APP_CLIENT_ID }}`,
 		"private-key": `\${{ secrets.ROUTER_RELEASE_APP_PRIVATE_KEY }}`,
-		owner: "StartupBros",
+		owner: `\${{ needs.guard.outputs.repository-owner }}`,
 		repositories: `\${{ needs.guard.outputs.repository-name }}`,
 		"permission-contents": "write",
 		"permission-pull-requests": "write",
@@ -872,6 +883,9 @@ test("release App is pinned, repo-scoped and minted only immediately before PR r
 	);
 	expect(guard.outputs?.repository).toBe(
 		`\${{ steps.event.outputs.repository }}`,
+	);
+	expect(guard.outputs?.["repository-owner"]).toBe(
+		`\${{ steps.event.outputs.repository-owner }}`,
 	);
 	const validate = guard.steps.find((step) => step.id === "event");
 	expect(validate?.run).toContain(
@@ -1031,6 +1045,8 @@ test("producer gate fixtures match shared exact names and stable ID and contain 
 					`${repository}-extra`,
 					`prefix-${repository}`,
 					"startupbros/hov-router",
+					"startupbros-com/hov-router",
+					"StartupBros-com/wstack-router",
 				])
 					expect(
 						evaluate(job.if ?? "true", { ...context, repository: wrong }),

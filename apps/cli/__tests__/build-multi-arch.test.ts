@@ -135,6 +135,11 @@ describe("Router build provenance", () => {
 				"https://github.com/StartupBros/hov-router.git",
 				"git@github.com:StartupBros/hov-router.git",
 				"ssh://git@github.com/StartupBros/hov-router.git",
+				// Clones made after the move to the organization (#911).
+				"https://github.com/StartupBros-com/hov-router",
+				"https://github.com/StartupBros-com/hov-router.git",
+				"git@github.com:StartupBros-com/hov-router.git",
+				"ssh://git@github.com/StartupBros-com/hov-router.git",
 			]) {
 				expect(
 					readTombiiTaggedBuildEvidence("1.2.3", context, probe(origin)),
@@ -161,7 +166,10 @@ describe("Router build provenance", () => {
 				"https://github.com/StartupBros/hov-router#main",
 				"https://github.com/StartupBros/hov-router\n",
 				"https://github.com/startupbros/hov-router",
-				"https://github.com/StartupBros-com/hov-router",
+				"https://github.com/startupbros-com/hov-router",
+				"https://github.com/StartupBros-com/hov-router-extra",
+				"https://github.com/StartupBros-com/hov-router/extra",
+				" https://github.com/StartupBros-com/hov-router",
 			])
 				expect(
 					readTombiiTaggedBuildEvidence("1.2.3", context, probe(origin)),

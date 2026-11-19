@@ -6,8 +6,13 @@ reference's [consumer installation and verification instructions](reference.md#i
 This is the operator guide for HoV Router release automation at
 `StartupBros/hov-router`, repository ID `1278801682` (see
 [the repository move](hov-router-migration.md#repository-move)).
-Current automation accepts the current or former exact name only with that
-repository ID and derives the current repository name from validated metadata. Historical release evidence
+The repository is moving from the `StartupBros` personal account to the
+`StartupBros-com` organization ([#911](https://github.com/StartupBros/hov-router/issues/911));
+a transfer keeps the repository ID. Until the move is finished, the automation
+accepts `StartupBros/hov-router` or `StartupBros-com/hov-router`, each only with
+that repository ID and with an owner that matches its name, and derives the
+current name from validated metadata. The pre-rename name
+`StartupBros/wstack-router` is refused. Historical release evidence
 below intentionally keeps the old repository and signer identity.
 The automation stages a verified **draft** GitHub release. It never publishes a
 release, publishes npm packages or images, announces, installs, restarts services,
@@ -186,19 +191,23 @@ retries skip the entire PR job and never mint an App token.
 
 ## Dedicated Router App configuration
 
-1. Use a dedicated App that can be installed on the personal-owned
-   `StartupBros/hov-router` repository.
+1. Use a dedicated App installed on the account that owns the repository:
+   `StartupBros` today, `StartupBros-com` after the move
+   ([#911](https://github.com/StartupBros/hov-router/issues/911)).
    Retain the existing scoped installation and verify its access.
-   Existing private, organization-owned HoV
-   Apps cannot serve this installation; do not broaden their visibility to reuse them.
+   An App installation does not move with a repository transfer, so the move
+   needs an installation on the new owner, with the variable and secret below
+   pointing at that App, before the next release run.
+   A private App can be installed only on the account that owns it; do not
+   broaden an App's visibility to reuse it.
    Grant repository permissions **Contents: read/write**, **Pull requests: read/write**,
    **Issues: read/write** (release labels), and **Actions: read-only** (source CI).
    GitHub's implicit **Metadata: read-only** permission remains. No administration,
    workflow-write, organization permissions, or ruleset bypass is needed.
-2. Scope it on `StartupBros` to **only this Router repository**, `hov-router`.
+2. Scope the installation to **only this Router repository**, `hov-router`.
    Preserve all other repository protection and
-   Actions policies. The token request restricts `owner: StartupBros` and
-   `repositories` to the current name from validated repository metadata, with the
+   Actions policies. The token request restricts `owner` and `repositories` to the
+   current owner and name from validated repository metadata, with the
    four explicit permissions above; neither installation nor request should include
    other repos.
 3. Set repository Actions variable `ROUTER_RELEASE_APP_CLIENT_ID` to the App's

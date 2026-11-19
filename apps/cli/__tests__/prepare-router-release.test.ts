@@ -467,7 +467,11 @@ describe("native tagged release rehearsal", () => {
 
 describe("release source evidence", () => {
 	it("binds the producing name to its exact offline origin forms", () => {
-		for (const repository of ["StartupBros/hov-router"]) {
+		for (const repository of [
+			"StartupBros/hov-router",
+			// The same repository after its move to the organization (#911).
+			"StartupBros-com/hov-router",
+		]) {
 			const identity = { ...expected, repository };
 			for (const origin of [
 				`https://github.com/${repository}`,
@@ -491,6 +495,9 @@ describe("release source evidence", () => {
 				`https://github.com/${repository} `,
 				"https://github.com/StartupBros-com/better-ccflare",
 				"https://github.com/StartupBros/wstack-router",
+				"https://github.com/StartupBros-com/wstack-router",
+				// Each name binds its own origin, never the other owner's.
+				`https://github.com/${repository.startsWith("StartupBros-com/") ? "StartupBros" : "StartupBros-com"}/hov-router`,
 			])
 				expect(() =>
 					validateReleaseSource(
@@ -708,7 +715,11 @@ describe("downloaded release verification (not publisher authentication)", () =>
 		}
 	});
 	it("requires current branding for future releases (fixture)", () => {
-		for (const repository of ["StartupBros/hov-router"]) {
+		for (const repository of [
+			"StartupBros/hov-router",
+			// The same repository after its move to the organization (#911).
+			"StartupBros-com/hov-router",
+		]) {
 			const identity = { ...expected, repository };
 			const current = fixture(undefined, identity);
 			expect(verifyReleaseDirectory(current.dir, identity)).toEqual(
