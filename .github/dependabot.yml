@@ -1,0 +1,41 @@
+# Weekly dependency version updates. Security updates are enabled separately in the
+# repository settings and are not affected by this file.
+#
+# Squash commits must parse for the required `prepare` check (#797). The `chore`
+# prefix keeps each title parseable and out of the release notes. Dependabot's
+# description quotes upstream release notes, and code in them can still fail the
+# parser (5 of 30 sampled public Dependabot pull requests). When `prepare` fails on
+# one, add an override block to the description, as described in
+# docs/hov-router-releases.md, "Squash commits release-please can parse".
+version: 2
+updates:
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      bun-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # The Bun runtime is pinned together in .bun-version, the Dockerfile's
+      # BUN_VERSION and this package.json entry, and the proxy relies on that exact
+      # runtime's behaviour. Upgrade all three by hand in one change.
+      - dependency-name: bun
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      github-actions:
+        patterns: ["*"]
