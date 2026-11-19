@@ -35,14 +35,16 @@ async function readWorkflow(): Promise<Workflow> {
 
 // Configuration regression checks, not a sandbox or a proof about helper behavior.
 describe("unpublished HoV Router artifact preparation workflow", () => {
-	test("has a distinct name and only PR/manual triggers without inputs", async () => {
+	test("has a distinct name and only PR, main-push and manual triggers without inputs", async () => {
 		const workflow = await readWorkflow();
 		expect(workflow.name).toBe("Prepare HoV Router Artifacts");
 		// "edited" re-runs the squash-commit check when the title or description changes.
+		// The push to main checks the merged result: PRs need not be up to date to merge.
 		expect(workflow.on).toEqual({
 			pull_request: {
 				types: ["opened", "synchronize", "reopened", "edited"],
 			},
+			push: { branches: ["main"] },
 			workflow_dispatch: null,
 		});
 	});

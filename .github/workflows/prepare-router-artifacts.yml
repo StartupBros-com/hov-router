@@ -4,6 +4,12 @@ on:
   pull_request:
     # edited: re-run the squash-commit check when the title or description changes.
     types: [opened, synchronize, reopened, edited]
+  # main itself: branch protection no longer requires a PR to be up to date with main
+  # before it merges, so this run checks the merged result. The squash-commit step
+  # passes on a push (no pull request in the event).
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
