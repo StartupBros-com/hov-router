@@ -1,5 +1,37 @@
 # Changelog
 
+## [6.2.0](https://github.com/StartupBros/hov-router/compare/v6.1.0...v6.2.0) (2026-11-20)
+
+
+### Features
+
+* alert when Anthropic refuses an account's organization, and when it accepts it again ([#878](https://github.com/StartupBros/hov-router/issues/878)) ([605ca64](https://github.com/StartupBros/hov-router/commit/605ca64c3bdd6b98f62092cda023fdca2f359f22)), refs [#877](https://github.com/StartupBros/hov-router/issues/877)
+* **dashboard:** put Agents, API Keys, Combos and Settings on the UI kit ([#852](https://github.com/StartupBros/hov-router/issues/852)) ([c0726c7](https://github.com/StartupBros/hov-router/commit/c0726c757c45eaeadb6b38a7bd19aaf72e52afab)), refs [#850](https://github.com/StartupBros/hov-router/issues/850)
+* show Claude extra usage and hold logins off it with the switch on ([#879](https://github.com/StartupBros/hov-router/issues/879)) ([4463907](https://github.com/StartupBros/hov-router/commit/446390748ba63c7f56b230ed5d2ed4ede2e5d9fb)), refs [#876](https://github.com/StartupBros/hov-router/issues/876)
+
+
+### Bug Fixes
+
+* **accounts:** show the last stored Claude usage while the live reading is missing ([#900](https://github.com/StartupBros/hov-router/issues/900)) ([fd7b994](https://github.com/StartupBros/hov-router/commit/fd7b99429b9c482a24d987a46a9605cc33918499)), refs [#872](https://github.com/StartupBros/hov-router/issues/872)
+* **dashboard:** clear the display leftovers from the UI kit PRs ([#855](https://github.com/StartupBros/hov-router/issues/855)) ([ec18a47](https://github.com/StartupBros/hov-router/commit/ec18a47e1faa70803c9a8965e4b0a9e3c576a5aa)), refs [#853](https://github.com/StartupBros/hov-router/issues/853)
+* **dashboard:** draw light-mode text in the foreground colour instead of orange ([#902](https://github.com/StartupBros/hov-router/issues/902)) ([c3d7999](https://github.com/StartupBros/hov-router/commit/c3d79994ea4a404fc5fb19936ec44e8102a33648)), refs [#700](https://github.com/StartupBros/hov-router/issues/700)
+* **dashboard:** draw text on the orange fills in black ([#860](https://github.com/StartupBros/hov-router/issues/860)) ([4cd7dbb](https://github.com/StartupBros/hov-router/commit/4cd7dbb777247ae6d1cfd179b2a48aec6e435968)), refs [#853](https://github.com/StartupBros/hov-router/issues/853)
+* **dashboard:** filter the Requests date range by the exact local times it shows ([#847](https://github.com/StartupBros/hov-router/issues/847)) ([a6e2594](https://github.com/StartupBros/hov-router/commit/a6e25945ae4eab62d4513a4fc42d0d63fcfeebdc))
+* **dashboard:** keep charts, labels and tables readable on phones and tablets ([#873](https://github.com/StartupBros/hov-router/issues/873)) ([d535f22](https://github.com/StartupBros/hov-router/commit/d535f22d9e78608a553e70a6a5489a720b5199cf))
+* **dashboard:** keep every Accounts row action in one place ([#896](https://github.com/StartupBros/hov-router/issues/896)) ([9b882c6](https://github.com/StartupBros/hov-router/commit/9b882c61f0fb3ed6b0fb2b1653a633a769190d89))
+* **dashboard:** label the Combos add-slot fields, reorder combo members by keyboard, and unnest the agent tool checkboxes ([#901](https://github.com/StartupBros/hov-router/issues/901)) ([a73a360](https://github.com/StartupBros/hov-router/commit/a73a3603d3f6c82b088f8ba3470ebdd2a68bbe37))
+* **dashboard:** refresh usage from the Accounts row and keep Clear cooldown beside its status ([#892](https://github.com/StartupBros/hov-router/issues/892)) ([1bfcb34](https://github.com/StartupBros/hov-router/commit/1bfcb34a3d6fab2abe8ed618f269be6485186d21)), refs [#890](https://github.com/StartupBros/hov-router/issues/890)
+* **dashboard:** say a spent model family once, on the Accounts status line ([#897](https://github.com/StartupBros/hov-router/issues/897)) ([0ca34cd](https://github.com/StartupBros/hov-router/commit/0ca34cd58066c1974634a2d3e44148f0b333109a))
+* **dashboard:** say a spent window once on the Accounts row ([#887](https://github.com/StartupBros/hov-router/issues/887)) ([1724ce2](https://github.com/StartupBros/hov-router/commit/1724ce29ccb3cad0e8567405b91125d184b7f40f))
+* **dashboard:** show extra usage on an Accounts row only when it reads on ([#883](https://github.com/StartupBros/hov-router/issues/883)) ([5d5239b](https://github.com/StartupBros/hov-router/commit/5d5239b4e572a8744da96f0c3357c358aaf19eaf)), refs [#876](https://github.com/StartupBros/hov-router/issues/876)
+* **dashboard:** show stored payloads for failed requests and keep chart tooltips on narrow screens ([#863](https://github.com/StartupBros/hov-router/issues/863)) ([15a2209](https://github.com/StartupBros/hov-router/commit/15a2209b14d80ad4082daff7a00c7957ea839302)), refs [#858](https://github.com/StartupBros/hov-router/issues/858)
+* name an Anthropic org refusal on the account card and stop usage checks restarting the usage lockout ([#871](https://github.com/StartupBros/hov-router/issues/871)) ([a977510](https://github.com/StartupBros/hov-router/commit/a97751054f819afa47f19697d724ab03f471d217))
+* **pricing:** value GPT-6.2 Astra and Sol usage ([4c6dfed](https://github.com/StartupBros/hov-router/commit/4c6dfed026262ba995e081fa604ee08d87637245)), refs [#884](https://github.com/StartupBros/hov-router/issues/884)
+* **pricing:** value GPT-6.2 Astra and Sol usage ([#885](https://github.com/StartupBros/hov-router/issues/885)) ([4c6dfed](https://github.com/StartupBros/hov-router/commit/4c6dfed026262ba995e081fa604ee08d87637245))
+* read the runner's millisecond clock from bash, not uutils date ([#881](https://github.com/StartupBros/hov-router/issues/881)) ([7d49d16](https://github.com/StartupBros/hov-router/commit/7d49d1650bc00cc9b227f9216564b35783ed3d00)), refs [#880](https://github.com/StartupBros/hov-router/issues/880)
+* refresh Accounts token marks, routing notices and model lists without a reload ([#868](https://github.com/StartupBros/hov-router/issues/868)) ([ebe2535](https://github.com/StartupBros/hov-router/commit/ebe25357c533bbf8f9bcafc3f1e3ae80048ec3ab)), refs [#866](https://github.com/StartupBros/hov-router/issues/866)
+* the runner no longer blocks its next start after a lost stop, or waits on a helper for good ([#865](https://github.com/StartupBros/hov-router/issues/865)) ([451917f](https://github.com/StartupBros/hov-router/commit/451917f536d73ce4179f1d09f867265712fc5bec)), refs [#859](https://github.com/StartupBros/hov-router/issues/859) [#861](https://github.com/StartupBros/hov-router/issues/861)
+
 ## [6.1.0](https://github.com/StartupBros/hov-router/compare/v6.0.0...v6.1.0) (2026-11-16)
 
 
