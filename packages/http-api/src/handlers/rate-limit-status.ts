@@ -10,7 +10,9 @@
  *      2026-07-09 incident an account at 100% weekly utilization kept showing
  *      "OK" (no snapshot stored) while every upstream request 429'd.
  *   2. the last unified rate-limit header snapshot (`rate_limit_status`),
- *      with minutes until `rate_limit_reset` when that is in the future.
+ *      with minutes until `rate_limit_reset` when that is in the future. A
+ *      soft notice (`allowed_warning`, `queueing_soft`) is skipped once its
+ *      stored reset has passed; see `isExpiredSoftNotice`.
  *   3. the legacy cooldown lock (`rate_limited_until`).
  *   4. "OK".
  */
@@ -53,6 +55,30 @@ function minutesLeft(untilMs: number, now: number): number {
 	return Math.ceil((untilMs - now) / 60000);
 }
 
+/** Header statuses that do not block routing (anthropic provider HARD_LIMIT_STATUSES excludes them). */
+const SOFT_NOTICE_STATUSES = new Set(["allowed_warning", "queueing_soft"]);
+
+/**
+ * True when a soft notice's stored reset has passed. The column is rewritten
+ * only by a response that carries a unified status header, and the stored
+ * reset is clamped to that response time + 24h, so in practice this hides the
+ * notice once a day has gone by without such a response. An idle account
+ * would otherwise keep "Provider warning" across its weekly rollover. Hard
+ * statuses are left alone: the card gives a past-reset hard status its own
+ * label and Clear cooldown action.
+ */
+function isExpiredSoftNotice(
+	status: string,
+	resetMs: number | null,
+	now: number,
+): boolean {
+	return (
+		SOFT_NOTICE_STATUSES.has(status.trim().toLowerCase()) &&
+		resetMs != null &&
+		resetMs <= now
+	);
+}
+
 export function computeRateLimitStatusDisplay(
 	input: RateLimitStatusInput,
 	now: number,
@@ -69,7 +95,10 @@ export function computeRateLimitStatusDisplay(
 		return "usage_exhausted";
 	}
 
-	if (input.rate_limit_status) {
+	if (
+		input.rate_limit_status &&
+		!isExpiredSoftNotice(input.rate_limit_status, input.rate_limit_reset, now)
+	) {
 		if (input.rate_limit_reset && input.rate_limit_reset > now) {
 			return `${input.rate_limit_status} (${minutesLeft(input.rate_limit_reset, now)}m)`;
 		}
