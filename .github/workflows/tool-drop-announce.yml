@@ -28,4 +28,4 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: StartupBros-com/hov-stack/.github/workflows/hov-tool-drop-announce.yml@abf48cc44dbc79818d5005999176afe5e08123dd
+    uses: StartupBros-com/hov-stack/.github/workflows/hov-tool-drop-announce.yml@acac95cdd678ff2be255dc27eef0ac0691cdfcf8

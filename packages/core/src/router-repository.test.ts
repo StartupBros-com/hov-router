@@ -2,24 +2,38 @@ import { expect, test } from "bun:test";
 import {
 	HISTORICAL_WSTACK_RELEASE,
 	isHistoricalWstackRelease,
+	isRouterOwner,
 	isRouterRepository,
+	ROUTER_OWNERS,
 	ROUTER_REPOSITORIES,
 	ROUTER_REPOSITORY_ID,
+	type RouterOwner,
 	type RouterRepository,
 	routerRepositoryOrigins,
 	validateRouterRepository,
 } from "./router-repository";
 
-test("Router authority is exactly one same-owner name and one numeric ID", () => {
-	expect(ROUTER_REPOSITORIES).toEqual(["StartupBros/hov-router"]);
+test("Router authority is one name per owner and one numeric ID", () => {
+	// The personal account and the organization it moves to (#911); a
+	// transfer keeps the numeric ID.
+	expect(ROUTER_OWNERS).toEqual(["StartupBros", "StartupBros-com"]);
+	expect(ROUTER_REPOSITORIES).toEqual([
+		"StartupBros/hov-router",
+		"StartupBros-com/hov-router",
+	]);
 	expect(ROUTER_REPOSITORY_ID).toBe(1278801682);
+	for (const login of ["startupbros", "startupbros-com", "tombii", "", null])
+		expect(isRouterOwner(login)).toBe(false);
 	for (const full_name of ROUTER_REPOSITORIES) {
+		const login = full_name.split("/")[0] as RouterOwner;
+		const otherOwner = ROUTER_OWNERS.find((owner) => owner !== login);
 		const metadata: RouterRepository = {
 			id: 1278801682,
 			full_name,
 			name: "hov-router",
-			owner: { login: "StartupBros" },
+			owner: { login },
 		};
+		expect(isRouterOwner(login)).toBe(true);
 		expect(isRouterRepository(full_name)).toBe(true);
 		expect(validateRouterRepository(metadata)).toEqual(metadata);
 		for (const patch of [
@@ -28,7 +42,9 @@ test("Router authority is exactly one same-owner name and one numeric ID", () =>
 			{ id: "1278801682" },
 			{ id: NaN },
 			{ owner: undefined },
-			{ owner: { login: "startupbros" } },
+			{ owner: { login: login.toLowerCase() } },
+			// Each name binds its own owner: the other accepted owner is refused.
+			{ owner: { login: otherOwner } },
 			{ name: "unrelated" },
 			{ name: [metadata.name] },
 			{ full_name: `other/${metadata.name}` },
@@ -55,6 +71,20 @@ test("Router authority is exactly one same-owner name and one numeric ID", () =>
 			owner: { login: "StartupBros" },
 		}),
 	).toThrow();
+	for (const full_name of [
+		"StartupBros-com/wstack-router",
+		"StartupBros-com/better-ccflare",
+	]) {
+		expect(isRouterRepository(full_name)).toBe(false);
+		expect(() =>
+			validateRouterRepository({
+				id: 1278801682,
+				full_name,
+				name: full_name.split("/")[1],
+				owner: { login: "StartupBros-com" },
+			}),
+		).toThrow();
+	}
 });
 
 test("the former name survives only as the pinned v3.6.2 release identity", () => {
@@ -95,7 +125,9 @@ test("offline origin forms are literal and never require remote ID discovery", (
 		"StartupBros/hov-router-extra",
 		"StartupBros/hov-router/extra",
 		"startupbros/hov-router",
-		"StartupBros-com/hov-router",
+		"startupbros-com/hov-router",
+		"StartupBros-com/hov-router-extra",
+		"StartupBros-com/wstack-router",
 		"StartupBros/wstack-router",
 		"StartupBros/wstack-router.git",
 		"other/hov-router",

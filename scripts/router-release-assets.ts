@@ -400,6 +400,7 @@ if (import.meta.main) {
 				...source,
 				repository: current.full_name,
 				repositoryName: current.name,
+				repositoryOwner: current.owner.login,
 			}),
 		);
 	} else if (command === "artifact-event")

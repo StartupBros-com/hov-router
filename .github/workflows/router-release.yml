@@ -28,7 +28,7 @@ concurrency:
 jobs:
   guard:
     # Mirror packages/core/src/router-repository.ts; fixture tests enforce parity.
-    if: github.repository == 'StartupBros/hov-router' && github.repository_id == '1278801682'
+    if: (github.repository == 'StartupBros/hov-router' || github.repository == 'StartupBros-com/hov-router') && github.repository_id == '1278801682'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -38,6 +38,7 @@ jobs:
       version: ${{ steps.event.outputs.version }}
       repository: ${{ steps.event.outputs.repository }}
       repository-name: ${{ steps.event.outputs.repository-name }}
+      repository-owner: ${{ steps.event.outputs.repository-owner }}
     steps:
       - name: Checkout trusted main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -64,11 +65,12 @@ jobs:
           printf 'version=%s\n' "$(jq -r '.version // ""' <<<"$result")" >> "$GITHUB_OUTPUT"
           printf 'repository=%s\n' "$(jq -er .repository <<<"$result")" >> "$GITHUB_OUTPUT"
           printf 'repository-name=%s\n' "$(jq -er .repositoryName <<<"$result")" >> "$GITHUB_OUTPUT"
+          printf 'repository-owner=%s\n' "$(jq -er .repositoryOwner <<<"$result")" >> "$GITHUB_OUTPUT"
 
   pull-requests:
     # Exact current main only; an explicit draft retry never touches release PRs.
     needs: guard
-    if: github.repository == 'StartupBros/hov-router' && github.repository_id == '1278801682' && github.event_name == 'workflow_run'
+    if: (github.repository == 'StartupBros/hov-router' || github.repository == 'StartupBros-com/hov-router') && github.repository_id == '1278801682' && github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -95,7 +97,9 @@ jobs:
         with:
           client-id: ${{ vars.ROUTER_RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.ROUTER_RELEASE_APP_PRIVATE_KEY }}
-          owner: StartupBros
+          # The validated owner: the App must be installed for whichever owner
+          # holds the repository (the personal account, or StartupBros-com after #911).
+          owner: ${{ needs.guard.outputs.repository-owner }}
           repositories: ${{ needs.guard.outputs.repository-name }}
           permission-contents: write
           permission-pull-requests: write
@@ -111,7 +115,7 @@ jobs:
   drafts:
     # A failed PR step (for example missing App configuration) must not hide an already merged release.
     needs: [guard, pull-requests]
-    if: ${{ !cancelled() && needs.guard.result == 'success' && github.repository == 'StartupBros/hov-router' && github.repository_id == '1278801682' }}
+    if: ${{ !cancelled() && needs.guard.result == 'success' && (github.repository == 'StartupBros/hov-router' || github.repository == 'StartupBros-com/hov-router') && github.repository_id == '1278801682' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

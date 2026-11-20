@@ -1,10 +1,23 @@
 /** Release authority only. Import directly; the core runtime barrel does not need it. */
 export const ROUTER_REPOSITORY_ID = 1278801682;
-export const ROUTER_OWNER = "StartupBros";
+// The repository is moving from the StartupBros personal account to the
+// StartupBros-com organization (#911). A transfer keeps the numeric ID, so both
+// owners are accepted: automation keeps working on either side of the move, and
+// releases published under the personal account keep verifying under the name
+// recorded in their manifests.
+export const ROUTER_OWNERS = ["StartupBros", "StartupBros-com"] as const;
+export type RouterOwner = (typeof ROUTER_OWNERS)[number];
 // GitHub reports the current name for this ID, so the name used before the
 // 2026-10-21 rename (StartupBros/wstack-router) is not an authority.
-export const ROUTER_REPOSITORIES = ["StartupBros/hov-router"] as const;
+export const ROUTER_REPOSITORIES = [
+	"StartupBros/hov-router",
+	"StartupBros-com/hov-router",
+] as const;
 export type RouterRepositoryName = (typeof ROUTER_REPOSITORIES)[number];
+
+export function isRouterOwner(login: unknown): login is RouterOwner {
+	return ROUTER_OWNERS.some((owner) => owner === login);
+}
 
 export function isRouterRepository(
 	name: unknown,
@@ -49,16 +62,19 @@ export interface RouterRepository {
 	id: typeof ROUTER_REPOSITORY_ID;
 	full_name: RouterRepositoryName;
 	name: "hov-router";
-	owner: { login: typeof ROUTER_OWNER };
+	owner: { login: RouterOwner };
 }
 
-/** API/event metadata must prove the stable numeric ID and all exact name fields. */
+/**
+ * API/event metadata must prove the stable numeric ID and all exact name fields;
+ * the owner login must be the owner part of the reported full name.
+ */
 export function validateRouterRepository(metadata: unknown): RouterRepository {
 	const repository = metadata as Partial<RouterRepository> | null | undefined;
 	if (
 		repository?.id !== ROUTER_REPOSITORY_ID ||
 		!isRouterRepository(repository.full_name) ||
-		repository.owner?.login !== ROUTER_OWNER ||
+		!isRouterOwner(repository.owner?.login) ||
 		typeof repository.name !== "string" ||
 		`${repository.owner.login}/${repository.name}` !== repository.full_name
 	)
