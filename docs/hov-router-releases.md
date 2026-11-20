@@ -12,7 +12,10 @@ a transfer keeps the repository ID. Until the move is finished, the automation
 accepts `StartupBros/hov-router` or `StartupBros-com/hov-router`, each only with
 that repository ID and with an owner that matches its name, and derives the
 current name from validated metadata. The pre-rename name
-`StartupBros/wstack-router` is refused. Historical release evidence
+`StartupBros/wstack-router` is refused. The artifact workflow runs from the
+release tag's own copy of the workflow, so a tag cut before the two-owner guards
+landed skips every job once the repository has moved: publish or finish any
+open draft before the transfer. Historical release evidence
 below intentionally keeps the old repository and signer identity.
 The automation stages a verified **draft** GitHub release. It never publishes a
 release, publishes npm packages or images, announces, installs, restarts services,
