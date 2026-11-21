@@ -442,8 +442,8 @@ CMD ["node", "server.js"]
 
 ## 🆘 Need Help?
 
-- **Documentation**: [Full Documentation](https://github.com/StartupBros/hov-router)
-- **Issues**: [GitHub Issues](https://github.com/StartupBros/hov-router/issues)
+- **Documentation**: [Full Documentation](https://github.com/StartupBros-com/hov-router)
+- **Issues**: [GitHub Issues](https://github.com/StartupBros-com/hov-router/issues)
 
 ---
 

@@ -28,13 +28,13 @@ describe("public product identity", () => {
 
 	it("points public metadata to the HoV Router home", () => {
 		expect(cliPackage.repository.url).toBe(
-			"git+https://github.com/StartupBros/hov-router.git",
+			"git+https://github.com/StartupBros-com/hov-router.git",
 		);
 		expect(cliPackage.homepage).toBe(
-			"https://github.com/StartupBros/hov-router#readme",
+			"https://github.com/StartupBros-com/hov-router#readme",
 		);
 		expect(cliPackage.bugs.url).toBe(
-			"https://github.com/StartupBros/hov-router/issues",
+			"https://github.com/StartupBros-com/hov-router/issues",
 		);
 		expect(rootPackage.description).toContain("HoV Router");
 		expect(cliPackage.description).toBe(rootPackage.description);

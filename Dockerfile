@@ -116,7 +116,7 @@ ENV CCFLARE_UPDATE_CHANNEL=${UPDATE_CHANNEL}
 
 LABEL org.opencontainers.image.title="HoV Router"
 LABEL org.opencontainers.image.description="Use your AI accounts from one place, and see which account handled each request. Routes Claude Code and other clients across your provider accounts, with a dashboard for usage, cost and errors."
-LABEL org.opencontainers.image.source="https://github.com/StartupBros/hov-router"
+LABEL org.opencontainers.image.source="https://github.com/StartupBros-com/hov-router"
 LABEL org.opencontainers.image.licenses="MIT"
 
 # Startup banner, then hand over to the binary.

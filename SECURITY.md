@@ -4,7 +4,7 @@
 
 Please report suspected vulnerabilities privately through GitHub private vulnerability reporting:
 
-<https://github.com/StartupBros/hov-router/security/advisories/new>
+<https://github.com/StartupBros-com/hov-router/security/advisories/new>
 
 Do not open a public issue, pull request or discussion for a suspected vulnerability. Public details can put other people's accounts and credentials at risk before a fix exists.
 

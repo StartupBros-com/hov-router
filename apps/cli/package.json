@@ -5,11 +5,11 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/StartupBros/hov-router.git"
+		"url": "git+https://github.com/StartupBros-com/hov-router.git"
 	},
-	"homepage": "https://github.com/StartupBros/hov-router#readme",
+	"homepage": "https://github.com/StartupBros-com/hov-router#readme",
 	"bugs": {
-		"url": "https://github.com/StartupBros/hov-router/issues"
+		"url": "https://github.com/StartupBros-com/hov-router/issues"
 	},
 	"bin": {
 		"hov-router": "dist/better-ccflare",
