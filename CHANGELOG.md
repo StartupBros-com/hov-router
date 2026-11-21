@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.2.3](https://github.com/StartupBros-com/hov-router/compare/v6.2.2...v6.2.3) (2026-11-21)
+
+
+### Bug Fixes
+
+* **deploy:** name the Bun to put on PATH when the toolchain check refuses ([#942](https://github.com/StartupBros-com/hov-router/issues/942)) ([649433d](https://github.com/StartupBros-com/hov-router/commit/649433dbff71d1d75df0238e6f3c4c1d0349fdc8))
+
 ## [6.2.2](https://github.com/StartupBros-com/hov-router/compare/v6.2.1...v6.2.2) (2026-11-21)
 
 
