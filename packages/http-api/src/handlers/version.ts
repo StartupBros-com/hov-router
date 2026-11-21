@@ -106,9 +106,12 @@ function getGhcrNextPage(linkHeader: string | null): string | null {
 			throw new Error("GHCR returned malformed pagination link");
 		}
 		const parameters = match[2].trim();
+		// An unquoted value excludes `"`, so no value parses both quoted and
+		// unquoted; overlapping branches made a failing match backtrack
+		// exponentially in the number of parameters.
 		if (
 			parameters &&
-			!/^;\s*[A-Za-z][A-Za-z0-9_-]*\s*=\s*(?:"[^"]*"|[^;\s]+)(?:\s*;\s*[A-Za-z][A-Za-z0-9_-]*\s*=\s*(?:"[^"]*"|[^;\s]+))*$/.test(
+			!/^;\s*[A-Za-z][A-Za-z0-9_-]*\s*=\s*(?:"[^"]*"|[^;\s"]+)(?:\s*;\s*[A-Za-z][A-Za-z0-9_-]*\s*=\s*(?:"[^"]*"|[^;\s"]+))*$/.test(
 				parameters,
 			)
 		) {
