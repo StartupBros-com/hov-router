@@ -254,6 +254,27 @@ describe.serial("force-reset usage fetches under a usage retry-after", () => {
 	);
 
 	it.serial(
+		"records the fallback's org refusal, and clears it when usage returns (#941)",
+		async () => {
+			const id = newAccount();
+			answer = () =>
+				new Response(
+					'{"type":"error","error":{"type":"permission_error","message":"OAuth authentication is currently not allowed for this organization.","details":{"error_visibility":"user_facing","error_code":"oauth_not_allowed_for_organization"}}}',
+					{ status: 403, headers: { "content-type": "application/json" } },
+				);
+			await clearCooldown(id);
+			expect(usageRequests).toBe(1);
+			expect(usageCache.getOrgRefusedAt(id)).not.toBeNull();
+
+			answer = usage;
+			const body = await clearCooldown(id);
+			expect(body.usagePollTriggered).toBe(true);
+			expect(usageRequests).toBe(2);
+			expect(usageCache.getOrgRefusedAt(id)).toBeNull();
+		},
+	);
+
+	it.serial(
 		"records a 429 from the fallback so the next click sends nothing",
 		async () => {
 			const id = newAccount();
