@@ -1,5 +1,16 @@
 # Changelog
 
+## [6.2.1](https://github.com/StartupBros-com/hov-router/compare/v6.2.0...v6.2.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **dashboard:** drop a stale Provider warning once its reset has passed ([#914](https://github.com/StartupBros-com/hov-router/issues/914)) ([79f2222](https://github.com/StartupBros-com/hov-router/commit/79f2222fccb66caac044b9d5b870c291a7c3f9c6))
+* **dashboard:** finish the Recent Errors copy corrections the code check called for ([#925](https://github.com/StartupBros-com/hov-router/issues/925)) ([c692744](https://github.com/StartupBros-com/hov-router/commit/c6927441ff9c8d7d102d677d8a583633124180d4)), refs [#918](https://github.com/StartupBros-com/hov-router/issues/918)
+* **dashboard:** give Recent Errors and Routing attempts plain titles for router codes ([#922](https://github.com/StartupBros-com/hov-router/issues/922)) ([435217b](https://github.com/StartupBros-com/hov-router/commit/435217b3d20e2453c35ad7a1fe6fdadde03c0f6f)), refs [#918](https://github.com/StartupBros-com/hov-router/issues/918)
+* **dashboard:** show Near weekly limit from the usage poll, not a stale header ([#920](https://github.com/StartupBros-com/hov-router/issues/920)) ([a5450e9](https://github.com/StartupBros-com/hov-router/commit/a5450e9af07c9edac545525db1d1310a71f72e27)), refs [#917](https://github.com/StartupBros-com/hov-router/issues/917)
+* **proxy:** stop retrying a windowless 429 on the other subscription accounts ([#919](https://github.com/StartupBros-com/hov-router/issues/919)) ([ed8b005](https://github.com/StartupBros-com/hov-router/commit/ed8b0055e4a61a282522f27315f7f0de59001ff0)), refs [#916](https://github.com/StartupBros-com/hov-router/issues/916)
+
 ## [6.2.0](https://github.com/StartupBros/hov-router/compare/v6.1.0...v6.2.0) (2026-11-20)
 
 
