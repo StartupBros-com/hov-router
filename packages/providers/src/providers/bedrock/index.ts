@@ -20,6 +20,10 @@
  */
 
 export {
+	hasAwsCredentialsProfile,
+	readAwsConfigRegion,
+} from "./aws-profile-files";
+export {
 	createBedrockCredentialChain,
 	parseBedrockConfig,
 } from "./credentials";

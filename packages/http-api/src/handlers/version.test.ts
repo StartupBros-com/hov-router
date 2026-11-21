@@ -531,6 +531,33 @@ describe("fixed GHCR update adapter", () => {
 		expect(requests).toHaveLength(2);
 	});
 
+	it("rejects a malformed pagination link without backtracking over it", async () => {
+		// `""` once parsed as either a quoted or an unquoted value, so each
+		// repetition doubled the work before the trailing " x" failed the match.
+		// At 26 repetitions that held the event loop for seconds.
+		const parameters = `;A=!${';A=""'.repeat(26)} x`;
+		const requests: Array<{ url: string; init?: RequestInit }> = [];
+		installFetchFixture(
+			[
+				jsonResponse({ token: "public-pull-token" }),
+				jsonResponse(
+					{ tags: ["v1.2.0"] },
+					{ headers: { Link: `<${ghcrTagsUrl}?page=2>${parameters}` } },
+				),
+			],
+			requests,
+		);
+
+		const started = performance.now();
+		const result = await ghcrService().check();
+		const elapsedMs = performance.now() - started;
+
+		expectLookupFailure(result);
+		expect(result.reason).toContain("malformed pagination link");
+		expect(requests).toHaveLength(2);
+		expect(elapsedMs).toBeLessThan(500);
+	});
+
 	it("fails closed when a pagination link cycles", async () => {
 		const requests: Array<{ url: string; init?: RequestInit }> = [];
 		installFetchFixture(
