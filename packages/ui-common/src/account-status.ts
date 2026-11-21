@@ -9,6 +9,11 @@ export interface AccountStatusInput {
 	usageThrottledUntil?: number | null;
 	/** Why the router benched the account; read only while the bench is live. */
 	rateLimitedReason?: string | null;
+	/**
+	 * When the account's latest usage check was refused by Anthropic for its
+	 * organization (#941); null once a check returns usage again.
+	 */
+	usageOrgRefusedAt?: number | null;
 	provider?: string | null;
 	/** The account's latest usage poll, as the accounts API returns it. */
 	usageData?: unknown;
@@ -140,9 +145,17 @@ export function classifyAccountStatus(input: AccountStatusInput, now: number) {
 	const reauth =
 		!!input.requiresReauth || input.pauseReason === "oauth_invalid_grant";
 	const cooldown = isFutureDeadline(input.rateLimitedUntil, now);
-	// Anthropic 403 permission_error: no local action clears it (#869).
-	const refused =
+	// Anthropic 403 permission_error: no local action clears it (#869). The
+	// stored reason outlives recovery, so it counts only while the bench is
+	// live. A refused usage check counts on its own (#941), unless a live
+	// bench for another cause is fresher: a served request does not clear the
+	// usage record, and that bench is one the operator can clear.
+	const orgBench =
 		cooldown && input.rateLimitedReason === "org_permission_denied";
+	const usageRefused =
+		typeof input.usageOrgRefusedAt === "number" &&
+		Number.isFinite(input.usageOrgRefusedAt);
+	const refused = orgBench || (usageRefused && !cooldown);
 	const pacing = isFutureDeadline(input.usageThrottledUntil, now);
 	const refreshDelayed = isFutureDeadline(input.usageRateLimitedUntil, now);
 	const exhausted = /^(usage_exhausted|usage exhausted)(?:$|\s)/.test(base);
@@ -229,8 +242,11 @@ export function classifyAccountStatus(input: AccountStatusInput, now: number) {
 		pacing,
 		reauth,
 		cooldown,
-		capacityAttention: cooldown || exhausted || hard || pacing,
-		overview: cooldown || exhausted || hard || pacing,
+		// A refusal the card shows needs attention even with no bench; a paused
+		// account is the operator's to leave alone.
+		capacityAttention:
+			cooldown || exhausted || hard || pacing || reason === "refused",
+		overview: cooldown || exhausted || hard || pacing || reason === "refused",
 		clearCooldown:
 			(clearableHard || cooldown) && !input.paused && reason !== "refused",
 		canResume: !reauth,

@@ -992,6 +992,7 @@ export function createAccountsListHandler(
 						: null,
 					usageData: fullUsageData, // Full usage data for UI
 					usageRateLimitedUntil: usageCache.getRateLimitedUntil(account.id),
+					usageOrgRefusedAt: usageCache.getOrgRefusedAt(account.id),
 					usageThrottledUntil,
 					usageThrottledWindows,
 					hasRefreshToken:
@@ -3696,9 +3697,10 @@ export function createAccountForceResetRateLimitHandler(
 				account.access_token &&
 				usageCache.getRateLimitedUntil(accountId) === null
 			) {
-				const { data: usageData, retryAfterMs } = await fetchUsageData(
-					account.access_token,
-				);
+				const startedAt = Date.now();
+				const result = await fetchUsageData(account.access_token);
+				const { data: usageData, retryAfterMs } = result;
+				usageCache.noteOrgUsageCheck(accountId, result, startedAt);
 				if (retryAfterMs != null) {
 					usageCache.recordUsageRetryAfter(accountId, retryAfterMs);
 				}
@@ -4580,6 +4582,7 @@ export function createAccountRefreshUsageHandler(dbOps: DatabaseOperations) {
 			}
 
 			clearAccountRefreshCache(accountId);
+			const refreshStartedAt = Date.now();
 			// The restart resolves once the new poll has registered, so this
 			// refresh joins its first usage fetch and the reply waits for it.
 			const pollingRestarted = await restartUsagePollingForAccount(accountId);
@@ -4587,6 +4590,15 @@ export function createAccountRefreshUsageHandler(dbOps: DatabaseOperations) {
 			const usageLockedUntil = cacheRefreshed
 				? null
 				: usageCache.getRateLimitedUntil(accountId);
+			// Only this refresh's own check, refused by Anthropic for the
+			// organization (#941). An older refusal stays on record through a
+			// 5xx, a 429 or a check that never ran, and then says nothing about
+			// this attempt.
+			const usageOrgRefusedAt = cacheRefreshed
+				? null
+				: usageCache.getOrgRefusedAt(accountId);
+			const usageOrgRefused =
+				usageOrgRefusedAt !== null && usageOrgRefusedAt >= refreshStartedAt;
 
 			log.info(
 				`Usage refresh requested for account '${account.name}' (polling restarted: ${pollingRestarted}, cache refreshed: ${cacheRefreshed})`,
@@ -4596,11 +4608,13 @@ export function createAccountRefreshUsageHandler(dbOps: DatabaseOperations) {
 				success: true,
 				message: cacheRefreshed
 					? `Usage refreshed for account '${account.name}'.`
-					: pollingRestarted && usageLockedUntil !== null
-						? `The usage endpoint asked the router to wait until ${new Date(usageLockedUntil).toISOString()} for account '${account.name}'; usage updates then.`
-						: pollingRestarted
-							? `Usage polling restarted for account '${account.name}', but the first usage fetch did not finish; usage updates on the next poll.`
-							: `Polling could not be restarted for account '${account.name}' — usage data may not update.`,
+					: usageOrgRefused
+						? `Anthropic refused the latest usage check for account '${account.name}' for its organization (403 permission_error). Check billing and Claude Code access on claude.ai; the card shows Anthropic refused until a usage check is accepted.`
+						: pollingRestarted && usageLockedUntil !== null
+							? `The usage endpoint asked the router to wait until ${new Date(usageLockedUntil).toISOString()} for account '${account.name}'; usage updates then.`
+							: pollingRestarted
+								? `Usage polling restarted for account '${account.name}', but the first usage fetch did not finish; usage updates on the next poll.`
+								: `Polling could not be restarted for account '${account.name}' — usage data may not update.`,
 				pollingRestarted,
 				cacheRefreshed,
 			});

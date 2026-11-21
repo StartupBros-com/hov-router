@@ -11,7 +11,11 @@ import {
 import { EventEmitter } from "node:events";
 import type { Config } from "@better-ccflare/config";
 import { orgPermissionDeniedEvents, requestEvents } from "@better-ccflare/core";
-import { BunSqlAdapter, ensureSchema } from "@better-ccflare/database";
+import {
+	BunSqlAdapter,
+	ensureSchema,
+	runMigrations,
+} from "@better-ccflare/database";
 import type { AlertEvent, RequestResponse } from "@better-ccflare/types";
 import { AlertService, buildDiscordAlertContent } from "../alerts";
 
@@ -93,6 +97,21 @@ function served(
 	requestEvents.emit("event", { type: "summary", payload });
 }
 
+/** One usage check's verdict on the organization (#941), as the usage
+ * cache reports it. */
+function usageCheck(
+	outcome: "refused" | "accepted",
+	startedAt: number,
+	accountId = ACCOUNT.accountId,
+): void {
+	orgPermissionDeniedEvents.emit("usage", {
+		accountId,
+		outcome,
+		startedAt,
+		answeredAt: startedAt + 1_000,
+	});
+}
+
 describe("AlertService org_permission_denied episodes", () => {
 	let sqlite: Database;
 	let adapter: BunSqlAdapter;
@@ -130,6 +149,8 @@ describe("AlertService org_permission_denied episodes", () => {
 	beforeEach(() => {
 		sqlite = new Database(":memory:");
 		ensureSchema(sqlite);
+		// The accounts table gains `paused` in a migration, as in production.
+		runMigrations(sqlite);
 		adapter = new BunSqlAdapter(sqlite);
 		service = new AlertService(adapter, makeConfig());
 		originalFetch = globalThis.fetch;
@@ -283,5 +304,145 @@ describe("AlertService org_permission_denied episodes", () => {
 		expect(recovered).toStartWith(
 			"**INFO: Anthropic accepts this account's organization again.**",
 		);
+	});
+
+	describe("usage checks (#941)", () => {
+		const addAccount = (id: string, name: string, paused = 0) =>
+			sqlite.run(
+				"INSERT INTO accounts (id, name, created_at, paused) VALUES (?, ?, ?, ?)",
+				[id, name, Date.now(), paused],
+			);
+
+		beforeEach(() => {
+			addAccount(ACCOUNT.accountId, ACCOUNT.accountName);
+		});
+
+		it("pings when a usage check is refused and no request was", async () => {
+			// An account nobody routes to is still polled; its refusal must not
+			// wait for a request to be noticed.
+			usageCheck("refused", t0);
+			await waitFor(() => fetchMock.mock.calls.length === 1);
+			usageCheck("refused", t0 + 30 * 60_000);
+			await Bun.sleep(30);
+
+			const alerts = await service.listAlerts();
+			expect(alerts).toHaveLength(1);
+			expect(alerts[0]?.severity).toBe("critical");
+			expect(alerts[0]?.account).toBe("max-primary");
+			expect(alerts[0]?.message).toContain("usage check");
+			expect(alerts[0]?.message).toContain("billing");
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+		});
+
+		it("pings recovered on an accepted usage check, with no traffic, once the usage check was refused too", async () => {
+			// 2026-11-21: one refused request opened the episode, the usage check
+			// was refused every 30 min, and nothing closed it until traffic.
+			refuse(t0);
+			usageCheck("refused", t0 + 20_000);
+			await waitFor(() => fetchMock.mock.calls.length === 1);
+			await Bun.sleep(30);
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+
+			usageCheck("accepted", t0 + 5 * 60_000);
+			await waitFor(() => fetchMock.mock.calls.length === 2);
+			usageCheck("accepted", t0 + 6 * 60_000);
+			await Bun.sleep(30);
+
+			const [recovered, ...more] = ofPhase(
+				await service.listAlerts(),
+				"recovered",
+			);
+			expect(more).toHaveLength(0);
+			expect(recovered?.severity).toBe("info");
+			expect(recovered?.account).toBe("max-primary");
+			expect(recovered?.message).toContain("usage check");
+			expect(recovered?.message).toContain("5 min");
+			expect(recovered?.requestId).toBeNull();
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+		});
+
+		it("does not let an accepted usage check close an episode only requests were refused in", async () => {
+			// The usage endpoint answering says nothing about /v1/messages unless
+			// it refused too; Claude Code access can be off while usage works.
+			refuse(t0);
+			await waitFor(() => fetchMock.mock.calls.length === 1);
+
+			usageCheck("accepted", t0 + 60_000);
+			await Bun.sleep(30);
+			expect(ofPhase(await service.listAlerts(), "recovered")).toHaveLength(0);
+
+			served(t0 + 120_000);
+			await waitFor(() => fetchMock.mock.calls.length === 2);
+		});
+
+		it("ignores an accepted usage check that started before the latest refusal", async () => {
+			usageCheck("refused", t0);
+			await waitFor(() => fetchMock.mock.calls.length === 1);
+			refuse(t0 + 120_000);
+
+			usageCheck("accepted", t0 + 60_000);
+			await Bun.sleep(30);
+			expect(ofPhase(await service.listAlerts(), "recovered")).toHaveLength(0);
+
+			usageCheck("accepted", t0 + 180_000);
+			await waitFor(() => fetchMock.mock.calls.length === 2);
+		});
+
+		it("closes a usage-opened episode when the account serves a request", async () => {
+			usageCheck("refused", t0);
+			await waitFor(() => fetchMock.mock.calls.length === 1);
+
+			served(t0 + 60_000);
+			await waitFor(() => fetchMock.mock.calls.length === 2);
+			const [recovered] = ofPhase(await service.listAlerts(), "recovered");
+			expect(recovered?.message).toContain("served a request");
+		});
+
+		it("opens one episode when a usage refusal and a request refusal arrive together", async () => {
+			usageCheck("refused", t0);
+			refuse(t0 + 500);
+			await waitFor(() => fetchMock.mock.calls.length === 1);
+			await Bun.sleep(30);
+
+			expect(ofPhase(await service.listAlerts(), "refused")).toHaveLength(1);
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+
+			// The usage refusal still counts in that episode, so an accepted
+			// usage check can close it.
+			usageCheck("accepted", t0 + 60_000);
+			await waitFor(() => fetchMock.mock.calls.length === 2);
+		});
+
+		it("stays quiet for a paused account and for one it cannot find", async () => {
+			addAccount("acc-paused", "max-paused", 1);
+			usageCheck("refused", t0, "acc-paused");
+			usageCheck("refused", t0, "acc-removed");
+			await Bun.sleep(50);
+
+			expect(await service.listAlerts()).toHaveLength(0);
+			expect(fetchMock).toHaveBeenCalledTimes(0);
+		});
+
+		it("counts a paused account's usage refusal in an episode a request refusal opened during the lookup", async () => {
+			addAccount("acc-paused", "max-paused", 1);
+			usageCheck("refused", t0, "acc-paused");
+			refuse(t0 + 500, "acc-paused");
+			await waitFor(() => fetchMock.mock.calls.length === 1);
+
+			usageCheck("accepted", t0 + 60_000, "acc-paused");
+			await waitFor(() => fetchMock.mock.calls.length === 2);
+			expect(ofPhase(await service.listAlerts(), "recovered")).toHaveLength(1);
+		});
+
+		it("alerts on the next refused usage check when the first alert could not be saved", async () => {
+			failNextOrgAlertWrite();
+			usageCheck("refused", t0);
+			await Bun.sleep(30);
+			expect(await service.listAlerts()).toHaveLength(0);
+
+			usageCheck("refused", t0 + 30 * 60_000);
+			await waitFor(() => fetchMock.mock.calls.length === 1);
+			expect(ofPhase(await service.listAlerts(), "refused")).toHaveLength(1);
+		});
 	});
 });
