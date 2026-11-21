@@ -488,7 +488,7 @@ Use `Refs`, not `Closes` or `Fixes`: merging never deploys this project, so a cl
 4. **Documentation**: Ensure docs are updated if needed
 5. **Merge**: A maintainer merges a PR from outside the project with a merge commit, so your commits and authorship stay in history; maintainers' own PRs are squash-merged
 
-**Note**: Every pull request runs two required checks, `managed-routing-foundation` (`.github/workflows/managed-routing-postgres.yml`) and `prepare` (`.github/workflows/prepare-router-artifacts.yml`), and `main` only accepts branches that are up to date with it. `prepare` also fails a pull request whose squash commit release-please cannot parse, and re-runs when you edit the title or description ([how to fix it](hov-router-releases.md#squash-commits-release-please-can-parse)). Run the local checks above before pushing. The repository has no PR template file; follow the template in this guide.
+**Note**: Every pull request runs two required checks, `managed-routing-foundation` (`.github/workflows/managed-routing-postgres.yml`) and `prepare` (`.github/workflows/prepare-router-artifacts.yml`). A branch need not be up to date with `main` to merge; both checks run again on `main` after each merge. `prepare` also fails a pull request whose squash commit release-please cannot parse, and re-runs when you edit the title or description ([how to fix it](hov-router-releases.md#squash-commits-release-please-can-parse)). Run the local checks above before pushing. The repository has no PR template file; follow the template in this guide.
 
 ### After PR is Merged
 

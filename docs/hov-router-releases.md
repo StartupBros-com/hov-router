@@ -615,12 +615,16 @@ PRs created or updated with the built-in `GITHUB_TOKEN` produce approval-require
 PRs avoid that token-specific manual approval gate. This wiring does not prove
 that the live installation will trigger CI: verify the actual release PR and its checks.
 
-The strict required checks have been verified live as `managed-routing-foundation`
-and `prepare`, both bound to the GitHub Actions integration **15368**. Preserve that
-binding and all other policies. The App receives no bypass; required PR CI is neither
-waived nor automatically dispatched by this change. If checks are held for approval,
-suppressed or unavailable, the PR remains blocked until normal approval and CI
-requirements are satisfied. Unattended release-PR merging is outside this increment.
+The required checks have been verified live as `managed-routing-foundation` and
+`prepare`, both bound to the GitHub Actions integration **15368**. Since 2026-11-19
+([#909](https://github.com/StartupBros-com/hov-router/pull/909)), `main` no longer
+requires a pull request to be up to date with it before it merges: both checks also
+run on every push to `main`, so the merged result is tested right after the merge.
+Preserve that binding and all other policies. The App receives no bypass; required
+PR CI is neither waived nor automatically dispatched by this change. If checks are
+held for approval, suppressed or unavailable, the PR remains blocked until normal
+approval and CI requirements are satisfied. Unattended release-PR merging is outside
+this increment.
 
 ## Containment
 
