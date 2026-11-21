@@ -1,10 +1,9 @@
 /** Release authority only. Import directly; the core runtime barrel does not need it. */
 export const ROUTER_REPOSITORY_ID = 1278801682;
-// The repository is moving from the StartupBros personal account to the
-// StartupBros-com organization (#911). A transfer keeps the numeric ID, so both
-// owners are accepted: automation keeps working on either side of the move, and
-// releases published under the personal account keep verifying under the name
-// recorded in their manifests.
+// The repository moved from the StartupBros personal account to the
+// StartupBros-com organization on 2026-11-20 (#911). A transfer keeps the
+// numeric ID, so both owners are accepted: releases published under the
+// personal account keep verifying under the name recorded in their manifests.
 export const ROUTER_OWNERS = ["StartupBros", "StartupBros-com"] as const;
 export type RouterOwner = (typeof ROUTER_OWNERS)[number];
 // GitHub reports the current name for this ID, so the name used before the

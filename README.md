@@ -2,7 +2,7 @@
 
 Use your AI accounts from one place, and see which account handled each request. HoV Router connects Claude Code to your chosen providers, routes requests across available accounts, and shows usage, costs, and errors in a dashboard. Run one Router privately over Tailscale for several computers, or start with one local computer.
 
-[![Release](https://img.shields.io/github/v/release/StartupBros/hov-router)](https://github.com/StartupBros/hov-router/releases)
+[![Release](https://img.shields.io/github/v/release/StartupBros-com/hov-router)](https://github.com/StartupBros-com/hov-router/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 HoV Router is a fork of [tombii/better-ccflare](https://github.com/tombii/better-ccflare). Thanks to [tombii](https://github.com/tombii) and the better-ccflare contributors for the router it builds on. Since the fork it has added banked-reset tracking, Codex route pools that follow a model line, per-provider health reporting and a Linux binary with signed build provenance, and it moved SQLite's heavy reads and writes onto worker threads.
@@ -14,7 +14,7 @@ Copy this into **Claude Code or another coding agent with access to your compute
 ```text
 Help me set up HoV Router for Claude Code.
 
-Read https://github.com/StartupBros/hov-router/blob/main/docs/agent-setup.md
+Read https://github.com/StartupBros-com/hov-router/blob/main/docs/agent-setup.md
 First determine whether to connect to an existing Router or host a new one.
 Reuse an existing Router instead of installing another or repeating provider
 setup. Preserve my working settings and login. Ask before paid usage,
@@ -43,15 +43,15 @@ Router doesn't create more quota or make a paid provider free. If every eligible
 
 Shared clients need Claude Code and access to the confirmed server, not a Router binary. The limits below concern the **server**, not the client OS.
 
-- **Linux x86_64:** [HoV Router 6.2.0](https://github.com/StartupBros/hov-router/releases/tag/v6.2.0) has a standalone binary with a pinned checksum and signed build provenance. It doesn't need Node.js or Bun to run.
+- **Linux x86_64:** [HoV Router 6.2.0](https://github.com/StartupBros-com/hov-router/releases/tag/v6.2.0) has a standalone binary with a pinned checksum and signed build provenance. It doesn't need Node.js or Bun to run.
 - **Source builds:** instructions use a POSIX shell on Linux/macOS, or WSL on Windows, with Git, Node.js, and Bun 1.4.2. The source-install acceptance check runs on Linux x86_64; macOS and native Windows installation have not been verified here.
 - **Other distributions:** Router does not publish npm packages, container images, or binaries for other platforms. The upstream better-ccflare packages and downloads are a different distribution.
 
-Use `hov-router`; older command names such as `better-ccflare` remain compatible, with unchanged storage/configuration names. See [migration and rollback](docs/hov-router-migration.md). The repository was renamed to [StartupBros/hov-router](https://github.com/StartupBros/hov-router) on 2026-10-21; it is the same repository, not a new fork.
+Use `hov-router`; older command names such as `better-ccflare` remain compatible, with unchanged storage/configuration names. See [migration and rollback](docs/hov-router-migration.md). The repository, renamed `StartupBros/hov-router` on 2026-10-21, moved to [StartupBros-com/hov-router](https://github.com/StartupBros-com/hov-router) on 2026-11-20; it is the same repository, not a new fork.
 
 ## Help and contributions
 
-Start with [troubleshooting](docs/troubleshooting.md) or the [documentation index](docs/index.md) for configuration, providers, routing, and deployment. Report Router problems at [StartupBros/hov-router/issues](https://github.com/StartupBros/hov-router/issues). Include your platform, version, and the failing step; remove credentials and private request content.
+Start with [troubleshooting](docs/troubleshooting.md) or the [documentation index](docs/index.md) for configuration, providers, routing, and deployment. Report Router problems at [StartupBros-com/hov-router/issues](https://github.com/StartupBros-com/hov-router/issues). Include your platform, version, and the failing step; remove credentials and private request content.
 
 Issues and pull requests are welcome. For non-trivial changes, open an issue first to agree on the approach. See the [contribution guide](docs/contributing.md).
 

@@ -27,7 +27,7 @@ describe("documented source installer shell (synthetic artifact, not native buil
 	it("installs both names from the unchanged build filename in a fresh clone without overwriting commands or profiles", () => {
 		const reference = readFileSync(join(root, "docs/reference.md"), "utf8");
 		expect(reference).toContain(
-			"git clone https://github.com/StartupBros/hov-router.git\ncd hov-router\n",
+			"git clone https://github.com/StartupBros-com/hov-router.git\ncd hov-router\n",
 		);
 		const commands = reference
 			.split("<!-- source-install-local -->")[1]
@@ -98,7 +98,7 @@ describe("documented source install", () => {
 		const readme = readFileSync(join(root, "README.md"), "utf8");
 		expect(readme.startsWith(`# ${PRODUCT_NAME}\n`)).toBe(true);
 		expect(readme).toContain(
-			"https://github.com/StartupBros/hov-router/issues",
+			"https://github.com/StartupBros-com/hov-router/issues",
 		);
 		expect(readme).toContain("https://github.com/tombii/better-ccflare");
 		expect(readme).toContain("https://github.com/snipeship/ccflare");
@@ -130,7 +130,7 @@ describe("documented source install", () => {
 		const prompt = readme.match(/```text\n([\s\S]*?)```/)?.[1];
 		expect(prompt).toBeDefined();
 		expect(prompt).toContain(
-			"https://github.com/StartupBros/hov-router/blob/main/docs/agent-setup.md",
+			"https://github.com/StartupBros-com/hov-router/blob/main/docs/agent-setup.md",
 		);
 		const guide = readFileSync(join(root, "docs/agent-setup.md"), "utf8");
 		for (const anchor of [
@@ -230,7 +230,7 @@ describe("documented source install", () => {
 	it("installs the built fork under both names with identical version/source evidence and config behavior while preserving legacy storage", () => {
 		const reference = readFileSync(join(root, "docs/reference.md"), "utf8");
 		expect(reference).toContain(
-			"git clone https://github.com/StartupBros/hov-router.git\ncd hov-router\n",
+			"git clone https://github.com/StartupBros-com/hov-router.git\ncd hov-router\n",
 		);
 		const section = reference.split("<!-- source-install-local -->")[1];
 		expect(section).toBeDefined();

@@ -70,7 +70,7 @@ Before you begin, ensure you have the following installed:
 
 3. **Add the upstream remote**:
    ```bash
-   git remote add upstream https://github.com/StartupBros/hov-router.git
+   git remote add upstream https://github.com/StartupBros-com/hov-router.git
    ```
 
 4. **Install dependencies**:
