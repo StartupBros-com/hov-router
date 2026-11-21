@@ -934,7 +934,7 @@ Get recent error groups only: the same groups as `recentErrors` in `GET /api/sta
 {
   "recentErrors": [
     {
-      "errorCode": "overloaded_error",
+      "errorCode": "upstream_error",
       "accountId": "account-id",
       "accountName": "work",
       "occurrenceCount": 3,
@@ -947,6 +947,8 @@ Get recent error groups only: the same groups as `recentErrors` in `GET /api/sta
 ```
 
 Each group also carries `provider`, `model`, `statusCode`, `path`, `failoverAttempts` and the account's rate-limit fields, as in `GET /api/stats`.
+
+`errorCode` is the request's stored `error_message`: the router's own terminal kind, or, when no route was left after an upstream attempt, that attempt's cause. It is not the error code in the reply the client received. For example, a request that ended in a 529 `native_route_temporarily_unavailable` reply is grouped as `upstream_error` ([why](solutions/observability/recent-errors-shows-the-stored-terminal-cause-not-the-client-reply-code.md)).
 
 **Example:**
 ```bash

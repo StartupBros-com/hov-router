@@ -20,6 +20,8 @@ import { createOAuthFlow } from "@better-ccflare/oauth-flow";
 import {
 	generatePKCE,
 	getOAuthProvider,
+	hasAwsCredentialsProfile,
+	readAwsConfigRegion,
 	type TokenRefreshResult as TokenResult,
 	XAI_DEFAULT_ENDPOINT,
 	XAI_MODEL_MAPPINGS,
@@ -552,9 +554,7 @@ function checkAwsProfileExists(profile: string): boolean {
 	try {
 		const credentialsPath = join(homedir(), ".aws", "credentials");
 		const content = readFileSync(credentialsPath, "utf-8");
-		// Match [profile] section header (handles default and named profiles)
-		const profileRegex = new RegExp(`^\\[${profile}\\]`, "m");
-		return profileRegex.test(content);
+		return hasAwsCredentialsProfile(content, profile);
 	} catch {
 		return false;
 	}
@@ -568,14 +568,7 @@ function readAwsRegion(profile: string): string | null {
 	try {
 		const configPath = join(homedir(), ".aws", "config");
 		const content = readFileSync(configPath, "utf-8");
-		// In ~/.aws/config, the default profile is [default], named profiles are [profile <name>]
-		const sectionHeader =
-			profile === "default" ? "\\[default\\]" : `\\[profile ${profile}\\]`;
-		const sectionRegex = new RegExp(`${sectionHeader}[\\s\\S]*?(?=\\[|$)`);
-		const sectionMatch = content.match(sectionRegex);
-		if (!sectionMatch) return null;
-		const regionMatch = sectionMatch[0].match(/^region\s*=\s*(.+)$/m);
-		return regionMatch ? regionMatch[1].trim() : null;
+		return readAwsConfigRegion(content, profile);
 	} catch {
 		return null;
 	}

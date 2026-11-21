@@ -2712,6 +2712,59 @@ describe("Claude Code gateway model route profiles", () => {
 	});
 
 	it.each([
+		["a weekly window spent until days from now", "weekly_all", 72, "false"],
+		["a session window resetting within hours", "session", 2, null],
+	] as const)("tells the client whether %s on an exact route is worth retrying", async (_label, kind, hoursUntilReset, shouldRetry) => {
+		const routed = makeAccount();
+		const resetAt = new Date(Date.now() + hoursUntilReset * 60 * 60 * 1000);
+		usageCache.set(routed.id, {
+			spend: { enabled: false },
+			limits: [
+				{
+					kind,
+					percent: 100,
+					resets_at: resetAt.toISOString(),
+					scope: null,
+					is_active: true,
+				},
+			],
+		} as never);
+		const harness = makeContext(makeRegistry(), { accounts: [routed] });
+		const { fetchMock } = installJsonUpstream();
+		const request = apiRequest("/v1/messages", PROFILE_MODEL);
+
+		const response = await handleProxy(
+			request,
+			new URL(request.url),
+			harness.ctx,
+			"key-1",
+		);
+
+		expect(response.status).toBe(503);
+		expect(response.headers.get("x-should-retry")).toBe(shouldRetry);
+		const payload = (await response.json()) as {
+			error: Record<string, unknown>;
+		};
+		expect(payload.error).toMatchObject({
+			type: "force_route_unavailable",
+			reason: "account_capacity_exhausted",
+		});
+		const message = String(payload.error.message);
+		expect(
+			message.includes(`resets ${resetAt.toISOString()} at the earliest`),
+		).toBe(shouldRetry === "false");
+		expect(message.includes("choose another model with /model")).toBe(
+			shouldRetry === "false",
+		);
+		expect(payload.error).not.toHaveProperty("account_id");
+		expect(JSON.stringify(payload)).not.toContain(ROUTE_ACCOUNT_ID);
+		for (const [name, value] of response.headers) {
+			expect(`${name}: ${value}`).not.toContain(ROUTE_ACCOUNT_ID);
+		}
+		expect(fetchMock).toHaveBeenCalledTimes(0);
+	});
+
+	it.each([
 		["every candidate is paused by an operator", ["manual", "manual"], "false"],
 		["one candidate's pause clears on its own", ["manual", "overage"], null],
 	] as const)("tells the client whether a capability pool is worth retrying when %s", async (_label, pauseReasons, shouldRetry) => {

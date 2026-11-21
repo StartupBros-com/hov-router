@@ -277,11 +277,17 @@ function forceRouteUnavailableResponse(
 	let message = error.message;
 	if (!error.retryable) {
 		// Clients such as Claude Code retry a 503 about ten times before showing
-		// it. This one cannot clear until an operator acts, so say so at once.
+		// it. This one cannot clear until an operator acts or a far usage reset
+		// passes, so say so at once.
 		headers["x-should-retry"] = "false";
-		message += routeProfile
-			? ". Retrying will not help until an operator changes this route or its account; choose another model with /model."
-			: ". Retrying will not help until an operator changes this account or the request's routing headers.";
+		if (error.reopensAt !== null) {
+			message += `. Its usage limit resets ${new Date(error.reopensAt).toISOString()} at the earliest; retrying will not help before then`;
+			message += routeProfile ? "; choose another model with /model." : ".";
+		} else {
+			message += routeProfile
+				? ". Retrying will not help until an operator changes this route or its account; choose another model with /model."
+				: ". Retrying will not help until an operator changes this account or the request's routing headers.";
+		}
 	}
 	return new Response(
 		JSON.stringify({
