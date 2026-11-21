@@ -1354,7 +1354,7 @@ We welcome contributions! See [CONTRIBUTING.md](contributing.md) for guidelines.
 
 ### Pull Request Checks
 
-Every pull request runs two required checks, `managed-routing-foundation` and `prepare`, and `main` only accepts branches that are up to date with it. See [Review Process](contributing.md#review-process).
+Every pull request runs two required checks, `managed-routing-foundation` and `prepare`. A branch need not be up to date with `main` to merge; both checks run again on `main` after each merge. See [Review Process](contributing.md#review-process).
 
 
 ## License
