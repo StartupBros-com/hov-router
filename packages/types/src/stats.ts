@@ -132,7 +132,7 @@ export interface StatsResponse {
 
 export interface RecentErrorGroup {
 	errorCode: string; // raw value from requests.error_message
-	accountId: string | null; // null when unauthenticated
+	accountId: string | null; // null when no account served the request
 	accountName: string | null; // null when account deleted
 	provider: string | null; // owning account's provider, null when account deleted
 	occurrenceCount: number;
