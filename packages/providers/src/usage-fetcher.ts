@@ -1618,28 +1618,12 @@ class UsageCache {
 				if (!this.isCurrent(registration)) {
 					return { success: false, retryAfterMs: null };
 				}
-				if (result.orgRefused) {
-					const answeredAt = Date.now();
-					this.recordOrgRefusal(accountId, answeredAt);
-					emitOrgUsageCheck({
-						accountId,
-						outcome: "refused",
-						startedAt,
-						answeredAt,
-					});
-				}
+				this.noteOrgUsageCheck(accountId, result, startedAt);
 				if (result.data) {
 					// Snapshot before clearing — needed for the capacity-restored guard below.
 					const wasRateLimited = this.usageRateLimitedUntil.has(accountId);
 					if (this.isCurrent(registration))
 						this.usageRateLimitedUntil.delete(accountId);
-					this.usageOrgRefusedAt.delete(accountId);
-					emitOrgUsageCheck({
-						accountId,
-						outcome: "accepted",
-						startedAt,
-						answeredAt: Date.now(),
-					});
 					this.notifyRegistrationWindowReset(
 						registration,
 						result.data,
@@ -2198,14 +2182,41 @@ class UsageCache {
 		return this.usageOrgRefusedAt.get(accountId) ?? null;
 	}
 
-	private recordOrgRefusal(accountId: string, at: number): void {
-		// Records outlive stopPolling, so drop those of accounts no longer
-		// polled rather than keep one per removed account until shutdown.
-		for (const id of this.usageOrgRefusedAt.keys()) {
-			if (id !== accountId && !this.registrations.has(id))
-				this.usageOrgRefusedAt.delete(id);
+	/**
+	 * Record what one Anthropic usage check said about the account's
+	 * organization (#941) and publish it on the org refusal event bus: a
+	 * refusal sets the record, returned usage clears it, and any other
+	 * failure leaves it alone. Polling calls this, and so must any caller
+	 * that fetches Anthropic usage outside polling (the Clear cooldown
+	 * fallback), or the card and alerts miss that check's verdict.
+	 *
+	 * Records are never pruned by registration: Refresh usage stops and
+	 * restarts polling, and pruning in that gap would drop a live refusal.
+	 * One number per account removed while refused lasts until restart.
+	 */
+	noteOrgUsageCheck(
+		accountId: string,
+		result: UsageFetchResult,
+		startedAt: number,
+	): void {
+		const answeredAt = Date.now();
+		if (result.orgRefused) {
+			this.usageOrgRefusedAt.set(accountId, answeredAt);
+			emitOrgUsageCheck({
+				accountId,
+				outcome: "refused",
+				startedAt,
+				answeredAt,
+			});
+		} else if (result.data) {
+			this.usageOrgRefusedAt.delete(accountId);
+			emitOrgUsageCheck({
+				accountId,
+				outcome: "accepted",
+				startedAt,
+				answeredAt,
+			});
 		}
-		this.usageOrgRefusedAt.set(accountId, at);
 	}
 
 	/**

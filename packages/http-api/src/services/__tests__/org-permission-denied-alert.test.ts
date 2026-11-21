@@ -423,6 +423,17 @@ describe("AlertService org_permission_denied episodes", () => {
 			expect(fetchMock).toHaveBeenCalledTimes(0);
 		});
 
+		it("counts a paused account's usage refusal in an episode a request refusal opened during the lookup", async () => {
+			addAccount("acc-paused", "max-paused", 1);
+			usageCheck("refused", t0, "acc-paused");
+			refuse(t0 + 500, "acc-paused");
+			await waitFor(() => fetchMock.mock.calls.length === 1);
+
+			usageCheck("accepted", t0 + 60_000, "acc-paused");
+			await waitFor(() => fetchMock.mock.calls.length === 2);
+			expect(ofPhase(await service.listAlerts(), "recovered")).toHaveLength(1);
+		});
+
 		it("alerts on the next refused usage check when the first alert could not be saved", async () => {
 			failNextOrgAlertWrite();
 			usageCheck("refused", t0);

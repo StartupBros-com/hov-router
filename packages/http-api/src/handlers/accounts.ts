@@ -3697,9 +3697,10 @@ export function createAccountForceResetRateLimitHandler(
 				account.access_token &&
 				usageCache.getRateLimitedUntil(accountId) === null
 			) {
-				const { data: usageData, retryAfterMs } = await fetchUsageData(
-					account.access_token,
-				);
+				const startedAt = Date.now();
+				const result = await fetchUsageData(account.access_token);
+				const { data: usageData, retryAfterMs } = result;
+				usageCache.noteOrgUsageCheck(accountId, result, startedAt);
 				if (retryAfterMs != null) {
 					usageCache.recordUsageRetryAfter(accountId, retryAfterMs);
 				}
