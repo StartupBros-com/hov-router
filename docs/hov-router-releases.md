@@ -452,6 +452,17 @@ is cut (a standing decision since 2026-11-10), after these checks:
    binary's SHA-256 matches both `SHA256SUMS` and `release-manifest.json`.
 4. The body opens with a short summary and a `## Highlights` list (see the next
    section), and tells upgraders what to do about any breaking change.
+5. The new release's attestation bundle is on `main` as
+   `docs/provenance/vX.Y.Z.jsonl`. The body's verify block (in every release
+   since 6.2.0) downloads it from there, so merge it in a pull request of its own
+   before publishing, or the published notes point at a missing file. Download
+   the draft's three assets with `gh release download vX.Y.Z --repo
+   StartupBros-com/hov-router`, then the bundle with `gh attestation download
+   better-ccflare-linux-amd64 --repo StartupBros-com/hov-router`, and confirm the
+   file holds one bundle. Once it is on `main`, run the body's verify block as
+   written in the folder holding the three assets; the block needs no login.
+   `binary-install.test.ts` accepts this one undocumented bundle while it is
+   newer than the current block's release.
 
 When editing a draft's body through the API, send `tag_name` and
 `target_commitish` with the new body: a body-only update resets a draft's tag to
@@ -460,11 +471,20 @@ release, that the tag ref is unchanged, and that the
 [announce run](#publishing-announces-the-release) succeeded. Then repoint the
 current-release pins in the [install reference](reference.md#install-the-linux-x86_64-release),
 this guide, the migration guide and the README, together with
-`apps/cli/__tests__/binary-install.test.ts`. In the same change, commit the new
-release's attestation bundle as `docs/provenance/vX.Y.Z.jsonl`, so its consumer
-block needs no login and keeps working if the repository moves again. Download it with
-`gh attestation download <binary> --repo StartupBros-com/hov-router`, confirm the
-file holds one bundle and passes the block, and pin its SHA-256 as `bundle_sha`.
+`apps/cli/__tests__/binary-install.test.ts`, and pin the SHA-256 of the bundle
+merged before publishing as `bundle_sha`. The committed bundle lets the consumer
+block run with no login, and keeps it working if the repository moves again.
+
+The release that leaves the current block keeps a place in this guide.
+Releases signed as `StartupBros/hov-router` went to the
+[table of releases from before the move](#verify-another-release-from-before-the-move),
+whose rows verify under that name. 6.2.0 was the last of them. 6.2.1 was the first
+signed as `StartupBros-com/hov-router`, so it cannot join that table. When it
+leaves the current block, keep its block under its own heading, as the 3.7.1
+block is kept. Later releases signed in the organization then get rows in a
+table of their own that points at the 6.2.1 block, the way the pre-move table
+points at the 3.7.1 block.
+
 Never delete or rewrite a committed bundle: copies of this guide in older checkouts
 download them from `main`.
 

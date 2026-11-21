@@ -1060,10 +1060,42 @@ describe("documented table of other releases signed before the move (synthetic p
 		);
 	});
 
-	it("lists every committed bundle that has no block of its own", () => {
+	// A release's bundle merges before the release is published, because the
+	// notes' verify block downloads it from main. Until the repin after
+	// publishing documents it, one bundle newer than the current block's release
+	// may sit here undocumented, and only one signed for its own tag here.
+	const isNewer = (tag: string, than: string) => {
+		const [a, b] = [tag, than].map((t) => t.slice(1).split(".").map(Number));
+		const at = a.findIndex((part, index) => part !== b[index]);
+		return at !== -1 && a[at] > b[at];
+	};
+
+	it("lists every committed bundle that has no block of its own, apart from the next release's", () => {
 		expect(tableReleases.length).toBeGreaterThan(0);
-		expect(readdirSync(join(root, "docs/provenance")).sort()).toEqual(
-			documentedReleases.map((release) => `${release.tag}.jsonl`).sort(),
+		const current = provenanceReleases.find(
+			(release) => release.marker === "router-release-provenance",
+		)?.tag;
+		expect(current).toBeDefined();
+		const tags = readdirSync(join(root, "docs/provenance")).map((file) =>
+			file.replace(/\.jsonl$/, ""),
+		);
+		const pending = tags.filter(
+			(tag) => /^v\d+\.\d+\.\d+$/.test(tag) && isNewer(tag, current as string),
+		);
+		expect(pending.length).toBeLessThanOrEqual(1);
+		for (const tag of pending) {
+			const statement = statementOf(tag);
+			expect(statement.subject[0].name).toBe("better-ccflare-linux-amd64");
+			expect(
+				statement.predicate.buildDefinition.externalParameters.workflow,
+			).toEqual({
+				ref: `refs/tags/${tag}`,
+				repository: `https://github.com/${currentHome}`,
+				path: ".github/workflows/router-release-artifacts.yml",
+			});
+		}
+		expect(tags.filter((tag) => !pending.includes(tag)).sort()).toEqual(
+			documentedReleases.map((release) => release.tag).sort(),
 		);
 	});
 
