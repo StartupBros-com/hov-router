@@ -196,7 +196,7 @@ const ATTEMPT_CAUSE_META: Record<
 	ErrorMeta
 > = {
 	upstream_error: {
-		title: "Refused on every account tried",
+		title: "Refused by the last account tried",
 		description:
 			"The last account tried refused this request with an error the router " +
 			"recognises, or its stream broke while the router was checking it, " +
@@ -275,9 +275,9 @@ const ATTEMPT_CAUSE_META: Record<
 	maintenance_retired: {
 		title: "Ended by a backend restart",
 		description:
-			"The guard was replacing the router's backend, as it does on a deploy " +
-			"or a recycle, and this request was ended before its response had " +
-			"started.",
+			"The guard was replacing the router's backend and ended this request " +
+			"while the router was still checking the provider's reply, before " +
+			"any of it was passed to the client.",
 		suggestion:
 			"No action needed. These appear around deploys and restarts, and the " +
 			"client can send the request again.",
@@ -320,8 +320,9 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 		description:
 			"The router could not find an account to send this request to, for " +
 			"example because every compatible account was paused, cooling down, " +
-			"unable to serve the requested model or excluded by its route, and it " +
-			"had no account with a known time when it would be free again.",
+			"unable to serve the requested model or excluded by its route. Usually " +
+			"no account has a known time when it will be free again; when every " +
+			"candidate is circuit-open, the reply gives the time it reopens.",
 		suggestion:
 			"On the Accounts page, look for paused, cooling or reauth-needed " +
 			"accounts, and check that an account serves the requested model. The " +
@@ -411,7 +412,9 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 			"going to an account outside the combo.",
 		suggestion:
 			"Fix or add accounts in the combo, or turn on Combo Session Fallback " +
-			"on the Advanced card to let these requests use the whole pool.",
+			"on the Advanced card to let these requests use the whole pool. A " +
+			"combo family set to Wait for native Claude quota never falls back, " +
+			"whatever that switch says.",
 		severity: "error",
 	},
 	force_model_denied: {
@@ -481,7 +484,7 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 		severity: "error",
 	},
 	responses_error: {
-		title: "Provider stream reported a failure",
+		title: "Codex stream failed",
 		description:
 			"A Codex Responses stream ended with an error or failed event, or " +
 			"failed without a recorded reason. The provider's message is not " +
@@ -650,8 +653,8 @@ const SERVER_TOOL_META: Record<string, ErrorMeta> = {
 			"is not recognised. The refusal is worded so that Claude Code drops " +
 			"the advisor tool and retries.",
 		suggestion:
-			"No action needed. To use advisor, keep a native Anthropic account " +
-			"available for these requests.",
+			"No action needed. To use advisor on its own, keep a native Anthropic " +
+			"account available for these requests.",
 		severity: "warning",
 	},
 	advisor_history_unavailable: {

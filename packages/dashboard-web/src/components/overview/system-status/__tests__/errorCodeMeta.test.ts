@@ -146,9 +146,56 @@ describe("getErrorMeta: router codes (#918)", () => {
 	test("upstream_error names the windowless 429 and points at routing attempts", () => {
 		const meta = getErrorMeta("upstream_error");
 		const text = `${meta.description} ${meta.suggestion}`;
-		// After #916 a windowless 429 ends here: every routed account refused.
+		// After #916 a windowless 429 usually ends here: the last account refused.
 		expect(text).toContain("windowless 429");
 		expect(text).toContain("Routing attempts");
+	});
+
+	// Each case below pins a producer fact the first #918 copy got wrong.
+	test("upstream_error's title names the last account, not every account", () => {
+		// The cause is the last attempt's (routing-terminal-recorder.ts); earlier
+		// attempts may have failed some other way.
+		const { title } = getErrorMeta("upstream_error");
+		expect(title.toLowerCase()).not.toContain("every account");
+		expect(title.toLowerCase()).toContain("last account");
+	});
+
+	test("maintenance_retired names the pre-commit abort and not a deploy", () => {
+		// Recorded only from the pre-commit gate's abort with
+		// GUARD_RECYCLE_UNAVAILABLE (anthropic-semantic-preflight.ts,
+		// routing-attempt-ledger.ts); nothing ties the recycle to a deploy.
+		const { description } = getErrorMeta("maintenance_retired");
+		expect(description.toLowerCase()).not.toContain("deploy");
+		expect(description).toContain("checking the provider's reply");
+	});
+
+	test("route_unavailable allows the circuit-open reopen time", () => {
+		// routing-terminal.ts adds next_available_at when every candidate is
+		// circuit-open with a known reopen time.
+		const { description } = getErrorMeta("route_unavailable");
+		expect(description).toContain("circuit-open");
+	});
+
+	test("combo_session_fallback_disabled says native quota combos never fall back", () => {
+		// isComboFallbackDisabled is true whenever a native quota context
+		// exists, whatever the Combo Session Fallback switch says.
+		const { suggestion } = getErrorMeta("combo_session_fallback_disabled");
+		expect(suggestion).toContain("Wait for native Claude quota");
+	});
+
+	test("responses_error's title does not claim the provider reported it", () => {
+		// usage-collector.ts also writes it for a failure with no recorded reason.
+		const { title } = getErrorMeta("responses_error");
+		expect(title.toLowerCase()).not.toContain("reported");
+	});
+
+	test("the advisor suggestion scopes the native-account advice to advisor on its own", () => {
+		// proxy.ts also refuses advisor beside another server tool or with an
+		// unknown advisor type, which no account fixes.
+		const { suggestion } = getErrorMeta(
+			"server_tool_advisor_declaration_unavailable",
+		);
+		expect(suggestion).toContain("on its own");
 	});
 
 	test("cancellations and Claude Code-recoverable refusals are warnings", () => {
