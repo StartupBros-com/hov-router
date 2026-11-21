@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { usageCache } from "@better-ccflare/providers";
 import type { Account } from "@better-ccflare/types";
 import { observeCachePacing } from "../cache-pacing";
 import type { ProxyContext } from "../handlers";
@@ -364,7 +365,8 @@ describe("U5 canary: forced route to a paused or missing Vercel account fails cl
 // A force-route 503 is final for one request, but a client such as Claude Code
 // retries a 503 about ten times before showing it. `x-should-retry: false`
 // stops that only when a retry cannot succeed: a pause an operator must lift,
-// or a missing account. Pauses and limits that clear on their own keep the
+// a missing account, or a spent usage limit whose reported reset is beyond the
+// client's retry horizon. Pauses and limits that clear sooner keep the
 // client's default retry behavior.
 describe("handleProxy: force-route 503 retry instruction", () => {
 	function makeCtx(accounts: Account[]): ProxyContext {
@@ -467,5 +469,68 @@ describe("handleProxy: force-route 503 retry instruction", () => {
 		expect(response.headers.get("x-should-retry")).toBeNull();
 		const parsed = (await response.json()) as { error: { reason: string } };
 		expect(parsed.error.reason).toBe("rate_limited_or_unavailable");
+	});
+
+	it("tells the client not to retry until a weekly reset days away, and names it", async () => {
+		const account = makeAccount({
+			id: "forced-weekly-spent",
+			provider: "anthropic" as Account["provider"],
+		});
+		const resetAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+		usageCache.set(account.id, {
+			spend: { enabled: false },
+			limits: [
+				{
+					kind: "weekly_all",
+					percent: 100,
+					resets_at: resetAt.toISOString(),
+					scope: null,
+				},
+			],
+		} as never);
+		try {
+			const response = await forceRoute(account);
+
+			expect(response.status).toBe(503);
+			expect(response.headers.get("x-should-retry")).toBe("false");
+			const parsed = (await response.json()) as {
+				error: { reason: string; message: string };
+			};
+			expect(parsed.error.reason).toBe("account_capacity_exhausted");
+			expect(parsed.error.message).toContain(
+				`resets ${resetAt.toISOString()} at the earliest`,
+			);
+			expect(parsed.error.message).not.toContain("until an operator");
+		} finally {
+			usageCache.delete(account.id);
+		}
+	});
+
+	it("leaves retrying to the client when a spent window resets within hours", async () => {
+		const account = makeAccount({
+			id: "forced-session-spent",
+			provider: "anthropic" as Account["provider"],
+		});
+		usageCache.set(account.id, {
+			spend: { enabled: false },
+			limits: [
+				{
+					kind: "session",
+					percent: 100,
+					resets_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+					is_active: true,
+				},
+			],
+		} as never);
+		try {
+			const response = await forceRoute(account);
+
+			expect(response.status).toBe(503);
+			expect(response.headers.get("x-should-retry")).toBeNull();
+			const parsed = (await response.json()) as { error: { reason: string } };
+			expect(parsed.error.reason).toBe("account_capacity_exhausted");
+		} finally {
+			usageCache.delete(account.id);
+		}
 	});
 });
