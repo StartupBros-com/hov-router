@@ -22,7 +22,7 @@ type Repository = Pick<
 	| "getSources"
 	| "saveSource"
 	| "ingest"
-	| "report"
+	| "countUnattributedEvents"
 	| "replaceSources"
 	| "acquireScanLease"
 	| "renewScanLease"
@@ -393,10 +393,7 @@ export class ExternalCodexScanner {
 				)
 					await this.repository.saveSource(source);
 			}
-			const report = await this.repository.report();
-			summary.rowsUnattributed = report
-				.filter((r) => !r.attributed)
-				.reduce((sum, row) => sum + row.rows, 0);
+			summary.rowsUnattributed = await this.repository.countUnattributedEvents();
 			log.info(
 				`External Codex scan: files scanned=${summary.filesScanned}, rows inserted=${summary.rowsInserted}, rows unattributed=${summary.rowsUnattributed}, malformed lines=${summary.malformedLines}, files deferred=${summary.filesDeferred}, directories skipped=${summary.directoriesSkipped}, cloud roots skipped=${summary.skippedCloudRoots.length}`,
 			);

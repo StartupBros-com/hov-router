@@ -70,16 +70,18 @@ test("scan skips unchanged sources, retries recent corrupt zstd, and reports met
 			conflicts: 0,
 			affected: [],
 		}),
-		report: async () => [],
+		countUnattributedEvents: async () => 13,
 	};
 	const scanner = new ExternalCodexScanner(repository);
 	const first = await scanner.scan({ homes: [home], cloudRoots: [] });
 	expect(first.filesScanned).toBe(1);
 	expect(first.filesDeferred).toBe(1);
 	expect(first.rowsInserted).toBe(1);
+	expect(first.rowsUnattributed).toBe(13);
 	expect(sources.size).toBe(1);
 	const second = await scanner.scan({ homes: [home], cloudRoots: [] });
 	expect(second.filesScanned).toBe(0);
+	expect(second.rowsUnattributed).toBe(13);
 	expect(second.filesDeferred).toBe(1);
 	expect(batches[1]).toEqual([]);
 	expect(batches[0][0]).toMatchObject({
@@ -180,7 +182,7 @@ test("file changed during ingest is retried and scan remains responsive", async 
 			conflicts: 0,
 			affected: [],
 		}),
-		report: async () => [],
+		countUnattributedEvents: async () => 0,
 	};
 	const scanner = new ExternalCodexScanner(repo);
 	let ticks = 0;
@@ -217,7 +219,7 @@ test("cloud root requires a configured Codex subscription account", async () => 
 			conflicts: 0,
 			affected: [],
 		}),
-		report: async () => [],
+		countUnattributedEvents: async () => 0,
 	};
 	const scanner = new ExternalCodexScanner(repo);
 	const result = await scanner.scan(
@@ -255,7 +257,7 @@ test("database scan lease rejects concurrent operator scan and can retry", async
 			conflicts: 0,
 			affected: [],
 		}),
-		report: async () => [],
+		countUnattributedEvents: async () => 0,
 	};
 	const scanner = new ExternalCodexScanner(repo);
 	await expect(scanner.scan({ homes: [], cloudRoots: [] })).rejects.toThrow(

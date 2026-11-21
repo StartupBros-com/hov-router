@@ -66,6 +66,23 @@ test("ambiguous event with no session votes stays unattributed", async () => {
 		db.query("SELECT account_id FROM external_usage_events").get(),
 	).toEqual({ account_id: null });
 });
+test("countUnattributedEvents matches the report across models and attribution", async () => {
+	expect(await repo.countUnattributedEvents()).toBe(0);
+	await repo.ingest([
+		event({ rateLimitResetsAt: null }),
+		event({
+			timestamp: "other",
+			model: "synthetic-other",
+			rateLimitResetsAt: null,
+		}),
+		event({ timestamp: "cloud", sourceKind: "cloud", accountId: "a" }),
+	]);
+	const report = await repo.report();
+	expect(
+		report.filter((row) => !row.attributed).reduce((sum, row) => sum + row.rows, 0),
+	).toBe(2);
+	expect(await repo.countUnattributedEvents()).toBe(2);
+});
 test("exact wins near; unique near wins; session majority resolves no signal", async () => {
 	window("a", 100);
 	window("b", 102);
