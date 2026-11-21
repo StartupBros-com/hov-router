@@ -273,3 +273,162 @@ test("presenter supports raw, response and display inputs without rewriting raw 
 		);
 	}
 });
+
+// #917: an Anthropic account's soft notice comes from the weekly usage poll.
+const WEEK_MS = 7 * 86_400_000;
+const futureReset = new Date(now + WEEK_MS).toISOString();
+const pastReset = new Date(now - 1_000).toISOString();
+function weeklyAll(percent: number | null, resets_at = futureReset) {
+	return { kind: "weekly_all", percent, resets_at, is_active: true };
+}
+function weeklyScoped(name: string, percent: number, resets_at = futureReset) {
+	return {
+		kind: "weekly_scoped",
+		percent,
+		resets_at,
+		// The live poll reports Fable with is_active false; it still counts.
+		is_active: false,
+		scope: { model: { id: null, display_name: name }, surface: null },
+	};
+}
+function anthropic(usageData: unknown, rateLimitStatus = "OK") {
+	return { provider: "anthropic", usageData, rateLimitStatus } as never;
+}
+
+test("a stored allowed_warning with a fresh poll under 75% is Ready", () => {
+	const s = classifyAccountStatus(
+		anthropic(
+			{ limits: [weeklyAll(0), weeklyScoped("Fable", 0)] },
+			"allowed_warning (652m)",
+		),
+		now,
+	);
+	expect(s.label).toBe("Ready");
+	expect(s.tone).toBe("ok");
+	expect(s.notices).not.toContain("soft-warning");
+	expect(s.weeklyLimitNotice).toBeNull();
+});
+test("a poll at 80% on the Fable weekly cap shows Near weekly limit with no header status", () => {
+	const s = classifyAccountStatus(
+		anthropic({ limits: [weeklyAll(10), weeklyScoped("Fable", 80)] }),
+		now,
+	);
+	expect(s.reason).toBe("normal");
+	expect(s.label).toBe("Near weekly limit");
+	expect(s.tone).toBe("warning");
+	expect(s.notices).toContain("soft-warning");
+	expect(s.weeklyLimitNotice).toEqual({ percent: 80, window: "Fable weekly" });
+	expect(s.overview).toBe(false);
+	expect(s.capacityAttention).toBe(false);
+});
+test("the threshold is Anthropic's own 75%", () => {
+	expect(
+		classifyAccountStatus(anthropic({ limits: [weeklyAll(75)] }), now).label,
+	).toBe("Near weekly limit");
+	expect(
+		classifyAccountStatus(anthropic({ limits: [weeklyAll(74.9)] }), now).label,
+	).toBe("Ready");
+});
+test("a full window is at its limit, not near it, so it leaves the pill to the others", () => {
+	const fullFable = classifyAccountStatus(
+		anthropic({ limits: [weeklyAll(32), weeklyScoped("Fable", 100)] }),
+		now,
+	);
+	expect(fullFable.label).toBe("Ready");
+	expect(fullFable.weeklyLimitNotice).toBeNull();
+	const fullFableNearAll = classifyAccountStatus(
+		anthropic({ limits: [weeklyAll(80), weeklyScoped("Fable", 100)] }),
+		now,
+	);
+	expect(fullFableNearAll.label).toBe("Near weekly limit");
+	expect(fullFableNearAll.weeklyLimitNotice).toEqual({
+		percent: 80,
+		window: "Weekly",
+	});
+});
+test("a window whose reset has passed never raises the notice", () => {
+	const s = classifyAccountStatus(
+		anthropic({ limits: [weeklyAll(95, pastReset)] }),
+		now,
+	);
+	expect(s.label).toBe("Ready");
+	expect(s.weeklyLimitNotice).toBeNull();
+	const noReset = classifyAccountStatus(
+		anthropic({ limits: [{ ...weeklyAll(80), resets_at: null }] }),
+		now,
+	);
+	expect(noReset.label).toBe("Near weekly limit");
+});
+test("legacy flat weekly windows count when limits[] has no usable rows", () => {
+	for (const usageData of [
+		{ seven_day_fable: { utilization: 80, resets_at: futureReset } },
+		{
+			limits: [weeklyAll(null)],
+			seven_day: { utilization: 90, resets_at: futureReset },
+		},
+	]) {
+		const s = classifyAccountStatus(anthropic(usageData), now);
+		expect(s.label).toBe("Near weekly limit");
+	}
+	expect(
+		classifyAccountStatus(
+			anthropic({
+				seven_day_fable: { utilization: 80, resets_at: futureReset },
+			}),
+			now,
+		).weeklyLimitNotice,
+	).toEqual({ percent: 80, window: "Fable weekly" });
+});
+test("with no poll the stored header no longer raises the notice", () => {
+	const s = classifyAccountStatus(anthropic(null, "allowed_warning"), now);
+	expect(s.label).toBe("Ready");
+	expect(s.notices).not.toContain("soft-warning");
+});
+test("the notice is only for an otherwise Ready account", () => {
+	const exhausted = classifyAccountStatus(
+		anthropic({ limits: [weeklyAll(100)] }, "usage_exhausted (1312m)"),
+		now,
+	);
+	expect(exhausted.reason).toBe("exhausted");
+	expect(exhausted.notices).not.toContain("soft-warning");
+	expect(exhausted.weeklyLimitNotice).toBeNull();
+	const paused = classifyAccountStatus(
+		{ ...(anthropic({ limits: [weeklyAll(90)] }) as object), paused: true },
+		now,
+	);
+	expect(paused.label).toBe("Paused");
+	expect(paused.notices).not.toContain("soft-warning");
+	const cooling = classifyAccountStatus(
+		{
+			...(anthropic({ limits: [weeklyAll(90)] }) as object),
+			rateLimitedUntil: now + 60_000,
+		},
+		now,
+	);
+	expect(cooling.label).toBe("Cooling down");
+	expect(cooling.notices).not.toContain("soft-warning");
+});
+test("providers without a weekly poll keep the header-based Provider warning", () => {
+	const s = classifyAccountStatus(
+		{
+			provider: "anthropic-compatible",
+			rateLimitStatus: "allowed_warning",
+		} as never,
+		now,
+	);
+	expect(s.label).toBe("Provider warning");
+	expect(s.notices).toContain("soft-warning");
+	expect(s.weeklyLimitNotice).toBeNull();
+});
+test("the presenter passes an API account's poll through", () => {
+	const account = {
+		paused: false,
+		provider: "anthropic",
+		rateLimitStatus: "allowed_warning (652m)",
+		usageData: { limits: [weeklyAll(96), weeklyScoped("Fable", 1)] },
+	};
+	const p = new AccountPresenter(account as unknown as AccountResponse, now);
+	expect(p.rateLimitStatus).toBe("allowed_warning (652m)");
+	expect(p.status.label).toBe("Near weekly limit");
+	expect(p.status.weeklyLimitNotice).toEqual({ percent: 96, window: "Weekly" });
+});
