@@ -84,4 +84,17 @@ describe("readAwsConfigRegion", () => {
 			readAwsConfigRegion("[profile w]\r\nregion = eu-north-1\r\n", "w"),
 		).toBe("eu-north-1");
 	});
+
+	it("keeps the region line's meaning without backtracking over its spaces", () => {
+		expect(
+			readAwsConfigRegion("[default]\nregion =\nregion=x\n", "default"),
+		).toBe("x");
+		expect(readAwsConfigRegion("[default]\nregion = \n", "default")).toBe("");
+		// A lone "\r" ends what "." matches, so this line never holds a region.
+		// With overlapping "\s*" and "(.+)" every split of the spaces was retried.
+		const line = `region=${" ".repeat(80_000)}x\ry`;
+		const started = performance.now();
+		expect(readAwsConfigRegion(`[default]\n${line}\n`, "default")).toBeNull();
+		expect(performance.now() - started).toBeLessThan(250);
+	});
 });

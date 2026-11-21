@@ -39,8 +39,11 @@ export function readAwsConfigRegion(
 	if (start === -1) return null;
 	for (const line of all.slice(start + 1)) {
 		if (isSectionHeader(line)) return null;
-		const region = line.match(/^region\s*=\s*(.+)$/);
-		if (region) return region[1].trim();
+		// One capture after "=", trimmed afterwards: "\s*(.+)" let the spaces
+		// split two ways, so a line that fails to match backtracked over them.
+		// A non-empty capture is what "\s*(.+)" required.
+		const region = line.match(/^region\s*=(.*)$/);
+		if (region && region[1].length > 0) return region[1].trim();
 	}
 	return null;
 }
