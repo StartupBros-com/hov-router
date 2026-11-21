@@ -53,7 +53,7 @@ erDiagram
         TEXT account_used FK "Account ID used (nullable)"
         INTEGER status_code "HTTP response status"
         BOOLEAN success "Request success flag"
-        TEXT error_message "Error details if failed"
+        TEXT error_message "Terminal cause if failed"
         INTEGER response_time_ms "Response latency"
         INTEGER failover_attempts "Number of retry attempts"
         TEXT model "AI model used"
@@ -138,7 +138,7 @@ The `requests` table logs all proxied requests for analytics and debugging.
 | `account_used` | TEXT | NULL | Account ID that handled the request |
 | `status_code` | INTEGER | NULL | HTTP response status code |
 | `success` | BOOLEAN | NULL | 1 for success, 0 for failure |
-| `error_message` | TEXT | NULL | Error details if request failed |
+| `error_message` | TEXT | NULL | The failed request's [terminal cause](../CONCEPTS.md#terminal-cause): the router's terminal kind, or the last routing attempt's cause. Not the error code in the client's reply; Recent Errors groups by it |
 | `response_time_ms` | INTEGER | NULL | Total response time in milliseconds |
 | `failover_attempts` | INTEGER | DEFAULT 0 | Number of retry attempts |
 | `model` | TEXT | NULL* | AI model used (e.g., claude-3-sonnet) |
