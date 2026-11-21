@@ -931,13 +931,22 @@ function needsOperatorToResume(account: Account): boolean {
 export class ForceRouteUnavailableError extends Error {
 	readonly accountId: string;
 	readonly reason: ForceRouteUnavailableReason;
-	/** False when retrying the same request cannot succeed until an operator acts. */
+	/**
+	 * False when retrying the same request cannot succeed until an operator
+	 * acts, or until a provider-reported usage reset beyond the client's retry
+	 * horizon (`reopensAt`).
+	 */
 	readonly retryable: boolean;
+	/** Earliest time a capacity-closed forced account can serve again, if known. */
+	readonly reopensAt: number | null;
 
 	constructor(
 		accountId: string,
 		reason: ForceRouteUnavailableReason,
-		options: { readonly retryable?: boolean } = {},
+		options: {
+			readonly retryable?: boolean;
+			readonly reopensAt?: number | null;
+		} = {},
 	) {
 		super(`Force-routed account unavailable: ${reason}`);
 		this.name = "ForceRouteUnavailableError";
@@ -945,7 +954,39 @@ export class ForceRouteUnavailableError extends Error {
 		this.reason = reason;
 		this.retryable =
 			options.retryable ?? !CONFIGURATION_FORCE_ROUTE_REASONS.has(reason);
+		this.reopensAt = options.reopensAt ?? null;
 	}
+}
+
+/**
+ * How long a client may keep retrying one force-routed request. Claude Code
+ * sessions with the retry watchdog rode out a 4.5-hour pool outage on
+ * 2026-11-19 and resumed, so a reset sooner than this can still be reached by
+ * retrying and stays retryable.
+ */
+export const FORCE_ROUTE_RETRY_HORIZON_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * When a provider-reported reset keeps a capacity-excluded forced account
+ * closed past the retry horizon, the earliest time it can serve again;
+ * otherwise null. The account reopens only after every blocker clears, so the
+ * latest reported reset is a lower bound. Reactive markers are local cooldown
+ * guesses, not provider resets, and never make a route final.
+ */
+export function forceRouteCapacityReopensAt(
+	blockers: readonly RoutingCapacityBlocker[],
+	now: number,
+): number | null {
+	let latest: number | null = null;
+	for (const blocker of blockers) {
+		if (blocker.source === "reactive_marker") continue;
+		const reset = blocker.resetAtMs;
+		if (reset === null || !Number.isFinite(reset)) continue;
+		if (latest === null || reset > latest) latest = reset;
+	}
+	return latest !== null && latest - now > FORCE_ROUTE_RETRY_HORIZON_MS
+		? latest
+		: null;
 }
 
 // Module-level WeakMap to store combo slot info per RequestMeta
@@ -3726,11 +3767,18 @@ async function selectAccountsForRequestInternal(
 						const accountWide = evaluation.blockers.some(
 							(blocker) => blocker.scope === "account",
 						);
+						// A usage reset days away (a spent weekly window) cannot clear
+						// while the client retries, so tell it to stop and when to return.
+						const reopensAt = forceRouteCapacityReopensAt(
+							evaluation.blockers,
+							now,
+						);
 						throw new ForceRouteUnavailableError(
 							forcedAccountId,
 							accountWide
 								? "account_capacity_exhausted"
 								: "model_capacity_exhausted",
+							reopensAt === null ? {} : { retryable: false, reopensAt },
 						);
 					}
 					meta.hardExcludedAccountIds = null;

@@ -50,7 +50,9 @@ const { getCodexCatalogLineTarget, getCodexCatalogRoleTarget } = await import(
 	"../../codex-model-catalog"
 );
 const {
+	FORCE_ROUTE_RETRY_HORIZON_MS,
 	ForceRouteUnavailableError,
+	forceRouteCapacityReopensAt,
 	deriveAffinityLaneKey,
 	isRestartStableAffinityLane,
 	getClientVisibleServerToolAccountId,
@@ -4831,6 +4833,122 @@ describe("selectAccountsForRequest — model-lane hard capacity", () => {
 			"claude-opus-4-8",
 		);
 		expect(opus).toEqual([forced]);
+	});
+
+	it("tells the client to stop retrying a forced account whose weekly reset is days away", async () => {
+		const forced = makeAccount({ id: "forced-weekly-spent" });
+		const resetAt = Date.now() + 72 * 60 * 60 * 1000;
+		cacheUsage(forced.id, {
+			spend: { enabled: false },
+			limits: [
+				{
+					kind: "weekly_all",
+					percent: 100,
+					resets_at: new Date(resetAt).toISOString(),
+					scope: null,
+				},
+			],
+		});
+		const meta = makeRequestMeta({
+			headers: new Headers({ "x-better-ccflare-account-id": forced.id }),
+		});
+
+		const error = await selectAccountsForRequest(
+			meta,
+			makeCtx({ accounts: [forced] }),
+			"claude-opus-4-8",
+		).then(
+			() => null,
+			(caught: unknown) => caught,
+		);
+
+		expect(error).toBeInstanceOf(ForceRouteUnavailableError);
+		const forceError = error as ForceRouteUnavailableError;
+		expect(forceError.reason).toBe("account_capacity_exhausted");
+		expect(forceError.retryable).toBe(false);
+		expect(forceError.reopensAt).toBe(new Date(resetAt).getTime());
+	});
+
+	it.each([
+		["a spent session window resetting in two hours", "session", 2],
+		[
+			"a spent weekly window resetting inside the retry horizon",
+			"weekly_all",
+			3,
+		],
+	] as const)("keeps a forced account retryable for %s", async (_label, kind, hours) => {
+		const forced = makeAccount({ id: `forced-${kind}-${hours}h` });
+		cacheUsage(forced.id, {
+			spend: { enabled: false },
+			limits: [
+				{
+					kind,
+					percent: 100,
+					resets_at: new Date(
+						Date.now() + hours * 60 * 60 * 1000,
+					).toISOString(),
+					scope: null,
+					is_active: true,
+				},
+			],
+		});
+		const meta = makeRequestMeta({
+			headers: new Headers({ "x-better-ccflare-account-id": forced.id }),
+		});
+
+		await expect(
+			selectAccountsForRequest(
+				meta,
+				makeCtx({ accounts: [forced] }),
+				"claude-opus-4-8",
+			),
+		).rejects.toMatchObject({
+			reason: "account_capacity_exhausted",
+			retryable: true,
+			reopensAt: null,
+		});
+	});
+
+	it("dates a forced reopen from provider resets only, past the retry horizon", () => {
+		const now = 1_000_000_000_000;
+		const blocker = (
+			source: "usage_snapshot" | "reactive_marker" | "extra_usage_hold",
+			resetAtMs: number | null,
+		) => ({
+			source,
+			scope: "account" as const,
+			window: "w",
+			windowKind: "weekly_all" as const,
+			modelFamily: null,
+			utilization: 100,
+			resetAtMs,
+			evidenceExpiresAt: now + 60_000,
+		});
+		const far = now + FORCE_ROUTE_RETRY_HORIZON_MS + 1;
+
+		// Every blocker must clear, so the latest provider reset is the lower bound.
+		expect(
+			forceRouteCapacityReopensAt(
+				[
+					blocker("usage_snapshot", now + 60_000),
+					blocker("extra_usage_hold", far),
+				],
+				now,
+			),
+		).toBe(far);
+		// A local reactive cooldown never makes the route final, however long.
+		expect(
+			forceRouteCapacityReopensAt([blocker("reactive_marker", far * 2)], now),
+		).toBeNull();
+		expect(
+			forceRouteCapacityReopensAt([blocker("usage_snapshot", null)], now),
+		).toBeNull();
+		expect(
+			forceRouteCapacityReopensAt(
+				[blocker("usage_snapshot", now + FORCE_ROUTE_RETRY_HORIZON_MS)],
+				now,
+			),
+		).toBeNull();
 	});
 
 	it("still enforces hard model capacity for a request carrying the auto-refresh marker", async () => {
