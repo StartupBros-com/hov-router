@@ -147,13 +147,15 @@ export function classifyAccountStatus(input: AccountStatusInput, now: number) {
 	const cooldown = isFutureDeadline(input.rateLimitedUntil, now);
 	// Anthropic 403 permission_error: no local action clears it (#869). The
 	// stored reason outlives recovery, so it counts only while the bench is
-	// live; a refused usage check is fresh evidence on its own (#941).
+	// live. A refused usage check counts on its own (#941), unless a live
+	// bench for another cause is fresher: a served request does not clear the
+	// usage record, and that bench is one the operator can clear.
+	const orgBench =
+		cooldown && input.rateLimitedReason === "org_permission_denied";
 	const usageRefused =
 		typeof input.usageOrgRefusedAt === "number" &&
 		Number.isFinite(input.usageOrgRefusedAt);
-	const refused =
-		(cooldown && input.rateLimitedReason === "org_permission_denied") ||
-		usageRefused;
+	const refused = orgBench || (usageRefused && !cooldown);
 	const pacing = isFutureDeadline(input.usageThrottledUntil, now);
 	const refreshDelayed = isFutureDeadline(input.usageRateLimitedUntil, now);
 	const exhausted = /^(usage_exhausted|usage exhausted)(?:$|\s)/.test(base);

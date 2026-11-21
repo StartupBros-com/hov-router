@@ -4582,6 +4582,7 @@ export function createAccountRefreshUsageHandler(dbOps: DatabaseOperations) {
 			}
 
 			clearAccountRefreshCache(accountId);
+			const refreshStartedAt = Date.now();
 			// The restart resolves once the new poll has registered, so this
 			// refresh joins its first usage fetch and the reply waits for it.
 			const pollingRestarted = await restartUsagePollingForAccount(accountId);
@@ -4589,10 +4590,15 @@ export function createAccountRefreshUsageHandler(dbOps: DatabaseOperations) {
 			const usageLockedUntil = cacheRefreshed
 				? null
 				: usageCache.getRateLimitedUntil(accountId);
-			// Set only while Anthropic's latest verdict on the organization is a
-			// refusal (#941); a refreshed fetch that returned usage clears it.
+			// Only this refresh's own check, refused by Anthropic for the
+			// organization (#941). An older refusal stays on record through a
+			// 5xx, a 429 or a check that never ran, and then says nothing about
+			// this attempt.
+			const usageOrgRefusedAt = cacheRefreshed
+				? null
+				: usageCache.getOrgRefusedAt(accountId);
 			const usageOrgRefused =
-				!cacheRefreshed && usageCache.getOrgRefusedAt(accountId) !== null;
+				usageOrgRefusedAt !== null && usageOrgRefusedAt >= refreshStartedAt;
 
 			log.info(
 				`Usage refresh requested for account '${account.name}' (polling restarted: ${pollingRestarted}, cache refreshed: ${cacheRefreshed})`,

@@ -275,6 +275,26 @@ test("a refused usage check reads as refused after the router's bench lapses (#9
 		classifyAccountStatus({ ...usageRefused, requiresReauth: true }, now)
 			.reason,
 	).toBe("reauth");
+	// A live bench for another cause is fresher than the usage check (a
+	// served request does not clear the record), so it shows as a cooldown
+	// the operator can clear.
+	const otherBench = classifyAccountStatus(
+		{
+			...usageRefused,
+			rateLimitedUntil: now + 60_000,
+			rateLimitedReason: "upstream_429",
+		},
+		now,
+	);
+	expect(otherBench.reason).toBe("cooldown");
+	expect(otherBench.clearCooldown).toBe(true);
+	// A live org-refusal bench is still a refusal.
+	expect(
+		classifyAccountStatus(
+			{ ...usageRefused, rateLimitedUntil: now + 60_000 },
+			now,
+		).reason,
+	).toBe("refused");
 	// No record, or a malformed one, is not a refusal.
 	for (const usageOrgRefusedAt of [null, undefined, Number.NaN]) {
 		const ready = classifyAccountStatus(
