@@ -148,6 +148,31 @@ picked, so a condition that must see changes made since then, such as an
 resend is its own [physical attempt](#physical-attempt-usage). It is distinct from a failover,
 which moves the request to another account.
 
+### Windowless 429
+
+A rate-limit refusal from Anthropic that tells the client to retry but carries none of the
+headers that name a usage window, so it says nothing about the account's quota.
+
+The router treats it as a refusal of that request, not of the account: it puts no account on
+cooldown and marks no model as spent. Once a subscription account has returned one, the request
+skips the remaining subscription accounts, while API-key Anthropic accounts and other providers
+are still tried. When no account is left, the request fails as an overload or as no route being
+available, not as a usage limit, and its [terminal cause](#terminal-cause) is a generic upstream
+error from the last account tried rather than the windowless 429 itself.
+
+### Terminal cause
+
+The single code the router stores for why a request failed: its own verdict on the request, such
+as no usable route, a refused forced route, a broken stream or an upstream error status, or,
+when the verdict is that no route was left after accounts were tried upstream, the cause of the
+last attempt.
+
+Failure views such as the dashboard's Recent Errors group by it. It is not the error code in the
+reply the client received, which is built separately: one failure can reach the client as an
+overload while its terminal cause is a generic upstream error, so a code a client saw has to be
+traced to the terminal cause before it can be counted. Once stored alongside the record of the
+request's routing attempts, it does not change.
+
 ### Child route home
 
 The first successful provider, account class, and physical-model lane selected for one child

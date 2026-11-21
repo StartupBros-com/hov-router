@@ -14,7 +14,12 @@ export {
 	type AnthropicCompatibleConfig,
 	AnthropicCompatibleProvider,
 } from "./anthropic-compatible/index";
-export { BedrockProvider, parseBedrockConfig } from "./bedrock/index";
+export {
+	BedrockProvider,
+	hasAwsCredentialsProfile,
+	parseBedrockConfig,
+	readAwsConfigRegion,
+} from "./bedrock/index";
 export type {
 	CodexClientIdentity,
 	CodexResetConsumeClassification,

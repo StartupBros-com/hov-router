@@ -218,6 +218,27 @@ manifest, tag, or certificate for the new display name. The historical binary
 still reports `wstack Router v3.6.2` through `hov-router`; newly built artifacts
 report `HoV Router`. Only Linux x86_64 was publicly released for v3.6.2.
 
+### Verify another release from before the move
+
+The bundles of the other releases published before the move are committed in
+[`docs/provenance/`](provenance/) as well, so each of them still verifies as
+`StartupBros/hov-router`. To check one, run the [6.2.0 block](#optional-consumer-provenance-verification)
+with `binary` set to that release's binary and `source_sha`, `digest` and
+`bundle_sha` taken from its row below. Then change every `v6.2.0` in the block to
+that release's tag: the bundle's file name and download address, `--source-ref`
+and `--cert-identity`. Each release has one
+bundle, whose signed statement names both its binary and its `release-manifest.json`.
+
+| Release | Source commit | Binary SHA-256 | Bundle SHA-256 |
+| --- | --- | --- | --- |
+| [3.7.0](https://github.com/StartupBros-com/hov-router/releases/tag/v3.7.0) | `79a957526bd1994cb3c52b6a110de3c70c1e5c6f` | `49e3ddbc9fc683ffc68dbbacbf4350db582e4cdac417df32a8e6244c90bf2afe` | `4bd800969a4f1fba6147edaae4ba79b798a03471a6b77f2ee49b8b1f1b1c2152` |
+| [4.0.0](https://github.com/StartupBros-com/hov-router/releases/tag/v4.0.0) | `8009109dad34843e8b456bfc15dac80aee2ba47c` | `bf9d57f4a2ddd0e8f9b4cf98926f073986a70ed2185f6194315c0ef6c2d1e2ed` | `35280aed2e627c67508f7e26c5f34305335d18af0e8bdcc43ad10a2ed2dd8151` |
+| [5.0.0](https://github.com/StartupBros-com/hov-router/releases/tag/v5.0.0) | `3b43b5ba0535c6c6dd5bd245789c5846578dbf46` | `75a0fb0ce5e24547b3abd2275da3baaa1da561815ac5876deca437401a668e23` | `eed4aa7d9e7816c3d73681471e4c1eae61abe39304d5dbad06428f0460085554` |
+| [5.0.1](https://github.com/StartupBros-com/hov-router/releases/tag/v5.0.1) | `83886c7b41c38e03de6d876e042819c20d530f53` | `1ac3321405e3afa9332080a31d9c022f880d3bb9bbbe0a4f1ea787f3eb4b2eb5` | `f9ccc13696ccabdfa210311a129fe08aa42e18076dc0714a0c426bf000da64dc` |
+| [5.1.0](https://github.com/StartupBros-com/hov-router/releases/tag/v5.1.0) | `218473fd2c122b61d9df9a62823a754c23973124` | `036b0b7b2d867c719a5f2fc4f7d1c1c9e7bc02c641d86397d6dedbfafe445ce8` | `0676f3f905398fa02fcf632ee94f8c8a227bcaeb09e99ff8dc98724d19041bca` |
+| [6.0.0](https://github.com/StartupBros-com/hov-router/releases/tag/v6.0.0) | `0db6b0de4e3e1d19719780714f4a67a7f7a3b60e` | `cc9338d70d37430c3b566f7796a84bb04cbf423a14ee133a4c78382d733b239f` | `be74b5bbd703c14c84e12c5fa1998ec31d743058beb674d9dfba6c323f78f2d6` |
+| [6.1.0](https://github.com/StartupBros-com/hov-router/releases/tag/v6.1.0) | `157f4bc0e7c3b29dffae48ab777ad05225848069` | `b3109dc051fbd0ba0b0269776ea841c55586289f5047748a6236d450363627e1` | `c8718b828620d1e32e1544707273e909d461138e28d15f7fffd1027fdeb205df` |
+
 ## App authentication and verification boundaries
 
 Release PR reconciliation uses a dedicated GitHub App installation token, not the
