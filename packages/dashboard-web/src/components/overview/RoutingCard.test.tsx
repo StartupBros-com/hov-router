@@ -198,7 +198,10 @@ describe("RoutingCardView", () => {
 			expect(html).toContain('dateTime="2026-08-25T10:00:00.000Z"');
 			expect(html).toContain("1 recovered");
 			expect(html).toContain("1 terminal failure");
-			expect(html).toContain("model_scoped_429 · model");
+			// #918: a plain title, with the raw reason kept as its tooltip.
+			expect(html).toContain("Model family capacity exhausted · model");
+			expect(html).toContain('title="model_scoped_429"');
+			expect(html).not.toContain(">model_scoped_429 · model<");
 			expect(html).toContain(
 				"4 attempts; 1 recovered; 1 terminal failure; 1 awaiting terminal",
 			);
