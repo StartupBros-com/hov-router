@@ -198,13 +198,14 @@ const ATTEMPT_CAUSE_META: Record<
 	upstream_error: {
 		title: "Refused on every account tried",
 		description:
-			"Each account the router sent this request to refused it with an " +
-			"error the router recognises, and no other account could take it. " +
-			"The usual one is a windowless 429 from an Anthropic subscription " +
-			"account, after which the router skips the other subscription " +
-			"accounts. The others are a 403 organization denial, a 402 payment " +
-			"required, an empty extra-usage balance and a model-scoped 429. This " +
-			"code does not say which one it was.",
+			"The last account tried refused this request with an error the router " +
+			"recognises, or its stream broke while the router was checking it, " +
+			"and no other account could take the request. The refusals include a " +
+			"windowless 429 from an Anthropic subscription account, after which " +
+			"the router skips the other subscription accounts for that request; " +
+			"a 429 scoped to a model, family or account; a 403 organization " +
+			"denial; a 402 payment required; and an empty extra-usage balance. " +
+			"This code does not say which one it was.",
 		suggestion:
 			"See Routing attempts on the Routing card for the reason each account " +
 			"gave; each reason there has its own explanation. A windowless 429 " +
@@ -214,10 +215,10 @@ const ATTEMPT_CAUSE_META: Record<
 	transport_error: {
 		title: "Could not reach the provider",
 		description:
-			"Sending the request to the last account tried failed before any " +
-			"reply came back, for example on a refused or dropped connection, and " +
-			"no other account could take it. This code does not keep the error " +
-			"text.",
+			"The attempt on the last account tried ended with an error that was " +
+			"not a timeout, a cancellation or a recognised refusal, for example a " +
+			"refused or dropped connection, and no other account could take the " +
+			"request. This code does not keep the error text.",
 		suggestion:
 			"An occasional one is network noise. If they keep coming from one " +
 			"account, check that provider's status and the network path to it.",
@@ -250,12 +251,14 @@ const ATTEMPT_CAUSE_META: Record<
 	buffer_limit: {
 		title: "Stream over the size limit",
 		description:
-			"A Codex stream grew past the router's stream size limit before it was " +
-			"passed to the client, so the attempt was stopped, and no other " +
-			"account could take the request.",
+			"The provider's stream grew past a size limit the router enforces " +
+			"before passing a response on (the pre-commit buffer, or the Codex " +
+			"stream limit), so the attempt was stopped, and no other account could " +
+			"take the request.",
 		suggestion:
-			"Shorten the request or its expected output. Repeated ones on normal " +
-			"requests are worth reporting as a bug.",
+			"`CCFLARE_ANTHROPIC_PRECOMMIT_MAX_BUFFER_BYTES` sets the pre-commit " +
+			"buffer limit. Repeated ones on ordinary requests are worth reporting " +
+			"as a bug.",
 		severity: "error",
 	},
 	provider_cancelled: {
@@ -272,9 +275,9 @@ const ATTEMPT_CAUSE_META: Record<
 	maintenance_retired: {
 		title: "Ended by a backend restart",
 		description:
-			"The router's backend was being replaced, by a deploy or a guard " +
-			"recycle, before this request's response had started, and the guard " +
-			"ended the request instead of keeping it on the old backend.",
+			"The guard was replacing the router's backend, as it does on a deploy " +
+			"or a recycle, and this request was ended before its response had " +
+			"started.",
 		suggestion:
 			"No action needed. These appear around deploys and restarts, and the " +
 			"client can send the request again.",
@@ -303,8 +306,8 @@ const ATTEMPT_CAUSE_META: Record<
 	client_cancelled: {
 		title: "Client cancelled the request",
 		description:
-			"The client closed the request before any response reached it, for " +
-			"example when someone interrupts Claude Code.",
+			"The client closed the request before it finished, for example when " +
+			"someone interrupts Claude Code.",
 		suggestion: "No action needed.",
 		severity: "warning",
 	},
@@ -315,22 +318,22 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 	route_unavailable: {
 		title: "No account could take the request",
 		description:
-			"The router ran out of accounts it could send this request to: every " +
-			"compatible account was paused, cooling down, unable to serve the " +
-			"requested model or excluded by its route, and none had a known " +
-			"recovery time.",
+			"The router could not find an account to send this request to, for " +
+			"example because every compatible account was paused, cooling down, " +
+			"unable to serve the requested model or excluded by its route, and it " +
+			"had no account with a known time when it would be free again.",
 		suggestion:
 			"On the Accounts page, look for paused, cooling or reauth-needed " +
 			"accounts, and check that an account serves the requested model. The " +
-			"reply to the client lists each account and why it could not be used.",
+			"reply to the client usually lists each account with a short reason.",
 		severity: "error",
 	},
 	pool_exhausted: {
 		title: "All accounts busy for now",
 		description:
-			"Every compatible account was rate-limited or cooling down, and at " +
-			"least one has a known time when it can serve again. The reply tells " +
-			"the client when that is.",
+			"Every compatible account that is not paused was rate-limited, cooling " +
+			"down or out of capacity, and each has a known time when it can serve " +
+			"again. The reply tells the client the earliest of those times.",
 		suggestion:
 			"Usually nothing to do: the first account comes back at that time. " +
 			"More accounts shorten these waits.",
@@ -371,22 +374,24 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 	predictive_throttle: {
 		title: "Held back by usage throttling",
 		description:
-			"Usage throttling predicted that every candidate account would run " +
-			"past its 5-hour or weekly limit, so the router turned the request away " +
-			"before sending it and told the client to retry after 60 seconds.",
+			"Usage throttling held back every candidate account because its use " +
+			"of a 5-hour or weekly window was running ahead of an even pace for " +
+			"that window, so the router turned the request away before sending it " +
+			"and told the client to retry after 60 seconds.",
 		suggestion:
-			"This is the Usage Throttling card at work: turn its 5-hour or weekly " +
-			"switch off to stop it, or add accounts.",
+			"This is the Usage Throttling card at work: turn off its 5-hour window " +
+			"or weekly window switch, whichever applies, or add accounts.",
 		severity: "warning",
 	},
 	physical_attempt_budget_exhausted: {
 		title: "Stopped after too many attempts",
 		description:
-			"This request was sent upstream 32 times without a usable reply. That " +
-			"is the router's fixed safety limit, so it stopped.",
+			"This request was sent upstream 32 times (retries on the same route do " +
+			"not count). That is the router's fixed safety limit, so it stopped.",
 		suggestion:
-			"The server log line `physical_attempt_budget_exhausted` shows which " +
-			"accounts were tried. The limit is not a setting.",
+			"The server log line `physical_attempt_budget_exhausted` shows the " +
+			"attempt count, how many routes were tried and the next account it " +
+			"would have used. The limit is not a setting.",
 		severity: "error",
 	},
 	count_tokens_unsupported: {
@@ -401,29 +406,29 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 	combo_session_fallback_disabled: {
 		title: "Combo ran out of accounts",
 		description:
-			"Every account in the combo for this model failed, and Combo Session " +
-			"Fallback is off, so the request stopped instead of going to an " +
-			"account outside the combo.",
+			"Every account in the combo for this model was unavailable or failed, " +
+			"and Combo Session Fallback is off, so the request stopped instead of " +
+			"going to an account outside the combo.",
 		suggestion:
-			"Fix or add accounts in the combo, or turn on Advanced Settings > " +
-			"Combo Session Fallback to let these requests use the whole pool.",
+			"Fix or add accounts in the combo, or turn on Combo Session Fallback " +
+			"on the Advanced card to let these requests use the whole pool.",
 		severity: "error",
 	},
 	force_model_denied: {
 		title: "No account serves the exact model",
 		description:
-			"Force Account Model is on, and no account can serve the requested " +
-			"model as written, so the router refused instead of sending a " +
-			"different model.",
+			"Force Account Model is on, and no account was left to serve the " +
+			"requested model as written, so the router refused instead of sending " +
+			"a different model.",
 		suggestion:
-			"Add an account that serves this model, or turn off Advanced Settings " +
-			"> Force Account Model.",
+			"Add an account that serves this model, or turn off Force Account " +
+			"Model on the Advanced card.",
 		severity: "error",
 	},
 	downstream_cancelled: {
-		title: "Client disconnected mid-response",
+		title: "Client disconnected early",
 		description:
-			"The response was streaming when the client closed the connection, so " +
+			"The client closed the connection before the response finished, so " +
 			"the rest of it was not delivered.",
 		suggestion:
 			"No action needed: the client went away, for example when someone " +
@@ -478,8 +483,9 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 	responses_error: {
 		title: "Provider stream reported a failure",
 		description:
-			"An OpenAI Responses stream ended with an error or failed event after " +
-			"it had started. The provider's message is not stored.",
+			"A Codex Responses stream ended with an error or failed event, or " +
+			"failed without a recorded reason. The provider's message is not " +
+			"stored.",
 		suggestion:
 			"Occasional ones need no action. If they repeat on one account, check " +
 			"that provider.",
@@ -488,7 +494,7 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 	responses_truncated: {
 		title: "Provider stream cut short",
 		description:
-			"An OpenAI Responses stream ended without a clean completion: it " +
+			"A Codex Responses stream ended without a clean completion: it " +
 			"stopped early, reported an incomplete response, or ended with data " +
 			"the router could not read.",
 		suggestion:
@@ -498,8 +504,7 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 	},
 	responses_client_cancelled: {
 		title: "Provider cancelled the response",
-		description:
-			"An OpenAI Responses stream reported its response as cancelled.",
+		description: "A Codex Responses stream reported its response as cancelled.",
 		suggestion: "No action needed for an occasional one.",
 		severity: "warning",
 	},
@@ -517,16 +522,18 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 type FamilyEntry = Omit<ErrorMeta, "description"> & { detail: string };
 
 const PINNED =
-	"This request was pinned to one account, by the " +
-	"`x-better-ccflare-account-id` header or a route profile, and ";
+	"This request was pinned, by the `x-better-ccflare-account-id` header or " +
+	"a route profile, to one account or to the accounts its route profile " +
+	"allows, and ";
 
 /** `force_route_${ForceRouteUnavailableReason}` (packages/proxy/src/proxy.ts). */
 const FORCE_ROUTE_META: Record<string, FamilyEntry> = {
 	account_capacity_exhausted: {
-		title: "Pinned account at its limit",
+		title: "Pinned route at its limit",
 		detail:
-			"that account has no capacity left. A pinned request never moves to " +
-			"another account.",
+			"the pinned account, or every account the profile allows, has no " +
+			"capacity left. A request pinned to one account never moves to " +
+			"another.",
 		suggestion:
 			"Wait for the account to recover, or send the request without the pin.",
 		severity: "warning",
@@ -534,18 +541,20 @@ const FORCE_ROUTE_META: Record<string, FamilyEntry> = {
 	model_capacity_exhausted: {
 		title: "Pinned account at its model limit",
 		detail:
-			"that account has no capacity left for the requested model or model " +
-			"family. A pinned request never moves to another account.",
+			"the pinned account has no capacity left for the requested model or " +
+			"model family. A request pinned to one account never moves to " +
+			"another.",
 		suggestion:
 			"Wait for the model's limit to reset, or send the request without the " +
 			"pin.",
 		severity: "warning",
 	},
 	rate_limited_or_unavailable: {
-		title: "Pinned account unavailable",
+		title: "Pinned route busy or unavailable",
 		detail:
-			"that account cannot take it right now: it is cooling down, " +
-			"rate-limited or not eligible for this kind of request.",
+			"the pinned account, or every account the profile allows, cannot take " +
+			"it right now: it is cooling down, rate-limited or not eligible for " +
+			"this kind of request.",
 		suggestion:
 			"Check the account on the Accounts page, or send the request without " +
 			"the pin.",
@@ -553,7 +562,8 @@ const FORCE_ROUTE_META: Record<string, FamilyEntry> = {
 	},
 	paused: {
 		title: "Pinned account paused",
-		detail: "that account is paused.",
+		detail:
+			"the pinned account, or every account the profile allows, is paused.",
 		suggestion:
 			"Resume or re-authenticate the account on the Accounts page. Overage " +
 			"and rate-limit-window pauses lift on their own.",
@@ -561,22 +571,22 @@ const FORCE_ROUTE_META: Record<string, FamilyEntry> = {
 	},
 	not_found: {
 		title: "Pinned account not found",
-		detail: "no account with that id exists.",
+		detail: "no account with the pinned id exists.",
 		suggestion: "Fix the account id in the header or the route profile.",
 		severity: "error",
 	},
 	conflicting_force_route: {
 		title: "Conflicting account pins",
 		detail:
-			"it carried a second, different pin, so the router refused instead of " +
-			"choosing one.",
-		suggestion:
-			"Send one pin: either the header or the route profile, not both.",
+			"its pins conflict: the header named a different account from the " +
+			"route profile, or the header came with a route profile that chooses " +
+			"among several accounts. The router refused instead of choosing.",
+		suggestion: "Send the header or use the route profile, not both.",
 		severity: "error",
 	},
 	provider_excluded: {
 		title: "Pinned account's provider excluded",
-		detail: "that account's provider is excluded for this request.",
+		detail: "the pinned account's provider is excluded for this request.",
 		suggestion:
 			"Pin an account from an allowed provider, or remove the exclusion.",
 		severity: "error",
@@ -584,7 +594,7 @@ const FORCE_ROUTE_META: Record<string, FamilyEntry> = {
 	provider_mismatch: {
 		title: "Pinned account is the wrong provider",
 		detail:
-			"that account's provider does not match the one its route profile " +
+			"the account's provider does not match the one its route profile " +
 			"expects.",
 		suggestion: "Point the route profile at an account of the right provider.",
 		severity: "error",
@@ -592,7 +602,7 @@ const FORCE_ROUTE_META: Record<string, FamilyEntry> = {
 	model_mapping_mismatch: {
 		title: "Pinned account maps a different model",
 		detail:
-			"that account's model mapping would send a different model from the " +
+			"the account's model mapping would send a different model from the " +
 			"one its route profile expects.",
 		suggestion:
 			"Fix the account's model mapping or the route profile's expected model.",
@@ -601,28 +611,30 @@ const FORCE_ROUTE_META: Record<string, FamilyEntry> = {
 	catalog_role_unavailable: {
 		title: "Pinned model not in the catalog yet",
 		detail:
-			"its route follows a model role in that Codex account's catalog, and " +
-			"the catalog has not named a model for it yet.",
+			"its route follows a model role or line in a Codex account's catalog, " +
+			"and the catalog has not named a model for it yet.",
 		suggestion:
 			"This usually clears once the account's model catalog loads; retry " +
 			"shortly.",
 		severity: "warning",
 	},
 	catalog_role_mismatch: {
-		title: "Pinned model not in the catalog",
+		title: "Pinned model does not match the catalog",
 		detail:
-			"its route follows a model role in that Codex account's catalog, and " +
-			"the catalog's model for that role does not match.",
+			"its route follows a model role or line in a Codex account's catalog, " +
+			"and the account's model mapping does not agree with the catalog's " +
+			"model for it, or the catalog lists no model of that line.",
 		suggestion:
-			"Edit the route profile to a role or model the account's catalog has.",
+			"Fix the account's model mapping, or point the route profile at a role " +
+			"or line the catalog has.",
 		severity: "error",
 	},
 	lookup_failed: {
 		title: "Could not look up the pinned account",
-		detail: "reading that account from the database failed.",
+		detail: "reading the accounts from the database failed.",
 		suggestion:
-			"Check the server log for the database error; it suggests running " +
-			"`--repair-db`.",
+			"Check the server log for the database error. For a pin to one " +
+			"account, the server console also suggests running `--repair-db`.",
 		severity: "error",
 	},
 };
@@ -632,9 +644,11 @@ const SERVER_TOOL_META: Record<string, ErrorMeta> = {
 	advisor_declaration_unavailable: {
 		title: "Advisor not available on this route",
 		description:
-			"The request declared Claude Code's advisor tool, and no route that " +
-			"could take the request can run it. The refusal is worded so that " +
-			"Claude Code drops the advisor tool and retries.",
+			"The request declared Claude Code's advisor tool, and it cannot be " +
+			"served here: no native Anthropic account could take the request, " +
+			"advisor was declared beside another server tool, or its advisor type " +
+			"is not recognised. The refusal is worded so that Claude Code drops " +
+			"the advisor tool and retries.",
 		suggestion:
 			"No action needed. To use advisor, keep a native Anthropic account " +
 			"available for these requests.",
@@ -691,8 +705,9 @@ const SERVER_TOOL_META: Record<string, ErrorMeta> = {
 	no_implementation: {
 		title: "No route provides this server tool",
 		description:
-			"No configured account is known to provide the server tool the " +
-			"request declares.",
+			"No account in the pool has a proven way to run the server tool the " +
+			"request declares, including when every candidate's capability check " +
+			"failed before sending.",
 		suggestion:
 			"Add an account that provides the tool, such as a native Anthropic " +
 			"account for web search.",
@@ -708,21 +723,20 @@ const SERVER_TOOL_META: Record<string, ErrorMeta> = {
 		severity: "error",
 	},
 	temporary_unavailable: {
-		title: "Server tool capacity busy",
+		title: "Server tool route busy",
 		description:
-			"Accounts that can run this server tool exist, but none could take the " +
-			"request right now.",
-		suggestion: "This usually clears on its own; the client can retry.",
+			"The router could not find an account to run this server tool for the " +
+			"request right now: the accounts that support it were busy or " +
+			"unavailable, or the selection step failed.",
+		suggestion: "This often clears on its own; the client can retry.",
 		severity: "warning",
 	},
 };
 
 /** The error type an Anthropic SSE `error` event carried. */
 const MIDSTREAM_TITLES: Record<string, string> = {
-	overloaded_error: "Provider overloaded mid-response",
-	api_error: "Provider error mid-response",
-	internal_server_error: "Provider error mid-response",
-	invalid_request_error: "Provider rejected the request mid-response",
+	overloaded_error: "Overload error in the stream",
+	invalid_request_error: "Request error in the stream",
 	upstream_stream_read_error: "Lost the provider stream mid-response",
 };
 
@@ -743,11 +757,11 @@ function getForceRouteMeta(reason: string): ErrorMeta {
 		return { ...rest, description: PINNED + detail };
 	}
 	return {
-		title: "Pinned route unavailable",
+		title: "Pinned route refused",
 		description: `${PINNED}the router could not use it (reason: ${reason}).`,
 		suggestion:
-			"Check the pinned account on the Accounts page, or send the request " +
-			"without the pin.",
+			"Check the route profile and its accounts, or send the request without " +
+			"the pin.",
 		severity: "error",
 	};
 }
@@ -772,12 +786,11 @@ function getMidstreamMeta(errorType: string): ErrorMeta {
 				"the upstream stream."
 			: "";
 	return {
-		title: lookup(MIDSTREAM_TITLES, errorType) ?? "Stream failed mid-response",
+		title: lookup(MIDSTREAM_TITLES, errorType) ?? "Error event in the stream",
 		description:
-			"The response had already started when the stream carried an error " +
-			`event of type ${errorType}.${codexReadError} The client sees that ` +
-			"error in the stream, and a response that has started cannot move to " +
-			"another account.",
+			"While the router was passing the response to the client, the stream " +
+			`carried an error event of type ${errorType}.${codexReadError} The ` +
+			"client sees that error in the stream.",
 		suggestion:
 			"Occasional ones need no action. If they repeat on one account, check " +
 			"that provider's status.",
@@ -818,8 +831,9 @@ function getUpstreamHttpMeta(value: string): ErrorMeta {
 		description:
 			`The provider answered HTTP ${status}` +
 			(details ? ` with ${details}` : "") +
-			", and the router passed that reply to the client. The provider's " +
-			"message text is never stored.",
+			", and the router passed that reply to the client. This error line " +
+			"keeps only the status, error type and code, never the provider's " +
+			"message text.",
 		suggestion: serverSide
 			? "This is trouble on the provider's side. Occasional ones need no " +
 				"action; if they repeat, check the provider's status page."
@@ -849,21 +863,21 @@ function getRouterErrorMeta(code: string): ErrorMeta | null {
 	if (code.startsWith(RESPONSES_PREFIX)) {
 		return {
 			title: "Provider stream did not complete",
-			description: `An OpenAI Responses stream ended in state ${code.slice(RESPONSES_PREFIX.length)}.`,
+			description: `A Codex Responses stream ended in state ${code.slice(RESPONSES_PREFIX.length)}.`,
 			suggestion:
 				"If they repeat on one account, check that provider's status.",
 			severity: "error",
 		};
 	}
-	// A stream that failed after it started stores the runtime's own error
-	// text (packages/proxy/src/response-handler.ts); router codes never contain
-	// whitespace.
+	// A failed response body stores the runtime's own error text
+	// (packages/proxy/src/response-handler.ts). That text contains whitespace;
+	// the only router codes with spaces (upstream_http_) are matched above.
 	if (/\s/.test(code.trim())) {
 		return {
-			title: "Stream failed after it started",
+			title: "Connection failed while reading the response",
 			description:
-				"The response was under way when the connection failed with this " +
-				`error from the runtime: "${code}"`,
+				"The connection failed while the router was reading the response, " +
+				`with this error from the runtime: "${code}"`,
 			suggestion:
 				"Occasional ones are dropped connections. Many from one account " +
 				"point at that provider or the network path to it.",
