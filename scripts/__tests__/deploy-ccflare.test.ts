@@ -2028,6 +2028,52 @@ describe("validate_bun_runtime_version", () => {
 		expect(check(join(dir, "missing"), versionFile).exitCode).toBe(1);
 	});
 
+	test("a toolchain refusal names the pinned Bun to put first on PATH", () => {
+		const dir = tempDir();
+		const binDir = join(dir, "bin");
+		mkdirSync(binDir);
+		const versionFile = join(dir, ".bun-version");
+		// Not the repo's real pin, so only a hint built from the file passes.
+		writeFileSync(versionFile, "9.9.9\n");
+		const hint =
+			"Put Bun 9.9.9 first on PATH and run the deploy again, for example: mise exec bun@9.9.9 -- scripts/deploy-ccflare.sh";
+		const toolchainCheck = () =>
+			bash(
+				[
+					`source ${shellQuote(helperScriptForShell)}`,
+					`PATH=${shellQuote(shellPath(binDir))}:"$PATH"`,
+					`validate_bun_runtime_version "build toolchain" bun ${shellQuote(shellPath(versionFile))}`,
+				].join("\n"),
+			);
+
+		fakeBunExecutable(binDir, "bun", "9.9.9\n");
+		const pinned = toolchainCheck();
+		expect(pinned.exitCode).toBe(0);
+		expect(capturedOutput(pinned.stdout, "stdout")).toContain(
+			"OK: build toolchain runs Bun 9.9.9",
+		);
+
+		fakeBunExecutable(binDir, "bun", "1.4.4\n");
+		const newer = toolchainCheck();
+		expect(newer.exitCode).toBe(1);
+		const newerError = capturedOutput(newer.stderr, "stderr");
+		expect(newerError).toContain("build toolchain runs Bun '1.4.4'");
+		expect(newerError).toContain(hint);
+
+		// A detached shell with no Bun the version check can run.
+		writeFileSync(join(binDir, "bun"), "#!/usr/bin/env bash\nexit 1\n");
+		const unknown = toolchainCheck();
+		expect(unknown.exitCode).toBe(1);
+		const unknownError = capturedOutput(unknown.stderr, "stderr");
+		expect(unknownError).toContain("build toolchain runs Bun 'unknown'");
+		expect(unknownError).toContain(hint);
+
+		// PATH cannot change the runtime a built binary embeds.
+		const built = check(fakeBunExecutable(dir, "built", "1.4.4\n"), versionFile);
+		expect(built.exitCode).toBe(1);
+		expect(capturedOutput(built.stderr, "stderr")).not.toContain("first on PATH");
+	});
+
 	test("refuses a .bun-version that is not one exact version", () => {
 		const dir = tempDir();
 		const executable = fakeBunExecutable(dir, "bun", "1.4.2\n");

@@ -1528,6 +1528,10 @@ sha256_file() {
 # variable). bun.lock kept the npm `bun` package, which every `bun run` script
 # resolves first, at 1.3.11 through each .bun-version bump, so prod shipped a
 # runtime CI never tested (#489, #491).
+#
+# A bare executable name is looked up on the caller's PATH, so its refusal
+# also names the Bun to put there. The script never picks a Bun itself: a
+# deploy that chose its own runtime would make this gate a selector.
 validate_bun_runtime_version() {
 	if [[ "$#" -ne 3 ]]; then
 		echo "validate_bun_runtime_version requires: label executable bun-version-file" >&2
@@ -1544,6 +1548,9 @@ validate_bun_runtime_version() {
 	actual="$(BUN_BE_BUN=1 "$executable" --version 2>/dev/null)" || actual=""
 	if [[ "$actual" != "$expected" ]]; then
 		echo "refusing to deploy: $label runs Bun '${actual:-unknown}', but .bun-version pins $expected" >&2
+		if [[ "$executable" != */* ]]; then
+			echo "Put Bun $expected first on PATH and run the deploy again, for example: mise exec bun@$expected -- scripts/deploy-ccflare.sh" >&2
+		fi
 		return 1
 	fi
 	echo "OK: $label runs Bun $actual, matching .bun-version."
