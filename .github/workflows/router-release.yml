@@ -98,7 +98,7 @@ jobs:
           client-id: ${{ vars.ROUTER_RELEASE_APP_CLIENT_ID }}
           private-key: ${{ secrets.ROUTER_RELEASE_APP_PRIVATE_KEY }}
           # The validated owner: the App must be installed for whichever owner
-          # holds the repository (the personal account, or StartupBros-com after #911).
+          # holds the repository (StartupBros-com since the 2026-11-20 move, #911).
           owner: ${{ needs.guard.outputs.repository-owner }}
           repositories: ${{ needs.guard.outputs.repository-name }}
           permission-contents: write
