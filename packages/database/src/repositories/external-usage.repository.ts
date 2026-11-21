@@ -562,6 +562,14 @@ export class ExternalUsageRepository extends BaseRepository<ExternalUsageEvent> 
 		result.affected = this.dedupeAffected(result.affected);
 		return result;
 	}
+	/** Count unattributed committed events without building the per-model token report. */
+	async countUnattributedEvents(): Promise<number> {
+		const [row] = await this.queryOffThread<{ rows: number }>(
+			"SELECT COUNT(*) AS rows FROM external_usage_events WHERE account_id IS NULL",
+		);
+		return Number(row?.rows ?? 0);
+	}
+
 	async report() {
 		const rows = await this.queryOffThread<{
 			model: string;
