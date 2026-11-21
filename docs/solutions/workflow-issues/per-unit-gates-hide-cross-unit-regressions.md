@@ -103,7 +103,7 @@ different adapter shape.
 
 ### Read-only, offline worktrees need their non-secret inputs too
 
-The later [decomposition baseline audit (#905)](https://github.com/StartupBros/hov-router/issues/905)
+The later [decomposition baseline audit (#905)](https://github.com/StartupBros-com/hov-router/issues/905)
 reproduced three sandbox setup failures on unchanged source. Correcting only the
 missing input or private output made each of the four suites listed below pass
 three repetitions:
@@ -121,7 +121,7 @@ both the original failed logs and the cause-specific reruns; recovered files are
 not a replacement all-green full-suite run.
 
 The audit still had an offline-install failure and intermittent release deadlines.
-Its separate [live-provider forwarding-test defect (#906)](https://github.com/StartupBros/hov-router/issues/906)
+Its separate [live-provider forwarding-test defect (#906)](https://github.com/StartupBros-com/hov-router/issues/906)
 was filed, not repaired by these sandbox changes. Those unresolved results must
 not be relabelled as passing. The audit also records limitations in its external
 proof scripts; this learning does not certify that gate or any proposed split.

@@ -59,7 +59,7 @@ graph TB
 
 ```bash
 # Clone the repository
-git clone https://github.com/StartupBros/hov-router.git
+git clone https://github.com/StartupBros-com/hov-router.git
 cd hov-router
 
 # Install dependencies
@@ -1049,7 +1049,7 @@ HoV Router is designed to be flexible and scalable, supporting everything from s
 - [Configuration Guide](./configuration.md)
 - [Load Balancing Strategies](./load-balancing.md)
 - [API Reference](./api-http.md)
-- [GitHub Repository](https://github.com/StartupBros/hov-router)
+- [GitHub Repository](https://github.com/StartupBros-com/hov-router)
 
 ## Web Dashboard
 

@@ -7,7 +7,7 @@ You need Docker with BuildKit (any current Docker Engine or Docker Desktop). The
 ## Build and run with Docker Compose
 
 ```bash
-git clone https://github.com/StartupBros/hov-router.git
+git clone https://github.com/StartupBros-com/hov-router.git
 cd hov-router
 docker compose up -d --build
 ```
