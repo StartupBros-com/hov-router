@@ -1,0 +1,15 @@
+This PR contains the following updates:
+
+| Package | Change |
+|---|---|
+| postcss | `8.5.22` → `8.5.23` |
+
+### GitHub Vulnerability Alerts
+
+##### Proof of concept (verified on postcss 8.5.22)
+
+```js
+fs.writeFileSync(secret, JSON.stringify({
+  version: 3, sources: ['/etc/REAL_PATH_LEAK'], mappings: '', names: [],
+}))
+```

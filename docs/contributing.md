@@ -171,9 +171,13 @@ To bump, in one PR:
 
 1. Edit `.bun-version` to the exact new version.
 2. Set `devDependencies.bun` in the root `package.json` to the same version.
-3. Run `bun install` to move `bun.lock`'s `bun@` and `@oven/bun-*` entries. Review the lock
+3. Set `ARG BUN_VERSION` in the `Dockerfile` and `constraints.bun` in `renovate.json` to the
+   same version. Renovate rewrites `bun.lock` with the Bun that `constraints.bun` names; without
+   it, Renovate would use the newest release that `engines.bun` allows.
+4. Run `bun install` to move `bun.lock`'s `bun@` and `@oven/bun-*` entries. Review the lock
    diff, since a non-frozen install also re-resolves `latest` specifiers such as `@types/bun`.
-4. Run `bun test tests/bun-toolchain-pin.test.ts`. It fails unless all three agree.
+5. Run `bun test tests/bun-toolchain-pin.test.ts packages/core/src/dockerfile-provenance.test.ts`.
+   They fail unless every pin agrees.
 
 The merge gate on that PR is the proof the new version passes. `scripts/deploy-ccflare.sh` then
 refuses any build whose toolchain or embedded runtime (`BUN_BE_BUN=1 <binary> --version`)
