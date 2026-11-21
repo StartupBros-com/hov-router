@@ -87,7 +87,7 @@ Requires Bash on Linux x86_64, `curl`, and GNU coreutils (`sha256sum`, `mkdir`, 
 ```
 <!-- /router-release-install -->
 
-The checksum verifies the bytes against this trusted reference; it does not independently prove who built them. Before the first run, you can also [verify signed build provenance](hov-router-releases.md#optional-consumer-provenance-verification). That optional check verifies the binary against the exact repository, source commit, tag, workflow identity, signer commit, and hosted runner that built it.
+The checksum verifies the bytes against this trusted reference; it does not independently prove who built them. Before the first run, you can also [verify signed build provenance](hov-router-releases.md#optional-consumer-provenance-verification). That optional check verifies the binary against the exact repository, source commit, tag, workflow identity, signer commit, and hosted runner that built it. It needs `curl`, a current GitHub CLI and network access, but no GitHub login.
 
 If any command fails, stop: do not run the binary. The block refuses any existing `6.2.0` path, including a symlink, and leaves partial downloads for inspection rather than deleting or overwriting them. Inspect the error and existing files before retrying.
 

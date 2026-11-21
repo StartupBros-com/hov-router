@@ -47,7 +47,10 @@ this guide verifies, the bundle exactly as GitHub issued it is committed in
 the SHA-256 pinned here, then verifies the binary against it under the repository
 and certificate the release was signed with. Release 6.2.0 was built and signed as
 `StartupBros/hov-router`. You need not trust where the bundle came from: the pinned
-checksum and GitHub CLI's signature check decide.
+checksum and GitHub CLI's signature check decide. GitHub CLI compares the repository
+and workflow names with the ones recorded in the signing certificate when the release
+was signed, and the pinned checksums tie each block to that one build. Committed
+bundles are never deleted or rewritten, so each block's download address keeps working.
 
 <!-- router-release-provenance -->
 ```bash
@@ -127,7 +130,7 @@ commit `6b88f789e30c3a86ee918d35a6673e7be12f9243`. The exact certificate is
 To install it, use the reference's install block the same way: `3.7.1` in place of
 `6.2.0` in the version directory and download URL, and the binary's digest above.
 Then verify it, before running it, with this block. It expects that install path,
-which is also the one the 3.7.1-era guide used. For a manifest audit, set `binary`
+the one this guide used while 3.7.1 was the current release. For a manifest audit, set `binary`
 and `digest` as described for 6.2.0; the bundle stays the same.
 
 <!-- router-release-provenance-v3.7.1 -->
