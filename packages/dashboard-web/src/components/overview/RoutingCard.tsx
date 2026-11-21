@@ -26,6 +26,7 @@ import {
 import { EmptyState, ErrorState, LoadingState } from "../ui/state";
 import { StatusPill } from "../ui/status-pill";
 import { Switch } from "../ui/switch";
+import { getErrorMeta } from "./system-status/errorCodeMeta";
 
 // Only session-class strategies are offered from the dashboard. Per-request
 // spreading strategies (least-used, session-affinity) can trip Claude's
@@ -321,8 +322,8 @@ export function RoutingCardView({
 									>
 										{routingAttempts.data.byReasonScope.map((row) => (
 											<li key={`${row.reason}:${row.scope}`}>
-												<span className="font-medium">
-													{row.reason} · {row.scope}
+												<span className="font-medium" title={row.reason}>
+													{getErrorMeta(row.reason).title} · {row.scope}
 												</span>{" "}
 												{row.attemptCount} attempts; {row.recoveredRequests}{" "}
 												recovered; {row.terminalFailureRequests} terminal

@@ -62,7 +62,7 @@ flowchart TD
     I -->|"Yes"| N["Dispatch: try candidates in order"]
     N --> O{"Upstream 429?"}
     O -->|"Yes"| P{"Narrower than the account?<br/>out_of_credits (model/beta-scoped),<br/>windowless 429 (request-scoped),<br/>or synthetic keepalive"}
-    P -->|"Yes"| P2["No account cooldown —<br/>fail over to next candidate"]
+    P -->|"Yes"| P2["No account cooldown —<br/>fail over to next candidate<br/>(after a subscription account's windowless 429,<br/>skip the other subscription accounts)"]
     P -->|"No"| P3["Apply account cooldown,<br/>fail over to next candidate"]
     P2 --> N
     P3 --> N
@@ -75,6 +75,7 @@ request with the account left in rotation — no cooldown, no
 
 - **`out_of_credits`** — credits/overage depleted for one model or beta (e.g. context-1m); the account's other models still work.
 - **`windowless_429`** — `x-should-retry: true` with no rate-limit metadata at all (no `retry-after`, no `anthropic-ratelimit-*` / `x-ratelimit-*` header). Measured on a production install as **request**-scoped: the same account served 200s two seconds before and 38 seconds after on the same model, retries spanning 11.2s returned identical bare 429s without ever clearing, and the next account rejected the same client request the same way. Benching for it drained the pool one account per failover attempt. The check is fail-closed — any header that reports window state, known name or not, is treated as a real limit and benched as before.
+  Trying the request on the next subscription account never worked either: between 2026-10-16 and 2026-11-20, production saw 66,749 of these across 16,016 client requests and no other subscription account accepted any of those requests (#916). So once a subscription (OAuth) Anthropic account returns one, the request skips its remaining subscription accounts. Other providers and API-key Anthropic accounts are still tried, and a skipped account counts as a temporary failure, so a native-quota combo still answers with its 529 and `retry-after`. Claude Code retries that 529 itself, and in the 7 days to 11-20, 2,603 of 3,490 runs of these failures in a session were followed by a success within 2 minutes.
 - **Synthetic keepalive replays** — the keepalive scheduler's own parallel burst trips a per-IP limit; no request-history row is written either.
 
 The `windowless_429` exemption is not universal: it is evaluated only on the

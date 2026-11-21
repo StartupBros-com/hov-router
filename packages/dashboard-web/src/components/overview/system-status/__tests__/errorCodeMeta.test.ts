@@ -1,6 +1,188 @@
 import { describe, expect, test } from "bun:test";
 import { getErrorMeta } from "../errorCodeMeta";
 
+const FALLBACK_DESCRIPTION =
+	"No additional context is available for this error code.";
+
+// Every value the router writes to `requests.error_message`, which is what
+// Recent Errors groups by (#918). Sources: the local terminal kinds recorded in
+// packages/proxy/src/proxy.ts (recordLocalRoutingTerminal, including
+// `force_route_${reason}` and `server_tool_${reason}`), the attempt-cause
+// rewrite of route_unavailable in packages/proxy/src/routing-terminal-recorder.ts,
+// response-handler.ts (midstream errors, EOF, downstream cancel, raw transport
+// text), usage-collector.ts (`responses_${terminal}`), anthropic-precommit-rescue.ts,
+// and upstream-error-observability.ts (`upstream_http_<status>`).
+const ROUTER_CODES = [
+	// Local terminal kinds.
+	"route_unavailable",
+	"pool_exhausted",
+	"model_pool_exhausted",
+	"selection_timeout",
+	"inventory_failed",
+	"predictive_throttle",
+	"physical_attempt_budget_exhausted",
+	"count_tokens_unsupported",
+	"combo_session_fallback_disabled",
+	"force_model_denied",
+	// Last-attempt causes that replace route_unavailable.
+	"accepted_request_deadline",
+	"meaningful_progress_timeout",
+	"semantic_timeout",
+	"buffer_limit",
+	"provider_cancelled",
+	"maintenance_retired",
+	"context_length_exceeded",
+	"upstream_error",
+	"transport_error",
+	"client_cancelled",
+	// Stream outcomes.
+	"downstream_cancelled",
+	"anthropic_incomplete_eof",
+	"anthropic_rescue_commitment_deadline",
+	"anthropic_rescue_non_sse_response",
+	"anthropic_rescue_routing_error",
+	"responses_error",
+	"responses_truncated",
+	"responses_client_cancelled",
+	"anthropic_midstream_error:api_error",
+	"anthropic_midstream_error:internal_server_error",
+	"anthropic_midstream_error:invalid_request_error",
+	"anthropic_midstream_error:overloaded_error",
+	"anthropic_midstream_error:upstream_stream_read_error",
+	"anthropic_midstream_error:unknown_error",
+	// ForceRouteUnavailableReason (packages/proxy/src/handlers/account-selector.ts).
+	"force_route_account_capacity_exhausted",
+	"force_route_catalog_role_mismatch",
+	"force_route_catalog_role_unavailable",
+	"force_route_conflicting_force_route",
+	"force_route_lookup_failed",
+	"force_route_model_capacity_exhausted",
+	"force_route_model_mapping_mismatch",
+	"force_route_not_found",
+	"force_route_paused",
+	"force_route_provider_excluded",
+	"force_route_provider_mismatch",
+	"force_route_rate_limited_or_unavailable",
+	// ServerToolRoutingErrorReason (packages/proxy/src/server-tool-routing-errors.ts).
+	"server_tool_invalid_requirement",
+	"server_tool_unsupported_requirement",
+	"server_tool_no_implementation",
+	"server_tool_replay_unavailable",
+	"server_tool_temporary_unavailable",
+	"server_tool_forced_incapable",
+	"server_tool_forced_structurally_incapable",
+	"server_tool_advisor_declaration_unavailable",
+	"server_tool_advisor_history_unavailable",
+	// Written only by the retired Auto quality lane; old rows still carry it.
+	"quality_route_unavailable",
+	// Forwarded provider failures, as stored in production.
+	"upstream_http_403 type=api_error",
+	"upstream_http_503",
+	"upstream_http_400 type=invalid_request_error",
+	"upstream_http_400 type=invalid_request_error code=cyber_policy",
+	"upstream_http_502 type=upstream_stream_read_error",
+	"upstream_http_529 type=overloaded_error",
+	"upstream_http_504",
+	"upstream_http_500",
+	"upstream_http_529 type=overloaded_error code=server_is_overloaded",
+	"upstream_http_503 type=no_db_connection code=503",
+	// Raw runtime text from a stream that failed after it started.
+	"The socket connection was closed unexpectedly. For more information, pass `verbose: true` in the second argument to fetch()",
+	"The connection was closed.",
+] as const;
+
+describe("getErrorMeta: router codes (#918)", () => {
+	test.each([
+		...ROUTER_CODES,
+	])("%s has a plain title and its own description", (code: string) => {
+		const meta = getErrorMeta(code);
+		expect(meta.title).not.toBe(code);
+		expect(meta.title).not.toBe("Unknown error");
+		expect(meta.title).not.toMatch(/_/);
+		expect(meta.description).not.toBe(FALLBACK_DESCRIPTION);
+		expect(meta.suggestion.length).toBeGreaterThan(0);
+	});
+
+	test("an unlisted member of each code family still gets a plain title", () => {
+		for (const code of [
+			"force_route_some_new_reason",
+			"server_tool_some_new_reason",
+			"anthropic_midstream_error:some_new_type",
+			"responses_some_new_terminal",
+			"upstream_http_418",
+		]) {
+			const meta = getErrorMeta(code);
+			expect(meta.title).not.toBe(code);
+			expect(meta.title).not.toMatch(/_/);
+			expect(meta.description).not.toBe(FALLBACK_DESCRIPTION);
+		}
+	});
+
+	test("an upstream_http value is read as a provider reply, not raw text", () => {
+		const meta = getErrorMeta("upstream_http_403 type=api_error");
+		expect(meta.title).toContain("403");
+		expect(meta.description).toContain("api_error");
+		expect(meta.description).not.toContain("upstream_http_403 type=api_error");
+	});
+
+	test("an upstream_http value names its provider code when one was stored", () => {
+		const meta = getErrorMeta(
+			"upstream_http_400 type=invalid_request_error code=cyber_policy",
+		);
+		expect(meta.description).toContain("invalid_request_error");
+		expect(meta.description).toContain("cyber_policy");
+	});
+
+	test("a midstream error names the stream's error type", () => {
+		const meta = getErrorMeta("anthropic_midstream_error:overloaded_error");
+		expect(meta.description).toContain("overloaded_error");
+	});
+
+	test("raw runtime text is quoted in the description", () => {
+		const meta = getErrorMeta("The connection was closed.");
+		expect(meta.description).toContain("The connection was closed.");
+	});
+
+	test("upstream_error names the windowless 429 and points at routing attempts", () => {
+		const meta = getErrorMeta("upstream_error");
+		const text = `${meta.description} ${meta.suggestion}`;
+		// After #916 a windowless 429 ends here: every routed account refused.
+		expect(text).toContain("windowless 429");
+		expect(text).toContain("Routing attempts");
+	});
+
+	test("cancellations and Claude Code-recoverable refusals are warnings", () => {
+		for (const code of [
+			"client_cancelled",
+			"downstream_cancelled",
+			"responses_client_cancelled",
+			"server_tool_advisor_declaration_unavailable",
+			"server_tool_advisor_history_unavailable",
+		]) {
+			expect(getErrorMeta(code).severity).toBe("warning");
+		}
+	});
+
+	test("object prototype names fall back like any unknown code", () => {
+		for (const code of [
+			"constructor",
+			"toString",
+			"__proto__",
+			"hasOwnProperty",
+		]) {
+			const meta = getErrorMeta(code);
+			expect(meta.title).toBe(code);
+			expect(meta.description).toBe(FALLBACK_DESCRIPTION);
+		}
+	});
+
+	test("an unknown snake_case code keeps its raw title", () => {
+		expect(getErrorMeta("some_future_router_code").title).toBe(
+			"some_future_router_code",
+		);
+	});
+});
+
 describe("getErrorMeta", () => {
 	test("unknown code returns fallback meta with the code as title", () => {
 		const meta = getErrorMeta("totally_unknown_code");
@@ -13,6 +195,31 @@ describe("getErrorMeta", () => {
 		expect(meta.description).toContain("payment");
 		expect(meta.suggestion).toContain("billing");
 		expect(meta.suggestion).toContain("Claude Code access");
+	});
+
+	test("org_permission_denied no longer says waiting cannot clear it (#918)", () => {
+		const meta = getErrorMeta("org_permission_denied");
+		const text = `${meta.description} ${meta.suggestion}`;
+		// 2026-11-16: the denial cleared once the payment went through, with no
+		// router action.
+		expect(text).not.toContain("does not clear it");
+		expect(text).toContain("clears once the payment goes through");
+	});
+
+	test("windowless_429 states only what production measured (#918)", () => {
+		const meta = getErrorMeta("windowless_429");
+		const text = `${meta.description} ${meta.suggestion}`.toLowerCase();
+		// Claude Code's own retry succeeded for most of these within 2 minutes.
+		expect(text).not.toContain("neither retrying");
+		expect(text).not.toContain("has to start a new request");
+		expect(text).toContain("retries");
+		// No measured evidence ties these to the request's size or timing.
+		expect(text).not.toContain("payload");
+		expect(text).not.toContain("start-up");
+		expect(text).not.toContain("session start");
+		expect(text).toContain("cause is not known");
+		// What did hold: no other subscription account accepted one.
+		expect(text).toContain("adding accounts does not help");
 	});
 
 	test("model_fallback_429 with no context defaults to a warning that points at Model Mappings", () => {

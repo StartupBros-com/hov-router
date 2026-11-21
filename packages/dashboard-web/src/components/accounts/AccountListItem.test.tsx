@@ -161,7 +161,35 @@ describe("account scan layout", () => {
 				label: "Ready",
 			},
 			{
-				input: { rateLimitStatus: "allowed_warning" },
+				// #917: an Anthropic account's notice comes from its weekly poll.
+				input: {
+					rateLimitStatus: "OK",
+					usageData: {
+						limits: [
+							{
+								kind: "weekly_all",
+								percent: 80,
+								resets_at: new Date(Date.now() + 86_400_000).toISOString(),
+								is_active: true,
+							},
+						],
+					} as unknown as FullUsageData,
+				},
+				tone: "warning",
+				icon: "triangle-alert",
+				label: "Near weekly limit",
+			},
+			{
+				input: { rateLimitStatus: "allowed_warning (652m)" },
+				tone: "ok",
+				icon: "circle-check",
+				label: "Ready",
+			},
+			{
+				input: {
+					provider: "anthropic-compatible",
+					rateLimitStatus: "allowed_warning",
+				},
 				tone: "warning",
 				icon: "triangle-alert",
 				label: "Provider warning",
@@ -209,6 +237,38 @@ describe("account scan layout", () => {
 			if (detail) expect(html).toContain(`>${detail}<`);
 			else expect(html).not.toContain("Auto-paused");
 		}
+	});
+	it("names the weekly window and its use in the Near weekly limit tooltip (#917)", () => {
+		const html = renderToStaticMarkup(
+			<AccountListItem
+				account={makeAccount({
+					paused: false,
+					rateLimitStatus: "allowed_warning (652m)",
+					usageData: {
+						limits: [
+							{
+								kind: "weekly_all",
+								percent: 12,
+								resets_at: new Date(Date.now() + 86_400_000).toISOString(),
+								is_active: true,
+							},
+							{
+								kind: "weekly_scoped",
+								percent: 81.6,
+								resets_at: new Date(Date.now() + 86_400_000).toISOString(),
+								is_active: false,
+								scope: { model: { id: null, display_name: "Fable" } },
+							},
+						],
+					} as unknown as FullUsageData,
+				})}
+				{...requiredHandlers}
+			/>,
+		);
+		expect(html).toContain(
+			'title="Fable weekly use is 82%. Requests still route here."',
+		);
+		expect(html).not.toContain("Provider reported");
 	});
 	it("states refresh delay and secondary pacing once per row", () => {
 		const soon = Date.now() + 10 * 60 * 1000;

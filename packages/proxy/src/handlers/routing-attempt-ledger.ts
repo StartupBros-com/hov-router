@@ -605,6 +605,22 @@ export class RoutingAttemptLedger {
 		this.blockedAccounts.add(accountId);
 	}
 
+	private subscriptionWindowlessRejection = false;
+
+	/**
+	 * Anthropic answered this request with a windowless 429 on a subscription
+	 * account. Production never saw another subscription account accept a
+	 * request rejected this way (0 of 16,016 between 2026-10-16 and 11-20,
+	 * #916), so the request's remaining subscription candidates are skipped.
+	 */
+	markSubscriptionWindowlessRejection(): void {
+		this.subscriptionWindowlessRejection = true;
+	}
+
+	get hasSubscriptionWindowlessRejection(): boolean {
+		return this.subscriptionWindowlessRejection;
+	}
+
 	/** Record a definitive upstream auth result before the account is blocked. */
 	recordAuthFailure(
 		accountId: string,
