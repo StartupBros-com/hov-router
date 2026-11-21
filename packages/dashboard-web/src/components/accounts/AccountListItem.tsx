@@ -705,11 +705,13 @@ export function AccountListItem({
 							? "Refresh token invalid — re-authenticate"
 							: status.reason === "pacing"
 								? "Pacing may apply to specific model windows, not every request."
-								: status.notices.includes("soft-warning")
-									? `Provider reported ${status.reportedStatus}. Requests still route here.`
-									: status.notices.includes("usage-refresh")
-										? "Usage refresh delayed; the usage shown may be out of date."
-										: undefined
+								: status.weeklyLimitNotice
+									? `${status.weeklyLimitNotice.window} use is ${Math.round(status.weeklyLimitNotice.percent)}%. Requests still route here.`
+									: status.notices.includes("soft-warning")
+										? `Provider reported ${status.reportedStatus}. Requests still route here.`
+										: status.notices.includes("usage-refresh")
+											? "Usage refresh delayed; the usage shown may be out of date."
+											: undefined
 					}
 				>
 					<StatusIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
