@@ -79,7 +79,9 @@ test("countUnattributedEvents matches the report across models and attribution",
 	]);
 	const report = await repo.report();
 	expect(
-		report.filter((row) => !row.attributed).reduce((sum, row) => sum + row.rows, 0),
+		report
+			.filter((row) => !row.attributed)
+			.reduce((sum, row) => sum + row.rows, 0),
 	).toBe(2);
 	expect(await repo.countUnattributedEvents()).toBe(2);
 });

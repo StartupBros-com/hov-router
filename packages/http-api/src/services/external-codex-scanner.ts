@@ -393,7 +393,8 @@ export class ExternalCodexScanner {
 				)
 					await this.repository.saveSource(source);
 			}
-			summary.rowsUnattributed = await this.repository.countUnattributedEvents();
+			summary.rowsUnattributed =
+				await this.repository.countUnattributedEvents();
 			log.info(
 				`External Codex scan: files scanned=${summary.filesScanned}, rows inserted=${summary.rowsInserted}, rows unattributed=${summary.rowsUnattributed}, malformed lines=${summary.malformedLines}, files deferred=${summary.filesDeferred}, directories skipped=${summary.directoriesSkipped}, cloud roots skipped=${summary.skippedCloudRoots.length}`,
 			);
