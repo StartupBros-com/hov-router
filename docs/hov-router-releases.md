@@ -224,8 +224,9 @@ The bundles of the other releases published before the move are committed in
 [`docs/provenance/`](provenance/) as well, so each of them still verifies as
 `StartupBros/hov-router`. To check one, run the [6.2.0 block](#optional-consumer-provenance-verification)
 with `binary` set to that release's binary and `source_sha`, `digest` and
-`bundle_sha` taken from its row below. Then change `v6.2.0` to that release's tag
-in the bundle file name, `--source-ref` and `--cert-identity`. Each release has one
+`bundle_sha` taken from its row below. Then change every `v6.2.0` in the block to
+that release's tag: the bundle's file name and download address, `--source-ref`
+and `--cert-identity`. Each release has one
 bundle, whose signed statement names both its binary and its `release-manifest.json`.
 
 | Release | Source commit | Binary SHA-256 | Bundle SHA-256 |
