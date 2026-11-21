@@ -9,8 +9,8 @@
   "prHeader": "BEGIN_COMMIT_OVERRIDE\n{{{prTitle}}}\nEND_COMMIT_OVERRIDE",
   "packageRules": [
     {
-      "description": "The Bun runtime moves by hand, in .bun-version, the Dockerfile, package.json and this file's constraints together (docs/contributing.md, \"Bumping the Bun toolchain\").",
-      "matchPackageNames": ["bun", "oven/bun"],
+      "description": "The Bun runtime moves by hand, in .bun-version, the Dockerfile, package.json and this file's constraints together (docs/contributing.md, \"Bumping the Bun toolchain\"). Renovate names those pins bun, oven/bun (the Dockerfile image) and oven-sh/bun (constraints.bun, a GitHub release).",
+      "matchPackageNames": ["bun", "oven/bun", "oven-sh/bun"],
       "enabled": false
     }
   ]
