@@ -160,6 +160,23 @@ are still tried. When no account is left, the request fails as an overload or as
 available, not as a usage limit, and its [terminal cause](#terminal-cause) is a generic upstream
 error from the last account tried rather than the windowless 429 itself.
 
+### Organization refusal
+
+Anthropic refusing an account's whole organization rather than one request: requests on that
+account get a permission error until it lifts, and its usage check usually gets the same error.
+The usual cause is a failed subscription payment. The account card shows it as *Anthropic
+refused*.
+
+No local action clears it; it lifts when Anthropic accepts the account again, usually once the
+bill is paid. The router hears of it from proxied requests and from its own usage poll. The poll
+is the witness that keeps working: an account whose usage check is refused loses its usage
+readings, and with them its place in [drain-soonest](#drain-soonest) order, so it can go without
+traffic until it recovers.
+The operator is alerted once when a refusal episode opens and once when it closes, on a request
+that succeeds or a usage check that is accepted after the latest refusal. A usage check closes
+only an episode in which a usage check was refused too, because the usage endpoint answering
+says nothing about requests. Episodes do not survive a restart.
+
 ### Terminal cause
 
 The single code the router stores for why a request failed: its own verdict on the request, such
@@ -322,7 +339,9 @@ An account order that spends first the multi-day allowance most at risk of expir
 candidates rank by weekly pace band, and the soonest reset only breaks ties within a band.
 
 Structural route class (fallback rung and account priority tier) still outranks the band.
-The order decides fresh assignments and failovers. In sticky mode, whether an established
+An account with no usage reading has neither a band nor a reset, so it ranks behind every
+account in its route class that has a known reset. The order decides fresh assignments and
+failovers. In sticky mode, whether an established
 session owner moves to a higher-band account depends on the provider: a Codex owner stays
 until it becomes unavailable, while an Anthropic owner moves after a warm-owner hold.
 
@@ -807,6 +826,9 @@ it twice.
   session affinity pins an owner account to, while a *Reader lane* is a database connection that
   dashboard reads are sent to. The physical-model and web-search lanes are routing
   lanes as well. Say which one is meant.
+- *Episode* names both a warm-owner hold episode, capped from its first held turn, and an
+  organization refusal episode, which runs from the first refusal to the first accepted request
+  or usage check after it. These are distinct.
 
 ## Retained ingress and cold backend handoff
 
