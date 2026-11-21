@@ -1,5 +1,14 @@
 # Changelog
 
+## [6.2.2](https://github.com/StartupBros-com/hov-router/compare/v6.2.1...v6.2.2) (2026-11-21)
+
+
+### Bug Fixes
+
+* **dashboard:** say "No account served it" instead of "Unauthenticated" in Recent Errors ([#936](https://github.com/StartupBros-com/hov-router/issues/936)) ([d63f06d](https://github.com/StartupBros-com/hov-router/commit/d63f06d9f293dac08cf585e99d941d7402752f4c))
+* match AWS profile names literally and stop the GHCR link check backtracking ([#929](https://github.com/StartupBros-com/hov-router/issues/929)) ([34100e0](https://github.com/StartupBros-com/hov-router/commit/34100e075bf2b5e1bcd68aa9f0bd2d0093edddbc)), refs [#928](https://github.com/StartupBros-com/hov-router/issues/928)
+* **proxy:** tell clients to stop retrying a pinned route spent until a far reset ([#934](https://github.com/StartupBros-com/hov-router/issues/934)) ([92b8bb7](https://github.com/StartupBros-com/hov-router/commit/92b8bb761f0dc7a05c54a0ce907d83eb502e46b8)), refs [#627](https://github.com/StartupBros-com/hov-router/issues/627)
+
 ## [6.2.1](https://github.com/StartupBros-com/hov-router/compare/v6.2.0...v6.2.1) (2026-11-21)
 
 
