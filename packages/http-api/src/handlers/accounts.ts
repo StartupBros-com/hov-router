@@ -992,6 +992,7 @@ export function createAccountsListHandler(
 						: null,
 					usageData: fullUsageData, // Full usage data for UI
 					usageRateLimitedUntil: usageCache.getRateLimitedUntil(account.id),
+					usageOrgRefusedAt: usageCache.getOrgRefusedAt(account.id),
 					usageThrottledUntil,
 					usageThrottledWindows,
 					hasRefreshToken:
@@ -4587,6 +4588,10 @@ export function createAccountRefreshUsageHandler(dbOps: DatabaseOperations) {
 			const usageLockedUntil = cacheRefreshed
 				? null
 				: usageCache.getRateLimitedUntil(accountId);
+			// Set only while Anthropic's latest verdict on the organization is a
+			// refusal (#941); a refreshed fetch that returned usage clears it.
+			const usageOrgRefused =
+				!cacheRefreshed && usageCache.getOrgRefusedAt(accountId) !== null;
 
 			log.info(
 				`Usage refresh requested for account '${account.name}' (polling restarted: ${pollingRestarted}, cache refreshed: ${cacheRefreshed})`,
@@ -4596,11 +4601,13 @@ export function createAccountRefreshUsageHandler(dbOps: DatabaseOperations) {
 				success: true,
 				message: cacheRefreshed
 					? `Usage refreshed for account '${account.name}'.`
-					: pollingRestarted && usageLockedUntil !== null
-						? `The usage endpoint asked the router to wait until ${new Date(usageLockedUntil).toISOString()} for account '${account.name}'; usage updates then.`
-						: pollingRestarted
-							? `Usage polling restarted for account '${account.name}', but the first usage fetch did not finish; usage updates on the next poll.`
-							: `Polling could not be restarted for account '${account.name}' — usage data may not update.`,
+					: usageOrgRefused
+						? `Anthropic refused the latest usage check for account '${account.name}' for its organization (403 permission_error). Check billing and Claude Code access on claude.ai; the card shows Anthropic refused until a usage check is accepted.`
+						: pollingRestarted && usageLockedUntil !== null
+							? `The usage endpoint asked the router to wait until ${new Date(usageLockedUntil).toISOString()} for account '${account.name}'; usage updates then.`
+							: pollingRestarted
+								? `Usage polling restarted for account '${account.name}', but the first usage fetch did not finish; usage updates on the next poll.`
+								: `Polling could not be restarted for account '${account.name}' — usage data may not update.`,
 				pollingRestarted,
 				cacheRefreshed,
 			});

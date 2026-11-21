@@ -658,6 +658,26 @@ describe("account scan layout", () => {
 		expect(visible).not.toContain("Clear cooldown");
 		expect(visible).not.toContain("Cooling down");
 	});
+	it("keeps naming the refusal after the bench lapses while the usage check is refused (#941)", () => {
+		// max-quaternary-spgm on 2026-11-21 read "Ready" for 14 hours here.
+		const html = renderToStaticMarkup(
+			<AccountListItem
+				account={makeAccount({
+					paused: false,
+					rateLimitedUntil: null,
+					rateLimitedReason: "org_permission_denied",
+					usageOrgRefusedAt: Date.now() - 60_000,
+				})}
+				{...requiredHandlers}
+			/>,
+		);
+		const visible = withoutDetailsContent(html);
+		expect(visible).toContain("Anthropic refused");
+		expect(visible).toContain("billing");
+		expect(visible).not.toContain("Ready");
+		expect(visible).not.toContain("Clear cooldown");
+		expect(visible).not.toContain("Router retry");
+	});
 });
 
 function makeAccount(overrides: Partial<Account> = {}): Account {

@@ -244,6 +244,48 @@ test("only a live org-refusal bench reads as refused", () => {
 		expect(expired.hint).toBeNull();
 	}
 });
+test("a refused usage check reads as refused after the router's bench lapses (#941)", () => {
+	// max-quaternary-spgm on 2026-11-21: the 30 s bench was long over, but
+	// every usage check was still refused, and the card said Ready.
+	const usageRefused = {
+		provider: "anthropic",
+		rateLimitedUntil: null,
+		rateLimitedReason: "org_permission_denied",
+		usageOrgRefusedAt: now - 60_000,
+	};
+	const refused = classifyAccountStatus(usageRefused, now);
+	expect(refused.reason).toBe("refused");
+	expect(refused.label).toBe("Anthropic refused");
+	expect(refused.tone).toBe("bad");
+	expect(refused.hint).toContain("billing");
+	expect(refused.capacityAttention).toBe(true);
+	expect(refused.overview).toBe(true);
+	expect(refused.clearCooldown).toBe(false);
+	expect(refused.routerRetryAt).toBeNull();
+	// The usage check alone is enough; the stored reason is not needed.
+	expect(
+		classifyAccountStatus({ usageOrgRefusedAt: now - 60_000 }, now).reason,
+	).toBe("refused");
+	// Paused and reconnect still outrank the refusal, and a paused account's
+	// refusal does not nag under needs attention.
+	const paused = classifyAccountStatus({ ...usageRefused, paused: true }, now);
+	expect(paused.reason).toBe("paused");
+	expect(paused.capacityAttention).toBe(false);
+	expect(
+		classifyAccountStatus({ ...usageRefused, requiresReauth: true }, now)
+			.reason,
+	).toBe("reauth");
+	// No record, or a malformed one, is not a refusal.
+	for (const usageOrgRefusedAt of [null, undefined, Number.NaN]) {
+		const ready = classifyAccountStatus(
+			{ ...usageRefused, usageOrgRefusedAt },
+			now,
+		);
+		expect(ready.reason).toBe("normal");
+		expect(ready.label).toBe("Ready");
+		expect(ready.capacityAttention).toBe(false);
+	}
+});
 test("presenter carries the raw rate-limit reason into the status", () => {
 	const raw = {
 		paused: false,

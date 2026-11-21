@@ -15,6 +15,23 @@ export interface OrgPermissionDeniedEvt {
 	timestamp: number;
 }
 
+/**
+ * One Anthropic usage check (`/api/oauth/usage`) and what it said about the
+ * account's organization (#941), emitted by the usage cache as a "usage"
+ * event on the same bus: `refused` for the 403 that refuses the
+ * organization, `accepted` for a check that returned usage. An account
+ * nobody routes to is still polled, so these let the alert service open a
+ * refusal episode, and close one, without waiting for traffic.
+ */
+export interface OrgUsageCheckEvt {
+	accountId: string;
+	outcome: "refused" | "accepted";
+	/** ms epoch when the usage check was sent. */
+	startedAt: number;
+	/** ms epoch when its answer arrived. */
+	answeredAt: number;
+}
+
 class OrgPermissionDeniedEventBus extends EventEmitter {}
 export const orgPermissionDeniedEvents = new OrgPermissionDeniedEventBus();
 
