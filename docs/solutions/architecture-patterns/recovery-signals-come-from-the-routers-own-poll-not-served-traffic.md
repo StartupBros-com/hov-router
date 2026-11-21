@@ -36,10 +36,10 @@ Before keying a recovered, healthy or ready-again signal to served traffic, chec
 
 How a refused Anthropic account loses its traffic:
 
-1. The usage endpoint refuses the account with the same 403, so the poll stores no usage for it.
+1. When the usage endpoint refuses the account with the same 403, as it did on 2026-11-21, the poll stores no usage for it.
 2. A cached usage entry expires after 10 minutes (`USAGE_CACHE_MAX_AGE_MS`, `packages/providers/src/usage-fetcher.ts:65`), and `get()` deletes an expired entry when it reads it (`usage-fetcher.ts:1735-1748`).
 3. With no entry, the strategy store's `getAccountWeeklyReset` returns null (`apps/server/src/server.ts:2206-2211`).
-4. With no usage snapshot, the account has no weekly pace band either: one is computed only from a snapshot (`packages/proxy/src/handlers/account-selector.ts:1579-1584`). The structural compare orders by fallback rung, then tier, and compares pace bands only when both accounts have one (`packages/load-balancer/src/strategies/routing-metadata.ts:190-213`). That leaves the weekly reset to decide, and drain-soonest sorts an account with no known reset after every account that has one (`packages/load-balancer/src/strategies/session-drain-soonest.ts:261-266`).
+4. `getSnapshot()` reads through `get()`, so it returns null once the entry has expired (`usage-fetcher.ts:1760-1766`). With no snapshot, the account has no weekly pace band either: one is computed only from a snapshot (`packages/proxy/src/handlers/account-selector.ts:1579-1584`). The structural compare orders by fallback rung, then tier, and compares pace bands only when both accounts have one (`packages/load-balancer/src/strategies/routing-metadata.ts:190-213`). That leaves the weekly reset to decide, and drain-soonest sorts an account with no known reset after every account that has one (`packages/load-balancer/src/strategies/session-drain-soonest.ts:261-266`).
 
 So while any other account can take the request, the refused account gets nothing, and a signal that waits for its traffic never fires.
 

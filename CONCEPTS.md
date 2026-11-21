@@ -162,14 +162,16 @@ error from the last account tried rather than the windowless 429 itself.
 
 ### Organization refusal
 
-Anthropic refusing an account's whole organization rather than one request: every request and
-every usage check on that account gets the same permission error until it lifts, most often
-because the subscription payment failed. The account card shows it as *Anthropic refused*.
+Anthropic refusing an account's whole organization rather than one request: requests on that
+account get a permission error until it lifts, and its usage check usually gets the same error.
+The usual cause is a failed subscription payment. The account card shows it as *Anthropic
+refused*.
 
 No local action clears it; it lifts when Anthropic accepts the account again, usually once the
 bill is paid. The router hears of it from proxied requests and from its own usage poll. The poll
-is the witness that keeps working: a refused account loses its usage readings, and with them its
-place in [drain-soonest](#drain-soonest) order, so it can go without traffic until it recovers.
+is the witness that keeps working: an account whose usage check is refused loses its usage
+readings, and with them its place in [drain-soonest](#drain-soonest) order, so it can go without
+traffic until it recovers.
 The operator is alerted once when a refusal episode opens and once when it closes, on a request
 that succeeds or a usage check that is accepted after the latest refusal. A usage check closes
 only an episode in which a usage check was refused too, because the usage endpoint answering
