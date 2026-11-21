@@ -37,6 +37,7 @@ import {
 	captureCodexModelContextSnapshot,
 	captureSynchronousAttemptIdentity,
 	decideContextAdmission,
+	deriveComboRouteClass,
 	estimateAnthropicAdmissionTokens,
 	getProviderPathCapability,
 	hasDeferredCustomTool,
@@ -2627,6 +2628,14 @@ export async function proxyUnauthenticated(
  * @param ctx - The proxy context
  * @returns Promise resolving to response or null if failed
  */
+/** An Anthropic OAuth (Max/Pro) account: the only kind #916's evidence covers. */
+function isAnthropicSubscriptionAccount(account: Account): boolean {
+	return (
+		account.provider === "anthropic" &&
+		deriveComboRouteClass(account) === "oauth-subscription"
+	);
+}
+
 export async function proxyWithAccount(
 	req: Request,
 	url: URL,
@@ -2682,6 +2691,23 @@ export async function proxyWithAccount(
 				modelFallbackPolicy?.routeCandidateId ?? `account:${account.id}`,
 			reason: "provider_unavailable",
 		});
+	}
+	// A windowless 429 rejects the request, not the account. Between 2026-10-16
+	// and 11-20 production never saw another subscription account accept a
+	// request one had rejected this way (0 of 16,016, #916), and every retry was
+	// one more same-second send of the request across subscription accounts.
+	// Other providers and API-key accounts still run. Reporting the skip as a
+	// temporary failure keeps the native-quota terminal (529 with retry-after)
+	// the client received when these accounts were actually sent to.
+	if (
+		routingAttemptLedger?.hasSubscriptionWindowlessRejection &&
+		isAnthropicSubscriptionAccount(account)
+	) {
+		log.info(
+			`Skipping account ${account.name}: this request already got a windowless 429 from a subscription account`,
+		);
+		modelFallbackPolicy?.observeNativeQuotaAttempt?.(429);
+		return null;
 	}
 	// Snapshot before any credential lookup. A recursive stale-token retry carries
 	// its original identity; an initial request captures the generation that was
@@ -5867,7 +5893,11 @@ export async function proxyWithAccount(
 					`Account ${account.name} returned a windowless 429 (${
 						attemptedModel ? `model=${attemptedModel}, ` : ""
 					}x-should-retry with no rate-limit window) — request-scoped, ` +
-						`NOT benching account; failing over to next account`,
+						`NOT benching account; failing over${
+							isAnthropicSubscriptionAccount(account)
+								? " past the other subscription accounts"
+								: " to next account"
+						}`,
 				);
 				recordRoutingAttempt({
 					parentRequestId: requestMeta.id,
@@ -5897,6 +5927,14 @@ export async function proxyWithAccount(
 					routeSuppressed: false,
 					circuitCounted: false,
 				});
+				if (isAnthropicSubscriptionAccount(account)) {
+					routingAttemptLedger?.markSubscriptionWindowlessRejection();
+				}
+				// The audit row says "request"; the returned scope stays "model"
+				// on purpose. It is what skips this exact model on the same
+				// account and returns without benching. Any scope outside
+				// isScopedFailure would fall into the generic model-unavailable
+				// path instead. The cross-account skip is the ledger flag above.
 				return {
 					scope: "model",
 					attemptedModel,

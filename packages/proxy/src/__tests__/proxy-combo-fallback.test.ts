@@ -271,6 +271,28 @@ function outOfCreditsResponse(): Response {
 	});
 }
 
+/**
+ * Anthropic's request-scoped rejection: `x-should-retry: true` and not one
+ * rate-limit header. Production never rescued one on another subscription
+ * account (#916).
+ */
+function windowless429Response(): Response {
+	return new Response(
+		JSON.stringify({
+			type: "error",
+			error: { type: "rate_limit_error", message: "rate limit exceeded" },
+		}),
+		{
+			status: 429,
+			headers: {
+				"content-type": "application/json",
+				"x-robots-tag": "none",
+				"x-should-retry": "true",
+			},
+		},
+	);
+}
+
 function addSensitivePersistenceHeaders(request: Request): Request {
 	request.headers.set("authorization", "Bearer client-secret");
 	request.headers.set("cookie", "session=client-secret");
@@ -1448,8 +1470,8 @@ describe("implicit fallback policy integration", () => {
 });
 
 describe("native quota wait execution", () => {
-	function nativePool() {
-		const accounts = ["native-a", "native-b"].map(
+	function nativePool(ids: readonly string[] = ["native-a", "native-b"]) {
+		const accounts = ids.map(
 			(id) =>
 				({
 					...makeAccount(id),
@@ -2710,6 +2732,49 @@ describe("native quota wait execution", () => {
 		}
 	});
 
+	it("stops at the first windowless 429 and keeps the native retry-after 529 (#916)", async () => {
+		const { accounts, ctx, restore, calls } = nativePool([
+			"native-a",
+			"native-b",
+			"native-c",
+		]);
+		for (const account of accounts) putUsage(account, 20);
+		globalThis.fetch = mock(async (input: Request) => {
+			calls.push({
+				account: new URL(input.url).pathname.split("/").at(-1) ?? "",
+				model: (await input.clone().json()).model,
+			});
+			return windowless429Response();
+		}) as typeof fetch;
+		try {
+			const request = makeProxyRequest("claude-fable-5");
+			const response = await handleProxy(request, new URL(request.url), ctx);
+			// Before #916 this sent native-a, native-b and native-c; the reply
+			// below is the one those three sends produced.
+			expect(calls).toEqual([{ account: "native-a", model: "claude-fable-5" }]);
+			expect(response.status).toBe(529);
+			expect(response.headers.get("retry-after")).toBe("10");
+			expect(response.headers.get("x-should-retry")).toBe("true");
+			expect(
+				response.headers.get("x-better-ccflare-recovery-scope"),
+			).toBeNull();
+			const body = (await response.json()) as {
+				error: { type: string; code: string; family: string };
+			};
+			expect(body.error).toMatchObject({
+				type: "overloaded_error",
+				code: "native_route_temporarily_unavailable",
+				family: "fable",
+			});
+			for (const account of accounts) {
+				expect(account.rate_limited_until).toBeNull();
+				expect(account.consecutive_rate_limits).toBe(0);
+			}
+		} finally {
+			restore();
+		}
+	});
+
 	it("returns a structural nonretrying terminal when every configured account is paused", async () => {
 		const { accounts, ctx, restore } = nativePool();
 		for (const account of accounts) {
@@ -3484,5 +3549,121 @@ describe("adapter-authorized physical routing", () => {
 		).toEqual([codex.id]);
 		expect(requests).toHaveLength(1);
 		expect(new URL(requests[0].url).pathname).toContain(codex.id);
+	});
+});
+
+describe("windowless 429 across a plain pool (#916)", () => {
+	function subscriptionAccount(id: string): Account {
+		return {
+			...makeAccount(id),
+			provider: "anthropic",
+			api_key: null,
+			access_token: "offline-token",
+			refresh_token: "offline-refresh",
+			expires_at: Date.now() + 3_600_000,
+			refresh_token_issued_at: Date.now(),
+		} as Account;
+	}
+
+	function apiKeyAnthropicAccount(id: string): Account {
+		return {
+			...makeAccount(id),
+			provider: "anthropic",
+			api_key: "anthropic-test-key",
+			refresh_token: "",
+			access_token: null,
+		} as Account;
+	}
+
+	/** Strategy order is the array order; only OpenRouter ever answers 200. */
+	async function run(accounts: Account[]) {
+		installUsageCollector();
+		const unusedCombo: ComboWithSlots = {
+			id: "unused-combo",
+			name: "Unused combo",
+			description: null,
+			enabled: false,
+			created_at: 0,
+			updated_at: 0,
+			slots: [],
+		};
+		const ctx = makeContext(accounts, unusedCombo, () => accounts);
+		ctx.dbOps.getComboRoutingPolicy = mock(async (family: ComboFamily) => {
+			const policy = makeRoutingPolicy(unusedCombo, family);
+			policy.assignment.enabled = false;
+			return policy;
+		});
+		const restore = installMockRoutingProviders(["anthropic", "openrouter"]);
+		registerProvider({
+			...makeMockRoutingProvider("anthropic"),
+			buildUrl: (_path, _search, account) =>
+				`https://api.anthropic.com/offline/${account?.id}`,
+		});
+		const calls: string[] = [];
+		globalThis.fetch = mock(async (input: Request) => {
+			const id = new URL(input.url).pathname.split("/").at(-1) ?? "";
+			calls.push(id);
+			if (input.url.includes("/openrouter/"))
+				return new Response(JSON.stringify({ type: "message", content: [] }), {
+					status: 200,
+					headers: { "content-type": "application/json" },
+				});
+			return windowless429Response();
+		}) as typeof fetch;
+		try {
+			const request = makeProxyRequest("claude-opus-4-5");
+			const response = await handleProxy(request, new URL(request.url), ctx);
+			return { calls, response };
+		} finally {
+			restore();
+		}
+	}
+
+	it("still falls back to another provider without retrying the other subscription accounts", async () => {
+		const { calls, response } = await run([
+			subscriptionAccount("plain-a"),
+			subscriptionAccount("plain-b"),
+			subscriptionAccount("plain-c"),
+			makeOpenRouterAccount("plain-openrouter"),
+		]);
+		expect(calls).toEqual(["plain-a", "plain-openrouter"]);
+		expect(response.status).toBe(200);
+	});
+
+	it("returns the same route_unavailable 503 after one send when only subscription accounts remain", async () => {
+		const accounts = [
+			subscriptionAccount("plain-a"),
+			subscriptionAccount("plain-b"),
+			subscriptionAccount("plain-c"),
+		];
+		const { calls, response } = await run(accounts);
+		expect(calls).toEqual(["plain-a"]);
+		expect(response.status).toBe(503);
+		expect(response.headers.get("retry-after")).toBeNull();
+		expect(response.headers.get("x-better-ccflare-recovery-scope")).toBeNull();
+		const body = (await response.json()) as { error: { code: string } };
+		expect(body.error.code).toBe("route_unavailable");
+		for (const account of accounts) {
+			expect(account.rate_limited_until).toBeNull();
+			expect(account.consecutive_rate_limits).toBe(0);
+		}
+	});
+
+	it("still tries an API-key Anthropic account, which production never measured", async () => {
+		const { calls } = await run([
+			subscriptionAccount("plain-a"),
+			apiKeyAnthropicAccount("plain-key"),
+			subscriptionAccount("plain-b"),
+		]);
+		expect(calls).toEqual(["plain-a", "plain-key"]);
+	});
+
+	it("does not skip subscription accounts after an API-key account's windowless 429", async () => {
+		const { calls } = await run([
+			apiKeyAnthropicAccount("plain-key"),
+			subscriptionAccount("plain-a"),
+			subscriptionAccount("plain-b"),
+		]);
+		expect(calls).toEqual(["plain-key", "plain-a"]);
 	});
 });
