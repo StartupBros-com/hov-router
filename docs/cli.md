@@ -757,7 +757,7 @@ bun run cli --list
 1. Check existing documentation in `/docs`
 2. Review debug logs for detailed error messages
 3. Ensure all dependencies are up to date
-4. File an issue with reproduction steps at [StartupBros/hov-router/issues](https://github.com/StartupBros/hov-router/issues).
+4. File an issue with reproduction steps at [StartupBros-com/hov-router/issues](https://github.com/StartupBros-com/hov-router/issues).
 
 ### Best Practices
 

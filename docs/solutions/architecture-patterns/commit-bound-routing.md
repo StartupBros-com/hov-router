@@ -175,7 +175,7 @@ if (attempt.acceptedWinner) {
 
 Test rejected-before-dispatch, credential failure, pre-acceptance upstream failure, accepted success, concurrent first successes, priority change, recovered preferred rung, every enumerated re-pin reason, sibling isolation, and restart/TTL expiry.
 
-A recovered-rung fixture must actually vary `routeFallbackRung`, not just account priority. [PR #654](https://github.com/StartupBros/hov-router/pull/654) corrected that gap in `packages/load-balancer/src/strategies/__tests__/session-affinity.test.ts`: a fresh lane prefers the recovered candidate, while a healthy committed home remains first on requested, root, or global rungs, with candidate metadata aligned. A mutation that disallowed later-rung retention passed all 96 original tests but failed the two new cross-rung cases. The mutation was removed; the change shipped regression coverage only, not a production routing fix.
+A recovered-rung fixture must actually vary `routeFallbackRung`, not just account priority. [PR #654](https://github.com/StartupBros-com/hov-router/pull/654) corrected that gap in `packages/load-balancer/src/strategies/__tests__/session-affinity.test.ts`: a fresh lane prefers the recovered candidate, while a healthy committed home remains first on requested, root, or global rungs, with candidate metadata aligned. A mutation that disallowed later-rung retention passed all 96 original tests but failed the two new cross-rung cases. The mutation was removed; the change shipped regression coverage only, not a production routing fix.
 
 ### Hosted tool: authorize before dispatch; never replay after dispatch
 

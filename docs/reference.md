@@ -61,9 +61,9 @@ This project builds upon the foundation of [snipeship/ccflare](https://github.co
 
 ### Install the Linux x86_64 release
 
-[Release 6.2.0](https://github.com/StartupBros/hov-router/releases/tag/v6.2.0) contains one standalone Linux x86_64 binary; Node.js and Bun are not required to run it. For other platforms or a local build, use [Install from source](#install-from-source).
+[Release 6.2.0](https://github.com/StartupBros-com/hov-router/releases/tag/v6.2.0) contains one standalone Linux x86_64 binary; Node.js and Bun are not required to run it. For other platforms or a local build, use [Install from source](#install-from-source).
 
-The public home is `StartupBros/hov-router`, repository ID `1278801682` ([repository move](hov-router-migration.md#repository-move)). Use the current download and clone URLs below. Release 6.2.0 prints `HoV Router v6.2.0` through every command name it is installed under. The earlier 3.6.2 release keeps its historical bytes and signing identity and still prints its original product name. If you installed an earlier release with this guide, install 6.2.0 below, then [upgrade the earlier install](#upgrade-an-earlier-binary-install). 6.2.0 runs on SQLite only, sends no auto-refresh messages, has no Auto quality lane, and answers `410 Gone` for removed API endpoints: if your install used PostgreSQL, had auto-refresh on, requests a `claude-bccf-quality-*` model, or runs scripts against the router's API, read [PostgreSQL support removed](hov-router-migration.md#postgresql-support-removed), [Auto-refresh removed](hov-router-migration.md#auto-refresh-removed), [Removed in 5.0.0](hov-router-migration.md#removed-in-500) and [Auto quality lane removed](hov-router-migration.md#auto-quality-lane-removed) first.
+The public home is `StartupBros-com/hov-router`, repository ID `1278801682` ([repository move](hov-router-migration.md#repository-move)). Use the current download and clone URLs below. Release 6.2.0 prints `HoV Router v6.2.0` through every command name it is installed under. The earlier 3.6.2 release keeps its historical bytes and signing identity and still prints its original product name. If you installed an earlier release with this guide, install 6.2.0 below, then [upgrade the earlier install](#upgrade-an-earlier-binary-install). 6.2.0 runs on SQLite only, sends no auto-refresh messages, has no Auto quality lane, and answers `410 Gone` for removed API endpoints: if your install used PostgreSQL, had auto-refresh on, requests a `claude-bccf-quality-*` model, or runs scripts against the router's API, read [PostgreSQL support removed](hov-router-migration.md#postgresql-support-removed), [Auto-refresh removed](hov-router-migration.md#auto-refresh-removed), [Removed in 5.0.0](hov-router-migration.md#removed-in-500) and [Auto quality lane removed](hov-router-migration.md#auto-quality-lane-removed) first.
 
 Requires Bash on Linux x86_64, `curl`, and GNU coreutils (`sha256sum`, `mkdir`, `chmod`). No GitHub CLI, Node.js, or Bun is needed.
 
@@ -79,7 +79,7 @@ Requires Bash on Linux x86_64, `curl`, and GNU coreutils (`sha256sum`, `mkdir`, 
   mkdir "$version_dir"
   cd "$version_dir"
   curl -q --fail --location --proto '=https' --proto-redir '=https' \
-    --output hov-router https://github.com/StartupBros/hov-router/releases/download/v6.2.0/better-ccflare-linux-amd64
+    --output hov-router https://github.com/StartupBros-com/hov-router/releases/download/v6.2.0/better-ccflare-linux-amd64
   digest=08115d81588c7ae79fd89188396fb091cce36c0c468a3945ce21971658762a55
   printf '%s  hov-router\n' "$digest" | sha256sum --check --strict -
   chmod 755 hov-router
@@ -175,7 +175,7 @@ Then `hov-router --version` should print `HoV Router v6.2.0`. The block does not
 Requires Git, Node.js (used by the build), and Bun (this checkout pins Bun 1.4.2). These commands use a POSIX shell on Linux/macOS; on Windows use WSL. The public HTTPS clone below does not require a GitHub login.
 
 ```bash
-git clone https://github.com/StartupBros/hov-router.git
+git clone https://github.com/StartupBros-com/hov-router.git
 cd hov-router
 bun install --frozen-lockfile
 bun run build
@@ -218,7 +218,7 @@ Leave the server running, then:
 
 If port 8080 is occupied, choose an unused port and use it consistently for the server, dashboard, CLI routing commands, and client configuration. The compatibility command names remain equivalent. This guide does not change a running service or move existing accounts.
 
-See [manual updates, unchanged paths, and rollback](hov-router-migration.md). Report fork issues at [StartupBros/hov-router/issues](https://github.com/StartupBros/hov-router/issues).
+See [manual updates, unchanged paths, and rollback](hov-router-migration.md). Report fork issues at [StartupBros-com/hov-router/issues](https://github.com/StartupBros-com/hov-router/issues).
 
 ### Legacy upstream distributions (not HoV Router)
 

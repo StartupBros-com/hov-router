@@ -123,7 +123,7 @@ describe("Dockerfile builds HoV Router from source", () => {
 	it("labels the image as HoV Router from this repository", () => {
 		expect(dockerfile).toContain('org.opencontainers.image.title="HoV Router"');
 		expect(dockerfile).toContain(
-			'org.opencontainers.image.source="https://github.com/StartupBros/hov-router"',
+			'org.opencontainers.image.source="https://github.com/StartupBros-com/hov-router"',
 		);
 		expect(dockerfile).toContain('org.opencontainers.image.licenses="MIT"');
 	});

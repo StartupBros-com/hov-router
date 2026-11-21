@@ -14,8 +14,8 @@ import {
 } from "./router-repository";
 
 test("Router authority is one name per owner and one numeric ID", () => {
-	// The personal account and the organization it moves to (#911); a
-	// transfer keeps the numeric ID.
+	// The personal account and the organization it moved to on 2026-11-20
+	// (#911); a transfer keeps the numeric ID.
 	expect(ROUTER_OWNERS).toEqual(["StartupBros", "StartupBros-com"]);
 	expect(ROUTER_REPOSITORIES).toEqual([
 		"StartupBros/hov-router",

@@ -31,7 +31,7 @@ const migrationGuide = readFileSync(
 const releaseDigest =
 	"08115d81588c7ae79fd89188396fb091cce36c0c468a3945ce21971658762a55";
 const releaseUrl =
-	"https://github.com/StartupBros/hov-router/releases/download/v6.2.0/better-ccflare-linux-amd64";
+	"https://github.com/StartupBros-com/hov-router/releases/download/v6.2.0/better-ccflare-linux-amd64";
 const sourceSha = "f21d5c9ac5ee8a0f9e3fd9a1cdb6346b8c6d4dd8";
 const historicalDigest =
 	"b01a4989323ecf4e2d0a68394b45828741430d89eb35288f7318a28c45b4c9d7";
@@ -61,12 +61,56 @@ const previousPayload = syntheticBinary(
 	"6.1.0",
 	"157f4bc0e7c3b29dffae48ab777ad05225848069",
 );
-const fixtureDigest = createHash("sha256").update(payload).digest("hex");
-const historicalFixtureDigest = createHash("sha256")
-	.update(historicalPayload)
-	.digest("hex");
-const historicalRun =
-	'"$HOME/.local/lib/wstack-router/3.6.2/wstack-router" --help\n';
+const sha256 = (bytes: string | Buffer) =>
+	createHash("sha256").update(bytes).digest("hex");
+// Releases signed before the repository moved to StartupBros-com on 2026-11-20.
+// GitHub no longer finds their attestations by repository, so each documented
+// block fetches the bundle committed under docs/provenance and verifies it under
+// the repository and certificate the release was signed with.
+const currentHome = "StartupBros-com/hov-router";
+const bundleBase =
+	"https://raw.githubusercontent.com/StartupBros-com/hov-router/refs/heads/main/docs/provenance/";
+const release371Sha = "6b88f789e30c3a86ee918d35a6673e7be12f9243";
+const provenanceReleases = [
+	{
+		marker: "router-release-provenance",
+		tag: "v6.2.0",
+		signer: "StartupBros/hov-router",
+		binary: ".local/lib/hov-router/6.2.0/hov-router",
+		sha: sourceSha,
+		digest: releaseDigest,
+		manifestDigest:
+			"9a5837384e7ee616c45f80b6ee518b114b74932522cb7f5a0924778fb41641b4",
+		payload,
+	},
+	{
+		marker: "router-release-provenance-v3.7.1",
+		tag: "v3.7.1",
+		signer: "StartupBros/hov-router",
+		binary: ".local/lib/hov-router/3.7.1/hov-router",
+		sha: release371Sha,
+		digest: "f6e6ee137d0766eb6df9d6c76d264603e9696c12797e1570b8ad6b9648d0b12c",
+		manifestDigest:
+			"5e88ab1d8376fe783da736003c40f34a0207db4c71be5f6a5c328d1c30881d0c",
+		payload: syntheticBinary("HoV Router", "3.7.1", release371Sha),
+	},
+	{
+		marker: "router-release-provenance-v3.6.2",
+		tag: "v3.6.2",
+		signer: "StartupBros/wstack-router",
+		binary: ".local/lib/wstack-router/3.6.2/wstack-router",
+		sha: historicalSha,
+		digest: historicalDigest,
+		manifestDigest:
+			"a90aa5f71ba5ae9f4b255e487c2afc80f39d44bc70a6193da43d83f4b05dc60b",
+		payload: historicalPayload,
+	},
+].map((release) => ({
+	...release,
+	fixtureDigest: sha256(release.payload),
+	bundleUrl: `${bundleBase}${release.tag}.jsonl`,
+	runLine: `"$HOME/${release.binary}" --help\n`,
+}));
 // Guides for 3.6.2 through 3.7.1 created all three names; new installs create
 // COMMAND_NAMES only, and upgrades repoint an existing wstack-router link.
 const earlierGuideAliases = [
@@ -98,7 +142,14 @@ function fixture(mode = "ok") {
 	const tools = join(home, "tools");
 	mkdirSync(tools);
 	writeFileSync(join(home, "payload"), payload);
-	writeFileSync(join(home, "bundle-fixture"), "synthetic attestation bundle\n");
+	// The bundles committed in this repository, byte for byte: the documented
+	// blocks check them against their pinned SHA-256 before gh sees them.
+	mkdirSync(join(home, "served"));
+	for (const release of provenanceReleases)
+		writeFileSync(
+			join(home, "served", `${release.tag}.jsonl`),
+			readFileSync(join(root, "docs/provenance", `${release.tag}.jsonl`)),
+		);
 	for (const profile of [".profile", ".bashrc", ".zshrc"])
 		writeFileSync(join(home, profile), "keep profile\n");
 	// This stand-in is transport. Record every request and honor --output;
@@ -109,61 +160,64 @@ function fixture(mode = "ok") {
 set -eu
 printf '%s\\n' "$*" >> "$HOME/downloads"
 output=
+url=
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --output) output="$2"; shift ;;
+    https://*) url="$1" ;;
   esac
   shift
 done
-case "$DOWNLOAD_MODE" in
-  fail) exit 22 ;;
-  corrupt) printf 'corrupt\\n' > "$output" ;;
-  *) cp "$HOME/payload" "$output" ;;
+case "$url" in
+  "${bundleBase}"*)
+    case "$DOWNLOAD_MODE" in
+      bundle-fail) exit 22 ;;
+      bad-bundle) printf 'corrupt\\n' > "$output" ;;
+      *) cp "$HOME/served/\${url#"${bundleBase}"}" "$output" ;;
+    esac
+    ;;
+  *)
+    case "$DOWNLOAD_MODE" in
+      fail) exit 22 ;;
+      corrupt) printf 'corrupt\\n' > "$output" ;;
+      *) cp "$HOME/payload" "$output" ;;
+    esac
+    ;;
 esac
 `,
 		{ mode: 0o755 },
 	);
-	// A strict policy stand-in, not a cryptographic verifier. The real checksum
+	// A strict policy stand-in, not a cryptographic verifier. The real checksums
 	// and extracted documentation run unchanged except for the fixture digests.
-	// The current release verifies in place; 3.6.2 verifies a downloaded bundle.
+	// It refuses an attestation lookup: each documented release verifies the
+	// committed bundle the block fetched, under its signer's exact identity.
+	const subjects = provenanceReleases
+		.map(
+			(release) =>
+				`  "$HOME/${release.binary}") tag=${release.tag} repo=${release.signer} sha=${release.sha} digest=${release.fixtureDigest} ;;`,
+		)
+		.join("\n");
 	writeFileSync(
 		join(tools, "gh"),
 		`#!/bin/bash
 set -eu
 printf '%s\\n' "$*" >> "$HOME/attestations"
-binary="$HOME/.local/lib/hov-router/6.2.0/hov-router"
-historical="$HOME/.local/lib/wstack-router/3.6.2/wstack-router"
-bundle="$PWD/sha256:${historicalFixtureDigest}.jsonl"
-case "$1 $2" in
-  'attestation download')
-    [ "$#" -eq 5 ] && [ "$3" = "$historical" ] && [ "$4" = --repo ] && [ "$5" = StartupBros/hov-router ] || exit 91
-    [ "$DOWNLOAD_MODE" != attestation-fail ] || exit 22
-    cp "$HOME/bundle-fixture" "$bundle"
-    if [ "$DOWNLOAD_MODE" = bad-bundle ]; then printf 'corrupt\\n' > "$bundle"; fi
-    ;;
-  'attestation verify')
-    if [ "$3" = "$binary" ]; then
-      [ "$DOWNLOAD_MODE" != attestation-fail ] || exit 1
-      expected=(attestation verify "$binary" --repo StartupBros/hov-router
-        --source-digest ${sourceSha} --source-ref refs/tags/v6.2.0
-        --cert-identity https://github.com/StartupBros/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.2.0
-        --signer-digest ${sourceSha} --deny-self-hosted-runners)
-      [ "$#" -eq "\${#expected[@]}" ] || exit 92
-      for arg in "\${expected[@]}"; do [ "$1" = "$arg" ] || exit 92; shift; done
-      printf '%s  %s\\n' '${fixtureDigest}' "$binary" | sha256sum --check --strict -
-    else
-      expected=(attestation verify "$historical" --repo StartupBros/wstack-router
-        --source-digest ${historicalSha} --source-ref refs/tags/v3.6.2
-        --cert-identity https://github.com/StartupBros/wstack-router/.github/workflows/router-release-artifacts.yml@refs/tags/v3.6.2
-        --signer-digest ${historicalSha} --deny-self-hosted-runners --bundle "$bundle")
-      [ "$#" -eq "\${#expected[@]}" ] || exit 92
-      for arg in "\${expected[@]}"; do [ "$1" = "$arg" ] || exit 92; shift; done
-      cmp "$HOME/bundle-fixture" "$bundle"
-      printf '%s  %s\\n' '${historicalFixtureDigest}' "$historical" | sha256sum --check --strict -
-    fi
-    ;;
-  *) exit 93 ;;
+[ "$#" -gt 2 ] && [ "$1 $2" = 'attestation verify' ] || exit 93
+[ "$DOWNLOAD_MODE" != attestation-fail ] || exit 1
+subject="$3"
+case "$subject" in
+${subjects}
+  *) exit 94 ;;
 esac
+expected=(attestation verify "$subject" --repo "$repo"
+  --source-digest "$sha" --source-ref "refs/tags/$tag"
+  --cert-identity "https://github.com/$repo/.github/workflows/router-release-artifacts.yml@refs/tags/$tag"
+  --signer-digest "$sha" --deny-self-hosted-runners --bundle)
+[ "$#" -eq "$(( \${#expected[@]} + 1 ))" ] || exit 92
+for arg in "\${expected[@]}"; do [ "$1" = "$arg" ] || exit 92; shift; done
+case "$1" in "$TMPDIR"/router-provenance.*/"$tag.jsonl") ;; *) exit 95 ;; esac
+cmp "$HOME/served/$tag.jsonl" "$1"
+printf '%s  %s\\n' "$digest" "$subject" | sha256sum --check --strict -
 `,
 		{ mode: 0o755 },
 	);
@@ -196,16 +250,22 @@ esac
 			for (const name of aliases)
 				symlinkSync(previousBinary, join(binDir, name));
 		},
+		// Plant a release's binary at its documented path, without aliases.
+		install(release: (typeof provenanceReleases)[number]) {
+			const path = join(home, release.binary);
+			mkdirSync(dirname(path), { recursive: true });
+			writeFileSync(path, release.payload, { mode: 0o755 });
+			return path;
+		},
 		run(
 			marker: string,
 			rewrite = (script: string) => script,
 			then: string | false = false,
 		) {
-			const script = rewrite(
-				block(marker)
-					.replaceAll(releaseDigest, fixtureDigest)
-					.replaceAll(historicalDigest, historicalFixtureDigest),
-			);
+			let script = block(marker);
+			for (const release of provenanceReleases)
+				script = script.replaceAll(release.digest, release.fixtureDigest);
+			script = rewrite(script);
 			return spawnSync(
 				"/bin/bash",
 				[
@@ -245,6 +305,7 @@ describe("documented binary install (synthetic downloads)", () => {
 			'binary="$HOME/.local/lib/hov-router/6.2.0/hov-router"',
 			`source_sha=${sourceSha}`,
 			`digest=${releaseDigest}`,
+			`${bundleBase}v6.2.0.jsonl`,
 			'gh attestation verify "$binary"',
 			"--repo StartupBros/hov-router",
 			'--source-digest "$source_sha"',
@@ -252,20 +313,33 @@ describe("documented binary install (synthetic downloads)", () => {
 			"--cert-identity https://github.com/StartupBros/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.2.0",
 			'--signer-digest "$source_sha"',
 			"--deny-self-hosted-runners",
+			'--bundle "$bundle"',
 		])
 			expect(policy).toContain(pin);
 		// The current release must not borrow the historical signing identity.
 		expect(policy).not.toContain("wstack-router");
-		// The former name is recorded once, in the migration guide's move history.
-		expect(migrationGuide.replace(/\s+/g, " ")).toContain(
+		// The former names are recorded in the migration guide's move history.
+		const history = migrationGuide.replace(/\s+/g, " ");
+		expect(history).toContain(
 			"renamed from `StartupBros/wstack-router` on 2026-10-21",
 		);
-		for (const document of [reference, releaseGuide]) {
-			expect(document).toContain("`StartupBros/hov-router`");
+		expect(history).toContain(
+			"moved to the `StartupBros-com` organization on 2026-11-20",
+		);
+		for (const document of [reference, releaseGuide, migrationGuide]) {
+			expect(document).toContain(`\`${currentHome}\``);
 			expect(document).toContain("1278801682");
-			expect(document).toContain("hov-router-migration.md#repository-move");
 			expect(document).not.toContain("Before the repository rename");
+			// The organization move happened; no guide may still call it pending.
+			for (const pending of [
+				"is moving",
+				"Until the move",
+				"tracked in [#911]",
+			])
+				expect(document).not.toContain(pending);
 		}
+		for (const document of [reference, releaseGuide])
+			expect(document).toContain("hov-router-migration.md#repository-move");
 	});
 
 	it("downloads one pinned binary, verifies it, and waits for a separate run step", () => {
@@ -603,10 +677,8 @@ describe("documented upgrade of an earlier binary install (synthetic)", () => {
 	}
 });
 
-describe("documented provenance (synthetic policy fixture, not cryptographic proof)", () => {
-	const runStep = () => block("router-release-run");
-
-	it("verifies the installed binary under this repository's exact identity before execution", () => {
+describe("documented provenance for releases signed before the move (synthetic policy fixture, not cryptographic proof)", () => {
+	it("verifies the installed 6.2.0 binary from its committed bundle before the separate run step", () => {
 		const f = fixture();
 		expect(f.run("router-release-install").status).toBe(0);
 		const verified = f.run("router-release-provenance");
@@ -614,7 +686,8 @@ describe("documented provenance (synthetic policy fixture, not cryptographic pro
 		const calls = readFileSync(join(f.home, "attestations"), "utf8")
 			.trim()
 			.split("\n");
-		expect(calls).toEqual([
+		expect(calls).toHaveLength(1);
+		expect(calls[0]).toStartWith(
 			[
 				`attestation verify ${f.binary}`,
 				"--repo StartupBros/hov-router",
@@ -623,11 +696,39 @@ describe("documented provenance (synthetic policy fixture, not cryptographic pro
 				"--cert-identity https://github.com/StartupBros/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.2.0",
 				`--signer-digest ${sourceSha}`,
 				"--deny-self-hosted-runners",
+				`--bundle ${f.home}/router-provenance.`,
 			].join(" "),
-		]);
+		);
+		expect(calls[0]).toEndWith("/v6.2.0.jsonl");
+		const downloads = readFileSync(join(f.home, "downloads"), "utf8")
+			.trim()
+			.split("\n");
+		expect(downloads).toHaveLength(2);
+		expect(downloads[0]).toContain(releaseUrl);
+		expect(downloads[1]).toContain(`${bundleBase}v6.2.0.jsonl`);
 		expect(existsSync(join(f.home, "executed"))).toBe(false);
 		expect(f.run("router-release-run").status).toBe(0);
 		expect(readFileSync(join(f.home, "executed"), "utf8")).toBe("executed\n");
+	});
+
+	it("keeps a committed bundle for every documented release, one bundle per file", () => {
+		// Bundles are never deleted (older guide copies fetch them from main), so a
+		// committed file may outlive its block; each still holds one named bundle.
+		const files = readdirSync(join(root, "docs/provenance"));
+		for (const release of provenanceReleases)
+			expect(files).toContain(`${release.tag}.jsonl`);
+		for (const file of files) {
+			expect(file).toMatch(/^v\d+\.\d+\.\d+\.jsonl$/);
+			const lines = readFileSync(
+				join(root, "docs/provenance", file),
+				"utf8",
+			).split("\n");
+			expect(lines, file).toHaveLength(2);
+			expect(lines[1], file).toBe("");
+			expect(JSON.parse(lines[0]).mediaType, file).toBe(
+				"application/vnd.dev.sigstore.bundle.v0.3+json",
+			);
+		}
 	});
 
 	it("pins the release and asset evidence", () => {
@@ -659,120 +760,6 @@ describe("documented provenance (synthetic policy fixture, not cryptographic pro
 		);
 	});
 
-	it("rejects changed binary bytes before attestation or execution", () => {
-		const f = fixture();
-		expect(f.run("router-release-install").status).toBe(0);
-		writeFileSync(f.binary, "tampered bytes\n");
-		expect(
-			f.run("router-release-provenance", undefined, runStep()).status,
-		).not.toBe(0);
-		expect(existsSync(join(f.home, "attestations"))).toBe(false);
-		expect(existsSync(join(f.home, "executed"))).toBe(false);
-	});
-
-	it("stops on a failed attestation before execution", () => {
-		const f = fixture("attestation-fail");
-		expect(f.run("router-release-install").status).toBe(0);
-		expect(
-			f.run("router-release-provenance", undefined, runStep()).status,
-		).not.toBe(0);
-		expect(
-			readFileSync(join(f.home, "attestations"), "utf8").trim().split("\n"),
-		).toHaveLength(1);
-		expect(existsSync(join(f.home, "executed"))).toBe(false);
-	});
-
-	for (const [label, from, to] of [
-		[
-			"historical verification repository",
-			"--repo StartupBros/hov-router",
-			"--repo StartupBros/wstack-router",
-		],
-		[
-			"owner-only policy",
-			"--repo StartupBros/hov-router",
-			"--owner StartupBros",
-		],
-		[
-			"historical certificate",
-			"--cert-identity https://github.com/StartupBros/hov-router/",
-			"--cert-identity https://github.com/StartupBros/wstack-router/",
-		],
-		[
-			"short source SHA",
-			'--source-digest "$source_sha"',
-			`--source-digest ${sourceSha.slice(0, 7)}`,
-		],
-		[
-			"wrong signer SHA",
-			'--signer-digest "$source_sha"',
-			`--signer-digest ${"b".repeat(40)}`,
-		],
-		[
-			"wrong tag",
-			"--source-ref refs/tags/v6.2.0",
-			"--source-ref refs/heads/main",
-		],
-		["self-hosted runner allowance", "--deny-self-hosted-runners", ""],
-	] as const) {
-		it(`rejects ${label} before execution`, () => {
-			const f = fixture();
-			expect(f.run("router-release-install").status).toBe(0);
-			expect(block("router-release-provenance")).toContain(from);
-			const result = f.run(
-				"router-release-provenance",
-				(script) => script.replace(from, to),
-				runStep(),
-			);
-			expect(result.status).not.toBe(0);
-			expect(existsSync(join(f.home, "executed"))).toBe(false);
-		});
-	}
-});
-
-describe("documented historical 3.6.2 provenance (synthetic policy fixture, not cryptographic proof)", () => {
-	const marker = "router-release-provenance-v3.6.2";
-
-	it("keeps the full historical policy pinned", () => {
-		const policy = block(marker);
-		for (const pin of [
-			'binary="$HOME/.local/lib/wstack-router/3.6.2/wstack-router"',
-			`source_sha=${historicalSha}`,
-			`digest=${historicalDigest}`,
-			'gh attestation verify "$binary"',
-			"--repo StartupBros/wstack-router",
-			'--source-digest "$source_sha"',
-			"--source-ref refs/tags/v3.6.2",
-			"--cert-identity https://github.com/StartupBros/wstack-router/.github/workflows/router-release-artifacts.yml@refs/tags/v3.6.2",
-			'--signer-digest "$source_sha"',
-			"--deny-self-hosted-runners",
-			"retrieval_repo=StartupBros/hov-router",
-			'gh attestation download "$binary" --repo "$retrieval_repo"',
-			'--bundle "$bundle_dir/sha256:$digest.jsonl"',
-		])
-			expect(policy).toContain(pin);
-	});
-
-	it("retrieves at the intended home and verifies the same local bundle under the exact old identity before execution", () => {
-		const f = fixture();
-		f.installHistorical();
-		const verified = f.run(marker, undefined, historicalRun);
-		expect(verified.status, verified.stderr).toBe(0);
-		const calls = readFileSync(join(f.home, "attestations"), "utf8")
-			.trim()
-			.split("\n");
-		expect(calls).toHaveLength(2);
-		expect(calls[0]).toBe(
-			`attestation download ${f.historicalBinary} --repo StartupBros/hov-router`,
-		);
-		expect(calls[1]).toStartWith(
-			`attestation verify ${f.historicalBinary} --repo StartupBros/wstack-router `,
-		);
-		expect(calls[1]).toContain(`--bundle `);
-		expect(calls[1]).toEndWith(`/sha256:${historicalFixtureDigest}.jsonl`);
-		expect(readFileSync(join(f.home, "executed"), "utf8")).toBe("executed\n");
-	});
-
 	it("pins historical release and asset evidence independently of the new display name", () => {
 		for (const pin of [
 			"418096444",
@@ -791,77 +778,204 @@ describe("documented historical 3.6.2 provenance (synthetic policy fixture, not 
 		expect(releaseGuide).toContain("v1:startupbros-wstack-router-binary");
 	});
 
-	it("rejects changed binary bytes before bundle retrieval or execution", () => {
-		const f = fixture();
-		f.installHistorical();
-		writeFileSync(f.historicalBinary, "tampered bytes\n");
-		expect(f.run(marker, undefined, historicalRun).status).not.toBe(0);
-		expect(existsSync(join(f.home, "attestations"))).toBe(false);
-		expect(existsSync(join(f.home, "executed"))).toBe(false);
-	});
+	for (const release of provenanceReleases) {
+		describe(release.tag, () => {
+			const policy = () => block(release.marker);
+			const binaryCheck = String.raw`printf '%s  %s\n' "$digest" "$binary" | sha256sum --check --strict -`;
+			const fetch = `curl -q --fail --location --proto '=https' --proto-redir '=https'`;
+			const bundleCheck = String.raw`printf '%s  %s\n' "$bundle_sha" "$bundle" | sha256sum --check --strict -`;
+			const verify = 'gh attestation verify "$binary"';
 
-	for (const mode of ["attestation-fail", "bad-bundle"]) {
-		it(`stops on ${mode} before execution`, () => {
-			const f = fixture(mode);
-			f.installHistorical();
-			expect(f.run(marker, undefined, historicalRun).status).not.toBe(0);
-			const calls = readFileSync(join(f.home, "attestations"), "utf8")
-				.trim()
-				.split("\n");
-			expect(calls).toHaveLength(mode === "attestation-fail" ? 1 : 2);
-			expect(existsSync(join(f.home, "executed"))).toBe(false);
-		});
-	}
+			it("pins the signer's exact policy and checks each input before using it", () => {
+				const text = policy();
+				for (const pin of [
+					`binary="$HOME/${release.binary}"`,
+					`source_sha=${release.sha}`,
+					`digest=${release.digest}`,
+					binaryCheck,
+					fetch,
+					release.bundleUrl,
+					bundleCheck,
+					verify,
+					`--repo ${release.signer}`,
+					'--source-digest "$source_sha"',
+					`--source-ref refs/tags/${release.tag}`,
+					`--cert-identity https://github.com/${release.signer}/.github/workflows/router-release-artifacts.yml@refs/tags/${release.tag}`,
+					'--signer-digest "$source_sha"',
+					"--deny-self-hosted-runners",
+					'--bundle "$bundle"',
+				])
+					expect(text).toContain(pin);
+				// The binary's checksum first, then the bundle and its checksum, then gh.
+				const order = [binaryCheck, release.bundleUrl, bundleCheck, verify].map(
+					(pin) => text.indexOf(pin),
+				);
+				expect(order).toEqual([...order].sort((a, b) => a - b));
+				// No lookup by repository or owner, and no certificate of the new home.
+				expect(text).not.toContain("attestation download");
+				expect(text).not.toContain(`github.com/${currentHome}/.github`);
+			});
 
-	for (const [label, from, to] of [
-		[
-			"new verification repository",
-			"--repo StartupBros/wstack-router",
-			"--repo StartupBros/hov-router",
-		],
-		[
-			"owner-only policy",
-			"--repo StartupBros/wstack-router",
-			"--owner StartupBros",
-		],
-		[
-			"new certificate",
-			"--cert-identity https://github.com/StartupBros/wstack-router/",
-			"--cert-identity https://github.com/StartupBros/hov-router/",
-		],
-		[
-			"short source SHA",
-			'--source-digest "$source_sha"',
-			`--source-digest ${historicalSha.slice(0, 7)}`,
-		],
-		[
-			"wrong signer SHA",
-			'--signer-digest "$source_sha"',
-			`--signer-digest ${"b".repeat(40)}`,
-		],
-		[
-			"wrong tag",
-			"--source-ref refs/tags/v3.6.2",
-			"--source-ref refs/heads/main",
-		],
-		["self-hosted runner allowance", "--deny-self-hosted-runners", ""],
-		[
-			"different bundle",
-			'--bundle "$bundle_dir/sha256:$digest.jsonl"',
-			'--bundle "$bundle_dir/other.jsonl"',
-		],
-	] as const) {
-		it(`rejects ${label} before execution`, () => {
-			const f = fixture();
-			f.installHistorical();
-			expect(block(marker)).toContain(from);
-			const result = f.run(
-				marker,
-				(script) => script.replace(from, to),
-				historicalRun,
-			);
-			expect(result.status).not.toBe(0);
-			expect(existsSync(join(f.home, "executed"))).toBe(false);
+			it("commits the bundle its block pins, signed for the release's binary and manifest", () => {
+				const bytes = readFileSync(
+					join(root, "docs/provenance", `${release.tag}.jsonl`),
+				);
+				expect(policy()).toContain(`bundle_sha=${sha256(bytes)}`);
+				const lines = bytes.toString("utf8").split("\n");
+				expect(lines).toHaveLength(2);
+				expect(lines[1]).toBe("");
+				const bundle = JSON.parse(lines[0]);
+				expect(bundle.mediaType).toBe(
+					"application/vnd.dev.sigstore.bundle.v0.3+json",
+				);
+				const statement = JSON.parse(
+					Buffer.from(bundle.dsseEnvelope.payload, "base64").toString("utf8"),
+				);
+				expect(statement.predicateType).toBe("https://slsa.dev/provenance/v1");
+				expect(statement.subject).toEqual([
+					{
+						name: "better-ccflare-linux-amd64",
+						digest: { sha256: release.digest },
+					},
+					{
+						name: "release-manifest.json",
+						digest: { sha256: release.manifestDigest },
+					},
+				]);
+				expect(
+					statement.predicate.buildDefinition.externalParameters.workflow,
+				).toEqual({
+					ref: `refs/tags/${release.tag}`,
+					repository: `https://github.com/${release.signer}`,
+					path: ".github/workflows/router-release-artifacts.yml",
+				});
+				expect(releaseGuide).toContain(release.manifestDigest);
+			});
+
+			it("verifies the committed bundle under the signer's identity before execution", () => {
+				const f = fixture();
+				const binary = f.install(release);
+				const verified = f.run(release.marker, undefined, release.runLine);
+				expect(verified.status, verified.stderr).toBe(0);
+				const calls = readFileSync(join(f.home, "attestations"), "utf8")
+					.trim()
+					.split("\n");
+				expect(calls).toHaveLength(1);
+				expect(calls[0]).toStartWith(
+					`attestation verify ${binary} --repo ${release.signer} `,
+				);
+				expect(calls[0]).toEndWith(`/${release.tag}.jsonl`);
+				const downloads = readFileSync(join(f.home, "downloads"), "utf8")
+					.trim()
+					.split("\n");
+				expect(downloads).toHaveLength(1);
+				expect(downloads[0]).toContain(release.bundleUrl);
+				expect(readFileSync(join(f.home, "executed"), "utf8")).toBe(
+					"executed\n",
+				);
+			});
+
+			it("rejects changed binary bytes before fetching the bundle", () => {
+				const f = fixture();
+				writeFileSync(f.install(release), "tampered bytes\n");
+				expect(
+					f.run(release.marker, undefined, release.runLine).status,
+				).not.toBe(0);
+				expect(existsSync(join(f.home, "downloads"))).toBe(false);
+				expect(existsSync(join(f.home, "attestations"))).toBe(false);
+				expect(existsSync(join(f.home, "executed"))).toBe(false);
+			});
+
+			for (const mode of ["bundle-fail", "bad-bundle"]) {
+				it(`stops on ${mode} before attestation or execution`, () => {
+					const f = fixture(mode);
+					f.install(release);
+					expect(
+						f.run(release.marker, undefined, release.runLine).status,
+					).not.toBe(0);
+					expect(existsSync(join(f.home, "attestations"))).toBe(false);
+					expect(existsSync(join(f.home, "executed"))).toBe(false);
+				});
+			}
+
+			it("stops on a failed attestation before execution", () => {
+				const f = fixture("attestation-fail");
+				f.install(release);
+				expect(
+					f.run(release.marker, undefined, release.runLine).status,
+				).not.toBe(0);
+				expect(
+					readFileSync(join(f.home, "attestations"), "utf8").trim().split("\n"),
+				).toHaveLength(1);
+				expect(existsSync(join(f.home, "executed"))).toBe(false);
+			});
+
+			const otherSigner =
+				release.signer === "StartupBros/hov-router"
+					? "StartupBros/wstack-router"
+					: "StartupBros/hov-router";
+			const otherRelease =
+				provenanceReleases[
+					(provenanceReleases.indexOf(release) + 1) % provenanceReleases.length
+				];
+			for (const [label, from, to] of [
+				[
+					"the current home as verification repository",
+					`--repo ${release.signer}`,
+					`--repo ${currentHome}`,
+				],
+				[
+					"another former name as verification repository",
+					`--repo ${release.signer}`,
+					`--repo ${otherSigner}`,
+				],
+				[
+					"owner-only policy",
+					`--repo ${release.signer}`,
+					"--owner StartupBros",
+				],
+				[
+					"the current home's certificate",
+					`--cert-identity https://github.com/${release.signer}/`,
+					`--cert-identity https://github.com/${currentHome}/`,
+				],
+				[
+					"short source SHA",
+					'--source-digest "$source_sha"',
+					`--source-digest ${release.sha.slice(0, 7)}`,
+				],
+				[
+					"wrong signer SHA",
+					'--signer-digest "$source_sha"',
+					`--signer-digest ${"b".repeat(40)}`,
+				],
+				[
+					"wrong tag",
+					`--source-ref refs/tags/${release.tag}`,
+					"--source-ref refs/heads/main",
+				],
+				["self-hosted runner allowance", "--deny-self-hosted-runners", ""],
+				["a lookup without the committed bundle", '--bundle "$bundle"', ""],
+				[
+					"a different local bundle",
+					'--bundle "$bundle"',
+					'--bundle "$bundle_dir/other.jsonl"',
+				],
+				["another release's bundle", release.bundleUrl, otherRelease.bundleUrl],
+			] as const) {
+				it(`rejects ${label} before execution`, () => {
+					const f = fixture();
+					f.install(release);
+					expect(policy()).toContain(from);
+					const result = f.run(
+						release.marker,
+						(script) => script.replace(from, to),
+						release.runLine,
+					);
+					expect(result.status).not.toBe(0);
+					expect(existsSync(join(f.home, "executed"))).toBe(false);
+				});
+			}
 		});
 	}
 });

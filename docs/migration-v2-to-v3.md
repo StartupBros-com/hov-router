@@ -183,5 +183,5 @@ If you encounter issues during migration:
 
 1. Check the logs for error messages
 2. Verify your database backup exists
-3. Consult the [GitHub Issues](https://github.com/StartupBros/hov-router/issues) page
+3. Consult the [GitHub Issues](https://github.com/StartupBros-com/hov-router/issues) page
 4. Create a new issue if needed with your version information and error details

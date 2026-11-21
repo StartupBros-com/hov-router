@@ -581,7 +581,7 @@ interface User {
 
 ### Reporting a vulnerability
 
-Report vulnerabilities privately through GitHub private vulnerability reporting: <https://github.com/StartupBros/hov-router/security/advisories/new>. Please do not open a public issue for a suspected vulnerability. [SECURITY.md](../SECURITY.md) lists what to include, which versions are supported and what is in scope.
+Report vulnerabilities privately through GitHub private vulnerability reporting: <https://github.com/StartupBros-com/hov-router/security/advisories/new>. Please do not open a public issue for a suspected vulnerability. [SECURITY.md](../SECURITY.md) lists what to include, which versions are supported and what is in scope.
 
 ### Severity Levels
 

@@ -1,6 +1,6 @@
 # Repository Agent Instructions
 
-Instructions for any agent working on **HoV Router** (`hov-router`): a load balancer and gateway that routes Claude Code and other clients across multiple provider accounts, with a dashboard for usage, cost and errors. It is a House of Vibe project at [StartupBros/hov-router](https://github.com/StartupBros/hov-router), a product fork of [tombii/better-ccflare](https://github.com/tombii/better-ccflare) (MIT). `CLAUDE.md` only imports this file, so edit this one.
+Instructions for any agent working on **HoV Router** (`hov-router`): a load balancer and gateway that routes Claude Code and other clients across multiple provider accounts, with a dashboard for usage, cost and errors. It is a House of Vibe project at [StartupBros-com/hov-router](https://github.com/StartupBros-com/hov-router), a product fork of [tombii/better-ccflare](https://github.com/tombii/better-ccflare) (MIT). `CLAUDE.md` only imports this file, so edit this one.
 
 ## ⚠️ CRITICAL: Testing Restrictions
 

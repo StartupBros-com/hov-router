@@ -33,8 +33,8 @@ Router 3.7.1 publishes a Linux x86_64 binary only. The [platform notes](referenc
 - [Release automation](hov-router-releases.md): maintainer draft-release workflow, separate from consumer installation.
 - [Anthropic usage API changelog](anthropic-api-changelog.md).
 
-[Router source and issues](https://github.com/StartupBros/hov-router) · [MIT license](../LICENSE)
+[Router source and issues](https://github.com/StartupBros-com/hov-router) · [MIT license](../LICENSE)
 
-Use `hov-router`; older command names such as `better-ccflare` remain compatible. The same repository was renamed to [StartupBros/hov-router](https://github.com/StartupBros/hov-router) on 2026-10-21; see [the repository move](hov-router-migration.md#repository-move) for verification and the known old-issue URL exception.
+Use `hov-router`; older command names such as `better-ccflare` remain compatible. The same repository was renamed `StartupBros/hov-router` on 2026-10-21 and moved to [StartupBros-com/hov-router](https://github.com/StartupBros-com/hov-router) on 2026-11-20; see [the repository move](hov-router-migration.md#repository-move) for verification and the known old-issue URL exception.
 
 External references: [Anthropic API](https://docs.anthropic.com/claude/docs), [Bun](https://bun.sh/docs), [SQLite](https://www.sqlite.org/docs.html).
