@@ -1,0 +1,17 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "The fleet's Renovate run (StartupBros-com/home-infrastructure, renovate-config.js) sets the schedule, PR limits, release-age floors and automerge. This file adds only what this repository needs. Dependabot keeps the GitHub Actions bumps (.github/dependabot.yml), as everywhere in the fleet."
+  ],
+  "constraints": {
+    "bun": "1.4.2"
+  },
+  "prHeader": "BEGIN_COMMIT_OVERRIDE\n{{{prTitle}}}\nEND_COMMIT_OVERRIDE",
+  "packageRules": [
+    {
+      "description": "The Bun runtime moves by hand, in .bun-version, the Dockerfile, package.json and this file's constraints together (docs/contributing.md, \"Bumping the Bun toolchain\").",
+      "matchPackageNames": ["bun", "oven/bun"],
+      "enabled": false
+    }
+  ]
+}
