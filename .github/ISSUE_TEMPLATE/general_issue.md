@@ -14,7 +14,7 @@ If this is related to a bug or technical issue, please provide:
 
 - **HoV Router version**: [output of `hov-router --version`, or commit hash if built from source]
 - **Installation method**: 
-  - [ ] Linux x86_64 release binary (StartupBros/hov-router releases)
+  - [ ] Linux x86_64 release binary (StartupBros-com/hov-router releases)
   - [ ] Built from source (`git clone` + `bun install`)
   - [ ] Upstream better-ccflare package (npm/bun) - please report upstream-only issues at tombii/better-ccflare
   - [ ] Docker/Docker Compose
