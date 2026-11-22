@@ -132,7 +132,7 @@ export class ModelRouteProfileController {
 			if (stored) {
 				if (ignored) {
 					log.warn(
-						`${variableName(ignored)} is set, but the database holds the route profiles (revision ${stored.revision}); the variable is not read. Edit lanes through /api/route-profiles.`,
+						`${variableName(ignored)} is set, but the database holds the route profiles (revision ${stored.revision}); the variable is not read. Edit lanes on the dashboard's Route Lanes page or through /api/route-profiles.`,
 					);
 				}
 				return create(fromStored(stored, parseStoredAtStart(stored), ignored));

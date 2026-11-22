@@ -442,7 +442,9 @@ account UUID is copied into the public discovery response.
 
 ### Edit lanes live
 
-The lanes live in the router's database as one JSON array with a revision number (#971). Read and replace them through the API; every `/api/*` route needs an admin API key once any key exists.
+The lanes live in the router's database as one JSON array with a revision number (#971). Edit them on the dashboard's **Route Lanes** page, or read and replace them through the API; every `/api/*` route needs an admin API key once any key exists.
+
+- **On the dashboard.** The Route Lanes page lists each lane with its picker model id, account and the model its family name stands for today. **Add lane** and **Edit** use a form with an account picker and keep every field the form does not show. **Edit as JSON** shows the whole set as written, for those fields and for capability lanes. **Delete** asks first. Each save sends the whole set at the revision the dialog opened with, so if someone saved in between, the dialog says nothing was saved and you reopen it to edit the lanes as they are now.
 
 - **Read.** `GET /api/route-profiles` returns `revision`, `profiles` (the array exactly as written, family names such as `"logicalModel": "mythos"` kept), `lanes` (each lane resolved: its picker model ids, account name, and the model a family name stands for today), `status` (what `/health` reports) and `warnings` (a lane whose `accountId` matches no account).
 - **Replace.** `PUT /api/route-profiles` with `{"revision": <the revision you read>, "profiles": [...]}` replaces the whole set. Use revision `0` when nothing is stored yet. The set must pass the same checks as at startup and be at most 256 KiB, or the router answers `400` with the reason and changes nothing. If someone saved in between, the answer is `409` with the current revision in `details.revision`: read again and reapply your edit. Send `"profiles": []` to remove every lane.
