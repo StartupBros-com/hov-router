@@ -1112,6 +1112,36 @@ describe("resolveDashboardRoute", () => {
 	});
 });
 
+// Structural guard, for the same reason as the wiring guards below: the fetch
+// handler cannot be booted in a unit test. The proxy fallback must
+// authenticate through authenticateProxyRequest(), which refuses a request
+// whose only credential is an exemption for an API route. With plain
+// authenticateRequest() here, an exemption broader than its route sends a
+// keyless request upstream on a configured account, which has happened three
+// times (auth-service-static-exemption-bypass.test.ts covers the behavior).
+describe("proxy fallback authentication", () => {
+	it("authenticates through authenticateProxyRequest before either proxy entry point", () => {
+		const src = readFileSync(join(import.meta.dir, "server.ts"), "utf8");
+		const apiRoutesAt = src.indexOf(
+			"const apiResponse = await apiRouter.handleRequest(url, req);",
+		);
+		const responsesAt = src.indexOf("handleResponsesRequest(", apiRoutesAt);
+		const proxyAt = src.indexOf("handleProxy(", apiRoutesAt);
+		expect(apiRoutesAt).toBeGreaterThanOrEqual(0);
+		expect(responsesAt).toBeGreaterThan(apiRoutesAt);
+		expect(proxyAt).toBeGreaterThan(apiRoutesAt);
+
+		const fallback = src.slice(apiRoutesAt, Math.min(responsesAt, proxyAt));
+		expect(fallback).toContain("authService.authenticateProxyRequest(");
+		expect(fallback).not.toContain("authService.authenticateRequest(");
+		// The fallback is the only caller in the server: nothing after it may
+		// authenticate a proxied request another way.
+		expect(src.slice(apiRoutesAt)).not.toContain(
+			"authService.authenticateRequest(",
+		);
+	});
+});
+
 // Structural guard: assert that startServer() actually invokes
 // bootstrapMinimaxUsagePolling in its source. This is the negative control
 // for PR #347 — the previous unit-test guard only failed when the EXPORTED

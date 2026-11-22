@@ -31,8 +31,23 @@ function timingSafeStringEqual(a: string, b: string): boolean {
 	return timingSafeEqual(bufA, bufB);
 }
 
+/**
+ * Why a request passed authentication with no validated key.
+ *
+ * - `api-route`: one API route is deliberately open (health, the version
+ *   check, the status-line session read, OAuth status polling, the public
+ *   subscription feed, first-key bootstrap, a local-control CLI notify). The
+ *   exemption covers that route and nothing else.
+ * - `internal-probe`: the cache-keepalive self-loop presented the
+ *   process-local secret on a proxy endpoint. This is the only exemption that
+ *   may reach the upstream proxy.
+ */
+export type AuthExemption = "api-route" | "internal-probe";
+
 export interface AuthenticationResult {
 	isAuthenticated: boolean;
+	/** Set when the request passed on an exemption instead of a key. */
+	exemption?: AuthExemption;
 	apiKey?: ApiKey;
 	apiKeyId?: string;
 	apiKeyName?: string;
@@ -363,9 +378,15 @@ export class AuthService {
 			return true;
 		}
 
-		// Health endpoint is always exempt. The shared classifier keeps this exact
-		// so dashboard routing cannot silently claim a broader health prefix.
-		if (classifyAuthPath(path) === "health") {
+		// Health endpoint is always exempt, for the GET the router serves. The
+		// shared classifier keeps this exact so dashboard routing cannot silently
+		// claim a broader health prefix. Any other method matches no API route,
+		// and exempting it sent a keyless request on to the upstream proxy (see
+		// the session-account note below).
+		if (
+			(method === undefined || method === "GET") &&
+			classifyAuthPath(path) === "health"
+		) {
 			return true;
 		}
 
@@ -381,8 +402,12 @@ export class AuthService {
 
 		// Version check returns only the latest npm-published version. The
 		// dashboard's sidebar tile fires this on load with no API key in
-		// headers, so it must be reachable whether or not auth is enabled.
-		if (path === "/api/version/check") {
+		// headers, so it must be reachable whether or not auth is enabled. GET
+		// only, for the same reason as /health above.
+		if (
+			(method === undefined || method === "GET") &&
+			path === "/api/version/check"
+		) {
 			return true;
 		}
 
@@ -444,10 +469,24 @@ export class AuthService {
 		method: string,
 		headers?: Headers,
 	): Promise<boolean> {
-		// Static exemptions first (no DB hit). Method matters: the session-account
-		// exemption is GET-only so a non-GET request can't be exempt-but-unmatched.
+		return (await this.exemptionFor(path, method, headers)) !== null;
+	}
+
+	/**
+	 * The exemption a request qualifies for, or null when it needs a key.
+	 * Every exemption names its kind so the proxy fallback can tell the one
+	 * that may reach a provider (`internal-probe`) from those that open a
+	 * single API route (see authenticateProxyRequest).
+	 */
+	private async exemptionFor(
+		path: string,
+		method: string,
+		headers?: Headers,
+	): Promise<AuthExemption | null> {
+		// Static exemptions first (no DB hit). Method matters: each is scoped to
+		// the method its route serves so a request can't be exempt-but-unmatched.
 		if (this.isStaticPathExempt(path, method)) {
-			return true;
+			return "api-route";
 		}
 		const pathFamily = classifyAuthPath(path);
 
@@ -456,7 +495,7 @@ export class AuthService {
 		// enabled, init, reauth, callback, status, list, and individual-job reads
 		// all require a validated admin key like every other dashboard API.
 		if (path.startsWith("/api/oauth")) {
-			return false;
+			return null;
 		}
 
 		// API key management: Only allow initial key creation without auth if no keys exist
@@ -464,28 +503,29 @@ export class AuthService {
 		if (path.startsWith("/api/api-keys")) {
 			// Only allow POST (key creation) without auth if no keys exist
 			if (path === "/api/api-keys" && method === "POST") {
-				return !(await this.isAuthenticationEnabled()); // Only exempt if no keys exist
+				// Only exempt if no keys exist
+				return (await this.isAuthenticationEnabled()) ? null : "api-route";
 			}
 			// All other API key operations require authentication
-			return false;
+			return null;
 		}
 
 		// Proxy endpoints (/v1 and /messages) require authentication if enabled,
 		// except for correctly-marked internal probes (#216).
 		if (pathFamily === "v1" || pathFamily === "messages") {
 			if (headers && this.isInternalProbeRequest(headers)) {
-				return true;
+				return "internal-probe";
 			}
-			return false;
+			return null;
 		}
 
 		// API endpoints require authentication if enabled, except for
 		// correctly-marked local-control CLI-notify requests (#216).
 		if (pathFamily === "api") {
 			if (headers && this.isLocalControlRequest(headers, path, method)) {
-				return true;
+				return "api-route";
 			}
-			return false;
+			return null;
 		}
 
 		// Everything else requires authentication when it is enabled.
@@ -498,7 +538,46 @@ export class AuthService {
 		// when the dashboard was disabled or unavailable, since upstream
 		// providers accept arbitrary paths. Any request that reaches here is
 		// an API or proxy request and must be authenticated.
-		return false;
+		return null;
+	}
+
+	/**
+	 * Authenticate a request the API router did not answer, before it enters
+	 * the upstream proxy. Same result as authenticateRequest(), with one
+	 * difference: once keys exist, a request is admitted only on a validated
+	 * key or the internal probe.
+	 *
+	 * An `api-route` exemption opens the route it names. A request carrying
+	 * one gets here only when that route did not match, which means the
+	 * exemption is broader than its route; admitting it would send a keyless
+	 * request upstream on a configured account, since providers accept
+	 * arbitrary paths. That mistake was made three times (blanket OAuth and
+	 * non-API paths, then /health and /api/version/check on every method), so
+	 * the proxy refuses the whole class here instead of trusting each
+	 * exemption to be exact. An install with no keys stays open, as it is
+	 * everywhere else.
+	 */
+	async authenticateProxyRequest(
+		req: Request,
+		path: string,
+		method: string,
+	): Promise<AuthenticationResult> {
+		const result = await this.authenticateRequest(req, path, method);
+		if (
+			!result.isAuthenticated ||
+			result.apiKey ||
+			result.exemption === "internal-probe"
+		) {
+			return result;
+		}
+		if (!(await this.isAuthenticationEnabled())) {
+			return result;
+		}
+		return {
+			isAuthenticated: false,
+			error:
+				"API key required. Include it in the 'x-api-key' header or Authorization: Bearer <key>",
+		};
 	}
 
 	/**
@@ -550,9 +629,11 @@ export class AuthService {
 				: null;
 
 		// If path is exempt, allow without authentication
-		if (await this.isPathExempt(path, method, req.headers)) {
+		const exemption = await this.exemptionFor(path, method, req.headers);
+		if (exemption) {
 			return {
 				isAuthenticated: true,
+				exemption,
 			};
 		}
 

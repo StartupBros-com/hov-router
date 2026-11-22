@@ -887,8 +887,8 @@ curl -H "Origin: http://evil.com" \
      -X OPTIONS \
      http://localhost:8080/api/accounts
 
-# Check for exposed internal headers
-curl -I http://localhost:8080/health
+# Check for exposed internal headers (a GET: only GET /health is served without a key)
+curl -s -o /dev/null -D - http://localhost:8080/health
 ```
 
 ## Conclusion
