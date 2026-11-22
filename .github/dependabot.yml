@@ -23,4 +23,7 @@ updates:
     groups:
       github-actions-minor-and-patch:
         patterns: ["*"]
+        # Its exact SHA is asserted on purpose (router-release-workflow.test.ts), so
+        # it gets its own PR and its expected failure blocks no other bump.
+        exclude-patterns: ["actions/create-github-app-token"]
         update-types: [minor, patch]
