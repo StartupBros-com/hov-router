@@ -29,6 +29,8 @@ const workflowPath = join(
 	import.meta.dir,
 	"../../../.github/workflows/prepare-router-artifacts.yml",
 );
+// Strips only a full 40-hex commit pin, so a tag or branch ref fails the name checks.
+const SHA_PIN = /@[a-f0-9]{40}$/;
 async function readWorkflow(): Promise<Workflow> {
 	return Bun.YAML.parse(await Bun.file(workflowPath).text()) as Workflow;
 }
@@ -65,9 +67,11 @@ describe("unpublished HoV Router artifact preparation workflow", () => {
 	test("uses only checkout and uncached Bun setup actions", async () => {
 		const { steps } = (await readWorkflow()).jobs.prepare;
 		const actions = steps.filter((step) => step.uses);
-		expect(actions.map((step) => step.uses)).toEqual([
-			"actions/checkout@v7.0.1",
-			"oven-sh/setup-bun@v2.2.0",
+		// Each action is pinned to a full commit SHA; Dependabot moves the SHA and
+		// its version comment together, so the test names the action, not the version.
+		expect(actions.map((step) => step.uses?.replace(SHA_PIN, ""))).toEqual([
+			"actions/checkout",
+			"oven-sh/setup-bun",
 		]);
 		expect(actions[0].with).toEqual({ "persist-credentials": false });
 		expect(actions[1].with).toEqual({
@@ -79,8 +83,8 @@ describe("unpublished HoV Router artifact preparation workflow", () => {
 
 	test("checks the exact installed Bun before frozen dependency installation", async () => {
 		const { steps } = (await readWorkflow()).jobs.prepare;
-		expect(steps[0].uses).toBe("actions/checkout@v7.0.1");
-		expect(steps[1].uses).toBe("oven-sh/setup-bun@v2.2.0");
+		expect(steps[0].uses?.replace(SHA_PIN, "")).toBe("actions/checkout");
+		expect(steps[1].uses?.replace(SHA_PIN, "")).toBe("oven-sh/setup-bun");
 		expect(steps[2].run).toBe(
 			`test "$(bun --version)" = "$(tr -d '[:space:]' < .bun-version)"`,
 		);

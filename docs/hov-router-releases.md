@@ -345,8 +345,8 @@ retries skip the entire PR job and never mint an App token.
    needed release PR, and trigger its required checks. Do not fake a version bump
    to exercise this. Local tests cannot verify installation access or live CI events.
 
-The pinned `actions/create-github-app-token` v3.3.0 action
-(`64ab729a6294000f5aa4a4bc0b73d1f32bc45510`, Node 24) mints after dependency installation,
+The pinned `actions/create-github-app-token` v3.4.0 action
+(`f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc`, Node 24) mints after dependency installation,
 only immediately before reconciliation. Only that step receives the output through
 the existing `GITHUB_TOKEN` interface. Checkout does not persist credentials. The
 App token is not passed to dependency installation, build, smoke, draft or artifact
@@ -647,9 +647,8 @@ not that later releases completed those steps.
 The App action's pinned `action.yml` and `main.js` confirm the inputs, Node 24
 runtime and failure on missing Client ID or private key. Static YAML assertions
 alone prove wiring, not live credential availability, revocation or GitHub event
-behavior. The other action pins (`actions/checkout` 7.0.1, `setup-bun` 2.2.0,
-`upload-artifact` 6.0.0, `download-artifact` 7.0.0, `actions/attest` 4.2.1) and the
-`gh attestation verify` flags have source and local-test coverage. The `stage` job
+behavior. The other action pins (full commit SHAs, each with its version in a
+comment) and the `gh attestation verify` flags have source and local-test coverage. The `stage` job
 checks the runner's `gh` supports every verifier flag used by the helper before
 using it. Local executable fixtures exercise CLI output and the coordinator's shell
 with synthetic API responses and command stand-ins; they do not prove live GitHub
