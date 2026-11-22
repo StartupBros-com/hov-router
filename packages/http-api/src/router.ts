@@ -139,6 +139,10 @@ import {
 	createRequestsSummaryHandler,
 } from "./handlers/requests";
 import { createRequestsStreamHandler } from "./handlers/requests-stream";
+import {
+	createRouteProfilesGetHandler,
+	createRouteProfilesPutHandler,
+} from "./handlers/route-profiles";
 import { createRoutingAttemptsSummaryHandler } from "./handlers/routing-attempts";
 import { createRoutingObservationsHandler } from "./handlers/routing-observations";
 import { createSessionAccountHandler } from "./handlers/sessions";
@@ -234,7 +238,9 @@ export class APIRouter {
 			getBodyAdmissionHealth,
 			getMemorySnapshot,
 			getHandoff,
-			getRouteProfilesStatus: () => this.context.modelRouteProfilesStatus,
+			getRouteProfilesStatus: () =>
+				this.context.modelRouteProfileController?.getStatus() ??
+				this.context.modelRouteProfilesStatus,
 		});
 		const statsHandler = createStatsHandler(dbOps);
 		const recentErrorsHandler = createRecentErrorsHandler(dbOps);
@@ -621,6 +627,21 @@ export class APIRouter {
 			createComboCreateHandler(dbOps)(req),
 		);
 
+		// Route lanes (route profiles), edited live (#971)
+		const routeProfilesDeps = {
+			controller: this.context.modelRouteProfileController,
+			listAccounts: async () =>
+				(await dbOps.getAllAccounts()).map(({ id, name }) => ({ id, name })),
+		};
+		this.handlers.set(
+			"GET:/api/route-profiles",
+			createRouteProfilesGetHandler(routeProfilesDeps),
+		);
+		this.handlers.set(
+			"PUT:/api/route-profiles",
+			createRouteProfilesPutHandler(routeProfilesDeps),
+		);
+
 		// Family assignment routes
 		this.handlers.set("GET:/api/families", () =>
 			createFamiliesListHandler(dbOps)(),
@@ -644,7 +665,10 @@ export class APIRouter {
 		// Codex pin → automatic migration (read-only preview, guarded apply)
 		this.handlers.set("POST:/api/codex/model-migration/preview", (req) =>
 			createCodexModelMigrationPreviewHandler(dbOps, {
-				routeProfiles: this.context.modelRouteProfiles ?? [],
+				routeProfiles:
+					this.context.modelRouteProfileController?.getProfiles() ??
+					this.context.modelRouteProfiles ??
+					[],
 			})(req),
 		);
 		this.handlers.set("POST:/api/codex/model-migration/apply", (req) =>

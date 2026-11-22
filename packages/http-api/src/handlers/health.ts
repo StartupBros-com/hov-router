@@ -285,6 +285,12 @@ export function createHealthHandler(
 			if (routeProfiles.fallbackReady !== undefined) {
 				response.routeProfiles.fallbackReady = routeProfiles.fallbackReady;
 			}
+			if (routeProfiles.revision !== undefined) {
+				response.routeProfiles.revision = routeProfiles.revision;
+			}
+			if (routeProfiles.ignored !== undefined) {
+				response.routeProfiles.ignored = routeProfiles.ignored;
+			}
 		}
 		if (routing) {
 			response.routing = routing;

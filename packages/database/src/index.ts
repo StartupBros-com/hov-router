@@ -115,6 +115,11 @@ export type {
 export { ModelTranslationRepository } from "./repositories/model-translation.repository";
 export type { AdvisorModelUsage } from "./repositories/request.repository";
 export {
+	RouteProfileConfigRepository,
+	type SaveRouteProfileConfigInput,
+	type StoredRouteProfileConfig,
+} from "./repositories/route-profile-config.repository";
+export {
 	ROUTING_ATTEMPT_SUMMARY_WINDOWS,
 	type RoutingAttemptData,
 	RoutingAttemptRepository,

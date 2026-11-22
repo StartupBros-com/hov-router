@@ -660,6 +660,36 @@ interface ModelRouteSessionState {
 	readonly touchedAt: number;
 }
 
+interface ModelRouteProfileIndex {
+	readonly profilesById: ReadonlyMap<string, ModelRouteProfile>;
+	readonly profilesByPublicModelId: ReadonlyMap<string, ModelRouteProfile>;
+	readonly profileOnlyAccountIds: ReadonlySet<string>;
+}
+
+function indexModelRouteProfiles(
+	profiles: readonly ModelRouteProfile[],
+): ModelRouteProfileIndex {
+	const profileOnlyAccountIds = new Set<string>();
+	const profilesByPublicModelId = new Map<string, ModelRouteProfile>();
+	for (const profile of profiles) {
+		if (
+			profile.exclusiveAccount &&
+			profile.selection === undefined &&
+			profile.accountId !== undefined
+		) {
+			profileOnlyAccountIds.add(profile.accountId);
+		}
+		for (const modelId of modelRouteProfileModelIds(profile)) {
+			profilesByPublicModelId.set(modelId, profile);
+		}
+	}
+	return {
+		profilesById: new Map(profiles.map((profile) => [profile.id, profile])),
+		profilesByPublicModelId,
+		profileOnlyAccountIds,
+	};
+}
+
 interface ModelRouteRootIntent {
 	readonly generation: number;
 	readonly reservedAt: number;
@@ -757,12 +787,10 @@ export function apiKeyRouteCallerIdentity(
  * session header cannot change another caller's account route.
  */
 export class ModelRouteSessionRegistry {
-	private readonly profilesByPublicModelId: ReadonlyMap<
-		string,
-		ModelRouteProfile
-	>;
-	private readonly profilesById: ReadonlyMap<string, ModelRouteProfile>;
-	private readonly profileOnlyAccountIds: ReadonlySet<string>;
+	// Replaced together by setProfiles when lanes are edited live (#971).
+	private profilesByPublicModelId: ReadonlyMap<string, ModelRouteProfile>;
+	private profilesById: ReadonlyMap<string, ModelRouteProfile>;
+	private profileOnlyAccountIds: ReadonlySet<string>;
 	private readonly sessions = new Map<string, ModelRouteSessionState>();
 	private readonly rootIntents = new Map<string, ModelRouteRootIntentState>();
 	private readonly ttlMs: number;
@@ -786,27 +814,33 @@ export class ModelRouteSessionRegistry {
 				"Model route session entry cap must be a positive integer",
 			);
 		}
-		const profileOnlyAccountIds = new Set<string>();
-		for (const profile of profiles) {
-			if (
-				profile.exclusiveAccount &&
-				profile.selection === undefined &&
-				profile.accountId !== undefined
-			) {
-				profileOnlyAccountIds.add(profile.accountId);
+		const index = indexModelRouteProfiles(profiles);
+		this.profilesById = index.profilesById;
+		this.profilesByPublicModelId = index.profilesByPublicModelId;
+		this.profileOnlyAccountIds = index.profileOnlyAccountIds;
+	}
+
+	/**
+	 * Replace the configured lanes in place (#971). The registry instance, and so
+	 * its bindings, root intents and restore gate, survives the edit. A bound
+	 * session follows its lane's new definition; a binding whose lane was
+	 * deleted is dropped, as when a deploy removes a lane. In-flight requests
+	 * keep the profile object they resolved.
+	 */
+	setProfiles(profiles: readonly ModelRouteProfile[]): void {
+		const index = indexModelRouteProfiles(profiles);
+		this.profilesById = index.profilesById;
+		this.profilesByPublicModelId = index.profilesByPublicModelId;
+		this.profileOnlyAccountIds = index.profileOnlyAccountIds;
+		// Setting an existing key keeps its position, so recency order survives.
+		for (const [key, state] of this.sessions) {
+			const next = index.profilesById.get(state.profile.id);
+			if (!next) {
+				this.sessions.delete(key);
+			} else if (next !== state.profile) {
+				this.sessions.set(key, { ...state, profile: next });
 			}
 		}
-		this.profileOnlyAccountIds = profileOnlyAccountIds;
-		this.profilesById = new Map(
-			profiles.map((profile) => [profile.id, profile]),
-		);
-		const profilesByPublicModelId = new Map<string, ModelRouteProfile>();
-		for (const profile of profiles) {
-			for (const modelId of modelRouteProfileModelIds(profile)) {
-				profilesByPublicModelId.set(modelId, profile);
-			}
-		}
-		this.profilesByPublicModelId = profilesByPublicModelId;
 	}
 
 	get size(): number {
@@ -821,11 +855,12 @@ export class ModelRouteSessionRegistry {
 		return this.profilesByPublicModelId.has(modelId);
 	}
 
+	/** By id, so a profile a request captured before a live edit still matches. */
 	isPublicModelIdForProfile(
 		modelId: string,
 		profile: ModelRouteProfile,
 	): boolean {
-		return this.profilesByPublicModelId.get(modelId) === profile;
+		return this.profilesByPublicModelId.get(modelId)?.id === profile.id;
 	}
 
 	isProfileOnlyAccount(accountId: string): boolean {

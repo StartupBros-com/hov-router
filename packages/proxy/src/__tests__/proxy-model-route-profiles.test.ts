@@ -1155,6 +1155,67 @@ describe("Claude Code gateway model route profiles", () => {
 		clearSession(sessionId);
 	});
 
+	it("follows a live lane edit on the next request, and fails closed once the lane is deleted (#971)", async () => {
+		const registry = makeRegistry();
+		const harness = makeContext(registry, {
+			accounts: [makeAccount(), makeAccount(SECOND_ROUTE_ACCOUNT_ID)],
+		});
+		const { requests } = installJsonUpstream();
+		const sessionId = "live-edit-session";
+		const send = (model: string, agentId?: string) => {
+			const request = apiRequest("/v1/messages", model, {
+				"x-claude-code-session-id": sessionId,
+				...(agentId ? { "x-claude-code-agent-id": agentId } : {}),
+			});
+			return handleProxy(request, new URL(request.url), harness.ctx, "key-1");
+		};
+		const firstUrl = `https://upstream.test/${ROUTE_ACCOUNT_ID}/v1/messages`;
+		const editedUrl = `https://upstream.test/${SECOND_ROUTE_ACCOUNT_ID}/v1/messages`;
+
+		expect((await send(PROFILE_MODEL)).status).toBe(200);
+		expect(requests.map((request) => request.url)).toEqual([firstUrl]);
+
+		// What PUT /api/route-profiles does to the live registry: same lane id,
+		// new account. No restart, no new registry.
+		registry.setProfiles(
+			parseModelRouteProfiles(
+				JSON.stringify([
+					{
+						id: "pro-primary-sol",
+						displayName: "GPT-5.6 Sol · second account",
+						accountId: SECOND_ROUTE_ACCOUNT_ID,
+						logicalModel: LOGICAL_MODEL,
+						defaultEffort: "xhigh",
+						expectedProvider: "test-provider",
+					},
+				]),
+			),
+		);
+		// A subagent of the session bound before the edit follows the edited lane
+		// at once, before any root request re-binds the session.
+		expect((await send(CHILD_MODEL, "live-edit-child")).status).toBe(200);
+		expect((await send(PROFILE_MODEL)).status).toBe(200);
+		expect(requests.map((request) => request.url)).toEqual([
+			firstUrl,
+			editedUrl,
+			editedUrl,
+		]);
+		expect(getServedAccountObservation(sessionId)).toMatchObject({
+			accountId: SECOND_ROUTE_ACCOUNT_ID,
+			routeProfileId: "pro-primary-sol",
+		});
+
+		registry.setProfiles([]);
+		const removed = await send(PROFILE_MODEL);
+		expect(removed.status).toBe(503);
+		expect(await removed.json()).toMatchObject({
+			error: { type: "model_route_unavailable", reason: "unknown_profile" },
+		});
+		expect(requests).toHaveLength(3);
+		expect(harness.strategySelect).not.toHaveBeenCalled();
+		clearSession(sessionId);
+	});
+
 	it("rewrites an explicit route, pins its account, defaults effort, and records provenance", async () => {
 		const harness = makeContext(makeRegistry());
 		const { requests } = installJsonUpstream();

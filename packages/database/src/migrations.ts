@@ -955,6 +955,20 @@ export function ensureSchema(db: Database): void {
 		)
 	`);
 
+	// Route lanes (route profiles), edited live through the API (#971). One
+	// global row holds the JSON array exactly as written, because the parser
+	// validates the set as a whole; writes compare-and-swap on revision.
+	// runMigrations calls ensureSchema, so existing databases get it too.
+	db.run(`
+		CREATE TABLE IF NOT EXISTS route_profile_config (
+			scope TEXT PRIMARY KEY CHECK (scope = 'global'),
+			profiles_json TEXT NOT NULL,
+			revision INTEGER NOT NULL CHECK (revision >= 1),
+			updated_at INTEGER NOT NULL,
+			source TEXT NOT NULL
+		)
+	`);
+
 	// Create usage_snapshots table: time series of per-account usage-window
 	// utilization (0–100) captured on each /oauth/usage poll. append_order is a
 	// durable, database-generated key for same-timestamp writes; unlike rowid it

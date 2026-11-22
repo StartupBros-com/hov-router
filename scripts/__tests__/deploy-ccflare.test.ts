@@ -4655,4 +4655,23 @@ describe("report_route_profiles (#960)", () => {
 			'echo "health:        VERIFIED"\nreport_route_profiles "$PROXY_HEALTH_JSON"',
 		);
 	});
+
+	test("prints the stored revision and a variable the database overrides, with no warning (#971)", () => {
+		const sha = "f".repeat(64);
+		const out = report({
+			routeProfiles: {
+				source: "database",
+				status: "ok",
+				count: 6,
+				sha256: sha,
+				revision: 4,
+				ignored: "file",
+			},
+		});
+		expect(out.exitCode).toBe(0);
+		expect(out.stdout).toBe(
+			`route profiles: source=database status=ok count=6 sha256=${sha} revision=4 ignored=file\n`,
+		);
+		expect(out.stderr).toBe("");
+	});
 });

@@ -476,11 +476,15 @@ export interface HealthResponse {
 	 * fall back to.
 	 */
 	routeProfiles?: {
-		source: "none" | "env" | "file";
+		source: "none" | "env" | "file" | "database";
 		status: "ok" | "last_good";
 		count: number;
 		sha256?: string;
 		fallbackReady?: boolean;
+		/** Database source: the stored revision in force (#971). */
+		revision?: number;
+		/** Database source: this variable is still set but no longer read. */
+		ignored?: "env" | "file";
 	};
 	accounts_detail?: Array<AccountDetail>;
 	runtime?: {

@@ -2521,3 +2521,175 @@ describe("parseModelRouteProfiles family names", () => {
 		]);
 	});
 });
+
+describe("ModelRouteSessionRegistry.setProfiles (#971)", () => {
+	const ACCOUNT_A = "aaaaaaaa-0000-4000-8000-000000000001";
+	const ACCOUNT_B = "bbbbbbbb-0000-4000-8000-000000000002";
+	const lanes = (...entries: Record<string, unknown>[]) =>
+		parseModelRouteProfiles(JSON.stringify(entries));
+	const lane = (fields: Record<string, unknown> = {}) => ({
+		id: "cvp-opus",
+		displayName: "CVP Opus",
+		accountId: ACCOUNT_A,
+		logicalModel: "opus",
+		...fields,
+	});
+	const root = (registry: ModelRouteSessionRegistry, requestModel: string) => {
+		const input = {
+			callerIdentity: "api-key:one",
+			requestModel,
+			sessionId: "session-a",
+			isSubagent: false,
+		};
+		const resolution = resolveRequest(registry, input);
+		registry.commitExplicit(input, resolution);
+		return resolution;
+	};
+	const child = (registry: ModelRouteSessionRegistry) =>
+		resolveRequest(registry, {
+			callerIdentity: "api-key:one",
+			requestModel: "claude-sonnet-5-5",
+			sessionId: "session-a",
+			isSubagent: true,
+		});
+
+	it("adds and removes picker ids, and flips hasProfiles both ways", () => {
+		const registry = new ModelRouteSessionRegistry([]);
+		expect(registry.hasProfiles).toBe(false);
+		expect(
+			registry.beginRootIntent({
+				callerIdentity: "api-key:one",
+				sessionId: "session-a",
+				isSubagent: false,
+			}),
+		).toBeNull();
+
+		registry.setProfiles(lanes(lane()));
+		expect(registry.hasProfiles).toBe(true);
+		expect(registry.hasPublicModelId("claude-bccf-route-cvp-opus")).toBe(true);
+		expect(registry.getProfiles().map((p) => p.id)).toEqual(["cvp-opus"]);
+		expect(registry.getDiscoveryModels().map((row) => row.id)).toEqual([
+			"claude-bccf-route-cvp-opus",
+		]);
+
+		registry.setProfiles([]);
+		expect(registry.hasProfiles).toBe(false);
+		expect(registry.hasPublicModelId("claude-bccf-route-cvp-opus")).toBe(false);
+		expect(registry.getProfiles()).toEqual([]);
+	});
+
+	it("moves a bound session to the edited lane, so its children follow the new account", () => {
+		const [before] = lanes(lane());
+		if (!before) throw new Error("Expected lane");
+		const registry = new ModelRouteSessionRegistry([before]);
+		root(registry, before.publicModelId);
+		expect(child(registry)).toMatchObject({
+			kind: "route",
+			source: "inherited",
+			profile: { accountId: ACCOUNT_A },
+		});
+
+		const [after] = lanes(lane({ accountId: ACCOUNT_B }));
+		if (!after) throw new Error("Expected edited lane");
+		registry.setProfiles([after]);
+
+		const inherited = child(registry);
+		expect(inherited).toEqual({
+			kind: "route",
+			source: "inherited",
+			profile: after,
+		});
+		expect(registry.size).toBe(1);
+		expect(registry.isExactProfileRouteForAccount("cvp-opus", ACCOUNT_B)).toBe(
+			true,
+		);
+		expect(registry.isExactProfileRouteForAccount("cvp-opus", ACCOUNT_A)).toBe(
+			false,
+		);
+	});
+
+	it("drops a binding whose lane was deleted, and fails a child that still names it", () => {
+		const configured = lanes(
+			lane(),
+			lane({ id: "cvp-mythos", logicalModel: "mythos" }),
+		);
+		const registry = new ModelRouteSessionRegistry(configured);
+		root(registry, "claude-bccf-route-cvp-opus");
+		expect(registry.size).toBe(1);
+
+		registry.setProfiles(configured.filter((p) => p.id !== "cvp-opus"));
+		expect(registry.size).toBe(0);
+		// The deleted picker id is no longer configured, so the proxy refuses it
+		// before resolution (proxy.ts reserved-prefix checks).
+		expect(registry.hasPublicModelId("claude-bccf-route-cvp-opus")).toBe(false);
+		// A stock-model child of that session is unbound, as after a deploy that
+		// removed the lane.
+		expect(child(registry)).toEqual({ kind: "native" });
+		// A child naming a lane that still exists, with no binding, stays refused.
+		expect(
+			resolveRequest(registry, {
+				callerIdentity: "api-key:one",
+				requestModel: "claude-bccf-route-cvp-mythos",
+				sessionId: "session-a",
+				isSubagent: true,
+			}),
+		).toEqual({ kind: "unavailable", reason: "unbound_child_profile" });
+	});
+
+	it("matches a profile captured before a swap by id, not by object", () => {
+		const [before] = lanes(lane());
+		if (!before) throw new Error("Expected lane");
+		const registry = new ModelRouteSessionRegistry([before]);
+		const [after] = lanes(lane({ displayName: "CVP Opus (renamed)" }));
+		if (!after) throw new Error("Expected edited lane");
+		registry.setProfiles([after]);
+		expect(
+			registry.isPublicModelIdForProfile("claude-bccf-route-cvp-opus", before),
+		).toBe(true);
+		expect(
+			registry.isPublicModelIdForProfile("claude-bccf-route-other", before),
+		).toBe(false);
+	});
+
+	it("updates which accounts are reserved for lanes", () => {
+		const registry = new ModelRouteSessionRegistry(lanes(lane()));
+		expect(registry.isProfileOnlyAccount(ACCOUNT_A)).toBe(false);
+		registry.setProfiles(lanes(lane({ exclusiveAccount: true })));
+		expect(registry.isProfileOnlyAccount(ACCOUNT_A)).toBe(true);
+		registry.setProfiles(
+			lanes(lane({ exclusiveAccount: true, accountId: ACCOUNT_B })),
+		);
+		expect(registry.isProfileOnlyAccount(ACCOUNT_A)).toBe(false);
+		expect(registry.isProfileOnlyAccount(ACCOUNT_B)).toBe(true);
+	});
+
+	it("keeps binding recency, so the least recently used session is still evicted first", () => {
+		const configured = lanes(lane());
+		const registry = new ModelRouteSessionRegistry(configured, {
+			maxEntries: 2,
+		});
+		const commit = (sessionId: string) => {
+			const input = {
+				callerIdentity: "api-key:one",
+				requestModel: "claude-bccf-route-cvp-opus",
+				sessionId,
+				isSubagent: false,
+			};
+			registry.commitExplicit(input, resolveRequest(registry, input));
+		};
+		commit("older");
+		commit("newer");
+		registry.setProfiles(lanes(lane({ displayName: "edited" })));
+		commit("newest");
+		const inheritsFor = (sessionId: string) =>
+			resolveRequest(registry, {
+				callerIdentity: "api-key:one",
+				requestModel: "claude-sonnet-5-5",
+				sessionId,
+				isSubagent: true,
+			}).kind;
+		expect(inheritsFor("older")).toBe("native");
+		expect(inheritsFor("newer")).toBe("route");
+		expect(inheritsFor("newest")).toBe("route");
+	});
+});

@@ -127,8 +127,10 @@ write_deploy_lock_holder() {
 
 # Print the deployed backend's route-profile line from its /health JSON, and warn
 # on stderr when a profiles file was not loaded or has no fallback copy (#960).
-# Profiles from CCFLARE_MODEL_ROUTE_PROFILES_FILE load at backend start, so the
-# deploy is how an edit reaches the router. Never fails the deploy.
+# Since #971 the lanes live in the database (source=database, with the stored
+# revision) and are edited live through /api/route-profiles, with no deploy.
+# A profiles file is read only until the first start imports it; after that it
+# shows as ignored=file. Never fails the deploy.
 report_route_profiles() {
 	local report
 	report="$(node - "$1" <<'NODE'
@@ -137,6 +139,8 @@ if (!p) { console.log("not reported by this build"); process.exit(0); }
 const parts = [`source=${p.source}`, `status=${p.status}`, `count=${p.count}`];
 if (p.sha256) parts.push(`sha256=${p.sha256}`);
 if (p.fallbackReady !== undefined) parts.push(`fallback=${p.fallbackReady ? "ready" : "MISSING"}`);
+if (p.revision !== undefined) parts.push(`revision=${p.revision}`);
+if (p.ignored) parts.push(`ignored=${p.ignored}`);
 console.log(parts.join(" "));
 NODE
 )" || report="unreadable"
