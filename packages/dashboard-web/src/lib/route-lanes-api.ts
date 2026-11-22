@@ -96,6 +96,26 @@ export const EMPTY_LANE_FORM: RouteLaneFormValues = {
 	exclusiveAccount: false,
 };
 
+/**
+ * Whether a stored lane is the one `id` names. The server trims an id before
+ * checking it, so `" cvp-opus "` is a valid stored id for the lane the cards
+ * call `cvp-opus`; matching the raw string would edit or delete nothing.
+ */
+export function sameLaneId(
+	definition: RouteLaneDefinition,
+	id: string,
+): boolean {
+	return definition.id.trim() === id.trim();
+}
+
+/** The stored definition of the lane `id` names, if any. */
+export function findLane(
+	profiles: readonly RouteLaneDefinition[],
+	id: string,
+): RouteLaneDefinition | undefined {
+	return profiles.find((profile) => sameLaneId(profile, id));
+}
+
 export function laneFormValues(
 	definition: RouteLaneDefinition,
 ): RouteLaneFormValues {
@@ -104,7 +124,7 @@ export function laneFormValues(
 		return typeof value === "string" ? value : "";
 	};
 	return {
-		id: definition.id,
+		id: definition.id.trim(),
 		displayName: text("displayName"),
 		accountId: text("accountId"),
 		logicalModel: text("logicalModel"),
@@ -145,7 +165,7 @@ export function upsertLane(
 	if (originalId === null) return [...profiles, lane];
 	let replaced = false;
 	const next = profiles.map((profile) => {
-		if (profile.id !== originalId) return profile;
+		if (!sameLaneId(profile, originalId)) return profile;
 		replaced = true;
 		return lane;
 	});
@@ -156,7 +176,7 @@ export function removeLane(
 	profiles: readonly RouteLaneDefinition[],
 	id: string,
 ): RouteLaneDefinition[] {
-	return profiles.filter((profile) => profile.id !== id);
+	return profiles.filter((profile) => !sameLaneId(profile, id));
 }
 
 /** What a save sends: the whole set, at the revision it was built from. */
@@ -179,9 +199,7 @@ export function laneEditSave(
 	values: RouteLaneFormValues,
 ): RouteLanesSave {
 	const definition =
-		originalId === null
-			? undefined
-			: base.profiles.find((profile) => profile.id === originalId);
+		originalId === null ? undefined : findLane(base.profiles, originalId);
 	return {
 		revision: base.revision,
 		profiles: upsertLane(

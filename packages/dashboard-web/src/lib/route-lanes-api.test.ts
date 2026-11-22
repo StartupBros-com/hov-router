@@ -5,6 +5,7 @@ import {
 	applyLaneForm,
 	EMPTY_LANE_FORM,
 	fetchRouteLanes,
+	findLane,
 	formatLaneSet,
 	isStaleRouteLanesError,
 	laneDeleteSave,
@@ -265,5 +266,49 @@ describe("saves are built on the lanes the dialog opened with", () => {
 			ok: false,
 			error: "The lane set must be a JSON array",
 		});
+	});
+});
+
+describe("stored ids the server trims", () => {
+	// The server trims an id before checking it and keeps the raw string in
+	// `profiles`, so the cards name this lane `cvp-opus`.
+	const spaced = {
+		id: " cvp-opus ",
+		displayName: "CVP Opus",
+		accountId: "acct-1",
+		logicalModel: "opus",
+		aliases: ["opus-cvp"],
+	};
+	const other = { id: "cvp-mythos", displayName: "CVP Mythos" };
+	const opened: RouteLanes = {
+		revision: 9,
+		profiles: [spaced, other],
+		lanes: [],
+		status: { source: "database", status: "ok", count: 2 },
+		warnings: [],
+	};
+
+	it("deletes the lane the card names", () => {
+		expect(laneDeleteSave(opened, "cvp-opus").profiles).toEqual([other]);
+	});
+
+	it("edits the lane in place, keeping its other fields", () => {
+		expect(
+			laneFormValues(findLane(opened.profiles, "cvp-opus") ?? { id: "" }),
+		).toEqual({
+			...EMPTY_LANE_FORM,
+			id: "cvp-opus",
+			displayName: "CVP Opus",
+			accountId: "acct-1",
+			logicalModel: "opus",
+		});
+		const save = laneEditSave(opened, "cvp-opus", {
+			...laneFormValues(spaced),
+			displayName: "CVP Opus Max",
+		});
+		expect(save.profiles).toEqual([
+			{ ...spaced, id: "cvp-opus", displayName: "CVP Opus Max" },
+			other,
+		]);
 	});
 });

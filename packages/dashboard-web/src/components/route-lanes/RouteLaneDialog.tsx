@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { useSaveRouteLanes } from "../../hooks/queries";
 import {
 	EMPTY_LANE_FORM,
+	findLane,
 	laneEditSave,
 	laneFormValues,
 	type RouteLaneFormValues,
@@ -101,9 +102,7 @@ export function RouteLaneForm({
 	onClose,
 }: RouteLaneFormProps) {
 	const definition =
-		originalId === null
-			? undefined
-			: base.profiles.find((profile) => profile.id === originalId);
+		originalId === null ? undefined : findLane(base.profiles, originalId);
 	const [values, setValues] = useState<RouteLaneFormValues>(() =>
 		definition ? laneFormValues(definition) : EMPTY_LANE_FORM,
 	);

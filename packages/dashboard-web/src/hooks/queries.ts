@@ -30,6 +30,7 @@ import {
 	fetchRouteLanes,
 	isStaleRouteLanesError,
 	type RouteLaneDefinition,
+	type RouteLanes,
 	saveRouteLanes,
 } from "../lib/route-lanes-api";
 import { captureRequestUpdates, getRequestsSseSeq } from "./useRequestStream";
@@ -1239,6 +1240,20 @@ export const useRouteLanes = () => {
 };
 
 /**
+ * Cache the set a save returned. A lane read started before the save (the
+ * page polls) can answer after it with the older revision, which would bring
+ * deleted lanes back and make the next dialog open at a stale revision, so
+ * those reads are cancelled first.
+ */
+export async function applySavedRouteLanes(
+	queryClient: QueryClient,
+	data: RouteLanes,
+): Promise<void> {
+	await queryClient.cancelQueries({ queryKey: queryKeys.routeLanes() });
+	queryClient.setQueryData(queryKeys.routeLanes(), data);
+}
+
+/**
  * Replace the whole lane set at the revision it was read at. On success the
  * returned set becomes the cache; on a stale revision the cache is refetched
  * so the next edit starts from the lanes as they are now.
@@ -1250,9 +1265,7 @@ export const useSaveRouteLanes = () => {
 			revision: number;
 			profiles: readonly RouteLaneDefinition[];
 		}) => saveRouteLanes(input),
-		onSuccess: (data) => {
-			queryClient.setQueryData(queryKeys.routeLanes(), data);
-		},
+		onSuccess: (data) => applySavedRouteLanes(queryClient, data),
 		onError: (error) => {
 			if (isStaleRouteLanesError(error)) {
 				void queryClient.invalidateQueries({
