@@ -1,3 +1,4 @@
+import { HttpError } from "@better-ccflare/http-common";
 import { Braces, Edit, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import {
@@ -45,14 +46,29 @@ export function routeLanesSourceText(status: RouteLanes["status"]): string {
 	}
 }
 
-/** The message for a failed save: a stale revision gets its own. */
+/**
+ * The message for a failed save. A stale revision gets its own; any other
+ * refusal of the lanes (400 invalid, 413 too large) shows the server's
+ * message as returned, since it names the field or limit at fault and the
+ * shared formatter would replace it with a generic line.
+ */
 export function saveErrorText(
 	error: unknown,
 	formatError: (error: unknown) => string,
 ): string {
-	return isStaleRouteLanesError(error)
-		? "The lanes changed after this dialog opened, so nothing was saved. Close it and open it again to edit the lanes as they are now."
-		: formatError(error);
+	if (isStaleRouteLanesError(error)) {
+		return "The lanes changed after this dialog opened, so nothing was saved. Close it and open it again to edit the lanes as they are now.";
+	}
+	if (
+		error instanceof HttpError &&
+		error.status >= 400 &&
+		error.status < 500 &&
+		error.status !== 401 &&
+		error.status !== 403
+	) {
+		return error.message;
+	}
+	return formatError(error);
 }
 
 function LaneCard({

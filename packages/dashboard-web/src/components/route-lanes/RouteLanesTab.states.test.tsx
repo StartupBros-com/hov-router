@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { HttpError } from "@better-ccflare/http-common";
+import { formatError, parseHttpError } from "@better-ccflare/errors";
 import { renderToStaticMarkup } from "react-dom/server";
 import { queryKeys } from "../../lib/query-keys";
 import type { RouteLanes } from "../../lib/route-lanes-api";
@@ -131,21 +131,41 @@ describe("route lanes text", () => {
 		);
 	});
 
-	it("explains a stale save and passes other errors through", () => {
-		const format = (error: unknown) =>
-			error instanceof Error ? error.message : "?";
+	it("explains a stale save and shows the server's refusal as returned", async () => {
+		// Errors built the way the client builds them, formatted by the real
+		// formatter, which on its own turns any 400 into a generic line.
+		const fromResponse = (status: number, error: string) =>
+			parseHttpError(
+				new Response(JSON.stringify({ error }), {
+					status,
+					headers: { "content-type": "application/json" },
+				}),
+			);
+		const format = (error: unknown) => formatError(error);
+		const invalid = await fromResponse(
+			400,
+			"profile 0 contains unknown field nope",
+		);
+		expect(format(invalid)).toBe("Invalid request. Please check your input.");
+		expect(saveErrorText(invalid, format)).toBe(
+			"profile 0 contains unknown field nope",
+		);
 		expect(
 			saveErrorText(
-				new HttpError(409, "Route lanes changed since revision 4"),
+				await fromResponse(
+					413,
+					"Route profiles must be at most 256 KiB as JSON",
+				),
 				format,
 			),
+		).toBe("Route profiles must be at most 256 KiB as JSON");
+		expect(
+			saveErrorText(await fromResponse(409, "Route lanes changed"), format),
 		).toContain("The lanes changed after this dialog opened");
-		expect(
-			saveErrorText(
-				new HttpError(400, "profile 0 contains unknown field nope"),
-				format,
-			),
-		).toBe("profile 0 contains unknown field nope");
+		const unauthorized = await fromResponse(401, "Unauthorized");
+		expect(saveErrorText(unauthorized, format)).toBe(format(unauthorized));
+		const down = await fromResponse(500, "boom");
+		expect(saveErrorText(down, format)).toBe(format(down));
 	});
 });
 
