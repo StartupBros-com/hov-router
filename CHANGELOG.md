@@ -1,5 +1,29 @@
 # Changelog
 
+## [6.3.0](https://github.com/StartupBros-com/hov-router/compare/v6.2.2...v6.3.0) (2026-11-22)
+
+
+### Features
+
+* **deploy:** a refused deploy names the session and checkout holding the lock ([#952](https://github.com/StartupBros-com/hov-router/issues/952)) ([a33f1ef](https://github.com/StartupBros-com/hov-router/commit/a33f1efc6bbe85d337c2d2fa41c71d4d8efd60f4))
+* record limit points used and mid-window counter resets per usage window ([#958](https://github.com/StartupBros-com/hov-router/issues/958)) ([fe11913](https://github.com/StartupBros-com/hov-router/commit/fe119138bdde2b7ea509dd7c9c8e56f7fe0f6a03)), refs [#957](https://github.com/StartupBros-com/hov-router/issues/957)
+* **route-profiles:** let an account-pinned route profile name the Mythos family ([#956](https://github.com/StartupBros-com/hov-router/issues/956)) ([0774c21](https://github.com/StartupBros-com/hov-router/commit/0774c216243c73eff300ad7fca183b9b004bd18c)), refs [#954](https://github.com/StartupBros-com/hov-router/issues/954)
+* **route-profiles:** let an exact profile name a model family instead of a version ([#955](https://github.com/StartupBros-com/hov-router/issues/955)) ([f00934e](https://github.com/StartupBros-com/hov-router/commit/f00934e8d74b95c39ab240db983f0ccd10903bbe)), refs [#954](https://github.com/StartupBros-com/hov-router/issues/954)
+* **route-profiles:** load route profiles from a file at backend start so edits deploy without a full restart ([#962](https://github.com/StartupBros-com/hov-router/issues/962)) ([e9e3801](https://github.com/StartupBros-com/hov-router/commit/e9e3801b45d4b0409d20cd381c8cdeca6f6fd467)), refs [#960](https://github.com/StartupBros-com/hov-router/issues/960) [#954](https://github.com/StartupBros-com/hov-router/issues/954)
+
+
+### Bug Fixes
+
+* **database:** count unattributed scanner events without a full report ([#926](https://github.com/StartupBros-com/hov-router/issues/926)) ([e657667](https://github.com/StartupBros-com/hov-router/commit/e6576671ac9dd99c6bbfcbf96d127634f7451c8e))
+* **deploy:** name the Bun to put on PATH when the toolchain check refuses ([#942](https://github.com/StartupBros-com/hov-router/issues/942)) ([649433d](https://github.com/StartupBros-com/hov-router/commit/649433dbff71d1d75df0238e6f3c4c1d0349fdc8))
+* show Anthropic refused while the usage check is refused, and alert recovery from it ([#943](https://github.com/StartupBros-com/hov-router/issues/943)) ([3892f18](https://github.com/StartupBros-com/hov-router/commit/3892f180c6ae876124a20cf7e5d31f5056990cea)), refs [#941](https://github.com/StartupBros-com/hov-router/issues/941)
+
+
+### Performance Improvements
+
+* **database:** a reader lane holds new workers while a timed-out one is still running ([#968](https://github.com/StartupBros-com/hov-router/issues/968)) ([f41d3f4](https://github.com/StartupBros-com/hov-router/commit/f41d3f4b36dcb3f1a87fc51d5bef2fe04c05975d))
+* **database:** reads never move to the main thread; a faulting reader cools down and recovers ([#963](https://github.com/StartupBros-com/hov-router/issues/963)) ([a3050ec](https://github.com/StartupBros-com/hov-router/commit/a3050ecee2c18e7c47c58c0d2e4d3b3ee73b2de5))
+
 ## [6.2.2](https://github.com/StartupBros-com/hov-router/compare/v6.2.1...v6.2.2) (2026-11-21)
 
 
