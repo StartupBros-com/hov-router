@@ -515,7 +515,12 @@ is cut (a standing decision since 2026-11-10), after these checks:
    [Fixed inventory and provenance](#fixed-inventory-and-provenance), and the
    binary's SHA-256 matches both `SHA256SUMS` and `release-manifest.json`.
 4. The body opens with a short summary and a `## Highlights` list (see the next
-   section), and tells upgraders what to do about any breaking change.
+   section), and tells upgraders what to do about any breaking change. Run every
+   step and check the body gives upgraders against real builds, in upgrade order:
+   the previous release first, then the new one. Compare what each prints with
+   what the body says it prints. 6.4.0's draft told a rollback to read the
+   `profiles` array of `GET /api/route-profiles`. In the real response that is
+   `data.profiles`, and only running the step showed it.
 5. The new release's attestation bundle is on `main` as
    `docs/provenance/vX.Y.Z.jsonl`. The body's verify block (in every release
    since 6.2.0) downloads it from there, so merge it in a pull request of its own
