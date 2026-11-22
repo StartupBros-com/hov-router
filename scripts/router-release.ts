@@ -16,6 +16,7 @@ import {
 // Finish the public entry point before traversing its circular internal strategies.
 const { Node } = await import("release-please/build/src/strategies/node");
 
+import { isDeepStrictEqual } from "node:util";
 import ts from "typescript";
 
 // Both CLI entry points reserve stdout for their machine-readable result.
@@ -58,13 +59,7 @@ class RouterNode extends Node {
 			updater: {
 				updateContent(content: string | undefined) {
 					if (!content) throw new Error("Missing bun.lock");
-					const parsed = ts.parseConfigFileTextToJson("bun.lock", content);
-					if (parsed.error) throw new Error("Invalid Bun JSONC lockfile");
-					const lock = parsed.config;
-					if (!lock.workspaces?.["apps/cli"]?.version)
-						throw new Error("Missing Bun CLI workspace version");
-					lock.workspaces["apps/cli"].version = options.newVersion.toString();
-					return `${JSON.stringify(lock, null, 2)}\n`;
+					return setBunLockCliVersion(content, options.newVersion.toString());
 				},
 			},
 		});
@@ -72,6 +67,47 @@ class RouterNode extends Node {
 	}
 }
 registerReleaseType("router-node", (options) => new RouterNode(options));
+
+/**
+ * Replace only the CLI workspace's version string in bun.lock and keep every other
+ * byte. Re-serializing turned Bun's layout into strict JSON, so the next Bun re-lock
+ * rewrote the whole file and concurrent dependency PRs conflicted (#964).
+ */
+export function setBunLockCliVersion(content: string, version: string): string {
+	const parsed = ts.parseConfigFileTextToJson("bun.lock", content);
+	if (parsed.error) throw new Error("Invalid Bun JSONC lockfile");
+	const source = ts.parseJsonText("bun.lock", content);
+	const literal = jsonProperty(
+		jsonProperty(
+			jsonProperty(source.statements[0]?.expression, "workspaces"),
+			"apps/cli",
+		),
+		"version",
+	);
+	if (!literal || !ts.isStringLiteral(literal))
+		throw new Error("Missing Bun CLI workspace version");
+	const updated =
+		content.slice(0, literal.getStart(source)) +
+		JSON.stringify(version) +
+		content.slice(literal.end);
+	const expected = parsed.config;
+	expected.workspaces["apps/cli"].version = version;
+	const check = ts.parseConfigFileTextToJson("bun.lock", updated);
+	if (check.error || !isDeepStrictEqual(check.config, expected))
+		throw new Error("bun.lock edit changed more than the CLI version");
+	return updated;
+}
+
+function jsonProperty(node: ts.Node | undefined, name: string) {
+	if (!node || !ts.isObjectLiteralExpression(node)) return undefined;
+	const matches = node.properties.filter(
+		(property): property is ts.PropertyAssignment =>
+			ts.isPropertyAssignment(property) &&
+			ts.isStringLiteral(property.name) &&
+			property.name.text === name,
+	);
+	return matches.length === 1 ? matches[0].initializer : undefined;
+}
 
 export function createRouterManifest(scm: Scm) {
 	if (!isRouterRepository(`${scm.repository.owner}/${scm.repository.repo}`))

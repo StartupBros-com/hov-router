@@ -19,6 +19,7 @@ import {
 	type ReleaseTransport,
 	reconcileDraft,
 	reconcilePullRequests,
+	setBunLockCliVersion,
 	validateDraft,
 } from "../router-release";
 
@@ -969,6 +970,45 @@ test.each([
 	},
 	60_000,
 );
+
+// A release that re-serializes bun.lock rewrites Bun's layout as strict JSON, so the
+// next Bun re-lock rewrites the whole file and two dependency PRs conflict (#964).
+test("release version bump changes only the CLI version line in bun.lock", () => {
+	const sample = `{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "ccflare",
+      "version": "0.0.1",
+    },
+    "apps/cli": {
+      "name": "better-ccflare",
+      "version": "6.2.2",
+      "dependencies": {
+        "dotenv": "^17.4.2",
+      },
+    },
+  },
+  "packages": {
+    "dotenv": ["dotenv@17.4.2", "", {}, "sha512-x"],
+  },
+}
+`;
+	expect(setBunLockCliVersion(sample, "6.3.0")).toBe(
+		sample.replace('"version": "6.2.2"', '"version": "6.3.0"'),
+	);
+	const real = readFileSync(new URL("bun.lock", root), "utf8").split("\n");
+	const updated = setBunLockCliVersion(real.join("\n"), "99.0.0").split("\n");
+	expect(updated).toHaveLength(real.length);
+	const changed = real.flatMap((line, index) =>
+		line === updated[index] ? [] : [index],
+	);
+	expect(changed).toHaveLength(1);
+	expect(updated[changed[0]].trim()).toBe('"version": "99.0.0",');
+	expect(() =>
+		setBunLockCliVersion('{ "workspaces": { "": {} } }', "1.0.0"),
+	).toThrow("Missing Bun CLI workspace version");
+});
 
 test("explicit fixture baseline computes the next patch without leaking to the default", async () => {
 	for (const [baseline, version] of [
