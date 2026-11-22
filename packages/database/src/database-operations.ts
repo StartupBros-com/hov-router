@@ -116,6 +116,7 @@ import type {
 	RevalueWindowInput,
 	StaleClosedWindows,
 	UsageWindow,
+	WindowLimitCycles,
 } from "./repositories/usage-windows.repository";
 import { UsageWindowsRepository } from "./repositories/usage-windows.repository";
 import { withDatabaseRetry } from "./retry";
@@ -1478,6 +1479,42 @@ OAuth tokens will need to be re-authenticated.
 		expectedCreatedAt?: number,
 	): Promise<boolean> {
 		return this.usageWindows.closeWindow(id, input, expectedCreatedAt);
+	}
+
+	async recordUsageWindowLimitCycles(
+		id: string,
+		input: WindowLimitCycles,
+	): Promise<boolean> {
+		return this.usageWindows.recordLimitCycles(id, input);
+	}
+
+	async listClosedWindowsMissingLimitCycles(): Promise<StaleClosedWindows> {
+		return this.usageWindows.listClosedWindowsMissingLimitCycles();
+	}
+
+	async getUsageWindowReadings(
+		accountId: string,
+		windowKey: string,
+		resetsAt: number,
+		fromMs: number,
+		toMs: number,
+		clusterToleranceMs: number,
+	): Promise<number[]> {
+		return this.usageHistory.getWindowReadings(
+			accountId,
+			windowKey,
+			resetsAt,
+			fromMs,
+			toMs,
+			clusterToleranceMs,
+		);
+	}
+
+	async getOldestUsageSnapshotTimestamp(
+		accountId: string,
+		windowKey: string,
+	): Promise<number | null> {
+		return this.usageHistory.getOldestSnapshotTimestamp(accountId, windowKey);
 	}
 
 	async listClosedWindowsNotAtProjectionVersion(

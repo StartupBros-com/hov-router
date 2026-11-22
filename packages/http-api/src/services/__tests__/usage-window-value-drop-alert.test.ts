@@ -151,6 +151,8 @@ function buildClosedWindow(overrides: Partial<UsageWindow> = {}): UsageWindow {
 		modelBreakdown: null,
 		unpricedTokens: 0,
 		projectionVersion: "v1",
+		pointsUsed: null,
+		counterResets: null,
 		...overrides,
 	};
 }

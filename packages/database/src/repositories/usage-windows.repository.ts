@@ -33,6 +33,10 @@ export interface UsageWindow {
 	modelBreakdown: Record<string, unknown> | null;
 	unpricedTokens: number | null;
 	projectionVersion: string | null;
+	/** Limit points the window consumed across its limit cycles; null = unknown. */
+	pointsUsed: number | null;
+	/** Times the provider zeroed the counter inside the window; null = unknown. */
+	counterResets: number | null;
 }
 
 export interface OpenWindowInput {
@@ -70,8 +74,15 @@ export interface StaleClosedWindows {
 	unreadable: Array<{ id: string; reason: string }>;
 }
 
+export interface WindowLimitCycles {
+	pointsUsed: number;
+	counterResets: number;
+}
+
 export interface CloseWindowInput extends CloseWindowAggregates {
 	closedAt: number;
+	pointsUsed: number | null;
+	counterResets: number | null;
 }
 
 /** A weekly window the ledger opened as an early reset, with its predecessor. */
@@ -114,13 +125,16 @@ interface UsageWindowRow {
 	model_breakdown: string | null;
 	unpriced_tokens: number | null;
 	projection_version: string | null;
+	points_used: number | null;
+	counter_resets: number | null;
 }
 
 const WINDOW_COLUMNS = `
 	id, account_id, window_key, started_at, resets_at, closed_at, grant_type,
 	peak_utilization, first_100_at, value_usd, input_tokens,
 	cache_read_input_tokens, cache_creation_input_tokens, output_tokens,
-	request_count, model_breakdown, unpriced_tokens, projection_version`;
+	request_count, model_breakdown, unpriced_tokens, projection_version,
+	points_used, counter_resets`;
 
 export class UsageWindowDataIntegrityError extends Error {
 	constructor(message: string) {
@@ -202,6 +216,9 @@ function toUsageWindow(row: UsageWindowRow): UsageWindow {
 		unpricedTokens:
 			row.unpriced_tokens == null ? null : Number(row.unpriced_tokens),
 		projectionVersion: row.projection_version,
+		pointsUsed: row.points_used == null ? null : Number(row.points_used),
+		counterResets:
+			row.counter_resets == null ? null : Number(row.counter_resets),
 	};
 }
 
@@ -368,7 +385,8 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 			 SET closed_at = ?, value_usd = ?, input_tokens = ?,
 			     cache_read_input_tokens = ?, cache_creation_input_tokens = ?,
 			     output_tokens = ?, request_count = ?, model_breakdown = ?,
-			     unpriced_tokens = ?, projection_version = ?
+			     unpriced_tokens = ?, projection_version = ?,
+			     points_used = ?, counter_resets = ?
 			 WHERE id = ? AND closed_at IS NULL${generationClause}`,
 			[
 				closedAt,
@@ -381,11 +399,68 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 				modelBreakdownJson,
 				input.unpricedTokens,
 				input.projectionVersion,
+				input.pointsUsed,
+				input.counterResets,
 				id,
 				...(expectedCreatedAt === undefined ? [] : [expectedCreatedAt]),
 			],
 		);
 		return changes === 1;
+	}
+
+	/**
+	 * Records the limit cycles of a CLOSED window that has none yet. Never
+	 * overwrites a recorded value and never touches an open window. Returns
+	 * whether a row changed.
+	 */
+	async recordLimitCycles(
+		id: string,
+		input: WindowLimitCycles,
+	): Promise<boolean> {
+		requireNonEmpty(id, "id");
+		if (!Number.isFinite(input.pointsUsed) || input.pointsUsed < 0) {
+			throw new TypeError("pointsUsed must be a non-negative finite number");
+		}
+		if (!Number.isSafeInteger(input.counterResets) || input.counterResets < 0) {
+			throw new TypeError("counterResets must be a non-negative integer");
+		}
+		const changes = await this.runWithChanges(
+			`UPDATE usage_windows
+			 SET points_used = ?, counter_resets = ?
+			 WHERE id = ? AND closed_at IS NOT NULL AND points_used IS NULL`,
+			[input.pointsUsed, input.counterResets, id],
+		);
+		return changes === 1;
+	}
+
+	/**
+	 * Closed windows with no recorded limit cycles whose readings are still
+	 * fully retained: a window that began before its account's oldest snapshot
+	 * for that key has incomplete readings and stays NULL. Rows failing
+	 * integrity checks are reported in `unreadable`, not thrown.
+	 */
+	async listClosedWindowsMissingLimitCycles(): Promise<StaleClosedWindows> {
+		const rows = await this.query<UsageWindowRow>(
+			`SELECT ${WINDOW_COLUMNS} FROM usage_windows
+			 WHERE closed_at IS NOT NULL
+			   AND points_used IS NULL
+			   AND started_at >= (
+					SELECT MIN(s.timestamp) FROM usage_snapshots s
+					WHERE s.account_id = usage_windows.account_id
+					  AND s.window_key = usage_windows.window_key
+			   )
+			 ORDER BY resets_at ASC`,
+		);
+		const listing: StaleClosedWindows = { windows: [], unreadable: [] };
+		for (const row of rows) {
+			try {
+				listing.windows.push(toUsageWindow(row));
+			} catch (error) {
+				if (!(error instanceof UsageWindowDataIntegrityError)) throw error;
+				listing.unreadable.push({ id: row.id, reason: error.message });
+			}
+		}
+		return listing;
 	}
 
 	/**

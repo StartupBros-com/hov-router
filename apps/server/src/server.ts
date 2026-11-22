@@ -1793,6 +1793,12 @@ export default async function startServer(options?: {
 		log.warn(`Usage window re-valuation failed: ${err}`);
 	});
 
+	// Fill limit points and counter resets for closed windows that predate the
+	// columns and are still covered by retained snapshots. Same shape as above.
+	usageWindowLedger.measureClosedWindowLimitCycles().catch((err) => {
+		log.warn(`Usage window limit-cycle measurement failed: ${err}`);
+	});
+
 	// Shared successful-poll snapshot dispatch for the API-key pollers
 	// (nanogpt/zai/kilo/minimax): history persistence + usage-window alert
 	// evaluation, mirroring the refresh-backed path's onSnapshot callback.
