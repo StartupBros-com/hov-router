@@ -125,6 +125,30 @@ write_deploy_lock_holder() {
 	fi
 }
 
+# Print the deployed backend's route-profile line from its /health JSON, and warn
+# on stderr when a profiles file was not loaded or has no fallback copy (#960).
+# Profiles from CCFLARE_MODEL_ROUTE_PROFILES_FILE load at backend start, so the
+# deploy is how an edit reaches the router. Never fails the deploy.
+report_route_profiles() {
+	local report
+	report="$(node - "$1" <<'NODE'
+const p = JSON.parse(process.argv[2]).routeProfiles;
+if (!p) { console.log("not reported by this build"); process.exit(0); }
+const parts = [`source=${p.source}`, `status=${p.status}`, `count=${p.count}`];
+if (p.sha256) parts.push(`sha256=${p.sha256}`);
+if (p.fallbackReady !== undefined) parts.push(`fallback=${p.fallbackReady ? "ready" : "MISSING"}`);
+console.log(parts.join(" "));
+NODE
+)" || report="unreadable"
+	echo "route profiles: $report"
+	if [[ "$report" == *"status=last_good"* ]]; then
+		echo "WARNING: the route profiles file was NOT loaded; the backend serves its last good copy. The reason is in the backend log (journalctl -u ccflare-stack.service). Fix the file and deploy again." >&2
+	elif [[ "$report" == *"fallback=MISSING"* ]]; then
+		echo "WARNING: the backend could not save a last-good copy of the route profiles, so a later broken edit has nothing to fall back to. See the backend log." >&2
+	fi
+	return 0
+}
+
 describe_deploy_lock_holder() {
 	if [[ "$#" -ne 1 ]]; then
 		echo "describe_deploy_lock_holder requires: record-path" >&2

@@ -4566,3 +4566,93 @@ describe("request_backend_handoff when the transaction client gets no reply", ()
 		expect(elapsedMs).toBeLessThan(30_000);
 	}, 60_000);
 });
+
+describe("report_route_profiles (#960)", () => {
+	function report(health: unknown) {
+		const json = JSON.stringify(health).replaceAll("'", "'\\''");
+		const result = bash(
+			`source ${helperScriptForShell}; report_route_profiles '${json}'`,
+		);
+		return {
+			exitCode: result.exitCode,
+			stdout: capturedOutput(result.stdout, "stdout"),
+			stderr: capturedOutput(result.stderr, "stderr"),
+		};
+	}
+
+	test("prints a loaded file's checksum with no warning", () => {
+		const sha = "c".repeat(64);
+		const out = report({
+			status: "ok",
+			routeProfiles: {
+				source: "file",
+				status: "ok",
+				count: 6,
+				sha256: sha,
+				fallbackReady: true,
+			},
+		});
+		expect(out.exitCode).toBe(0);
+		expect(out.stdout).toBe(
+			`route profiles: source=file status=ok count=6 sha256=${sha} fallback=ready\n`,
+		);
+		expect(out.stderr).toBe("");
+	});
+
+	test("warns, without failing, when the backend serves the last good copy", () => {
+		const out = report({
+			routeProfiles: {
+				source: "file",
+				status: "last_good",
+				count: 6,
+				sha256: "d".repeat(64),
+				fallbackReady: true,
+			},
+		});
+		expect(out.exitCode).toBe(0);
+		expect(out.stdout).toContain("status=last_good");
+		expect(out.stderr).toContain(
+			"WARNING: the route profiles file was NOT loaded",
+		);
+	});
+
+	test("warns when no fallback copy could be saved", () => {
+		const out = report({
+			routeProfiles: {
+				source: "file",
+				status: "ok",
+				count: 1,
+				sha256: "e".repeat(64),
+				fallbackReady: false,
+			},
+		});
+		expect(out.exitCode).toBe(0);
+		expect(out.stdout).toContain("fallback=MISSING");
+		expect(out.stderr).toContain("could not save a last-good copy");
+	});
+
+	test("says so when the build predates the field, and when health is unreadable", () => {
+		const older = report({ status: "ok" });
+		expect(older.exitCode).toBe(0);
+		expect(older.stdout).toBe("route profiles: not reported by this build\n");
+		const env = report({
+			routeProfiles: { source: "env", status: "ok", count: 6 },
+		});
+		expect(env.stdout).toBe("route profiles: source=env status=ok count=6\n");
+		expect(env.stderr).toBe("");
+		const broken = bash(
+			`source ${helperScriptForShell}; report_route_profiles 'not json'`,
+		);
+		expect(broken.exitCode).toBe(0);
+		expect(capturedOutput(broken.stdout, "stdout")).toBe(
+			"route profiles: unreadable\n",
+		);
+	});
+
+	test("the deploy prints it right after the health verdict", () => {
+		const source = readFileSync(deployScript, "utf8");
+		expect(source).toContain(
+			'echo "health:        VERIFIED"\nreport_route_profiles "$PROXY_HEALTH_JSON"',
+		);
+	});
+});

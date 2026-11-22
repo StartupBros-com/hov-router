@@ -25,7 +25,7 @@ tags:
   - member-notices
   - config-file
   - saveconfig
-last_updated: 2026-11-16
+last_updated: 2026-11-22
 ---
 
 # A backend-only deploy keeps the runner's environment, so a new systemd env file needs a full restart
@@ -104,6 +104,12 @@ if you never edited it.
 Member notices read the environment first and the file second (`:2632-2648`). Put them in the
 service environment. If a file key is unavoidable, stop the service, edit the file, and start it
 again.
+
+### Route profiles: use the file, not the environment (#960)
+
+Route profiles were the setting edited most often. The profiles env file has about 20 `.bak-*` copies on the production host since August, and each edit cost a full restart. The backend can now read them from `CCFLARE_MODEL_ROUTE_PROFILES_FILE`, a file it opens at every start, so a backend-only deploy loads an edit. A broken edit falls back to the last good copy instead of failing the next unattended restart. See [Profiles in a file](../../configuration.md#profiles-in-a-file). Switching a host from `EnvironmentFile=` to the file variable is itself a drop-in change, so it takes one last full restart.
+
+The switch also reverses rollback safety. A build from before #960 ignores the file variable and starts with no profiles, and nothing fails loudly: Claude Code just loses the profile rows in `/model`. So the rollback order is settings first, then version. Restore the `EnvironmentFile=` drop-in and full-restart on the current build, then pin the older one. The deploy prints a `route profiles:` line from `/health` and warns when the file was not loaded, because a deploy whose health check passes can still be serving the last good copy.
 
 ### Proposed check (not built)
 

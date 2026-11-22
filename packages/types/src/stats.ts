@@ -467,6 +467,21 @@ export interface HealthResponse {
 	};
 	pool?: PoolStatus;
 	routing?: RoutingHealth;
+	/**
+	 * Where the running backend's route profiles came from. With a file source,
+	 * compare sha256 with the file to see whether an edit is loaded;
+	 * status last_good means the file could not be used (the reason is in the
+	 * backend log, never here: /health is unauthenticated and the reason names
+	 * a path). fallbackReady false means a later broken edit has no copy to
+	 * fall back to.
+	 */
+	routeProfiles?: {
+		source: "none" | "env" | "file";
+		status: "ok" | "last_good";
+		count: number;
+		sha256?: string;
+		fallbackReady?: boolean;
+	};
 	accounts_detail?: Array<AccountDetail>;
 	runtime?: {
 		asyncWriter?: {

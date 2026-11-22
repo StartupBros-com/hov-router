@@ -214,6 +214,15 @@ export {
 	modelRouteProfileModelIds,
 	parseModelRouteProfiles,
 } from "./model-route-profiles";
+export {
+	activeModelRouteProfiles,
+	defaultModelRouteProfilesLastGoodPath,
+	type LoadedModelRouteProfiles,
+	loadModelRouteProfiles,
+	MODEL_ROUTE_PROFILES_FILE_ENV,
+	type ModelRouteProfilesStatus,
+	setActiveModelRouteProfiles,
+} from "./model-route-profiles-source";
 export type {
 	OpenAICompatibleModelDiscoveryErrorKind,
 	OpenAICompatibleModelEntry,
