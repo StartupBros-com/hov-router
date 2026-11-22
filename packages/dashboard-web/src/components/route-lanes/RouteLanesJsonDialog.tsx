@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { useSaveRouteLanes } from "../../hooks/queries";
 import {
 	formatLaneSet,
-	parseLaneSetText,
+	laneSetSave,
 	type RouteLanes,
 } from "../../lib/route-lanes-api";
 import { Button } from "../ui/button";
@@ -19,35 +19,37 @@ import { Notice } from "../ui/notice";
 
 /**
  * The whole lane set as written, for every field the form does not cover
- * (aliases, effort, context window, capability lanes). Saved as one set.
+ * (aliases, effort, context window, capability lanes). Saved as one set at
+ * the revision `base` was read at: the lanes as they were when it opened.
  */
 export function RouteLanesJsonDialog({
 	open,
-	data,
+	base,
 	save,
 	errorText,
+	stale,
 	onClose,
 }: {
 	open: boolean;
-	data: RouteLanes;
+	base: RouteLanes;
 	save: ReturnType<typeof useSaveRouteLanes>;
 	errorText: string | null;
+	/** A save was refused as stale: saving again needs a fresh open. */
+	stale: boolean;
 	onClose: () => void;
 }) {
-	const [text, setText] = useState(() => formatLaneSet(data.profiles));
+	const [text, setText] = useState(() => formatLaneSet(base.profiles));
 	const [parseError, setParseError] = useState<string | null>(null);
 
 	const submit = () => {
-		const parsed = parseLaneSetText(text);
-		if (!parsed.ok) {
-			setParseError(parsed.error);
+		if (stale) return;
+		const result = laneSetSave(base, text);
+		if (!result.ok) {
+			setParseError(result.error);
 			return;
 		}
 		setParseError(null);
-		save.mutate(
-			{ revision: data.revision, profiles: parsed.profiles },
-			{ onSuccess: onClose },
-		);
+		save.mutate(result.save, { onSuccess: onClose });
 	};
 
 	return (
@@ -61,7 +63,7 @@ export function RouteLanesJsonDialog({
 				<DialogHeader>
 					<DialogTitle>Edit lanes as JSON</DialogTitle>
 					<DialogDescription>
-						{`The whole set, as stored at revision ${data.revision}. Saving replaces every lane.`}
+						{`The whole set, as stored at revision ${base.revision}. Saving replaces every lane.`}
 					</DialogDescription>
 				</DialogHeader>
 				<div className="space-y-1.5">
@@ -91,7 +93,7 @@ export function RouteLanesJsonDialog({
 						type="button"
 						size="touch"
 						onClick={submit}
-						disabled={save.isPending}
+						disabled={save.isPending || stale}
 					>
 						{save.isPending ? "Saving..." : "Save lanes"}
 					</Button>

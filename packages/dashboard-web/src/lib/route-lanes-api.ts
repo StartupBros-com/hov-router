@@ -159,6 +159,56 @@ export function removeLane(
 	return profiles.filter((profile) => profile.id !== id);
 }
 
+/** What a save sends: the whole set, at the revision it was built from. */
+export interface RouteLanesSave {
+	revision: number;
+	profiles: RouteLaneDefinition[];
+}
+
+/*
+ * The save builders take the lanes as they were when the dialog opened, never
+ * the live query data. A refetch while a dialog is open (after a 409, or on
+ * window focus) must not pair the dialog's older content with the newer
+ * revision: the server would accept that and drop the other writer's change.
+ */
+
+/** Save one lane added (`originalId` null) or edited through the form. */
+export function laneEditSave(
+	base: RouteLanes,
+	originalId: string | null,
+	values: RouteLaneFormValues,
+): RouteLanesSave {
+	const definition =
+		originalId === null
+			? undefined
+			: base.profiles.find((profile) => profile.id === originalId);
+	return {
+		revision: base.revision,
+		profiles: upsertLane(
+			base.profiles,
+			originalId,
+			applyLaneForm(definition, values),
+		),
+	};
+}
+
+export function laneDeleteSave(base: RouteLanes, id: string): RouteLanesSave {
+	return { revision: base.revision, profiles: removeLane(base.profiles, id) };
+}
+
+/** Save the "edit as JSON" text as the whole set. */
+export function laneSetSave(
+	base: RouteLanes,
+	text: string,
+): { ok: true; save: RouteLanesSave } | { ok: false; error: string } {
+	const parsed = parseLaneSetText(text);
+	if (!parsed.ok) return parsed;
+	return {
+		ok: true,
+		save: { revision: base.revision, profiles: parsed.profiles },
+	};
+}
+
 export function formatLaneSet(
 	profiles: readonly RouteLaneDefinition[],
 ): string {

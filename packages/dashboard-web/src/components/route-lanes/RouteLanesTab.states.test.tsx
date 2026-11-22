@@ -139,7 +139,7 @@ describe("route lanes text", () => {
 				new HttpError(409, "Route lanes changed since revision 4"),
 				format,
 			),
-		).toContain("The lanes changed since this page loaded");
+		).toContain("The lanes changed after this dialog opened");
 		expect(
 			saveErrorText(
 				new HttpError(400, "profile 0 contains unknown field nope"),
@@ -174,11 +174,12 @@ describe("RouteLaneForm", () => {
 	it("fills the form from the lane being edited and shows the server's message", () => {
 		const html = renderToStaticMarkup(
 			<RouteLaneForm
-				data={lanes}
-				definition={lanes.profiles[0]}
+				base={lanes}
+				originalId="cvp-opus"
 				accounts={accounts}
 				save={save}
 				errorText="profile 0 contains unknown field nope"
+				stale={false}
 				onClose={() => {}}
 			/>,
 		);
@@ -191,20 +192,48 @@ describe("RouteLaneForm", () => {
 	it("sends a capability lane to the JSON view instead of the form", () => {
 		const html = renderToStaticMarkup(
 			<RouteLaneForm
-				data={lanes}
-				definition={{
-					id: "pool",
-					displayName: "Pool",
-					selection: "capability",
-					logicalModel: "opus",
+				base={{
+					...lanes,
+					profiles: [
+						{
+							id: "pool",
+							displayName: "Pool",
+							selection: "capability",
+							logicalModel: "opus",
+						},
+					],
 				}}
+				originalId="pool"
 				accounts={accounts}
 				save={save}
 				errorText={null}
+				stale={false}
 				onClose={() => {}}
 			/>,
 		);
 		expect(html).toContain("Edit it with Edit as JSON.");
 		expect(html).not.toContain('id="lane-id"');
+	});
+
+	it("blocks a second save once one was refused as stale", () => {
+		const render = (stale: boolean) =>
+			renderToStaticMarkup(
+				<RouteLaneForm
+					base={lanes}
+					originalId="cvp-opus"
+					accounts={accounts}
+					save={save}
+					errorText={null}
+					stale={stale}
+					onClose={() => {}}
+				/>,
+			);
+		const submitButton = (html: string) =>
+			html.slice(
+				html.indexOf('type="submit"') - 200,
+				html.indexOf("Save lane"),
+			);
+		expect(submitButton(render(false))).not.toContain("disabled");
+		expect(submitButton(render(true))).toContain("disabled");
 	});
 });

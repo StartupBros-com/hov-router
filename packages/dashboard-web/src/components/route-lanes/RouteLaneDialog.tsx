@@ -1,13 +1,11 @@
 import { useState } from "react";
 import type { useSaveRouteLanes } from "../../hooks/queries";
 import {
-	applyLaneForm,
 	EMPTY_LANE_FORM,
+	laneEditSave,
 	laneFormValues,
-	type RouteLaneDefinition,
 	type RouteLaneFormValues,
 	type RouteLanes,
-	upsertLane,
 } from "../../lib/route-lanes-api";
 import { Button } from "../ui/button";
 import {
@@ -47,11 +45,15 @@ export function laneFormMissing(values: RouteLaneFormValues): string[] {
 }
 
 interface RouteLaneFormProps {
-	data: RouteLanes;
-	definition: RouteLaneDefinition | undefined;
+	/** The lanes as they were when the dialog opened; the save is built on these. */
+	base: RouteLanes;
+	/** The lane being edited, or null to add one. */
+	originalId: string | null;
 	accounts: readonly RouteLaneAccountOption[];
 	save: ReturnType<typeof useSaveRouteLanes>;
 	errorText: string | null;
+	/** A save was refused as stale: saving again needs a fresh open. */
+	stale: boolean;
 	onClose: () => void;
 }
 
@@ -64,7 +66,6 @@ export function RouteLaneDialog({
 	open,
 	...props
 }: RouteLaneFormProps & { open: boolean }) {
-	const isEdit = props.definition !== undefined;
 	return (
 		<Dialog
 			open={open}
@@ -74,7 +75,9 @@ export function RouteLaneDialog({
 		>
 			<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
 				<DialogHeader>
-					<DialogTitle>{isEdit ? "Edit lane" : "Add lane"}</DialogTitle>
+					<DialogTitle>
+						{props.originalId === null ? "Add lane" : "Edit lane"}
+					</DialogTitle>
 					<DialogDescription>
 						A lane appears in Claude Code&apos;s /model picker as
 						claude-bccf-route-&lt;id&gt; and sends that session, and its
@@ -89,13 +92,18 @@ export function RouteLaneDialog({
 
 /** The dialog's body, rendered on its own in tests. */
 export function RouteLaneForm({
-	data,
-	definition,
+	base,
+	originalId,
 	accounts,
 	save,
 	errorText,
+	stale,
 	onClose,
 }: RouteLaneFormProps) {
+	const definition =
+		originalId === null
+			? undefined
+			: base.profiles.find((profile) => profile.id === originalId);
 	const [values, setValues] = useState<RouteLaneFormValues>(() =>
 		definition ? laneFormValues(definition) : EMPTY_LANE_FORM,
 	);
@@ -111,15 +119,10 @@ export function RouteLaneForm({
 	);
 
 	const submit = () => {
-		if (missing.length > 0 || isCapability) return;
-		const lane = applyLaneForm(definition, values);
-		save.mutate(
-			{
-				revision: data.revision,
-				profiles: upsertLane(data.profiles, definition?.id ?? null, lane),
-			},
-			{ onSuccess: onClose },
-		);
+		if (missing.length > 0 || isCapability || stale) return;
+		save.mutate(laneEditSave(base, originalId, values), {
+			onSuccess: onClose,
+		});
 	};
 
 	return isCapability ? (
@@ -225,7 +228,7 @@ export function RouteLaneForm({
 				<Button
 					type="submit"
 					size="touch"
-					disabled={missing.length > 0 || save.isPending}
+					disabled={missing.length > 0 || save.isPending || stale}
 				>
 					{save.isPending ? "Saving..." : "Save lane"}
 				</Button>

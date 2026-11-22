@@ -7,7 +7,10 @@ import {
 	fetchRouteLanes,
 	formatLaneSet,
 	isStaleRouteLanesError,
+	laneDeleteSave,
+	laneEditSave,
 	laneFormValues,
+	laneSetSave,
 	parseLaneSetText,
 	type RouteLaneDefinition,
 	type RouteLanes,
@@ -201,6 +204,66 @@ describe("the JSON view", () => {
 		expect(parseLaneSetText('[{"id":"a","nope":1}]')).toEqual({
 			ok: true,
 			profiles: [{ id: "a", nope: 1 }],
+		});
+	});
+});
+
+describe("saves are built on the lanes the dialog opened with", () => {
+	// The dialog opened at revision 4; another writer has since added a lane
+	// (revision 5) and the page refetched. The save must still carry revision
+	// 4 and the revision-4 lanes, so the server refuses it as stale instead of
+	// accepting it and dropping the other writer's lane.
+	const opened: RouteLanes = {
+		revision: 4,
+		profiles: [opus, mythos],
+		lanes: [],
+		status: { source: "database", status: "ok", count: 2, revision: 4 },
+		warnings: [],
+	};
+
+	it("edits a lane at the opened revision, keeping its unedited fields", () => {
+		const save = laneEditSave(opened, "cvp-opus", {
+			...laneFormValues(opus),
+			displayName: "CVP Opus Max",
+		});
+		expect(save.revision).toBe(4);
+		expect(save.profiles).toEqual([
+			{ ...opus, displayName: "CVP Opus Max" },
+			mythos,
+		]);
+	});
+
+	it("adds a lane at the opened revision", () => {
+		const save = laneEditSave(opened, null, {
+			...EMPTY_LANE_FORM,
+			id: "cvp-sonnet",
+			displayName: "CVP Sonnet",
+			accountId: "acct-3",
+			logicalModel: "sonnet",
+		});
+		expect(save.revision).toBe(4);
+		expect(save.profiles.map((p) => p.id)).toEqual([
+			"cvp-opus",
+			"cvp-mythos",
+			"cvp-sonnet",
+		]);
+	});
+
+	it("deletes a lane at the opened revision", () => {
+		expect(laneDeleteSave(opened, "cvp-mythos")).toEqual({
+			revision: 4,
+			profiles: [opus],
+		});
+	});
+
+	it("saves the JSON text at the opened revision, or refuses its shape", () => {
+		expect(laneSetSave(opened, formatLaneSet([mythos]))).toEqual({
+			ok: true,
+			save: { revision: 4, profiles: [mythos] },
+		});
+		expect(laneSetSave(opened, "{}")).toEqual({
+			ok: false,
+			error: "The lane set must be a JSON array",
 		});
 	});
 });

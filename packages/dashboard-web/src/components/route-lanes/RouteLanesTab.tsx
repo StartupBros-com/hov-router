@@ -8,10 +8,9 @@ import {
 import { useApiError } from "../../hooks/useApiError";
 import {
 	isStaleRouteLanesError,
-	type RouteLaneDefinition,
+	laneDeleteSave,
 	type RouteLanes,
 	type RouteLaneView,
-	removeLane,
 } from "../../lib/route-lanes-api";
 import { RoutePageHeader } from "../page-shell";
 import { Button } from "../ui/button";
@@ -52,7 +51,7 @@ export function saveErrorText(
 	formatError: (error: unknown) => string,
 ): string {
 	return isStaleRouteLanesError(error)
-		? "The lanes changed since this page loaded. They have been reloaded; make your edit again."
+		? "The lanes changed after this dialog opened, so nothing was saved. Close it and open it again to edit the lanes as they are now."
 		: formatError(error);
 }
 
@@ -131,9 +130,22 @@ export function RouteLanesTab() {
 	const accountsQuery = useAccounts();
 	const save = useSaveRouteLanes();
 	const { formatError } = useApiError();
-	const [editing, setEditing] = useState<{ id: string | null } | null>(null);
-	const [deleting, setDeleting] = useState<RouteLaneView | null>(null);
-	const [jsonOpen, setJsonOpen] = useState(false);
+	// Each dialog keeps the lanes as they were when it opened (`base`) and
+	// saves at that revision, so a refetch under an open dialog cannot pair its
+	// older content with a newer revision.
+	const [editing, setEditing] = useState<{
+		id: string | null;
+		base: RouteLanes;
+	} | null>(null);
+	const [deleting, setDeleting] = useState<{
+		lane: RouteLaneView;
+		base: RouteLanes;
+	} | null>(null);
+	const [jsonBase, setJsonBase] = useState<RouteLanes | null>(null);
+	const stale = save.isError && isStaleRouteLanesError(save.error);
+	const errorText = save.isError
+		? saveErrorText(save.error, formatError)
+		: null;
 
 	const data = lanesQuery.data;
 	const accounts = (accountsQuery.data ?? []).map((account) => ({
@@ -141,25 +153,18 @@ export function RouteLanesTab() {
 		name: account.name,
 		provider: account.provider,
 	}));
-	const definitionFor = (id: string | null): RouteLaneDefinition | undefined =>
-		id === null
-			? undefined
-			: data?.profiles.find((profile) => profile.id === id);
 
 	const confirmDelete = () => {
-		if (!data || !deleting) return;
-		save.mutate(
-			{
-				revision: data.revision,
-				profiles: removeLane(data.profiles, deleting.id),
-			},
-			{ onSuccess: () => setDeleting(null) },
-		);
+		if (!deleting || stale) return;
+		save.mutate(laneDeleteSave(deleting.base, deleting.lane.id), {
+			onSuccess: () => setDeleting(null),
+		});
 	};
 
 	const openAdd = () => {
+		if (!data) return;
 		save.reset();
-		setEditing({ id: null });
+		setEditing({ id: null, base: data });
 	};
 
 	return (
@@ -174,7 +179,7 @@ export function RouteLanesTab() {
 								variant="outline"
 								onClick={() => {
 									save.reset();
-									setJsonOpen(true);
+									setJsonBase(data);
 								}}
 							>
 								<Braces />
@@ -242,11 +247,11 @@ export function RouteLanesTab() {
 									lane={lane}
 									onEdit={() => {
 										save.reset();
-										setEditing({ id: lane.id });
+										setEditing({ id: lane.id, base: data });
 									}}
 									onDelete={() => {
 										save.reset();
-										setDeleting(lane);
+										setDeleting({ lane, base: data });
 									}}
 								/>
 							))}
@@ -255,30 +260,28 @@ export function RouteLanesTab() {
 				</div>
 			)}
 
-			{data && editing && (
+			{editing && (
 				<RouteLaneDialog
 					key={editing.id ?? "new"}
 					open
-					data={data}
-					definition={definitionFor(editing.id)}
+					base={editing.base}
+					originalId={editing.id}
 					accounts={accounts}
 					save={save}
-					errorText={
-						save.isError ? saveErrorText(save.error, formatError) : null
-					}
+					errorText={errorText}
+					stale={stale}
 					onClose={() => setEditing(null)}
 				/>
 			)}
 
-			{data && jsonOpen && (
+			{jsonBase && (
 				<RouteLanesJsonDialog
 					open
-					data={data}
+					base={jsonBase}
 					save={save}
-					errorText={
-						save.isError ? saveErrorText(save.error, formatError) : null
-					}
-					onClose={() => setJsonOpen(false)}
+					errorText={errorText}
+					stale={stale}
+					onClose={() => setJsonBase(null)}
 				/>
 			)}
 
@@ -293,15 +296,11 @@ export function RouteLanesTab() {
 						<DialogTitle>Delete lane</DialogTitle>
 						<DialogDescription>
 							{deleting
-								? `Remove ${deleting.displayName} from the /model picker. Sessions on it stop routing through it on their next request.`
+								? `Remove ${deleting.lane.displayName} from the /model picker. Sessions on it stop routing through it on their next request.`
 								: ""}
 						</DialogDescription>
 					</DialogHeader>
-					{save.isError && (
-						<Notice tone="danger">
-							{saveErrorText(save.error, formatError)}
-						</Notice>
-					)}
+					{errorText && <Notice tone="danger">{errorText}</Notice>}
 					<DialogFooter>
 						<Button
 							size="touch"
@@ -314,7 +313,7 @@ export function RouteLanesTab() {
 							size="touch"
 							variant="destructive"
 							onClick={confirmDelete}
-							disabled={save.isPending}
+							disabled={save.isPending || stale}
 						>
 							{save.isPending ? "Deleting..." : "Delete lane"}
 						</Button>
