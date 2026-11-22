@@ -1609,6 +1609,64 @@ curl -X POST http://localhost:8080/api/models/refresh
 
 ---
 
+### Route Lanes
+
+Claude Code `/model` route profiles (lanes), stored in the database and edited live: a change takes effect on the next request, with no restart or deploy. Admin keys only. Background and rollback: [Edit lanes live](configuration.md#edit-lanes-live).
+
+#### GET /api/route-profiles
+
+The lanes in force and the revision to edit against.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "revision": 2,
+    "profiles": [
+      { "id": "cvp-opus", "displayName": "CVP Opus", "accountId": "<account-id>", "logicalModel": "opus" }
+    ],
+    "lanes": [
+      {
+        "id": "cvp-opus",
+        "displayName": "CVP Opus",
+        "modelIds": ["claude-bccf-route-cvp-opus"],
+        "accountId": "<account-id>",
+        "accountName": "max-primary",
+        "logicalModel": "claude-opus-5-5",
+        "exclusiveAccount": false
+      }
+    ],
+    "status": { "source": "database", "status": "ok", "count": 1, "sha256": "…", "revision": 2 },
+    "warnings": []
+  }
+}
+```
+
+`profiles` is the set exactly as written, the form a `PUT` sends back; a family name such as `opus` stays a family name. `lanes` is each lane resolved: its picker model ids, the account's name, and the model the family name stands for in this build. `warnings` names a lane whose `accountId` matches no account. `revision` is `0` when nothing is stored.
+
+#### PUT /api/route-profiles
+
+Replace the whole lane set. Send the revision you read; `"profiles": []` removes every lane.
+
+**Request:**
+```json
+{ "revision": 2, "profiles": [ ... ] }
+```
+
+**Responses:** `200` with the same body as `GET`, now at the new revision. `400` when the set fails validation (`details.code` is `invalid_route_profiles`; the message names the field). `409` when the lanes changed since you read them (`details.code` is `stale_route_profiles`, `details.revision` is the current revision): read again and reapply the edit. `413` over 256 KiB. `503` on a server without a database store.
+
+**Example:**
+```bash
+curl -s http://localhost:8080/api/route-profiles -H "x-api-key: $ADMIN_KEY" > lanes.json
+# edit lanes.json's data.profiles, then:
+jq '{revision: .data.revision, profiles: .data.profiles}' lanes.json |
+  curl -X PUT http://localhost:8080/api/route-profiles \
+    -H "x-api-key: $ADMIN_KEY" -H "content-type: application/json" --data-binary @-
+```
+
+---
+
 ### Logs
 
 #### GET /api/logs/stream

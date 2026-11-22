@@ -1204,7 +1204,14 @@ export class ModelRouteSessionRegistry {
 
 	private setSessionState(key: string, state: ModelRouteSessionState): void {
 		this.sessions.delete(key);
-		this.sessions.set(key, state);
+		// A request resolved before a live edit (#971) binds the lane as it is
+		// now; one whose lane was deleted meanwhile binds nothing.
+		const profile = this.profilesById.get(state.profile.id);
+		if (!profile) return;
+		this.sessions.set(
+			key,
+			profile === state.profile ? state : { ...state, profile },
+		);
 	}
 
 	private evictOldestIfFull<T>(map: Map<string, T>): void {

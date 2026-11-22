@@ -2636,6 +2636,86 @@ describe("ModelRouteSessionRegistry.setProfiles (#971)", () => {
 		).toEqual({ kind: "unavailable", reason: "unbound_child_profile" });
 	});
 
+	it("binds the edited lane when a root resolved before the edit commits after it", () => {
+		const [before] = lanes(lane());
+		if (!before) throw new Error("Expected lane");
+		const registry = new ModelRouteSessionRegistry([before]);
+		const input = {
+			callerIdentity: "api-key:one",
+			requestModel: before.publicModelId,
+			sessionId: "session-a",
+			isSubagent: false,
+		};
+		const resolution = resolveRequest(registry, input);
+		expect(resolution).toMatchObject({ kind: "route", profile: before });
+
+		const [after] = lanes(lane({ accountId: ACCOUNT_B }));
+		if (!after) throw new Error("Expected edited lane");
+		registry.setProfiles([after]);
+		// The request was admitted on the old definition and commits after the edit.
+		registry.commitExplicit(input, resolution);
+
+		expect(child(registry)).toEqual({
+			kind: "route",
+			source: "inherited",
+			profile: after,
+		});
+	});
+
+	it("binds nothing when a root resolved before its lane was deleted commits after it", () => {
+		const [before] = lanes(lane());
+		if (!before) throw new Error("Expected lane");
+		const registry = new ModelRouteSessionRegistry([before]);
+		const input = {
+			callerIdentity: "api-key:one",
+			requestModel: before.publicModelId,
+			sessionId: "session-a",
+			isSubagent: false,
+		};
+		const resolution = resolveRequest(registry, input);
+		registry.setProfiles([]);
+		registry.commitExplicit(input, resolution);
+
+		expect(registry.size).toBe(0);
+		expect(child(registry)).toEqual({ kind: "native" });
+	});
+
+	it("restores a binding to the lane as it is now, and skips a deleted lane", () => {
+		const [opus, mythos] = lanes(
+			lane(),
+			lane({ id: "cvp-mythos", logicalModel: "mythos" }),
+		);
+		if (!opus || !mythos) throw new Error("Expected lanes");
+		const registry = new ModelRouteSessionRegistry([opus, mythos]);
+		const restore = registry.beginBindingRestore();
+		if (!restore) throw new Error("Expected a restore session");
+		const [edited] = lanes(lane({ accountId: ACCOUNT_B }));
+		if (!edited) throw new Error("Expected edited lane");
+		registry.setProfiles([edited]);
+		expect(
+			restore.install([
+				{
+					callerIdentity: "api-key:one",
+					sessionId: "session-a",
+					routeProfileId: "cvp-opus",
+					lastStartedAt: Date.now(),
+				},
+				{
+					callerIdentity: "api-key:one",
+					sessionId: "session-b",
+					routeProfileId: "cvp-mythos",
+					lastStartedAt: Date.now(),
+				},
+			]),
+		).toBe(1);
+		restore.finish();
+		expect(child(registry)).toEqual({
+			kind: "route",
+			source: "inherited",
+			profile: edited,
+		});
+	});
+
 	it("matches a profile captured before a swap by id, not by object", () => {
 		const [before] = lanes(lane());
 		if (!before) throw new Error("Expected lane");
