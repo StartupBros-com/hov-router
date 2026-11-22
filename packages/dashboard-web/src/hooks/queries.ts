@@ -26,6 +26,12 @@ import {
 	type TokenHealthResponse,
 } from "../api";
 import { queryKeys } from "../lib/query-keys";
+import {
+	fetchRouteLanes,
+	isStaleRouteLanesError,
+	type RouteLaneDefinition,
+	saveRouteLanes,
+} from "../lib/route-lanes-api";
 import { captureRequestUpdates, getRequestsSseSeq } from "./useRequestStream";
 
 interface RequestSnapshot {
@@ -1222,6 +1228,38 @@ export const useCombos = () => {
 	return useQuery({
 		queryKey: queryKeys.combos(),
 		queryFn: () => api.getCombos(),
+	});
+};
+
+export const useRouteLanes = () => {
+	return useQuery({
+		queryKey: queryKeys.routeLanes(),
+		queryFn: () => fetchRouteLanes(),
+	});
+};
+
+/**
+ * Replace the whole lane set at the revision it was read at. On success the
+ * returned set becomes the cache; on a stale revision the cache is refetched
+ * so the next edit starts from the lanes as they are now.
+ */
+export const useSaveRouteLanes = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (input: {
+			revision: number;
+			profiles: readonly RouteLaneDefinition[];
+		}) => saveRouteLanes(input),
+		onSuccess: (data) => {
+			queryClient.setQueryData(queryKeys.routeLanes(), data);
+		},
+		onError: (error) => {
+			if (isStaleRouteLanesError(error)) {
+				void queryClient.invalidateQueries({
+					queryKey: queryKeys.routeLanes(),
+				});
+			}
+		},
 	});
 };
 

@@ -38,6 +38,7 @@ export const queryKeys = {
 	logHistory: () => [...queryKeys.all, "logs", "history"] as const,
 	combos: () => [...queryKeys.all, "combos"] as const,
 	families: () => [...queryKeys.all, "families"] as const,
+	routeLanes: () => [...queryKeys.all, "route-lanes"] as const,
 	routingEffective: (family?: string) =>
 		family
 			? ([...queryKeys.all, "routing", "effective", family] as const)

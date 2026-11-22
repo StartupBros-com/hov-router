@@ -16,6 +16,7 @@ describe("page meta", () => {
 			"/usage-history": "Usage History",
 			"/window-value": "Window Value",
 			"/combos": "Combos",
+			"/route-lanes": "Route Lanes",
 			"/agents": "Agents",
 			"/keys": "API Keys",
 			"/logs": "Logs",
@@ -34,6 +35,8 @@ describe("page meta", () => {
 				"Per-account usage windows over time, with limit prediction",
 			"/window-value": "Track the value of active and completed usage windows",
 			"/combos": "Define fallback chains for model families",
+			"/route-lanes":
+				"Claude Code /model picker lanes, each pinned to an account",
 			"/agents": "Discover and manage Claude Code agents",
 			"/keys": "Generate and manage API keys for authentication",
 			"/logs": "Live system logs",

@@ -15,6 +15,7 @@ import {
 	RefreshCw,
 	Settings,
 	Users,
+	Waypoints,
 	X,
 	Zap,
 } from "lucide-react";
@@ -209,6 +210,7 @@ export function Navigation({ onLogout }: NavigationProps = {}) {
 			item("usageHistory", History),
 			item("windowValue", CircleDollarSign),
 			item("combos", Zap),
+			item("routeLanes", Waypoints),
 			item("agents", Bot),
 			item("keys", Key),
 			item("logs", FileText),
