@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { CLAUDE_MODEL_IDS } from "./models";
+import { CLAUDE_MODEL_IDS, ROUTE_ONLY_CLAUDE_MODEL_IDS } from "./models";
 import {
 	LIST_PRICE_ERAS,
 	type ListPriceEra,
@@ -156,8 +156,8 @@ describe("priceTokensAtListPrice long-context tier", () => {
 });
 
 describe("priceTokensAtListPrice", () => {
-	it("advances VALUE_PRICING_VERSION for GPT-6.2 Astra and Sol", () => {
-		expect(VALUE_PRICING_VERSION).toBe("2026-11-17.1");
+	it("advances VALUE_PRICING_VERSION for the Mythos 5.2 era", () => {
+		expect(VALUE_PRICING_VERSION).toBe("2026-11-22.1");
 	});
 
 	it.each([
@@ -595,6 +595,25 @@ describe("priceTokensAtListPrice", () => {
 				},
 			);
 			expect(result).toBeCloseTo(8 + 40 + 0.2 + 10, 10);
+		});
+
+		it("values Mythos 5.2 at Fable 5.2's rates, from the era floor", () => {
+			const tokens = {
+				inputTokens: 1_000_000,
+				outputTokens: 1_000_000,
+				cacheReadInputTokens: 1_000_000,
+				cacheCreationInputTokens: 1_000_000,
+			};
+			const at = Date.parse("2026-11-05T17:59:59Z");
+			const mythos = priceTokensAtListPrice(
+				ROUTE_ONLY_CLAUDE_MODEL_IDS.MYTHOS_5_2,
+				at,
+				tokens,
+			);
+			expect(mythos).toBeCloseTo(8 + 40 + 0.2 + 10, 10);
+			expect(mythos).toBe(
+				priceTokensAtListPrice(CLAUDE_MODEL_IDS.FABLE_5_2, at, tokens),
+			);
 		});
 	});
 });

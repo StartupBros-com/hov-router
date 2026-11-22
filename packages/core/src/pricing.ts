@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { catalogSectionForModel } from "./catalog-diff";
 import { TIME_CONSTANTS } from "./constants";
-import { CLAUDE_MODEL_IDS, MODEL_DISPLAY_NAMES } from "./models";
+import {
+	CLAUDE_MODEL_IDS,
+	MODEL_DISPLAY_NAMES,
+	ROUTE_ONLY_CLAUDE_MODEL_IDS,
+} from "./models";
 
 export interface TokenBreakdown {
 	inputTokens?: number;
@@ -267,6 +271,21 @@ const BUNDLED_PRICING: ApiResponse = {
 			[CLAUDE_MODEL_IDS.FABLE_5_2]: {
 				id: CLAUDE_MODEL_IDS.FABLE_5_2,
 				name: MODEL_DISPLAY_NAMES[CLAUDE_MODEL_IDS.FABLE_5_2],
+				cost: {
+					input: 8,
+					output: 40,
+					cache_read: 0.2,
+					// Published 5-minute write rate applied to aggregate cache creation until TTL buckets are preserved end-to-end.
+					cache_write: 10,
+					// Source: https://platform.claude.com/docs/en/about-claude/pricing
+				},
+			},
+			// Mythos 5.2 lists at the same rates as Fable 5.2 (Mythos 5.1 and 5
+			// likewise match Fable 5.1 and 5). models.dev's anthropic section
+			// does not list Mythos, so this entry is its only price.
+			[ROUTE_ONLY_CLAUDE_MODEL_IDS.MYTHOS_5_2]: {
+				id: ROUTE_ONLY_CLAUDE_MODEL_IDS.MYTHOS_5_2,
+				name: MODEL_DISPLAY_NAMES[ROUTE_ONLY_CLAUDE_MODEL_IDS.MYTHOS_5_2],
 				cost: {
 					input: 8,
 					output: 40,

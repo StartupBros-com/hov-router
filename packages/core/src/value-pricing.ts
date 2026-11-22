@@ -28,7 +28,7 @@
  * request's `timestamp`).
  */
 
-import { CLAUDE_MODEL_IDS } from "./models";
+import { CLAUDE_MODEL_IDS, ROUTE_ONLY_CLAUDE_MODEL_IDS } from "./models";
 import type { TokenBreakdown } from "./pricing";
 
 /**
@@ -39,7 +39,7 @@ import type { TokenBreakdown } from "./pricing";
  * (UsageWindowLedger.revalueStaleClosedWindows), so history follows the
  * current rates instead of keeping the price it was closed at.
  */
-export const VALUE_PRICING_VERSION = "2026-11-17.1";
+export const VALUE_PRICING_VERSION = "2026-11-22.1";
 
 /**
  * Prompt-token threshold (input + cache read + cache creation, per request)
@@ -513,6 +513,20 @@ export const LIST_PRICE_ERAS: Record<string, ListPriceEra[]> = {
 	// Floor era, as for Fable 5.1: windows are valued per window, and the
 	// windows open at launch (2026-11-09) started days earlier.
 	[CLAUDE_MODEL_IDS.FABLE_5_2]: [
+		{
+			sinceMs: INITIAL_ERA_FLOOR_MS,
+			inputPerM: 8,
+			cacheReadPerM: 0.2,
+			// Published 5-minute write rate applied to aggregate cache creation until TTL buckets are preserved end-to-end.
+			cacheCreationPerM: 10,
+			outputPerM: 40,
+			// source: https://platform.claude.com/docs/en/about-claude/pricing
+		},
+	],
+	// Mythos 5.2 lists at Fable 5.2's rates. Floor era, as for Fable: its
+	// tokens were unpriced in every window until VALUE_PRICING_VERSION
+	// 2026-11-22.1.
+	[ROUTE_ONLY_CLAUDE_MODEL_IDS.MYTHOS_5_2]: [
 		{
 			sinceMs: INITIAL_ERA_FLOOR_MS,
 			inputPerM: 8,

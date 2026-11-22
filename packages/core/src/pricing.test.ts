@@ -619,6 +619,26 @@ describe("getModelRates", () => {
 		expect(cost).toBeCloseTo(8 + 40 + 0.2 + 10, 10);
 	});
 
+	// Anthropic's pricing page lists each Mythos version at the same rates as
+	// the Fable of the same number. A request recorded at $0 before this was
+	// priced (the warning "Price for model claude-mythos-5-2 not found").
+	it("prices Mythos 5.2 at Fable 5.2's published rates", async () => {
+		const [mythos, fable] = await withDiskCache(null, () =>
+			Promise.all([
+				getModelRates("claude-mythos-5-2"),
+				getModelRates("claude-fable-5-2"),
+			]),
+		);
+
+		expect(mythos).toEqual({
+			input: 8,
+			output: 40,
+			cacheRead: 0.2,
+			cacheWrite: 10,
+		});
+		expect(mythos).toEqual(fable);
+	});
+
 	it("returns the Sonnet 5.5 bundled rates published at launch", async () => {
 		const rates = await withDiskCache(null, () =>
 			getModelRates("claude-sonnet-5-5"),
