@@ -1009,7 +1009,9 @@ export function ensureSchema(db: Database): void {
 			request_count INTEGER,
 			model_breakdown TEXT,
 			unpriced_tokens INTEGER,
-			projection_version TEXT
+			projection_version TEXT,
+			points_used REAL,
+			counter_resets INTEGER
 		)
 	`);
 	// Idempotent backfill anchor: (account_id, window_key, resets_at)
@@ -1437,6 +1439,8 @@ function collapseAccountDuplicatesPreservingState(db: Database): void {
 		model_breakdown: string | null;
 		unpriced_tokens: number | null;
 		projection_version: string | null;
+		points_used: number | null;
+		counter_resets: number | null;
 	};
 
 	const settledCompleteness = (row: UsageWindowMergeRow): number =>
@@ -1464,7 +1468,8 @@ function collapseAccountDuplicatesPreservingState(db: Database): void {
 				        closed_at, grant_type, peak_utilization, first_100_at,
 				        value_usd, input_tokens, cache_read_input_tokens,
 				        cache_creation_input_tokens, output_tokens, request_count,
-				        model_breakdown, unpriced_tokens, projection_version
+				        model_breakdown, unpriced_tokens, projection_version,
+				        points_used, counter_resets
 				 FROM usage_windows WHERE account_id IN (${placeholders})
 				 ORDER BY window_key ASC, resets_at ASC, id ASC`,
 			)
@@ -1494,6 +1499,16 @@ function collapseAccountDuplicatesPreservingState(db: Database): void {
 				)[0];
 			const source = settledSource ?? keeper;
 			const duplicates = group.filter((window) => window.id !== keeper.id);
+			let cycleSource = keeper;
+			for (const window of group) {
+				if (
+					window.points_used !== null &&
+					(cycleSource.points_used === null ||
+						window.points_used > cycleSource.points_used)
+				) {
+					cycleSource = window;
+				}
+			}
 			const startedAt = Math.min(...group.map((window) => window.started_at));
 			const peakUtilization = Math.max(
 				...group.map((window) => window.peak_utilization),
@@ -1517,7 +1532,7 @@ function collapseAccountDuplicatesPreservingState(db: Database): void {
 				   input_tokens = ?, cache_read_input_tokens = ?,
 				   cache_creation_input_tokens = ?, output_tokens = ?,
 				   request_count = ?, model_breakdown = ?, unpriced_tokens = ?,
-				   projection_version = ?
+				   projection_version = ?, points_used = ?, counter_resets = ?
 				 WHERE id = ?`,
 			).run(
 				survivorId,
@@ -1535,6 +1550,8 @@ function collapseAccountDuplicatesPreservingState(db: Database): void {
 				source.model_breakdown,
 				source.unpriced_tokens,
 				source.projection_version,
+				cycleSource.points_used,
+				cycleSource.counter_resets,
 				keeper.id,
 			);
 			repointed++;
@@ -1887,6 +1904,17 @@ export function runMigrations(db: Database, dbPath?: string): void {
 	]) {
 		if (!tableHasColumn(db, "requests", column)) {
 			db.run(`ALTER TABLE requests ADD COLUMN ${column} ${type}`);
+		}
+	}
+	// Limit points a window consumed and counter resets inside it. NULL means
+	// unknown (never 0): rows are filled at close or by the startup measurement
+	// pass, and rows older than the retained snapshots stay NULL.
+	for (const [column, type] of [
+		["points_used", "REAL"],
+		["counter_resets", "INTEGER"],
+	]) {
+		if (!tableHasColumn(db, "usage_windows", column)) {
+			db.run(`ALTER TABLE usage_windows ADD COLUMN ${column} ${type}`);
 		}
 	}
 	// Repair an interrupted additive routing-attempt migration independently.

@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { DatabaseOperations } from "../../database-operations";
 import { ensureSchema, runMigrations } from "../../migrations";
+import { UsageHistoryRepository } from "../usage-history.repository";
 import { UsageWindowsRepository } from "../usage-windows.repository";
 
 function makeDb(): Database {
@@ -48,6 +49,8 @@ async function verifyBoundedListOptions(
 				modelBreakdown: null,
 				unpricedTokens: null,
 				projectionVersion: null,
+				pointsUsed: null,
+				counterResets: null,
 			});
 		}
 	}
@@ -207,6 +210,8 @@ describe("UsageWindowsRepository", () => {
 				modelBreakdown: null,
 				unpricedTokens: null,
 				projectionVersion: null,
+				pointsUsed: null,
+				counterResets: null,
 			});
 			const open = await repo.openWindow({
 				accountId: "acc1",
@@ -298,6 +303,8 @@ describe("UsageWindowsRepository", () => {
 				modelBreakdown: { "claude-opus-4": { requests: 7 } },
 				unpricedTokens: 0,
 				projectionVersion: "v1",
+				pointsUsed: null,
+				counterResets: null,
 			});
 			expect(closed).toBe(true);
 
@@ -338,6 +345,8 @@ describe("UsageWindowsRepository", () => {
 				modelBreakdown: null,
 				unpricedTokens: null,
 				projectionVersion: null,
+				pointsUsed: null,
+				counterResets: null,
 			});
 			const secondClose = await repo.closeWindow(window.id, {
 				closedAt: 9999,
@@ -350,6 +359,8 @@ describe("UsageWindowsRepository", () => {
 				modelBreakdown: null,
 				unpricedTokens: null,
 				projectionVersion: null,
+				pointsUsed: null,
+				counterResets: null,
 			});
 			expect(secondClose).toBe(false);
 
@@ -473,6 +484,8 @@ describe("DatabaseOperations usage-windows facade", () => {
 				modelBreakdown: null,
 				unpricedTokens: null,
 				projectionVersion: null,
+				pointsUsed: null,
+				counterResets: null,
 			});
 			expect(closed).toBe(true);
 
@@ -541,6 +554,8 @@ describe("UsageWindowsRepository generation fences", () => {
 					modelBreakdown: null,
 					unpricedTokens: 0,
 					projectionVersion: "v1",
+					pointsUsed: null,
+					counterResets: null,
 				},
 				generationA,
 			),
@@ -567,6 +582,8 @@ describe("UsageWindowsRepository generation fences", () => {
 					modelBreakdown: null,
 					unpricedTokens: 0,
 					projectionVersion: "v1",
+					pointsUsed: null,
+					counterResets: null,
 				},
 				generationB,
 			),
@@ -602,6 +619,8 @@ describe("UsageWindowsRepository re-valuation", () => {
 		modelBreakdown: { m: { requestCount: 1 } } as Record<string, unknown>,
 		unpricedTokens: 0,
 		projectionVersion,
+		pointsUsed: null,
+		counterResets: null,
 	});
 	const revalue = {
 		valueUsd: 2,
@@ -717,6 +736,237 @@ describe("UsageWindowsRepository re-valuation", () => {
 		const rows = await repo.listWindows({});
 		expect(rows.find((r) => r.id === a.id)?.valueUsd).toBe(1);
 		expect(rows.find((r) => r.id === open.id)?.valueUsd).toBeNull();
+		db.close();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Limit cycles: points used and counter resets per window
+// ---------------------------------------------------------------------------
+
+describe("usage window limit cycles", () => {
+	const TOLERANCE = 120_000;
+	const baseClose = {
+		valueUsd: 1,
+		inputTokens: 1,
+		cacheReadInputTokens: 0,
+		cacheCreationInputTokens: 0,
+		outputTokens: 0,
+		requestCount: 1,
+		modelBreakdown: null,
+		unpricedTokens: 0,
+		projectionVersion: "v1",
+	};
+
+	async function snapshot(
+		db: Database,
+		accountId: string,
+		at: number,
+		utilization: number,
+		resetsAtMs: number | null,
+		opts: { windowKey?: string; active?: boolean } = {},
+	): Promise<void> {
+		await new UsageHistoryRepository(new BunSqlAdapter(db)).recordSnapshot(
+			accountId,
+			[
+				{
+					windowKey: opts.windowKey ?? "seven_day",
+					utilization,
+					resetsAtMs,
+					scope: "account",
+					modelFamily: null,
+					active: opts.active ?? true,
+				},
+			],
+			at,
+		);
+	}
+
+	function open(
+		repo: UsageWindowsRepository,
+		startedAt: number,
+		resetsAt = 9000,
+	) {
+		return repo.openWindow({
+			accountId: "acc1",
+			windowKey: "seven_day",
+			startedAt,
+			resetsAt,
+			grantType: "natural",
+		});
+	}
+
+	it("round-trips the two fields through close and listing", async () => {
+		const db = makeDb();
+		const repo = makeRepo(db);
+		const window = await open(repo, 1000);
+		expect(window.pointsUsed).toBeNull();
+		expect(window.counterResets).toBeNull();
+		await repo.closeWindow(window.id, {
+			...baseClose,
+			closedAt: 9000,
+			pointsUsed: 130.5,
+			counterResets: 1,
+		});
+		const [row] = await repo.listWindows({ accountId: "acc1" });
+		expect(row.pointsUsed).toBe(130.5);
+		expect(row.counterResets).toBe(1);
+		db.close();
+	});
+
+	it("recordLimitCycles writes once, never overwrites, never touches an open window", async () => {
+		const db = makeDb();
+		const repo = makeRepo(db);
+		const window = await open(repo, 1000);
+		expect(
+			await repo.recordLimitCycles(window.id, {
+				pointsUsed: 10,
+				counterResets: 0,
+			}),
+		).toBe(false);
+		expect(
+			(await repo.getOpenWindow("acc1", "seven_day"))?.pointsUsed,
+		).toBeNull();
+
+		await repo.closeWindow(window.id, {
+			...baseClose,
+			closedAt: 9000,
+			pointsUsed: null,
+			counterResets: null,
+		});
+		expect(
+			await repo.recordLimitCycles(window.id, {
+				pointsUsed: 100,
+				counterResets: 0,
+			}),
+		).toBe(true);
+		expect(
+			await repo.recordLimitCycles(window.id, {
+				pointsUsed: 250,
+				counterResets: 2,
+			}),
+		).toBe(false);
+		const [row] = await repo.listWindows({ accountId: "acc1" });
+		expect(row.pointsUsed).toBe(100);
+		expect(row.counterResets).toBe(0);
+		db.close();
+	});
+
+	it("recordLimitCycles never overwrites a recorded zero", async () => {
+		const db = makeDb();
+		const repo = makeRepo(db);
+		const window = await open(repo, 1000);
+		await repo.closeWindow(window.id, {
+			...baseClose,
+			closedAt: 9000,
+			pointsUsed: 0,
+			counterResets: 0,
+		});
+		expect(
+			await repo.recordLimitCycles(window.id, {
+				pointsUsed: 40,
+				counterResets: 1,
+			}),
+		).toBe(false);
+		db.close();
+	});
+
+	it("lists only closed, unmeasured windows that start at or after the oldest snapshot", async () => {
+		const db = makeDb();
+		const repo = makeRepo(db);
+		await snapshot(db, "acc1", 5000, 10, 20_000);
+		const tooOld = await open(repo, 4999, 10_000);
+		const retained = await open(repo, 5000, 20_000);
+		const measured = await open(repo, 6000, 30_000);
+		const stillOpen = await open(repo, 7000, 40_000);
+		const noSnapshots = await repo.openWindow({
+			accountId: "acc2",
+			windowKey: "seven_day",
+			startedAt: 6000,
+			resetsAt: 50_000,
+			grantType: "natural",
+		});
+		for (const [w, points] of [
+			[tooOld, null],
+			[retained, null],
+			[measured, 55],
+			[noSnapshots, null],
+		] as const) {
+			await repo.closeWindow(w.id, {
+				...baseClose,
+				closedAt: 8000,
+				pointsUsed: points,
+				counterResets: points === null ? null : 0,
+			});
+		}
+		const listing = await repo.listClosedWindowsMissingLimitCycles();
+		expect(listing.windows.map((w) => w.id)).toEqual([retained.id]);
+		expect(listing.unreadable).toEqual([]);
+		expect(stillOpen.closedAt).toBeNull();
+		db.close();
+	});
+
+	it("getWindowReadings keeps only the window's own active readings in range, in order", async () => {
+		const db = makeDb();
+		const history = new UsageHistoryRepository(new BunSqlAdapter(db));
+		const resets = 100_000;
+		await snapshot(db, "acc1", 1000, 10, resets);
+		await snapshot(db, "acc1", 2000, 20, resets + 5_000); // jitter: same window
+		await snapshot(db, "acc1", 2000, 21, resets); // same timestamp, later append
+		await snapshot(db, "acc1", 3000, 30, resets + TOLERANCE); // boundary: kept
+		await snapshot(db, "acc1", 3500, 99, resets + TOLERANCE + 1); // next window
+		await snapshot(db, "acc1", 3600, 98, null); // no resets_at
+		await snapshot(db, "acc1", 3700, 97, resets, { active: false });
+		await snapshot(db, "acc1", 3800, 96, resets, { windowKey: "five_hour" });
+		await snapshot(db, "acc2", 3900, 95, resets); // other account
+		await snapshot(db, "acc1", 999, 94, resets); // before range
+		await snapshot(db, "acc1", 4001, 93, resets); // after range
+		await snapshot(db, "acc1", 4000, 40, resets); // range end inclusive
+		expect(
+			await history.getWindowReadings(
+				"acc1",
+				"seven_day",
+				resets,
+				1000,
+				4000,
+				TOLERANCE,
+			),
+		).toEqual([10, 20, 21, 30, 40]);
+		db.close();
+	});
+});
+
+describe("usage_windows limit-cycle migration", () => {
+	it("adds both columns to an existing table and leaves existing rows NULL", () => {
+		const db = makeDb();
+		db.run("ALTER TABLE usage_windows DROP COLUMN points_used");
+		db.run("ALTER TABLE usage_windows DROP COLUMN counter_resets");
+		db.run(
+			`INSERT INTO usage_windows (id, account_id, window_key, started_at, resets_at, closed_at, grant_type, peak_utilization)
+			 VALUES ('old', 'acc1', 'seven_day', 1000, 9000, 9000, 'natural', 50)`,
+		);
+		const columns = () =>
+			(
+				db.prepare("PRAGMA table_info(usage_windows)").all() as {
+					name: string;
+				}[]
+			).map((c) => c.name);
+		expect(columns()).not.toContain("points_used");
+		expect(columns()).not.toContain("counter_resets");
+
+		runMigrations(db);
+
+		expect(columns()).toEqual(
+			expect.arrayContaining(["points_used", "counter_resets"]),
+		);
+		const row = db
+			.prepare(
+				"SELECT points_used, counter_resets FROM usage_windows WHERE id = 'old'",
+			)
+			.get() as { points_used: number | null; counter_resets: number | null };
+		expect(row.points_used).toBeNull();
+		expect(row.counter_resets).toBeNull();
+		runMigrations(db);
 		db.close();
 	});
 });

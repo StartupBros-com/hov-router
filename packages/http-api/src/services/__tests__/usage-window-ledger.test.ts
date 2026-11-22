@@ -968,6 +968,8 @@ describe("UsageWindowLedger.revalueStaleClosedWindows", () => {
 			modelBreakdown: opts.breakdown,
 			unpricedTokens: opts.unpricedTokens ?? 0,
 			projectionVersion: opts.version,
+			pointsUsed: null,
+			counterResets: null,
 		});
 		return opened;
 	}
@@ -1607,5 +1609,242 @@ describe("UsageWindowLedger.revalueStaleClosedWindows", () => {
 			valueChanged: 0,
 		});
 		expect(await reload(w.id)).toEqual(after);
+	});
+});
+
+describe("UsageWindowLedger limit cycles", () => {
+	let dbOps: DatabaseOperations;
+	const T0 = Date.parse("2026-09-01T00:00:00Z");
+	const RESETS_A = T0 + 7 * DAY_MS;
+	const RESETS_B = RESETS_A + 7 * DAY_MS;
+
+	beforeEach(() => {
+		dbOps = new DatabaseOperations(":memory:", { walMode: false });
+	});
+
+	afterEach(async () => {
+		await dbOps.dispose();
+	});
+
+	/** Writes a poll the way the poller does: snapshot row, then the ledger. */
+	async function poll(
+		ledger: UsageWindowLedger,
+		at: number,
+		utilization: number,
+		resetsAtMs: number,
+	): Promise<void> {
+		const windows = [sevenDay(utilization, resetsAtMs)];
+		await dbOps
+			.getUsageHistoryRepository()
+			.recordSnapshot(ACCOUNT_ID, windows, at);
+		await ledger.observeSnapshot(ACCOUNT_ID, windows, at);
+	}
+
+	const closedWindows = async () =>
+		(await dbOps.listUsageWindows({ accountId: ACCOUNT_ID })).filter(
+			(w) => w.closedAt !== null,
+		);
+
+	it("records points and resets from the readings of the window when it closes", async () => {
+		const ledger = new UsageWindowLedger(dbOps);
+		const readings = [10, 40, 80, 100, 3, 5, 9, 12, 30, 70];
+		for (const [i, utilization] of readings.entries()) {
+			await poll(ledger, T0 + (i + 1) * 60_000, utilization, RESETS_A);
+		}
+		// The poll that sees the next window: its reading belongs to RESETS_B.
+		await poll(ledger, T0 + 11 * 60_000, 2, RESETS_B);
+
+		const [closed] = await closedWindows();
+		expect(closed.resetsAt).toBe(RESETS_A);
+		expect(closed.counterResets).toBe(1);
+		// 100 for the first cycle, then 70 - 3 from the new baseline.
+		expect(closed.pointsUsed).toBe(167);
+	});
+
+	it("closes with NULL limit cycles when the readings cannot be read", async () => {
+		const ledger = new UsageWindowLedger(dbOps);
+		await poll(ledger, T0 + 60_000, 10, RESETS_A);
+		await poll(ledger, T0 + 120_000, 50, RESETS_A);
+		const read = spyOn(dbOps, "getUsageWindowReadings").mockRejectedValue(
+			new Error("readings unavailable"),
+		);
+		try {
+			await poll(ledger, T0 + 180_000, 2, RESETS_B);
+		} finally {
+			read.mockRestore();
+		}
+		const [closed] = await closedWindows();
+		expect(closed.resetsAt).toBe(RESETS_A);
+		expect(closed.pointsUsed).toBeNull();
+		expect(closed.counterResets).toBeNull();
+		expect(closed.valueUsd).not.toBeNull();
+	});
+
+	it("closes with NULL limit cycles when the window has no readings", async () => {
+		const ledger = new UsageWindowLedger(dbOps);
+		const opened = await dbOps.openUsageWindow({
+			accountId: ACCOUNT_ID,
+			windowKey: "seven_day",
+			startedAt: T0,
+			resetsAt: RESETS_A,
+			grantType: "first_observed",
+		});
+		expect(await ledger.closeAndValue(opened, T0 + 1000)).toBe(true);
+		const [closed] = await closedWindows();
+		expect(closed.pointsUsed).toBeNull();
+		expect(closed.counterResets).toBeNull();
+	});
+
+	async function seedClosedWithoutCycles(
+		startedAt: number,
+		resetsAt: number,
+		closedAt: number,
+	): Promise<UsageWindow> {
+		const opened = await dbOps.openUsageWindow({
+			accountId: ACCOUNT_ID,
+			windowKey: "seven_day",
+			startedAt,
+			resetsAt,
+			grantType: "natural",
+		});
+		await dbOps.closeUsageWindow(opened.id, {
+			closedAt,
+			valueUsd: 0,
+			inputTokens: 0,
+			cacheReadInputTokens: 0,
+			cacheCreationInputTokens: 0,
+			outputTokens: 0,
+			requestCount: 0,
+			modelBreakdown: {},
+			unpricedTokens: 0,
+			projectionVersion: VALUE_PRICING_VERSION,
+			pointsUsed: null,
+			counterResets: null,
+		});
+		return opened;
+	}
+
+	async function record(at: number, utilization: number, resetsAt: number) {
+		await dbOps
+			.getUsageHistoryRepository()
+			.recordSnapshot(ACCOUNT_ID, [sevenDay(utilization, resetsAt)], at);
+	}
+
+	it("the startup pass fills a closed window and skips one already measured", async () => {
+		await record(T0, 20, RESETS_A);
+		await record(T0 + 2000, 60, RESETS_A);
+		await record(T0 + 3000, 5, RESETS_A);
+		await record(T0 + 4000, 8, RESETS_A);
+		await record(T0 + 5000, 12, RESETS_A);
+		await record(T0 + 5500, 30, RESETS_A);
+		const pending = await seedClosedWithoutCycles(T0, RESETS_A, T0 + 6000);
+
+		const measuredOpen = await dbOps.openUsageWindow({
+			accountId: ACCOUNT_ID,
+			windowKey: "seven_day",
+			startedAt: T0 + 7000,
+			resetsAt: RESETS_B,
+			grantType: "natural",
+		});
+		await record(T0 + 8000, 50, RESETS_B);
+		await dbOps.closeUsageWindow(measuredOpen.id, {
+			closedAt: T0 + 9000,
+			valueUsd: 0,
+			inputTokens: 0,
+			cacheReadInputTokens: 0,
+			cacheCreationInputTokens: 0,
+			outputTokens: 0,
+			requestCount: 0,
+			modelBreakdown: {},
+			unpricedTokens: 0,
+			projectionVersion: VALUE_PRICING_VERSION,
+			pointsUsed: 777,
+			counterResets: 4,
+		});
+
+		const ledger = new UsageWindowLedger(dbOps);
+		expect(await ledger.measureClosedWindowLimitCycles()).toEqual({
+			measured: 1,
+			empty: 0,
+			failed: 0,
+		});
+		const all = await dbOps.listUsageWindows({ accountId: ACCOUNT_ID });
+		const filled = all.find((w) => w.id === pending.id);
+		// 60 for the first cycle, then 30 - 5 from the new baseline.
+		expect(filled?.pointsUsed).toBe(85);
+		expect(filled?.counterResets).toBe(1);
+		const untouched = all.find((w) => w.id === measuredOpen.id);
+		expect(untouched?.pointsUsed).toBe(777);
+		expect(untouched?.counterResets).toBe(4);
+
+		expect(await ledger.measureClosedWindowLimitCycles()).toEqual({
+			measured: 0,
+			empty: 0,
+			failed: 0,
+		});
+	});
+
+	it("the startup pass leaves a window with no readings NULL and one failure never stops it", async () => {
+		await record(T0, 10, RESETS_A);
+		await record(T0 + 3000, 30, RESETS_A);
+		await record(T0 + 4000, 45, RESETS_A);
+		// Its only reading belongs to another cluster, so it has none of its own.
+		const empty = await seedClosedWithoutCycles(
+			T0,
+			RESETS_A + 60 * 60_000,
+			T0 + 1000,
+		);
+		const ok = await seedClosedWithoutCycles(T0 + 2000, RESETS_A, T0 + 6000);
+
+		const ledger = new UsageWindowLedger(dbOps);
+		expect(await ledger.measureClosedWindowLimitCycles()).toEqual({
+			measured: 1,
+			empty: 1,
+			failed: 0,
+		});
+		let all = await dbOps.listUsageWindows({ accountId: ACCOUNT_ID });
+		expect(all.find((w) => w.id === empty.id)?.pointsUsed).toBeNull();
+		expect(all.find((w) => w.id === ok.id)?.pointsUsed).toBe(45);
+
+		// A read failure on one window is counted and does not stop the pass.
+		const real = dbOps.getUsageWindowReadings.bind(dbOps);
+		const flaky = spyOn(dbOps, "getUsageWindowReadings").mockImplementation(
+			async (accountId, windowKey, resetsAt, ...rest) => {
+				if (resetsAt === RESETS_B) throw new Error("boom");
+				return real(accountId, windowKey, resetsAt, ...rest);
+			},
+		);
+		try {
+			const bad = await seedClosedWithoutCycles(T0 + 7000, RESETS_B, T0 + 8000);
+			await record(T0 + 7500, 15, RESETS_B);
+			const good = await seedClosedWithoutCycles(
+				T0 + 3000,
+				RESETS_A + 2 * 60 * 60_000,
+				T0 + 5000,
+			);
+			expect(await ledger.measureClosedWindowLimitCycles()).toEqual({
+				measured: 0,
+				empty: 2,
+				failed: 1,
+			});
+			all = await dbOps.listUsageWindows({ accountId: ACCOUNT_ID });
+			expect(all.find((w) => w.id === bad.id)?.pointsUsed).toBeNull();
+			expect(all.find((w) => w.id === good.id)?.pointsUsed).toBeNull();
+		} finally {
+			flaky.mockRestore();
+		}
+	});
+
+	it("skips windows that began before the oldest retained snapshot", async () => {
+		await record(T0 + 5000, 50, RESETS_A);
+		const older = await seedClosedWithoutCycles(T0, RESETS_A, T0 + 6000);
+		const ledger = new UsageWindowLedger(dbOps);
+		expect(await ledger.measureClosedWindowLimitCycles()).toEqual({
+			measured: 0,
+			empty: 0,
+			failed: 0,
+		});
+		const all = await dbOps.listUsageWindows({ accountId: ACCOUNT_ID });
+		expect(all.find((w) => w.id === older.id)?.pointsUsed).toBeNull();
 	});
 });

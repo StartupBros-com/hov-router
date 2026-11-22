@@ -1,5 +1,6 @@
 import {
 	type LongContextTokenSubset,
+	measureLimitCycles,
 	VALUE_PRICING_VERSION,
 	type WindowTokenAggregate,
 } from "@better-ccflare/core";
@@ -10,6 +11,15 @@ import type { AlertService } from "./alerts";
 import { valueWindowAggregates } from "./usage-window-valuation";
 
 const log = new Logger("UsageWindowLedger");
+
+export interface LimitCycleSummary {
+	/** Windows whose limit cycles were recorded. */
+	measured: number;
+	/** Windows with no readings, left NULL. */
+	empty: number;
+	/** Windows left NULL because reading, measuring or writing failed. */
+	failed: number;
+}
 
 export interface RevalueSummary {
 	/** Closed windows found at a projection_version other than the current one. */
@@ -552,8 +562,11 @@ export class UsageWindowLedger {
 			upperBoundMs,
 		);
 		const valuation = valueWindowAggregates(aggregates, window.startedAt);
+		const cycles = await this.readLimitCycles(window, closedAtMs);
 		const closeInput = {
 			closedAt: closedAtMs,
+			pointsUsed: cycles?.pointsUsed ?? null,
+			counterResets: cycles?.counterResets ?? null,
 			valueUsd: valuation.valueUsd,
 			inputTokens: valuation.inputTokens,
 			cacheReadInputTokens: valuation.cacheReadInputTokens,
@@ -584,6 +597,78 @@ export class UsageWindowLedger {
 			}
 		}
 		return closed;
+	}
+
+	/**
+	 * Fills limit points and counter resets for closed windows that have none
+	 * and whose readings are still fully retained (the startup counterpart of
+	 * the close-time measurement). Silent like `revalueStaleClosedWindows`: one
+	 * bad window never stops the pass and nothing goes to AlertService. A
+	 * window with no readings stays NULL. Idempotent: `recordLimitCycles`
+	 * never overwrites a recorded value.
+	 */
+	async measureClosedWindowLimitCycles(): Promise<LimitCycleSummary> {
+		const summary: LimitCycleSummary = { measured: 0, empty: 0, failed: 0 };
+		const { windows, unreadable } =
+			await this.dbOps.listClosedWindowsMissingLimitCycles();
+		for (const { id, reason } of unreadable) {
+			summary.failed++;
+			log.warn(`Skipping limit-cycle measurement of window ${id}: ${reason}`);
+		}
+		for (const window of windows) {
+			try {
+				if (window.closedAt === null) continue;
+				const cycles = await this.readLimitCycles(
+					window,
+					window.closedAt,
+					true,
+				);
+				if (!cycles) {
+					summary.empty++;
+					continue;
+				}
+				if (await this.dbOps.recordUsageWindowLimitCycles(window.id, cycles)) {
+					summary.measured++;
+				}
+			} catch (error) {
+				summary.failed++;
+				log.warn(
+					`Skipping limit-cycle measurement of window ${window.id}: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		}
+		log.info(
+			`Window limit-cycle measurement: measured ${summary.measured}, empty ${summary.empty}, failed ${summary.failed}`,
+		);
+		return summary;
+	}
+
+	/** Measures a window's limit cycles from its readings. With `throwOnError`
+	 * false (the close path) a failure is logged and reads as unknown, so it can
+	 * never block a close. */
+	private async readLimitCycles(
+		window: UsageWindow,
+		closedAtMs: number,
+		throwOnError = false,
+	): Promise<{ pointsUsed: number; counterResets: number } | null> {
+		try {
+			return measureLimitCycles(
+				await this.dbOps.getUsageWindowReadings(
+					window.accountId,
+					window.windowKey,
+					window.resetsAt,
+					window.startedAt,
+					closedAtMs,
+					CLUSTER_TOLERANCE_MS,
+				),
+			);
+		} catch (error) {
+			if (throwOnError) throw error;
+			log.warn(
+				`Limit-cycle measurement failed for account ${window.accountId} window ${window.id}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+			return null;
+		}
 	}
 
 	/**

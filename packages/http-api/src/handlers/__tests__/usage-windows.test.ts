@@ -98,6 +98,8 @@ describe("createUsageWindowsHandler", () => {
 				modelBreakdown: null,
 				unpricedTokens: 0,
 				projectionVersion: "v-test",
+				pointsUsed: null,
+				counterResets: null,
 			});
 		}
 
@@ -244,6 +246,8 @@ describe("createUsageWindowsHandler", () => {
 			modelBreakdown,
 			unpricedTokens: 395,
 			projectionVersion: "v-test",
+			pointsUsed: null,
+			counterResets: null,
 		});
 
 		const handler = createUsageWindowsHandler(context);
@@ -287,6 +291,8 @@ describe("createUsageWindowsHandler", () => {
 			modelBreakdown: null,
 			unpricedTokens: 0,
 			projectionVersion: "v-test",
+			pointsUsed: null,
+			counterResets: null,
 		});
 
 		const handler = createUsageWindowsHandler(context);

@@ -282,6 +282,8 @@ describe("public subscription value read projection", () => {
 			modelBreakdown: null,
 			unpricedTokens: 0,
 			projectionVersion: "fixture",
+			pointsUsed: null,
+			counterResets: null,
 		});
 		now += 60_001;
 		expect((await (await handler()).json()).subscriptions[0].completed).toEqual(
@@ -595,6 +597,26 @@ describe("public subscription value read projection", () => {
 		expect(completed[1].valueUsd).toBeNull();
 		expect(completed[2].valueUsd).toBe(42);
 		expect(completed[2].pricingCoverage).toBe("complete");
+	});
+	it("leaves recorded limit points and counter resets out of the public feed", async () => {
+		await db
+			.getAdapter()
+			.run(
+				"INSERT INTO usage_windows (id,account_id,window_key,started_at,resets_at,closed_at,grant_type,peak_utilization,value_usd,unpriced_tokens,points_used,counter_resets) VALUES ('cycled', ?, 'seven_day', 100, 120, 115, 'natural', 0, 42, 0, 230, 2)",
+				[mapping.accountId],
+			);
+		const body = await (await handler()).json();
+		expect(body.subscriptions[0].completed).toEqual([
+			{
+				startedAt: 100,
+				resetsAt: 120,
+				closedAt: 115,
+				valueUsd: 42,
+				pricingCoverage: "complete",
+				partialFirstObservation: false,
+			},
+		]);
+		expect(JSON.stringify(body)).not.toMatch(/pointsUsed|counterResets/);
 	});
 	it("bounds cached data after account replacement or same-generation history deletion by the TTL", async () => {
 		await db.openUsageWindow({

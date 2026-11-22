@@ -123,10 +123,41 @@ describe("shared usage window read", () => {
 			modelBreakdown: null,
 			unpricedTokens: 0,
 			projectionVersion: "fixture",
+			pointsUsed: null,
+			counterResets: null,
 		});
 		const closed = await readUsageWindows(db, "fixture", "seven_day", 8, 1600);
 		expect(closed.openWindow).toBeNull();
 		expect(closed.windows.map((window) => window.id)).toEqual([row.id]);
+	});
+
+	it("carries recorded limit points and counter resets into private history", async () => {
+		const row = await db.openUsageWindow({
+			accountId: "fixture",
+			windowKey: "seven_day",
+			startedAt: 10,
+			resetsAt: 500,
+			grantType: "natural",
+		});
+		await db.closeUsageWindow(row.id, {
+			closedAt: 500,
+			valueUsd: 1,
+			inputTokens: 0,
+			cacheReadInputTokens: 0,
+			cacheCreationInputTokens: 0,
+			outputTokens: 0,
+			requestCount: 0,
+			modelBreakdown: null,
+			unpricedTokens: 0,
+			projectionVersion: "fixture",
+			pointsUsed: 230,
+			counterResets: 2,
+		});
+		const result = await readUsageWindows(db, "fixture", "seven_day", 8, 1600);
+		expect(result.windows[0]).toMatchObject({
+			pointsUsed: 230,
+			counterResets: 2,
+		});
 	});
 
 	it("returns empty private history", async () => {

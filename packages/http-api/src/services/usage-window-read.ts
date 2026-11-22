@@ -23,6 +23,8 @@ export interface UsageWindowRecord {
 	modelBreakdown: Record<string, unknown> | null;
 	unpricedTokens: number | null;
 	projectionVersion: string | null;
+	pointsUsed: number | null;
+	counterResets: number | null;
 }
 
 /** The still-open window, with its value computed live rather than read
@@ -53,6 +55,8 @@ export function toUsageWindowRecord(window: UsageWindow): UsageWindowRecord {
 		modelBreakdown: window.modelBreakdown,
 		unpricedTokens: window.unpricedTokens,
 		projectionVersion: window.projectionVersion,
+		pointsUsed: window.pointsUsed,
+		counterResets: window.counterResets,
 	};
 }
 
