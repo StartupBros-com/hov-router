@@ -34,6 +34,37 @@ export const CLAUDE_MODEL_IDS = {
 // "as of <date>" provenance instead of a misleading "just now".
 export const BUNDLED_MODELS_AS_OF = "2026-11-09";
 
+/**
+ * Claude models only an account-pinned route profile may name. Anthropic serves
+ * Mythos only to accounts holding a Cyber Verification grant, so it stays out
+ * of CLAUDE_MODEL_IDS and, with it, out of the fallback catalog, model
+ * validation and the combo families: a bare Mythos request is never
+ * load-balanced onto an account without the grant.
+ */
+export const ROUTE_ONLY_CLAUDE_MODEL_IDS = {
+	MYTHOS_5_2: "claude-mythos-5-2",
+} as const;
+
+export type RouteOnlyClaudeModelId =
+	(typeof ROUTE_ONLY_CLAUDE_MODEL_IDS)[keyof typeof ROUTE_ONLY_CLAUDE_MODEL_IDS];
+
+// Mythos has shipped in step with Fable (5, 5.1, 5.2); a test ties the two.
+export const LATEST_MYTHOS_MODEL = ROUTE_ONLY_CLAUDE_MODEL_IDS.MYTHOS_5_2;
+
+/** The model a route profile's bare route-only family name resolves to. */
+export const LATEST_ROUTE_ONLY_MODEL_BY_FAMILY: ReadonlyMap<
+	string,
+	RouteOnlyClaudeModelId
+> = new Map([["mythos", LATEST_MYTHOS_MODEL]]);
+
+export function isRouteOnlyClaudeModelId(
+	modelId: string,
+): modelId is RouteOnlyClaudeModelId {
+	return Object.values(ROUTE_ONLY_CLAUDE_MODEL_IDS).includes(
+		modelId as RouteOnlyClaudeModelId,
+	);
+}
+
 // Model display names
 export const MODEL_DISPLAY_NAMES: Record<string, string> = {
 	[CLAUDE_MODEL_IDS.SONNET_4]: "Claude Sonnet 4",
@@ -54,6 +85,7 @@ export const MODEL_DISPLAY_NAMES: Record<string, string> = {
 	[CLAUDE_MODEL_IDS.FABLE_5]: "Claude Fable 5",
 	[CLAUDE_MODEL_IDS.FABLE_5_1]: "Claude Fable 5.1",
 	[CLAUDE_MODEL_IDS.FABLE_5_2]: "Claude Fable 5.2",
+	[ROUTE_ONLY_CLAUDE_MODEL_IDS.MYTHOS_5_2]: "Claude Mythos 5.2",
 };
 
 // Short model names used in UI (for color mapping, etc.)
@@ -76,6 +108,7 @@ export const MODEL_SHORT_NAMES: Record<string, string> = {
 	[CLAUDE_MODEL_IDS.FABLE_5]: "claude-fable-5",
 	[CLAUDE_MODEL_IDS.FABLE_5_1]: "claude-fable-5.1",
 	[CLAUDE_MODEL_IDS.FABLE_5_2]: "claude-fable-5.2",
+	[ROUTE_ONLY_CLAUDE_MODEL_IDS.MYTHOS_5_2]: "claude-mythos-5.2",
 };
 
 // Latest model aliases — update these when Anthropic releases new models.

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { getModelDisplayName, LATEST_OPUS_MODEL } from "@better-ccflare/core";
+import {
+	getModelDisplayName,
+	LATEST_MYTHOS_MODEL,
+	LATEST_OPUS_MODEL,
+} from "@better-ccflare/core";
 import type { Account } from "@better-ccflare/types";
 import {
 	buildModelRouteDiscoveryModels,
@@ -333,6 +337,45 @@ describe("buildModelRouteDiscoveryModels", () => {
 				deps({ previewPhysicalModel: (_account, logical) => logical }),
 			)[0]?.display_name,
 		).toBe(`${getModelDisplayName(LATEST_OPUS_MODEL)} · max-primary`);
+	});
+
+	it("labels a native Anthropic Mythos route with the Mythos it serves, though no provider preview knows Mythos", () => {
+		const mythos = registry([
+			{
+				id: "cvp-mythos",
+				displayName: "Mythos · CVP primary",
+				accountId: "max-id",
+				logicalModel: "mythos",
+				expectedProvider: "anthropic",
+			},
+		]);
+		// The default test preview returns null for Anthropic accounts, as the
+		// real Anthropic preview does for a model outside the four families.
+		expect(
+			buildModelRouteDiscoveryModels(
+				mythos,
+				[account("max-id", "anthropic", { name: "max-primary" })],
+				deps(),
+			)[0]?.display_name,
+		).toBe(`${getModelDisplayName(LATEST_MYTHOS_MODEL)} · max-primary`);
+	});
+
+	it("keeps the operator label for a Mythos route on an account that does not forward it unchanged", () => {
+		const mythos = registry([
+			{
+				id: "compatible-mythos",
+				displayName: "Mythos · compatible",
+				accountId: "compat-id",
+				logicalModel: "mythos",
+			},
+		]);
+		expect(
+			buildModelRouteDiscoveryModels(
+				mythos,
+				[account("compat-id", "anthropic-compatible", { name: "compat" })],
+				deps(),
+			)[0]?.display_name,
+		).toBe("Mythos · compatible");
 	});
 
 	it("keeps labels on one bounded line and never exposes route internals", () => {

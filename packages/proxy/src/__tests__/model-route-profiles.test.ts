@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	LATEST_FABLE_MODEL,
 	LATEST_HAIKU_MODEL,
+	LATEST_MYTHOS_MODEL,
 	LATEST_OPUS_MODEL,
 	LATEST_SONNET_MODEL,
 } from "@better-ccflare/core";
@@ -2424,6 +2425,19 @@ describe("parseModelRouteProfiles family names", () => {
 		]);
 	});
 
+	it("resolves a bare mythos to the router's latest Mythos, a family only a route profile can name", () => {
+		const parsed = parseModelRouteProfiles(
+			JSON.stringify([
+				{ ...exactAnthropic, id: "cvp-mythos", logicalModel: "mythos" },
+				{ ...exactAnthropic, id: "cvp-mythos-cased", logicalModel: " Mythos " },
+			]),
+		);
+		expect(parsed.map((configured) => configured.logicalModel)).toEqual([
+			LATEST_MYTHOS_MODEL,
+			LATEST_MYTHOS_MODEL,
+		]);
+	});
+
 	it("resolves a family name on an exact capability pool too", () => {
 		const [configured] = parseModelRouteProfiles(
 			JSON.stringify([
@@ -2438,6 +2452,23 @@ describe("parseModelRouteProfiles family names", () => {
 			]),
 		);
 		expect(configured?.logicalModel).toBe(LATEST_SONNET_MODEL);
+	});
+
+	it("rejects a bare mythos on a capability pool, which would spread it across every account of the provider", () => {
+		expect(() =>
+			parseModelRouteProfiles(
+				JSON.stringify([
+					{
+						id: "mythos-pool",
+						displayName: "Mythos pool",
+						selection: "capability",
+						logicalModel: "mythos",
+						expectedProvider: "anthropic",
+						expectedPhysicalModel: "claude-mythos-5-2",
+					},
+				]),
+			),
+		).toThrow("profile 0 logicalModel mythos requires an accountId");
 	});
 
 	it("keeps a concrete, major-version or non-Claude model id exactly as written", () => {
