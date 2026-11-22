@@ -1645,8 +1645,17 @@ describe("UsageWindowLedger limit cycles", () => {
 			(w) => w.closedAt !== null,
 		);
 
+	/** A reading of the previous window, so the account's retained history
+	 * reaches back past the start of the window under test. */
+	async function coverWindowStart() {
+		await dbOps
+			.getUsageHistoryRepository()
+			.recordSnapshot(ACCOUNT_ID, [sevenDay(95, T0)], T0 - 60_000);
+	}
+
 	it("records points and resets from the readings of the window when it closes", async () => {
 		const ledger = new UsageWindowLedger(dbOps);
+		await coverWindowStart();
 		const readings = [10, 40, 80, 100, 3, 5, 9, 12, 30, 70];
 		for (const [i, utilization] of readings.entries()) {
 			await poll(ledger, T0 + (i + 1) * 60_000, utilization, RESETS_A);
@@ -1691,6 +1700,55 @@ describe("UsageWindowLedger limit cycles", () => {
 		});
 		expect(await ledger.closeAndValue(opened, T0 + 1000)).toBe(true);
 		const [closed] = await closedWindows();
+		expect(closed.pointsUsed).toBeNull();
+		expect(closed.counterResets).toBeNull();
+	});
+
+	it("closes with NULL limit cycles when retention pruned the window's early readings", async () => {
+		const pollAll = async (ledger: UsageWindowLedger) => {
+			for (const [i, utilization] of [10, 80, 0, 5, 10].entries()) {
+				await poll(ledger, T0 + (i + 1) * 60_000, utilization, RESETS_A);
+			}
+		};
+
+		await coverWindowStart();
+		const complete = new UsageWindowLedger(dbOps);
+		await pollAll(complete);
+		await poll(complete, T0 + 6 * 60_000, 2, RESETS_B);
+		const [measured] = await closedWindows();
+		expect(measured.pointsUsed).toBe(90);
+		expect(measured.counterResets).toBe(1);
+
+		await dbOps.dispose();
+		dbOps = new DatabaseOperations(":memory:", { walMode: false });
+		await coverWindowStart();
+		const pruned = new UsageWindowLedger(dbOps);
+		await pollAll(pruned);
+		// Retention removes everything before the third reading while the
+		// window is still open; what remains ([0, 5, 10]) hides the reset.
+		await dbOps.pruneUsageSnapshots(T0 + 3 * 60_000);
+		await poll(pruned, T0 + 6 * 60_000, 2, RESETS_B);
+		const [closed] = await closedWindows();
+		expect(closed.resetsAt).toBe(RESETS_A);
+		expect(closed.pointsUsed).toBeNull();
+		expect(closed.counterResets).toBeNull();
+		expect(closed.valueUsd).not.toBeNull();
+		expect(await pruned.measureClosedWindowLimitCycles()).toEqual({
+			measured: 0,
+			empty: 0,
+			failed: 0,
+		});
+	});
+
+	it("closes a first-observed window whose readings begin after its start with NULL limit cycles", async () => {
+		const ledger = new UsageWindowLedger(dbOps);
+		for (const [i, utilization] of [35, 60, 90].entries()) {
+			await poll(ledger, T0 + DAY_MS + i * 60_000, utilization, RESETS_A);
+		}
+		await poll(ledger, T0 + DAY_MS + 3 * 60_000, 2, RESETS_B);
+		const [closed] = await closedWindows();
+		expect(closed.grantType).toBe("first_observed");
+		expect(closed.startedAt).toBe(T0);
 		expect(closed.pointsUsed).toBeNull();
 		expect(closed.counterResets).toBeNull();
 	});

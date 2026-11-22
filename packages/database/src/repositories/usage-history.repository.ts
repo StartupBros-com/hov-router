@@ -174,6 +174,23 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 		return rows.map((row) => Number(row.utilization));
 	}
 
+	/**
+	 * Timestamp of the oldest retained snapshot of `accountId`/`windowKey`, or
+	 * null when there is none. Retention deletes oldest first, so a window that
+	 * started before this has lost readings (or began before observation).
+	 */
+	async getOldestSnapshotTimestamp(
+		accountId: string,
+		windowKey: string,
+	): Promise<number | null> {
+		const row = await this.get<{ oldest: number | null }>(
+			`SELECT MIN(timestamp) AS oldest FROM usage_snapshots
+			 WHERE account_id = ? AND window_key = ?`,
+			[accountId, windowKey],
+		);
+		return row?.oldest == null ? null : Number(row.oldest);
+	}
+
 	async getSeries(opts: GetSeriesOptions): Promise<UsageSnapshotRow[]> {
 		const clauses = ["account_id = ?", "COALESCE(active, 1) = 1"];
 		const whereParams: unknown[] = [opts.accountId];

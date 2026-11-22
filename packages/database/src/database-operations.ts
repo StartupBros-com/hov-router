@@ -1510,6 +1510,13 @@ OAuth tokens will need to be re-authenticated.
 		);
 	}
 
+	async getOldestUsageSnapshotTimestamp(
+		accountId: string,
+		windowKey: string,
+	): Promise<number | null> {
+		return this.usageHistory.getOldestSnapshotTimestamp(accountId, windowKey);
+	}
+
 	async listClosedWindowsNotAtProjectionVersion(
 		projectionVersion: string,
 	): Promise<StaleClosedWindows> {

@@ -15,7 +15,7 @@ const log = new Logger("UsageWindowLedger");
 export interface LimitCycleSummary {
 	/** Windows whose limit cycles were recorded. */
 	measured: number;
-	/** Windows with no readings, left NULL. */
+	/** Windows with no readings, or whose early readings are gone, left NULL. */
 	empty: number;
 	/** Windows left NULL because reading, measuring or writing failed. */
 	failed: number;
@@ -643,15 +643,24 @@ export class UsageWindowLedger {
 		return summary;
 	}
 
-	/** Measures a window's limit cycles from its readings. With `throwOnError`
-	 * false (the close path) a failure is logged and reads as unknown, so it can
-	 * never block a close. */
+	/** Measures a window's limit cycles from its readings. Unknown (null) when
+	 * the account's oldest retained snapshot is later than the window's start:
+	 * retention pruned the early readings, or observation began mid-window, so
+	 * a reset before the first retained reading cannot be seen. The startup
+	 * pass lists windows by the same rule. With `throwOnError` false (the close
+	 * path) a failure is logged and reads as unknown, so it can never block a
+	 * close. */
 	private async readLimitCycles(
 		window: UsageWindow,
 		closedAtMs: number,
 		throwOnError = false,
 	): Promise<{ pointsUsed: number; counterResets: number } | null> {
 		try {
+			const oldest = await this.dbOps.getOldestUsageSnapshotTimestamp(
+				window.accountId,
+				window.windowKey,
+			);
+			if (oldest === null || oldest > window.startedAt) return null;
 			return measureLimitCycles(
 				await this.dbOps.getUsageWindowReadings(
 					window.accountId,
