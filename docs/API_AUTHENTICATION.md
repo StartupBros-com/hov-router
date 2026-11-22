@@ -361,7 +361,7 @@ DEBUG=auth:* hov-router --serve
 2. `Authorization: Bearer <key>` (standard HTTP format)
 
 ### **Path Exemptions**
-Once an API key exists, these are the only requests served without one:
+Once an API key exists, these are the only requests a client can make without one:
 - The dashboard page and its static assets (the page asks for a key before it loads any data)
 - `GET /health` (health check)
 - `GET /api/version/check` (the dashboard's update notice)
@@ -371,7 +371,17 @@ Once an API key exists, these are the only requests served without one:
 
 Each exemption covers that method and path only. Every other request needs a
 key, including every other method on these paths, the rest of `/api/oauth/*`
-and all of `/api/api-keys/*`. No exemption lets a request reach a provider.
+and all of `/api/api-keys/*`. None of these requests reaches a provider.
+
+Two kinds of request from the router's own machine pass on a secret instead of
+a key:
+- The cache keepalive, which the server sends to itself on `/v1` and `/messages`
+  paths with a secret it generates at startup and keeps in memory. It is the
+  only request with no key that reaches a provider.
+- Commands the CLI sends to the running server, with a secret kept in the
+  config file: `POST /api/accounts/:id/reload`,
+  `POST /api/accounts/:id/force-reset-rate-limit`, and
+  `POST /api/routing/family-aliases/preview` and `/apply`.
 
 Before the first key is created nothing requires a key, and `POST /api/api-keys`
 is how that first key is made.

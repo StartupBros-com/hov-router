@@ -1125,17 +1125,24 @@ describe("proxy fallback authentication", () => {
 		const apiRoutesAt = src.indexOf(
 			"const apiResponse = await apiRouter.handleRequest(url, req);",
 		);
-		const responsesAt = src.indexOf("handleResponsesRequest(", apiRoutesAt);
-		const proxyAt = src.indexOf("handleProxy(", apiRoutesAt);
 		expect(apiRoutesAt).toBeGreaterThanOrEqual(0);
-		expect(responsesAt).toBeGreaterThan(apiRoutesAt);
-		expect(proxyAt).toBeGreaterThan(apiRoutesAt);
+		const doorAt = src.indexOf(
+			"authService.authenticateProxyRequest(",
+			apiRoutesAt,
+		);
+		expect(doorAt).toBeGreaterThan(apiRoutesAt);
+		const refusalAt = src.indexOf("if (!authResult.isAuthenticated) {", doorAt);
+		expect(refusalAt).toBeGreaterThan(doorAt);
 
-		const fallback = src.slice(apiRoutesAt, Math.min(responsesAt, proxyAt));
-		expect(fallback).toContain("authService.authenticateProxyRequest(");
-		expect(fallback).not.toContain("authService.authenticateRequest(");
-		// The fallback is the only caller in the server: nothing after it may
-		// authenticate a proxied request another way.
+		// Each proxy entry point is called once in the server, after the door
+		// and its 401. A new call site has to sit behind the same check; add it
+		// there, then update the count here.
+		for (const entry of ["handleResponsesRequest(", "handleProxy("]) {
+			expect(src.split(entry).length - 1).toBe(1);
+			expect(src.indexOf(entry)).toBeGreaterThan(refusalAt);
+		}
+		// Nothing after the API router may authenticate a proxied request
+		// another way.
 		expect(src.slice(apiRoutesAt)).not.toContain(
 			"authService.authenticateRequest(",
 		);

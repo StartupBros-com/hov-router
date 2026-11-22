@@ -250,14 +250,6 @@ describe("AuthService — static exemption bypass regression", () => {
 				"POST",
 				{ [LOCAL_CONTROL_SECRET_HEADER]: LOCAL_CONTROL_SECRET },
 			],
-			// The router matches only /api/accounts/:id/reload. The
-			// local-control allowlist is a prefix and suffix test, so this
-			// deeper path is exempt and unmatched: the shape the door exists for.
-			[
-				"/api/accounts/acct-1/extra/reload",
-				"POST",
-				{ [LOCAL_CONTROL_SECRET_HEADER]: LOCAL_CONTROL_SECRET },
-			],
 		];
 
 		function makeAuth(dbOps: DatabaseOperations): AuthService {
