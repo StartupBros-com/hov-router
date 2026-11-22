@@ -130,6 +130,17 @@ export function isBoundedModelRouteProfile(
 const MAX_PICKER_DESCRIPTION_LENGTH = 100;
 
 /**
+ * Cut picker text to `max` UTF-16 units, ending in "…", without leaving half
+ * of a surrogate pair (an emoji in an account name) before the ellipsis.
+ */
+export function clipPickerText(value: string, max: number): string {
+	if (value.length <= max) return value;
+	let head = value.slice(0, max - 1);
+	if (/[\uD800-\uDBFF]$/.test(head)) head = head.slice(0, -1);
+	return `${head.trimEnd()}…`;
+}
+
+/**
  * One-line picker description: where the lane runs, then its routing flow,
  * joined by " · ". Claude Code keeps only the first " · " segment on the row
  * in a narrow terminal, so placement leads. The title, generated in
@@ -145,10 +156,10 @@ export function describeModelRouteProfileFlow(
 	profile: ModelRouteProfile,
 	accountName: string | null = null,
 ): string {
-	const description = `${describePlacement(profile, accountName)} · ${describeFlow(profile)}`;
-	return description.length <= MAX_PICKER_DESCRIPTION_LENGTH
-		? description
-		: `${description.slice(0, MAX_PICKER_DESCRIPTION_LENGTH - 1).trimEnd()}…`;
+	return clipPickerText(
+		`${describePlacement(profile, accountName)} · ${describeFlow(profile)}`,
+		MAX_PICKER_DESCRIPTION_LENGTH,
+	);
 }
 
 function describePlacement(

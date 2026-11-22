@@ -2188,6 +2188,11 @@ describe("describeModelRouteProfileFlow", () => {
 		expect(long).not.toMatch(/[\r\n\t]/);
 		expect(long.startsWith("max x")).toBe(true);
 		expect(long.endsWith("…")).toBe(true);
+
+		// An emoji straddling the cut is dropped whole, never split in half.
+		const emoji = describeModelRouteProfileFlow(exact, `${"a".repeat(98)}😀`);
+		expect(emoji).toBe(`${"a".repeat(98)}…`);
+		expect(emoji).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
 	});
 });
 

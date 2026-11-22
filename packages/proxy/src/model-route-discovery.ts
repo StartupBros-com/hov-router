@@ -16,7 +16,10 @@ import type {
 	ModelRouteProfile,
 	ModelRouteSessionRegistry,
 } from "./model-route-profiles";
-import { describeModelRouteProfileFlow } from "./model-route-profiles";
+import {
+	clipPickerText,
+	describeModelRouteProfileFlow,
+} from "./model-route-profiles";
 
 const MAX_DISPLAY_NAME_LENGTH = 120;
 
@@ -61,9 +64,7 @@ function oneLine(value: string): string {
 }
 
 function clip(value: string): string {
-	return value.length <= MAX_DISPLAY_NAME_LENGTH
-		? value
-		: `${value.slice(0, MAX_DISPLAY_NAME_LENGTH - 1).trimEnd()}…`;
+	return clipPickerText(value, MAX_DISPLAY_NAME_LENGTH);
 }
 
 /**
@@ -182,13 +183,16 @@ export function buildModelRouteDiscoveryModels(
 					.filter((label): label is string => label !== null),
 			),
 		].sort();
-		const accountName = pooled ? null : oneLine(members[0]?.name ?? "");
+		// A blank name reads as "one account", like the static rows.
+		const accountName = pooled ? null : oneLine(members[0]?.name ?? "") || null;
 		const context = profile.clientContextWindowHint === "1m" ? " (1M)" : "";
 		rows.push({
 			id: profile.discoveryModelId,
 			served:
 				served.length > 0 ? clip(`${served.join(" / ")}${context}`) : null,
-			where: accountName ?? `${profile.expectedProvider ?? "account"} pool`,
+			where: pooled
+				? `${profile.expectedProvider ?? "account"} pool`
+				: (accountName ?? "one account"),
 			fallback: profile.displayName,
 			description: describeModelRouteProfileFlow(profile, accountName),
 		});

@@ -424,6 +424,38 @@ describe("buildModelRouteDiscoveryModels", () => {
 		]);
 	});
 
+	it("reads a blank account name as one account, never a dangling separator", () => {
+		const models = buildModelRouteDiscoveryModels(
+			registry([
+				{
+					id: "cvp-opus",
+					displayName: "Opus · CVP",
+					accountId: "max-a-id",
+					logicalModel: "opus",
+					expectedProvider: "anthropic",
+				},
+				{
+					id: "spare-opus",
+					displayName: "Opus · spare",
+					accountId: "max-b-id",
+					logicalModel: "opus",
+					expectedProvider: "anthropic",
+				},
+			]),
+			[
+				account("max-a-id", "anthropic", { name: " \t " }),
+				account("max-b-id", "anthropic", { name: "max-spare" }),
+			],
+			deps({ previewPhysicalModel: (_account, logical) => logical }),
+		);
+		const opus = getModelDisplayName(LATEST_OPUS_MODEL);
+		expect(models.map((model) => model.display_name)).toEqual([
+			`${opus} · one account`,
+			`${opus} · max-spare`,
+		]);
+		expect(models[0]?.description).toBe(exactFlow("one account"));
+	});
+
 	it("keeps titles and descriptions on one bounded line and never exposes route internals", () => {
 		const longName = `grok\r\n<b>${"x".repeat(200)}`;
 		const alone = buildModelRouteDiscoveryModels(
