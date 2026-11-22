@@ -24,10 +24,11 @@ import { createPendingRotationWal } from "./pending-rotation-wal";
 /** How long a reservation that failed for lack of space is not tried again. */
 export const RESERVE_RETRY_MS = 5_000;
 
+/** Matches `@better-ccflare/logger`'s `Logger`: a message and at most one data value. */
 export interface PendingRotationStoreLog {
-	info(message: string, ...args: unknown[]): void;
-	warn(message: string, ...args: unknown[]): void;
-	error(message: string, ...args: unknown[]): void;
+	info(message: string, data?: unknown): void;
+	warn(message: string, data?: unknown): void;
+	error(message: string, data?: unknown): void;
 }
 
 export type PendingRotationStore = Required<PendingRotationPersistence>;

@@ -426,9 +426,14 @@ BUNDLED_PRICING.deepseek = {
 	},
 };
 
+/**
+ * Matches `@better-ccflare/logger`'s `Logger`, which server.ts passes in: a
+ * message printed verbatim plus at most one data value. It fills in no printf
+ * placeholders and drops any further argument, so put values in the message.
+ */
 interface Logger {
-	warn(message: string, ...args: unknown[]): void;
-	debug(message: string, ...args: unknown[]): void;
+	warn(message: string, data?: unknown): void;
+	debug(message: string, data?: unknown): void;
 }
 
 // Interface for NanoGPT API response
@@ -591,7 +596,7 @@ class PriceCatalogue {
 		try {
 			await fs.mkdir(this.getCacheDir(), { recursive: true });
 		} catch (error) {
-			this.logger?.warn("Failed to create cache directory: %s", error);
+			this.logger?.warn("Failed to create cache directory", error);
 		}
 	}
 
@@ -633,8 +638,7 @@ class PriceCatalogue {
 		for (const [providerName, providerData] of Object.entries(bundled)) {
 			if (!merged[providerName]) {
 				this.logger?.warn(
-					"Provider %s not found in remote pricing, using bundled data",
-					providerName,
+					`Provider ${providerName} not found in remote pricing, using bundled data`,
 				);
 				merged[providerName] = providerData;
 			} else if (providerData.models) {
@@ -656,9 +660,7 @@ class PriceCatalogue {
 
 				if (addedModels > 0) {
 					this.logger?.debug(
-						"Added %d missing models for provider %s from bundled pricing",
-						addedModels,
-						providerName,
+						`Added ${addedModels} missing models for provider ${providerName} from bundled pricing`,
 					);
 				}
 			}
@@ -717,8 +719,7 @@ class PriceCatalogue {
 
 		if (problematicPatterns.some((pattern) => pattern.test(providerName))) {
 			this.logger?.debug(
-				"Filtering out provider %s due to problematic name pattern",
-				providerName,
+				`Filtering out provider ${providerName} due to problematic name pattern`,
 			);
 			return true;
 		}
@@ -745,8 +746,7 @@ class PriceCatalogue {
 
 				if (allZeroCost) {
 					this.logger?.debug(
-						"Filtering out provider %s because all models have zero cost",
-						providerName,
+						`Filtering out provider ${providerName} because all models have zero cost`,
 					);
 					return true;
 				}
@@ -778,7 +778,7 @@ class PriceCatalogue {
 			const cachePath = this.getCachePath();
 			await fs.writeFile(cachePath, JSON.stringify(data, null, 2));
 		} catch (error) {
-			this.logger?.warn("Failed to save pricing cache: %s", error);
+			this.logger?.warn("Failed to save pricing cache", error);
 		}
 	}
 
@@ -818,7 +818,7 @@ class PriceCatalogue {
 			await this.saveToCache(data);
 			return data;
 		} catch (error) {
-			this.logger?.warn("Failed to fetch pricing data: %s", error);
+			this.logger?.warn("Failed to fetch pricing data", error);
 			return null;
 		} finally {
 			clearTimeout(timeoutId);
@@ -905,7 +905,7 @@ class PriceCatalogue {
 		this.firstSightAttempts.set(modelId, now);
 		this.lastFirstSightAttempt = now;
 		void this.refreshForFirstSight(modelId).catch((error) => {
-			this.logger?.warn("First-sight pricing refresh failed: %s", error);
+			this.logger?.warn("First-sight pricing refresh failed", error);
 		});
 	}
 
@@ -920,9 +920,8 @@ class PriceCatalogue {
 		);
 		this.logger?.debug(
 			listed
-				? "Pricing catalogue refreshed: models.dev now lists %s"
-				: "Pricing catalogue refreshed: models.dev does not list %s yet",
-			modelId,
+				? `Pricing catalogue refreshed: models.dev now lists ${modelId}`
+				: `Pricing catalogue refreshed: models.dev does not list ${modelId} yet`,
 		);
 	}
 
@@ -939,15 +938,13 @@ class PriceCatalogue {
 		if (!this.warnedModels.has(modelId)) {
 			this.warnedModels.add(modelId);
 			if (error) {
+				const reason = error instanceof Error ? error.message : error;
 				this.logger?.warn(
-					"Price for model %s not found - cost set to 0 (reason: %s)",
-					modelId,
-					error instanceof Error ? error.message : error,
+					`Price for model ${modelId} not found - cost set to 0 (reason: ${reason})`,
 				);
 			} else {
 				this.logger?.warn(
-					"Price for model %s not found - cost set to 0",
-					modelId,
+					`Price for model ${modelId} not found - cost set to 0`,
 				);
 			}
 		}
@@ -961,8 +958,7 @@ class PriceCatalogue {
 		if (this.warnedRatesUnknownModels.has(modelId)) return;
 		this.warnedRatesUnknownModels.add(modelId);
 		this.logger?.warn(
-			"Price for model %s not found - cache savings reported as unknown",
-			modelId,
+			`Price for model ${modelId} not found - cache savings reported as unknown`,
 		);
 	}
 
@@ -1044,8 +1040,7 @@ export async function fetchNanoGPTPricingData(
 		};
 
 		logger?.debug(
-			"Successfully fetched and converted NanoGPT pricing data for %d models",
-			Object.keys(nanogptPricing.nanogpt?.models || {}).length,
+			`Successfully fetched and converted NanoGPT pricing data for ${Object.keys(nanogptPricing.nanogpt?.models || {}).length} models`,
 		);
 		return nanogptPricing;
 	} catch (error) {

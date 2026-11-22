@@ -158,7 +158,7 @@ async function ensureCacheDir(): Promise<void> {
 	try {
 		await fs.mkdir(getCacheDir(), { recursive: true });
 	} catch (error) {
-		log.warn("Failed to create model catalog cache directory: %s", error);
+		log.warn("Failed to create model catalog cache directory", error);
 	}
 }
 
@@ -180,7 +180,7 @@ async function saveToDisk(catalog: ModelCatalog): Promise<void> {
 		await ensureCacheDir();
 		await fs.writeFile(getCachePath(), JSON.stringify(catalog, null, 2));
 	} catch (error) {
-		log.warn("Failed to save model catalog cache: %s", error);
+		log.warn("Failed to save model catalog cache", error);
 	}
 }
 
@@ -430,8 +430,7 @@ export async function refreshModelCatalog(
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		log.warn(
-			"Model catalog refresh failed, keeping previous cache: %s",
-			message,
+			`Model catalog refresh failed, keeping previous cache: ${message}`,
 		);
 		const catalog = await getModelCatalog();
 		return { success: false, error: message, catalog };
@@ -511,7 +510,7 @@ export async function ingestModelsListing(
 			source: "live",
 		});
 	} catch (error) {
-		log.debug("Passive model catalog capture skipped: %s", error);
+		log.debug("Passive model catalog capture skipped", error);
 	}
 }
 
