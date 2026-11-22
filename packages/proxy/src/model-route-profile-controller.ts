@@ -132,7 +132,7 @@ export class ModelRouteProfileController {
 			if (stored) {
 				if (ignored) {
 					log.warn(
-						`${variableName(ignored)} is set, but the database holds the route profiles (revision ${stored.revision}); the variable is not read. Edit lanes through the API or dashboard.`,
+						`${variableName(ignored)} is set, but the database holds the route profiles (revision ${stored.revision}); the variable is not read. Edit lanes through /api/route-profiles.`,
 					);
 				}
 				return create(fromStored(stored, parseStoredAtStart(stored), ignored));
@@ -166,7 +166,7 @@ export class ModelRouteProfileController {
 						? loaded.profiles
 						: parseStoredAtStart(stored);
 				log.info(
-					`Route profiles stored in the database as revision ${stored.revision} (${stored.source}); edit them through the API or dashboard from now on.`,
+					`Route profiles stored in the database as revision ${stored.revision} (${stored.source}); edit them through /api/route-profiles from now on.`,
 				);
 				return create(fromStored(stored, profiles, ignored));
 			}
