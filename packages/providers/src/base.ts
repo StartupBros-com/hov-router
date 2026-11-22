@@ -85,12 +85,14 @@ export abstract class BaseProvider implements Provider {
 	): Headers {
 		const newHeaders = new Headers(headers);
 
-		// SECURITY: Remove client's authorization header when we have provider credentials
-		// to prevent credential leakage. If no credentials provided (passthrough mode),
-		// preserve client's authorization for direct API access.
+		// SECURITY: Remove the client's credentials when we have provider credentials
+		// to prevent credential leakage. A client presents the router's own API key
+		// in either `authorization` or `x-api-key`, so both go. If no credentials
+		// provided (passthrough mode), preserve the client's own for direct API access.
 		// Use explicit undefined checks to handle empty strings correctly.
 		if (accessToken !== undefined || _apiKey !== undefined) {
 			newHeaders.delete("authorization");
+			newHeaders.delete("x-api-key");
 		}
 
 		// Set provider-specific authorization

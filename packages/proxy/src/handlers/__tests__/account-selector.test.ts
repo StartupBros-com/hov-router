@@ -1825,6 +1825,76 @@ describe("selectAccountsForRequest — server-derived route profile", () => {
 		expect(ctx.strategy.select).not.toHaveBeenCalled();
 	});
 
+	// A provider exclusion is set by the server for a kind of traffic (the
+	// Responses adapter excludes Anthropic OAuth accounts, which Anthropic bans
+	// outside Claude Code). The client's own pin header must not override it.
+	it("fails a client-pinned request closed when its provider is excluded", async () => {
+		const pinned = makeAccount({ id: "pinned-account", provider: "codex" });
+		const fallback = makeAccount({ id: "fallback", provider: "anthropic" });
+		const ctx = makeCtx({ accounts: [pinned, fallback] });
+		const meta = makeRequestMeta({
+			headers: new Headers({
+				"x-better-ccflare-account-id": pinned.id,
+				"x-better-ccflare-exclude-providers": "codex",
+			}),
+		});
+
+		await expect(
+			selectAccountsForRequest(meta, ctx, "claude-opus-5"),
+		).rejects.toMatchObject({
+			accountId: pinned.id,
+			reason: "provider_excluded",
+		});
+		expect(ctx.strategy.select).not.toHaveBeenCalled();
+	});
+
+	it("fails a client pin to an Anthropic OAuth account closed when anthropic-oauth is excluded", async () => {
+		const oauth = makeAccount({
+			id: "claude-oauth",
+			provider: "anthropic",
+			refresh_token: "rt",
+		});
+		const ctx = makeCtx({ accounts: [oauth] });
+		const meta = makeRequestMeta({
+			headers: new Headers({
+				"x-better-ccflare-account-id": oauth.id,
+				"x-better-ccflare-exclude-providers": "anthropic-oauth",
+			}),
+		});
+
+		await expect(
+			selectAccountsForRequest(meta, ctx, "claude-opus-5"),
+		).rejects.toMatchObject({
+			accountId: oauth.id,
+			reason: "provider_excluded",
+		});
+		expect(ctx.strategy.select).not.toHaveBeenCalled();
+	});
+
+	it("still honors a client pin to an account the exclusion does not cover", async () => {
+		const apiKeyAccount = makeAccount({
+			id: "claude-console",
+			provider: "anthropic",
+			refresh_token: null,
+			access_token: null,
+			api_key: "sk-test",
+		});
+		const codex = makeAccount({ id: "codex-account", provider: "codex" });
+		const ctx = makeCtx({ accounts: [apiKeyAccount, codex] });
+
+		for (const account of [apiKeyAccount, codex]) {
+			const meta = makeRequestMeta({
+				headers: new Headers({
+					"x-better-ccflare-account-id": account.id,
+					"x-better-ccflare-exclude-providers": "anthropic-oauth",
+				}),
+			});
+
+			const result = await selectAccountsForRequest(meta, ctx);
+			expect(result.map(({ id }) => id)).toEqual([account.id]);
+		}
+	});
+
 	it("rejects conflicting public and server-derived force routes", async () => {
 		const ctx = makeCtx({
 			accounts: [makeAccount({ id: "server" }), makeAccount({ id: "public" })],

@@ -2293,14 +2293,21 @@ describe("native quota wait execution", () => {
 		}
 	});
 
+	// A header pin and a profile pin both keep their authority over the implicit
+	// fallback policy, and a provider exclusion refuses both before transport.
+	// The header pin used to route around the exclusion; docs/configuration.md
+	// lists provider exclusion among the reasons a pinned request fails closed.
 	it.each([
 		"public-force",
+		"excluded-public-force",
 		"profile",
 		"excluded-profile",
 	])("preserves existing explicit route authority with a native assignment: %s", async (mode) => {
 		const { ModelRouteSessionRegistry, parseModelRouteProfiles } = await import(
 			"../model-route-profiles"
 		);
+		const publicForce = mode.endsWith("public-force");
+		const excluded = mode.startsWith("excluded-");
 		const { accounts, ctx, restore } = nativePool();
 		for (const account of accounts) putUsage(account, 20);
 		ctx.implicitFallbackPolicy = {
@@ -2308,7 +2315,7 @@ describe("native quota wait execution", () => {
 			allowedClasses: [],
 			deniedClasses: ["oauth-subscription"],
 		};
-		if (mode !== "public-force")
+		if (!publicForce)
 			ctx.modelRouteSessionRegistry = new ModelRouteSessionRegistry(
 				parseModelRouteProfiles(
 					JSON.stringify([
@@ -2329,23 +2336,19 @@ describe("native quota wait execution", () => {
 		globalThis.fetch = transport as typeof fetch;
 		try {
 			const request = makeProxyRequest(
-				mode === "public-force"
-					? "claude-fable-5"
-					: "claude-bccf-route-offline-native",
+				publicForce ? "claude-fable-5" : "claude-bccf-route-offline-native",
 				false,
 			);
-			if (mode === "public-force")
+			if (publicForce)
 				request.headers.set("x-better-ccflare-account-id", accounts[0].id);
-			if (mode !== "profile")
+			if (excluded)
 				request.headers.set(
 					"x-better-ccflare-exclude-providers",
 					"anthropic-oauth",
 				);
 			const response = await handleProxy(request, new URL(request.url), ctx);
-			expect(response.status).toBe(mode === "excluded-profile" ? 503 : 200);
-			expect(transport).toHaveBeenCalledTimes(
-				mode === "excluded-profile" ? 0 : 1,
-			);
+			expect(response.status).toBe(excluded ? 503 : 200);
+			expect(transport).toHaveBeenCalledTimes(excluded ? 0 : 1);
 		} finally {
 			restore();
 		}

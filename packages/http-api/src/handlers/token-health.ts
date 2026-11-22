@@ -3,7 +3,6 @@ import { jsonResponse } from "@better-ccflare/http-common";
 import {
 	checkAllAccountsHealth,
 	checkRefreshTokenHealth,
-	getAccountsNeedingReauth,
 } from "@better-ccflare/proxy";
 
 /**
@@ -22,12 +21,18 @@ export function createTokenHealthHandler(dbOps: DatabaseOperations) {
 }
 
 /**
- * Create a re-authentication needed handler
+ * Create a re-authentication needed handler.
+ *
+ * Answers with the health entries of the accounts that need re-authentication
+ * (id, name, provider, status, message), the same shape /api/token-health
+ * returns. Never the account rows: those carry every stored token and key.
  */
 export function createReauthNeededHandler(dbOps: DatabaseOperations) {
 	return async (): Promise<Response> => {
 		const accounts = await dbOps.getAllAccounts();
-		const needsReauth = getAccountsNeedingReauth(accounts);
+		const needsReauth = checkAllAccountsHealth(accounts).accounts.filter(
+			(health) => health.requiresReauth,
+		);
 
 		return jsonResponse({
 			success: true,
