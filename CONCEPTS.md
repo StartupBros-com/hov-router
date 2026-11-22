@@ -779,9 +779,12 @@ A lane runs one read at a time while the rest wait their turn, which is why the 
 lane exists: on a shared lane a page read waits behind whatever scan is running. A read that
 waits too long fails as busy instead of falling back to the main thread, because running it
 there would block traffic for as long as the lane is behind. When a lane's worker faults, the
-reads still waiting go to a fresh worker; only once the lane has given up for good do reads
-fall back to the main connection. Without an interactive lane, interactive reads use the bulk
-lane.
+reads still waiting go to a fresh worker. A lane whose workers keep faulting pauses: its reads
+fail for a cool-down, then it spawns again, and any answer from a worker earns the lane its
+full spawn budget back. A read that finds the database busy waits and retries on its lane.
+No read moves to the main connection while a lane is attached (#921); only a process with no
+lane at all (an in-memory database, or `BETTER_CCFLARE_DB_READER_WORKER=0`) reads there.
+Without an interactive lane, interactive reads use the bulk lane.
 
 ### Off-thread writer
 

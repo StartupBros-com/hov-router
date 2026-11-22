@@ -28,6 +28,13 @@ export interface OffThreadReaderOptions {
 	readTimeoutMs?: number;
 	readyTimeoutMs?: number;
 	maxSpawns?: number;
+	/**
+	 * How long a reader whose spawn budget is spent fails its reads before it
+	 * spawns again. Default 60 s. The writer does not use it.
+	 */
+	respawnCooldownMs?: number;
+	/** Clock for the respawn cool-down; tests inject one. */
+	now?: () => number;
 	/** Names this worker in log lines when a process runs more than one reader. */
 	label?: string;
 	/** The worker's OS thread name (see DB_WORKER_THREAD_NAMES); 15 bytes at most. */
@@ -36,7 +43,11 @@ export interface OffThreadReaderOptions {
 	info?: (message: string) => void;
 }
 
-/** The worker could not take the request; running it on the main thread is safe. */
+/**
+ * The worker could not take the request, or faulted while it held it. A read
+ * fails with it (#921); a write the worker never received is safe to run on
+ * the main connection, and the adapter does that.
+ */
 export class OffThreadReaderUnavailableError extends Error {
 	constructor(message: string) {
 		super(message);
@@ -119,6 +130,10 @@ export class OffThreadReader {
 	protected readonly readTimeoutMs: number;
 	protected readonly readyTimeoutMs: number;
 	protected readonly maxSpawns: number;
+	private readonly respawnCooldownMs: number;
+	private readonly now: () => number;
+	/** When the last spawn in the budget faulted; cleared by any worker result. */
+	private budgetSpentAt?: number;
 
 	constructor(protected readonly options: OffThreadReaderOptions) {
 		const log = new Logger("OffThreadSql");
@@ -127,13 +142,12 @@ export class OffThreadReader {
 		this.readTimeoutMs = options.readTimeoutMs ?? 120_000;
 		this.readyTimeoutMs = options.readyTimeoutMs ?? 10_000;
 		this.maxSpawns = options.maxSpawns ?? 3;
+		this.respawnCooldownMs = options.respawnCooldownMs ?? 60_000;
+		this.now = options.now ?? Date.now;
 	}
 
 	protected get label(): string {
 		return this.options.label ?? "reader";
-	}
-	protected get fallbackNoun(): string {
-		return "reads";
 	}
 
 	get readsServed(): number {
@@ -154,9 +168,9 @@ export class OffThreadReader {
 	): Promise<unknown> {
 		if (this.closed)
 			throw new OffThreadReaderUnavailableError("off-thread reader closed");
-		if (this.faults >= this.maxSpawns)
+		if (this.faults >= this.maxSpawns && !this.cooledDown())
 			throw new OffThreadReaderUnavailableError(
-				"off-thread reader spawn budget exhausted",
+				`off-thread ${this.label} spawn budget spent; it respawns after a ${this.respawnCooldownMs}ms cool-down`,
 			);
 		const lease = this.lease ?? this.spawn();
 		await lease.ready;
@@ -193,8 +207,7 @@ export class OffThreadReader {
 					params: request.params,
 				});
 			} catch (error) {
-				// Not cloneable, so the worker never saw it: fail only this read, and
-				// the caller's main-thread fallback runs it.
+				// Not cloneable, so the worker never saw it: fail only this read.
 				request.reject(
 					new OffThreadReaderUnavailableError(
 						`off-thread ${this.label} could not take the read: ${error instanceof Error ? error.message : String(error)}`,
@@ -232,8 +245,8 @@ export class OffThreadReader {
 
 	/**
 	 * After a fault, take the reads that were waiting to a fresh worker. Past
-	 * the spawn budget they reject as unavailable and fall back to the main
-	 * thread, as reads do once the reader has given up.
+	 * the spawn budget they fail as unavailable, as new reads do until the
+	 * cool-down ends. No read moves to the main thread (#921).
 	 */
 	private resume(): void {
 		if (this.closed || this.waiting.length === 0) return;
@@ -258,6 +271,21 @@ export class OffThreadReader {
 			() => this.pump(lease),
 			() => {},
 		);
+	}
+
+	/**
+	 * Once the cool-down after a spent budget has passed, allow one more spawn.
+	 * A result from it restores the whole budget; a fault spends it again.
+	 */
+	private cooledDown(): boolean {
+		if (
+			this.budgetSpentAt === undefined ||
+			this.now() - this.budgetSpentAt < this.respawnCooldownMs
+		)
+			return false;
+		this.budgetSpentAt = undefined;
+		this.faults = this.maxSpawns - 1;
+		return true;
 	}
 
 	private rejectWaiting(error: Error): void {
@@ -378,6 +406,10 @@ export class OffThreadReader {
 		read: PendingRequest,
 		message: Record<string, unknown>,
 	): void {
+		// Any result means the worker is alive, so it earns back its spawn budget,
+		// as the writer's does. A slow read that timed out is not a dead worker.
+		this.faults = 0;
+		this.budgetSpentAt = undefined;
 		this.pump(lease);
 		if (message.ok) {
 			this.served++;
@@ -385,14 +417,13 @@ export class OffThreadReader {
 			return;
 		}
 		const detail = message.error as ErrorDetail;
+		// SQLITE_BUSY keeps its code; the adapter waits and retries it on the reader.
 		read.reject(
-			detail.code === "SQLITE_BUSY"
-				? new OffThreadReaderUnavailableError(detail.message)
-				: rehydrate({
-						message: detail.message,
-						name: detail.name,
-						code: detail.code,
-					}),
+			rehydrate({
+				message: detail.message,
+				name: detail.name,
+				code: detail.code,
+			}),
 		);
 	}
 
@@ -420,12 +451,17 @@ export class OffThreadReader {
 			this.rejectPending(this.pendingFaultError(cause, unavailable));
 			this.destroy(lease);
 		}
-		if (this.faults === this.maxSpawns)
-			this.warn(
-				`falling back to main-thread ${this.fallbackNoun} for the rest of this process`,
-			);
+		if (this.faults === this.maxSpawns) this.budgetSpent();
 		if (lease) this.resume();
 		return unavailable;
+	}
+
+	/** The last spawn in the budget faulted. */
+	protected budgetSpent(): void {
+		this.budgetSpentAt = this.now();
+		this.warn(
+			`off-thread ${this.label} spawn budget spent; its reads fail for ${Math.round(this.respawnCooldownMs / 1000)}s, then it respawns (BETTER_CCFLARE_DB_READER_WORKER=0 reads on the main thread instead)`,
+		);
 	}
 
 	protected rejectPending(error: Error): void {
@@ -521,8 +557,11 @@ export class OffThreadWriter extends OffThreadReader {
 	protected override get label(): string {
 		return "writer";
 	}
-	protected override get fallbackNoun(): string {
-		return "writes";
+	/** Writes keep their fallback: the adapter runs them on the main connection. */
+	protected override budgetSpent(): void {
+		this.warn(
+			"falling back to main-thread writes for the rest of this process",
+		);
 	}
 
 	get writesServed(): number {
