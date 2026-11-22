@@ -2680,6 +2680,81 @@ describe("ModelRouteSessionRegistry.setProfiles (#971)", () => {
 		expect(child(registry)).toEqual({ kind: "native" });
 	});
 
+	it("keeps a binding when its lane is renamed with the old id kept as an alias", () => {
+		const [before] = lanes(lane({ exclusiveAccount: true }));
+		if (!before) throw new Error("Expected lane");
+		const registry = new ModelRouteSessionRegistry([before]);
+		root(registry, before.publicModelId);
+
+		const [renamed] = lanes(
+			lane({
+				id: "cvp-opus-max",
+				aliases: ["cvp-opus"],
+				exclusiveAccount: true,
+			}),
+		);
+		if (!renamed) throw new Error("Expected renamed lane");
+		registry.setProfiles([renamed]);
+
+		expect(registry.size).toBe(1);
+		expect(child(registry)).toEqual({
+			kind: "route",
+			source: "inherited",
+			profile: renamed,
+		});
+		// A child still naming the former picker id inherits the renamed lane.
+		expect(
+			resolveRequest(registry, {
+				callerIdentity: "api-key:one",
+				requestModel: "claude-bccf-route-cvp-opus",
+				sessionId: "session-a",
+				isSubagent: true,
+			}),
+		).toEqual({ kind: "route", source: "inherited", profile: renamed });
+		expect(
+			registry.isPublicModelIdForProfile("claude-bccf-route-cvp-opus", before),
+		).toBe(true);
+	});
+
+	it("binds the renamed lane when a root resolved before the rename commits after it", () => {
+		const [before] = lanes(lane());
+		if (!before) throw new Error("Expected lane");
+		const registry = new ModelRouteSessionRegistry([before]);
+		const input = {
+			callerIdentity: "api-key:one",
+			requestModel: before.publicModelId,
+			sessionId: "session-a",
+			isSubagent: false,
+		};
+		const resolution = resolveRequest(registry, input);
+		const [renamed] = lanes(
+			lane({ id: "cvp-opus-max", aliases: ["cvp-opus"] }),
+		);
+		if (!renamed) throw new Error("Expected renamed lane");
+		registry.setProfiles([renamed]);
+		registry.commitExplicit(input, resolution);
+
+		expect(child(registry)).toEqual({
+			kind: "route",
+			source: "inherited",
+			profile: renamed,
+		});
+	});
+
+	it("drops a binding when a rename does not keep the old id as an alias", () => {
+		const [before] = lanes(lane());
+		if (!before) throw new Error("Expected lane");
+		const registry = new ModelRouteSessionRegistry([before]);
+		root(registry, before.publicModelId);
+
+		const [renamed] = lanes(lane({ id: "cvp-opus-max" }));
+		if (!renamed) throw new Error("Expected renamed lane");
+		registry.setProfiles([renamed]);
+
+		expect(registry.size).toBe(0);
+		expect(child(registry)).toEqual({ kind: "native" });
+	});
+
 	it("restores a binding to the lane as it is now, and skips a deleted lane", () => {
 		const [opus, mythos] = lanes(
 			lane(),
