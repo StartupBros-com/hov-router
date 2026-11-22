@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { getModelDisplayName, LATEST_OPUS_MODEL } from "@better-ccflare/core";
 import type { Account } from "@better-ccflare/types";
 import {
 	buildModelRouteDiscoveryModels,
@@ -313,6 +314,25 @@ describe("buildModelRouteDiscoveryModels", () => {
 				deps({ previewPhysicalModel: (_account, logical) => logical }),
 			)[0]?.display_name,
 		).toBe("Claude Opus 5 · max-primary");
+	});
+
+	it("labels an exact route that names a family with the model it serves today", () => {
+		const claude = registry([
+			{
+				id: "cvp-opus",
+				displayName: "Opus · CVP primary",
+				accountId: "max-id",
+				logicalModel: "opus",
+				expectedProvider: "anthropic",
+			},
+		]);
+		expect(
+			buildModelRouteDiscoveryModels(
+				claude,
+				[account("max-id", "anthropic", { name: "max-primary" })],
+				deps({ previewPhysicalModel: (_account, logical) => logical }),
+			)[0]?.display_name,
+		).toBe(`${getModelDisplayName(LATEST_OPUS_MODEL)} · max-primary`);
 	});
 
 	it("keeps labels on one bounded line and never exposes route internals", () => {
