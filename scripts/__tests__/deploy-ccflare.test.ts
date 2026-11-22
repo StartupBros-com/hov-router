@@ -3707,6 +3707,182 @@ describe("deployment flow safety contracts", () => {
 		expect(source.match(/\bexit 75\b/g)).toHaveLength(1);
 	});
 
+	// The lock lines below are cut from the script itself and run on a
+	// temporary XDG_RUNTIME_DIR, so the race is real (two processes, one flock)
+	// without building or touching the host.
+	function deployLockLines(): string {
+		const source = readFileSync(deployScript, "utf8");
+		const start = source.indexOf(
+			'DEPLOY_LOCK="${XDG_RUNTIME_DIR:-/tmp}/better-ccflare-deploy-${UID}.lock"',
+		);
+		const warning = source.indexOf(
+			"could not record this deploy as the lock holder",
+			start,
+		);
+		expect(start).toBeGreaterThan(0);
+		expect(warning).toBeGreaterThan(start);
+		return source.slice(start, source.indexOf("\n", warning) + 1);
+	}
+
+	function deployLockScript(after: string): string {
+		return `set -Eeuo pipefail\nsource ${helperScriptForShell}\n${deployLockLines()}${after}\n`;
+	}
+
+	function lockEnv(runtimeDir: string, extra: Record<string, string>) {
+		return {
+			PATH: process.env.PATH ?? "/usr/bin:/bin",
+			HOME: process.env.HOME ?? runtimeDir,
+			XDG_RUNTIME_DIR: runtimeDir,
+			...extra,
+		};
+	}
+
+	test("a refused deploy prints the holder's record, and the next winner replaces it", async () => {
+		const dir = tempDir();
+		const ready = join(dir, "holder-ready");
+		const record = join(
+			dir,
+			`better-ccflare-deploy-${process.getuid?.() ?? 0}.lock.holder`,
+		);
+		const holder = Bun.spawn(
+			["bash", "-c", deployLockScript(`touch '${ready}'\nexec sleep 30`)],
+			{
+				cwd: repoRoot,
+				env: lockEnv(dir, {
+					HEAD_SHA: "a".repeat(40),
+					CCFLARE_DEPLOY_CALLER_REF: "feature-a at 1111111",
+					CCFLARE_DEPLOY_CALLER_DIR: "/work/feature-a",
+					CLAUDE_CODE_SESSION_ID: "session-a",
+				}),
+				stdout: "pipe",
+				stderr: "pipe",
+			},
+		);
+		try {
+			const deadline = Date.now() + 5_000;
+			while (!existsSync(ready)) {
+				if (Date.now() > deadline || holder.exitCode !== null) {
+					throw new Error("the holder never took the lock");
+				}
+				await Bun.sleep(20);
+			}
+
+			const loser = Bun.spawnSync(
+				["bash", "-c", deployLockScript("echo took-the-lock")],
+				{
+					cwd: repoRoot,
+					env: lockEnv(dir, {
+						HEAD_SHA: "b".repeat(40),
+						CCFLARE_DEPLOY_CALLER_REF: "feature-b at 2222222",
+						CCFLARE_DEPLOY_CALLER_DIR: "/work/feature-b",
+						CLAUDE_CODE_SESSION_ID: "session-b",
+					}),
+					stdout: "pipe",
+					stderr: "pipe",
+				},
+			);
+			const loserErr = capturedOutput(loser.stderr, "stderr");
+			expect(loser.exitCode).toBe(75);
+			expect(capturedOutput(loser.stdout, "stdout")).not.toContain(
+				"took-the-lock",
+			);
+			expect(loserErr).toContain(
+				"refusing to deploy: another better-ccflare deployment holds",
+			);
+			expect(loserErr).toContain(`pid=${holder.pid}`);
+			expect(loserErr).toContain(`sha=${"a".repeat(40)}`);
+			expect(loserErr).toContain("caller=feature-a at 1111111");
+			expect(loserErr).toContain("caller_dir=/work/feature-a");
+			expect(loserErr).toContain("session=session-a");
+			expect(loserErr).not.toContain("is not running");
+			// The loser leaves the holder's record alone.
+			expect(readFileSync(record, "utf8")).toContain("session=session-a");
+		} finally {
+			holder.kill("SIGKILL");
+			await holder.exited;
+		}
+
+		// The killed holder's record is left behind. The next deploy takes the
+		// lock and replaces it; one started from an older checkout's script
+		// passes no caller and has no session, and says so.
+		const next = Bun.spawnSync(
+			["bash", "-c", deployLockScript("echo took-the-lock")],
+			{
+				cwd: repoRoot,
+				env: lockEnv(dir, { HEAD_SHA: "c".repeat(40) }),
+				stdout: "pipe",
+				stderr: "pipe",
+			},
+		);
+		expect(next.exitCode).toBe(0);
+		expect(capturedOutput(next.stdout, "stdout")).toContain("took-the-lock");
+		const replaced = readFileSync(record, "utf8");
+		expect(replaced).toContain(`sha=${"c".repeat(40)}`);
+		expect(replaced).toContain("caller=unknown\n");
+		expect(replaced).toContain("caller_dir=unknown\n");
+		expect(replaced).toContain("session=-\n");
+		expect(replaced).not.toContain("session-a");
+	});
+
+	test("a holder record says when its pid is gone, and is one line per field", () => {
+		const dir = tempDir();
+		const record = join(dir, "lock.holder");
+		const writer = bash(
+			`source ${helperScriptForShell}; write_deploy_lock_holder '${record}' '${"d".repeat(40)}' $'two\\nlines at 3333333' '/work/x'; echo $$`,
+		);
+		expect(writer.exitCode).toBe(0);
+		const writerPid = capturedOutput(writer.stdout, "stdout").trim();
+		const lines = readFileSync(record, "utf8").trimEnd().split("\n");
+		expect(lines).toHaveLength(6);
+		expect(lines).toContain("caller=two lines at 3333333");
+		expect(lines).toContain(`pid=${writerPid}`);
+		expect(readdirSync(dir)).toEqual(["lock.holder"]);
+
+		const stale = bash(
+			`source ${helperScriptForShell}; describe_deploy_lock_holder '${record}'`,
+		);
+		expect(stale.exitCode).toBe(0);
+		expect(capturedOutput(stale.stdout, "stdout")).toContain(
+			`pid ${writerPid} is not running`,
+		);
+
+		const missing = bash(
+			`source ${helperScriptForShell}; describe_deploy_lock_holder '${join(dir, "absent")}'`,
+		);
+		expect(missing.exitCode).toBe(0);
+		expect(capturedOutput(missing.stdout, "stdout")).toContain(
+			"no holder record at",
+		);
+	});
+
+	test("the bootstrap passes the caller's checkout and branch to the snapshot it runs", () => {
+		const source = readFileSync(deployScript, "utf8");
+		const bootstrap = source.indexOf(
+			'if [[ -z "${CCFLARE_DEPLOY_BOOTSTRAP_SHA:-}" ]]; then',
+		);
+		const exported = source.indexOf(
+			'export CCFLARE_DEPLOY_CALLER_REF="$CALLER_REF" CCFLARE_DEPLOY_CALLER_DIR="$REPO_ROOT"',
+			bootstrap,
+		);
+		const launch = source.indexOf(
+			'env --default-signal=INT,QUIT bash "$BOOTSTRAP_ROOT/scripts/deploy-ccflare.sh"',
+			bootstrap,
+		);
+		const lockWrite = source.indexOf("write_deploy_lock_holder");
+		const lockRefusal = source.indexOf("exit 75");
+		const preflight = source.indexOf(
+			'validate_deploy_owned_systemd_pin "$PIN"',
+			lockRefusal,
+		);
+		expect(bootstrap).toBeGreaterThan(0);
+		expect(exported).toBeGreaterThan(bootstrap);
+		expect(launch).toBeGreaterThan(exported);
+		// The record is written only after the lock is won, before any build
+		// or host mutation.
+		expect(lockWrite).toBeGreaterThan(lockRefusal);
+		expect(preflight).toBeGreaterThan(lockWrite);
+	});
+
 	test("rejects unmanaged pin content before build or host/systemd mutation", () => {
 		const source = readFileSync(deployScript, "utf8");
 		const lockAcquire = source.indexOf("if ! flock -n 9; then");
