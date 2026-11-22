@@ -1386,3 +1386,31 @@ it("reports the loaded route profiles' source when the server provides it", asyn
 		fallbackReady: true,
 	});
 });
+
+it("reports the stored revision and an ignored variable for database lanes (#971)", async () => {
+	const db = { getAllAccounts: async () => [] } as never;
+	const config = {
+		getStrategy: () => "session",
+		getHealthDetailEnabled: () => false,
+	} as never;
+	const url = new URL("http://localhost/health");
+	const status = {
+		source: "database" as const,
+		status: "ok" as const,
+		count: 6,
+		sha256: "b".repeat(64),
+		revision: 3,
+		ignored: "file" as const,
+	};
+	const handler = createHealthHandler(db, config, {
+		getRouteProfilesStatus: () => status,
+	});
+	expect((await (await handler(url)).json()).routeProfiles).toEqual({
+		source: "database",
+		status: "ok",
+		count: 6,
+		sha256: "b".repeat(64),
+		revision: 3,
+		ignored: "file",
+	});
+});

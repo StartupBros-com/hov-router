@@ -112,8 +112,8 @@ import {
 	initCodexModelCatalogRefresh,
 	initModelCatalogRefresh,
 	initProxy,
-	loadModelRouteProfiles,
 	lowestTierCodexModel,
+	ModelRouteProfileController,
 	markAccountTokensFresh,
 	markBackendRetiring,
 	type ProxyContext,
@@ -128,7 +128,6 @@ import {
 	reservePendingRotationSlots,
 	restoreModelRouteBindings,
 	restorePendingRotations,
-	setActiveModelRouteProfiles,
 	startExternalCodexScheduler,
 	startGlobalTokenHealthChecks,
 	startIntegrityScheduler,
@@ -743,6 +742,8 @@ let cacheFlightCohortSealService: CohortSealService | null = null;
 let cacheKeepaliveScheduler: CacheKeepaliveScheduler | null = null;
 let memoryMonitorInterval: Timer | null = null;
 let eventLoopStallMonitor: EventLoopStallMonitor | null = null;
+let activeModelRouteProfileController: ModelRouteProfileController | null =
+	null;
 
 export const DEVICE_SETUP_RECOVERY_INTERVAL_MS = 30_000;
 
@@ -1579,11 +1580,6 @@ export default async function startServer(options?: {
 	const memoryMonitor = new MemoryMonitor({
 		readJscMemoryUsage: () => ({ heapSize: heapSize(), ...jscMemoryUsage() }),
 	});
-	// Route profiles are strict operator intent. Validate before database startup,
-	// background jobs, or the HTTP listener can make this process look healthy.
-	const { profiles: modelRouteProfiles, status: modelRouteProfilesStatus } =
-		loadModelRouteProfiles();
-	setActiveModelRouteProfiles(modelRouteProfiles);
 	// Override port if provided
 	if (port !== runtime.port) {
 		runtime.port = port;
@@ -1654,6 +1650,17 @@ export default async function startServer(options?: {
 	// Before anything can route: adopt the combo behaviour this install was
 	// already running, so upgrading is never a silent routing change.
 	await adoptLegacyRoutingSettings(config, dbOps);
+
+	// Route profiles (lanes) are strict operator intent: stored lanes this build
+	// cannot parse, or a broken profiles file with no last-good copy, stop
+	// startup here, before background jobs or the HTTP listener can make this
+	// process look healthy. The database holds them once stored and they are
+	// edited live through /api/route-profiles; a set FILE or JSON variable is
+	// imported on the first start, then ignored (#971).
+	const modelRouteProfileController = await ModelRouteProfileController.start({
+		store: dbOps,
+	});
+	activeModelRouteProfileController = modelRouteProfileController;
 
 	// One-time migration: promote pre-existing DBs from auto_vacuum=NONE to
 	// INCREMENTAL. Fresh DBs created since ensureSchema() started issuing
@@ -2068,8 +2075,7 @@ export default async function startServer(options?: {
 			getStrategy: () => currentStrategy,
 			internalProbeSecret,
 			localControlSecret,
-			modelRouteProfiles,
-			modelRouteProfilesStatus,
+			modelRouteProfileController,
 		},
 		{ deviceSetupCoordinator },
 	);
@@ -2189,12 +2195,16 @@ export default async function startServer(options?: {
 	// Create runtime config
 	const runtimeConfig: RuntimeConfig = buildServerRuntimeConfig(config, port);
 	const modelRouteSessionRegistry = createModelRouteSessionRegistry(
-		modelRouteProfiles,
+		modelRouteProfileController.getProfiles(),
 		runtimeConfig.sessionDurationMs,
 	);
+	// Every later edit, here or through another backend, swaps the registry's lanes.
+	modelRouteProfileController.attachRegistry(modelRouteSessionRegistry);
+	modelRouteProfileController.startRevisionWatch();
+	const modelRouteProfilesStatus = modelRouteProfileController.getStatus();
 	if (modelRouteProfilesStatus.source !== "none") {
 		log.info(
-			`Model route profiles configured: ${modelRouteProfiles.length} (source ${modelRouteProfilesStatus.source}, status ${modelRouteProfilesStatus.status}${modelRouteProfilesStatus.sha256 ? `, sha256 ${modelRouteProfilesStatus.sha256}` : ""})`,
+			`Model route profiles configured: ${modelRouteProfilesStatus.count} (source ${modelRouteProfilesStatus.source}, status ${modelRouteProfilesStatus.status}${modelRouteProfilesStatus.revision !== undefined ? `, revision ${modelRouteProfilesStatus.revision}` : ""}${modelRouteProfilesStatus.sha256 ? `, sha256 ${modelRouteProfilesStatus.sha256}` : ""})`,
 		);
 	}
 
@@ -3589,6 +3599,8 @@ function stopPeriodicWork(): Promise<void> {
 		}
 		eventLoopStallMonitor?.stop();
 		eventLoopStallMonitor = null;
+		activeModelRouteProfileController?.stopRevisionWatch();
+		activeModelRouteProfileController = null;
 
 		// Stop token health monitoring
 		stopGlobalTokenHealthChecks();

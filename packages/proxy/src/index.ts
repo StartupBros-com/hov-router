@@ -199,6 +199,16 @@ export {
 	restoreModelRouteBindings,
 } from "./model-route-binding-restore";
 export {
+	MAX_STORED_ROUTE_PROFILES_BYTES,
+	ModelRouteProfileController,
+	type ModelRouteProfileStore,
+	ModelRouteProfilesConflictError,
+	ModelRouteProfilesInvalidError,
+	ModelRouteProfilesUnavailableError,
+	type StartModelRouteProfilesOptions,
+	type StoredModelRouteProfiles,
+} from "./model-route-profile-controller";
+export {
 	apiKeyRouteCallerIdentity,
 	MODEL_ROUTE_PROFILE_MODEL_PREFIX,
 	MODEL_ROUTE_PROFILES_ENV,

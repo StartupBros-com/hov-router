@@ -36,7 +36,8 @@ const MAX_LAST_GOOD_FILE_BYTES = 2 * MAX_PROFILES_FILE_BYTES;
 const LAST_GOOD_FILE_NAME = "model-route-profiles.last-good.json";
 
 export interface ModelRouteProfilesStatus {
-	source: "none" | "env" | "file";
+	/** `database`: the stored lanes, edited live through the API (#971). */
+	source: "none" | "env" | "file" | "database";
 	/** `last_good`: the file could not be used, so the last copy that loaded is in force. */
 	status: "ok" | "last_good";
 	count: number;
@@ -45,6 +46,10 @@ export interface ModelRouteProfilesStatus {
 	sha256?: string;
 	/** File source only: a last-good copy of the profiles in force is on disk. */
 	fallbackReady?: boolean;
+	/** Database source only: the stored revision in force. */
+	revision?: number;
+	/** Database source only: this variable is still set but no longer read. */
+	ignored?: "env" | "file";
 	/** Why the file was not used; present only with `last_good`. Logged, not served. */
 	error?: string;
 }
@@ -52,6 +57,8 @@ export interface ModelRouteProfilesStatus {
 export interface LoadedModelRouteProfiles {
 	profiles: readonly ModelRouteProfile[];
 	status: ModelRouteProfilesStatus;
+	/** The text the profiles in force were parsed from; absent when none is set. */
+	raw?: string;
 }
 
 export interface LoadModelRouteProfilesOptions {
@@ -97,6 +104,7 @@ export function loadModelRouteProfiles(
 				status: "ok",
 				count: profiles.length,
 			},
+			...(rawSet ? { raw } : {}),
 		};
 	}
 	if (rawSet) {
@@ -128,6 +136,7 @@ export function loadModelRouteProfiles(
 				sha256,
 				fallbackReady,
 			},
+			raw: text,
 		};
 	} catch (error) {
 		failure = error instanceof Error ? error : new Error(String(error));
@@ -151,6 +160,7 @@ export function loadModelRouteProfiles(
 			fallbackReady: true,
 			error: failure.message,
 		},
+		raw: fallback.raw,
 	};
 }
 
@@ -264,9 +274,12 @@ function parseFileProfiles(
 	}
 }
 
-function sha256Hex(text: string): string {
+/** sha256 of profile text as /health reports it: the file's bytes, or the stored text. */
+export function modelRouteProfilesSha256(text: string): string {
 	return createHash("sha256").update(text).digest("hex");
 }
+
+const sha256Hex = modelRouteProfilesSha256;
 
 /** The copy lives in the router's own config directory; accept only a private file it owns. */
 function readLastGoodRecord(lastGoodPath: string): LastGoodRecord | undefined {
@@ -310,13 +323,16 @@ function readLastGoodRecord(lastGoodPath: string): LastGoodRecord | undefined {
 function readLastGood(
 	lastGoodPath: string,
 	path: string,
-): { profiles: readonly ModelRouteProfile[]; sha256: string } | undefined {
+):
+	| { profiles: readonly ModelRouteProfile[]; sha256: string; raw: string }
+	| undefined {
 	const record = readLastGoodRecord(lastGoodPath);
 	if (!record || record.path !== path) return undefined;
 	try {
 		return {
 			profiles: parseModelRouteProfiles(record.raw),
 			sha256: record.sha256,
+			raw: record.raw,
 		};
 	} catch (error) {
 		log.error(
@@ -369,7 +385,7 @@ function saveLastGood(
 
 let activeProfiles: readonly ModelRouteProfile[] | undefined;
 
-/** Record the profiles this process loaded at start, for readers outside the request path. */
+/** Record the profiles in force, for readers outside the request path. Live edits update it (#971). */
 export function setActiveModelRouteProfiles(
 	profiles: readonly ModelRouteProfile[] | undefined,
 ): void {
@@ -377,7 +393,7 @@ export function setActiveModelRouteProfiles(
 }
 
 /**
- * The profiles this process loaded at start. Outside the server (tests, tools)
+ * The profiles in force in this process. Outside the server (tests, tools)
  * nothing is registered, and this parses the JSON variable as before.
  */
 export function activeModelRouteProfiles(): readonly ModelRouteProfile[] {

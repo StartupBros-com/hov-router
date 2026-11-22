@@ -102,6 +102,11 @@ import {
 	RequestRepository,
 } from "./repositories/request.repository";
 import {
+	RouteProfileConfigRepository,
+	type SaveRouteProfileConfigInput,
+	type StoredRouteProfileConfig,
+} from "./repositories/route-profile-config.repository";
+import {
 	type RoutingAttemptData,
 	RoutingAttemptRepository,
 	type RoutingAttemptSummaryWindow,
@@ -475,6 +480,7 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 	private agentPreferences: AgentPreferenceRepository;
 	private apiKeys: ApiKeyRepository;
 	private combo: ComboRepository;
+	private routeProfileConfig: RouteProfileConfigRepository;
 	private deviceSetupJobs: DeviceSetupJobRepository;
 	private serverToolReplayIssuance: ServerToolReplayIssuanceRepository;
 	private codexResetCredits: CodexResetCreditsRepository;
@@ -638,6 +644,7 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 		this.agentPreferences = new AgentPreferenceRepository(this.adapter);
 		this.apiKeys = new ApiKeyRepository(this.adapter);
 		this.combo = new ComboRepository(this.adapter);
+		this.routeProfileConfig = new RouteProfileConfigRepository(this.adapter);
 		this.deviceSetupJobs = new DeviceSetupJobRepository(this.adapter);
 		this.serverToolReplayIssuance = new ServerToolReplayIssuanceRepository(
 			this.adapter,
@@ -3009,5 +3016,22 @@ OAuth tokens will need to be re-authenticated.
 		family: ComboFamily,
 	): Promise<ComboWithSlots | null> {
 		return this.combo.getActiveComboForFamily(family);
+	}
+
+	// Route lanes stored in the database (#971); the proxy's
+	// ModelRouteProfileController uses these as its store.
+	async getModelRouteProfileConfig(): Promise<StoredRouteProfileConfig | null> {
+		return this.routeProfileConfig.read();
+	}
+
+	async getModelRouteProfileRevision(): Promise<number | null> {
+		return this.routeProfileConfig.readRevision();
+	}
+
+	/** Returns the new revision, or null when the stored revision moved. */
+	async saveModelRouteProfileConfig(
+		input: SaveRouteProfileConfigInput,
+	): Promise<number | null> {
+		return this.routeProfileConfig.save(input);
 	}
 }

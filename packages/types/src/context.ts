@@ -6,6 +6,7 @@ import type {
 import type {
 	CircuitBreaker,
 	ModelRouteProfile,
+	ModelRouteProfileController,
 	ModelRouteProfilesStatus,
 } from "@better-ccflare/proxy";
 import type { Account } from "./account";
@@ -207,10 +208,15 @@ export interface APIContext {
 	 */
 	localControlSecret?: string;
 	/**
-	 * The route profiles the server loaded and validated at startup, from
-	 * CCFLARE_MODEL_ROUTE_PROFILES_FILE or CCFLARE_MODEL_ROUTE_PROFILES_JSON. Read-only here (the Codex
-	 * migration preview reports profiles that still pin a physical model);
-	 * absent in narrower contexts that do not configure profiles.
+	 * The route lanes in force, edited live through /api/route-profiles (#971).
+	 * The server sets it; when present, readers take profiles and status from
+	 * it rather than the startup snapshots below.
+	 */
+	modelRouteProfileController?: ModelRouteProfileController;
+	/**
+	 * A fixed set of route profiles, for contexts without a controller. Read-only
+	 * here (the Codex migration preview reports profiles that still pin a
+	 * physical model); absent in narrower contexts that do not configure profiles.
 	 */
 	modelRouteProfiles?: readonly ModelRouteProfile[];
 	/** Where those profiles came from, for /health. */

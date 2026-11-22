@@ -11,7 +11,9 @@ A named routing choice, offered to the client as a pickable model, that sends a 
 session tree to a chosen account or pool instead of ordinary routing. A pinned profile names
 one account; a capability profile admits every account that can serve it (see Root-capable
 pool). A profile names a logical model and may also assert the expected provider and physical
-model.
+model. Operators also call profiles lanes. The whole set is one revisioned document in the
+database, replaced live through `/api/route-profiles`; a bound session follows its lane's new
+definition on its next request.
 
 Those assertions are checked when an account is selected, against the account's own configured
 model mapping. They are not checked against a default the provider fills in later, when it
