@@ -103,6 +103,45 @@ remove_verified_source_snapshot() {
 	git -C "$repository" worktree remove --force "$registered_path"
 }
 
+# The deploy lock is an flock on a file that every deploy truncates as it opens
+# it, so a losing deploy cannot read anything stored there. The deploy that wins
+# the lock records itself in a file beside it instead: its pid, start time, the
+# SHA it ships and the checkout it was started from. The record is read only
+# when flock refuses, so one a crashed deploy left behind does no harm, and the
+# next deploy to take the lock replaces it.
+write_deploy_lock_holder() {
+	if [[ "$#" -ne 4 ]]; then
+		echo "write_deploy_lock_holder requires: record-path sha caller-ref caller-dir" >&2
+		return 2
+	fi
+	local record="$1" sha="$2" caller_ref="${3//$'\n'/ }" caller_dir="${4//$'\n'/ }" started tmp
+	started="$(date -u +%Y-%m-%dT%H:%M:%SZ)" || return 1
+	tmp="$(mktemp "${record}.XXXXXX")" || return 1
+	if ! printf 'pid=%s\nstarted=%s\nsha=%s\ncaller=%s\ncaller_dir=%s\nsession=%s\n' \
+		"$$" "$started" "$sha" "$caller_ref" "$caller_dir" "${CLAUDE_CODE_SESSION_ID:--}" >"$tmp" \
+		|| ! mv -f "$tmp" "$record"; then
+		rm -f "$tmp"
+		return 1
+	fi
+}
+
+describe_deploy_lock_holder() {
+	if [[ "$#" -ne 1 ]]; then
+		echo "describe_deploy_lock_holder requires: record-path" >&2
+		return 2
+	fi
+	local record="$1" pid
+	if [[ ! -s "$record" ]]; then
+		echo "  no holder record at $record (the holder may not have written it yet)"
+		return 0
+	fi
+	sed 's/^/  /' "$record"
+	pid="$(sed -n 's/^pid=//p' "$record" | head -n 1)"
+	if [[ "$pid" =~ ^[0-9]+$ ]] && ! kill -0 "$pid" 2>/dev/null; then
+		echo "  pid $pid is not running, so this record is from an earlier deploy and the holder has not written its own yet"
+	fi
+}
+
 validate_deploy_owned_systemd_pin() {
 	if [[ "$#" -ne 1 || ! -f "$1" ]]; then
 		echo "validate_deploy_owned_systemd_pin requires an existing systemd drop-in" >&2

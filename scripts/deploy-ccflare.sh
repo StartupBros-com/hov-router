@@ -298,8 +298,8 @@ if [[ -z "${CCFLARE_DEPLOY_BOOTSTRAP_SHA:-}" ]]; then
 	echo "==> Fetching refs/heads/main from origin…"
 	git fetch origin refs/heads/main:refs/remotes/origin/main --quiet
 	BOOTSTRAP_SHA="$(git rev-parse refs/remotes/origin/main)"
-	CALLER_REF="$(git symbolic-ref -q --short HEAD 2>/dev/null || echo "detached HEAD")"
-	echo "==> Target: refs/remotes/origin/main at ${BOOTSTRAP_SHA:0:12}. This checkout ($CALLER_REF at $(git rev-parse --short HEAD)) and its uncommitted files are not what ships."
+	CALLER_REF="$(git symbolic-ref -q --short HEAD 2>/dev/null || echo "detached HEAD") at $(git rev-parse --short HEAD)"
+	echo "==> Target: refs/remotes/origin/main at ${BOOTSTRAP_SHA:0:12}. This checkout ($CALLER_REF) and its uncommitted files are not what ships."
 	BOOTSTRAP_PARENT="$(mktemp -d "${TMPDIR:-/tmp}/better-ccflare-deploy-bootstrap.XXXXXX")"
 	BOOTSTRAP_ROOT="$(cd "$BOOTSTRAP_PARENT" && pwd -P)/source"
 	create_verified_source_snapshot "$REPO_ROOT" "$BOOTSTRAP_ROOT" "$BOOTSTRAP_SHA"
@@ -309,7 +309,10 @@ if [[ -z "${CCFLARE_DEPLOY_BOOTSTRAP_SHA:-}" ]]; then
 	# waits for that cleanup, exits with the deploy's status, and its EXIT trap
 	# then removes the snapshot. The deploy runs asynchronously so these traps
 	# can fire while it runs: env restores the SIGINT that bash ignores in an
-	# asynchronous child, and <&0 keeps the caller's stdin.
+	# asynchronous child, and <&0 keeps the caller's stdin. The snapshot runs
+	# detached in a temporary directory, so the checkout and branch this was
+	# started from travel with it for the deploy lock's holder record.
+	export CCFLARE_DEPLOY_CALLER_REF="$CALLER_REF" CCFLARE_DEPLOY_CALLER_DIR="$REPO_ROOT"
 	BOOTSTRAP_PID=""
 	BOOTSTRAP_SIGNALLED=0
 	forward_to_deploy() {
@@ -448,12 +451,20 @@ fi
 
 # The check path exits above without opening a lock or invoking sudo. A full
 # deploy takes one non-blocking host lock before build or deployment mutation.
+# The winner records who it is beside the lock, and a refusal prints that
+# record, so a second deploy learns who holds the lock without asking around.
+# A deploy started from an older checkout's script passes no caller.
 DEPLOY_LOCK="${XDG_RUNTIME_DIR:-/tmp}/better-ccflare-deploy-${UID}.lock"
+DEPLOY_LOCK_HOLDER="${DEPLOY_LOCK}.holder"
 exec 9>"$DEPLOY_LOCK"
 if ! flock -n 9; then
 	echo "refusing to deploy: another better-ccflare deployment holds $DEPLOY_LOCK" >&2
+	describe_deploy_lock_holder "$DEPLOY_LOCK_HOLDER" >&2 || true
 	exit 75
 fi
+write_deploy_lock_holder "$DEPLOY_LOCK_HOLDER" "$HEAD_SHA" \
+	"${CCFLARE_DEPLOY_CALLER_REF:-unknown}" "${CCFLARE_DEPLOY_CALLER_DIR:-unknown}" \
+	|| echo "WARNING: could not record this deploy as the lock holder in $DEPLOY_LOCK_HOLDER" >&2
 
 # Validate ownership before an expensive build or any host artifact/systemd
 # mutation. render_systemd_pin repeats this validation against the exact backup
