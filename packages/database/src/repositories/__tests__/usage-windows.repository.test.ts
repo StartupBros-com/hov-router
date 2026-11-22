@@ -554,15 +554,16 @@ describe("UsageWindowsRepository generation fences", () => {
 					modelBreakdown: null,
 					unpricedTokens: 0,
 					projectionVersion: "v1",
-					pointsUsed: null,
-					counterResets: null,
+					pointsUsed: 42,
+					counterResets: 2,
 				},
 				generationA,
 			),
 		).toBe(false);
-		expect(
-			(await repo.getOpenWindow(accountId, "seven_day"))?.closedAt,
-		).toBeNull();
+		const afterStaleClose = await repo.getOpenWindow(accountId, "seven_day");
+		expect(afterStaleClose?.closedAt).toBeNull();
+		expect(afterStaleClose?.pointsUsed).toBeNull();
+		expect(afterStaleClose?.counterResets).toBeNull();
 
 		await repo.recordUtilization(existing.id, 90, 2_000, generationB);
 		expect(
@@ -582,12 +583,17 @@ describe("UsageWindowsRepository generation fences", () => {
 					modelBreakdown: null,
 					unpricedTokens: 0,
 					projectionVersion: "v1",
-					pointsUsed: null,
-					counterResets: null,
+					pointsUsed: 90,
+					counterResets: 0,
 				},
 				generationB,
 			),
 		).toBe(true);
+		const closedByReplacement = (await repo.listWindows({ accountId })).find(
+			(window) => window.id === existing.id,
+		);
+		expect(closedByReplacement?.pointsUsed).toBe(90);
+		expect(closedByReplacement?.counterResets).toBe(0);
 		const replacementOpen = await repo.openWindow(
 			{
 				accountId,

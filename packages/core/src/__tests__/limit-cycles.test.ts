@@ -71,6 +71,21 @@ describe("measureLimitCycles", () => {
 		});
 	});
 
+	it("counts repeated identical readings once", () => {
+		expect(measureLimitCycles([50, 50, 50, 50, 50])).toEqual({
+			pointsUsed: 50,
+			counterResets: 0,
+		});
+		expect(measureLimitCycles([0, 0, 0, 0])).toEqual({
+			pointsUsed: 0,
+			counterResets: 0,
+		});
+		expect(measureLimitCycles([100, 100, 100, 0, 0, 0, 0])).toEqual({
+			pointsUsed: 100,
+			counterResets: 1,
+		});
+	});
+
 	it("ignores a fall that one of the next three readings contradicts", () => {
 		expect(measureLimitCycles([10, 50, 80, 5, 8, 78, 90])).toEqual({
 			pointsUsed: 90,
