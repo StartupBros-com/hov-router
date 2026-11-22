@@ -16,7 +16,10 @@ import type {
 	ModelRouteProfile,
 	ModelRouteSessionRegistry,
 } from "./model-route-profiles";
-import { describeModelRouteProfileFlow } from "./model-route-profiles";
+import {
+	clipPickerText,
+	describeModelRouteProfileFlow,
+} from "./model-route-profiles";
 
 const MAX_DISPLAY_NAME_LENGTH = 120;
 
@@ -61,9 +64,7 @@ function oneLine(value: string): string {
 }
 
 function clip(value: string): string {
-	return value.length <= MAX_DISPLAY_NAME_LENGTH
-		? value
-		: `${value.slice(0, MAX_DISPLAY_NAME_LENGTH - 1).trimEnd()}…`;
+	return clipPickerText(value, MAX_DISPLAY_NAME_LENGTH);
 }
 
 /**
@@ -141,18 +142,30 @@ function servedModelLabel(
 	return oneLine(vendorName || getModelDisplayName(model)) || null;
 }
 
+interface DiscoveryRow {
+	readonly id: string;
+	/** The served model(s), or null while unknown. */
+	readonly served: string | null;
+	readonly where: string;
+	readonly fallback: string;
+	readonly description: string;
+}
+
 /**
- * Picker rows named after what each route serves right now, so a catalog
+ * Picker rows titled with what each route serves right now, so a catalog
  * reorder, a new model generation or a remapped account relabels the picker
  * with no config edit. Routes no account can serve are left out. The operator
  * `displayName` is only the fallback while the served model is unknown.
+ *
+ * The title is the model alone; where the lane runs leads the description.
+ * Rows whose titles would match get ` · <where>` back so they stay distinct.
  */
 export function buildModelRouteDiscoveryModels(
 	registry: ModelRouteSessionRegistry,
 	accounts: readonly Account[],
 	deps: ModelRouteDiscoveryDeps = DEFAULT_DEPS,
 ): ModelRouteDiscoveryModel[] {
-	const models: ModelRouteDiscoveryModel[] = [];
+	const rows: DiscoveryRow[] = [];
 	for (const profile of registry.getProfiles()) {
 		const pooled = profile.selection === "capability";
 		const members = accounts.filter(
@@ -170,20 +183,36 @@ export function buildModelRouteDiscoveryModels(
 					.filter((label): label is string => label !== null),
 			),
 		].sort();
-		const where = pooled
-			? `${profile.expectedProvider ?? "account"} pool`
-			: oneLine(members[0]?.name ?? "");
+		// A blank name reads as "one account", like the static rows.
+		const accountName = pooled ? null : oneLine(members[0]?.name ?? "") || null;
 		const context = profile.clientContextWindowHint === "1m" ? " (1M)" : "";
-		models.push({
+		rows.push({
 			id: profile.discoveryModelId,
-			display_name:
-				served.length > 0
-					? clip(`${served.join(" / ")}${context} · ${where}`)
-					: profile.displayName,
-			description: describeModelRouteProfileFlow(profile),
+			served:
+				served.length > 0 ? clip(`${served.join(" / ")}${context}`) : null,
+			where: pooled
+				? `${profile.expectedProvider ?? "account"} pool`
+				: (accountName ?? "one account"),
+			fallback: profile.displayName,
+			description: describeModelRouteProfileFlow(profile, accountName),
 		});
 	}
-	return models;
+
+	const titleCounts = new Map<string, number>();
+	for (const row of rows) {
+		const title = row.served ?? row.fallback;
+		titleCounts.set(title, (titleCounts.get(title) ?? 0) + 1);
+	}
+	return rows.map((row) => ({
+		id: row.id,
+		display_name:
+			row.served === null
+				? row.fallback
+				: (titleCounts.get(row.served) ?? 0) > 1
+					? clip(`${row.served} · ${row.where}`)
+					: row.served,
+		description: row.description,
+	}));
 }
 
 /**

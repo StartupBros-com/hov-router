@@ -126,25 +126,65 @@ export function isBoundedModelRouteProfile(
 	);
 }
 
+/** Claude Code cuts a picker description at 100 characters. */
+const MAX_PICKER_DESCRIPTION_LENGTH = 100;
+
 /**
- * One-line picker description of a profile's routing flow, generated from its
- * kind only: never the operator description, account id, models or the
- * catalog-role policy. Display names, which do name the served model, come
- * from model-route-discovery.ts.
+ * Cut picker text to `max` UTF-16 units, ending in "…", without leaving half
+ * of a surrogate pair (an emoji in an account name) before the ellipsis.
+ */
+export function clipPickerText(value: string, max: number): string {
+	if (value.length <= max) return value;
+	let head = value.slice(0, max - 1);
+	if (/[\uD800-\uDBFF]$/.test(head)) head = head.slice(0, -1);
+	return `${head.trimEnd()}…`;
+}
+
+/**
+ * One-line picker description: where the lane runs, then its routing flow,
+ * joined by " · ". Claude Code keeps only the first " · " segment on the row
+ * in a narrow terminal, so placement leads. The title, generated in
+ * model-route-discovery.ts, names only the served model.
+ *
+ * Generated from the profile's kind plus, in live discovery, the exact
+ * account's name, which the title carried before; never the operator
+ * description, an account id, a model or the catalog-role policy. The static
+ * fallback rows pass no name and get a generic placement.
  * Pool order is the global load-balancer strategy's, not account priority.
  */
 export function describeModelRouteProfileFlow(
 	profile: ModelRouteProfile,
+	accountName: string | null = null,
+): string {
+	return clipPickerText(
+		`${describePlacement(profile, accountName)} · ${describeFlow(profile)}`,
+		MAX_PICKER_DESCRIPTION_LENGTH,
+	);
+}
+
+function describePlacement(
+	profile: ModelRouteProfile,
+	accountName: string | null,
 ): string {
 	if (profile.selection === "capability")
-		return "This model on any pool account. Fails instead of switching. Subagents try the pool first.";
+		return `${profile.expectedProvider ?? "account"} pool`;
+	const account = accountName?.replace(/\s+/g, " ").trim() || "one account";
+	// Search helpers may run elsewhere, so this kind never claims "only".
+	return profile.webSearchHelper
+		? `inference on ${account}`
+		: `${account} only`;
+}
+
+function describeFlow(profile: ModelRouteProfile): string {
+	if (profile.selection === "capability")
+		return "subagents try the pool first · no fallback";
 	if (isBoundedModelRouteProfile(profile))
-		return "One account only, size-capped requests. Fails instead of switching. Subagents use it too.";
+		return "size-capped · subagents too · no fallback";
 	if (profile.webSearchHelper)
 		return "accounts" in profile.webSearchHelper
-			? "Inference stays on one account. Subagents use it too. Search helpers may use subscription accounts."
-			: "Inference stays on one account. Subagents use it too. Search helpers may use approved accounts.";
-	return "One account only. Fails instead of switching. Subagents use it too.";
+			? "subagents too · search may use subscription accounts"
+			: "subagents too · search may use approved accounts";
+	return "subagents too · no fallback";
 }
 
 function configError(message: string): Error {

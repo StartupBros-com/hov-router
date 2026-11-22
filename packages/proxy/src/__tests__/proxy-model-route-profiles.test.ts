@@ -980,9 +980,8 @@ describe("Claude Code gateway model route profiles", () => {
 			data: [
 				{
 					id: PROFILE_MODEL_1M,
-					display_name: "gpt-5.6-sol (1M) · pro-primary",
-					description:
-						"One account only. Fails instead of switching. Subagents use it too.",
+					display_name: "gpt-5.6-sol (1M)",
+					description: "pro-primary only · subagents too · no fallback",
 				},
 			],
 			has_more: false,
@@ -4167,7 +4166,10 @@ describe("catalog-role Codex route profiles", () => {
 	});
 
 	it("discovers cold role pickers by their operator labels without leaking route metadata", async () => {
-		const harness = makeRoleContext([makeRoleAccount()]);
+		// Production account names are never their ids; the id stays a checked secret.
+		const account = makeRoleAccount();
+		account.name = "codex-role";
+		const harness = makeRoleContext([account]);
 		const { fetchMock } = installCodexRoleUpstream();
 		const request = new Request("https://proxy.local/v1/models");
 
@@ -4185,14 +4187,13 @@ describe("catalog-role Codex route profiles", () => {
 				{
 					id: ROLE_PICKER,
 					display_name: "Codex · opus",
-					description:
-						"One account only. Fails instead of switching. Subagents use it too.",
+					description: "codex-role only · subagents too · no fallback",
 				},
 				{
 					id: ROLE_POOL_PICKER,
 					display_name: "Codex pool · opus",
 					description:
-						"This model on any pool account. Fails instead of switching. Subagents try the pool first.",
+						"codex pool · subagents try the pool first · no fallback",
 				},
 			],
 			has_more: false,
@@ -4437,7 +4438,7 @@ describe("catalog-role Codex route profiles", () => {
 			};
 
 			await publish(upstream, account, harness.ctx, SOL_FIRST);
-			expect(await labels()).toEqual(["gpt-6.1-sol · codex pool"]);
+			expect(await labels()).toEqual(["gpt-6.1-sol"]);
 
 			await publish(upstream, account, harness.ctx, [
 				"gpt-6-astra",
