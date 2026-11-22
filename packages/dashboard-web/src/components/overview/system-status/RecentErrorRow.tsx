@@ -5,18 +5,13 @@ import { AlertTriangle, X, XCircle } from "lucide-react";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { getErrorMeta } from "./errorCodeMeta";
+import { recentErrorAccountLabel } from "./recentErrorAccount";
 
 interface RecentErrorRowProps {
 	error: RecentErrorGroup;
 	otherAccountsAvailable: boolean;
 	onClick: () => void;
 	onDismiss: () => void;
-}
-
-function accountLabel(error: RecentErrorGroup): string {
-	if (error.accountName) return error.accountName;
-	if (error.accountId === null) return "Unauthenticated";
-	return "Deleted account";
 }
 
 export function RecentErrorRow({
@@ -56,7 +51,7 @@ export function RecentErrorRow({
 			<div className="pointer-events-none relative flex-1 min-w-0">
 				<p className="text-sm font-medium truncate">{meta.title}</p>
 				<p className="text-xs text-foreground/70 truncate">
-					{accountLabel(error)}
+					{recentErrorAccountLabel(error)}
 					{error.model ? ` · ${error.model}` : ""}
 					{error.statusCode != null ? ` · ${error.statusCode}` : ""}
 				</p>

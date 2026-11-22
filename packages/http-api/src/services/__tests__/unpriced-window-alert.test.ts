@@ -75,6 +75,8 @@ function closedWindow(overrides: Partial<UsageWindow> = {}): UsageWindow {
 		modelBreakdown: null,
 		unpricedTokens: 0,
 		projectionVersion: VALUE_PRICING_VERSION,
+		pointsUsed: null,
+		counterResets: null,
 		...overrides,
 	};
 }

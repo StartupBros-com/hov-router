@@ -28,6 +28,7 @@ import {
 	LATEST_MODEL_BY_FAMILY,
 	LIST_PRICE_ERAS,
 	type OrgPermissionDeniedEvt,
+	type OrgUsageCheckEvt,
 	onPricingCatalogLoaded,
 	orgPermissionDeniedEvents,
 	type PricingCatalog,
@@ -1779,6 +1780,16 @@ function cacheHealthAlertEvent(
 	};
 }
 
+/** One open org refusal episode (#877, #941). */
+interface OrgRefusalEpisode {
+	accountName: string;
+	since: number;
+	lastRefusedAt: number;
+	/** Set once a usage check is refused in this episode; only then may an
+	 * accepted usage check close it. */
+	usageRefused: boolean;
+}
+
 export class AlertService {
 	private readonly db: BunSqlAdapter;
 	private readonly config: Config;
@@ -1786,18 +1797,19 @@ export class AlertService {
 	private readonly authFailureListener: (event: AuthFailureEvt) => void;
 	private readonly codexCatalogListener: (event: CodexCatalogEvt) => void;
 	private readonly orgRefusalListener: (event: OrgPermissionDeniedEvt) => void;
+	private readonly orgUsageCheckListener: (event: OrgUsageCheckEvt) => void;
 	private readonly configChangeListener: ({ key }: { key: string }) => void;
 	/**
 	 * Open org refusal episodes by account id (#877). An episode opens on the
-	 * first refusal the proxy reports and closes on the first successful
-	 * request the account serves that started after its latest refusal. In
-	 * memory only: a restart during a refusal pings once more, and a recovery
-	 * before any refusal is seen after a restart sends no recovered alert.
+	 * first refusal the proxy reports, or the first refused usage check of an
+	 * unpaused account (#941). It closes on the first successful request the
+	 * account serves, or the first accepted usage check, that started after
+	 * its latest refusal; a usage check closes it only if a usage check was
+	 * refused in it too. In memory only: a restart during a refusal pings once
+	 * more, and a recovery before any refusal is seen after a restart sends
+	 * no recovered alert.
 	 */
-	private readonly orgRefusals = new Map<
-		string,
-		{ accountName: string; since: number; lastRefusedAt: number }
-	>();
+	private readonly orgRefusals = new Map<string, OrgRefusalEpisode>();
 	private anomalyTimer: ReturnType<typeof setInterval> | null = null;
 	private cacheHealthTimer: ReturnType<typeof setInterval> | null = null;
 	private cacheHealthFlight: Promise<void> | null = null;
@@ -1863,6 +1875,15 @@ export class AlertService {
 				);
 			});
 		};
+		this.orgUsageCheckListener = (event) => {
+			// Emitted synchronously from the usage poll; contain lookup and
+			// persistence failures here, as for proxy refusals.
+			this.handleOrgUsageCheck(event).catch((error) => {
+				log.error(
+					`Org refusal usage-check alert failed for account ${event.accountId}: ${(error as Error).message}`,
+				);
+			});
+		};
 		this.configChangeListener = ({ key }: { key: string }) => {
 			if (
 				key === "alert_anomaly_enabled" ||
@@ -1888,6 +1909,7 @@ export class AlertService {
 		authFailureEvents.on("event", this.authFailureListener);
 		codexCatalogEvents.on("event", this.codexCatalogListener);
 		orgPermissionDeniedEvents.on("event", this.orgRefusalListener);
+		orgPermissionDeniedEvents.on("usage", this.orgUsageCheckListener);
 		this.restartAnomalyTimer();
 		this.restartCacheHealthTimer();
 	}
@@ -1899,6 +1921,7 @@ export class AlertService {
 		authFailureEvents.off("event", this.authFailureListener);
 		codexCatalogEvents.off("event", this.codexCatalogListener);
 		orgPermissionDeniedEvents.off("event", this.orgRefusalListener);
+		orgPermissionDeniedEvents.off("usage", this.orgUsageCheckListener);
 		if (this.anomalyTimer) {
 			clearInterval(this.anomalyTimer);
 			this.anomalyTimer = null;
@@ -2225,51 +2248,109 @@ export class AlertService {
 	}
 
 	/**
-	 * One org refusal reported by the proxy (#877). The first refusal of an
-	 * episode raises a critical alert; later ones only move the episode's
-	 * latest refusal time, which a recovery must start after. Both ids carry
-	 * the episode start, so a refusal that returns after a recovery pings again
-	 * even inside one cooldown hour. The episode map changes before the first
-	 * await, so two refusals arriving together cannot both open an episode.
-	 * If the alert cannot be saved, the episode is dropped so the next refusal
-	 * tries again; otherwise the refusal would go unreported until recovery.
+	 * One org refusal reported by the proxy (#877). See openOrgRefusal.
 	 */
 	async handleOrgPermissionDenied(
 		event: OrgPermissionDeniedEvt,
 	): Promise<void> {
+		await this.openOrgRefusal(
+			event.accountId,
+			event.accountName,
+			event.timestamp,
+			"request",
+		);
+	}
+
+	/**
+	 * One usage check's verdict on the account's organization (#941). An
+	 * account nobody routes to is still polled, so a refused check opens an
+	 * episode, unless the operator paused the account, and an accepted check
+	 * closes one without waiting for traffic. An accepted check closes only
+	 * an episode a usage check was refused in: the usage endpoint answering
+	 * says nothing about requests when only requests were refused.
+	 */
+	async handleOrgUsageCheck(event: OrgUsageCheckEvt): Promise<void> {
+		if (event.outcome === "accepted") {
+			const open = this.orgRefusals.get(event.accountId);
+			if (!open?.usageRefused || event.startedAt <= open.lastRefusedAt) return;
+			await this.closeOrgRefusal(event.accountId, open, event.startedAt, null);
+			return;
+		}
+		if (event.outcome !== "refused") return;
 		const open = this.orgRefusals.get(event.accountId);
 		if (open) {
-			open.lastRefusedAt = Math.max(open.lastRefusedAt, event.timestamp);
+			open.lastRefusedAt = Math.max(open.lastRefusedAt, event.answeredAt);
+			open.usageRefused = true;
+			return;
+		}
+		const row = await this.db.get<{ name: string; paused: number | null }>(
+			"SELECT name, paused FROM accounts WHERE id = ?",
+			[event.accountId],
+		);
+		// A proxy refusal may have opened an episode during the lookup; the
+		// usage refusal still belongs to it, paused or not.
+		if (!this.orgRefusals.has(event.accountId) && (!row || row.paused)) return;
+		await this.openOrgRefusal(
+			event.accountId,
+			row?.name ?? event.accountId,
+			event.answeredAt,
+			"usage",
+		);
+	}
+
+	/**
+	 * The first refusal of an episode raises a critical alert; later ones
+	 * only move the episode's latest refusal time, which a recovery must
+	 * start after. Both ids carry the episode start, so a refusal that
+	 * returns after a recovery pings again even inside one cooldown hour.
+	 * The episode map changes before the first await, so two refusals
+	 * arriving together cannot both open an episode. If the alert cannot be
+	 * saved, the episode is dropped so the next refusal tries again;
+	 * otherwise the refusal would go unreported until recovery.
+	 */
+	private async openOrgRefusal(
+		accountId: string,
+		accountName: string,
+		at: number,
+		source: "request" | "usage",
+	): Promise<void> {
+		const open = this.orgRefusals.get(accountId);
+		if (open) {
+			open.lastRefusedAt = Math.max(open.lastRefusedAt, at);
+			if (source === "usage") open.usageRefused = true;
 			return;
 		}
 		const config = getAlertsConfig(this.config);
-		const episode = {
-			accountName: event.accountName,
-			since: event.timestamp,
-			lastRefusedAt: event.timestamp,
+		const episode: OrgRefusalEpisode = {
+			accountName,
+			since: at,
+			lastRefusedAt: at,
+			usageRefused: source === "usage",
 		};
-		this.orgRefusals.set(event.accountId, episode);
+		this.orgRefusals.set(accountId, episode);
 		const alert: AlertEvent = {
-			id: `org_permission_denied:refused:${event.accountId}:${event.timestamp}`,
-			timestamp: event.timestamp,
+			id: `org_permission_denied:refused:${accountId}:${at}`,
+			timestamp: at,
 			type: "org_permission_denied",
 			severity: "critical",
 			title: "Anthropic refused an account",
 			message:
-				`Anthropic is refusing account ${event.accountName}'s organization (403 permission_error). ` +
+				(source === "usage"
+					? `Anthropic refused account ${accountName}'s usage check for its organization (403 permission_error). `
+					: `Anthropic is refusing account ${accountName}'s organization (403 permission_error). `) +
 				"A failed subscription payment causes this, as does an admin turning off OAuth or Claude Code access. " +
 				"Check billing and Claude Code access on claude.ai; the router fails over to other accounts and keeps retrying this one.",
 			value: null,
 			threshold: null,
-			account: event.accountName,
+			account: accountName,
 			model: null,
 			project: null,
 			requestId: null,
 			acknowledged: false,
 		};
 		const recorded = await this.persistAndEmit(alert, config.webhookUrl);
-		if (!recorded && this.orgRefusals.get(event.accountId) === episode) {
-			this.orgRefusals.delete(event.accountId);
+		if (!recorded && this.orgRefusals.get(accountId) === episode) {
+			this.orgRefusals.delete(accountId);
 		}
 	}
 
@@ -2277,9 +2358,7 @@ export class AlertService {
 	 * Close an open org refusal episode on the first successful request the
 	 * account served that started after its latest refusal (#877). A stream
 	 * that began before the refusal and finished after it proves nothing about
-	 * the organization now, so it is ignored. If the recovered alert cannot be
-	 * saved and no new refusal has opened an episode since, the episode is put
-	 * back so the next success tries again.
+	 * the organization now, so it is ignored.
 	 */
 	async noteOrgRefusalRecovery(request: RequestResponse): Promise<void> {
 		if (!request.accountUsed || !request.success) return;
@@ -2289,30 +2368,53 @@ export class AlertService {
 		if (!open) return;
 		const startedAt = Date.parse(request.timestamp);
 		if (!Number.isFinite(startedAt) || startedAt <= open.lastRefusedAt) return;
-		this.orgRefusals.delete(request.accountUsed);
+		await this.closeOrgRefusal(
+			request.accountUsed,
+			open,
+			startedAt,
+			request.id,
+		);
+	}
+
+	/**
+	 * Send the recovered alert for an episode, closed by a served request
+	 * (`requestId`) or an accepted usage check (null). If the alert cannot be
+	 * saved and no new refusal has opened an episode since, the episode is put
+	 * back so the next success tries again.
+	 */
+	private async closeOrgRefusal(
+		accountId: string,
+		open: OrgRefusalEpisode,
+		startedAt: number,
+		requestId: string | null,
+	): Promise<void> {
+		this.orgRefusals.delete(accountId);
 		const config = getAlertsConfig(this.config);
 		const refusedMinutes = Math.max(
 			1,
 			Math.round((startedAt - open.since) / 60_000),
 		);
 		const alert: AlertEvent = {
-			id: `org_permission_denied:recovered:${request.accountUsed}:${open.since}`,
+			id: `org_permission_denied:recovered:${accountId}:${open.since}`,
 			timestamp: Date.now(),
 			type: "org_permission_denied",
 			severity: "info",
 			title: "Anthropic accepts an account again",
-			message: `Account ${open.accountName} served a request again, ${refusedMinutes} min after Anthropic first refused its organization.`,
+			message:
+				requestId === null
+					? `Anthropic accepted account ${open.accountName}'s usage check again, ${refusedMinutes} min after it first refused the account's organization.`
+					: `Account ${open.accountName} served a request again, ${refusedMinutes} min after Anthropic first refused its organization.`,
 			value: null,
 			threshold: null,
 			account: open.accountName,
 			model: null,
 			project: null,
-			requestId: request.id,
+			requestId,
 			acknowledged: false,
 		};
 		const recorded = await this.persistAndEmit(alert, config.webhookUrl);
-		if (!recorded && !this.orgRefusals.has(request.accountUsed)) {
-			this.orgRefusals.set(request.accountUsed, open);
+		if (!recorded && !this.orgRefusals.has(accountId)) {
+			this.orgRefusals.set(accountId, open);
 		}
 	}
 

@@ -1,4 +1,9 @@
-import { getModelDisplayName, getModelFamily } from "@better-ccflare/core";
+import {
+	getModelDisplayName,
+	getModelFamily,
+	isFirstPartyAnthropicAccount,
+	isRouteOnlyClaudeModelId,
+} from "@better-ccflare/core";
 import { previewAccountPhysicalModel } from "@better-ccflare/providers";
 import type { Account, QualityApprovedLine } from "@better-ccflare/types";
 import {
@@ -102,8 +107,24 @@ function servedModel(
 	}
 	return (
 		profile.expectedPhysicalModel ??
-		deps.previewPhysicalModel(account, profile.logicalModel)
+		deps.previewPhysicalModel(account, profile.logicalModel) ??
+		routeOnlyNativeModel(profile, account)
 	);
+}
+
+/**
+ * No provider preview knows a route-only model (Mythos), on purpose: that keeps
+ * it out of ordinary routing. A first-party Anthropic account forwards the
+ * profile's model unchanged, so that is the model it serves.
+ */
+function routeOnlyNativeModel(
+	profile: ModelRouteProfile,
+	account: Account,
+): string | null {
+	return isRouteOnlyClaudeModelId(profile.logicalModel) &&
+		isFirstPartyAnthropicAccount(account)
+		? profile.logicalModel
+		: null;
 }
 
 function servedModelLabel(

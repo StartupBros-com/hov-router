@@ -8,7 +8,12 @@ import {
 	spyOn,
 } from "bun:test";
 import { agentRegistry } from "@better-ccflare/agents";
-import { type CodexCatalogEvt, codexCatalogEvents } from "@better-ccflare/core";
+import {
+	type CodexCatalogEvt,
+	codexCatalogEvents,
+	LATEST_MYTHOS_MODEL,
+	LATEST_OPUS_MODEL,
+} from "@better-ccflare/core";
 import { SessionAffinityStrategy } from "@better-ccflare/load-balancer";
 import { handleResponsesRequest } from "@better-ccflare/openai-responses-adapter";
 import {
@@ -1088,6 +1093,30 @@ describe("Claude Code gateway model route profiles", () => {
 		}
 		expect(harness.strategySelect).not.toHaveBeenCalled();
 	});
+
+	for (const [family, latest] of [
+		["opus", LATEST_OPUS_MODEL],
+		["mythos", LATEST_MYTHOS_MODEL],
+	] as const) {
+		it(`sends the router's latest model in the family a profile names (${family})`, async () => {
+			const harness = makeContext(makeRegistry({ logicalModel: family }));
+			const { requests } = installJsonUpstream();
+			const root = apiRequest("/v1/messages", PROFILE_MODEL, {
+				"x-claude-code-session-id": `family-named-route-session-${family}`,
+			});
+			expect(
+				(await handleProxy(root, new URL(root.url), harness.ctx, "key-1"))
+					.status,
+			).toBe(200);
+
+			expect(requests).toHaveLength(1);
+			expect(requests[0]?.url).toBe(
+				`https://upstream.test/${ROUTE_ACCOUNT_ID}/v1/messages`,
+			);
+			expect((await fetchedJson(requests[0])).model).toBe(latest);
+			expect(harness.strategySelect).not.toHaveBeenCalled();
+		});
+	}
 
 	it("serves a former picker id through its renamed profile and records the new id", async () => {
 		const harness = makeContext(

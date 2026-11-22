@@ -2,6 +2,7 @@
 
 - **Upstream:** https://github.com/tombii/better-ccflare
 - **Fork type:** Product fork with intentional hard divergence
+- **GitHub fork network:** left on 2026-11-21 (#910), keeping the repository's ID, issues, pull requests and releases. GitHub no longer marks it as a fork, so the fleet's Renovate run and Dependabot cover it like every other repository. The credit stays in [LICENSE](LICENSE) and [docs/acknowledgements.md](docs/acknowledgements.md).
 - **Sync cadence:** Targeted cherry-picks only. Wholesale release merges ended on 2026-11-03; see [Porting an upstream fix](#porting-an-upstream-fix). To port fixes from the wider fork network rather than from a release, follow [the fork-network survey method](docs/solutions/workflow-issues/survey-the-fork-network-then-check-each-port-applies-here.md)
 - **Last wholesale merge:** upstream v3.5.78, [PR #339](https://github.com/StartupBros-com/better-ccflare/pull/339) (2026-09-10), with its [resolution inventory](docs/plans/2026-09-09-issue-338-v3.5.78-resolution-inventory.json) and [generated ledger](docs/plans/2026-09-09-issue-338-v3.5.78-resolution-ledger.md)
 

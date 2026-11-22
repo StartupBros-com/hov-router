@@ -639,6 +639,12 @@ export interface AccountResponse {
 	bindingConstraint?: AccountBindingConstraint | null;
 	usageData: FullUsageData | null; // Full usage data for Anthropic accounts
 	usageRateLimitedUntil: number | null; // Timestamp (ms) until usage API 429 clears; null if not rate-limited
+	/**
+	 * When the account's latest usage check was refused by Anthropic for its
+	 * organization (#941); null once a check returns usage again. Optional
+	 * because older servers omit it.
+	 */
+	usageOrgRefusedAt?: number | null;
 	usageThrottledUntil: number | null; // Timestamp (ms) until proactive usage throttling clears; null if not throttled
 	usageThrottledWindows: string[]; // Exact usage windows currently being throttled
 	hasRefreshToken: boolean; // Indicates if the account has a refresh token (OAuth account)
@@ -865,6 +871,7 @@ export function toAccountResponse(account: Account): AccountResponse {
 		usageWindow: null, // Will be filled in by API handler from cache
 		usageData: null, // Will be filled in by API handler from cache
 		usageRateLimitedUntil: null, // Will be filled in by API handler from cache
+		usageOrgRefusedAt: null, // Will be filled in by API handler from cache
 		usageThrottledUntil: null,
 		usageThrottledWindows: [],
 		hasRefreshToken: !!account.refresh_token, // OAuth accounts have refresh tokens

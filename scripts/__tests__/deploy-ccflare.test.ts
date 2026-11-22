@@ -2028,6 +2028,52 @@ describe("validate_bun_runtime_version", () => {
 		expect(check(join(dir, "missing"), versionFile).exitCode).toBe(1);
 	});
 
+	test("a toolchain refusal names the pinned Bun to put first on PATH", () => {
+		const dir = tempDir();
+		const binDir = join(dir, "bin");
+		mkdirSync(binDir);
+		const versionFile = join(dir, ".bun-version");
+		// Not the repo's real pin, so only a hint built from the file passes.
+		writeFileSync(versionFile, "9.9.9\n");
+		const hint =
+			"Put Bun 9.9.9 first on PATH and run the deploy again, for example: mise exec bun@9.9.9 -- scripts/deploy-ccflare.sh";
+		const toolchainCheck = () =>
+			bash(
+				[
+					`source ${shellQuote(helperScriptForShell)}`,
+					`PATH=${shellQuote(shellPath(binDir))}:"$PATH"`,
+					`validate_bun_runtime_version "build toolchain" bun ${shellQuote(shellPath(versionFile))}`,
+				].join("\n"),
+			);
+
+		fakeBunExecutable(binDir, "bun", "9.9.9\n");
+		const pinned = toolchainCheck();
+		expect(pinned.exitCode).toBe(0);
+		expect(capturedOutput(pinned.stdout, "stdout")).toContain(
+			"OK: build toolchain runs Bun 9.9.9",
+		);
+
+		fakeBunExecutable(binDir, "bun", "1.4.4\n");
+		const newer = toolchainCheck();
+		expect(newer.exitCode).toBe(1);
+		const newerError = capturedOutput(newer.stderr, "stderr");
+		expect(newerError).toContain("build toolchain runs Bun '1.4.4'");
+		expect(newerError).toContain(hint);
+
+		// A detached shell with no Bun the version check can run.
+		writeFileSync(join(binDir, "bun"), "#!/usr/bin/env bash\nexit 1\n");
+		const unknown = toolchainCheck();
+		expect(unknown.exitCode).toBe(1);
+		const unknownError = capturedOutput(unknown.stderr, "stderr");
+		expect(unknownError).toContain("build toolchain runs Bun 'unknown'");
+		expect(unknownError).toContain(hint);
+
+		// PATH cannot change the runtime a built binary embeds.
+		const built = check(fakeBunExecutable(dir, "built", "1.4.4\n"), versionFile);
+		expect(built.exitCode).toBe(1);
+		expect(capturedOutput(built.stderr, "stderr")).not.toContain("first on PATH");
+	});
+
 	test("refuses a .bun-version that is not one exact version", () => {
 		const dir = tempDir();
 		const executable = fakeBunExecutable(dir, "bun", "1.4.2\n");
@@ -3661,6 +3707,182 @@ describe("deployment flow safety contracts", () => {
 		expect(source.match(/\bexit 75\b/g)).toHaveLength(1);
 	});
 
+	// The lock lines below are cut from the script itself and run on a
+	// temporary XDG_RUNTIME_DIR, so the race is real (two processes, one flock)
+	// without building or touching the host.
+	function deployLockLines(): string {
+		const source = readFileSync(deployScript, "utf8");
+		const start = source.indexOf(
+			'DEPLOY_LOCK="${XDG_RUNTIME_DIR:-/tmp}/better-ccflare-deploy-${UID}.lock"',
+		);
+		const warning = source.indexOf(
+			"could not record this deploy as the lock holder",
+			start,
+		);
+		expect(start).toBeGreaterThan(0);
+		expect(warning).toBeGreaterThan(start);
+		return source.slice(start, source.indexOf("\n", warning) + 1);
+	}
+
+	function deployLockScript(after: string): string {
+		return `set -Eeuo pipefail\nsource ${helperScriptForShell}\n${deployLockLines()}${after}\n`;
+	}
+
+	function lockEnv(runtimeDir: string, extra: Record<string, string>) {
+		return {
+			PATH: process.env.PATH ?? "/usr/bin:/bin",
+			HOME: process.env.HOME ?? runtimeDir,
+			XDG_RUNTIME_DIR: runtimeDir,
+			...extra,
+		};
+	}
+
+	test("a refused deploy prints the holder's record, and the next winner replaces it", async () => {
+		const dir = tempDir();
+		const ready = join(dir, "holder-ready");
+		const record = join(
+			dir,
+			`better-ccflare-deploy-${process.getuid?.() ?? 0}.lock.holder`,
+		);
+		const holder = Bun.spawn(
+			["bash", "-c", deployLockScript(`touch '${ready}'\nexec sleep 30`)],
+			{
+				cwd: repoRoot,
+				env: lockEnv(dir, {
+					HEAD_SHA: "a".repeat(40),
+					CCFLARE_DEPLOY_CALLER_REF: "feature-a at 1111111",
+					CCFLARE_DEPLOY_CALLER_DIR: "/work/feature-a",
+					CLAUDE_CODE_SESSION_ID: "session-a",
+				}),
+				stdout: "pipe",
+				stderr: "pipe",
+			},
+		);
+		try {
+			const deadline = Date.now() + 5_000;
+			while (!existsSync(ready)) {
+				if (Date.now() > deadline || holder.exitCode !== null) {
+					throw new Error("the holder never took the lock");
+				}
+				await Bun.sleep(20);
+			}
+
+			const loser = Bun.spawnSync(
+				["bash", "-c", deployLockScript("echo took-the-lock")],
+				{
+					cwd: repoRoot,
+					env: lockEnv(dir, {
+						HEAD_SHA: "b".repeat(40),
+						CCFLARE_DEPLOY_CALLER_REF: "feature-b at 2222222",
+						CCFLARE_DEPLOY_CALLER_DIR: "/work/feature-b",
+						CLAUDE_CODE_SESSION_ID: "session-b",
+					}),
+					stdout: "pipe",
+					stderr: "pipe",
+				},
+			);
+			const loserErr = capturedOutput(loser.stderr, "stderr");
+			expect(loser.exitCode).toBe(75);
+			expect(capturedOutput(loser.stdout, "stdout")).not.toContain(
+				"took-the-lock",
+			);
+			expect(loserErr).toContain(
+				"refusing to deploy: another better-ccflare deployment holds",
+			);
+			expect(loserErr).toContain(`pid=${holder.pid}`);
+			expect(loserErr).toContain(`sha=${"a".repeat(40)}`);
+			expect(loserErr).toContain("caller=feature-a at 1111111");
+			expect(loserErr).toContain("caller_dir=/work/feature-a");
+			expect(loserErr).toContain("session=session-a");
+			expect(loserErr).not.toContain("is not running");
+			// The loser leaves the holder's record alone.
+			expect(readFileSync(record, "utf8")).toContain("session=session-a");
+		} finally {
+			holder.kill("SIGKILL");
+			await holder.exited;
+		}
+
+		// The killed holder's record is left behind. The next deploy takes the
+		// lock and replaces it; one started from an older checkout's script
+		// passes no caller and has no session, and says so.
+		const next = Bun.spawnSync(
+			["bash", "-c", deployLockScript("echo took-the-lock")],
+			{
+				cwd: repoRoot,
+				env: lockEnv(dir, { HEAD_SHA: "c".repeat(40) }),
+				stdout: "pipe",
+				stderr: "pipe",
+			},
+		);
+		expect(next.exitCode).toBe(0);
+		expect(capturedOutput(next.stdout, "stdout")).toContain("took-the-lock");
+		const replaced = readFileSync(record, "utf8");
+		expect(replaced).toContain(`sha=${"c".repeat(40)}`);
+		expect(replaced).toContain("caller=unknown\n");
+		expect(replaced).toContain("caller_dir=unknown\n");
+		expect(replaced).toContain("session=-\n");
+		expect(replaced).not.toContain("session-a");
+	});
+
+	test("a holder record says when its pid is gone, and is one line per field", () => {
+		const dir = tempDir();
+		const record = join(dir, "lock.holder");
+		const writer = bash(
+			`source ${helperScriptForShell}; write_deploy_lock_holder '${record}' '${"d".repeat(40)}' $'two\\nlines at 3333333' '/work/x'; echo $$`,
+		);
+		expect(writer.exitCode).toBe(0);
+		const writerPid = capturedOutput(writer.stdout, "stdout").trim();
+		const lines = readFileSync(record, "utf8").trimEnd().split("\n");
+		expect(lines).toHaveLength(6);
+		expect(lines).toContain("caller=two lines at 3333333");
+		expect(lines).toContain(`pid=${writerPid}`);
+		expect(readdirSync(dir)).toEqual(["lock.holder"]);
+
+		const stale = bash(
+			`source ${helperScriptForShell}; describe_deploy_lock_holder '${record}'`,
+		);
+		expect(stale.exitCode).toBe(0);
+		expect(capturedOutput(stale.stdout, "stdout")).toContain(
+			`pid ${writerPid} is not running`,
+		);
+
+		const missing = bash(
+			`source ${helperScriptForShell}; describe_deploy_lock_holder '${join(dir, "absent")}'`,
+		);
+		expect(missing.exitCode).toBe(0);
+		expect(capturedOutput(missing.stdout, "stdout")).toContain(
+			"no holder record at",
+		);
+	});
+
+	test("the bootstrap passes the caller's checkout and branch to the snapshot it runs", () => {
+		const source = readFileSync(deployScript, "utf8");
+		const bootstrap = source.indexOf(
+			'if [[ -z "${CCFLARE_DEPLOY_BOOTSTRAP_SHA:-}" ]]; then',
+		);
+		const exported = source.indexOf(
+			'export CCFLARE_DEPLOY_CALLER_REF="$CALLER_REF" CCFLARE_DEPLOY_CALLER_DIR="$REPO_ROOT"',
+			bootstrap,
+		);
+		const launch = source.indexOf(
+			'env --default-signal=INT,QUIT bash "$BOOTSTRAP_ROOT/scripts/deploy-ccflare.sh"',
+			bootstrap,
+		);
+		const lockWrite = source.indexOf("write_deploy_lock_holder");
+		const lockRefusal = source.indexOf("exit 75");
+		const preflight = source.indexOf(
+			'validate_deploy_owned_systemd_pin "$PIN"',
+			lockRefusal,
+		);
+		expect(bootstrap).toBeGreaterThan(0);
+		expect(exported).toBeGreaterThan(bootstrap);
+		expect(launch).toBeGreaterThan(exported);
+		// The record is written only after the lock is won, before any build
+		// or host mutation.
+		expect(lockWrite).toBeGreaterThan(lockRefusal);
+		expect(preflight).toBeGreaterThan(lockWrite);
+	});
+
 	test("rejects unmanaged pin content before build or host/systemd mutation", () => {
 		const source = readFileSync(deployScript, "utf8");
 		const lockAcquire = source.indexOf("if ! flock -n 9; then");
@@ -4343,4 +4565,94 @@ describe("request_backend_handoff when the transaction client gets no reply", ()
 		expect(result.exitCode, stderr).toBe(1);
 		expect(elapsedMs).toBeLessThan(30_000);
 	}, 60_000);
+});
+
+describe("report_route_profiles (#960)", () => {
+	function report(health: unknown) {
+		const json = JSON.stringify(health).replaceAll("'", "'\\''");
+		const result = bash(
+			`source ${helperScriptForShell}; report_route_profiles '${json}'`,
+		);
+		return {
+			exitCode: result.exitCode,
+			stdout: capturedOutput(result.stdout, "stdout"),
+			stderr: capturedOutput(result.stderr, "stderr"),
+		};
+	}
+
+	test("prints a loaded file's checksum with no warning", () => {
+		const sha = "c".repeat(64);
+		const out = report({
+			status: "ok",
+			routeProfiles: {
+				source: "file",
+				status: "ok",
+				count: 6,
+				sha256: sha,
+				fallbackReady: true,
+			},
+		});
+		expect(out.exitCode).toBe(0);
+		expect(out.stdout).toBe(
+			`route profiles: source=file status=ok count=6 sha256=${sha} fallback=ready\n`,
+		);
+		expect(out.stderr).toBe("");
+	});
+
+	test("warns, without failing, when the backend serves the last good copy", () => {
+		const out = report({
+			routeProfiles: {
+				source: "file",
+				status: "last_good",
+				count: 6,
+				sha256: "d".repeat(64),
+				fallbackReady: true,
+			},
+		});
+		expect(out.exitCode).toBe(0);
+		expect(out.stdout).toContain("status=last_good");
+		expect(out.stderr).toContain(
+			"WARNING: the route profiles file was NOT loaded",
+		);
+	});
+
+	test("warns when no fallback copy could be saved", () => {
+		const out = report({
+			routeProfiles: {
+				source: "file",
+				status: "ok",
+				count: 1,
+				sha256: "e".repeat(64),
+				fallbackReady: false,
+			},
+		});
+		expect(out.exitCode).toBe(0);
+		expect(out.stdout).toContain("fallback=MISSING");
+		expect(out.stderr).toContain("could not save a last-good copy");
+	});
+
+	test("says so when the build predates the field, and when health is unreadable", () => {
+		const older = report({ status: "ok" });
+		expect(older.exitCode).toBe(0);
+		expect(older.stdout).toBe("route profiles: not reported by this build\n");
+		const env = report({
+			routeProfiles: { source: "env", status: "ok", count: 6 },
+		});
+		expect(env.stdout).toBe("route profiles: source=env status=ok count=6\n");
+		expect(env.stderr).toBe("");
+		const broken = bash(
+			`source ${helperScriptForShell}; report_route_profiles 'not json'`,
+		);
+		expect(broken.exitCode).toBe(0);
+		expect(capturedOutput(broken.stdout, "stdout")).toBe(
+			"route profiles: unreadable\n",
+		);
+	});
+
+	test("the deploy prints it right after the health verdict", () => {
+		const source = readFileSync(deployScript, "utf8");
+		expect(source).toContain(
+			'echo "health:        VERIFIED"\nreport_route_profiles "$PROXY_HEALTH_JSON"',
+		);
+	});
 });

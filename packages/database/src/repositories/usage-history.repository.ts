@@ -147,6 +147,50 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 		);
 	}
 
+	/**
+	 * Utilization readings of one window, oldest first: the active rows of
+	 * `accountId`/`windowKey` whose resets_at lies within `clusterToleranceMs`
+	 * of `resetsAt` (so a reading of the next window at the close poll is
+	 * excluded), taken between `fromMs` and `toMs` inclusive.
+	 */
+	async getWindowReadings(
+		accountId: string,
+		windowKey: string,
+		resetsAt: number,
+		fromMs: number,
+		toMs: number,
+		clusterToleranceMs: number,
+	): Promise<number[]> {
+		const rows = await this.query<{ utilization: number }>(
+			`SELECT utilization FROM usage_snapshots
+			 WHERE account_id = ? AND window_key = ?
+			   AND COALESCE(active, 1) = 1
+			   AND resets_at IS NOT NULL
+			   AND ABS(resets_at - ?) <= ?
+			   AND timestamp >= ? AND timestamp <= ?
+			 ORDER BY timestamp ASC, append_order ASC`,
+			[accountId, windowKey, resetsAt, clusterToleranceMs, fromMs, toMs],
+		);
+		return rows.map((row) => Number(row.utilization));
+	}
+
+	/**
+	 * Timestamp of the oldest retained snapshot of `accountId`/`windowKey`, or
+	 * null when there is none. Retention deletes oldest first, so a window that
+	 * started before this has lost readings (or began before observation).
+	 */
+	async getOldestSnapshotTimestamp(
+		accountId: string,
+		windowKey: string,
+	): Promise<number | null> {
+		const row = await this.get<{ oldest: number | null }>(
+			`SELECT MIN(timestamp) AS oldest FROM usage_snapshots
+			 WHERE account_id = ? AND window_key = ?`,
+			[accountId, windowKey],
+		);
+		return row?.oldest == null ? null : Number(row.oldest);
+	}
+
 	async getSeries(opts: GetSeriesOptions): Promise<UsageSnapshotRow[]> {
 		const clauses = ["account_id = ?", "COALESCE(active, 1) = 1"];
 		const whereParams: unknown[] = [opts.accountId];

@@ -14,19 +14,13 @@ import {
 } from "../../ui/dialog";
 import { Separator } from "../../ui/separator";
 import { getErrorMeta } from "./errorCodeMeta";
+import { recentErrorAccountDetail } from "./recentErrorAccount";
 
 interface ErrorDetailsModalProps {
 	error: RecentErrorGroup | null;
 	otherAccountsAvailable: boolean;
 	onClose: () => void;
 	onDismiss: (group: RecentErrorGroup) => void;
-}
-
-function accountValue(error: RecentErrorGroup): string {
-	if (error.accountName)
-		return `${error.accountName} (ID: ${error.accountId ?? "unknown"})`;
-	if (error.accountId === null) return "Unauthenticated";
-	return `Deleted account (ID: ${error.accountId})`;
 }
 
 function recoveryValue(rateLimitedUntil: number): string {
@@ -95,7 +89,9 @@ export function ErrorDetailsModal({
 									{error.errorCode}
 								</code>
 							</DetailRow>
-							<DetailRow label="Account">{accountValue(error)}</DetailRow>
+							<DetailRow label="Account">
+								{recentErrorAccountDetail(error)}
+							</DetailRow>
 							{error.model && (
 								<DetailRow label="Model">{error.model}</DetailRow>
 							)}

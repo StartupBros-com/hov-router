@@ -3,9 +3,9 @@ import {
 	type WindowTokenAggregate,
 } from "@better-ccflare/core";
 import {
+	activeModelRouteProfiles,
 	type ModelRouteProfile,
 	modelRouteProfileModelIds,
-	parseModelRouteProfiles,
 } from "@better-ccflare/proxy";
 
 /** Keep observed model keys in the ledger, resolving configured route aliases
@@ -13,7 +13,7 @@ import {
 export function valueWindowAggregates(
 	aggregates: readonly WindowTokenAggregate[],
 	atMs: number,
-	profiles: readonly ModelRouteProfile[] = parseModelRouteProfiles(),
+	profiles: readonly ModelRouteProfile[] = activeModelRouteProfiles(),
 ) {
 	return valueCoreAggregates(aggregates, atMs, (model) => {
 		if (!model.startsWith("claude-bccf-route-")) return model;

@@ -106,3 +106,32 @@ describe("nested bun resolves to .bun-version (#491)", () => {
 		expect([...new Set(versions)]).toEqual([pinnedBunVersion()]);
 	});
 });
+
+// Renovate rewrites bun.lock with the Bun that `constraints.bun` names, else with the
+// newest release inside package.json's `engines.bun` floor, not .bun-version (#910).
+describe("Renovate updates bun.lock with .bun-version's Bun (#910)", () => {
+	test("renovate.json's constraints.bun is exactly .bun-version", () => {
+		const renovate = JSON.parse(
+			readFileSync(join(repositoryRoot, "renovate.json"), "utf8"),
+		) as { constraints?: Record<string, string> };
+		expect(renovate.constraints?.bun).toBe(pinnedBunVersion());
+	});
+
+	// Renovate's package rules match on the package name, and it names each Bun pin
+	// differently: `bun` (.bun-version, package.json), `oven/bun` (the Dockerfile image)
+	// and `oven-sh/bun` (this file's own constraints.bun, a GitHub release). A pin left out
+	// gets its own bump, out of step with .bun-version, and the test above fails that PR.
+	test("Renovate leaves every Bun runtime pin to the hand bump", () => {
+		const renovate = JSON.parse(
+			readFileSync(join(repositoryRoot, "renovate.json"), "utf8"),
+		) as {
+			packageRules?: { matchPackageNames?: string[]; enabled?: boolean }[];
+		};
+		const handBumped = (renovate.packageRules ?? [])
+			.filter((rule) => rule.enabled === false)
+			.flatMap((rule) => rule.matchPackageNames ?? []);
+		expect(handBumped).toEqual(
+			expect.arrayContaining(["bun", "oven/bun", "oven-sh/bun"]),
+		);
+	});
+});

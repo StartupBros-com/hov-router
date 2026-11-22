@@ -1,5 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import {
+	LATEST_FABLE_MODEL,
+	LATEST_HAIKU_MODEL,
+	LATEST_MYTHOS_MODEL,
+	LATEST_OPUS_MODEL,
+	LATEST_SONNET_MODEL,
+} from "@better-ccflare/core";
+import {
 	describeModelRouteProfileFlow,
 	MODEL_ROUTE_PROFILE_MODEL_PREFIX,
 	ModelRouteSessionRegistry,
@@ -2391,5 +2398,126 @@ describe("ModelRouteSessionRegistry binding restore", () => {
 		const registry = new ModelRouteSessionRegistry([]);
 		expect(registry.beginBindingRestore()).toBeNull();
 		expect(registry.bindingRestoreGate()).toBeNull();
+	});
+});
+
+describe("parseModelRouteProfiles family names", () => {
+	const exactAnthropic = {
+		displayName: "Opus · CVP primary",
+		accountId: "max-primary-id",
+		expectedProvider: "anthropic",
+	};
+
+	it("resolves a bare family name on an exact profile to the router's latest model in that family", () => {
+		const parsed = parseModelRouteProfiles(
+			JSON.stringify([
+				{ ...exactAnthropic, id: "cvp-opus", logicalModel: "opus" },
+				{ ...exactAnthropic, id: "cvp-fable", logicalModel: " Fable " },
+				{ ...exactAnthropic, id: "cvp-sonnet", logicalModel: "SONNET" },
+				{ ...exactAnthropic, id: "cvp-haiku", logicalModel: "haiku" },
+			]),
+		);
+		expect(parsed.map((configured) => configured.logicalModel)).toEqual([
+			LATEST_OPUS_MODEL,
+			LATEST_FABLE_MODEL,
+			LATEST_SONNET_MODEL,
+			LATEST_HAIKU_MODEL,
+		]);
+	});
+
+	it("resolves a bare mythos to the router's latest Mythos, a family only a route profile can name", () => {
+		const parsed = parseModelRouteProfiles(
+			JSON.stringify([
+				{ ...exactAnthropic, id: "cvp-mythos", logicalModel: "mythos" },
+				{ ...exactAnthropic, id: "cvp-mythos-cased", logicalModel: " Mythos " },
+			]),
+		);
+		expect(parsed.map((configured) => configured.logicalModel)).toEqual([
+			LATEST_MYTHOS_MODEL,
+			LATEST_MYTHOS_MODEL,
+		]);
+	});
+
+	it("resolves a family name on an exact capability pool too", () => {
+		const [configured] = parseModelRouteProfiles(
+			JSON.stringify([
+				{
+					id: "gateway-pool",
+					displayName: "Gateway pool",
+					selection: "capability",
+					logicalModel: "sonnet",
+					expectedProvider: "openai-compatible",
+					expectedPhysicalModel: "chat",
+				},
+			]),
+		);
+		expect(configured?.logicalModel).toBe(LATEST_SONNET_MODEL);
+	});
+
+	it("rejects a bare mythos on a capability pool, which would spread it across every account of the provider", () => {
+		expect(() =>
+			parseModelRouteProfiles(
+				JSON.stringify([
+					{
+						id: "mythos-pool",
+						displayName: "Mythos pool",
+						selection: "capability",
+						logicalModel: "mythos",
+						expectedProvider: "anthropic",
+						expectedPhysicalModel: "claude-mythos-5-2",
+					},
+				]),
+			),
+		).toThrow("profile 0 logicalModel mythos requires an accountId");
+	});
+
+	it("keeps a concrete, major-version or non-Claude model id exactly as written", () => {
+		const written = [
+			"claude-opus-5-5",
+			"claude-opus-5",
+			"claude-mythos-5-2",
+			"opus-latest",
+			"grok-4",
+		];
+		const parsed = parseModelRouteProfiles(
+			JSON.stringify(
+				written.map((logicalModel, index) => ({
+					...exactAnthropic,
+					id: `written-${index}`,
+					logicalModel,
+				})),
+			),
+		);
+		expect(parsed.map((configured) => configured.logicalModel)).toEqual(
+			written,
+		);
+	});
+
+	it("leaves a catalog-following profile's family signal alone", () => {
+		const parsed = parseModelRouteProfiles(
+			JSON.stringify([
+				{
+					id: "codex-opus-role",
+					displayName: "Codex pool · opus role",
+					selection: "capability",
+					logicalModel: "opus",
+					expectedProvider: "codex",
+					physicalModelPolicy: "catalog-role",
+				},
+				{
+					id: "codex-sol-line",
+					displayName: "Codex pool · Sol line",
+					selection: "capability",
+					logicalModel: "claude-sonnet-5",
+					expectedProvider: "codex",
+					physicalModelPolicy: "line",
+					line: "gpt-sol",
+				},
+			]),
+		);
+		expect(parsed.map((configured) => configured.logicalModel)).toEqual([
+			"opus",
+			"claude-sonnet-5",
+		]);
 	});
 });

@@ -3,6 +3,8 @@ import {
 	CLAUDE_CLI_VERSION,
 	getModelFamily,
 	normalizeProviderUsageWindows,
+	type OrgUsageCheckEvt,
+	orgPermissionDeniedEvents,
 } from "@better-ccflare/core";
 import { Logger } from "@better-ccflare/logger";
 import {
@@ -310,6 +312,47 @@ function getCanonicalActiveWeeklyWindow(
 export interface UsageFetchResult {
 	data: UsageData | null;
 	retryAfterMs: number | null; // Set when server returns retry-after on 429
+	/** Set when Anthropic refused the account's organization (#941). */
+	orgRefused?: boolean;
+}
+
+/** The only `details.error_code` seen on a usage-endpoint refusal. */
+const USAGE_ORG_REFUSAL_ERROR_CODE = "oauth_not_allowed_for_organization";
+
+/**
+ * True only for the usage endpoint's organization refusal (#941): a 403 whose
+ * JSON body has `error.type: "permission_error"` and
+ * `error.details.error_code: "oauth_not_allowed_for_organization"`.
+ *
+ * Stricter than the proxy's `isAnthropicOrgPermissionDenied`, which also
+ * accepts a missing code because `/v1/messages` sends none. Every usage
+ * refusal seen (2026-11-16, 2026-11-21) carried the code, and a usage 403
+ * without it can be a token-scope problem, which billing and Claude Code
+ * access on claude.ai would not fix.
+ */
+export function isUsageOrgRefusal(status: number, bodyText: string): boolean {
+	if (status !== 403) return false;
+	try {
+		const json = JSON.parse(bodyText);
+		return (
+			json?.error?.type === "permission_error" &&
+			json?.error?.details?.error_code === USAGE_ORG_REFUSAL_ERROR_CODE
+		);
+	} catch {
+		return false;
+	}
+}
+
+/** Listener failures must never break usage polling. */
+function emitOrgUsageCheck(event: OrgUsageCheckEvt): void {
+	try {
+		orgPermissionDeniedEvents.emit("usage", event);
+	} catch (error) {
+		log.error(
+			`Failed to publish usage org check for account ${event.accountId}:`,
+			error,
+		);
+	}
 }
 
 export async function fetchUsageData(
@@ -362,32 +405,26 @@ export async function fetchUsageData(
 				}
 			}
 
+			let errorBody: string | null = null;
 			try {
-				const errorBody = await response.text();
-				log.error(
-					`Failed to fetch usage data: ${response.status} ${errorMessage}`,
-					{
-						status: response.status,
-						statusText: errorMessage,
-						url: "https://api.anthropic.com/api/oauth/usage",
-						headers: responseHeaders,
-						errorBody: errorBody,
-						timestamp: new Date().toISOString(),
-					},
-				);
+				errorBody = await response.text();
 			} catch {
-				log.error(
-					`Failed to fetch usage data: ${response.status} ${errorMessage}`,
-					{
-						status: response.status,
-						statusText: errorMessage,
-						url: "https://api.anthropic.com/api/oauth/usage",
-						headers: responseHeaders,
-						timestamp: new Date().toISOString(),
-					},
-				);
+				errorBody = null;
 			}
-			return { data: null, retryAfterMs };
+			log.error(
+				`Failed to fetch usage data: ${response.status} ${errorMessage}`,
+				{
+					status: response.status,
+					statusText: errorMessage,
+					url: "https://api.anthropic.com/api/oauth/usage",
+					headers: responseHeaders,
+					...(errorBody !== null ? { errorBody } : {}),
+					timestamp: new Date().toISOString(),
+				},
+			);
+			const orgRefused =
+				errorBody !== null && isUsageOrgRefusal(response.status, errorBody);
+			return { data: null, retryAfterMs, orgRefused };
 		}
 
 		const data = (await response.json()) as UsageData;
@@ -967,6 +1004,16 @@ class UsageCache {
 	 * deadline succeeded, so no padding past the deadline is needed.
 	 */
 	private usageRateLimitedUntil = new Map<string, number>();
+	/**
+	 * When each account's latest usage check was refused by Anthropic for its
+	 * organization (#941). An account nobody routes to still gets usage
+	 * checks, so this is what keeps the card on "Anthropic refused" after the
+	 * router's short bench lapses. Only a check that returns usage or
+	 * `clear()` removes it: a failure that says nothing about the
+	 * organization (5xx, 429, network) keeps it, and so do a polling restart
+	 * and a token reload's `delete()`, like the 429 deadline above.
+	 */
+	private usageOrgRefusedAt = new Map<string, number>();
 	private modelScopedDepletions = new Map<
 		string,
 		Map<string, ModelScopedDepletion>
@@ -1563,6 +1610,7 @@ class UsageCache {
 				return { success: false, retryAfterMs: result.retryAfterMs };
 			} else {
 				// Default to Anthropic usage data
+				const startedAt = Date.now();
 				const result = await fetchUsageData(
 					token,
 					registration.abortController.signal,
@@ -1570,6 +1618,7 @@ class UsageCache {
 				if (!this.isCurrent(registration)) {
 					return { success: false, retryAfterMs: null };
 				}
+				this.noteOrgUsageCheck(accountId, result, startedAt);
 				if (result.data) {
 					// Snapshot before clearing — needed for the capacity-restored guard below.
 					const wasRateLimited = this.usageRateLimitedUntil.has(accountId);
@@ -2126,6 +2175,51 @@ class UsageCache {
 	}
 
 	/**
+	 * When this account's latest usage check was refused by Anthropic for its
+	 * organization (#941), or null when no refusal is on record.
+	 */
+	getOrgRefusedAt(accountId: string): number | null {
+		return this.usageOrgRefusedAt.get(accountId) ?? null;
+	}
+
+	/**
+	 * Record what one Anthropic usage check said about the account's
+	 * organization (#941) and publish it on the org refusal event bus: a
+	 * refusal sets the record, returned usage clears it, and any other
+	 * failure leaves it alone. Polling calls this, and so must any caller
+	 * that fetches Anthropic usage outside polling (the Clear cooldown
+	 * fallback), or the card and alerts miss that check's verdict.
+	 *
+	 * Records are never pruned by registration: Refresh usage stops and
+	 * restarts polling, and pruning in that gap would drop a live refusal.
+	 * One number per account removed while refused lasts until restart.
+	 */
+	noteOrgUsageCheck(
+		accountId: string,
+		result: UsageFetchResult,
+		startedAt: number,
+	): void {
+		const answeredAt = Date.now();
+		if (result.orgRefused) {
+			this.usageOrgRefusedAt.set(accountId, answeredAt);
+			emitOrgUsageCheck({
+				accountId,
+				outcome: "refused",
+				startedAt,
+				answeredAt,
+			});
+		} else if (result.data) {
+			this.usageOrgRefusedAt.delete(accountId);
+			emitOrgUsageCheck({
+				accountId,
+				outcome: "accepted",
+				startedAt,
+				answeredAt,
+			});
+		}
+	}
+
+	/**
 	 * Record a usage-endpoint 429's retry-after for an account. Callers that
 	 * fetch usage outside polling (the Clear cooldown fallback) use this so the
 	 * poller honours their answer too. A non-positive or non-finite duration is
@@ -2208,6 +2302,7 @@ class UsageCache {
 		this.#anthropicSubscriptionEvidence.clear();
 		this.codexCreditEvidence.clear();
 		this.usageRateLimitedUntil.clear();
+		this.usageOrgRefusedAt.clear();
 		this.modelScopedDepletions.clear();
 		this.familyScopedDepletions.clear();
 		log.info("Cleared all usage cache and stopped polling");

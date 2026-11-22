@@ -862,8 +862,12 @@ test("release App is pinned, repo-scoped and minted only immediately before PR r
 	const index = job.steps.findIndex((step) => step.id === "release-app");
 	expect(index).toBeGreaterThan(0);
 	const mint = job.steps[index];
+	// Exact SHA on purpose: this action receives the release App's private key, so
+	// a bump fails here until someone has read its action.yml and main.js (docs/
+	// hov-router-releases.md, "Evidence required for each release"). Dependabot
+	// opens it as its own PR so the failure blocks no other action bump.
 	expect(mint.uses).toBe(
-		"actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510",
+		"actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc",
 	);
 	expect(mint.with).toEqual({
 		"client-id": `\${{ vars.ROUTER_RELEASE_APP_CLIENT_ID }}`,

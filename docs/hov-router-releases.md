@@ -1,6 +1,6 @@
 # HoV Router release automation (draft-only)
 
-For the current published release, 6.2.1 (Linux x86_64), follow the technical
+For the current published release, 6.2.2 (Linux x86_64), follow the technical
 reference's [consumer installation and verification instructions](reference.md#install-the-linux-x86_64-release).
 
 This is the operator guide for HoV Router release automation at
@@ -47,8 +47,8 @@ first built and signed as `StartupBros-com/hov-router`. Releases signed before t
 repository moved on 2026-11-20 keep their attestations under the former owner, and
 GitHub's lookup by this repository no longer finds them
 ([#911](https://github.com/StartupBros-com/hov-router/issues/911)), so their committed
-bundles are how they still verify. The 6.2.1 block uses its bundle the same way, so it
-keeps working if the repository's name changes again. You need not trust where the
+bundles are how they still verify. The blocks for 6.2.1 and later use their bundles
+the same way, so they keep working if the repository's name changes again. You need not trust where the
 bundle came from: the pinned
 checksum and GitHub CLI's signature check decide. GitHub CLI compares the repository
 and workflow names with the ones recorded in the signing certificate when the release
@@ -56,6 +56,86 @@ was signed, and the pinned checksums tie each block to that one build. Committed
 bundles are never deleted or rewritten, so each block's download address keeps working.
 
 <!-- router-release-provenance -->
+```bash
+(
+  set -eu
+  binary="$HOME/.local/lib/hov-router/6.2.2/hov-router"
+  source_sha=baaa81a4656851f51ed30eaa92433f27c47d459a
+  digest=955696abccd1d4b7fe02e298687fc136655797d94aeec856dc785990fc78a4ac
+  bundle_sha=d60ef772511873dcb626d856b2921f1447dff9c99b9ad63200e19363dd346f9e
+  printf '%s  %s\n' "$digest" "$binary" | sha256sum --check --strict -
+  bundle_dir=$(mktemp -d "${TMPDIR:-/tmp}/router-provenance.XXXXXX")
+  bundle="$bundle_dir/v6.2.2.jsonl"
+  curl -q --fail --location --proto '=https' --proto-redir '=https' \
+    --output "$bundle" https://raw.githubusercontent.com/StartupBros-com/hov-router/refs/heads/main/docs/provenance/v6.2.2.jsonl
+  printf '%s  %s\n' "$bundle_sha" "$bundle" | sha256sum --check --strict -
+  gh attestation verify "$binary" \
+    --repo StartupBros-com/hov-router \
+    --source-digest "$source_sha" \
+    --source-ref refs/tags/v6.2.2 \
+    --cert-identity https://github.com/StartupBros-com/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.2.2 \
+    --signer-digest "$source_sha" \
+    --deny-self-hosted-runners \
+    --bundle "$bundle"
+)
+```
+<!-- /router-release-provenance -->
+
+This independently checks GitHub's signed build provenance against the expected
+repository, source commit, tag, workflow identity, signer commit, and hosted-runner
+policy. Those expectations are pinned here, not read from a downloaded manifest.
+Neither a checksum nor provenance proves the program is free of bugs or malicious
+behavior. After verification succeeds, return to the technical reference's separate run step.
+This procedure does not execute the binary or change its installed aliases. The
+temporary directory holding the bundle is left for inspection.
+
+The release also publishes `SHA256SUMS` and an attested `release-manifest.json` for
+release auditing; neither is required by the consumer install above. The operator
+pipeline below still verifies the complete inventory and both attestations before
+executing release smoke checks. Its strict verification policy is unchanged.
+
+Release ID **453517976** and tag `refs/tags/v6.2.2` identify source commit
+`baaa81a4656851f51ed30eaa92433f27c47d459a`. The exact certificate is
+`https://github.com/StartupBros-com/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.2.2`.
+
+| 6.2.2 asset | Asset ID | Size (bytes) | SHA-256 |
+| --- | --- | --- | --- |
+| `better-ccflare-linux-amd64` | 774797487 | 96044512 | `955696abccd1d4b7fe02e298687fc136655797d94aeec856dc785990fc78a4ac` |
+| `release-manifest.json` | 774798053 | 809 | `2d22b979009104db021996ddfe95c9028f3d5160004995efb37a87682b67fdaa` |
+| `SHA256SUMS` | 774797148 | 93 | `b5f701ad3f315321c724bad612b63733e63c34894f9e7ed0aea550c3e5de90b0` |
+
+For a manifest audit, download `release-manifest.json` from the v6.2.2 release,
+check its digest above, then run the same block with `binary` set to that local
+manifest and `digest` set to its SHA-256. The bundle stays the same: one signed
+statement names both the binary and the manifest. The signed manifest names repository
+`StartupBros-com/hov-router`. Its distribution token is
+`v1:startupbros-hov-router-binary`, with `actionable: false` and
+`updateChannel: null`. Releases 3.6.2 through 3.7.1 carry
+`v1:startupbros-wstack-router-binary` instead, an operational name that predates
+HoV Router, with the same fields. Rebuilding one of those releases reproduces its
+original token.
+
+### Verify release 6.2.1
+
+Release 6.2.1 is the first release built and signed as `StartupBros-com/hov-router`,
+and its own committed bundle verifies it. Release ID **453439321** and tag
+`refs/tags/v6.2.1` identify source commit `786722ba026b7095e31aef91ca62f34bda79d490`. The exact
+certificate is
+`https://github.com/StartupBros-com/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.2.1`.
+
+| 6.2.1 asset | Asset ID | Size (bytes) | SHA-256 |
+| --- | --- | --- | --- |
+| `better-ccflare-linux-amd64` | 774423044 | 96044512 | `d6af6b2fa24873b6876ffd86bd41513f97536160bf7cd75670f1393e8edc2011` |
+| `release-manifest.json` | 774423382 | 809 | `7f568e6a94d8b6e584a65a1417050d88767c3c1d1d5012a820bd5da749d8ae07` |
+| `SHA256SUMS` | 774422735 | 93 | `8b79b1669b6ba39c87467d41098da165cb0386fe6bc09ebe9ac5ae890db2e34e` |
+
+To install it, use the reference's install block the same way: `6.2.1` in place of
+`6.2.2` in the version directory and download URL, and the binary's digest above.
+Then verify it, before running it, with this block. It expects that install path,
+the one this guide used while 6.2.1 was the current release. For a manifest audit, set `binary`
+and `digest` as described for the current release; the bundle stays the same.
+
+<!-- router-release-provenance-v6.2.1 -->
 ```bash
 (
   set -eu
@@ -79,41 +159,7 @@ bundles are never deleted or rewritten, so each block's download address keeps w
     --bundle "$bundle"
 )
 ```
-<!-- /router-release-provenance -->
-
-This independently checks GitHub's signed build provenance against the expected
-repository, source commit, tag, workflow identity, signer commit, and hosted-runner
-policy. Those expectations are pinned here, not read from a downloaded manifest.
-Neither a checksum nor provenance proves the program is free of bugs or malicious
-behavior. After verification succeeds, return to the technical reference's separate run step.
-This procedure does not execute the binary or change its installed aliases. The
-temporary directory holding the bundle is left for inspection.
-
-The release also publishes `SHA256SUMS` and an attested `release-manifest.json` for
-release auditing; neither is required by the consumer install above. The operator
-pipeline below still verifies the complete inventory and both attestations before
-executing release smoke checks. Its strict verification policy is unchanged.
-
-Release ID **453439321** and tag `refs/tags/v6.2.1` identify source commit
-`786722ba026b7095e31aef91ca62f34bda79d490`. The exact certificate is
-`https://github.com/StartupBros-com/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.2.1`.
-
-| 6.2.1 asset | Asset ID | Size (bytes) | SHA-256 |
-| --- | --- | --- | --- |
-| `better-ccflare-linux-amd64` | 774423044 | 96044512 | `d6af6b2fa24873b6876ffd86bd41513f97536160bf7cd75670f1393e8edc2011` |
-| `release-manifest.json` | 774423382 | 809 | `7f568e6a94d8b6e584a65a1417050d88767c3c1d1d5012a820bd5da749d8ae07` |
-| `SHA256SUMS` | 774422735 | 93 | `8b79b1669b6ba39c87467d41098da165cb0386fe6bc09ebe9ac5ae890db2e34e` |
-
-For a manifest audit, download `release-manifest.json` from the v6.2.1 release,
-check its digest above, then run the same block with `binary` set to that local
-manifest and `digest` set to its SHA-256. The bundle stays the same: one signed
-statement names both the binary and the manifest. The signed manifest names repository
-`StartupBros-com/hov-router`. Its distribution token is
-`v1:startupbros-hov-router-binary`, with `actionable: false` and
-`updateChannel: null`. Releases 3.6.2 through 3.7.1 carry
-`v1:startupbros-wstack-router-binary` instead, an operational name that predates
-HoV Router, with the same fields. Rebuilding one of those releases reproduces its
-original token.
+<!-- /router-release-provenance-v6.2.1 -->
 
 ### Verify release 3.7.1
 
@@ -132,7 +178,7 @@ commit `6b88f789e30c3a86ee918d35a6673e7be12f9243`. The exact certificate is
 | `SHA256SUMS` | 675764852 | 93 | `923d6041201ba6ade61ff3dcd2ec200970475076ae7b9af261058211394545e5` |
 
 To install it, use the reference's install block the same way: `3.7.1` in place of
-`6.2.1` in the version directory and download URL, and the binary's digest above.
+`6.2.2` in the version directory and download URL, and the binary's digest above.
 Then verify it, before running it, with this block. It expects that install path,
 the one this guide used while 3.7.1 was the current release. For a manifest audit, set `binary`
 and `digest` as described for the current release; the bundle stays the same.
@@ -299,8 +345,8 @@ retries skip the entire PR job and never mint an App token.
    needed release PR, and trigger its required checks. Do not fake a version bump
    to exercise this. Local tests cannot verify installation access or live CI events.
 
-The pinned `actions/create-github-app-token` v3.3.0 action
-(`64ab729a6294000f5aa4a4bc0b73d1f32bc45510`, Node 24) mints after dependency installation,
+The pinned `actions/create-github-app-token` v3.4.0 action
+(`f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc`, Node 24) mints after dependency installation,
 only immediately before reconciliation. Only that step receives the output through
 the existing `GITHUB_TOKEN` interface. Checkout does not persist credentials. The
 App token is not passed to dependency installation, build, smoke, draft or artifact
@@ -452,6 +498,17 @@ is cut (a standing decision since 2026-11-10), after these checks:
    binary's SHA-256 matches both `SHA256SUMS` and `release-manifest.json`.
 4. The body opens with a short summary and a `## Highlights` list (see the next
    section), and tells upgraders what to do about any breaking change.
+5. The new release's attestation bundle is on `main` as
+   `docs/provenance/vX.Y.Z.jsonl`. The body's verify block (in every release
+   since 6.2.0) downloads it from there, so merge it in a pull request of its own
+   before publishing, or the published notes point at a missing file. Download
+   the draft's three assets with `gh release download vX.Y.Z --repo
+   StartupBros-com/hov-router`, then the bundle with `gh attestation download
+   better-ccflare-linux-amd64 --repo StartupBros-com/hov-router`, and confirm the
+   file holds one bundle. Once it is on `main`, run the body's verify block as
+   written in the folder holding the three assets; the block needs no login.
+   `binary-install.test.ts` accepts this one undocumented bundle while it is
+   newer than the current block's release.
 
 When editing a draft's body through the API, send `tag_name` and
 `target_commitish` with the new body: a body-only update resets a draft's tag to
@@ -460,11 +517,21 @@ release, that the tag ref is unchanged, and that the
 [announce run](#publishing-announces-the-release) succeeded. Then repoint the
 current-release pins in the [install reference](reference.md#install-the-linux-x86_64-release),
 this guide, the migration guide and the README, together with
-`apps/cli/__tests__/binary-install.test.ts`. In the same change, commit the new
-release's attestation bundle as `docs/provenance/vX.Y.Z.jsonl`, so its consumer
-block needs no login and keeps working if the repository moves again. Download it with
-`gh attestation download <binary> --repo StartupBros-com/hov-router`, confirm the
-file holds one bundle and passes the block, and pin its SHA-256 as `bundle_sha`.
+`apps/cli/__tests__/binary-install.test.ts`, and pin the SHA-256 of the bundle
+merged before publishing as `bundle_sha`. The committed bundle lets the consumer
+block run with no login, and keeps it working if the repository moves again.
+
+The release that leaves the current block keeps a place in this guide.
+Releases signed as `StartupBros/hov-router` went to the
+[table of releases from before the move](#verify-another-release-from-before-the-move),
+whose rows verify under that name. 6.2.0 was the last of them. 6.2.1 was the first
+signed as `StartupBros-com/hov-router`, so it cannot join that table; its block is
+kept under [its own heading](#verify-release-621), as the 3.7.1 block is kept.
+Later releases signed in the organization get rows, as each leaves the current
+block, in a table of their own that points at the 6.2.1 block, the way the
+pre-move table points at the 3.7.1 block. 6.2.2 is the first of them, when 6.2.3
+replaces it.
+
 Never delete or rewrite a committed bundle: copies of this guide in older checkouts
 download them from `main`.
 
@@ -525,6 +592,11 @@ through `--version` and `--git-sha`.
   unexpected asset, a moved tag, a published release or mismatched metadata stops with
   the offending identity. Nothing is deleted, clobbered, replaced or published, and
   a human must resolve it.
+- A coordinator run that fails with `Stale or non-ancestor source SHA` before any
+  write was started by the foundation gate of an earlier commit that finished
+  after the release commit reached `main`. It is not a release failure: the
+  release commit's own gate run starts the coordinator again. Wait for that run
+  (6.2.2 took one).
 - A failed draft/coordinator step: run the coordinator by `workflow_dispatch` with
   `source_sha` (the release PR merge commit) and `version`. It re-validates and
   re-dispatches the artifact run; each write is preceded by re-validation.
@@ -543,12 +615,16 @@ PRs created or updated with the built-in `GITHUB_TOKEN` produce approval-require
 PRs avoid that token-specific manual approval gate. This wiring does not prove
 that the live installation will trigger CI: verify the actual release PR and its checks.
 
-The strict required checks have been verified live as `managed-routing-foundation`
-and `prepare`, both bound to the GitHub Actions integration **15368**. Preserve that
-binding and all other policies. The App receives no bypass; required PR CI is neither
-waived nor automatically dispatched by this change. If checks are held for approval,
-suppressed or unavailable, the PR remains blocked until normal approval and CI
-requirements are satisfied. Unattended release-PR merging is outside this increment.
+The required checks have been verified live as `managed-routing-foundation` and
+`prepare`, both bound to the GitHub Actions integration **15368**. Since 2026-11-19
+([#909](https://github.com/StartupBros-com/hov-router/pull/909)), `main` no longer
+requires a pull request to be up to date with it before it merges: both checks also
+run on every push to `main`, so the merged result is tested right after the merge.
+Preserve that binding and all other policies. The App receives no bypass; required
+PR CI is neither waived nor automatically dispatched by this change. If checks are
+held for approval, suppressed or unavailable, the PR remains blocked until normal
+approval and CI requirements are satisfied. Unattended release-PR merging is outside
+this increment.
 
 ## Containment
 
@@ -571,9 +647,8 @@ not that later releases completed those steps.
 The App action's pinned `action.yml` and `main.js` confirm the inputs, Node 24
 runtime and failure on missing Client ID or private key. Static YAML assertions
 alone prove wiring, not live credential availability, revocation or GitHub event
-behavior. The other action pins (`actions/checkout` 7.0.1, `setup-bun` 2.2.0,
-`upload-artifact` 6.0.0, `download-artifact` 7.0.0, `actions/attest` 4.2.1) and the
-`gh attestation verify` flags have source and local-test coverage. The `stage` job
+behavior. The other action pins (full commit SHAs, each with its version in a
+comment) and the `gh attestation verify` flags have source and local-test coverage. The `stage` job
 checks the runner's `gh` supports every verifier flag used by the helper before
 using it. Local executable fixtures exercise CLI output and the coordinator's shell
 with synthetic API responses and command stand-ins; they do not prove live GitHub

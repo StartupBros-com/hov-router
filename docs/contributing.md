@@ -171,9 +171,13 @@ To bump, in one PR:
 
 1. Edit `.bun-version` to the exact new version.
 2. Set `devDependencies.bun` in the root `package.json` to the same version.
-3. Run `bun install` to move `bun.lock`'s `bun@` and `@oven/bun-*` entries. Review the lock
+3. Set `ARG BUN_VERSION` in the `Dockerfile` and `constraints.bun` in `renovate.json` to the
+   same version. Renovate rewrites `bun.lock` with the Bun that `constraints.bun` names; without
+   it, Renovate would use the newest release that `engines.bun` allows.
+4. Run `bun install` to move `bun.lock`'s `bun@` and `@oven/bun-*` entries. Review the lock
    diff, since a non-frozen install also re-resolves `latest` specifiers such as `@types/bun`.
-4. Run `bun test tests/bun-toolchain-pin.test.ts`. It fails unless all three agree.
+5. Run `bun test tests/bun-toolchain-pin.test.ts packages/core/src/dockerfile-provenance.test.ts`.
+   They fail unless every pin agrees.
 
 The merge gate on that PR is the proof the new version passes. `scripts/deploy-ccflare.sh` then
 refuses any build whose toolchain or embedded runtime (`BUN_BE_BUN=1 <binary> --version`)
@@ -488,7 +492,7 @@ Use `Refs`, not `Closes` or `Fixes`: merging never deploys this project, so a cl
 4. **Documentation**: Ensure docs are updated if needed
 5. **Merge**: A maintainer merges a PR from outside the project with a merge commit, so your commits and authorship stay in history; maintainers' own PRs are squash-merged
 
-**Note**: Every pull request runs two required checks, `managed-routing-foundation` (`.github/workflows/managed-routing-postgres.yml`) and `prepare` (`.github/workflows/prepare-router-artifacts.yml`), and `main` only accepts branches that are up to date with it. `prepare` also fails a pull request whose squash commit release-please cannot parse, and re-runs when you edit the title or description ([how to fix it](hov-router-releases.md#squash-commits-release-please-can-parse)). Run the local checks above before pushing. The repository has no PR template file; follow the template in this guide.
+**Note**: Every pull request runs two required checks, `managed-routing-foundation` (`.github/workflows/managed-routing-postgres.yml`) and `prepare` (`.github/workflows/prepare-router-artifacts.yml`). A branch need not be up to date with `main` to merge; both checks run again on `main` after each merge. `prepare` also fails a pull request whose squash commit release-please cannot parse, and re-runs when you edit the title or description ([how to fix it](hov-router-releases.md#squash-commits-release-please-can-parse)). Run the local checks above before pushing. The repository has no PR template file; follow the template in this guide.
 
 ### After PR is Merged
 

@@ -73,7 +73,7 @@ A squash commit is the PR title plus the description, and release-please silentl
 
 ## PR Review Against Current Main (MANDATORY)
 
-Before reviewing or merging a PR you did not write, and after resolving conflicts while bringing `main` into your own PR, find the merge base and identify what main has added since the PR branched. The required checks run on a head that is up to date with `main`, so they show the merged result builds and passes tests, but not whether a conflict resolution undid something `main` changed. A clean update keeps both sides' changes, so your own PR needs this only after a conflicted one:
+Before reviewing or merging a PR you did not write, and after resolving conflicts while bringing `main` into your own PR, find the merge base and identify what main has added since the PR branched. The required checks run on the PR's head, which can be behind `main`: since 2026-11-19 ([#909](https://github.com/StartupBros-com/hov-router/pull/909)) `main` does not require an up-to-date branch, and both checks run again on `main` after the merge. Neither run shows whether a conflict resolution undid something `main` changed. A clean update keeps both sides' changes, so your own PR needs this only after a conflicted one:
 
 ```bash
 git fetch origin pull/<PR_NUMBER>/head:<branch-name>

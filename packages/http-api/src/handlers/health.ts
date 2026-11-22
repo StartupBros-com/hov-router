@@ -80,6 +80,8 @@ type RetentionStatusFn = () => RetentionStatus;
 
 export type HealthHandlerRuntimeProviders = Readonly<{
 	getHandoff?: () => HealthResponse["handoff"];
+	/** May carry more fields (path, error); only the public ones are served. */
+	getRouteProfilesStatus?: () => HealthResponse["routeProfiles"] | undefined;
 	getAsyncWriterHealth?: AsyncWriterHealthFn;
 	getUsageWorkerHealth?: UsageWorkerHealthFn;
 	getIntegrityStatus?: IntegrityStatusFn;
@@ -206,6 +208,7 @@ export function createHealthHandler(
 		getBodyAdmissionHealth,
 		getMemorySnapshot,
 		getHandoff,
+		getRouteProfilesStatus,
 	}: HealthHandlerRuntimeProviders = {},
 ) {
 	const normalCache = new TtlCache<HealthResponse>(2000);
@@ -270,6 +273,19 @@ export function createHealthHandler(
 		};
 		const handoff = getHandoff?.();
 		if (handoff) response.handoff = handoff;
+		const routeProfiles = getRouteProfilesStatus?.();
+		if (routeProfiles) {
+			// Copy only the public fields: the provider's status also carries the
+			// file path and the failure text, which stay in the backend log.
+			const { source, status: profileStatus, count } = routeProfiles;
+			response.routeProfiles = { source, status: profileStatus, count };
+			if (routeProfiles.sha256 !== undefined) {
+				response.routeProfiles.sha256 = routeProfiles.sha256;
+			}
+			if (routeProfiles.fallbackReady !== undefined) {
+				response.routeProfiles.fallbackReady = routeProfiles.fallbackReady;
+			}
+		}
 		if (routing) {
 			response.routing = routing;
 		}

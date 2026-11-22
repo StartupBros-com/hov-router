@@ -15,6 +15,8 @@ export interface ReaderWorker {
 	postMessage(message: unknown): void;
 	terminate(): void;
 	unref?(): void;
+	/** Bun fires "close" once the worker's thread has really exited. */
+	addEventListener?(type: "close", listener: () => void): void;
 }
 
 export interface OffThreadReaderOptions {
@@ -28,6 +30,25 @@ export interface OffThreadReaderOptions {
 	readTimeoutMs?: number;
 	readyTimeoutMs?: number;
 	maxSpawns?: number;
+	/**
+	 * How long a reader whose spawn budget is spent fails its reads before it
+	 * spawns again. Default 60 s. The writer does not use it.
+	 */
+	respawnCooldownMs?: number;
+	/** Clock for the respawn cool-down; tests inject one. */
+	now?: () => number;
+	/**
+	 * How many terminated workers may still be running before the reader stops
+	 * spawning replacements. bun:sqlite cannot interrupt a running statement, so
+	 * terminate() ends a timed-out read's thread only once its statement returns.
+	 * Default 1: a lane runs at most two threads, and reads wait for an exit.
+	 */
+	maxOrphans?: number;
+	/**
+	 * How long a terminated worker counts against maxOrphans when its thread
+	 * never reports an exit. Default ten read timeouts.
+	 */
+	orphanExpiryMs?: number;
 	/** Names this worker in log lines when a process runs more than one reader. */
 	label?: string;
 	/** The worker's OS thread name (see DB_WORKER_THREAD_NAMES); 15 bytes at most. */
@@ -36,7 +57,11 @@ export interface OffThreadReaderOptions {
 	info?: (message: string) => void;
 }
 
-/** The worker could not take the request; running it on the main thread is safe. */
+/**
+ * The worker could not take the request, or faulted while it held it. A read
+ * fails with it (#921); a write the worker never received is safe to run on
+ * the main connection, and the adapter does that.
+ */
 export class OffThreadReaderUnavailableError extends Error {
 	constructor(message: string) {
 		super(message);
@@ -74,6 +99,14 @@ type Lease = {
 	readyTimer?: ReturnType<typeof setTimeout>;
 	retireTimer?: ReturnType<typeof setTimeout>;
 	resolveRetired?: () => void;
+	/** The worker reports its thread's exit, so a terminated one can be counted. */
+	tracksExit: boolean;
+	exited?: boolean;
+	/** Counted in orphans once; destroy() never counts a lease twice. */
+	orphaned?: boolean;
+	/** Terminated while its thread still ran; counted in orphans until it exits. */
+	orphanedAt?: number;
+	orphanTimer?: ReturnType<typeof setTimeout>;
 };
 type ErrorDetail = {
 	message: string;
@@ -119,6 +152,15 @@ export class OffThreadReader {
 	protected readonly readTimeoutMs: number;
 	protected readonly readyTimeoutMs: number;
 	protected readonly maxSpawns: number;
+	private readonly respawnCooldownMs: number;
+	private readonly now: () => number;
+	/** When the last spawn in the budget faulted; cleared by any worker result. */
+	private budgetSpentAt?: number;
+	/** Terminated workers whose threads have not exited yet. */
+	protected orphans = 0;
+	private readonly maxOrphans: number;
+	private readonly orphanExpiryMs: number;
+	private holding = false;
 
 	constructor(protected readonly options: OffThreadReaderOptions) {
 		const log = new Logger("OffThreadSql");
@@ -127,13 +169,14 @@ export class OffThreadReader {
 		this.readTimeoutMs = options.readTimeoutMs ?? 120_000;
 		this.readyTimeoutMs = options.readyTimeoutMs ?? 10_000;
 		this.maxSpawns = options.maxSpawns ?? 3;
+		this.respawnCooldownMs = options.respawnCooldownMs ?? 60_000;
+		this.now = options.now ?? Date.now;
+		this.maxOrphans = options.maxOrphans ?? 1;
+		this.orphanExpiryMs = options.orphanExpiryMs ?? this.readTimeoutMs * 10;
 	}
 
 	protected get label(): string {
 		return this.options.label ?? "reader";
-	}
-	protected get fallbackNoun(): string {
-		return "reads";
 	}
 
 	get readsServed(): number {
@@ -154,21 +197,25 @@ export class OffThreadReader {
 	): Promise<unknown> {
 		if (this.closed)
 			throw new OffThreadReaderUnavailableError("off-thread reader closed");
-		if (this.faults >= this.maxSpawns)
+		if (this.faults >= this.maxSpawns && !this.cooledDown())
 			throw new OffThreadReaderUnavailableError(
-				"off-thread reader spawn budget exhausted",
+				`off-thread ${this.label} spawn budget spent; it respawns after a ${this.respawnCooldownMs}ms cool-down`,
 			);
-		const lease = this.lease ?? this.spawn();
-		await lease.ready;
-		if (this.closed || this.lease !== lease)
-			throw new OffThreadReaderUnavailableError(
-				"off-thread reader unavailable",
-			);
+		// While too many terminated workers still run, the read waits for one to
+		// exit (orphanExited resumes it) or sheds at its timeout.
+		const lease = this.lease ?? (this.spawnHeld() ? undefined : this.spawn());
+		if (lease) {
+			await lease.ready;
+			if (this.closed || this.lease !== lease)
+				throw new OffThreadReaderUnavailableError(
+					"off-thread reader unavailable",
+				);
+		}
 		return new Promise((resolve, reject) => {
 			const request: PendingRequest = { mode, sql, params, resolve, reject };
 			request.timer = setTimeout(() => this.shed(request), this.readTimeoutMs);
 			this.waiting.push(request);
-			this.pump(lease);
+			if (lease) this.pump(lease);
 		});
 	}
 
@@ -193,8 +240,7 @@ export class OffThreadReader {
 					params: request.params,
 				});
 			} catch (error) {
-				// Not cloneable, so the worker never saw it: fail only this read, and
-				// the caller's main-thread fallback runs it.
+				// Not cloneable, so the worker never saw it: fail only this read.
 				request.reject(
 					new OffThreadReaderUnavailableError(
 						`off-thread ${this.label} could not take the read: ${error instanceof Error ? error.message : String(error)}`,
@@ -232,19 +278,21 @@ export class OffThreadReader {
 
 	/**
 	 * After a fault, take the reads that were waiting to a fresh worker. Past
-	 * the spawn budget they reject as unavailable and fall back to the main
-	 * thread, as reads do once the reader has given up.
+	 * the spawn budget they fail as unavailable, as new reads do until the
+	 * cool-down ends. No read moves to the main thread (#921).
 	 */
 	private resume(): void {
 		if (this.closed || this.waiting.length === 0) return;
 		if (this.faults >= this.maxSpawns) {
 			this.rejectWaiting(
 				new OffThreadReaderUnavailableError(
-					`off-thread ${this.label} spawn budget exhausted`,
+					`off-thread ${this.label} spawn budget spent`,
 				),
 			);
 			return;
 		}
+		// An orphan's exit resumes them.
+		if (!this.lease && this.spawnHeld()) return;
 		let lease: Lease;
 		try {
 			lease = this.lease ?? this.spawn();
@@ -258,6 +306,55 @@ export class OffThreadReader {
 			() => this.pump(lease),
 			() => {},
 		);
+	}
+
+	/**
+	 * Once the cool-down after a spent budget has passed, allow one more spawn.
+	 * A result from it restores the whole budget; a fault spends it again.
+	 */
+	private cooledDown(): boolean {
+		if (
+			this.budgetSpentAt === undefined ||
+			this.now() - this.budgetSpentAt < this.respawnCooldownMs
+		)
+			return false;
+		this.budgetSpentAt = undefined;
+		this.faults = this.maxSpawns - 1;
+		return true;
+	}
+
+	/**
+	 * True while more than maxOrphans terminated workers still run their
+	 * statements. Spawning another would only add a thread, and its IO, to a
+	 * lane that is already behind; warned once per hold.
+	 */
+	private spawnHeld(): boolean {
+		if (this.orphans <= this.maxOrphans) {
+			this.holding = false;
+			return false;
+		}
+		if (!this.holding) {
+			this.holding = true;
+			this.warn(
+				`off-thread ${this.label} holds new workers: ${this.orphans} terminated workers are still running reads that timed out; reads wait until one exits`,
+			);
+		}
+		return true;
+	}
+
+	/** A terminated worker's thread exited, or it stopped being counted. */
+	private orphanExited(lease: Lease, exited: boolean): void {
+		if (lease.orphanedAt === undefined) return;
+		const ms = Math.round(this.now() - lease.orphanedAt);
+		lease.orphanedAt = undefined;
+		clearTimeout(lease.orphanTimer);
+		this.orphans--;
+		this.warn(
+			exited
+				? `off-thread ${this.label} terminated worker exited after ${ms}ms`
+				: `off-thread ${this.label} terminated worker still running after ${ms}ms; no longer counted against maxOrphans`,
+		);
+		this.resume();
 	}
 
 	private rejectWaiting(error: Error): void {
@@ -305,8 +402,19 @@ export class OffThreadReader {
 			resolveReady = resolve;
 			rejectReady = reject;
 		});
-		const lease: Lease = { worker, url, ready, resolveReady, rejectReady };
+		const lease: Lease = {
+			worker,
+			url,
+			ready,
+			resolveReady,
+			rejectReady,
+			tracksExit: typeof worker.addEventListener === "function",
+		};
 		this.lease = lease;
+		worker.addEventListener?.("close", () => {
+			lease.exited = true;
+			this.orphanExited(lease, true);
+		});
 		worker.onmessage = (event) => this.receive(lease, event.data);
 		worker.onerror = (event) => {
 			event.preventDefault?.();
@@ -378,6 +486,10 @@ export class OffThreadReader {
 		read: PendingRequest,
 		message: Record<string, unknown>,
 	): void {
+		// Any result means the worker is alive, so it earns back its spawn budget,
+		// as the writer's does. A slow read that timed out is not a dead worker.
+		this.faults = 0;
+		this.budgetSpentAt = undefined;
 		this.pump(lease);
 		if (message.ok) {
 			this.served++;
@@ -385,14 +497,13 @@ export class OffThreadReader {
 			return;
 		}
 		const detail = message.error as ErrorDetail;
+		// SQLITE_BUSY keeps its code; the adapter waits and retries it on the reader.
 		read.reject(
-			detail.code === "SQLITE_BUSY"
-				? new OffThreadReaderUnavailableError(detail.message)
-				: rehydrate({
-						message: detail.message,
-						name: detail.name,
-						code: detail.code,
-					}),
+			rehydrate({
+				message: detail.message,
+				name: detail.name,
+				code: detail.code,
+			}),
 		);
 	}
 
@@ -420,12 +531,17 @@ export class OffThreadReader {
 			this.rejectPending(this.pendingFaultError(cause, unavailable));
 			this.destroy(lease);
 		}
-		if (this.faults === this.maxSpawns)
-			this.warn(
-				`falling back to main-thread ${this.fallbackNoun} for the rest of this process`,
-			);
+		if (this.faults === this.maxSpawns) this.budgetSpent();
 		if (lease) this.resume();
 		return unavailable;
+	}
+
+	/** The last spawn in the budget faulted. */
+	protected budgetSpent(): void {
+		this.budgetSpentAt = this.now();
+		this.warn(
+			`off-thread ${this.label} spawn budget spent; its reads fail for ${Math.round(this.respawnCooldownMs / 1000)}s, then it respawns (BETTER_CCFLARE_DB_READER_WORKER=0 reads on the main thread instead)`,
+		);
 	}
 
 	protected rejectPending(error: Error): void {
@@ -444,6 +560,18 @@ export class OffThreadReader {
 		lease.worker.onmessage = null;
 		lease.worker.onerror = null;
 		lease.worker.onmessageerror = null;
+		if (lease.tracksExit && !lease.exited && !lease.orphaned && !this.closed) {
+			// Counted once, until its thread exits. One past orphanExpiryMs stops
+			// counting, so a lost exit event cannot hold the lane for good.
+			lease.orphaned = true;
+			lease.orphanedAt = this.now();
+			this.orphans++;
+			lease.orphanTimer = setTimeout(
+				() => this.orphanExited(lease, false),
+				this.orphanExpiryMs,
+			);
+			(lease.orphanTimer as { unref?: () => void }).unref?.();
+		}
 		lease.worker.terminate();
 		if (lease.url) this.revoke(lease.url);
 		if (this.lease === lease) this.lease = undefined;
@@ -521,8 +649,11 @@ export class OffThreadWriter extends OffThreadReader {
 	protected override get label(): string {
 		return "writer";
 	}
-	protected override get fallbackNoun(): string {
-		return "writes";
+	/** Writes keep their fallback: the adapter runs them on the main connection. */
+	protected override budgetSpent(): void {
+		this.warn(
+			"falling back to main-thread writes for the rest of this process",
+		);
 	}
 
 	get writesServed(): number {

@@ -151,6 +151,37 @@ describe("checkSquashCommit", () => {
 	});
 });
 
+// Renovate descriptions quote advisories and release notes, and code in them fails the
+// parser: 3 of 20 fleet Renovate descriptions sampled on 2026-11-21 did, 2 of them in
+// the advisory text, which fetchChangeLogs cannot remove. The fixture is trimmed from
+// the description Renovate wrote for StartupBros-com/hov-stack#708 (#910).
+describe("Renovate descriptions", () => {
+	const renovate = JSON.parse(
+		readFileSync(join(import.meta.dir, "../../renovate.json"), "utf8"),
+	) as { prHeader?: string };
+	const title = "chore(deps): Update dependency postcss to v8.5.23 [SECURITY]";
+	const body = fixture("renovate-security-body.txt");
+
+	test("a quoted advisory fails the check on its own", () => {
+		expect(checkSquashCommit({ number: 9, title, body }).ok).toBe(false);
+	});
+
+	test("renovate.json's prHeader has release-please read the pull request title instead", () => {
+		// Renovate renders prHeader with Handlebars and puts it first in the description,
+		// so its marker is the first one release-please finds.
+		const header = renovate.prHeader?.replace("{{{prTitle}}}", title) ?? "";
+		expect(header.startsWith("BEGIN_COMMIT_OVERRIDE")).toBe(true);
+		const check = checkSquashCommit({
+			number: 9,
+			title,
+			body: `${header}\n\n${body}`,
+		});
+		expect(check.overrideActive).toBe(true);
+		expect(check.parsed).toBe(title);
+		expect(check.ok).toBe(true);
+	});
+});
+
 describe("command line", () => {
 	const repository = { full_name: "StartupBros/hov-router" };
 	const pullRequest = (

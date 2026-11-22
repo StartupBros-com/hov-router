@@ -1,5 +1,7 @@
-# Weekly dependency version updates. Security updates are enabled separately in the
-# repository settings and are not affected by this file.
+# Weekly GitHub Actions version updates. Package updates come from the fleet's
+# Renovate run, configured in renovate.json, as in the rest of the fleet (#910).
+# Security updates are enabled separately in the repository settings and are not
+# affected by this file.
 #
 # Squash commits must parse for the required `prepare` check (#797). The `chore`
 # prefix keeps each title parseable and out of the release notes. Dependabot's
@@ -9,24 +11,6 @@
 # docs/hov-router-releases.md, "Squash commits release-please can parse".
 version: 2
 updates:
-  - package-ecosystem: bun
-    directory: /
-    schedule:
-      interval: weekly
-    cooldown:
-      default-days: 3
-    commit-message:
-      prefix: chore
-      include: scope
-    groups:
-      bun-minor-and-patch:
-        update-types: [minor, patch]
-    ignore:
-      # The Bun runtime is pinned together in .bun-version, the Dockerfile's
-      # BUN_VERSION and this package.json entry, and the proxy relies on that exact
-      # runtime's behaviour. Upgrade all three by hand in one change.
-      - dependency-name: bun
-
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -39,4 +23,7 @@ updates:
     groups:
       github-actions-minor-and-patch:
         patterns: ["*"]
+        # Its exact SHA is asserted on purpose (router-release-workflow.test.ts), so
+        # it gets its own PR and its expected failure blocks no other bump.
+        exclude-patterns: ["actions/create-github-app-token"]
         update-types: [minor, patch]
