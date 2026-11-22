@@ -89,7 +89,7 @@ window.
 
 ## Claude Code Model Route Profiles
 
-Model route profiles let an operator expose exact-account or capability-pool routes in Claude Code's native `/model` picker without putting an account UUID in the public model ID. Profiles are disabled when `CCFLARE_MODEL_ROUTE_PROFILES_JSON` is absent or blank. When enabled, an authenticated `GET /v1/models` is answered locally with the reserved `claude-bccf-route-<profile-id>` IDs and display names. It performs no provider fetch and no account selection. See [Configuration](./configuration.md#claude-code-model-route-profiles) for the strict schema and Claude Code environment variables.
+Model route profiles let an operator expose exact-account or capability-pool routes in Claude Code's native `/model` picker without putting an account UUID in the public model ID. The router keeps them in its database, and they are edited live through the API or the dashboard's Route Lanes page ([Edit lanes live](./configuration.md#edit-lanes-live)). `CCFLARE_MODEL_ROUTE_PROFILES_JSON` or `CCFLARE_MODEL_ROUTE_PROFILES_FILE` only seeds them on the first start. Profiles are disabled when none are stored and neither variable is set. When enabled, an authenticated `GET /v1/models` is answered locally with the reserved `claude-bccf-route-<profile-id>` IDs and display names. It performs no provider fetch and no account selection. See [Configuration](./configuration.md#claude-code-model-route-profiles) for the strict schema and Claude Code environment variables.
 
 An explicit root request using a profile's public model ID performs three operations in order. The profile's selection mode determines whether admission targets one account or a live capability pool:
 

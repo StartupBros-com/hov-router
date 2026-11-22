@@ -172,7 +172,7 @@ Catalog-role and line are the capability-pool equivalents. Both take the model f
 
 ## Prevention
 
-- **Before changing or clearing any account's `model_mappings`, find every profile that pins a physical model**, not only those that name the account. Capability pools have no `accountId` (the parser rejects one, `model-route-profiles.ts:298-302`), so an accountId-scoped search misses them:
+- **Before changing or clearing any account's `model_mappings`, find every profile that pins a physical model**, not only those that name the account. Capability pools have no `accountId` (the parser rejects one, `model-route-profiles.ts:298-302`), so an accountId-scoped search misses them. Since #973 the profiles live in the database. Read them on the dashboard's Route Lanes page ("Edit as JSON"), or with `GET /api/route-profiles` and an admin key, then look for `expectedPhysicalModel` in `profiles`. On a build older than #973 they were in the root-owned env file:
 
   ```bash
   sudo cat /etc/better-ccflare/model-route-profiles.env | python3 -c '
@@ -186,7 +186,7 @@ Catalog-role and line are the capability-pool equivalents. Both take the model f
   '
   ```
 
-  Any hit on an affected account or provider must change in the same change, with a restart, or that profile fails closed.
+  Any hit on an affected account or provider must change in the same change, or that profile fails closed. Since #973 the profile edit takes effect on the next request. Before #973 it needed a restart.
 - **Convert exact Codex capability pools to `catalog-role` or `line` before running the Codex migration**, not after. Don't rely on the preview's `routeProfileAdvisories`, which never lists capability pools. By the code (not exercised), a catalog-role pool admits a still-pinned account whose pin equals the catalog target, and a line pool ignores the pin. Converting and restarting first should therefore leave no window in which the pool admits nobody.
 - **Don't set `expectedPhysicalModel` on a profile that should follow the latest model.** Use no pin on an accountId-pinned profile. On a Codex capability pool, use `physicalModelPolicy: "line"` to stay on one model line such as Sol or Astra, or `"catalog-role"` to follow whatever the catalog ranks for the family. A pool whose id names a model needs `line`, or a reorder makes the id wrong. Keep an exact pin only where one exact model is the point, for example a local model with a calibrated window.
 - **Know what a model switch touches.** The hand-rolled grok-4.6 → 4.7 switch touched three places:
@@ -196,7 +196,7 @@ Catalog-role and line are the capability-pool equivalents. Both take the model f
 
   After #361, a new Grok release needs none of them for this profile shape. After #362, a new Anthropic release needs no code bump for same-family routing. After #384, a new Codex generation needs none for Automatic accounts behind catalog-role pools. A line pool follows a new generation only after its model is added to `SUPPORTED_IDENTITIES` (`packages/providers/src/auto-model-capabilities.ts:45`) and HoV Router is redeployed. After #617, no model switch needs a `displayName` edit, because the picker label names the served model.
 - **If xAI's plan can't serve a newly listed model yet (#364),** re-pin the account's `model_mappings` to the previous model. Because the profile no longer asserts a model, that pin passes the guard with no profile edit. On 2026-09-22 a mapping change made through the dashboard took effect without a restart (session history). A direct DB edit was not tested that way.
-- **Edit the profiles file with the two-phase checklist above**, not by hand. The file is root-owned, read only at start, and fails the whole service closed if malformed.
+- **Edit lanes on the Route Lanes page or with `PUT /api/route-profiles`** (since #973; see `docs/configuration.md`, "Edit lanes live"). The router checks the whole set with the same parser it uses at startup. It answers a bad set with `400` and changes nothing, so a typo no longer takes the service down. The two-phase file checklist above applies only to a build older than #973. There the file is root-owned, read only at start, and fails the whole service closed if malformed.
 - **Watch for the general shape of this bug.** It is an admission check reading state that a later layer fills in. #325 is the same shape for Codex capability profiles: admission read a catalog that only dispatch populated. #384 primes catalogs for catalog-role pools (line pools too, since PR #635) and adds the startup heartbeat, but exact-policy pools still get no inline priming. #325 stays open pending live confirmation.
 
 ## Related Issues
