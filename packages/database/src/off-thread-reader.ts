@@ -15,6 +15,8 @@ export interface ReaderWorker {
 	postMessage(message: unknown): void;
 	terminate(): void;
 	unref?(): void;
+	/** Bun fires "close" once the worker's thread has really exited. */
+	addEventListener?(type: "close", listener: () => void): void;
 }
 
 export interface OffThreadReaderOptions {
@@ -35,6 +37,18 @@ export interface OffThreadReaderOptions {
 	respawnCooldownMs?: number;
 	/** Clock for the respawn cool-down; tests inject one. */
 	now?: () => number;
+	/**
+	 * How many terminated workers may still be running before the reader stops
+	 * spawning replacements. bun:sqlite cannot interrupt a running statement, so
+	 * terminate() ends a timed-out read's thread only once its statement returns.
+	 * Default 1: a lane runs at most two threads, and reads wait for an exit.
+	 */
+	maxOrphans?: number;
+	/**
+	 * How long a terminated worker counts against maxOrphans when its thread
+	 * never reports an exit. Default ten read timeouts.
+	 */
+	orphanExpiryMs?: number;
 	/** Names this worker in log lines when a process runs more than one reader. */
 	label?: string;
 	/** The worker's OS thread name (see DB_WORKER_THREAD_NAMES); 15 bytes at most. */
@@ -85,6 +99,14 @@ type Lease = {
 	readyTimer?: ReturnType<typeof setTimeout>;
 	retireTimer?: ReturnType<typeof setTimeout>;
 	resolveRetired?: () => void;
+	/** The worker reports its thread's exit, so a terminated one can be counted. */
+	tracksExit: boolean;
+	exited?: boolean;
+	/** Counted in orphans once; destroy() never counts a lease twice. */
+	orphaned?: boolean;
+	/** Terminated while its thread still ran; counted in orphans until it exits. */
+	orphanedAt?: number;
+	orphanTimer?: ReturnType<typeof setTimeout>;
 };
 type ErrorDetail = {
 	message: string;
@@ -134,6 +156,11 @@ export class OffThreadReader {
 	private readonly now: () => number;
 	/** When the last spawn in the budget faulted; cleared by any worker result. */
 	private budgetSpentAt?: number;
+	/** Terminated workers whose threads have not exited yet. */
+	protected orphans = 0;
+	private readonly maxOrphans: number;
+	private readonly orphanExpiryMs: number;
+	private holding = false;
 
 	constructor(protected readonly options: OffThreadReaderOptions) {
 		const log = new Logger("OffThreadSql");
@@ -144,6 +171,8 @@ export class OffThreadReader {
 		this.maxSpawns = options.maxSpawns ?? 3;
 		this.respawnCooldownMs = options.respawnCooldownMs ?? 60_000;
 		this.now = options.now ?? Date.now;
+		this.maxOrphans = options.maxOrphans ?? 1;
+		this.orphanExpiryMs = options.orphanExpiryMs ?? this.readTimeoutMs * 10;
 	}
 
 	protected get label(): string {
@@ -172,17 +201,21 @@ export class OffThreadReader {
 			throw new OffThreadReaderUnavailableError(
 				`off-thread ${this.label} spawn budget spent; it respawns after a ${this.respawnCooldownMs}ms cool-down`,
 			);
-		const lease = this.lease ?? this.spawn();
-		await lease.ready;
-		if (this.closed || this.lease !== lease)
-			throw new OffThreadReaderUnavailableError(
-				"off-thread reader unavailable",
-			);
+		// While too many terminated workers still run, the read waits for one to
+		// exit (orphanExited resumes it) or sheds at its timeout.
+		const lease = this.lease ?? (this.spawnHeld() ? undefined : this.spawn());
+		if (lease) {
+			await lease.ready;
+			if (this.closed || this.lease !== lease)
+				throw new OffThreadReaderUnavailableError(
+					"off-thread reader unavailable",
+				);
+		}
 		return new Promise((resolve, reject) => {
 			const request: PendingRequest = { mode, sql, params, resolve, reject };
 			request.timer = setTimeout(() => this.shed(request), this.readTimeoutMs);
 			this.waiting.push(request);
-			this.pump(lease);
+			if (lease) this.pump(lease);
 		});
 	}
 
@@ -258,6 +291,8 @@ export class OffThreadReader {
 			);
 			return;
 		}
+		// An orphan's exit resumes them.
+		if (!this.lease && this.spawnHeld()) return;
 		let lease: Lease;
 		try {
 			lease = this.lease ?? this.spawn();
@@ -286,6 +321,40 @@ export class OffThreadReader {
 		this.budgetSpentAt = undefined;
 		this.faults = this.maxSpawns - 1;
 		return true;
+	}
+
+	/**
+	 * True while more than maxOrphans terminated workers still run their
+	 * statements. Spawning another would only add a thread, and its IO, to a
+	 * lane that is already behind; warned once per hold.
+	 */
+	private spawnHeld(): boolean {
+		if (this.orphans <= this.maxOrphans) {
+			this.holding = false;
+			return false;
+		}
+		if (!this.holding) {
+			this.holding = true;
+			this.warn(
+				`off-thread ${this.label} holds new workers: ${this.orphans} terminated workers are still running reads that timed out; reads wait until one exits`,
+			);
+		}
+		return true;
+	}
+
+	/** A terminated worker's thread exited, or it stopped being counted. */
+	private orphanExited(lease: Lease, exited: boolean): void {
+		if (lease.orphanedAt === undefined) return;
+		const ms = Math.round(this.now() - lease.orphanedAt);
+		lease.orphanedAt = undefined;
+		clearTimeout(lease.orphanTimer);
+		this.orphans--;
+		this.warn(
+			exited
+				? `off-thread ${this.label} terminated worker exited after ${ms}ms`
+				: `off-thread ${this.label} terminated worker still running after ${ms}ms; no longer counted against maxOrphans`,
+		);
+		this.resume();
 	}
 
 	private rejectWaiting(error: Error): void {
@@ -333,8 +402,19 @@ export class OffThreadReader {
 			resolveReady = resolve;
 			rejectReady = reject;
 		});
-		const lease: Lease = { worker, url, ready, resolveReady, rejectReady };
+		const lease: Lease = {
+			worker,
+			url,
+			ready,
+			resolveReady,
+			rejectReady,
+			tracksExit: typeof worker.addEventListener === "function",
+		};
 		this.lease = lease;
+		worker.addEventListener?.("close", () => {
+			lease.exited = true;
+			this.orphanExited(lease, true);
+		});
 		worker.onmessage = (event) => this.receive(lease, event.data);
 		worker.onerror = (event) => {
 			event.preventDefault?.();
@@ -480,6 +560,18 @@ export class OffThreadReader {
 		lease.worker.onmessage = null;
 		lease.worker.onerror = null;
 		lease.worker.onmessageerror = null;
+		if (lease.tracksExit && !lease.exited && !lease.orphaned && !this.closed) {
+			// Counted once, until its thread exits. One past orphanExpiryMs stops
+			// counting, so a lost exit event cannot hold the lane for good.
+			lease.orphaned = true;
+			lease.orphanedAt = this.now();
+			this.orphans++;
+			lease.orphanTimer = setTimeout(
+				() => this.orphanExited(lease, false),
+				this.orphanExpiryMs,
+			);
+			(lease.orphanTimer as { unref?: () => void }).unref?.();
+		}
 		lease.worker.terminate();
 		if (lease.url) this.revoke(lease.url);
 		if (this.lease === lease) this.lease = undefined;

@@ -1,6 +1,12 @@
 import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import {
+	existsSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BunSqlAdapter } from "../adapters/bun-sql-adapter";
@@ -94,6 +100,31 @@ function fakeFixture(options: Partial<OffThreadReaderOptions> = {}) {
 	return { reader, workers, warn, info, revokeObjectURL };
 }
 const turns = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+const sleep = (ms: number) =>
+	new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** A fake whose thread outlives terminate() until exit(), as Bun's does mid-statement. */
+class ExitingWorker extends FakeWorker {
+	private readonly closeListeners: (() => void)[] = [];
+	addEventListener(type: "close", listener: () => void) {
+		if (type === "close") this.closeListeners.push(listener);
+	}
+	exit() {
+		for (const listener of this.closeListeners.splice(0)) listener();
+	}
+}
+function exitingFixture(options: Partial<OffThreadReaderOptions> = {}) {
+	const workers: ExitingWorker[] = [];
+	const fixture = fakeFixture({
+		workerFactory: () => {
+			const worker = new ExitingWorker();
+			workers.push(worker);
+			return worker;
+		},
+		...options,
+	});
+	return { ...fixture, workers };
+}
 
 it("spawns lazily from embedded code, logs readiness once per process, and selects source URLs when empty", async () => {
 	const worker = new FakeWorker();
@@ -846,6 +877,9 @@ describe("off-thread reads never move to the main thread (#921)", () => {
 			sourceUrl,
 			readTimeoutMs: 150,
 			maxSpawns: 3,
+			// This case is about the spawn budget. The cap on terminated workers
+			// that are still running has its own case below.
+			maxOrphans: 3,
 			warn,
 		});
 		cleanups.push(() => reader.close());
@@ -946,4 +980,192 @@ describe("off-thread reads never move to the main thread (#921)", () => {
 		expect(query).not.toHaveBeenCalled();
 		expect(workers[0].terminated).toBe(0);
 	});
+});
+
+describe("a terminated worker keeps its thread until its statement returns", () => {
+	const timedOut = (error: Error) =>
+		expect(error.message).toStartWith("off-thread read timed out after");
+
+	it("holds a replacement while more than maxOrphans terminated workers still run, and resumes on an exit", async () => {
+		const { reader, workers, warn } = exitingFixture({ readTimeoutMs: 100 });
+		timedOut(await reader.all("SELECT 'a'").catch((e) => e));
+		expect(workers[0].terminated).toBe(1);
+		// One terminated worker may run beside a live one.
+		const second = reader.all("SELECT 'b'").catch((e) => e);
+		await turns();
+		expect(workers).toHaveLength(2);
+		timedOut(await second);
+		// Two still run: the next read waits instead of starting a third thread.
+		const held = reader.get("SELECT 3 AS n");
+		await turns();
+		expect(workers).toHaveLength(2);
+		expect(
+			warn.mock.calls.filter(([line]) =>
+				line.startsWith(
+					"off-thread reader holds new workers: 2 terminated workers are still running",
+				),
+			),
+		).toHaveLength(1);
+		workers[0].exit();
+		await turns();
+		expect(workers).toHaveLength(3);
+		const read = workers[2].messages.find((m) => m.kind === "read");
+		expect(read?.sql).toBe("SELECT 3 AS n");
+		workers[2].emit({
+			kind: "result",
+			id: read?.id,
+			ok: true,
+			row: { n: 3 },
+			ms: 1,
+		});
+		expect(await held).toEqual({ n: 3 });
+		// A second episode warns again: the third worker times out while the
+		// second still runs, so two are running once more.
+		const again = reader.all("SELECT 'd'").catch((e) => e);
+		await turns();
+		expect(workers).toHaveLength(3);
+		timedOut(await again);
+		const heldAgain = reader.get("SELECT 5 AS n").catch((e) => e);
+		await turns();
+		expect(workers).toHaveLength(3);
+		expect(
+			warn.mock.calls.filter(([line]) =>
+				line.startsWith("off-thread reader holds new workers:"),
+			),
+		).toHaveLength(2);
+		await heldAgain;
+		expect(
+			warn.mock.calls.filter(([line]) =>
+				/^off-thread reader terminated worker exited after \d+ms$/.test(line),
+			),
+		).toHaveLength(1);
+	});
+
+	it("sheds a read held behind terminated workers at its own timeout", async () => {
+		const { reader, workers } = exitingFixture({ readTimeoutMs: 100 });
+		timedOut(await reader.all("SELECT 'a'").catch((e) => e));
+		timedOut(await reader.all("SELECT 'b'").catch((e) => e));
+		const held = await reader.all("SELECT 'c'").catch((e) => e);
+		expect(held).not.toBeInstanceOf(OffThreadReaderUnavailableError);
+		expect(held.message).toStartWith(
+			"off-thread reader busy: read waited 100ms",
+		);
+		expect(workers).toHaveLength(2);
+	});
+
+	it("stops counting a terminated worker that never exits after ten read timeouts", async () => {
+		const { reader, workers, warn } = exitingFixture({ readTimeoutMs: 20 });
+		timedOut(await reader.all("SELECT 'a'").catch((e) => e));
+		timedOut(await reader.all("SELECT 'b'").catch((e) => e));
+		await sleep(260);
+		expect(
+			warn.mock.calls.filter(([line]) =>
+				/^off-thread reader terminated worker still running after \d+ms; no longer counted against maxOrphans$/.test(
+					line,
+				),
+			),
+		).toHaveLength(2);
+		const later = reader.get("SELECT 4 AS n");
+		await turns();
+		expect(workers).toHaveLength(3);
+		const read = workers[2].messages.find((m) => m.kind === "read");
+		workers[2].emit({
+			kind: "result",
+			id: read?.id,
+			ok: true,
+			row: { n: 4 },
+			ms: 1,
+		});
+		expect(await later).toEqual({ n: 4 });
+	});
+
+	it("does not count the worker it retires at close", async () => {
+		const { reader, workers, warn } = exitingFixture();
+		const read = reader.get("SELECT 1 AS n");
+		await turns();
+		const message = workers[0].messages.find((m) => m.kind === "read");
+		workers[0].emit({
+			kind: "result",
+			id: message?.id,
+			ok: true,
+			row: { n: 1 },
+			ms: 1,
+		});
+		expect(await read).toEqual({ n: 1 });
+		await reader.close();
+		workers[0].exit();
+		expect(
+			warn.mock.calls.filter(([line]) => line.includes("terminated worker")),
+		).toHaveLength(0);
+	});
+
+	let realLane = 0;
+	it("keeps a real lane to two threads through repeated read timeouts", async () => {
+		if (!existsSync("/proc/self/task")) return;
+		const SLOW =
+			"WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 10000000) SELECT count(*) AS n FROM c";
+		const { adapter } = realFixture();
+		const warn = mock((_line: string) => {});
+		const lines = (needle: string) =>
+			warn.mock.calls.filter(([line]) => line.includes(needle)).length;
+		// Its own name per run, so threads an earlier run in this process left
+		// are not counted. Linux keeps 15 characters of a thread name.
+		const threadName = `orphan-${++realLane}`;
+		const reader = new OffThreadReader({
+			dbPath: adapter.getSQLiteDb().filename,
+			busyTimeoutMs: 100,
+			embeddedCode: "",
+			sourceUrl,
+			readTimeoutMs: 150,
+			// Past any scan here even on a loaded host, so the cap is what holds
+			// the lane and not the expiry.
+			orphanExpiryMs: 60_000,
+			threadName,
+			warn,
+		});
+		cleanups.push(() => reader.close());
+		const count = () => {
+			let n = 0;
+			for (const task of readdirSync("/proc/self/task")) {
+				try {
+					const comm = readFileSync(`/proc/self/task/${task}/comm`, "utf8");
+					if (comm.trimEnd() === threadName) n++;
+				} catch {}
+			}
+			return n;
+		};
+		// A thread whose close event has fired has finished its statement and is
+		// being torn down, so one sample over two is read again shortly after.
+		const threads = async () => {
+			const n = count();
+			if (n <= 2) return n;
+			await sleep(100);
+			return count();
+		};
+		// Before the cap every round left one more scan running: six threads at
+		// the end of five rounds, each on its own core.
+		let peak = 0;
+		for (let round = 0; round < 5; round++) {
+			await reader.all(SLOW).catch(() => {});
+			peak = Math.max(peak, await threads());
+			await reader.get("SELECT i FROM sample").catch(() => {});
+			peak = Math.max(peak, await threads());
+		}
+		// Two, not fewer: the first timed-out scan still runs beside the worker
+		// that serves the next read, so a counter that sees no threads fails here.
+		expect(peak).toBe(2);
+		// Each timed-out worker is counted until its close event.
+		for (
+			let i = 0;
+			i < 300 &&
+			lines("terminated worker exited after") < lines("read timeout");
+			i++
+		)
+			await sleep(100);
+		expect(lines("read timeout")).toBeGreaterThanOrEqual(1);
+		expect(lines("terminated worker exited after")).toBe(lines("read timeout"));
+		expect(lines("no longer counted")).toBe(0);
+		expect(count()).toBeLessThanOrEqual(1);
+		expect(await reader.get("SELECT i FROM sample")).toEqual({ i: 42 });
+	}, 60_000);
 });
