@@ -655,7 +655,7 @@ CCFLARE_MODEL_ROUTE_PROFILES_JSON='[
     "id": "glm-5-2-bounded-v1",
     "displayName": "GLM-5.2 Local: 2.5k input, 4k output, no deferred tools",
     "description": "Mac Studio local champion; calibrated 2.5k input / 4k output; no deferred tools; no fallback",
-    "accountId": "59d5d8b1-fe47-44e7-b47b-171b0c902b0c",
+    "accountId": "00000000-0000-4000-8000-000000000001",
     "logicalModel": "claude-fable-5",
     "expectedProvider": "anthropic-compatible",
     "expectedPhysicalModel": "local-champion",

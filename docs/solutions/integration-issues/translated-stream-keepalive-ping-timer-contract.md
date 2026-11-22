@@ -31,7 +31,7 @@ tags:
 
 ## Problem
 
-Requests routed from Claude Code to the mac-studio DeepSeek lane (guard `:8788` → backend `:8789` → openai-compatible account `ai-gateway-chat` → LiteLLM `chat` → oMLX) started failing with "Connection lost mid-response" whenever the model spent minutes generating a tool call. The fix (#636) made the openai-formats translator send Anthropic `ping` events into downstream silence. Its first version also let those locally made pings count as proof that the upstream was alive, which would have hidden a hung xai, kilo or qwen upstream from the pre-commit gate (#638, fixed by #639).
+Requests routed from Claude Code to the local-model DeepSeek lane (guard `:8788` → backend `:8789` → openai-compatible account `ai-gateway-chat` → LiteLLM `chat` → oMLX) started failing with "Connection lost mid-response" whenever the model spent minutes generating a tool call. The fix (#636) made the openai-formats translator send Anthropic `ping` events into downstream silence. Its first version also let those locally made pings count as proof that the upstream was alive, which would have hidden a hung xai, kilo or qwen upstream from the pre-commit gate (#638, fixed by #639).
 
 There are several idle clocks between the upstream and Claude Code. A ping the router makes itself must feed the clocks that protect the client and must stay out of the clocks that judge the upstream.
 

@@ -22,7 +22,7 @@ The original October 2026 investigation recorded a client/upstream distinction: 
 
 ## Guidance
 
-Let Claude Code select the requested TTL by request bucket, and keep that decision separate from proxy injection and provider retention. The adopted policy, persisted in [dotfiles PR #1698](https://github.com/StartupBros-com/dotfiles/pull/1698), was:
+Let Claude Code select the requested TTL by request bucket, and keep that decision separate from proxy injection and provider retention. The adopted policy, persisted in the operator's private harness repo, was:
 
 ```json
 {
@@ -49,7 +49,7 @@ A switch-off comparison is not necessarily a one-hour-versus-five-minute compari
 
 [Anthropic documents](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) five-minute writes at 1.25× ordinary input price and one-hour writes at 2×. Hits refresh the lifetime, measured from request start. Longer retention helps only when it preserves a reusable prefix that the shorter policy would lose. A high aggregate cache-read share or mostly short session gaps cannot establish that counterfactual: parallel agents, changing prefixes, account selection, and shared refreshes confound it. API prices also do not establish subscription-allowance weighting.
 
-The original investigation's recorded checks covered saved native settings, the proxy's effective API value and persisted file, and the adapter source—not an end-to-end capture of every running session. They establish **neither causal savings, quota improvement, nor sustained cache parity**. The operational observations are historical; the merged dotfiles change proves the tracked policy, not current live uptake on another host.
+The original investigation's recorded checks covered saved native settings, the proxy's effective API value and persisted file, and the adapter source—not an end-to-end capture of every running session. They establish **neither causal savings, quota improvement, nor sustained cache parity**. The operational observations are historical; the merged harness change proves the tracked policy, not current live uptake on another host.
 
 ## When to Apply
 

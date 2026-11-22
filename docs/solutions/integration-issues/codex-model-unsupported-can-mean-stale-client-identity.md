@@ -65,7 +65,7 @@ and deployment verification are recorded in [issue #378](https://github.com/Star
   - Since #384, the identity resolves from an explicit `CCFLARE_CODEX_CLIENT_VERSION`,
     then a verified-version record named by `CCFLARE_CODEX_VERIFIED_VERSION_FILE`, then
     that compiled default (`client-identity.ts:186-240`).
-  - The verified CLI updater from dotfiles #1377 writes that record after each verified
+  - The verified CLI updater from the operator's harness writes that record after each verified
     promotion, and production has pointed the variable at it since 2026-09-26. Without
     the updater, or with the variable unset, a CLI updated any other way still leaves the
     proxy on the compiled version. On a host running the updater, its next run records
@@ -148,9 +148,8 @@ post-deployment routing.
    [better-ccflare #370](https://github.com/StartupBros-com/better-ccflare/issues/370)
    shipped the proxy side in #384: one resolved identity is shared by inference and
    catalog negotiation, fed by a verified-version record.
-   [dotfiles #1377](https://github.com/StartupBros-com/dotfiles/issues/1377) writes that
-   record after each verified CLI promotion. It was merged as dotfiles #1401 and
-   activated on 2026-09-26. Production sets `CCFLARE_CODEX_VERIFIED_VERSION_FILE` in a
+   An updater in the operator's harness writes that record after each verified CLI
+   promotion; it was activated on 2026-09-26. Production sets `CCFLARE_CODEX_VERIFIED_VERSION_FILE` in a
    systemd drop-in, and reports source `verified` for the promoted 0.157.1.
    - The resolver re-reads the record at most once a second, so a later promotion reaches
      the proxy without a restart.

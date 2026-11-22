@@ -26,9 +26,9 @@ tags: [recovery-signal, org-permission-denied, usage-poll, drain-soonest, alert-
 
 The `org_permission_denied` alert (#877) opens an episode when Anthropic refuses an account's organization: a 403 `permission_error` with `oauth_not_allowed_for_organization`, which a failed subscription payment causes. As first built, it closed the episode with a recovered alert only on the first successful request the account served after its latest refusal (`noteOrgRefusalRecovery`, `packages/http-api/src/services/alerts.ts:2363-2377`).
 
-That design assumed live traffic keeps probing a refused account. When #877 was built, the explanation given was that the router retries the account every couple of minutes, and the first request Anthropic accepts clears the bench. The case of a refused account drawing no traffic was never raised (session history). The assumption held on 2026-11-16: max-primary-bros was refused after a failed payment and recovered through ordinary traffic, with its first 200 at 22:09:36Z (auto memory [claude]).
+That design assumed live traffic keeps probing a refused account. When #877 was built, the explanation given was that the router retries the account every couple of minutes, and the first request Anthropic accepts clears the bench. The case of a refused account drawing no traffic was never raised (session history). The assumption held on 2026-11-16: max-primary was refused after a failed payment and recovered through ordinary traffic, with its first 200 at 22:09:36Z (auto memory [claude]).
 
-On 2026-11-21 it did not hold. max-quaternary-spgm was refused at 06:30:55Z after a failed payment, and the refused alert fired. The account then served no request for the rest of the day: the `requests` table has no row with its id in `account_used` for 2026-11-21. The invoice was paid around 21:00Z, and a Refresh usage at 21:09:30Z was accepted. Nothing closed the episode, and the 21:55Z deploy dropped it from memory, so the recovered alert never fired. For about 14.5 hours the account card also read Ready, because the card counted a refusal only while the router's bench was live, and the bench set that morning lapsed after 30 s.
+On 2026-11-21 it did not hold. max-quaternary was refused at 06:30:55Z after a failed payment, and the refused alert fired. The account then served no request for the rest of the day: the `requests` table has no row with its id in `account_used` for 2026-11-21. The invoice was paid around 21:00Z, and a Refresh usage at 21:09:30Z was accepted. Nothing closed the episode, and the 21:55Z deploy dropped it from memory, so the recovered alert never fired. For about 14.5 hours the account card also read Ready, because the card counted a refusal only while the router's bench was live, and the bench set that morning lapsed after 30 s.
 
 ## Guidance
 
@@ -62,7 +62,7 @@ The delay also loses the signal outright. Alert episodes live in memory, so any 
 
 - A new alert episode, account status or card state that clears on recovery.
 - A condition that empties an account's usage data, holds a long bench, pauses it or otherwise moves it to the back of the ranking.
-- A design note that says the router will retry the account anyway. Check the ranking code, not just the bench length: max-quaternary-spgm's bench lapsed after 30 s, and the account still drew no traffic for 14.5 hours.
+- A design note that says the router will retry the account anyway. Check the ranking code, not just the bench length: max-quaternary's bench lapsed after 30 s, and the account still drew no traffic for 14.5 hours.
 
 ## Examples
 
