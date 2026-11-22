@@ -3633,8 +3633,10 @@ async function selectAccountsForRequestInternal(
 				);
 			}
 			setXaiCacheEligibleAccounts(meta, [forcedAccount]);
+			// Header and profile pins alike: an exclusion is the server's rule for
+			// this kind of traffic (the Responses adapter excludes Anthropic OAuth
+			// accounts), so a client's pin header cannot route around it.
 			if (
-				serverForcedAccountId &&
 				isProviderExcludedForRequest(forcedAccount, getExcludedProviders(meta))
 			) {
 				throw new ForceRouteUnavailableError(

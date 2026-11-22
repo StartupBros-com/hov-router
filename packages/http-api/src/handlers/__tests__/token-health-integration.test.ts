@@ -148,6 +148,72 @@ describe("Token Health HTTP API Integration", () => {
 				expect(typeof handler).toBe("function");
 			}).not.toThrow();
 		});
+
+		// The handler used to return the account rows themselves, so any admin
+		// key could read every stored token of an account that needs
+		// re-authentication. The response is health entries only.
+		it("reauth-needed answers with health entries and no stored credential", async () => {
+			const secrets = {
+				refresh_token: "SENTINEL-refresh-7f3a",
+				access_token: "SENTINEL-access-91bc",
+				api_key: "SENTINEL-apikey-c4d2",
+			};
+			const expired = { ...mockAccounts[1], ...secrets };
+			const healthy = {
+				...mockAccounts[0],
+				refresh_token: "SENTINEL-refresh-healthy-55aa",
+				access_token: "SENTINEL-access-healthy-66bb",
+			};
+			const dbOps = {
+				...mockDbOps,
+				getAllAccounts: () => [healthy, expired],
+			} as unknown as DatabaseOperations;
+
+			const response = await createReauthNeededHandler(dbOps)();
+			const text = await response.text();
+			const body = JSON.parse(text) as {
+				success: boolean;
+				data: {
+					accounts: Array<Record<string, unknown>>;
+					count: number;
+					needsReauth: boolean;
+				};
+			};
+
+			expect(body.success).toBe(true);
+			expect(body.data.count).toBe(1);
+			expect(body.data.needsReauth).toBe(true);
+			expect(body.data.accounts).toHaveLength(1);
+			const [entry] = body.data.accounts;
+			expect(entry.accountId).toBe(expired.id);
+			expect(entry.accountName).toBe(expired.name);
+			expect(entry.provider).toBe(expired.provider);
+			expect(entry.status).toBe("expired");
+			expect(entry.requiresReauth).toBe(true);
+			for (const field of [
+				"refresh_token",
+				"access_token",
+				"api_key",
+				"custom_endpoint",
+			]) {
+				expect(entry).not.toHaveProperty(field);
+			}
+			expect(text).not.toContain("SENTINEL");
+		});
+
+		it("reauth-needed reports nothing when every token is healthy", async () => {
+			const dbOps = {
+				...mockDbOps,
+				getAllAccounts: () => [mockAccounts[0], mockAccounts[2]],
+			} as unknown as DatabaseOperations;
+
+			const response = await createReauthNeededHandler(dbOps)();
+			const body = (await response.json()) as {
+				data: { accounts: unknown[]; count: number; needsReauth: boolean };
+			};
+
+			expect(body.data).toEqual({ accounts: [], count: 0, needsReauth: false });
+		});
 	});
 
 	describe("Token Health Monitoring", () => {

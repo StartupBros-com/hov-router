@@ -127,12 +127,16 @@ export class OpenAICompatibleProvider extends BaseProvider {
 	): Headers {
 		const newHeaders = new Headers(headers);
 
-		// SECURITY: Remove client's authorization header when we have provider credentials
-		// to prevent credential leakage. If no credentials provided (passthrough mode),
-		// preserve client's authorization for direct API access.
+		// SECURITY: Remove the client's credentials when we have provider credentials
+		// to prevent credential leakage. A client presents the router's own API key
+		// in either `authorization` or `x-api-key`; an OpenAI-compatible endpoint
+		// ignores the second header, but it still receives it, so both go. If no
+		// credentials provided (passthrough mode), preserve the client's own for
+		// direct API access.
 		// Use explicit undefined checks to handle empty strings correctly.
 		if (_accessToken !== undefined || apiKey !== undefined) {
 			newHeaders.delete("authorization");
+			newHeaders.delete("x-api-key");
 		}
 
 		// OpenAI uses Bearer token authentication with API key
