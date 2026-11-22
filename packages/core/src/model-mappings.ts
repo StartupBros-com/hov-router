@@ -2,7 +2,10 @@ import { Logger } from "@better-ccflare/logger";
 import type { Account, ComboFamily } from "@better-ccflare/types";
 import { ValidationError } from "./errors";
 import { isForceAccountModelEnabled } from "./force-account-model";
-import { LATEST_MODEL_BY_FAMILY } from "./models";
+import {
+	LATEST_MODEL_BY_FAMILY,
+	LATEST_ROUTE_ONLY_MODEL_BY_FAMILY,
+} from "./models";
 import {
 	MAX_MODEL_MAPPING_CANDIDATES,
 	safeJsonParse,
@@ -132,6 +135,21 @@ export function resolveStoredPolicyAliasModel(
 	return family
 		? resolveFamilyAliasModel(trimmed, family, requestedModel)
 		: trimmed;
+}
+
+/**
+ * Resolve a route profile's logicalModel: a bare family name, a combo family
+ * ("opus") or a route-only one ("mythos"), becomes the router's latest model in
+ * that family; anything else is returned trimmed and unchanged. Only route
+ * profiles call this. Combo slots and stored policies use
+ * resolveStoredPolicyAliasModel, which never learns a route-only family.
+ */
+export function resolveRouteProfileModelAlias(value: string): string {
+	const trimmed = value.trim();
+	return (
+		LATEST_ROUTE_ONLY_MODEL_BY_FAMILY.get(trimmed.toLowerCase()) ??
+		resolveStoredPolicyAliasModel(trimmed)
+	);
 }
 
 /**

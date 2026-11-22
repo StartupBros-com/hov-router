@@ -1,6 +1,7 @@
 import {
 	getModelFamily,
-	resolveStoredPolicyAliasModel,
+	isRouteOnlyClaudeModelId,
+	resolveRouteProfileModelAlias,
 } from "@better-ccflare/core";
 import { getSupportedLines } from "@better-ccflare/providers";
 import type {
@@ -592,15 +593,27 @@ export function parseModelRouteProfiles(
 			index,
 			MAX_MODEL_ID_LENGTH,
 		);
-		// A bare family name ("opus") on a profile that does not follow a catalog
-		// means "this family's current model". Resolve it once, here, through the
-		// same per-release table combo family aliases use, so every reader of
-		// logicalModel sees a concrete id and no bare alias is ever sent upstream.
-		// A catalog-following profile keeps its value: there it only names the
-		// role or line the catalog fills in.
+		// A bare family name ("opus", "mythos") on a profile that does not follow a
+		// catalog means "this family's current model". Resolve it once, here,
+		// through the router's per-release table, so every reader of logicalModel
+		// sees a concrete id and no bare alias is ever sent upstream. A
+		// catalog-following profile keeps its value: there it only names the role
+		// or line the catalog fills in.
 		const logicalModel = followsCatalog
 			? writtenLogicalModel
-			: resolveStoredPolicyAliasModel(writtenLogicalModel);
+			: resolveRouteProfileModelAlias(writtenLogicalModel);
+		// A route-only family (Mythos) is served only to accounts holding a
+		// grant, so its bare name needs a route pinned to one account; a pool
+		// would spread it across every account of the provider.
+		if (
+			selection === "capability" &&
+			logicalModel !== writtenLogicalModel &&
+			isRouteOnlyClaudeModelId(logicalModel)
+		) {
+			throw configError(
+				`profile ${index} logicalModel ${writtenLogicalModel} requires an accountId; a capability pool cannot serve a route-only model`,
+			);
+		}
 
 		const discoveryModelId =
 			clientContextWindowHint === "1m" ? `${publicModelId}[1m]` : publicModelId;
