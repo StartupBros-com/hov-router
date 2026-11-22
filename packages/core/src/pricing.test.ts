@@ -812,9 +812,9 @@ describe("getModelRates", () => {
 
 		expect(rates).toBeNull();
 		expect(warnLogger.warn).toHaveBeenCalledWith(
-			"Price for model %s not found - cache savings reported as unknown",
-			"malformed-cost-model",
+			"Price for model malformed-cost-model not found - cache savings reported as unknown",
 		);
+		expectCallsFitTheRealLogger(warnLogger);
 	});
 
 	it("should still warn when estimateCostUSD warned first for the same model", async () => {
@@ -826,21 +826,36 @@ describe("getModelRates", () => {
 			inputTokens: 100,
 		});
 		expect(cost).toBe(0);
+		// The reason must reach the message: the real logger takes one data
+		// value and never fills in printf placeholders.
 		expect(warnLogger.warn).toHaveBeenCalledWith(
-			"Price for model %s not found - cost set to 0 (reason: %s)",
-			"unknown-model-warn-dedup",
-			expect.any(String),
+			"Price for model unknown-model-warn-dedup not found - cost set to 0 (reason: Model unknown-model-warn-dedup not found in pricing catalogue)",
 		);
 
 		// getModelRates must still emit its own distinct warning
 		const rates = await getModelRates("unknown-model-warn-dedup");
 		expect(rates).toBeNull();
 		expect(warnLogger.warn).toHaveBeenCalledWith(
-			"Price for model %s not found - cache savings reported as unknown",
-			"unknown-model-warn-dedup",
+			"Price for model unknown-model-warn-dedup not found - cache savings reported as unknown",
 		);
+		expectCallsFitTheRealLogger(warnLogger);
 	});
 });
+
+/**
+ * The production pricing logger is `@better-ccflare/logger`'s `Logger`, whose
+ * `warn`/`debug` take a message and at most one data value and print the
+ * message verbatim. A third argument is dropped and a `%s` stays literal.
+ */
+function expectCallsFitTheRealLogger(logger: {
+	warn: ReturnType<typeof vi.fn>;
+	debug: ReturnType<typeof vi.fn>;
+}): void {
+	for (const call of [...logger.warn.mock.calls, ...logger.debug.mock.calls]) {
+		expect(call.length).toBeLessThanOrEqual(2);
+		expect(String(call[0])).not.toMatch(/%[sdifjoO]/);
+	}
+}
 
 describe("catalog metadata retention and synchronous accessors", () => {
 	let originalFetch: typeof global.fetch;
