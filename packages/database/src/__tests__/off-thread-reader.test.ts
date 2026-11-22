@@ -364,8 +364,8 @@ describe("off-thread reader fault lifecycle", () => {
 				preventDefault() {},
 			} as ErrorEvent);
 		else workers[0].onmessageerror?.({ data: "bad message" } as MessageEvent);
-		// The head may have been running when the worker broke; the caller's
-		// main-thread fallback takes it. The read behind it never started.
+		// The head may have been running when the worker broke, so it fails as
+		// unavailable. The read behind it never started.
 		expect(await running).toBeInstanceOf(OffThreadReaderUnavailableError);
 		await turns();
 		expect(workers).toHaveLength(2);
@@ -551,7 +551,7 @@ describe("off-thread reader fault lifecycle", () => {
 		expect(await waiting).toEqual({ n: 2 });
 		expect(warn).toHaveBeenCalledTimes(2);
 	});
-	it("sends waiting reads to the main-thread fallback once the spawn budget is spent", async () => {
+	it("fails waiting reads as unavailable once the spawn budget is spent", async () => {
 		const { reader, workers } = fakeFixture({ maxSpawns: 1 });
 		const running = reader.all("SELECT 1", []).catch((e) => e);
 		const waiting = reader.all("SELECT 2", []).catch((e) => e);
@@ -692,7 +692,7 @@ describe("off-thread reader fault lifecycle", () => {
 	});
 });
 
-describe("adapter off-thread fallback", () => {
+describe("adapter off-thread reads", () => {
 	it("propagates read timeouts without rerunning the hung SQL on the main thread", async () => {
 		const { adapter } = realFixture();
 		const { reader } = fakeFixture({ readTimeoutMs: 20 });

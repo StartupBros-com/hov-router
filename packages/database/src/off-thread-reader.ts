@@ -253,7 +253,7 @@ export class OffThreadReader {
 		if (this.faults >= this.maxSpawns) {
 			this.rejectWaiting(
 				new OffThreadReaderUnavailableError(
-					`off-thread ${this.label} spawn budget exhausted`,
+					`off-thread ${this.label} spawn budget spent`,
 				),
 			);
 			return;
