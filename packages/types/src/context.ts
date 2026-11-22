@@ -3,7 +3,11 @@ import type {
 	BunSqlAdapter,
 	DatabaseOperations,
 } from "@better-ccflare/database";
-import type { CircuitBreaker, ModelRouteProfile } from "@better-ccflare/proxy";
+import type {
+	CircuitBreaker,
+	ModelRouteProfile,
+	ModelRouteProfilesStatus,
+} from "@better-ccflare/proxy";
 import type { Account } from "./account";
 import type { AlertEvent } from "./alerts";
 import type { AffinityOwnerSnapshot, RequestMeta } from "./api";
@@ -203,12 +207,14 @@ export interface APIContext {
 	 */
 	localControlSecret?: string;
 	/**
-	 * The restart-scoped route profiles the server parsed and validated from
-	 * CCFLARE_MODEL_ROUTE_PROFILES_JSON at startup. Read-only here (the Codex
+	 * The route profiles the server loaded and validated at startup, from
+	 * CCFLARE_MODEL_ROUTE_PROFILES_FILE or CCFLARE_MODEL_ROUTE_PROFILES_JSON. Read-only here (the Codex
 	 * migration preview reports profiles that still pin a physical model);
 	 * absent in narrower contexts that do not configure profiles.
 	 */
 	modelRouteProfiles?: readonly ModelRouteProfile[];
+	/** Where those profiles came from, for /health. */
+	modelRouteProfilesStatus?: ModelRouteProfilesStatus;
 }
 
 /** A restore belongs to the strategy instance that began it. */

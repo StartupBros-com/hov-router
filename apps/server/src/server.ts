@@ -112,11 +112,11 @@ import {
 	initCodexModelCatalogRefresh,
 	initModelCatalogRefresh,
 	initProxy,
+	loadModelRouteProfiles,
 	lowestTierCodexModel,
 	markAccountTokensFresh,
 	markBackendRetiring,
 	type ProxyContext,
-	parseModelRouteProfiles,
 	recordCodexUsageSnapshot,
 	refreshModelCatalog,
 	refreshTokenAfterRejectedRedemption,
@@ -128,6 +128,7 @@ import {
 	reservePendingRotationSlots,
 	restoreModelRouteBindings,
 	restorePendingRotations,
+	setActiveModelRouteProfiles,
 	startExternalCodexScheduler,
 	startGlobalTokenHealthChecks,
 	startIntegrityScheduler,
@@ -1580,7 +1581,9 @@ export default async function startServer(options?: {
 	});
 	// Route profiles are strict operator intent. Validate before database startup,
 	// background jobs, or the HTTP listener can make this process look healthy.
-	const modelRouteProfiles = parseModelRouteProfiles();
+	const { profiles: modelRouteProfiles, status: modelRouteProfilesStatus } =
+		loadModelRouteProfiles();
+	setActiveModelRouteProfiles(modelRouteProfiles);
 	// Override port if provided
 	if (port !== runtime.port) {
 		runtime.port = port;
@@ -2066,6 +2069,7 @@ export default async function startServer(options?: {
 			internalProbeSecret,
 			localControlSecret,
 			modelRouteProfiles,
+			modelRouteProfilesStatus,
 		},
 		{ deviceSetupCoordinator },
 	);
@@ -2188,8 +2192,10 @@ export default async function startServer(options?: {
 		modelRouteProfiles,
 		runtimeConfig.sessionDurationMs,
 	);
-	if (modelRouteProfiles.length > 0) {
-		log.info(`Model route profiles configured: ${modelRouteProfiles.length}`);
+	if (modelRouteProfilesStatus.source !== "none") {
+		log.info(
+			`Model route profiles configured: ${modelRouteProfiles.length} (source ${modelRouteProfilesStatus.source}, status ${modelRouteProfilesStatus.status}${modelRouteProfilesStatus.sha256 ? `, sha256 ${modelRouteProfilesStatus.sha256}` : ""})`,
+		);
 	}
 
 	// Now create the strategy with runtime config

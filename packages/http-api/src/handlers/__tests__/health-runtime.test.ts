@@ -1353,3 +1353,36 @@ it("advertises handoff only with the installed-handler capability getter", async
 	).json();
 	expect(present.handoff).toEqual({ protocol: "quiesce-v1", pid: 123 });
 });
+
+it("reports the loaded route profiles' source when the server provides it", async () => {
+	const db = { getAllAccounts: async () => [] } as never;
+	const config = {
+		getStrategy: () => "session",
+		getHealthDetailEnabled: () => false,
+	} as never;
+	const url = new URL("http://localhost/health");
+	const absent = await (await createHealthHandler(db, config)(url)).json();
+	expect(Object.hasOwn(absent, "routeProfiles")).toBe(false);
+	const status = {
+		source: "file" as const,
+		status: "last_good" as const,
+		count: 6,
+		path: "/etc/better-ccflare/model-route-profiles.json",
+		sha256: "a".repeat(64),
+		fallbackReady: true,
+		error: "CCFLARE_MODEL_ROUTE_PROFILES_FILE (/etc/x): must be valid JSON",
+	};
+	const present = await (
+		await createHealthHandler(db, config, {
+			getRouteProfilesStatus: () => status,
+		})(url)
+	).json();
+	// /health is unauthenticated: the path and failure text stay in the log.
+	expect(present.routeProfiles).toEqual({
+		source: "file",
+		status: "last_good",
+		count: 6,
+		sha256: "a".repeat(64),
+		fallbackReady: true,
+	});
+});
