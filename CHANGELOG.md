@@ -1,5 +1,28 @@
 # Changelog
 
+## [6.4.0](https://github.com/StartupBros-com/hov-router/compare/v6.3.0...v6.4.0) (2026-11-22)
+
+
+### Features
+
+* **dashboard:** Route Lanes page to edit /model lanes live ([#975](https://github.com/StartupBros-com/hov-router/issues/975)) ([5267d72](https://github.com/StartupBros-com/hov-router/commit/5267d72eb592e44624bde1dbdc986c42f75ff43a)), refs [#971](https://github.com/StartupBros-com/hov-router/issues/971)
+* **proxy:** title /model picker rows with the served model alone ([#979](https://github.com/StartupBros-com/hov-router/issues/979)) ([2e9cf9f](https://github.com/StartupBros-com/hov-router/commit/2e9cf9f2cfb05b1860d8b6d7573f63a426ab9c06)), refs [#978](https://github.com/StartupBros-com/hov-router/issues/978)
+* **route-profiles:** store route lanes in the database and edit them live through the API ([#973](https://github.com/StartupBros-com/hov-router/issues/973)) ([6437124](https://github.com/StartupBros-com/hov-router/commit/64371248f2fc74c77fa31eac343fb93461624ea9)), refs [#971](https://github.com/StartupBros-com/hov-router/issues/971)
+
+
+### Bug Fixes
+
+* **logging:** put values in log messages instead of printf placeholders ([#987](https://github.com/StartupBros-com/hov-router/issues/987)) ([51597b0](https://github.com/StartupBros-com/hov-router/commit/51597b057ef63b90cb451da5b8399964e0765989))
+* **pricing:** price Claude Mythos 5.2 at Fable 5.2's list rates ([#982](https://github.com/StartupBros-com/hov-router/issues/982)) ([e64adc9](https://github.com/StartupBros-com/hov-router/commit/e64adc9108bf509305ddcfad2c48e7ff0e0b07c7))
+
+
+### Security
+
+* drop the client's x-api-key on OpenAI-compatible upstreams ([1688672](https://github.com/StartupBros-com/hov-router/commit/1688672780a6ad58a5c079286fc3e55978680fff))
+* keep authentication exemptions on the API routes they name ([#980](https://github.com/StartupBros-com/hov-router/issues/980)) ([a27681d](https://github.com/StartupBros-com/hov-router/commit/a27681d468f98dd7004be8ec17c3abcae20f972e))
+* refuse a header pin whose provider the request excludes ([1688672](https://github.com/StartupBros-com/hov-router/commit/1688672780a6ad58a5c079286fc3e55978680fff))
+* return health entries, not account rows, on the re-auth route ([1688672](https://github.com/StartupBros-com/hov-router/commit/1688672780a6ad58a5c079286fc3e55978680fff))
+
 ## [6.3.0](https://github.com/StartupBros-com/hov-router/compare/v6.2.2...v6.3.0) (2026-11-22)
 
 
