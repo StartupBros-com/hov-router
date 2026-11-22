@@ -2697,9 +2697,12 @@ export default async function startServer(options?: {
 					}
 
 					// All other paths go to proxy
-					// Authenticate the proxy request with error handling to prevent bypass
+					// Authenticate the proxy request with error handling to prevent bypass.
+					// authenticateProxyRequest, not authenticateRequest: an exemption
+					// that opened an API route must not carry a keyless request to a
+					// provider when that route did not match.
 					try {
-						const authResult = await authService.authenticateRequest(
+						const authResult = await authService.authenticateProxyRequest(
 							req,
 							url.pathname,
 							req.method,

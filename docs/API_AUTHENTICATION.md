@@ -219,7 +219,7 @@ curl -X DELETE http://localhost:8080/api/api-keys/Production \
 
 ### **Authentication Flow**
 1. **Check if authentication enabled** (active API keys exist)
-2. **Validate request path** (dashboard, health, OAuth endpoints are exempt)
+2. **Validate request path** (a short list of routes is exempt; see [Path Exemptions](#path-exemptions))
 3. **Extract API key** from request headers
 4. **Verify against hashed keys** in database
 5. **Update usage statistics** on successful authentication
@@ -361,12 +361,30 @@ DEBUG=auth:* hov-router --serve
 2. `Authorization: Bearer <key>` (standard HTTP format)
 
 ### **Path Exemptions**
-The following paths are exempt from authentication:
-- `/` (dashboard home)
-- `/dashboard/*` (web dashboard)
-- `/health` (health check)
-- `/api/oauth/*` (OAuth flow)
-- `/api/api-keys/*` (API key management)
+Once an API key exists, these are the only requests a client can make without one:
+- The dashboard page and its static assets (the page asks for a key before it loads any data)
+- `GET /health` (health check)
+- `GET /api/version/check` (the dashboard's update notice)
+- `GET /api/sessions/:id/account` (the status-line badge)
+- `GET /api/oauth/qwen/status/:id` and `GET /api/oauth/codex/status/:id` (read-only setup polling)
+- `GET /api/public/subscription-value` (answers 404 unless the feed is turned on)
+
+Each exemption covers that method and path only. Every other request needs a
+key, including every other method on these paths, the rest of `/api/oauth/*`
+and all of `/api/api-keys/*`. None of these requests reaches a provider.
+
+Two kinds of request from the router's own machine pass on a secret instead of
+a key:
+- The cache keepalive, which the server sends to itself on `/v1` and `/messages`
+  paths with a secret it generates at startup and keeps in memory. It is the
+  only request with no key that reaches a provider.
+- Commands the CLI sends to the running server, with a secret kept in the
+  config file: `POST /api/accounts/:id/reload`,
+  `POST /api/accounts/:id/force-reset-rate-limit`, and
+  `POST /api/routing/family-aliases/preview` and `/apply`.
+
+Before the first key is created nothing requires a key, and `POST /api/api-keys`
+is how that first key is made.
 
 ### **CLI Reference**
 ```bash

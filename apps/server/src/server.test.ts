@@ -1112,6 +1112,43 @@ describe("resolveDashboardRoute", () => {
 	});
 });
 
+// Structural guard, for the same reason as the wiring guards below: the fetch
+// handler cannot be booted in a unit test. The proxy fallback must
+// authenticate through authenticateProxyRequest(), which refuses a request
+// whose only credential is an exemption for an API route. With plain
+// authenticateRequest() here, an exemption broader than its route sends a
+// keyless request upstream on a configured account, which has happened three
+// times (auth-service-static-exemption-bypass.test.ts covers the behavior).
+describe("proxy fallback authentication", () => {
+	it("authenticates through authenticateProxyRequest before either proxy entry point", () => {
+		const src = readFileSync(join(import.meta.dir, "server.ts"), "utf8");
+		const apiRoutesAt = src.indexOf(
+			"const apiResponse = await apiRouter.handleRequest(url, req);",
+		);
+		expect(apiRoutesAt).toBeGreaterThanOrEqual(0);
+		const doorAt = src.indexOf(
+			"authService.authenticateProxyRequest(",
+			apiRoutesAt,
+		);
+		expect(doorAt).toBeGreaterThan(apiRoutesAt);
+		const refusalAt = src.indexOf("if (!authResult.isAuthenticated) {", doorAt);
+		expect(refusalAt).toBeGreaterThan(doorAt);
+
+		// Each proxy entry point is called once in the server, after the door
+		// and its 401. A new call site has to sit behind the same check; add it
+		// there, then update the count here.
+		for (const entry of ["handleResponsesRequest(", "handleProxy("]) {
+			expect(src.split(entry).length - 1).toBe(1);
+			expect(src.indexOf(entry)).toBeGreaterThan(refusalAt);
+		}
+		// Nothing after the API router may authenticate a proxied request
+		// another way.
+		expect(src.slice(apiRoutesAt)).not.toContain(
+			"authService.authenticateRequest(",
+		);
+	});
+});
+
 // Structural guard: assert that startServer() actually invokes
 // bootstrapMinimaxUsagePolling in its source. This is the negative control
 // for PR #347 — the previous unit-test guard only failed when the EXPORTED
