@@ -31,7 +31,7 @@ The banked-resets plan offered the dashboard's Use reset only when OpenAI's `rat
 ## Symptoms
 
 - On 2026-11-10 the accounts page showed every held reset as "Not usable now" and kept Use reset disabled. ChatGPT's website showed the same resets as usable.
-- The usage poll reported `available_count` 2 and `applicable_available_count` 0 on all three Pro accounts: pro-primary-wmgm, pro-secondary-bros and pro-tertiary-will. pro-tertiary-will was at 100% of its weekly limit.
+- The usage poll reported `available_count` 2 and `applicable_available_count` 0 on all three Pro accounts: pro-primary, pro-secondary and pro-tertiary. pro-tertiary was at 100% of its weekly limit.
 
 ## What Didn't Work
 
@@ -57,7 +57,7 @@ let (reset_action_enabled, reset_description) =
 - #773 changed the server gate in `packages/http-api/src/services/codex-reset-redemption.ts`. A fresh count with at least one held reset is enough to send. A stale count still answers 409 `counts_stale`, and none held answers 409 `none_held`.
 - #775 removed the applicability wording from the account row, fleet summary and confirmation dialog. The API still returns `applicableCount` and `appliesNow` as OpenAI reports them.
 
-The operator's first redemption, on pro-tertiary-will on 2026-11-10 at an applicable count of 0, returned HTTP 200 with code `reset`. Held resets went from 2 to 1 and weekly use from 100% to 0%. The applicable count read 0 afterwards too.
+The operator's first redemption, on pro-tertiary on 2026-11-10 at an applicable count of 0, returned HTTP 200 with code `reset`. Held resets went from 2 to 1 and weekly use from 100% to 0%. The applicable count read 0 afterwards too.
 
 ## Why This Works
 

@@ -14,7 +14,7 @@ execution: code
 
 - **Objective:** A Claude Code session on any operator host, on any provider lane, can no longer be put into plan mode by the model itself, so no session silently loses `--dangerously-bypass-permissions` to an uninvited plan-mode entry. The operator's own planning paths (keyboard plan mode and `/ce-plan`) work exactly as before.
 - **Means:** A bare-name `EnterPlanMode` entry in the deny list of the user-level Claude Code settings, propagated to every host through the existing hourly reconcile-and-install path, with a standing harness-doctor check that the entry is present.
-- **Product authority:** The operator, who plans with `/ce-plan` and never wants model-initiated plan mode on any provider, and who asked for the change to be done right and future-proofed for one developer rather than done fast. The change lands in the dotfiles harness, not in better-ccflare; this plan lives in the better-ccflare repository because it descends from the Codex-parity ideation recorded there.
+- **Product authority:** The operator, who plans with `/ce-plan` and never wants model-initiated plan mode on any provider, and who asked for the change to be done right and future-proofed for one developer rather than done fast. The change lands in the operator's harness, not in better-ccflare; this plan lives in the better-ccflare repository because it descends from the Codex-parity ideation recorded there.
 - **Open blockers:** None. Three behaviors the documentation leaves implicit are carried as assumptions with acceptance examples that verify them after rollout (see Dependencies / Assumptions).
 
 ---
@@ -61,7 +61,7 @@ When better-ccflare routes a Claude Code session to a Codex account, the model s
 
 ```mermaid
 flowchart TB
-  repo[Canonical dotfiles settings<br/>deny includes EnterPlanMode]
+  repo[Canonical harness settings<br/>deny includes EnterPlanMode]
   timer[Hourly dotup timer<br/>reconcile-and-install]
   live[Live user settings on each host]
   session[New Claude Code session<br/>EnterPlanMode absent from model context]
@@ -76,7 +76,7 @@ flowchart TB
 
 - A1. **Operator** — edits the canonical settings, commits, restarts open sessions, reads harness-doctor output.
 - A2. **Claude Code session** — loads settings at start; the model inside it never sees `EnterPlanMode`; Shift+Tab and `ExitPlanMode` still work.
-- A3. **Dotfiles reconciler** — the hourly install path that merges canonical settings into each host's live settings.
+- A3. **Harness reconciler** — the hourly install path that merges canonical settings into each host's live settings.
 - A4. **Harness-doctor** — the weekly check runner that reports the entry's presence.
 
 ### Key Flows
@@ -165,5 +165,5 @@ This plan covers one of six directions in the Codex-parity ideation at `docs/ide
 
 - `docs/ideation/2026-09-24-codex-routed-claude-code-parity-ideation.html` — the ideation this plan descends from (idea 2), including the telemetry method and baseline.
 - Claude Code documentation: permissions (bare-name deny removes the tool from context; deny evaluated first regardless of specificity), permission modes (Shift+Tab entry, plan approval with the bypass option), tools reference (`EnterPlanMode` and `ExitPlanMode` accept only bare names), hooks reference (`permission_mode` is input-only; no output sets it), settings (layer precedence).
-- Dotfiles repository, paths relative to its root: `claude/settings.json` (user-level permissions block, 71 deny entries today, none bare-name), `claude/managed-settings.json` (catastrophic-only floor), `claude/sync.sh` (the runtime-environment reconciler near line 996 and its unconditional call from install near line 2238; the note that active sessions cache settings), `claude/systemd/dotup-refresh.timer` (hourly, randomized delay), `claude/scripts/harness-doctor.sh` (settings-parity check 11 near line 932 and its push-direction remedy), `.bashrc` (the `claude()` wrapper's fallback overlay near lines 177-227), `claude/hooks/PreToolUse/settings-guard.js` (asks before settings edits).
+- The operator's private harness repository, paths relative to its root: `claude/settings.json` (user-level permissions block, 71 deny entries today, none bare-name), `claude/managed-settings.json` (catastrophic-only floor), `claude/sync.sh` (the runtime-environment reconciler near line 996 and its unconditional call from install near line 2238; the note that active sessions cache settings), `claude/systemd/dotup-refresh.timer` (hourly, randomized delay), `claude/scripts/harness-doctor.sh` (settings-parity check 11 near line 932 and its push-direction remedy), `.bashrc` (the `claude()` wrapper's fallback overlay near lines 177-227), `claude/hooks/PreToolUse/settings-guard.js` (asks before settings edits).
 - better-ccflare: `packages/providers/src/providers/codex/provider.ts` line 4366 (the only tool-name filter in the proxy, Codex-specific, Agent and Task only) — why no proxy change is involved.

@@ -12,7 +12,7 @@ status: completed
 
 # Banked Resets - Plan
 
-> **Shipped. The "applies now" gate was dropped on 2026-11-10.** All three PRs shipped: PR1 as #697, PR2 as #707 and PR3 as #708, whose delivery #720 later replaced (see the note under PR3). OpenAI's `applicable_available_count` does not tell whether a redemption will work. On 2026-11-10 pro-tertiary-will was at its weekly limit and read an applicable count of 0. The operator's first redemption still reset its windows (held resets 2 → 1, weekly use 100% → 0%), and the count read 0 afterwards too. OpenAI's Codex CLI (openai/codex at `e0370f0b`) never reads the field: its Redeem reset needs only `available_count` above 0. What the field means is unknown.
+> **Shipped. The "applies now" gate was dropped on 2026-11-10.** All three PRs shipped: PR1 as #697, PR2 as #707 and PR3 as #708, whose delivery #720 later replaced (see the note under PR3). OpenAI's `applicable_available_count` does not tell whether a redemption will work. On 2026-11-10 pro-tertiary was at its weekly limit and read an applicable count of 0. The operator's first redemption still reset its windows (held resets 2 → 1, weekly use 100% → 0%), and the count read 0 afterwards too. OpenAI's Codex CLI (openai/codex at `e0370f0b`) never reads the field: its Redeem reset needs only `available_count` above 0. What the field means is unknown.
 >
 > - #773 removed the R8 gate. A redemption now needs a fresh count with at least one reset held. The stale-count refusal and KTD8's rules for a stored request id are unchanged.
 > - #775 removed "applies now" from the dashboard. The account row, fleet summary and confirmation show the held count, soonest expiry and Use reset. The API still returns `applicableCount` and `appliesNow` as OpenAI reports them.

@@ -47,8 +47,8 @@ repository's top-level instruction says must never receive scripted traffic:
 
 ```
 ERROR [ProxyOperations] ValidationError: Provider cannot handle path: /api/health
-ERROR [ProxyOperations] Failed to proxy request with account pro-tertiary-will
-WARN  [ProxyOperations] All models exhausted on account max-primary-bros, failing over to next account
+ERROR [ProxyOperations] Failed to proxy request with account pro-tertiary
+WARN  [ProxyOperations] All models exhausted on account max-primary, failing over to next account
 ```
 
 Nothing left the machine — each attempt failed closed at `buildUrl` validation

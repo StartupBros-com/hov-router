@@ -577,7 +577,7 @@ heading in the release body. A body without that heading gets a card with no
 "What's new" section. Before publishing, edit the draft so its body has a
 `## Highlights` list of short, user-facing changes, as
 [3.7.0](https://github.com/StartupBros-com/hov-router/releases/tag/v3.7.0) does. The
-card's other text lives in pushbot's product registry, not in this repository.
+card's other text lives in the operator's private site repo's product registry, not in this repository.
 
 Keep each of those three bullets to 180 characters, counted with its markdown,
 and the three together to 600: a longer bullet is cut off mid-word on the card.

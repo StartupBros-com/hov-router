@@ -141,7 +141,7 @@ flowchart TB
 
 - The session-id fallback itself and the runaway-loop alert it serves.
 - The Anthropic and xAI lanes, which never set the descendant marker.
-- The plan-mode deny, which lives in the dotfiles harness.
+- The plan-mode deny, which lives in the operator's harness.
 
 ### Deferred to Follow-Up Work
 
@@ -157,7 +157,7 @@ This plan covers one area of the Codex-parity work: restoring delegation on Code
   - Still to decide: whether it is needed at all, per R10.
 - Codex behavior ledger and parity floors (ideation idea 3)
   - Can proceed independently of this fix; its admission column would replace the trace as the measurement source.
-- Plan-mode deny (ideation idea 2, dotfiles PR #1393)
+- Plan-mode deny (ideation idea 2, operator-harness change)
   - Can proceed independently of this fix; different repository.
 - Reasoning-effort mapping, authority and persistence layer, conformance harness (ideation ideas 4 to 6)
   - Can proceed independently of this fix.

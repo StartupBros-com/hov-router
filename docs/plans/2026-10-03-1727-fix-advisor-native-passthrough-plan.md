@@ -45,7 +45,7 @@ None of these errors carry text Claude Code recovers from, so a session stays we
 
 ### Key Decisions
 
-- **Advisor runs only on first-party Anthropic accounts, never on a gateway or another provider, including as a fallback.** (session-settled: user-approved — chosen over admitting anthropic-compatible and custom-endpoint anthropic accounts such as mac-studio: only `api.anthropic.com` executes the advisor tool) Governs R1, R5.
+- **Advisor runs only on first-party Anthropic accounts, never on a gateway or another provider, including as a fallback.** (session-settled: user-approved — chosen over admitting anthropic-compatible and custom-endpoint anthropic accounts such as a local-model account: only `api.anthropic.com` executes the advisor tool) Governs R1, R5.
 - **Refuse recoverably instead of stripping advisor and forwarding.** (session-settled: user-approved — chosen over silently removing the tool and its history before sending to a fallback: Claude Code owns the decision to drop advisor) Governs R5, R8.
 - **When first-party accounts are exhausted and a fallback is up, refuse so the chat continues without advisor.** (session-settled: user-approved — chosen over holding the request on a 503 or 529 until Anthropic recovers: the user keeps working) Governs R5, R7, R12.
 - **Only `advisor_20260301` passes; other typed tools stay rejected.** (session-settled: user-approved — chosen over a general native-passthrough allowlist: each tool type needs its own review) Governs R9, R17.
@@ -297,7 +297,7 @@ U7 depends on nothing and can run alongside Phase B.
 - **Execution note:** implement test-first. The partial tests are input, not proof.
 - **Test scenarios:**
   - Predicate: anthropic with null `custom_endpoint` is true; `https://api.anthropic.com` and `https://api.anthropic.com/v1` are true.
-  - Predicate: each of these endpoints is false: `https://api.anthropic.com.evil.test`, `https://api.anthropic.com:8443`, `https://user@api.anthropic.com`, `http://api.anthropic.com`, an unparsable endpoint, and a LAN host such as the mac-studio account's.
+  - Predicate: each of these endpoints is false: `https://api.anthropic.com.evil.test`, `https://api.anthropic.com:8443`, `https://user@api.anthropic.com`, `http://api.anthropic.com`, an unparsable endpoint, and a LAN host such as the local-model account's.
   - Predicate: providers `anthropic-compatible`, `codex`, `xai`, and `openai-compatible` are false.
   - Derivation: tools `[advisor_20260301]` yields declared `[advisor_20260301]`, and `deriveServerToolRequirement` returns undefined.
   - Derivation: advisor plus a client function tool yields the advisor requirement and no server-tool requirement.
