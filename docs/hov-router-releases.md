@@ -1,6 +1,6 @@
 # HoV Router release automation (draft-only)
 
-For the current published release, 6.2.2 (Linux x86_64), follow the technical
+For the current published release, 6.3.0 (Linux x86_64), follow the technical
 reference's [consumer installation and verification instructions](reference.md#install-the-linux-x86_64-release).
 
 This is the operator guide for HoV Router release automation at
@@ -59,21 +59,21 @@ bundles are never deleted or rewritten, so each block's download address keeps w
 ```bash
 (
   set -eu
-  binary="$HOME/.local/lib/hov-router/6.2.2/hov-router"
-  source_sha=baaa81a4656851f51ed30eaa92433f27c47d459a
-  digest=955696abccd1d4b7fe02e298687fc136655797d94aeec856dc785990fc78a4ac
-  bundle_sha=d60ef772511873dcb626d856b2921f1447dff9c99b9ad63200e19363dd346f9e
+  binary="$HOME/.local/lib/hov-router/6.3.0/hov-router"
+  source_sha=b171f46ac731b55e78297f378dc76e4611ce684e
+  digest=d1c7e43fe45d2db7ee3d8a31db30439fd153686450d9f4827fe690966c523329
+  bundle_sha=a8aeafe9ae1712e0ee4b4595907edab2b4660822cee088a4a32dd64b81549d3a
   printf '%s  %s\n' "$digest" "$binary" | sha256sum --check --strict -
   bundle_dir=$(mktemp -d "${TMPDIR:-/tmp}/router-provenance.XXXXXX")
-  bundle="$bundle_dir/v6.2.2.jsonl"
+  bundle="$bundle_dir/v6.3.0.jsonl"
   curl -q --fail --location --proto '=https' --proto-redir '=https' \
-    --output "$bundle" https://raw.githubusercontent.com/StartupBros-com/hov-router/refs/heads/main/docs/provenance/v6.2.2.jsonl
+    --output "$bundle" https://raw.githubusercontent.com/StartupBros-com/hov-router/refs/heads/main/docs/provenance/v6.3.0.jsonl
   printf '%s  %s\n' "$bundle_sha" "$bundle" | sha256sum --check --strict -
   gh attestation verify "$binary" \
     --repo StartupBros-com/hov-router \
     --source-digest "$source_sha" \
-    --source-ref refs/tags/v6.2.2 \
-    --cert-identity https://github.com/StartupBros-com/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.2.2 \
+    --source-ref refs/tags/v6.3.0 \
+    --cert-identity https://github.com/StartupBros-com/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.3.0 \
     --signer-digest "$source_sha" \
     --deny-self-hosted-runners \
     --bundle "$bundle"
@@ -94,17 +94,17 @@ release auditing; neither is required by the consumer install above. The operato
 pipeline below still verifies the complete inventory and both attestations before
 executing release smoke checks. Its strict verification policy is unchanged.
 
-Release ID **453517976** and tag `refs/tags/v6.2.2` identify source commit
-`baaa81a4656851f51ed30eaa92433f27c47d459a`. The exact certificate is
-`https://github.com/StartupBros-com/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.2.2`.
+Release ID **454289003** and tag `refs/tags/v6.3.0` identify source commit
+`b171f46ac731b55e78297f378dc76e4611ce684e`. The exact certificate is
+`https://github.com/StartupBros-com/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.3.0`.
 
-| 6.2.2 asset | Asset ID | Size (bytes) | SHA-256 |
+| 6.3.0 asset | Asset ID | Size (bytes) | SHA-256 |
 | --- | --- | --- | --- |
-| `better-ccflare-linux-amd64` | 774797487 | 96044512 | `955696abccd1d4b7fe02e298687fc136655797d94aeec856dc785990fc78a4ac` |
-| `release-manifest.json` | 774798053 | 809 | `2d22b979009104db021996ddfe95c9028f3d5160004995efb37a87682b67fdaa` |
-| `SHA256SUMS` | 774797148 | 93 | `b5f701ad3f315321c724bad612b63733e63c34894f9e7ed0aea550c3e5de90b0` |
+| `better-ccflare-linux-amd64` | 778320345 | 96064992 | `d1c7e43fe45d2db7ee3d8a31db30439fd153686450d9f4827fe690966c523329` |
+| `release-manifest.json` | 778320850 | 809 | `72790730e647516e0e107fe147b033ea86c377acfc1b73176712094b411cd023` |
+| `SHA256SUMS` | 778319870 | 93 | `1318da1ec48da049da7dc677503583737854a14ad268e5e8e041e9ea37cbd6eb` |
 
-For a manifest audit, download `release-manifest.json` from the v6.2.2 release,
+For a manifest audit, download `release-manifest.json` from the v6.3.0 release,
 check its digest above, then run the same block with `binary` set to that local
 manifest and `digest` set to its SHA-256. The bundle stays the same: one signed
 statement names both the binary and the manifest. The signed manifest names repository
@@ -118,7 +118,9 @@ original token.
 ### Verify release 6.2.1
 
 Release 6.2.1 is the first release built and signed as `StartupBros-com/hov-router`,
-and its own committed bundle verifies it. Release ID **453439321** and tag
+and its own committed bundle verifies it. The later releases signed under that name
+verify with this block too, changed as
+[their table](#verify-another-release-signed-in-the-organization) says. Release ID **453439321** and tag
 `refs/tags/v6.2.1` identify source commit `786722ba026b7095e31aef91ca62f34bda79d490`. The exact
 certificate is
 `https://github.com/StartupBros-com/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v6.2.1`.
@@ -130,7 +132,7 @@ certificate is
 | `SHA256SUMS` | 774422735 | 93 | `8b79b1669b6ba39c87467d41098da165cb0386fe6bc09ebe9ac5ae890db2e34e` |
 
 To install it, use the reference's install block the same way: `6.2.1` in place of
-`6.2.2` in the version directory and download URL, and the binary's digest above.
+`6.3.0` in the version directory and download URL, and the binary's digest above.
 Then verify it, before running it, with this block. It expects that install path,
 the one this guide used while 6.2.1 was the current release. For a manifest audit, set `binary`
 and `digest` as described for the current release; the bundle stays the same.
@@ -161,6 +163,21 @@ and `digest` as described for the current release; the bundle stays the same.
 ```
 <!-- /router-release-provenance-v6.2.1 -->
 
+### Verify another release signed in the organization
+
+The bundles of the other releases signed as `StartupBros-com/hov-router` are
+committed in [`docs/provenance/`](provenance/) too. To check one, run the
+[6.2.1 block](#verify-release-621), which verifies under that name, with `binary`
+set to that release's binary and `source_sha`, `digest` and `bundle_sha` taken
+from its row below. Then change every `v6.2.1` in the block to that release's tag:
+the bundle's file name and download address, `--source-ref` and `--cert-identity`.
+Each release has one bundle, whose signed statement names both its binary and its
+`release-manifest.json`.
+
+| Release | Source commit | Binary SHA-256 | Bundle SHA-256 |
+| --- | --- | --- | --- |
+| [6.2.2](https://github.com/StartupBros-com/hov-router/releases/tag/v6.2.2) | `baaa81a4656851f51ed30eaa92433f27c47d459a` | `955696abccd1d4b7fe02e298687fc136655797d94aeec856dc785990fc78a4ac` | `d60ef772511873dcb626d856b2921f1447dff9c99b9ad63200e19363dd346f9e` |
+
 ### Verify release 3.7.1
 
 Release 3.7.1 is the last release that supports PostgreSQL (see
@@ -178,7 +195,7 @@ commit `6b88f789e30c3a86ee918d35a6673e7be12f9243`. The exact certificate is
 | `SHA256SUMS` | 675764852 | 93 | `923d6041201ba6ade61ff3dcd2ec200970475076ae7b9af261058211394545e5` |
 
 To install it, use the reference's install block the same way: `3.7.1` in place of
-`6.2.2` in the version directory and download URL, and the binary's digest above.
+`6.3.0` in the version directory and download URL, and the binary's digest above.
 Then verify it, before running it, with this block. It expects that install path,
 the one this guide used while 3.7.1 was the current release. For a manifest audit, set `binary`
 and `digest` as described for the current release; the bundle stays the same.
@@ -528,9 +545,9 @@ whose rows verify under that name. 6.2.0 was the last of them. 6.2.1 was the fir
 signed as `StartupBros-com/hov-router`, so it cannot join that table; its block is
 kept under [its own heading](#verify-release-621), as the 3.7.1 block is kept.
 Later releases signed in the organization get rows, as each leaves the current
-block, in a table of their own that points at the 6.2.1 block, the way the
-pre-move table points at the 3.7.1 block. 6.2.2 is the first of them, when 6.2.3
-replaces it.
+block, in [a table of their own](#verify-another-release-signed-in-the-organization)
+that points at the 6.2.1 block, the way the pre-move table points at the 3.7.1
+block. 6.2.2 was the first of them, when 6.3.0 replaced it.
 
 Never delete or rewrite a committed bundle: copies of this guide in older checkouts
 download them from `main`.
