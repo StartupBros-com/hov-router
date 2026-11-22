@@ -314,7 +314,7 @@ describe("off-thread reader fault lifecycle", () => {
 		expect(worker.terminated).toBe(1);
 		expect(revokeObjectURL).toHaveBeenCalledTimes(1);
 	});
-	it("warns on spawn failure, revokes its URL, and stops after the spawn budget", async () => {
+	it("warns on spawn failure, revokes its URL, and pauses after the spawn budget", async () => {
 		const workerFactory = mock(() => {
 			throw new Error("spawn failed");
 		});
@@ -338,10 +338,13 @@ describe("off-thread reader fault lifecycle", () => {
 		expect(
 			warn.mock.calls.filter(([line]) =>
 				line.includes(
-					"falling back to main-thread reads for the rest of this process",
+					"off-thread reader spawn budget spent; its reads fail for 60s, then it respawns",
 				),
 			),
 		).toHaveLength(1);
+		expect(
+			warn.mock.calls.filter(([line]) => line.includes("main-thread")),
+		).toHaveLength(0);
 	});
 	it.each([
 		"error",
@@ -361,8 +364,8 @@ describe("off-thread reader fault lifecycle", () => {
 				preventDefault() {},
 			} as ErrorEvent);
 		else workers[0].onmessageerror?.({ data: "bad message" } as MessageEvent);
-		// The head may have been running when the worker broke; the caller's
-		// main-thread fallback takes it. The read behind it never started.
+		// The head may have been running when the worker broke, so it fails as
+		// unavailable. The read behind it never started.
 		expect(await running).toBeInstanceOf(OffThreadReaderUnavailableError);
 		await turns();
 		expect(workers).toHaveLength(2);
@@ -548,7 +551,7 @@ describe("off-thread reader fault lifecycle", () => {
 		expect(await waiting).toEqual({ n: 2 });
 		expect(warn).toHaveBeenCalledTimes(2);
 	});
-	it("sends waiting reads to the main-thread fallback once the spawn budget is spent", async () => {
+	it("fails waiting reads as unavailable once the spawn budget is spent", async () => {
 		const { reader, workers } = fakeFixture({ maxSpawns: 1 });
 		const running = reader.all("SELECT 1", []).catch((e) => e);
 		const waiting = reader.all("SELECT 2", []).catch((e) => e);
@@ -636,7 +639,7 @@ describe("off-thread reader fault lifecycle", () => {
 		expect(worker.terminated).toBe(1);
 		expect(warn).toHaveBeenCalledTimes(1);
 	});
-	it("treats SQLITE_BUSY as unavailable without terminating the worker", async () => {
+	it("passes SQLITE_BUSY back with its code without terminating the worker", async () => {
 		const { reader, workers, warn } = fakeFixture();
 		const read = reader.all("SELECT 1", []).catch((e) => e);
 		await turns();
@@ -652,7 +655,10 @@ describe("off-thread reader fault lifecycle", () => {
 			},
 			ms: 10,
 		});
-		expect(await read).toBeInstanceOf(OffThreadReaderUnavailableError);
+		const error = await read;
+		expect(error).not.toBeInstanceOf(OffThreadReaderUnavailableError);
+		expect(error.message).toBe("database is locked");
+		expect(error.code).toBe("SQLITE_BUSY");
 		expect(workers[0].terminated).toBe(0);
 		expect(warn).not.toHaveBeenCalled();
 	});
@@ -686,7 +692,7 @@ describe("off-thread reader fault lifecycle", () => {
 	});
 });
 
-describe("adapter off-thread fallback", () => {
+describe("adapter off-thread reads", () => {
 	it("propagates read timeouts without rerunning the hung SQL on the main thread", async () => {
 		const { adapter } = realFixture();
 		const { reader } = fakeFixture({ readTimeoutMs: 20 });
@@ -778,7 +784,7 @@ describe("adapter off-thread fallback", () => {
 		expect(await shared).toEqual([{ n: 2 }]);
 		expect(query).not.toHaveBeenCalled();
 	});
-	it("delegates without a reader and retries only unavailable errors on the main thread", async () => {
+	it("reads on the main thread only without a reader, and passes reader errors through", async () => {
 		const { adapter } = realFixture();
 		adapter.setOffThreadReader(undefined);
 		const query = spyOn(adapter, "query");
@@ -787,20 +793,23 @@ describe("adapter off-thread fallback", () => {
 			{ n: 1 },
 		]);
 		expect(await adapter.getOffThread("SELECT ? AS n", [2])).toEqual({ n: 2 });
+		expect(query).toHaveBeenCalledTimes(1);
+		expect(get).toHaveBeenCalledTimes(1);
+		const unavailable = new OffThreadReaderUnavailableError("unavailable");
 		adapter.setOffThreadReader({
 			all: async () => {
-				throw new OffThreadReaderUnavailableError("unavailable");
+				throw unavailable;
 			},
 			get: async () => {
-				throw new OffThreadReaderUnavailableError("unavailable");
+				throw unavailable;
 			},
 		});
-		expect(await adapter.queryOffThread("SELECT ? AS n", [3])).toEqual([
-			{ n: 3 },
-		]);
-		expect(await adapter.getOffThread("SELECT ? AS n", [4])).toEqual({ n: 4 });
-		expect(query).toHaveBeenLastCalledWith("SELECT ? AS n", [3]);
-		expect(get).toHaveBeenLastCalledWith("SELECT ? AS n", [4]);
+		await expect(adapter.queryOffThread("SELECT ? AS n", [3])).rejects.toBe(
+			unavailable,
+		);
+		await expect(adapter.getOffThread("SELECT ? AS n", [4])).rejects.toBe(
+			unavailable,
+		);
 		const error = Object.assign(new Error("SQL broke"), {
 			code: "SQLITE_ERROR",
 		});
@@ -814,7 +823,127 @@ describe("adapter off-thread fallback", () => {
 		});
 		await expect(adapter.queryOffThread("SELECT 9")).rejects.toBe(error);
 		await expect(adapter.getOffThread("SELECT 9")).rejects.toBe(error);
-		expect(query).toHaveBeenCalledTimes(2);
-		expect(get).toHaveBeenCalledTimes(2);
+		expect(query).toHaveBeenCalledTimes(1);
+		expect(get).toHaveBeenCalledTimes(1);
+	});
+});
+
+// #921: a heavy read moved onto the main connection blocks the thread that also
+// relays live streams, and the guard cuts them. Reads run on a worker or fail.
+describe("off-thread reads never move to the main thread (#921)", () => {
+	// Long enough to pass any read timeout below on this machine, short enough
+	// that a terminated worker's thread finishes it soon after.
+	const SLOW =
+		"WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 10000000) SELECT count(*) AS n FROM c";
+
+	it("keeps a real reader serving through repeated read timeouts", async () => {
+		const { adapter } = realFixture();
+		const warn = mock((_line: string) => {});
+		const reader = new OffThreadReader({
+			dbPath: adapter.getSQLiteDb().filename,
+			busyTimeoutMs: 100,
+			embeddedCode: "",
+			sourceUrl,
+			readTimeoutMs: 150,
+			maxSpawns: 3,
+			warn,
+		});
+		cleanups.push(() => reader.close());
+		adapter.setOffThreadReader(reader);
+		const query = spyOn(adapter, "query");
+		const get = spyOn(adapter, "get");
+		// Three timeouts used to spend the whole budget and switch every later
+		// read onto the main connection for the rest of the process.
+		for (let round = 0; round < 3; round++) {
+			const slow = await adapter.queryOffThread(SLOW).catch((e) => e);
+			expect(slow.message).toStartWith("off-thread read timed out after 150ms");
+			expect(await adapter.queryOffThread("SELECT i FROM sample")).toEqual([
+				{ i: 42 },
+			]);
+		}
+		expect(await adapter.getOffThread("SELECT t FROM sample")).toEqual({
+			t: "hello",
+		});
+		expect(query).not.toHaveBeenCalled();
+		expect(get).not.toHaveBeenCalled();
+		expect(
+			warn.mock.calls.filter(([line]) => line.includes("spawn budget spent")),
+		).toHaveLength(0);
+	}, 30_000);
+
+	it("fails reads while a spent budget cools down, then respawns", async () => {
+		let clock = 1_000;
+		const { adapter } = realFixture();
+		const { reader, workers, warn } = fakeFixture({
+			maxSpawns: 1,
+			respawnCooldownMs: 60_000,
+			now: () => clock,
+		});
+		adapter.setOffThreadReader(reader);
+		const query = spyOn(adapter, "query");
+		const first = adapter.queryOffThread("SELECT 1").catch((e) => e);
+		await turns();
+		workers[0].onerror?.({
+			message: "worker broke",
+			preventDefault() {},
+		} as ErrorEvent);
+		expect(await first).toBeInstanceOf(OffThreadReaderUnavailableError);
+		const during = await adapter.queryOffThread("SELECT 2").catch((e) => e);
+		expect(during).toBeInstanceOf(OffThreadReaderUnavailableError);
+		expect(workers).toHaveLength(1);
+		expect(
+			warn.mock.calls.filter(([line]) =>
+				line.includes(
+					"off-thread reader spawn budget spent; its reads fail for 60s, then it respawns",
+				),
+			),
+		).toHaveLength(1);
+		clock += 60_000;
+		const later = adapter.queryOffThread("SELECT 3 AS n");
+		await turns();
+		expect(workers).toHaveLength(2);
+		const message = workers[1].messages.find((m) => m.kind === "read");
+		workers[1].emit({
+			kind: "result",
+			id: message?.id,
+			ok: true,
+			rows: [{ n: 3 }],
+			ms: 1,
+		});
+		expect(await later).toEqual([{ n: 3 }]);
+		expect(query).not.toHaveBeenCalled();
+	});
+
+	it("waits out SQLITE_BUSY on the reader", async () => {
+		const { adapter } = realFixture();
+		const { reader, workers } = fakeFixture();
+		adapter.setOffThreadReader(reader);
+		const query = spyOn(adapter, "query");
+		const read = adapter.queryOffThread("SELECT 4 AS n");
+		await turns();
+		const reads = () => workers[0].messages.filter((m) => m.kind === "read");
+		workers[0].emit({
+			kind: "result",
+			id: reads()[0]?.id,
+			ok: false,
+			error: {
+				message: "database is locked",
+				name: "SQLiteError",
+				code: "SQLITE_BUSY",
+			},
+			ms: 10,
+		});
+		await new Promise((resolve) => setTimeout(resolve, 600));
+		expect(reads()[1]?.sql).toBe("SELECT 4 AS n");
+		workers[0].emit({
+			kind: "result",
+			id: reads()[1]?.id,
+			ok: true,
+			rows: [{ n: 4 }],
+			ms: 1,
+		});
+		expect(await read).toEqual([{ n: 4 }]);
+		expect(query).not.toHaveBeenCalled();
+		expect(workers[0].terminated).toBe(0);
 	});
 });

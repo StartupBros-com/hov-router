@@ -48,7 +48,8 @@ export { BatchExpectedChangesError, type BatchStatement };
  * SQL adapter over bun:sqlite, wrapping the existing synchronous Database.
  *
  * `query` and `get` read on this connection; `queryOffThread` and
- * `getOffThread` read on a reader thread when one is attached. The `run*`
+ * `getOffThread` read on a reader thread when one is attached, and never move
+ * to this connection, whose thread also serves live streams (#921). The `run*`
  * methods write through the off-thread writer when one is attached, and on
  * this connection otherwise.
  *
@@ -131,38 +132,32 @@ export class BunSqlAdapter {
 		return onMain();
 	}
 
-	/** SELECTs only; never use for reads of uncommitted writes in a main-thread transaction. */
+	/**
+	 * SELECTs only; never use for reads of uncommitted writes in a main-thread
+	 * transaction. With a reader attached the read runs there or fails; it is
+	 * never re-run on this connection, where a slow scan would stall every live
+	 * stream (#921). SQLITE_BUSY waits and retries on the reader. Without one
+	 * (an in-memory database, or BETTER_CCFLARE_DB_READER_WORKER=0) it runs here.
+	 */
 	async queryOffThread<R>(
 		sql: string,
 		params: unknown[] = [],
 		lane: OffThreadReadLane = "bulk",
 	): Promise<R[]> {
 		const reader = this.readerFor(lane);
-		if (reader) {
-			try {
-				return await reader.all<R>(sql, params);
-			} catch (error) {
-				if (!(error instanceof OffThreadReaderUnavailableError)) throw error;
-			}
-		}
-		return this.query<R>(sql, params);
+		if (!reader) return this.query<R>(sql, params);
+		return this.withBusyRetry(() => reader.all<R>(sql, params));
 	}
 
-	/** SELECTs only; never use for reads of uncommitted writes in a main-thread transaction. */
+	/** As queryOffThread, for one row or null. */
 	async getOffThread<R>(
 		sql: string,
 		params: unknown[] = [],
 		lane: OffThreadReadLane = "bulk",
 	): Promise<R | null> {
 		const reader = this.readerFor(lane);
-		if (reader) {
-			try {
-				return await reader.get<R>(sql, params);
-			} catch (error) {
-				if (!(error instanceof OffThreadReaderUnavailableError)) throw error;
-			}
-		}
-		return this.get<R>(sql, params);
+		if (!reader) return this.get<R>(sql, params);
+		return this.withBusyRetry(() => reader.get<R>(sql, params));
 	}
 	/** The underlying bun:sqlite Database */
 	private readonly sqliteDb: Database;
@@ -186,13 +181,14 @@ export class BunSqlAdapter {
 	 * self-resolve), then catches the resulting error and re-schedules with
 	 * setTimeout so the event loop stays free between attempts.  This is
 	 * necessary when a long-running exclusive operation such as VACUUM is running
-	 * on a separate Worker connection.
+	 * on a separate Worker connection. Off-thread reads use it too, so a busy
+	 * read waits on its reader rather than moving to this connection.
 	 */
-	private async withBusyRetry<T>(fn: () => T): Promise<T> {
+	private async withBusyRetry<T>(fn: () => T | Promise<T>): Promise<T> {
 		const deadline = Date.now() + 10 * 60 * 1000; // retry for up to 10 minutes
 		while (true) {
 			try {
-				return fn();
+				return await fn();
 			} catch (err) {
 				const isBusy =
 					err instanceof Error &&
