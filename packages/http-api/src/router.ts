@@ -234,6 +234,7 @@ export class APIRouter {
 			getBodyAdmissionHealth,
 			getMemorySnapshot,
 			getHandoff,
+			getRouteProfilesStatus: () => this.context.modelRouteProfilesStatus,
 		});
 		const statsHandler = createStatsHandler(dbOps);
 		const recentErrorsHandler = createRecentErrorsHandler(dbOps);
