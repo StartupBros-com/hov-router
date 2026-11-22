@@ -379,10 +379,13 @@ describe("documented binary install (synthetic downloads)", () => {
 			expect(document).toContain("1278801682");
 			expect(document).not.toContain("Before the repository rename");
 			// The organization move happened; no guide may still call it pending.
+			// The repository left the fork network (#910); none may still call it a fork.
 			for (const pending of [
 				"is moving",
 				"Until the move",
 				"tracked in [#911]",
+				"retains the fork relationship",
+				"has not been made",
 			])
 				expect(document).not.toContain(pending);
 		}
