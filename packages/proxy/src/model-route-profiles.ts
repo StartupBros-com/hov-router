@@ -1,4 +1,7 @@
-import { getModelFamily } from "@better-ccflare/core";
+import {
+	getModelFamily,
+	resolveStoredPolicyAliasModel,
+} from "@better-ccflare/core";
 import { getSupportedLines } from "@better-ccflare/providers";
 import type {
 	QualityApprovedLine,
@@ -583,6 +586,22 @@ export function parseModelRouteProfiles(
 			}
 		}
 
+		const writtenLogicalModel = requiredString(
+			candidate,
+			"logicalModel",
+			index,
+			MAX_MODEL_ID_LENGTH,
+		);
+		// A bare family name ("opus") on a profile that does not follow a catalog
+		// means "this family's current model". Resolve it once, here, through the
+		// same per-release table combo family aliases use, so every reader of
+		// logicalModel sees a concrete id and no bare alias is ever sent upstream.
+		// A catalog-following profile keeps its value: there it only names the
+		// role or line the catalog fills in.
+		const logicalModel = followsCatalog
+			? writtenLogicalModel
+			: resolveStoredPolicyAliasModel(writtenLogicalModel);
+
 		const discoveryModelId =
 			clientContextWindowHint === "1m" ? `${publicModelId}[1m]` : publicModelId;
 		const profile: ModelRouteProfile = {
@@ -610,12 +629,7 @@ export function parseModelRouteProfiles(
 			...(clientContextWindowHint === undefined
 				? {}
 				: { clientContextWindowHint }),
-			logicalModel: requiredString(
-				candidate,
-				"logicalModel",
-				index,
-				MAX_MODEL_ID_LENGTH,
-			),
+			logicalModel,
 			defaultEffort,
 			expectedProvider,
 			expectedPhysicalModel,
