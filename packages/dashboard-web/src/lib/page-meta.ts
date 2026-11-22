@@ -51,6 +51,11 @@ export const PAGE_META = {
 		title: "Combos",
 		description: "Define fallback chains for model families",
 	},
+	routeLanes: {
+		path: "/route-lanes",
+		title: "Route Lanes",
+		description: "Claude Code /model picker lanes, each pinned to an account",
+	},
 	agents: {
 		path: "/agents",
 		title: "Agents",

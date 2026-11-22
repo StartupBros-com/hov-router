@@ -20,6 +20,7 @@ import { Navigation } from "./components/navigation";
 import { OverviewTab } from "./components/OverviewTab";
 import { LazyPage } from "./components/page-shell";
 import { RequestsTab } from "./components/RequestsTab";
+import { RouteLanesTab } from "./components/route-lanes/RouteLanesTab";
 import { SettingsTab } from "./components/SettingsTab";
 import {
 	RouterUnreachableView,
@@ -105,6 +106,7 @@ const ROUTES = [
 		),
 	},
 	{ path: PAGE_META.combos.path, element: <CombosTab /> },
+	{ path: PAGE_META.routeLanes.path, element: <RouteLanesTab /> },
 	{ path: PAGE_META.agents.path, element: <AgentsTab /> },
 	{ path: PAGE_META.keys.path, element: <ApiKeysTab /> },
 	{ path: PAGE_META.logs.path, element: <LogsTab /> },
