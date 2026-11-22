@@ -27,12 +27,10 @@ const PROFILE_JSON = JSON.stringify([
 	},
 ]);
 
-const EXACT_FLOW =
-	"One account only. Fails instead of switching. Subagents use it too.";
+const EXACT_FLOW = "one account only · subagents too · no fallback";
 const BOUNDED_FLOW =
-	"One account only, size-capped requests. Fails instead of switching. Subagents use it too.";
-const POOL_FLOW =
-	"This model on any pool account. Fails instead of switching. Subagents try the pool first.";
+	"one account only · size-capped · subagents too · no fallback";
+const POOL_FLOW = "codex pool · subagents try the pool first · no fallback";
 
 function profile() {
 	const [configured] = parseModelRouteProfiles(PROFILE_JSON);
@@ -104,12 +102,10 @@ describe("webSearchHelper profile policy", () => {
 		expect(Object.isFrozen(configured)).toBe(true);
 		expect(Object.isFrozen(configured.webSearchHelper)).toBe(true);
 		expect(Object.isFrozen(configured.webSearchHelper?.accountIds)).toBe(true);
-		expect(describeModelRouteProfileFlow(configured)).toContain(
-			"Search helpers may use approved accounts",
+		expect(describeModelRouteProfileFlow(configured)).toBe(
+			"inference on one account · subagents too · search may use approved accounts",
 		);
-		expect(describeModelRouteProfileFlow(configured)).not.toContain(
-			"One account only",
-		);
+		expect(describeModelRouteProfileFlow(configured)).not.toContain(" only");
 		expect(profile().webSearchHelper).toBeUndefined();
 	});
 
@@ -122,8 +118,8 @@ describe("webSearchHelper profile policy", () => {
 			accounts: "anthropic-subscription",
 		});
 		expect(Object.isFrozen(configured.webSearchHelper)).toBe(true);
-		expect(describeModelRouteProfileFlow(configured)).toContain(
-			"Search helpers may use subscription accounts",
+		expect(describeModelRouteProfileFlow(configured, "chat-gw")).toBe(
+			"inference on chat-gw · subagents too · search may use subscription accounts",
 		);
 	});
 
@@ -2174,6 +2170,24 @@ describe("describeModelRouteProfileFlow", () => {
 		]) {
 			expect(JSON.stringify(discovered)).not.toContain(secret);
 		}
+	});
+
+	it("leads with the account a live row runs on, on one line within Claude Code's 100 characters", () => {
+		const [exact] = parseModelRouteProfiles(
+			JSON.stringify([{ ...base, id: "a", accountId: "acct-secret" }]),
+		);
+		if (!exact) throw new Error("Expected the profile to parse");
+		expect(describeModelRouteProfileFlow(exact, "max-primary-bros")).toBe(
+			"max-primary-bros only · subagents too · no fallback",
+		);
+		const long = describeModelRouteProfileFlow(
+			exact,
+			`max\r\n\t${"x".repeat(200)}`,
+		);
+		expect(long.length).toBeLessThanOrEqual(100);
+		expect(long).not.toMatch(/[\r\n\t]/);
+		expect(long.startsWith("max x")).toBe(true);
+		expect(long.endsWith("…")).toBe(true);
 	});
 });
 

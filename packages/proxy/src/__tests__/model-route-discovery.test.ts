@@ -16,10 +16,9 @@ import {
 	parseModelRouteProfiles,
 } from "../model-route-profiles";
 
-const EXACT_FLOW =
-	"One account only. Fails instead of switching. Subagents use it too.";
-const POOL_FLOW =
-	"This model on any pool account. Fails instead of switching. Subagents try the pool first.";
+const exactFlow = (accountName: string) =>
+	`${accountName} only · subagents too · no fallback`;
+const POOL_FLOW = "codex pool · subagents try the pool first · no fallback";
 
 const route = (id: string) => `${MODEL_ROUTE_PROFILE_MODEL_PREFIX}${id}`;
 
@@ -151,9 +150,9 @@ describe("buildModelRouteDiscoveryModels", () => {
 		]) {
 			expect(rows[0]?.id).toBe(route("glm-5-3-flash"));
 			expect(rows[0]?.description).toContain(
-				"Search helpers may use approved accounts",
+				"search may use approved accounts",
 			);
-			expect(rows[0]?.description).not.toContain("One account only");
+			expect(rows[0]?.description).not.toContain(" only");
 			expect(JSON.stringify(rows)).not.toContain("private-search-account");
 		}
 	});
@@ -174,23 +173,23 @@ describe("buildModelRouteDiscoveryModels", () => {
 		).toEqual([
 			{
 				id: route("pro-primary-sol[1m]"),
-				display_name: "GPT-6-Astra (1M) · codex pool",
+				display_name: "GPT-6-Astra (1M)",
 				description: POOL_FLOW,
 			},
 			{
 				id: route("grok-primary"),
-				display_name: "grok-4.7 · grok",
-				description: EXACT_FLOW,
+				display_name: "grok-4.7",
+				description: exactFlow("grok"),
 			},
 			{
 				id: route("codex-pool-astra[1m]"),
-				display_name: "GPT-6.1-Sol (1M) · codex pool",
+				display_name: "GPT-6.1-Sol (1M)",
 				description: POOL_FLOW,
 			},
 			{
 				id: route("glm-5-3-flash"),
-				display_name: "chat · ai-gateway-chat",
-				description: EXACT_FLOW,
+				display_name: "chat",
+				description: exactFlow("ai-gateway-chat"),
 			},
 		]);
 	});
@@ -208,11 +207,11 @@ describe("buildModelRouteDiscoveryModels", () => {
 		expect(
 			models.find((model) => model.id === route("codex-pool-astra[1m]"))
 				?.display_name,
-		).toBe("GPT-7 Nova (1M) · codex pool");
+		).toBe("GPT-7 Nova (1M)");
 		expect(
 			models.find((model) => model.id === route("pro-primary-sol[1m]"))
 				?.display_name,
-		).toBe("GPT-6.1-Sol (1M) · codex pool");
+		).toBe("GPT-6.1-Sol (1M)");
 	});
 
 	it("falls back to the operator label while catalogs are still cold", () => {
@@ -236,6 +235,8 @@ describe("buildModelRouteDiscoveryModels", () => {
 					accountId === "codex-a-id" ? "gpt-6.1-sol" : "gpt-6-astra",
 			}),
 		);
+		// Both pools serve the same pair here, so their titles match and each
+		// keeps " · codex pool".
 		expect(
 			models.find((model) => model.id === route("codex-pool-astra[1m]"))
 				?.display_name,
@@ -279,8 +280,12 @@ describe("buildModelRouteDiscoveryModels", () => {
 			}),
 		);
 		expect(models.map((model) => model.display_name)).toEqual([
-			"GPT-6.1-Sol (1M) · codex pool",
-			"GPT-7 Nova · reserved",
+			"GPT-6.1-Sol (1M)",
+			"GPT-7 Nova",
+		]);
+		expect(models.map((model) => model.description)).toEqual([
+			POOL_FLOW,
+			exactFlow("reserved"),
 		]);
 	});
 
@@ -316,8 +321,11 @@ describe("buildModelRouteDiscoveryModels", () => {
 				claude,
 				[account("max-id", "anthropic", { name: "max-primary" })],
 				deps({ previewPhysicalModel: (_account, logical) => logical }),
-			)[0]?.display_name,
-		).toBe("Claude Opus 5 · max-primary");
+			)[0],
+		).toMatchObject({
+			display_name: "Claude Opus 5",
+			description: exactFlow("max-primary"),
+		});
 	});
 
 	it("labels an exact route that names a family with the model it serves today", () => {
@@ -336,7 +344,7 @@ describe("buildModelRouteDiscoveryModels", () => {
 				[account("max-id", "anthropic", { name: "max-primary" })],
 				deps({ previewPhysicalModel: (_account, logical) => logical }),
 			)[0]?.display_name,
-		).toBe(`${getModelDisplayName(LATEST_OPUS_MODEL)} · max-primary`);
+		).toBe(getModelDisplayName(LATEST_OPUS_MODEL));
 	});
 
 	it("labels a native Anthropic Mythos route with the Mythos it serves, though no provider preview knows Mythos", () => {
@@ -357,7 +365,7 @@ describe("buildModelRouteDiscoveryModels", () => {
 				[account("max-id", "anthropic", { name: "max-primary" })],
 				deps(),
 			)[0]?.display_name,
-		).toBe(`${getModelDisplayName(LATEST_MYTHOS_MODEL)} · max-primary`);
+		).toBe(getModelDisplayName(LATEST_MYTHOS_MODEL));
 	});
 
 	it("keeps the operator label for a Mythos route on an account that does not forward it unchanged", () => {
@@ -378,17 +386,68 @@ describe("buildModelRouteDiscoveryModels", () => {
 		).toBe("Mythos · compatible");
 	});
 
-	it("keeps labels on one bounded line and never exposes route internals", () => {
+	it("adds where a lane runs back to titles that would otherwise match", () => {
+		const twoOpus = registry([
+			{
+				id: "cvp-opus",
+				displayName: "Opus · CVP",
+				accountId: "max-a-id",
+				logicalModel: "opus",
+				expectedProvider: "anthropic",
+			},
+			{
+				id: "spare-opus",
+				displayName: "Opus · spare",
+				accountId: "max-b-id",
+				logicalModel: "opus",
+				expectedProvider: "anthropic",
+			},
+			PROFILES[1],
+		]);
 		const models = buildModelRouteDiscoveryModels(
-			registry([PROFILES[1]]),
+			twoOpus,
 			[
-				account("grok-account-id", "xai", {
-					name: `grok\r\n<b>${"x".repeat(200)}`,
-				}),
+				account("max-a-id", "anthropic", { name: "max-primary" }),
+				account("max-b-id", "anthropic", { name: "max-spare" }),
+				account("grok-account-id", "xai", { name: "grok" }),
+			],
+			deps({
+				previewPhysicalModel: (candidate, logical) =>
+					candidate.provider === "xai" ? "grok-4.7" : logical,
+			}),
+		);
+		const opus = getModelDisplayName(LATEST_OPUS_MODEL);
+		expect(models.map((model) => model.display_name)).toEqual([
+			`${opus} · max-primary`,
+			`${opus} · max-spare`,
+			"grok-4.7",
+		]);
+	});
+
+	it("keeps titles and descriptions on one bounded line and never exposes route internals", () => {
+		const longName = `grok\r\n<b>${"x".repeat(200)}`;
+		const alone = buildModelRouteDiscoveryModels(
+			registry([PROFILES[1]]),
+			[account("grok-account-id", "xai", { name: longName })],
+			deps(),
+		);
+		expect(alone[0]?.display_name).toBe("grok-4.7");
+		expect(alone[0]?.description.length).toBeLessThanOrEqual(100);
+		expect(alone[0]?.description).not.toMatch(/[\r\n\t]/);
+		expect(alone[0]?.description.startsWith("grok <b>x")).toBe(true);
+
+		// A title that needs its account back is still clipped to one line.
+		const [model] = buildModelRouteDiscoveryModels(
+			registry([
+				PROFILES[1],
+				{ ...PROFILES[1], id: "grok-second", accountId: "grok-2-id" },
+			]),
+			[
+				account("grok-account-id", "xai", { name: longName }),
+				account("grok-2-id", "xai", { name: "grok-2" }),
 			],
 			deps(),
 		);
-		const [model] = models;
 		expect(model?.display_name.length).toBeLessThanOrEqual(120);
 		expect(model?.display_name).not.toMatch(/[\r\n\t]/);
 		expect(model?.display_name.startsWith("grok-4.7 · grok <b>x")).toBe(true);
