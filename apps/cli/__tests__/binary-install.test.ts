@@ -30,10 +30,11 @@ const migrationGuide = readFileSync(
 );
 const readme = readFileSync(join(root, "README.md"), "utf8");
 const releaseDigest =
-	"955696abccd1d4b7fe02e298687fc136655797d94aeec856dc785990fc78a4ac";
+	"d1c7e43fe45d2db7ee3d8a31db30439fd153686450d9f4827fe690966c523329";
 const releaseUrl =
-	"https://github.com/StartupBros-com/hov-router/releases/download/v6.2.2/better-ccflare-linux-amd64";
-const sourceSha = "baaa81a4656851f51ed30eaa92433f27c47d459a";
+	"https://github.com/StartupBros-com/hov-router/releases/download/v6.3.0/better-ccflare-linux-amd64";
+const sourceSha = "b171f46ac731b55e78297f378dc76e4611ce684e";
+const release622Sha = "baaa81a4656851f51ed30eaa92433f27c47d459a";
 const release621Sha = "786722ba026b7095e31aef91ca62f34bda79d490";
 const historicalDigest =
 	"b01a4989323ecf4e2d0a68394b45828741430d89eb35288f7318a28c45b4c9d7";
@@ -50,16 +51,16 @@ case "$1" in
 esac
 `;
 }
-const payload = syntheticBinary("HoV Router", "6.2.2", sourceSha);
+const payload = syntheticBinary("HoV Router", "6.3.0", sourceSha);
 const historicalPayload = syntheticBinary(
 	"wstack Router",
 	"3.6.2",
 	historicalSha,
 );
-// The earlier HoV Router release. Its guide installed it under hov-router/6.2.1
-// and created only COMMAND_NAMES, without wstack-router. Its kept provenance
-// block verifies the same path, so both use this one payload.
-const previousPayload = syntheticBinary("HoV Router", "6.2.1", release621Sha);
+// The earlier HoV Router release. Its guide installed it under hov-router/6.2.2
+// and created only COMMAND_NAMES, without wstack-router. Its row in the table of
+// releases signed in the organization verifies the same path and bytes.
+const previousPayload = syntheticBinary("HoV Router", "6.2.2", release622Sha);
 const sha256 = (bytes: string | Buffer) =>
 	createHash("sha256").update(bytes).digest("hex");
 // Each documented block fetches the bundle committed under docs/provenance and
@@ -67,7 +68,8 @@ const sha256 = (bytes: string | Buffer) =>
 // Releases signed before the repository moved to StartupBros-com on 2026-11-20
 // depend on that: GitHub no longer finds their attestations by repository.
 // 6.2.1 was the first release signed under the organization's name; its block is
-// kept under its own heading now that 6.2.2 is the current release.
+// kept under its own heading, and the guide verifies the later releases signed
+// there, once each leaves the current block, with that block and a table row.
 const currentHome = "StartupBros-com/hov-router";
 const signingIdentities = [
 	currentHome,
@@ -80,13 +82,13 @@ const release371Sha = "6b88f789e30c3a86ee918d35a6673e7be12f9243";
 const provenanceReleases = [
 	{
 		marker: "router-release-provenance",
-		tag: "v6.2.2",
+		tag: "v6.3.0",
 		signer: currentHome,
-		binary: ".local/lib/hov-router/6.2.2/hov-router",
+		binary: ".local/lib/hov-router/6.3.0/hov-router",
 		sha: sourceSha,
 		digest: releaseDigest,
 		manifestDigest:
-			"2d22b979009104db021996ddfe95c9028f3d5160004995efb37a87682b67fdaa",
+			"72790730e647516e0e107fe147b033ea86c377acfc1b73176712094b411cd023",
 		payload,
 	},
 	{
@@ -98,7 +100,7 @@ const provenanceReleases = [
 		digest: "d6af6b2fa24873b6876ffd86bd41513f97536160bf7cd75670f1393e8edc2011",
 		manifestDigest:
 			"7f568e6a94d8b6e584a65a1417050d88767c3c1d1d5012a820bd5da749d8ae07",
-		payload: previousPayload,
+		payload: syntheticBinary("HoV Router", "6.2.1", release621Sha),
 	},
 	{
 		marker: "router-release-provenance-v3.7.1",
@@ -128,36 +130,54 @@ const provenanceReleases = [
 	bundleUrl: `${bundleBase}${release.tag}.jsonl`,
 	runLine: `"$HOME/${release.binary}" --help\n`,
 }));
-// The other releases signed as StartupBros/hov-router get one row each in the
-// guide's table instead of a block; the guide verifies them with the 3.7.1 block.
+// A table section runs from its heading to the next heading of any level, so a
+// table placed beside another never takes that one's rows.
+function sectionOf(heading: string) {
+	const sections = releaseGuide.split(`\n### ${heading}\n`);
+	if (sections.length !== 2)
+		throw new Error(`guide has ${sections.length - 1} sections "${heading}"`);
+	return sections[1].split(/\n#{1,6} /)[0];
+}
+// The other releases of one signer get one row each in a guide table instead of
+// a block; the guide verifies them with that signer's kept block.
+function tableRowsOf(heading: string, signer: string) {
+	return sectionOf(heading)
+		.split("\n")
+		.filter((line) => line.startsWith("| ["))
+		.map((line) => {
+			const [link, sha, digest, bundleSha] = line
+				.split("|")
+				.slice(1, -1)
+				.map((cell) => cell.trim().replaceAll("`", ""));
+			const version = link.slice(1, link.indexOf("]"));
+			const binary = `.local/lib/hov-router/${version}/hov-router`;
+			const releasePayload = syntheticBinary("HoV Router", version, sha);
+			return {
+				tag: `v${version}`,
+				link,
+				signer,
+				binary,
+				sha,
+				digest,
+				bundleSha,
+				payload: releasePayload,
+				fixtureDigest: sha256(releasePayload),
+				runLine: `"$HOME/${binary}" --help\n`,
+			};
+		});
+}
+// Signed as StartupBros/hov-router; the guide verifies them with the 3.7.1 block.
 const tableSigner = "StartupBros/hov-router";
-const tableReleases = releaseGuide
-	.split("### Verify another release from before the move\n")[1]
-	.split("\n## ")[0]
-	.split("\n")
-	.filter((line) => line.startsWith("| ["))
-	.map((line) => {
-		const [link, sha, digest, bundleSha] = line
-			.split("|")
-			.slice(1, -1)
-			.map((cell) => cell.trim().replaceAll("`", ""));
-		const version = link.slice(1, link.indexOf("]"));
-		const binary = `.local/lib/hov-router/${version}/hov-router`;
-		const releasePayload = syntheticBinary("HoV Router", version, sha);
-		return {
-			tag: `v${version}`,
-			link,
-			signer: tableSigner,
-			binary,
-			sha,
-			digest,
-			bundleSha,
-			payload: releasePayload,
-			fixtureDigest: sha256(releasePayload),
-			runLine: `"$HOME/${binary}" --help\n`,
-		};
-	});
-const documentedReleases = [...provenanceReleases, ...tableReleases];
+const preMoveHeading = "Verify another release from before the move";
+const tableReleases = tableRowsOf(preMoveHeading, tableSigner);
+// Signed as StartupBros-com/hov-router after 6.2.1; verified with the 6.2.1 block.
+const orgHeading = "Verify another release signed in the organization";
+const orgTableReleases = tableRowsOf(orgHeading, currentHome);
+const documentedReleases = [
+	...provenanceReleases,
+	...tableReleases,
+	...orgTableReleases,
+];
 // Guides for 3.6.2 through 3.7.1 created all three names; new installs create
 // COMMAND_NAMES only, and upgrades repoint an existing wstack-router link.
 const earlierGuideAliases = [
@@ -273,11 +293,11 @@ printf '%s  %s\\n' "$digest" "$subject" | sha256sum --check --strict -
 		home,
 		".local/lib/wstack-router/3.6.2/wstack-router",
 	);
-	const previousBinary = join(home, ".local/lib/hov-router/6.2.1/hov-router");
+	const previousBinary = join(home, ".local/lib/hov-router/6.2.2/hov-router");
 	return {
 		home,
-		binary: join(home, ".local/lib/hov-router/6.2.2/hov-router"),
-		versionDir: join(home, ".local/lib/hov-router/6.2.2"),
+		binary: join(home, ".local/lib/hov-router/6.3.0/hov-router"),
+		versionDir: join(home, ".local/lib/hov-router/6.3.0"),
 		historicalBinary,
 		previousBinary,
 		binDir,
@@ -289,7 +309,7 @@ printf '%s  %s\\n' "$digest" "$subject" | sha256sum --check --strict -
 			for (const name of aliases)
 				symlinkSync(historicalBinary, join(binDir, name));
 		},
-		// Plant the layout that the 6.2.1 version of this guide produced.
+		// Plant the layout that the 6.2.2 version of this guide produced.
 		installPrevious(aliases: readonly string[] = COMMAND_NAMES) {
 			mkdirSync(dirname(previousBinary), { recursive: true });
 			writeFileSync(previousBinary, previousPayload, { mode: 0o755 });
@@ -349,15 +369,15 @@ describe("documented binary install (synthetic downloads)", () => {
 		const policy = block("router-release-provenance");
 		// This checks documented policy, not live GitHub signatures or authenticity.
 		for (const pin of [
-			'binary="$HOME/.local/lib/hov-router/6.2.2/hov-router"',
+			'binary="$HOME/.local/lib/hov-router/6.3.0/hov-router"',
 			`source_sha=${sourceSha}`,
 			`digest=${releaseDigest}`,
-			`${bundleBase}v6.2.2.jsonl`,
+			`${bundleBase}v6.3.0.jsonl`,
 			'gh attestation verify "$binary"',
 			`--repo ${currentHome}`,
 			'--source-digest "$source_sha"',
-			"--source-ref refs/tags/v6.2.2",
-			`--cert-identity https://github.com/${currentHome}/.github/workflows/router-release-artifacts.yml@refs/tags/v6.2.2`,
+			"--source-ref refs/tags/v6.3.0",
+			`--cert-identity https://github.com/${currentHome}/.github/workflows/router-release-artifacts.yml@refs/tags/v6.3.0`,
 			'--signer-digest "$source_sha"',
 			"--deny-self-hosted-runners",
 			'--bundle "$bundle"',
@@ -533,13 +553,13 @@ describe("documented binary install (synthetic downloads)", () => {
 	});
 
 	it("reports the release display and source SHA through both installed aliases (fixture)", () => {
-		expect(reference).toContain("HoV Router v6.2.2");
+		expect(reference).toContain("HoV Router v6.3.0");
 		const f = fixture();
 		expect(f.run("router-release-install").status).toBe(0);
 		expect(f.run("router-release-path").status).toBe(0);
 		for (const name of COMMAND_NAMES) {
 			for (const [flag, output] of [
-				["--version", "HoV Router v6.2.2\n"],
+				["--version", "HoV Router v6.3.0\n"],
 				["--git-sha", `${sourceSha}\n`],
 			]) {
 				const result = spawnSync(join(f.binDir, name), [flag], {
@@ -596,13 +616,13 @@ describe("documented binary install (synthetic downloads)", () => {
 
 describe("documented upgrade of an earlier binary install (synthetic)", () => {
 	const currentBinaryLine =
-		'binary="$HOME/.local/lib/hov-router/6.2.2/hov-router"';
+		'binary="$HOME/.local/lib/hov-router/6.3.0/hov-router"';
 	const toHistorical = (script: string) =>
 		script.replace(
 			currentBinaryLine,
 			'binary="$HOME/.local/lib/wstack-router/3.6.2/wstack-router"',
 		);
-	const previousBinaryPath = "$HOME/.local/lib/hov-router/6.2.1/hov-router";
+	const previousBinaryPath = "$HOME/.local/lib/hov-router/6.2.2/hov-router";
 	const toPrevious = (script: string) =>
 		script.replace(currentBinaryLine, `binary="${previousBinaryPath}"`);
 
@@ -646,7 +666,7 @@ describe("documented upgrade of an earlier binary install (synthetic)", () => {
 		);
 	});
 
-	it("repoints 6.2.1 aliases to the verified release, keeps 6.2.1, and rolls back", () => {
+	it("repoints 6.2.2 aliases to the verified release, keeps 6.2.2, and rolls back", () => {
 		const f = fixture();
 		f.installPrevious();
 		expect(f.run("router-release-install").status).toBe(0);
@@ -748,7 +768,7 @@ describe("documented upgrade of an earlier binary install (synthetic)", () => {
 });
 
 describe("documented provenance from committed bundles (synthetic policy fixture, not cryptographic proof)", () => {
-	it("verifies the installed 6.2.2 binary from its committed bundle before the separate run step", () => {
+	it("verifies the installed 6.3.0 binary from its committed bundle before the separate run step", () => {
 		const f = fixture();
 		expect(f.run("router-release-install").status).toBe(0);
 		const verified = f.run("router-release-provenance");
@@ -762,20 +782,20 @@ describe("documented provenance from committed bundles (synthetic policy fixture
 				`attestation verify ${f.binary}`,
 				`--repo ${currentHome}`,
 				`--source-digest ${sourceSha}`,
-				"--source-ref refs/tags/v6.2.2",
-				`--cert-identity https://github.com/${currentHome}/.github/workflows/router-release-artifacts.yml@refs/tags/v6.2.2`,
+				"--source-ref refs/tags/v6.3.0",
+				`--cert-identity https://github.com/${currentHome}/.github/workflows/router-release-artifacts.yml@refs/tags/v6.3.0`,
 				`--signer-digest ${sourceSha}`,
 				"--deny-self-hosted-runners",
 				`--bundle ${f.home}/router-provenance.`,
 			].join(" "),
 		);
-		expect(calls[0]).toEndWith("/v6.2.2.jsonl");
+		expect(calls[0]).toEndWith("/v6.3.0.jsonl");
 		const downloads = readFileSync(join(f.home, "downloads"), "utf8")
 			.trim()
 			.split("\n");
 		expect(downloads).toHaveLength(2);
 		expect(downloads[0]).toContain(releaseUrl);
-		expect(downloads[1]).toContain(`${bundleBase}v6.2.2.jsonl`);
+		expect(downloads[1]).toContain(`${bundleBase}v6.3.0.jsonl`);
 		expect(existsSync(join(f.home, "executed"))).toBe(false);
 		expect(f.run("router-release-run").status).toBe(0);
 		expect(readFileSync(join(f.home, "executed"), "utf8")).toBe("executed\n");
@@ -803,16 +823,16 @@ describe("documented provenance from committed bundles (synthetic policy fixture
 
 	it("pins the release and asset evidence", () => {
 		for (const pin of [
-			"453517976",
+			"454289003",
 			sourceSha,
-			"refs/tags/v6.2.2",
-			"774797487",
-			"96044512",
+			"refs/tags/v6.3.0",
+			"778320345",
+			"96064992",
 			releaseDigest,
-			"774798053",
-			"2d22b979009104db021996ddfe95c9028f3d5160004995efb37a87682b67fdaa",
-			"774797148",
-			"b5f701ad3f315321c724bad612b63733e63c34894f9e7ed0aea550c3e5de90b0",
+			"778320850",
+			"72790730e647516e0e107fe147b033ea86c377acfc1b73176712094b411cd023",
+			"778319870",
+			"1318da1ec48da049da7dc677503583737854a14ad268e5e8e041e9ea37cbd6eb",
 		])
 			expect(releaseGuide).toContain(pin);
 	});
@@ -1079,18 +1099,28 @@ describe("documented provenance from committed bundles (synthetic policy fixture
 	}
 });
 
-describe("documented table of other releases signed before the move (synthetic policy fixture, not cryptographic proof)", () => {
-	const template = "router-release-provenance-v3.7.1";
-	const statementOf = (tag: string) => {
-		const bundle = JSON.parse(
-			readFileSync(join(root, "docs/provenance", `${tag}.jsonl`), "utf8"),
-		);
-		return JSON.parse(
-			Buffer.from(bundle.dsseEnvelope.payload, "base64").toString("utf8"),
-		);
-	};
-	// The guide's instruction: set binary, source_sha, digest and bundle_sha from
-	// the row, then change every v3.7.1 to the row's tag.
+const statementOf = (tag: string) => {
+	const bundle = JSON.parse(
+		readFileSync(join(root, "docs/provenance", `${tag}.jsonl`), "utf8"),
+	);
+	return JSON.parse(
+		Buffer.from(bundle.dsseEnvelope.payload, "base64").toString("utf8"),
+	);
+};
+
+// A guide table's rows verify with one kept block, changed as the table says:
+// set binary, source_sha, digest and bundle_sha from the row, then change every
+// tag of the kept block to the row's.
+function describeTable(table: {
+	title: string;
+	heading: string;
+	rows: typeof tableReleases;
+	signer: string;
+	blockTag: string;
+	extra?: () => void;
+}) {
+	const version = table.blockTag.slice(1);
+	const template = `router-release-provenance-${table.blockTag}`;
 	const asRow = (row: (typeof tableReleases)[number]) => (script: string) => {
 		const values: Record<string, string> = {
 			binary: `"$HOME/${row.binary}"`,
@@ -1108,102 +1138,125 @@ describe("documented table of other releases signed before the move (synthetic p
 		expect([...set].sort()).toEqual(Object.keys(values).sort());
 		return lines
 			.join("\n")
-			.replaceAll("v3.7.1", row.tag)
+			.replaceAll(table.blockTag, row.tag)
 			.replaceAll(row.digest, row.fixtureDigest);
 	};
 
-	it("tells readers to change the block these rows are tested with", () => {
-		const section = releaseGuide
-			.split("### Verify another release from before the move\n")[1]
-			.split("\n## ")[0]
-			.replace(/\s+/g, " ");
-		expect(block(template)).toContain(`--repo ${tableSigner} `);
-		expect(section).toContain("run the [3.7.1 block](#verify-release-371)");
-		expect(section).toContain(
-			"change every `v3.7.1` in the block to that release's tag",
-		);
-	});
+	describe(table.title, () => {
+		it("tells readers to change the block these rows are tested with", () => {
+			expect(table.rows.length).toBeGreaterThan(0);
+			const section = sectionOf(table.heading).replace(/\s+/g, " ");
+			expect(block(template)).toContain(`--repo ${table.signer} `);
+			expect(section).toContain(
+				`run the [${version} block](#verify-release-${version.replaceAll(".", "")})`,
+			);
+			expect(section).toContain(
+				`change every \`${table.blockTag}\` in the block to that release's tag`,
+			);
+		});
 
-	// A release's bundle merges before the release is published, because the
-	// notes' verify block downloads it from main. Until the repin after
-	// publishing documents it, one bundle newer than the current block's release
-	// may sit here undocumented, and only one signed for its own tag here.
-	const isNewer = (tag: string, than: string) => {
-		const [a, b] = [tag, than].map((t) => t.slice(1).split(".").map(Number));
-		const at = a.findIndex((part, index) => part !== b[index]);
-		return at !== -1 && a[at] > b[at];
-	};
+		table.extra?.();
 
-	it("lists every committed bundle that has no block of its own, apart from the next release's", () => {
-		expect(tableReleases.length).toBeGreaterThan(0);
-		const current = provenanceReleases.find(
-			(release) => release.marker === "router-release-provenance",
-		)?.tag;
-		expect(current).toBeDefined();
-		const tags = readdirSync(join(root, "docs/provenance")).map((file) =>
-			file.replace(/\.jsonl$/, ""),
-		);
-		const pending = tags.filter(
-			(tag) => /^v\d+\.\d+\.\d+$/.test(tag) && isNewer(tag, current as string),
-		);
-		expect(pending.length).toBeLessThanOrEqual(1);
-		for (const tag of pending) {
-			const statement = statementOf(tag);
-			expect(statement.subject[0].name).toBe("better-ccflare-linux-amd64");
-			expect(
-				statement.predicate.buildDefinition.externalParameters.workflow,
-			).toEqual({
-				ref: `refs/tags/${tag}`,
-				repository: `https://github.com/${currentHome}`,
-				path: ".github/workflows/router-release-artifacts.yml",
+		for (const row of table.rows) {
+			describe(row.tag, () => {
+				it("pins the source, binary and bundle that its committed bundle was signed for", () => {
+					expect(row.link).toBe(
+						`[${row.tag.slice(1)}](https://github.com/${currentHome}/releases/tag/${row.tag})`,
+					);
+					const bytes = readFileSync(
+						join(root, "docs/provenance", `${row.tag}.jsonl`),
+					);
+					expect(sha256(bytes)).toBe(row.bundleSha);
+					const statement = statementOf(row.tag);
+					expect(statement.subject[0]).toEqual({
+						name: "better-ccflare-linux-amd64",
+						digest: { sha256: row.digest },
+					});
+					const build = statement.predicate.buildDefinition;
+					expect(build.externalParameters.workflow).toEqual({
+						ref: `refs/tags/${row.tag}`,
+						repository: `https://github.com/${table.signer}`,
+						path: ".github/workflows/router-release-artifacts.yml",
+					});
+					expect(build.resolvedDependencies[0].digest.gitCommit).toBe(row.sha);
+				});
+
+				it(`verifies as ${table.signer} with the ${version} block changed as the guide says`, () => {
+					const f = fixture();
+					const binary = f.install(row);
+					const verified = f.run(template, asRow(row), row.runLine);
+					expect(verified.status, verified.stderr).toBe(0);
+					const calls = readFileSync(join(f.home, "attestations"), "utf8")
+						.trim()
+						.split("\n");
+					expect(calls).toHaveLength(1);
+					expect(calls[0]).toStartWith(
+						`attestation verify ${binary} --repo ${table.signer} `,
+					);
+					expect(calls[0]).toEndWith(`/${row.tag}.jsonl`);
+					expect(readFileSync(join(f.home, "executed"), "utf8")).toBe(
+						"executed\n",
+					);
+				});
 			});
 		}
-		expect(tags.filter((tag) => !pending.includes(tag)).sort()).toEqual(
-			documentedReleases.map((release) => release.tag).sort(),
-		);
 	});
+}
 
-	for (const row of tableReleases) {
-		describe(row.tag, () => {
-			it("pins the source, binary and bundle that its committed bundle was signed for", () => {
-				expect(row.link).toBe(
-					`[${row.tag.slice(1)}](https://github.com/${currentHome}/releases/tag/${row.tag})`,
-				);
-				const bytes = readFileSync(
-					join(root, "docs/provenance", `${row.tag}.jsonl`),
-				);
-				expect(sha256(bytes)).toBe(row.bundleSha);
-				const statement = statementOf(row.tag);
-				expect(statement.subject[0]).toEqual({
-					name: "better-ccflare-linux-amd64",
-					digest: { sha256: row.digest },
-				});
-				const build = statement.predicate.buildDefinition;
-				expect(build.externalParameters.workflow).toEqual({
-					ref: `refs/tags/${row.tag}`,
-					repository: `https://github.com/${tableSigner}`,
+describeTable({
+	title:
+		"documented table of other releases signed before the move (synthetic policy fixture, not cryptographic proof)",
+	heading: preMoveHeading,
+	rows: tableReleases,
+	signer: tableSigner,
+	blockTag: "v3.7.1",
+	extra: () => {
+		// A release's bundle merges before the release is published, because the
+		// notes' verify block downloads it from main. Until the repin after
+		// publishing documents it, one bundle newer than the current block's release
+		// may sit here undocumented, and only one signed for its own tag here.
+		const isNewer = (tag: string, than: string) => {
+			const [a, b] = [tag, than].map((t) => t.slice(1).split(".").map(Number));
+			const at = a.findIndex((part, index) => part !== b[index]);
+			return at !== -1 && a[at] > b[at];
+		};
+
+		it("lists every committed bundle that has no block of its own, apart from the next release's", () => {
+			const current = provenanceReleases.find(
+				(release) => release.marker === "router-release-provenance",
+			)?.tag;
+			expect(current).toBeDefined();
+			const tags = readdirSync(join(root, "docs/provenance")).map((file) =>
+				file.replace(/\.jsonl$/, ""),
+			);
+			const pending = tags.filter(
+				(tag) =>
+					/^v\d+\.\d+\.\d+$/.test(tag) && isNewer(tag, current as string),
+			);
+			expect(pending.length).toBeLessThanOrEqual(1);
+			for (const tag of pending) {
+				const statement = statementOf(tag);
+				expect(statement.subject[0].name).toBe("better-ccflare-linux-amd64");
+				expect(
+					statement.predicate.buildDefinition.externalParameters.workflow,
+				).toEqual({
+					ref: `refs/tags/${tag}`,
+					repository: `https://github.com/${currentHome}`,
 					path: ".github/workflows/router-release-artifacts.yml",
 				});
-				expect(build.resolvedDependencies[0].digest.gitCommit).toBe(row.sha);
-			});
-
-			it("verifies under the former name with the 3.7.1 block changed as the guide says", () => {
-				const f = fixture();
-				const binary = f.install(row);
-				const verified = f.run(template, asRow(row), row.runLine);
-				expect(verified.status, verified.stderr).toBe(0);
-				const calls = readFileSync(join(f.home, "attestations"), "utf8")
-					.trim()
-					.split("\n");
-				expect(calls).toHaveLength(1);
-				expect(calls[0]).toStartWith(
-					`attestation verify ${binary} --repo ${tableSigner} `,
-				);
-				expect(calls[0]).toEndWith(`/${row.tag}.jsonl`);
-				expect(readFileSync(join(f.home, "executed"), "utf8")).toBe(
-					"executed\n",
-				);
-			});
+			}
+			expect(tags.filter((tag) => !pending.includes(tag)).sort()).toEqual(
+				documentedReleases.map((release) => release.tag).sort(),
+			);
 		});
-	}
+	},
+});
+
+describeTable({
+	title:
+		"documented table of other releases signed in the organization (synthetic policy fixture, not cryptographic proof)",
+	heading: orgHeading,
+	rows: orgTableReleases,
+	signer: currentHome,
+	blockTag: "v6.2.1",
 });
