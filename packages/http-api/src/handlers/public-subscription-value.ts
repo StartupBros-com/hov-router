@@ -5,6 +5,7 @@ import {
 	isValidPublicLabel,
 	MAX_PUBLIC_SUBSCRIPTIONS,
 	type PublicSubscriptionMapping,
+	type PublicSubscriptionsConfig,
 	parsePublicSubscriptionsConfig,
 } from "../services/public-subscriptions-config";
 import {
@@ -38,6 +39,15 @@ interface PublicSubscriptionValue {
 }
 
 const CACHE_MS = 60_000;
+/**
+ * A timer rebuilds each body this long before it expires, so a request finds a
+ * built body instead of waiting for every published account's reads.
+ */
+export const REBUILD_LEAD_MS = 15_000;
+/** Floor on the timer's delay, so a body that keeps expiring early cannot spin it. */
+export const REBUILD_MIN_DELAY_MS = 5_000;
+/** Wait before the timer retries a rebuild that failed. */
+export const REBUILD_RETRY_MS = 15_000;
 /**
  * In roster ("accounts") mode a still-valid cached body is revalidated against
  * the database roster at most once per this interval per process, so a write
@@ -88,6 +98,30 @@ function response(body: unknown, status = 200): Response {
 	});
 }
 
+interface FeedCacheEntry {
+	raw: string | undefined;
+	body: PublicSubscriptionValue;
+	expiresAt: number;
+	/** Roster mode only: identity of the roster this body was built from. */
+	signature?: string;
+	rosterCheckedAt: number;
+}
+
+type UsableConfig = Extract<
+	PublicSubscriptionsConfig,
+	{ status: "enabled" | "accounts" }
+>;
+
+/** Runs `run` after `delayMs` on a timer that never keeps the process alive. */
+function scheduleDetached(
+	run: () => Promise<void>,
+	delayMs: number,
+): () => void {
+	const timer = setTimeout(run, delayMs);
+	timer.unref();
+	return () => clearTimeout(timer);
+}
+
 class FeedUnavailable extends Error {
 	constructor(
 		readonly reason: string,
@@ -106,6 +140,8 @@ export function createPublicSubscriptionValueHandler(
 		now?: () => number;
 		/** Roster generation for the DB-backed ("accounts") mode cache key. */
 		getRosterGeneration?: () => number;
+		/** Schedules the rebuild ahead of expiry; returns a cancel function. */
+		schedule?: (run: () => Promise<void>, delayMs: number) => () => void;
 	} = {},
 ) {
 	const getConfig =
@@ -114,6 +150,8 @@ export function createPublicSubscriptionValueHandler(
 	const now = options.now ?? Date.now;
 	const getGeneration =
 		options.getRosterGeneration ?? getPublicRosterGeneration;
+	const schedule = options.schedule ?? scheduleDetached;
+	let cancelRebuild: (() => void) | undefined;
 	const loggedConfigs = new Set<string | undefined>();
 	const loggedFailures = new Map<string, number>();
 	const refreshes = new Map<
@@ -121,16 +159,7 @@ export function createPublicSubscriptionValueHandler(
 		Promise<{ body: PublicSubscriptionValue; signature?: string }>
 	>();
 	let rosterRecheck: Promise<string> | undefined;
-	let cache:
-		| {
-				raw: string | undefined;
-				body: PublicSubscriptionValue;
-				expiresAt: number;
-				/** Roster mode only: identity of the roster this body was built from. */
-				signature?: string;
-				rosterCheckedAt: number;
-		  }
-		| undefined;
+	let cache: FeedCacheEntry | undefined;
 
 	function logFailure(error: unknown) {
 		const reason =
@@ -291,6 +320,103 @@ export function createPublicSubscriptionValueHandler(
 		};
 	}
 
+	/**
+	 * The cache key and refresh source for a usable config. Roster mode keys the
+	 * cache on the write generation so an admin write is visible on the next
+	 * request, and never shares a key with env JSON.
+	 */
+	function feedTarget(raw: string | undefined, config: UsableConfig) {
+		const generation = config.status === "accounts" ? getGeneration() : 0;
+		return {
+			raw,
+			generation,
+			key: config.status === "accounts" ? `accounts:${generation}` : raw,
+			source:
+				config.status === "accounts" ? ("accounts" as const) : config.mappings,
+		};
+	}
+
+	/**
+	 * Builds a body for `target`, or joins the build already running for it, and
+	 * refuses it if the config or roster changed while it was built.
+	 */
+	async function build(
+		target: ReturnType<typeof feedTarget>,
+		at: number,
+	): Promise<FeedCacheEntry> {
+		let pending = refreshes.get(target.key);
+		if (!pending) {
+			pending = refresh(target.source, at);
+			refreshes.set(target.key, pending);
+		}
+		let built: { body: PublicSubscriptionValue; signature?: string };
+		try {
+			built = await pending;
+		} finally {
+			if (refreshes.get(target.key) === pending) refreshes.delete(target.key);
+		}
+		if (getConfig() !== target.raw) throw new FeedUnavailable("config_changed");
+		if (target.source === "accounts" && getGeneration() !== target.generation)
+			throw new FeedUnavailable("roster_changed");
+		const body = built.body;
+		return {
+			raw: target.key,
+			body,
+			signature: built.signature,
+			rosterCheckedAt: body.generatedAt,
+			expiresAt: Math.min(
+				body.generatedAt + CACHE_MS,
+				...body.subscriptions.flatMap((subscription) =>
+					subscription.current ? [subscription.current.resetsAt] : [],
+				),
+			),
+		};
+	}
+
+	function armRebuild(entry: FeedCacheEntry, delayMs: number) {
+		cancelRebuild?.();
+		const delay = Math.min(Math.max(delayMs, REBUILD_MIN_DELAY_MS), CACHE_MS);
+		cancelRebuild = schedule(() => {
+			cancelRebuild = undefined;
+			return rebuildAhead(entry);
+		}, delay);
+	}
+
+	function armAhead(entry: FeedCacheEntry, at: number) {
+		// An expiry clamped to an open window's reset does not move later when the
+		// body is rebuilt before the reset, so that body is rebuilt at its expiry.
+		const clamped = entry.expiresAt < entry.body.generatedAt + CACHE_MS;
+		armRebuild(
+			entry,
+			(clamped ? entry.expiresAt : entry.expiresAt - REBUILD_LEAD_MS) - at,
+		);
+	}
+
+	/** Replaces `previous` before it expires, unless a request already replaced it. */
+	async function rebuildAhead(previous: FeedCacheEntry): Promise<void> {
+		if (cache !== previous) return;
+		try {
+			const raw = getConfig();
+			const config = parsePublicSubscriptionsConfig(raw);
+			if (config.status === "disabled" || config.status === "invalid") return;
+			const at = now();
+			if (!timestamp(at)) throw new FeedUnavailable("clock");
+			const entry = await build(feedTarget(raw, config), at);
+			if (cache !== previous) return;
+			const builtAt = now();
+			if (!timestamp(builtAt)) throw new FeedUnavailable("clock");
+			if (builtAt < entry.body.generatedAt || builtAt >= entry.expiresAt)
+				throw new FeedUnavailable("expired");
+			cache = entry;
+			armAhead(entry, builtAt);
+		} catch (error) {
+			logFailure(error);
+			// The request path still rebuilds an expired body; retrying here keeps the
+			// feed warm when no request arrives.
+			if (cache === previous) armRebuild(previous, REBUILD_RETRY_MS);
+		}
+	}
+
 	return async (): Promise<Response> => {
 		try {
 			const raw = getConfig();
@@ -313,16 +439,13 @@ export function createPublicSubscriptionValueHandler(
 			}
 			if (config.status === "invalid")
 				return response({ error: "Unavailable" }, 503);
-			// Roster mode keys the cache on the write generation so an admin write
-			// is visible on the next request, and never shares a key with env JSON.
-			const generation = config.status === "accounts" ? getGeneration() : 0;
-			const key = config.status === "accounts" ? `accounts:${generation}` : raw;
+			const target = feedTarget(raw, config);
 			const at = now();
 			if (!timestamp(at)) throw new FeedUnavailable("clock");
 			let entry = cache;
 			let needsRefresh =
 				!entry ||
-				entry.raw !== key ||
+				entry.raw !== target.key ||
 				at < entry.body.generatedAt ||
 				at >= entry.expiresAt;
 			if (
@@ -348,44 +471,16 @@ export function createPublicSubscriptionValueHandler(
 				if (signature === entry.signature) entry.rosterCheckedAt = at;
 				else needsRefresh = true;
 			}
-			if (needsRefresh) {
-				let pending = refreshes.get(key);
-				if (!pending) {
-					pending = refresh(
-						config.status === "accounts" ? "accounts" : config.mappings,
-						at,
-					);
-					refreshes.set(key, pending);
-				}
-				let built: { body: PublicSubscriptionValue; signature?: string };
-				try {
-					built = await pending;
-				} finally {
-					if (refreshes.get(key) === pending) refreshes.delete(key);
-				}
-				if (getConfig() !== raw) throw new FeedUnavailable("config_changed");
-				if (config.status === "accounts" && getGeneration() !== generation)
-					throw new FeedUnavailable("roster_changed");
-				const body = built.body;
-				entry = {
-					raw: key,
-					body,
-					signature: built.signature,
-					rosterCheckedAt: at,
-					expiresAt: Math.min(
-						body.generatedAt + CACHE_MS,
-						...body.subscriptions.flatMap((subscription) =>
-							subscription.current ? [subscription.current.resetsAt] : [],
-						),
-					),
-				};
-			}
+			if (needsRefresh) entry = await build(target, at);
 			if (!entry) throw new FeedUnavailable("expired");
 			const responseAt = now();
 			if (!timestamp(responseAt)) throw new FeedUnavailable("clock");
 			if (responseAt < entry.body.generatedAt || responseAt >= entry.expiresAt)
 				throw new FeedUnavailable("expired");
-			cache = entry;
+			if (cache !== entry) {
+				cache = entry;
+				armAhead(entry, responseAt);
+			}
 			return response(entry.body);
 		} catch (error) {
 			logFailure(error);
