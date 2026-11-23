@@ -67,7 +67,7 @@ describe("unpublished HoV Router artifact preparation workflow", () => {
 	test("uses only checkout and uncached Bun setup actions", async () => {
 		const { steps } = (await readWorkflow()).jobs.prepare;
 		const actions = steps.filter((step) => step.uses);
-		// Each action is pinned to a full commit SHA; Dependabot moves the SHA and
+		// Each action is pinned to a full commit SHA; Renovate moves the SHA and
 		// its version comment together, so the test names the action, not the version.
 		expect(actions.map((step) => step.uses?.replace(SHA_PIN, ""))).toEqual([
 			"actions/checkout",
