@@ -703,6 +703,245 @@ describe("cross-process roster revalidation", () => {
 	});
 });
 
+describe("rebuild ahead of expiry", () => {
+	const {
+		REBUILD_LEAD_MS,
+		REBUILD_MIN_DELAY_MS,
+		REBUILD_RETRY_MS,
+	} = require("../public-subscription-value");
+	const perAccountReads = [
+		"getLatestUsageSnapshot",
+		"getOpenUsageWindow",
+		"listUsageWindows",
+		"getAccount",
+		"aggregateTokensByModel",
+	] as const;
+
+	/** A scheduler the test fires by hand, as if each delay had passed. */
+	function manualScheduler() {
+		const timers: Array<{
+			run: () => Promise<void>;
+			delayMs: number;
+			cancelled: boolean;
+		}> = [];
+		return {
+			schedule(run: () => Promise<void>, delayMs: number) {
+				const timer = { run, delayMs, cancelled: false };
+				timers.push(timer);
+				return () => {
+					timer.cancelled = true;
+				};
+			},
+			live() {
+				return timers.filter((timer) => !timer.cancelled);
+			},
+			/** Starts the one live timer; resolves when its rebuild has finished. */
+			fire() {
+				const live = timers.filter((timer) => !timer.cancelled);
+				expect(live.length).toBe(1);
+				const [timer] = live;
+				timer.cancelled = true;
+				return timer.run();
+			},
+		};
+	}
+
+	async function publishWithOpenWindow(resetsAt = 10_000_000) {
+		await addAccount("rb-1", "private-name");
+		expect((await post("rb-1", { enabled: true, label: "Alpha" })).status).toBe(
+			200,
+		);
+		await db.openUsageWindow({
+			accountId: "rb-1",
+			windowKey: "seven_day",
+			startedAt: 200,
+			resetsAt,
+			grantType: "natural",
+		});
+	}
+
+	function instance(
+		clock: { t: number },
+		timers: ReturnType<typeof manualScheduler>,
+	) {
+		return createPublicSubscriptionValueHandler(context, {
+			getConfig: () => "accounts",
+			now: () => clock.t,
+			schedule: timers.schedule,
+		});
+	}
+
+	async function generatedAt(handler: () => Promise<Response>) {
+		const response = await handler();
+		expect(response.status).toBe(200);
+		return (await response.json()).generatedAt as number;
+	}
+
+	it("answers a request after the first body's expiry from a body the timer built, with no per-account reads", async () => {
+		await publishWithOpenWindow();
+		const clock = { t: 10_000 };
+		const timers = manualScheduler();
+		const handler = instance(clock, timers);
+		expect(await generatedAt(handler)).toBe(10_000);
+		expect(timers.live().map((timer) => timer.delayMs)).toEqual([
+			60_000 - REBUILD_LEAD_MS,
+		]);
+		clock.t = 10_000 + 60_000 - REBUILD_LEAD_MS;
+		await timers.fire();
+		const reads = perAccountReads.map((method) => spyOn(db, method));
+		try {
+			// The first body expired at 70_000.
+			clock.t = 71_000;
+			expect(await generatedAt(handler)).toBe(55_000);
+			for (const read of reads) expect(read).toHaveBeenCalledTimes(0);
+		} finally {
+			for (const read of reads) read.mockRestore();
+		}
+		// The timer re-armed from the body it built.
+		expect(timers.live().map((timer) => timer.delayMs)).toEqual([
+			60_000 - REBUILD_LEAD_MS,
+		]);
+	});
+
+	it("lets a request that arrives during the timer's rebuild join it instead of starting another", async () => {
+		await publishWithOpenWindow();
+		const clock = { t: 10_000 };
+		const timers = manualScheduler();
+		const handler = instance(clock, timers);
+		await generatedAt(handler);
+		clock.t = 55_000;
+		const aggregate = spyOn(db, "aggregateTokensByModel");
+		try {
+			const rebuilding = timers.fire();
+			clock.t = 71_000;
+			const [served] = await Promise.all([generatedAt(handler), rebuilding]);
+			expect(served).toBe(55_000);
+			expect(aggregate).toHaveBeenCalledTimes(1);
+		} finally {
+			aggregate.mockRestore();
+		}
+		expect(timers.live().length).toBe(1);
+	});
+
+	it("still rebuilds in the request after a roster change, and the timer follows the new roster", async () => {
+		await publishWithOpenWindow();
+		const clock = { t: 10_000 };
+		const timers = manualScheduler();
+		const handler = instance(clock, timers);
+		await generatedAt(handler);
+		expect((await post("rb-1", { enabled: true, label: "Beta" })).status).toBe(
+			200,
+		);
+		clock.t = 11_000;
+		const response = await handler();
+		const body = await response.json();
+		expect(body.generatedAt).toBe(11_000);
+		expect(body.subscriptions.map((s: { label: string }) => s.label)).toEqual([
+			"Beta",
+		]);
+		// The request's rebuild replaced the first timer with its own.
+		expect(timers.live().length).toBe(1);
+		expect((await post("rb-1", { enabled: true, label: "Gamma" })).status).toBe(
+			200,
+		);
+		clock.t = 56_000;
+		await timers.fire();
+		clock.t = 57_000;
+		const after = await (await handler()).json();
+		expect(after.generatedAt).toBe(56_000);
+		expect(after.subscriptions.map((s: { label: string }) => s.label)).toEqual([
+			"Gamma",
+		]);
+	});
+
+	it("keeps the request path working after a failed timer rebuild, and retries", async () => {
+		await publishWithOpenWindow();
+		const clock = { t: 10_000 };
+		const timers = manualScheduler();
+		const handler = instance(clock, timers);
+		await generatedAt(handler);
+		const roster = spyOn(db, "listPublishedPublicValue").mockRejectedValueOnce(
+			new Error("db busy"),
+		);
+		try {
+			clock.t = 55_000;
+			await timers.fire();
+		} finally {
+			roster.mockRestore();
+		}
+		expect(timers.live().map((timer) => timer.delayMs)).toEqual([
+			REBUILD_RETRY_MS,
+		]);
+		// Still inside the first body's lifetime: served as before.
+		clock.t = 60_000;
+		expect(await generatedAt(handler)).toBe(10_000);
+		// After expiry with no successful rebuild, the request rebuilds as before.
+		clock.t = 70_000;
+		expect(await generatedAt(handler)).toBe(70_000);
+		expect(timers.live().length).toBe(1);
+	});
+
+	it("rebuilds a body clamped to a window reset at the reset, never in a loop", async () => {
+		await publishWithOpenWindow(30_000);
+		const clock = { t: 10_000 };
+		const timers = manualScheduler();
+		const handler = instance(clock, timers);
+		await generatedAt(handler);
+		// Expiry is the reset at 30_000, not 70_000; rebuilding earlier cannot move it.
+		expect(timers.live().map((timer) => timer.delayMs)).toEqual([20_000]);
+		clock.t = 28_000;
+		const near = manualScheduler();
+		const late = instance(clock, near);
+		await generatedAt(late);
+		expect(near.live().map((timer) => timer.delayMs)).toEqual([
+			REBUILD_MIN_DELAY_MS,
+		]);
+	});
+
+	it("stops when the feed is disabled", async () => {
+		await publishWithOpenWindow();
+		const clock = { t: 10_000 };
+		const timers = manualScheduler();
+		let config = "accounts";
+		const handler = createPublicSubscriptionValueHandler(context, {
+			getConfig: () => config,
+			now: () => clock.t,
+			schedule: timers.schedule,
+		});
+		await generatedAt(handler);
+		config = "";
+		const roster = spyOn(db, "listPublishedPublicValue");
+		try {
+			clock.t = 55_000;
+			await timers.fire();
+			expect(roster).toHaveBeenCalledTimes(0);
+		} finally {
+			roster.mockRestore();
+		}
+		expect(timers.live().length).toBe(0);
+	});
+
+	it("schedules the default timer so it never keeps the process alive", async () => {
+		await publishWithOpenWindow();
+		const timeouts = spyOn(globalThis, "setTimeout");
+		try {
+			const handler = createPublicSubscriptionValueHandler(context, {
+				getConfig: () => "accounts",
+			});
+			const before = timeouts.mock.results.length;
+			expect((await handler()).status).toBe(200);
+			const scheduled = timeouts.mock.results
+				.slice(before)
+				.map((result) => result.value as ReturnType<typeof setTimeout>);
+			expect(scheduled.length).toBe(1);
+			expect(scheduled[0].hasRef()).toBe(false);
+			for (const timer of scheduled) clearTimeout(timer);
+		} finally {
+			timeouts.mockRestore();
+		}
+	});
+});
+
 describe("atomic publish write", () => {
 	async function publishDirect(
 		id: string,
