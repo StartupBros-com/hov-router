@@ -8,7 +8,7 @@
 		"lint": "biome check --write --unsafe"
 	},
 	"devDependencies": {
-		"@types/bun": "1.1.15",
+		"@types/bun": "1.4.5",
 		"typescript": "^6.0.3"
 	}
 }
