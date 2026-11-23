@@ -14,10 +14,11 @@
       "enabled": false
     },
     {
-      "description": "scripts/__tests__/router-release-workflow.test.ts asserts this action's exact commit, because it receives the release App's private key: a bump fails there until someone has read its action.yml and main.js (docs/hov-router-releases.md, \"Evidence required for each release\"). A group of its own puts it on its own branch, so that expected failure holds back none of the month's other Actions updates.",
+      "description": "scripts/__tests__/router-release-workflow.test.ts asserts this action's exact commit, because it receives the release App's private key: a bump fails there until someone has read its action.yml and main.js (docs/hov-router-releases.md, \"Evidence required for each release\"). A group of its own puts it on its own branch, so that expected failure holds back none of the month's other Actions updates, and it never automerges: a person reads it first, as with Dependabot.",
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["actions/create-github-app-token"],
-      "groupName": "create-github-app-token"
+      "groupName": "create-github-app-token",
+      "automerge": false
     }
   ]
 }
