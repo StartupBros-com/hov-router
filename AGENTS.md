@@ -109,6 +109,7 @@ This is a product fork with intentional hard divergence, not a mirror. Take upst
 - An issue whose acceptance names a live observation stays open until that observation is seen.
 - Use `Refs #N`, not closing keywords, in commits and PR bodies: merging never deploys here, so `Closes` would close the issue before the fix is live (with the hov-stack harness, pass `wt-new.sh --refs-only`).
 - An issue reported by someone outside the project waits for that reporter to confirm.
+- This repository is public. In new issues, PRs, commit messages and docs, name an account without its owner suffix (`max-primary`, not `max-primary-<owner>`), and write `00000000-0000-4000-8000-000000000001` where an account ID is needed. Leave older text that already names one as it is.
 
 ## Issue Staleness Check (MANDATORY before implementing)
 Before implementing any GitHub issue, always run:
