@@ -6,6 +6,7 @@ topic: claude-extra-usage-switch
 artifact_contract: ce-unified-plan/v1
 product_contract_source: ce-brainstorm
 execution: code
+status: completed
 ---
 
 # Claude Extra Usage Display and Switch - Plan
