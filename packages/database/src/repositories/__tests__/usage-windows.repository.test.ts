@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, spyOn } from "bun:test";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { DatabaseOperations } from "../../database-operations";
 import { ensureSchema, runMigrations } from "../../migrations";
@@ -974,5 +974,63 @@ describe("usage_windows limit-cycle migration", () => {
 		expect(row.counter_resets).toBeNull();
 		runMigrations(db);
 		db.close();
+	});
+});
+
+describe("listEarlyResetCandidates", () => {
+	it("reads on the bulk reader, off the main thread (#991)", async () => {
+		// The member-notice pass runs this scan every minute. On the main
+		// connection its uncached pages stopped the event loop on a busy disk.
+		const db = makeDb();
+		const adapter = new BunSqlAdapter(db);
+		const repo = new UsageWindowsRepository(adapter);
+		db.run(
+			"INSERT INTO accounts (id,name,provider,created_at) VALUES ('acc1','acc1','anthropic',0)",
+		);
+		await repo.openWindow({
+			accountId: "acc1",
+			windowKey: "seven_day",
+			startedAt: 5000,
+			resetsAt: 5000 + 7 * 86_400_000,
+			grantType: "early_reset",
+		});
+		const bulkSql: string[] = [];
+		adapter.setOffThreadReader({
+			all: async <R>(sql: string, params: unknown[] = []) => {
+				bulkSql.push(sql);
+				return db.query(sql).all(...(params as never[])) as R[];
+			},
+			get: async () => {
+				throw new Error("unexpected get");
+			},
+		});
+		adapter.setOffThreadReader(
+			{
+				all: async () => {
+					throw new Error("interactive reader used");
+				},
+				get: async () => {
+					throw new Error("interactive reader used");
+				},
+			},
+			"interactive",
+		);
+		const query = spyOn(adapter, "query");
+		try {
+			expect(await repo.listEarlyResetCandidates(0)).toEqual([
+				{
+					accountId: "acc1",
+					provider: "anthropic",
+					startedAt: 5000,
+					previousClosedAt: null,
+					previousStartedAt: null,
+				},
+			]);
+			expect(bulkSql).toHaveLength(1);
+			expect(bulkSql[0]).toContain("grant_type = 'early_reset'");
+			expect(query).not.toHaveBeenCalled();
+		} finally {
+			db.close();
+		}
 	});
 });

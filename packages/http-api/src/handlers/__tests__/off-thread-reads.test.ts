@@ -256,10 +256,11 @@ describe("heavy read result equivalence", () => {
 			event("b-direct-2", 200),
 			event("vote-2", null),
 		]);
-		expect(reader.readsServed - before).toBe(2);
+		// The Codex window list (#991), the pending read and the evidence read.
+		expect(reader.readsServed - before).toBe(3);
 		expect(
 			mainQuery.mock.calls.filter(([sql]) =>
-				/SELECT id,session_id|SELECT session_id,rate_limit_resets_at/.test(
+				/SELECT id,session_id|SELECT session_id,rate_limit_resets_at|FROM usage_windows w JOIN accounts a/.test(
 					String(sql),
 				),
 			),
