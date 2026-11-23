@@ -477,7 +477,9 @@ export function createPublicSubscriptionValueHandler(
 			if (!timestamp(responseAt)) throw new FeedUnavailable("clock");
 			if (responseAt < entry.body.generatedAt || responseAt >= entry.expiresAt)
 				throw new FeedUnavailable("expired");
-			if (cache !== entry) {
+			// A cache hit may have waited for a roster read while the timer installed
+			// a newer body. Only a request that built a body may update the cache.
+			if (needsRefresh && cache !== entry) {
 				cache = entry;
 				armAhead(entry, responseAt);
 			}

@@ -823,6 +823,51 @@ describe("rebuild ahead of expiry", () => {
 		expect(timers.live().length).toBe(1);
 	});
 
+	it("keeps the timer's new body when a cache hit finishes a roster recheck", async () => {
+		await publishWithOpenWindow();
+		const clock = { t: 10_000 };
+		const timers = manualScheduler();
+		const handler = instance(clock, timers);
+		expect(await generatedAt(handler)).toBe(10_000);
+
+		const roster = db.listPublishedPublicValue.bind(db);
+		let release!: () => void;
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const read = spyOn(db, "listPublishedPublicValue").mockImplementationOnce(
+			async (limit) => {
+				await held;
+				return roster(limit);
+			},
+		);
+		try {
+			clock.t = 55_000;
+			const checking = generatedAt(handler);
+			expect(read).toHaveBeenCalledTimes(1);
+			await timers.fire();
+			const [warmed] = timers.live();
+
+			clock.t = 66_000;
+			release();
+			expect(await checking).toBe(10_000);
+			expect(timers.live()[0]).toBe(warmed);
+
+			const reads = perAccountReads.map((method) => spyOn(db, method));
+			try {
+				clock.t = 71_000;
+				expect(await generatedAt(handler)).toBe(55_000);
+				for (const accountRead of reads)
+					expect(accountRead).toHaveBeenCalledTimes(0);
+			} finally {
+				for (const accountRead of reads) accountRead.mockRestore();
+			}
+		} finally {
+			release();
+			read.mockRestore();
+		}
+	});
+
 	it("still rebuilds in the request after a roster change, and the timer follows the new roster", async () => {
 		await publishWithOpenWindow();
 		const clock = { t: 10_000 };
