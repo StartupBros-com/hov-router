@@ -581,6 +581,10 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 	 * Weekly `early_reset` rows started at or after `startedAtOrAfter`, each
 	 * joined to its account's provider and to the account's previous row in
 	 * the same window. The bound on `started_at` stands in for an index.
+	 *
+	 * The member-notice pass runs this every minute. It reads on the bulk
+	 * reader: on the main connection its uncached pages stopped the event
+	 * loop for up to 6.6 s on a busy disk (#991).
 	 */
 	async listEarlyResetCandidates(
 		startedAtOrAfter: number,
@@ -590,7 +594,7 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 			  WHERE p.account_id = w.account_id AND p.window_key = w.window_key
 			    AND p.started_at < w.started_at
 			  ORDER BY p.started_at DESC LIMIT 1)`;
-		const rows = await this.query<Record<string, unknown>>(
+		const rows = await this.queryOffThread<Record<string, unknown>>(
 			`SELECT w.account_id, COALESCE(a.provider, 'anthropic') AS provider,
 			        w.started_at,
 			        ${previous("closed_at")} AS previous_closed_at,

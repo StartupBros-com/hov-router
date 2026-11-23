@@ -205,7 +205,11 @@ export class ExternalUsageRepository extends BaseRepository<ExternalUsageEvent> 
 		conflicts: number;
 		affected: ExternalUsageAffected[];
 	}> {
-		const windows = await this.query<Candidate>(
+		// Every Codex weekly window, on the bulk reader like this method's other
+		// reads: on the main connection it stopped the event loop for 5.7 s on a
+		// busy disk (#991). Each mutation batch below commits on its own, so the
+		// reader sees the windows the main connection has written.
+		const windows = await this.queryOffThread<Candidate>(
 			`SELECT w.account_id,w.resets_at,w.started_at FROM usage_windows w JOIN accounts a ON a.id=w.account_id WHERE a.provider='codex' AND w.window_key='seven_day'`,
 		);
 		const affected: ExternalUsageAffected[] = [];
