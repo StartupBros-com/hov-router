@@ -10,7 +10,7 @@
         "bun": "1.4.2",
         "bun-types": "latest",
         "release-please": "17.11.2",
-        "typescript": "^6.0.2",
+        "typescript": "^6.0.3",
       },
     },
     "apps/cli": {
@@ -55,7 +55,7 @@
       },
       "devDependencies": {
         "@types/node": "^22.5.4",
-        "typescript": "^6.0.2",
+        "typescript": "^6.0.3",
       },
     },
     "packages/cli-commands": {
@@ -153,7 +153,7 @@
       },
       "devDependencies": {
         "@types/bun": "1.1.15",
-        "typescript": "^6.0.2",
+        "typescript": "^6.0.3",
       },
     },
     "packages/http-api": {
@@ -179,7 +179,7 @@
       },
       "devDependencies": {
         "@types/node": "^22.10.2",
-        "typescript": "^6.0.2",
+        "typescript": "^6.0.3",
       },
     },
     "packages/load-balancer": {
@@ -271,7 +271,7 @@
       },
       "devDependencies": {
         "@types/node": "^22.10.2",
-        "typescript": "^6.0.2",
+        "typescript": "^6.0.3",
       },
     },
     "packages/ui-constants": {
@@ -279,7 +279,7 @@
       "version": "1.0.0",
       "devDependencies": {
         "@types/bun": "1.1.15",
-        "typescript": "^6.0.2",
+        "typescript": "^6.0.3",
       },
     },
   },
@@ -1142,7 +1142,7 @@
 
     "type-fest": ["type-fest@3.13.1", "", {}, "sha512-tLq3bSNx+xSpwvAJnzrK0Ep5CLNWjvFTOp71URMaAEWBfRb9nnJiBoUe0tF8bI4ZFO3omgBR6NvnbzVUT3Ly4g=="],
 
-    "typescript": ["typescript@6.0.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-bGdAIrZ0wiGDo5l8c++HWtbaNCWTS4UTv7RaTH/ThVIgjkveJt83m74bBHMJkuCbslY8ixgLBVZJIOiQlQTjfQ=="],
+    "typescript": ["typescript@6.0.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw=="],
 
     "uglify-js": ["uglify-js@3.19.3", "", { "bin": { "uglifyjs": "bin/uglifyjs" } }, "sha512-v3Xu+yuwBXisp6QYTcH4UbH+xYJXqnq2m/LtQVWKWzYc1iehYnLixoQDN9FH6/j9/oybfd6W9Ghwkl8+UMKTKQ=="],
 
