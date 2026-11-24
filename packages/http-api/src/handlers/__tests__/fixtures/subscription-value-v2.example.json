@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 2,
+  "valueBasis": "api_equivalent_usd",
+  "windowKey": "seven_day",
+  "pricingVersion": "2026-11-22.1",
+  "generatedAt": 1795476166073,
+  "subscriptions": [
+    {
+      "id": "sub-0123456789abcdef",
+      "label": "Claude Ultra 1",
+      "provider": "anthropic",
+      "plan": {
+        "key": "claude-ultra",
+        "name": "Claude Ultra",
+        "formerName": "Claude Max 20x",
+        "monthlyUsd": 200,
+        "priceSource": "https://claude.com/pricing",
+        "priceCheckedOn": "2026-11-23"
+      },
+      "sourceObservedAt": 1795476126073,
+      "current": {
+        "startedAt": 1795287600000,
+        "resetsAt": 1795892400000,
+        "closedAt": null,
+        "valueUsd": 2239.12,
+        "pricingCoverage": "complete",
+        "grantType": "natural",
+        "pointsUsed": null,
+        "counterResets": null
+      },
+      "completed": [
+        {
+          "startedAt": 1794682800000,
+          "resetsAt": 1795287600000,
+          "closedAt": 1795287641000,
+          "valueUsd": 7023.87,
+          "pricingCoverage": "complete",
+          "grantType": "natural",
+          "pointsUsed": 300,
+          "counterResets": 2
+        },
+        {
+          "startedAt": 1794078000000,
+          "resetsAt": 1794682800000,
+          "closedAt": 1794682838000,
+          "valueUsd": 2147.33,
+          "pricingCoverage": "complete",
+          "grantType": "natural",
+          "pointsUsed": 100,
+          "counterResets": 0
+        }
+      ],
+      "periods": [
+        {
+          "kind": "trailing_30_days",
+          "startsAt": 1792884166073,
+          "endsAt": 1795476166073,
+          "valueUsd": 14948.2,
+          "coveredMs": 2592000000,
+          "lowerBound": false,
+          "earlyResets": 0,
+          "counterResets": 2
+        },
+        {
+          "kind": "calendar_month",
+          "startsAt": 1793491200000,
+          "endsAt": 1795476166073,
+          "valueUsd": 12351.04,
+          "coveredMs": 1984966073,
+          "lowerBound": false,
+          "earlyResets": 0,
+          "counterResets": 2
+        },
+        {
+          "kind": "calendar_month",
+          "startsAt": 1790812800000,
+          "endsAt": 1793491200000,
+          "valueUsd": 10370.41,
+          "coveredMs": 2678400000,
+          "lowerBound": false,
+          "earlyResets": 0,
+          "counterResets": 0
+        }
+      ]
+    },
+    {
+      "id": "sub-fedcba9876543210",
+      "label": "ChatGPT Pro 200 1",
+      "provider": "openai",
+      "plan": null,
+      "sourceObservedAt": null,
+      "current": null,
+      "completed": [
+        {
+          "startedAt": 1795035720000,
+          "resetsAt": 1795640520000,
+          "closedAt": 1795050900000,
+          "valueUsd": 1390.0,
+          "pricingCoverage": "partial",
+          "grantType": "early_reset",
+          "pointsUsed": 100,
+          "counterResets": 0
+        },
+        {
+          "startedAt": 1793149200000,
+          "resetsAt": 1793754000000,
+          "closedAt": 1793816400000,
+          "valueUsd": null,
+          "pricingCoverage": "unknown",
+          "grantType": "first_observed",
+          "pointsUsed": null,
+          "counterResets": null
+        }
+      ],
+      "periods": [
+        {
+          "kind": "trailing_30_days",
+          "startsAt": 1792884166073,
+          "endsAt": 1795476166073,
+          "valueUsd": 1390.0,
+          "coveredMs": 15180000,
+          "lowerBound": true,
+          "earlyResets": 1,
+          "counterResets": 0
+        }
+      ]
+    }
+  ]
+}

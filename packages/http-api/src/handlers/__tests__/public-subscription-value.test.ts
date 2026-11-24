@@ -17,6 +17,7 @@ const scratch = mkdtempSync(join(tmpdir(), "ccflare-public-value-"));
 process.env.BETTER_CCFLARE_DB_PATH = join(scratch, "isolated.db");
 process.env.BETTER_CCFLARE_CONFIG_PATH = join(scratch, "isolated-config.json");
 process.env.DATABASE_URL = "";
+const { VALUE_PRICING_VERSION } = await import("@better-ccflare/core");
 const { DatabaseOperations } = await import("@better-ccflare/database");
 const { createPublicSubscriptionValueHandler } = await import(
 	"../public-subscription-value"
@@ -502,17 +503,21 @@ describe("public subscription value read projection", () => {
 		expect(response.status).toBe(200);
 		expect(response.headers.get("Cache-Control")).toBe("no-store");
 		expect(await response.json()).toEqual({
-			schemaVersion: 1,
+			schemaVersion: 2,
 			valueBasis: "api_equivalent_usd",
 			windowKey: "seven_day",
+			pricingVersion: VALUE_PRICING_VERSION,
 			generatedAt: 1000,
 			subscriptions: [
 				{
 					id: "my-weekly",
 					label: "Weekly subscription",
+					provider: "anthropic",
+					plan: null,
 					sourceObservedAt: null,
 					current: null,
 					completed: [],
+					periods: expect.any(Array),
 				},
 			],
 		});
@@ -539,7 +544,9 @@ describe("public subscription value read projection", () => {
 			closedAt: null,
 			valueUsd: 0,
 			pricingCoverage: "complete",
-			partialFirstObservation: true,
+			grantType: "first_observed",
+			pointsUsed: null,
+			counterResets: null,
 		});
 	});
 	it("expires at reset, detects same-generation ledger clearing and revokes cached mapping", async () => {
@@ -565,7 +572,8 @@ describe("public subscription value read projection", () => {
 		config = undefined;
 		expect((await handler()).status).toBe(404);
 	});
-	it("publishes only eight newest completed windows and preserves partial and unknown zero", async () => {
+	it("publishes only eight newest completed windows older than 35 days and preserves partial and unknown zero", async () => {
+		now = 100 * 86_400_000;
 		for (let index = 0; index < 10; index++) {
 			await db
 				.getAdapter()
@@ -591,14 +599,16 @@ describe("public subscription value read projection", () => {
 			closedAt: 295,
 			valueUsd: 0,
 			pricingCoverage: "partial",
-			partialFirstObservation: false,
+			grantType: "natural",
+			pointsUsed: null,
+			counterResets: null,
 		});
 		expect(completed[1].pricingCoverage).toBe("unknown");
 		expect(completed[1].valueUsd).toBeNull();
 		expect(completed[2].valueUsd).toBe(42);
 		expect(completed[2].pricingCoverage).toBe("complete");
 	});
-	it("leaves recorded limit points and counter resets out of the public feed", async () => {
+	it("publishes a closed window's recorded limit points and counter resets", async () => {
 		await db
 			.getAdapter()
 			.run(
@@ -613,10 +623,11 @@ describe("public subscription value read projection", () => {
 				closedAt: 115,
 				valueUsd: 42,
 				pricingCoverage: "complete",
-				partialFirstObservation: false,
+				grantType: "natural",
+				pointsUsed: 230,
+				counterResets: 2,
 			},
 		]);
-		expect(JSON.stringify(body)).not.toMatch(/pointsUsed|counterResets/);
 	});
 	it("bounds cached data after account replacement or same-generation history deletion by the TTL", async () => {
 		await db.openUsageWindow({

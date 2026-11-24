@@ -17,6 +17,7 @@ const scratch = mkdtempSync(join(tmpdir(), "ccflare-public-roster-"));
 process.env.BETTER_CCFLARE_DB_PATH = join(scratch, "isolated.db");
 process.env.BETTER_CCFLARE_CONFIG_PATH = join(scratch, "isolated-config.json");
 process.env.DATABASE_URL = "";
+const { VALUE_PRICING_VERSION } = await import("@better-ccflare/core");
 const { DatabaseOperations } = await import("@better-ccflare/database");
 const { createPublicSubscriptionValueHandler } = await import(
 	"../public-subscription-value"
@@ -304,9 +305,10 @@ describe("public subscription value feed, accounts mode", () => {
 		const { status, body } = await feedBody();
 		expect(status).toBe(200);
 		expect(body).toEqual({
-			schemaVersion: 1,
+			schemaVersion: 2,
 			valueBasis: "api_equivalent_usd",
 			windowKey: "seven_day",
+			pricingVersion: VALUE_PRICING_VERSION,
 			generatedAt: now,
 			subscriptions: [],
 		});

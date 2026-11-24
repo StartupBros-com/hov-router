@@ -1,3 +1,4 @@
+import { VALUE_PRICING_VERSION } from "@better-ccflare/core";
 import { Logger } from "@better-ccflare/logger";
 import { getPublicRosterGeneration } from "../services/public-subscription-roster";
 import {
@@ -15,28 +16,44 @@ import {
 } from "../services/usage-window-read";
 import type { APIContext } from "../types";
 import { labelRevealsAccount } from "./account-public-value";
+import {
+	buildPeriods,
+	type PublicValuePeriod,
+	type PublicValueWindow,
+	selectCompleted,
+} from "./public-value-periods";
 
-interface PublicValueWindow {
-	startedAt: number;
-	resetsAt: number;
-	closedAt: number | null;
-	valueUsd: number | null;
-	pricingCoverage: "complete" | "partial" | "unknown";
-	partialFirstObservation: boolean;
-}
 interface PublicSubscriptionValue {
-	schemaVersion: 1;
+	schemaVersion: 2;
 	valueBasis: "api_equivalent_usd";
 	windowKey: "seven_day";
+	pricingVersion: string;
 	generatedAt: number;
 	subscriptions: Array<{
 		id: string;
 		label: string;
+		provider: string;
+		/** Always null until a plan column exists. */
+		plan: null;
 		sourceObservedAt: number | null;
 		current: PublicValueWindow | null;
 		completed: PublicValueWindow[];
+		periods: PublicValuePeriod[];
 	}>;
 }
+
+/** Closed rows read per account: covers the 3 previous months and the month to date. */
+const CLOSED_READ_LIMIT = 200;
+const MAX_BODY_BYTES = 256 * 1024;
+const PROVIDER_PATTERN = /^[a-z][a-z0-9-]{0,31}$/;
+const GRANT_TYPES = new Set(["natural", "early_reset", "first_observed"]);
+// The value page refuses a body past these bounds, so the feed refuses it first.
+// points_used is REAL: a fractional reading is valid and must not fail the feed.
+const pointsOrNull = (value: number | null): boolean =>
+	value === null || (Number.isFinite(value) && value >= 0 && value <= 100_000);
+const countOrNull = (value: number | null): boolean =>
+	value === null ||
+	(Number.isSafeInteger(value) && value >= 0 && value <= 10_000);
 
 const CACHE_MS = 60_000;
 /**
@@ -72,7 +89,10 @@ function publicWindow(
 			(!timestamp(window.closedAt) ||
 				window.closedAt < window.startedAt ||
 				window.closedAt > now + CLOCK_SKEW_MS)) ||
-		(valueUsd !== null && (!Number.isFinite(valueUsd) || valueUsd < 0))
+		(valueUsd !== null && (!Number.isFinite(valueUsd) || valueUsd < 0)) ||
+		!GRANT_TYPES.has(window.grantType) ||
+		!pointsOrNull(window.pointsUsed) ||
+		!countOrNull(window.counterResets)
 	)
 		throw new FeedUnavailable("invalid_window");
 	const unpriced = window.unpricedTokens;
@@ -87,7 +107,10 @@ function publicWindow(
 				: unpriced === 0 && valueUsd !== null
 					? "complete"
 					: "unknown",
-		partialFirstObservation: window.grantType === "first_observed",
+		grantType: window.grantType as PublicValueWindow["grantType"],
+		// Open rows store NULL until close; utilization is a live counter, not points.
+		pointsUsed: window.closedAt === null ? null : window.pointsUsed,
+		counterResets: window.closedAt === null ? null : window.counterResets,
 	};
 }
 
@@ -262,7 +285,7 @@ export function createPublicSubscriptionValueHandler(
 						accountId: mapping.accountId,
 						windowKey: "seven_day",
 						closedOnly: true,
-						limit: 8,
+						limit: CLOSED_READ_LIMIT,
 						startedAtOrAfter: mapping.accountCreatedAt,
 					}),
 				]);
@@ -289,9 +312,21 @@ export function createPublicSubscriptionValueHandler(
 				)
 					throw new FeedUnavailable("roster_changed", mapping.id);
 				const observed = snapshot?.timestamp;
+				const provider =
+					account.provider === "codex" ? "openai" : account.provider;
+				if (!PROVIDER_PATTERN.test(provider))
+					throw new FeedUnavailable("bad_provider", mapping.id);
+				const currentWindow = current
+					? publicWindow(current, current.valueSoFarUsd, at)
+					: null;
+				const closedWindows = closed.map((window) =>
+					publicWindow(toUsageWindowRecord(window), window.valueUsd, at),
+				);
 				return {
 					id: mapping.id,
 					label: mapping.label,
+					provider,
+					plan: null,
 					sourceObservedAt:
 						observed !== undefined &&
 						timestamp(observed) &&
@@ -299,25 +334,23 @@ export function createPublicSubscriptionValueHandler(
 						observed <= at + CLOCK_SKEW_MS
 							? observed
 							: null,
-					current: current
-						? publicWindow(current, current.valueSoFarUsd, at)
-						: null,
-					completed: closed.map((window) =>
-						publicWindow(toUsageWindowRecord(window), window.valueUsd, at),
-					),
+					current: currentWindow,
+					completed: selectCompleted(closedWindows, at),
+					periods: buildPeriods(closedWindows, currentWindow, at),
 				};
 			}),
 		);
-		return {
-			body: {
-				schemaVersion: 1,
-				valueBasis: "api_equivalent_usd",
-				windowKey: "seven_day",
-				generatedAt: at,
-				subscriptions,
-			},
-			signature,
+		const body: PublicSubscriptionValue = {
+			schemaVersion: 2,
+			valueBasis: "api_equivalent_usd",
+			windowKey: "seven_day",
+			pricingVersion: VALUE_PRICING_VERSION,
+			generatedAt: at,
+			subscriptions,
 		};
+		if (Buffer.byteLength(JSON.stringify(body)) > MAX_BODY_BYTES)
+			throw new FeedUnavailable("too_large");
+		return { body, signature };
 	}
 
 	/**

@@ -15,7 +15,8 @@
 			"scripts/__tests__/router-release.test.ts",
 			"scripts/__tests__/router-release-workflow.test.ts",
 			"scripts/check-squash-commit-parse.ts",
-			"scripts/__tests__/check-squash-commit-parse.test.ts"
+			"scripts/__tests__/check-squash-commit-parse.test.ts",
+			"!packages/http-api/src/handlers/__tests__/fixtures/subscription-value-v2.example.json"
 		]
 	},
 	"formatter": {
