@@ -711,6 +711,7 @@ describe("rebuild ahead of expiry", () => {
 		REBUILD_LEAD_MS,
 		REBUILD_MIN_DELAY_MS,
 		REBUILD_RETRY_MS,
+		REQUEST_WAIT_MS,
 	} = require("../public-subscription-value");
 	const perAccountReads = [
 		"getLatestUsageSnapshot",
@@ -805,6 +806,128 @@ describe("rebuild ahead of expiry", () => {
 			60_000 - REBUILD_LEAD_MS,
 		]);
 	});
+
+	for (const variant of [
+		"captured-expired",
+		"captured-still-servable",
+		"warmed-plan-changed",
+		"raw-changed",
+		"generation-changed",
+		"roster-rejected",
+		"roster-deadline",
+	] as const) {
+		it(`preserves the warmed timer across a held roster read: ${variant}`, async () => {
+			await publishWithOpenWindow();
+			expect(
+				(await post("rb-1", { enabled: true, plan: "claude-pro" })).status,
+			).toBe(200);
+			const originalAt = 10_000;
+			const warmedAt = originalAt + 60_000 - REBUILD_LEAD_MS;
+			const expiresAt = originalAt + MAX_AGE_MS;
+			const clock = { t: originalAt };
+			const timers = manualScheduler();
+			let raw: string | undefined = "accounts";
+			let generation = getPublicRosterGeneration();
+			const handler = createPublicSubscriptionValueHandler(context, {
+				getConfig: () => raw,
+				getRosterGeneration: () => generation,
+				now: () => clock.t,
+				schedule: timers.schedule,
+			});
+			expect(await generatedAt(handler)).toBe(originalAt);
+			const roster = db.listPublishedPublicValue.bind(db);
+			const rosterBefore = await roster(17);
+			if (variant === "warmed-plan-changed")
+				await db
+					.getAdapter()
+					.run(
+						"UPDATE accounts SET public_value_plan = 'claude-max' WHERE id = 'rb-1'",
+					);
+
+			const building = Promise.withResolvers<void>();
+			const finishBuild = Promise.withResolvers<void>();
+			const heldRoster = Promise.withResolvers<typeof rosterBefore>();
+			const snapshot = db.getLatestUsageSnapshot.bind(db);
+			const delayBuild = spyOn(
+				db,
+				"getLatestUsageSnapshot",
+			).mockImplementationOnce(async (...args) => {
+				building.resolve();
+				await finishBuild.promise;
+				return snapshot(...args);
+			});
+			clock.t = warmedAt;
+			const rebuilding = timers.fire();
+			try {
+				await building.promise;
+				const read = spyOn(
+					db,
+					"listPublishedPublicValue",
+				).mockImplementationOnce(() => heldRoster.promise);
+				try {
+					clock.t = expiresAt - 1_000;
+					const checking = handler();
+					expect(read).toHaveBeenCalledTimes(1);
+					const [deadline] = timers.live();
+					expect(deadline.delayMs).toBe(REQUEST_WAIT_MS);
+					clock.t = expiresAt - 500;
+					finishBuild.resolve();
+					await rebuilding;
+					const warmed = timers.live().find((timer) => timer !== deadline);
+					expect(warmed?.delayMs).toBe(60_000 - REBUILD_LEAD_MS);
+					const reads = perAccountReads
+						.filter((method) => method !== "getLatestUsageSnapshot")
+						.map((method) => spyOn(db, method));
+					try {
+						if (variant === "raw-changed") raw = undefined;
+						if (variant === "generation-changed") generation++;
+						clock.t =
+							variant === "captured-still-servable"
+								? expiresAt - 100
+								: expiresAt + 1_000;
+						if (variant === "roster-deadline") {
+							clock.t = expiresAt - 1_000 + REQUEST_WAIT_MS;
+							await deadline.run();
+						} else if (variant === "roster-rejected") {
+							heldRoster.reject(new Error("fixture roster error"));
+						} else {
+							heldRoster.resolve(rosterBefore);
+						}
+						const served = await checking;
+						expect(served.headers.get("Cache-Control")).toBe("no-store");
+						if (
+							variant === "captured-expired" ||
+							variant === "captured-still-servable"
+						) {
+							expect(served.status).toBe(200);
+							expect(await served.json()).toMatchObject({
+								schemaVersion: 2,
+								generatedAt:
+									variant === "captured-expired" ? warmedAt : originalAt,
+							});
+						} else {
+							expect(served.status).toBe(503);
+							expect(await served.json()).toEqual({ error: "Unavailable" });
+						}
+						expect(timers.live()).toEqual([warmed]);
+						expect(timers.live()[0]).toBe(warmed);
+						expect(delayBuild).toHaveBeenCalledTimes(1);
+						for (const accountRead of reads)
+							expect(accountRead).toHaveBeenCalledTimes(0);
+					} finally {
+						for (const accountRead of reads) accountRead.mockRestore();
+					}
+				} finally {
+					heldRoster.resolve(rosterBefore);
+					read.mockRestore();
+				}
+			} finally {
+				finishBuild.resolve();
+				await rebuilding;
+				delayBuild.mockRestore();
+			}
+		});
+	}
 
 	it("lets a request that arrives during the timer's rebuild join it instead of starting another", async () => {
 		await publishWithOpenWindow();
