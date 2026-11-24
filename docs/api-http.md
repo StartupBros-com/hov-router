@@ -779,22 +779,23 @@ Publish or unpublish an account on the public subscription value feed (`GET /api
 
 **Request Body:**
 ```json
-{ "enabled": true, "label": "Max #1" }
+{ "enabled": true, "label": "Max #1", "plan": "claude-max" }
 ```
-`enabled` must be a boolean. `label` is a string, required when publishing unless the account already has a stored label (it is reused). The label is public and must not contain the account name or ID (case-insensitive), must satisfy the feed label rules, and must be unique among other published accounts (case-insensitive). The label is kept when unpublishing.
+`enabled` must be a boolean. `label` is a string, required when publishing unless the account already has a stored label (it is reused). The label is public and must not contain the account name or ID (case-insensitive), must satisfy the feed label rules, and must be unique among other published accounts (case-insensitive). The label is kept when unpublishing. `plan` is optional: a plan catalog key (`claude-pro`, `claude-max`, `claude-ultra` for Anthropic accounts; `chatgpt-pro-100`, `chatgpt-pro-200`, `chatgpt-pro-500` for Codex accounts) or `null` to clear it; when absent the stored plan is kept. It is written in the same update as the label, and unpublishing keeps it. The feed sends the plan's object as each subscription's `plan`.
 
 **Response:**
 ```json
 {
   "success": true,
   "publicValueEnabled": true,
-  "publicValueLabel": "Max #1"
+  "publicValueLabel": "Max #1",
+  "publicValuePlan": "claude-max"
 }
 ```
 
-Errors: `404` unknown account; `400` for malformed JSON or body, a non-boolean `enabled`, a non-string or invalid `label`, a label containing the account name or ID, a missing label on publish, a duplicate label, or a 17th published account (limit 16). A refused request changes nothing, including when a concurrent writer takes the last slot or the same label between the check and the write: the database write itself enforces the cap and label uniqueness and the request fails with `400`. An unpublish takes effect on the next feed request in the process that handled the write, and within 5 seconds in any other process sharing the database (which the single-instance-per-database deployment model does not support anyway). The public `id` is generated server-side and is never returned by admin routes.
+Errors: `404` unknown account; `400` for malformed JSON or body, a non-boolean `enabled`, a `plan` that is neither a string nor `null`, an unknown plan key, a plan that belongs to another provider than the account's, a non-string or invalid `label`, a label containing the account name or ID, a missing label on publish, a duplicate label, or a 17th published account (limit 16). A refused request changes nothing, including when a concurrent writer takes the last slot or the same label between the check and the write: the database write itself enforces the cap and label uniqueness and the request fails with `400`. An unpublish takes effect on the next feed request in the process that handled the write, and within 5 seconds in any other process sharing the database (which the single-instance-per-database deployment model does not support anyway). The public `id` is generated server-side and is never returned by admin routes.
 
-`GET /api/accounts` returns `publicValueEnabled` and `publicValueLabel` for every account.
+`GET /api/accounts` returns `publicValueEnabled`, `publicValueLabel` and `publicValuePlan` (the stored plan key or `null`) for every account.
 
 #### POST /api/accounts/:accountId/pause
 

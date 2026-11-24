@@ -539,3 +539,78 @@ describe("public subscription value feed, version 2", () => {
 		expect(Buffer.byteLength(text)).toBeLessThanOrEqual(256 * 1024);
 	});
 });
+
+describe("public subscription value feed, plan", () => {
+	const ULTRA = {
+		key: "claude-ultra",
+		name: "Claude Ultra",
+		formerName: "Claude Max 20x",
+		monthlyUsd: 200,
+		priceSource: "https://claude.com/pricing",
+		priceCheckedOn: "2026-11-23",
+	};
+	const setPlan = (plan: string | null) =>
+		db
+			.getAdapter()
+			.run("UPDATE accounts SET public_value_plan = ? WHERE id = ?", [
+				plan,
+				mapping.accountId,
+			]);
+	const planWarnings = () =>
+		warn.mock.calls.filter((call) =>
+			String(call[0]).includes("plan not in the catalog"),
+		);
+
+	it("sends exactly the six-key catalog object for a stored plan", async () => {
+		await setPlan("claude-ultra");
+		const body = await (await handler()).json();
+		const [sub] = body.subscriptions;
+		expect(sub.plan).toEqual(ULTRA);
+		expect(Object.keys(sub.plan)).toEqual([
+			"key",
+			"name",
+			"formerName",
+			"monthlyUsd",
+			"priceSource",
+			"priceCheckedOn",
+		]);
+		const example = JSON.parse(readFileSync(EXAMPLE_PATH, "utf8"));
+		expect(sub.plan).toEqual(example.subscriptions[0].plan);
+	});
+
+	it("sends null when no plan is stored", async () => {
+		const response = await handler();
+		expect(response.status).toBe(200);
+		expect((await response.json()).subscriptions[0].plan).toBeNull();
+	});
+
+	it("sends null, stays 200 and warns once for a stored key the catalog no longer holds", async () => {
+		await setPlan("retired-plan");
+		const second = { ...mapping, accountId: "second", id: "other", label: "B" };
+		await db
+			.getAdapter()
+			.run(
+				"INSERT INTO accounts (id,name,provider,created_at,public_value_plan) VALUES ('second','n2','anthropic',100,'retired-plan')",
+			);
+		config = JSON.stringify([mapping, second]);
+		const response = await handler();
+		expect(response.status).toBe(200);
+		const body = await response.json();
+		expect(body.subscriptions.map((s: { plan: unknown }) => s.plan)).toEqual([
+			null,
+			null,
+		]);
+		expect(planWarnings()).toHaveLength(1);
+		expect(JSON.stringify(planWarnings()[0])).toContain("retired-plan");
+		// A rebuild after the cache expired, a minute on, may warn again.
+		now += 60_001;
+		expect((await handler()).status).toBe(200);
+		expect(planWarnings()).toHaveLength(2);
+	});
+
+	it("does not log a warning for a catalog key", async () => {
+		await setPlan("claude-max");
+		expect((await handler()).status).toBe(200);
+		expect(planWarnings()).toHaveLength(0);
+	});
+});

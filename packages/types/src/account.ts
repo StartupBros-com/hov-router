@@ -333,6 +333,7 @@ export interface AccountRow {
 	public_value_enabled?: boolean | number | null;
 	public_value_label?: string | null;
 	public_value_id?: string | null;
+	public_value_plan?: string | null;
 	custom_endpoint?: string | null;
 	model_mappings?: string | null; // JSON string for OpenAI-compatible providers
 	cross_region_mode?: string | null; // Bedrock cross-region inference mode
@@ -388,6 +389,8 @@ export interface Account {
 	public_value_enabled?: boolean;
 	public_value_label?: string | null;
 	public_value_id?: string | null;
+	/** Catalog key of the plan shown on the public feed (null = none). */
+	public_value_plan?: string | null;
 	custom_endpoint: string | null;
 	model_mappings: string | null; // JSON string for OpenAI-compatible providers
 	cross_region_mode: string | null; // Bedrock cross-region inference mode
@@ -617,6 +620,8 @@ export interface AccountResponse {
 	publicValueEnabled?: boolean;
 	/** Public label; kept while unpublished so a re-publish reuses it. */
 	publicValueLabel?: string | null;
+	/** Catalog key of the account's public plan; kept while unpublished. */
+	publicValuePlan?: string | null;
 	/** Enabled AND drain currently in effect (fresh credit evidence). */
 	codexCreditDrainActive?: boolean;
 	/**
@@ -768,6 +773,7 @@ export function toAccount(row: AccountRow): Account {
 		public_value_enabled: !!row.public_value_enabled,
 		public_value_label: row.public_value_label ?? null,
 		public_value_id: row.public_value_id ?? null,
+		public_value_plan: row.public_value_plan ?? null,
 		custom_endpoint: row.custom_endpoint || null,
 		model_mappings: row.model_mappings || null,
 		cross_region_mode: row.cross_region_mode || null,
@@ -865,6 +871,7 @@ export function toAccountResponse(account: Account): AccountResponse {
 		codexCreditDrainEnabled: !!account.codex_credit_drain_enabled,
 		publicValueEnabled: !!account.public_value_enabled,
 		publicValueLabel: account.public_value_label ?? null,
+		publicValuePlan: account.public_value_plan ?? null,
 		customEndpoint: account.custom_endpoint,
 		modelMappings,
 		usageUtilization: null, // Will be filled in by API handler from cache

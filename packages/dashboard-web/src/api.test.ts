@@ -469,6 +469,33 @@ describe("setAccountPublicValue", () => {
 		expect(result.publicValueLabel).toBe("Max #1");
 	});
 
+	it("sends the plan key, or null to clear it, only when given", async () => {
+		const request = mock(async () => ({
+			success: true,
+			publicValueEnabled: true,
+			publicValueLabel: "Max #1",
+			publicValuePlan: "claude-max",
+		}));
+		api.request = request as typeof api.request;
+		const result = await api.setAccountPublicValue(
+			"acc-1",
+			true,
+			"Max #1",
+			"claude-max",
+		);
+		expect(result.publicValuePlan).toBe("claude-max");
+		await api.setAccountPublicValue("acc-1", true, "Max #1", null);
+		await api.setAccountPublicValue("acc-1", true, "Max #1");
+		const bodies = (request.mock.calls as unknown as RequestCall[]).map(
+			([, options]) => JSON.parse(String(options.body)),
+		);
+		expect(bodies).toEqual([
+			{ enabled: true, label: "Max #1", plan: "claude-max" },
+			{ enabled: true, label: "Max #1", plan: null },
+			{ enabled: true, label: "Max #1" },
+		]);
+	});
+
 	it("omits the label when turning off and surfaces the server 400 message", async () => {
 		const request = mock(async () => ({
 			success: true,

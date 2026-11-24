@@ -1504,16 +1504,25 @@ class API extends HttpClient {
 		accountId: string,
 		enabled: boolean,
 		label?: string,
-	): Promise<{ publicValueEnabled: boolean; publicValueLabel: string | null }> {
+		plan?: string | null,
+	): Promise<{
+		publicValueEnabled: boolean;
+		publicValueLabel: string | null;
+		publicValuePlan: string | null;
+	}> {
 		const url = `/api/accounts/${accountId}/public-value`;
 		this.logger.debug(`→ POST ${url}`, { enabled });
 		try {
-			const body: { enabled: boolean; label?: string } = { enabled };
+			const body: { enabled: boolean; label?: string; plan?: string | null } = {
+				enabled,
+			};
 			if (label !== undefined) body.label = label;
+			if (plan !== undefined) body.plan = plan;
 			return await this.post<{
 				success: boolean;
 				publicValueEnabled: boolean;
 				publicValueLabel: string | null;
+				publicValuePlan: string | null;
 			}>(url, body);
 		} catch (error) {
 			this.logger.error(`✗ POST ${url} - ERROR`, {

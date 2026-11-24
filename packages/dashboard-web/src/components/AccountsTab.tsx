@@ -725,11 +725,17 @@ export function AccountsTab() {
 		setPublicValueDialog({ account, error: null, isSaving: false });
 	};
 
-	const handlePublicValueSave = async (label: string) => {
+	const handlePublicValueSave = async (label: string, plan: string | null) => {
 		const account = publicValueDialog.account;
 		if (!account) return;
 		setPublicValueDialog((s) => ({ ...s, error: null, isSaving: true }));
-		const outcome = await savePublicValue(account, label, api, formatError);
+		const outcome = await savePublicValue(
+			account,
+			label,
+			api,
+			formatError,
+			plan,
+		);
 		if (!outcome.ok) {
 			setPublicValueDialog((s) => ({
 				...s,
@@ -953,6 +959,8 @@ export function AccountsTab() {
 					isOpen
 					accountName={publicValueDialog.account.name}
 					initialLabel={publicValueDialog.account.publicValueLabel ?? ""}
+					provider={publicValueDialog.account.provider}
+					initialPlan={publicValueDialog.account.publicValuePlan ?? null}
 					error={publicValueDialog.error}
 					isLoading={publicValueDialog.isSaving}
 					onClose={() =>

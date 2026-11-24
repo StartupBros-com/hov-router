@@ -2372,7 +2372,7 @@ describe("Database Migrations - public_value_* columns", () => {
 					.get(),
 			).toEqual({ e: 0, l: null, i: null });
 			expect(() => runMigrations(db)).not.toThrow();
-			expect(publicCols(db)).toHaveLength(3);
+			expect(publicCols(db)).toHaveLength(4);
 		} finally {
 			db.close();
 		}
@@ -2390,7 +2390,7 @@ describe("Database Migrations - public_value_* columns", () => {
 				"INSERT INTO accounts (id, name, provider, created_at) VALUES ('old','old','anthropic',1)",
 			).run();
 			runMigrations(db);
-			expect(publicCols(db)).toHaveLength(3);
+			expect(publicCols(db)).toHaveLength(4);
 			expect(
 				db.prepare("SELECT public_value_enabled e FROM accounts").get(),
 			).toEqual({ e: 0 });
@@ -2421,7 +2421,7 @@ describe("Database Migrations - public_value_* columns", () => {
 				"INSERT INTO accounts (id, name, provider, refresh_token, created_at) VALUES ('c1','c1','anthropic','rt',1)",
 			).run();
 			runMigrations(db);
-			expect(publicCols(db)).toHaveLength(3);
+			expect(publicCols(db)).toHaveLength(4);
 			expect(
 				db.prepare("SELECT public_value_enabled e FROM accounts").get(),
 			).toEqual({ e: 0 });
@@ -2455,7 +2455,7 @@ describe("Database Migrations - public_value_* columns", () => {
 				"INSERT INTO accounts (id, name, provider, refresh_token, created_at, account_tier) VALUES ('c1','c1','anthropic','',1,'pro')",
 			).run();
 			runMigrations(db);
-			expect(publicCols(db)).toHaveLength(3);
+			expect(publicCols(db)).toHaveLength(4);
 			expect(
 				db.prepare("SELECT public_value_enabled e FROM accounts").get(),
 			).toEqual({ e: 0 });
@@ -2463,6 +2463,141 @@ describe("Database Migrations - public_value_* columns", () => {
 			db.close();
 		}
 	});
+});
+
+describe("Database Migrations - public_value_plan column", () => {
+	const planCol = (db: Database) =>
+		(
+			db.prepare("PRAGMA table_info(accounts)").all() as Array<{
+				name: string;
+				notnull: number;
+				dflt_value: string | null;
+				type: string;
+			}>
+		).find((c) => c.name === "public_value_plan");
+	const publicState = (db: Database) =>
+		db
+			.prepare(
+				"SELECT id, public_value_enabled e, public_value_label l, public_value_id i, public_value_plan p FROM accounts ORDER BY id",
+			)
+			.all();
+
+	it("adds a nullable TEXT column with no default to a database that predates it", () => {
+		const db = new Database(":memory:");
+		try {
+			ensureSchema(db);
+			runMigrations(db);
+			db.exec("ALTER TABLE accounts DROP COLUMN public_value_plan");
+			db.prepare(
+				"INSERT INTO accounts (id, name, provider, created_at, public_value_enabled, public_value_label, public_value_id) VALUES ('pub','pub','anthropic',1,1,'Weekly','sub-aaaaaaaaaaaaaaaa')",
+			).run();
+			db.prepare(
+				"INSERT INTO accounts (id, name, provider, created_at) VALUES ('off','off','codex',1)",
+			).run();
+			const before = db
+				.prepare(
+					"SELECT id, public_value_enabled e, public_value_label l, public_value_id i FROM accounts ORDER BY id",
+				)
+				.all();
+			expect(planCol(db)).toBeUndefined();
+			runMigrations(db);
+			const col = planCol(db);
+			expect(col?.type).toBe("TEXT");
+			expect(col?.notnull).toBe(0);
+			expect(col?.dflt_value).toBeNull();
+			expect(
+				db
+					.prepare(
+						"SELECT id, public_value_enabled e, public_value_label l, public_value_id i FROM accounts ORDER BY id",
+					)
+					.all(),
+			).toEqual(before);
+			expect(
+				db
+					.prepare("SELECT id, public_value_plan p FROM accounts ORDER BY id")
+					.all(),
+			).toEqual([
+				{ id: "off", p: null },
+				{ id: "pub", p: null },
+			]);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("changes nothing when the migrations run twice", () => {
+		const db = new Database(":memory:");
+		try {
+			ensureSchema(db);
+			runMigrations(db);
+			db.prepare(
+				"INSERT INTO accounts (id, name, provider, created_at, public_value_enabled, public_value_label, public_value_id, public_value_plan) VALUES ('pub','pub','anthropic',1,1,'Weekly','sub-aaaaaaaaaaaaaaaa','claude-max')",
+			).run();
+			const columns = db.prepare("PRAGMA table_info(accounts)").all();
+			const state = publicState(db);
+			runMigrations(db);
+			expect(db.prepare("PRAGMA table_info(accounts)").all()).toEqual(columns);
+			expect(publicState(db)).toEqual(state);
+			expect(state).toEqual([
+				{
+					id: "pub",
+					e: 1,
+					l: "Weekly",
+					i: "sub-aaaaaaaaaaaaaaaa",
+					p: "claude-max",
+				},
+			]);
+		} finally {
+			db.close();
+		}
+	});
+
+	for (const [name, refreshTokenType, extra] of [
+		["nullable-refresh_token", "TEXT NOT NULL", ""],
+		["account_tier", "TEXT", ", account_tier TEXT DEFAULT 'free'"],
+	] as const) {
+		it(`keeps a stored plan through the legacy ${name} rebuild`, () => {
+			const db = new Database(":memory:");
+			try {
+				db.exec(`
+					CREATE TABLE accounts (
+						id TEXT PRIMARY KEY,
+						name TEXT NOT NULL,
+						provider TEXT DEFAULT 'anthropic',
+						api_key TEXT,
+						refresh_token ${refreshTokenType},
+						access_token TEXT,
+						expires_at INTEGER,
+						created_at INTEGER NOT NULL,
+						last_used INTEGER,
+						request_count INTEGER DEFAULT 0,
+						total_requests INTEGER DEFAULT 0,
+						priority INTEGER DEFAULT 0,
+						billing_type TEXT DEFAULT NULL,
+						public_value_enabled INTEGER NOT NULL DEFAULT 0,
+						public_value_label TEXT,
+						public_value_id TEXT,
+						public_value_plan TEXT${extra}
+					)
+				`);
+				db.prepare(
+					"INSERT INTO accounts (id, name, provider, refresh_token, created_at, public_value_enabled, public_value_label, public_value_id, public_value_plan) VALUES ('c1','c1','codex','rt',1,1,'Weekly','sub-aaaaaaaaaaaaaaaa','chatgpt-pro-200')",
+				).run();
+				runMigrations(db);
+				expect(publicState(db)).toEqual([
+					{
+						id: "c1",
+						e: 1,
+						l: "Weekly",
+						i: "sub-aaaaaaaaaaaaaaaa",
+						p: "chatgpt-pro-200",
+					},
+				]);
+			} finally {
+				db.close();
+			}
+		});
+	}
 });
 
 describe("Database Migrations - published label unique index", () => {

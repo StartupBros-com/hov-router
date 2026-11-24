@@ -455,7 +455,14 @@ numbers were computed under), `generatedAt`, and `subscriptions` (at most 16).
 Each subscription exposes its public `id` and `label`, `provider`, `plan`,
 `sourceObservedAt`, one `current` window (or null), `completed` windows and
 `periods`. `provider` is the account's provider with `codex` shown as `openai`;
-`plan` is always `null` until a plan column exists.
+`plan` is `null` when the account has no stored plan (or the stored key is no
+longer in the catalog, which logs one warning per key at most once a minute), and
+otherwise the plan object with exactly the keys `key`, `name`, `formerName`
+(or null), `monthlyUsd`, `priceSource` and `priceCheckedOn` (`YYYY-MM-DD`, the
+day the price was read on the provider's page). The operator sets the plan per
+published account from a fixed catalog: `claude-pro` ($20), `claude-max` ($100),
+`claude-ultra` ($200) for Claude accounts and `chatgpt-pro-100`,
+`chatgpt-pro-200`, `chatgpt-pro-500` ($100, $200, $500) for Codex accounts.
 
 - **Window fields** (`current` and `completed`) are only `startedAt`, `resetsAt`,
   `closedAt`, `valueUsd`, `pricingCoverage`, `grantType` (`natural`,
