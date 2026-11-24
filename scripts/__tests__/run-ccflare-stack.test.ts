@@ -238,7 +238,7 @@ type SpawnedRunnerFixture = {
 async function spawnRunnerFixture(
 	programs: { upstream: string; guard: string },
 	extraEnv: Record<string, string> = {},
-	options: { unsetLogLevel?: boolean } = {},
+	options: { unsetLogLevel?: boolean; detached?: boolean } = {},
 ): Promise<SpawnedRunnerFixture> {
 	const captureDir = tempDir("ccflare-stack-capture-");
 	mkdirSync(captureDir, { recursive: true });
@@ -268,6 +268,7 @@ async function spawnRunnerFixture(
 			RUNNER_PROC_ROOT: join(captureDir, "proc"),
 			...extraEnv,
 		},
+		detached: options.detached,
 		stdio: ["ignore", "pipe", "pipe"],
 	});
 	let stdout = "";
@@ -294,42 +295,77 @@ async function runStackInvocation(
 	stdout: string;
 	stderr: string;
 }> {
-	const runner = await spawnRunnerFixture(programs, extraEnv, {
-		unsetLogLevel: true,
-	});
+	const runner = await spawnRunnerFixture(
+		programs,
+		{
+			...extraEnv,
+			// These invocations exercise live fake guard/upstream, not a deploy
+			// listener or an RSS watchdog after the stack's readiness line.
+			CCFLARE_SCHEMA_DIGEST: "",
+			CCFLARE_PIN_PATH: "",
+			...rssPolicy({ RUNNER_RSS_THRESHOLD_BYTES: "0" }),
+		},
+		{ unsetLogLevel: true, detached: true },
+	);
 	const { child, captureDir } = runner;
-	const started = Date.now();
-	while (
-		(!existsSync(join(captureDir, "upstream.json")) ||
-			!existsSync(join(captureDir, "guard.json"))) &&
-		Date.now() - started < 10_000
-	) {
-		await Bun.sleep(10);
-	}
-	const { stdout, stderr } = runner.getOutput();
-	if (
-		!existsSync(join(captureDir, "upstream.json")) ||
-		!existsSync(join(captureDir, "guard.json"))
-	) {
-		child.kill("SIGKILL");
-		throw new Error(`runner fixture timed out:\n${stdout}\n${stderr}`);
-	}
-	child.kill("SIGTERM");
-	const exitCode = await new Promise<number | null>((resolve) =>
-		child.once("exit", resolve),
-	);
-	if (exitCode !== 143) {
-		throw new Error(
-			`runner fixture exited ${exitCode}:\nstdout:\n${stdout}\nstderr:\n${stderr}`,
+	try {
+		// guard.json is written before the fake guard binds. Stopping on
+		// that capture can send TERM while Bash still parses startup code.
+		await waitForOutput(runner, "ccflare stack ready", 10_000);
+		const { stdout, stderr } = runner.getOutput();
+		if (
+			!existsSync(join(captureDir, "upstream.json")) ||
+			!existsSync(join(captureDir, "guard.json"))
+		) {
+			throw new Error("runner fixture ready without both environment captures");
+		}
+		if (child.exitCode !== null || child.signalCode !== null) {
+			throw new Error(
+				`runner fixture exited ${child.exitCode ?? child.signalCode} before TERM`,
+			);
+		}
+		const [status] = await Promise.all([
+			waitForExit(child),
+			Promise.resolve().then(() => child.kill("SIGTERM")),
+		]);
+		if (status.code !== 143) {
+			const trapError = runner.getOutput().stderr.includes(
+				"unexpected EOF while looking for matching",
+			);
+			throw new Error(
+				`runner fixture exited ${status.code ?? status.signal}${trapError ? " (Bash trap parse error)" : ""}:\nstdout:\n${stdout}\nstderr:\n${stderr}`,
+			);
+		}
+		const upstream = JSON.parse(
+			readFileSync(join(captureDir, "upstream.json"), "utf8").trim(),
 		);
+		const guard = JSON.parse(
+			readFileSync(join(captureDir, "guard.json"), "utf8").trim(),
+		);
+		return { upstream, guard, stdout, stderr };
+	} catch (error) {
+		const pid = child.pid;
+		if (pid !== undefined) {
+			try {
+				// A failed fixture owns this process group, including its stubs.
+				await Promise.all([
+					child.exitCode === null && child.signalCode === null
+						? waitForExit(child, 1_000)
+						: Promise.resolve(),
+					Promise.resolve().then(() => {
+						try {
+							process.kill(-pid, "SIGKILL");
+						} catch (cause) {
+							if ((cause as NodeJS.ErrnoException).code !== "ESRCH") throw cause;
+						}
+					}),
+				]);
+			} catch (cause) {
+				throw new AggregateError([error, cause], "runner fixture cleanup failed");
+			}
+		}
+		throw error;
 	}
-	const upstream = JSON.parse(
-		readFileSync(join(captureDir, "upstream.json"), "utf8").trim(),
-	);
-	const guard = JSON.parse(
-		readFileSync(join(captureDir, "guard.json"), "utf8").trim(),
-	);
-	return { upstream, guard, stdout, stderr };
 }
 
 async function spawnRunner(
@@ -572,6 +608,7 @@ describe("run-ccflare-stack upstream environment", () => {
 
 		const invocation = await runStackInvocation(programs);
 
+		expect(invocation.stdout).toContain("ccflare stack ready");
 		expect(invocation.upstream.logLevel).toBe("warn");
 	});
 
