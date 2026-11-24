@@ -1,4 +1,9 @@
-import { VALUE_PRICING_VERSION } from "@better-ccflare/core";
+import {
+	getPublicValuePlan,
+	type PublicValuePlanObject,
+	publicValuePlanObject,
+	VALUE_PRICING_VERSION,
+} from "@better-ccflare/core";
 import { Logger } from "@better-ccflare/logger";
 import { getPublicRosterGeneration } from "../services/public-subscription-roster";
 import {
@@ -33,8 +38,8 @@ interface PublicSubscriptionValue {
 		id: string;
 		label: string;
 		provider: string;
-		/** Always null until a plan column exists. */
-		plan: null;
+		/** The catalog plan stored on the account, or null when none is set. */
+		plan: PublicValuePlanObject | null;
 		sourceObservedAt: number | null;
 		current: PublicValueWindow | null;
 		completed: PublicValueWindow[];
@@ -181,6 +186,7 @@ export function createPublicSubscriptionValueHandler(
 		string | undefined,
 		Promise<{ body: PublicSubscriptionValue; signature?: string }>
 	>();
+	const loggedPlans = new Map<string, number>();
 	let rosterRecheck: Promise<string> | undefined;
 	let cache: FeedCacheEntry | undefined;
 
@@ -205,6 +211,25 @@ export function createPublicSubscriptionValueHandler(
 				...(error.publicId ? { id: error.publicId } : {}),
 			});
 		else log.error("Public subscription value unavailable: unexpected", error);
+	}
+
+	/**
+	 * The catalog object for a stored plan key. A key the catalog no longer
+	 * holds sends null and warns once a minute per key; it never fails the feed.
+	 */
+	function planFor(
+		key: string | null,
+		at: number,
+	): PublicValuePlanObject | null {
+		if (key === null) return null;
+		const entry = getPublicValuePlan(key);
+		if (entry) return publicValuePlanObject(entry);
+		const previous = loggedPlans.get(key);
+		if (previous === undefined || at < previous || at - previous >= CACHE_MS) {
+			loggedPlans.set(key, at);
+			log.warn("Public subscription plan not in the catalog", { plan: key });
+		}
+		return null;
 	}
 
 	/**
@@ -247,6 +272,7 @@ export function createPublicSubscriptionValueHandler(
 				accountCreatedAt: createdAt,
 				id,
 				label,
+				plan: row.public_value_plan ?? null,
 			});
 		}
 		return mappings.sort(
@@ -263,7 +289,13 @@ export function createPublicSubscriptionValueHandler(
 	function rosterSignature(mappings: PublicSubscriptionMapping[]): string {
 		return mappings
 			.map((m) =>
-				JSON.stringify([m.accountId, m.id, m.label, m.accountCreatedAt]),
+				JSON.stringify([
+					m.accountId,
+					m.id,
+					m.label,
+					m.accountCreatedAt,
+					m.plan ?? null,
+				]),
 			)
 			.sort()
 			.join("\n");
@@ -307,6 +339,7 @@ export function createPublicSubscriptionValueHandler(
 					(account.public_value_enabled !== true ||
 						account.public_value_label !== mapping.label ||
 						account.public_value_id !== mapping.id ||
+						(account.public_value_plan ?? null) !== (mapping.plan ?? null) ||
 						// A rename can make a stored label reveal the account name.
 						labelRevealsAccount(mapping.label, account))
 				)
@@ -316,6 +349,7 @@ export function createPublicSubscriptionValueHandler(
 					account.provider === "codex" ? "openai" : account.provider;
 				if (!PROVIDER_PATTERN.test(provider))
 					throw new FeedUnavailable("bad_provider", mapping.id);
+				const plan = planFor(account.public_value_plan ?? null, at);
 				const currentWindow = current
 					? publicWindow(current, current.valueSoFarUsd, at)
 					: null;
@@ -326,7 +360,7 @@ export function createPublicSubscriptionValueHandler(
 					id: mapping.id,
 					label: mapping.label,
 					provider,
-					plan: null,
+					plan,
 					sourceObservedAt:
 						observed !== undefined &&
 						timestamp(observed) &&

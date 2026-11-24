@@ -1188,6 +1188,53 @@ describe("Database Migrations — non-destructive account dedup", () => {
 		]);
 	});
 
+	it("never merges public_value_plan: the survivor keeps its own plan or none", () => {
+		setupFullSchemaForDedupTest(db);
+
+		const now = Date.now();
+		const insert = db.prepare(
+			`INSERT INTO accounts (id, name, provider, refresh_token, access_token, created_at, last_used, refresh_token_issued_at, custom_endpoint, public_value_plan)
+			 VALUES (?, ?, 'anthropic', ?, ?, ?, ?, ?, NULL, ?)`,
+		);
+		// "pn" survivor has no plan; the deleted duplicate has one.
+		insert.run("pn-1", "pn", "r1", "a1", now - 5000, now, now, null);
+		insert.run(
+			"pn-2",
+			"pn",
+			"r2",
+			"a2",
+			now - 9000,
+			now - 90000,
+			now - 9000,
+			"claude-max",
+		);
+		// "po" survivor has its own plan; the deleted duplicate has another.
+		insert.run("po-1", "po", "r1", "a1", now - 5000, now, now, "claude-pro");
+		insert.run(
+			"po-2",
+			"po",
+			"r2",
+			"a2",
+			now - 9000,
+			now - 90000,
+			now - 9000,
+			"claude-ultra",
+		);
+
+		runMigrations(db);
+
+		expect(
+			db
+				.prepare(
+					"SELECT id, public_value_plan AS p FROM accounts WHERE name IN ('pn','po') ORDER BY id",
+				)
+				.all(),
+		).toEqual([
+			{ id: "pn-1", p: null },
+			{ id: "po-1", p: "claude-pro" },
+		]);
+	});
+
 	// Regression tests for the code-review finding "dedup silently
 	// CASCADE-deletes combo_membership_exclusions" (and the companion
 	// device_setup_jobs gap). All tests above run with SQLite's default

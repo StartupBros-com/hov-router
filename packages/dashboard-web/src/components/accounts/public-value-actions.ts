@@ -4,6 +4,7 @@ export interface PublicValueApi {
 		accountId: string,
 		enabled: boolean,
 		label?: string,
+		plan?: string | null,
 	): Promise<unknown>;
 }
 
@@ -29,15 +30,19 @@ export type PublicValueSaveOutcome =
 	| { ok: true }
 	| { ok: false; error: string };
 
-/** Publishes with a label; a refusal is returned so the dialog stays open. */
+/**
+ * Publishes with a label and, when given, a plan key (null clears it); a
+ * refusal is returned so the dialog stays open.
+ */
 export async function savePublicValue(
 	account: { id: string },
 	label: string,
 	api: PublicValueApi,
 	formatError: (err: unknown) => string,
+	plan?: string | null,
 ): Promise<PublicValueSaveOutcome> {
 	try {
-		await api.setAccountPublicValue(account.id, true, label);
+		await api.setAccountPublicValue(account.id, true, label, plan);
 		return { ok: true };
 	} catch (err) {
 		return { ok: false, error: formatError(err) };

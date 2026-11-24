@@ -1364,9 +1364,9 @@ function collapseAccountDuplicatesPreservingState(db: Database): void {
 		   auto_pause_on_overage_enabled = ${agg("MAX", "auto_pause_on_overage_enabled")},
 		   peak_hours_pause_enabled = ${agg("MAX", "peak_hours_pause_enabled")},
 		   codex_credit_drain_enabled = ${agg("MAX", "codex_credit_drain_enabled")},
-		   -- public_value_* is deliberately NOT merged: published state is never
-		   -- inherited from a deleted duplicate (fail closed). The survivor keeps
-		   -- only its own values.
+		   -- public_value_* (including public_value_plan) is deliberately NOT
+		   -- merged: published state is never inherited from a deleted duplicate
+		   -- (fail closed). The survivor keeps only its own values.
 		   rate_limit_remaining = (SELECT MIN(rate_limit_remaining) FROM accounts
 		                           ${groupScope} AND rate_limit_remaining IS NOT NULL),
 		   rate_limit_status = COALESCE(rate_limit_status, ${freshest("rate_limit_status")}),
@@ -2520,6 +2520,12 @@ export function runMigrations(db: Database, dbPath?: string): void {
 			db.prepare("ALTER TABLE accounts ADD COLUMN public_value_id TEXT").run();
 			log.info("Added public_value_id column to accounts table");
 		}
+		if (!initialAccountsColumnNames.includes("public_value_plan")) {
+			db.prepare(
+				"ALTER TABLE accounts ADD COLUMN public_value_plan TEXT",
+			).run();
+			log.info("Added public_value_plan column to accounts table");
+		}
 
 		// Extra-usage holds on Claude logins. extra_usage_holds is JSON: the time
 		// of the usage reading that last changed it plus one entry per spent limit
@@ -2632,6 +2638,7 @@ export function runMigrations(db: Database, dbPath?: string): void {
 					public_value_enabled INTEGER NOT NULL DEFAULT 0,
 					public_value_label TEXT,
 					public_value_id TEXT,
+					public_value_plan TEXT,
 					extra_usage_holds TEXT,
 					overage_billed_at INTEGER,
 					overage_billed_family TEXT
@@ -2653,6 +2660,7 @@ export function runMigrations(db: Database, dbPath?: string): void {
 					auto_pause_on_overage_enabled, pause_reason, requires_reauth,
 					codex_credit_drain_enabled,
 					public_value_enabled, public_value_label, public_value_id,
+					public_value_plan,
 					extra_usage_holds, overage_billed_at, overage_billed_family
 				FROM accounts
 			`).run();
@@ -2993,6 +3001,7 @@ export function runMigrations(db: Database, dbPath?: string): void {
 			       cross_region_mode, model_fallbacks, billing_type, auto_pause_on_overage_enabled,
 			       pause_reason, requires_reauth, codex_credit_drain_enabled,
 			       public_value_enabled, public_value_label, public_value_id,
+			       public_value_plan,
 			       extra_usage_holds, overage_billed_at, overage_billed_family
 			FROM accounts
 		`).run();

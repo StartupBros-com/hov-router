@@ -3,15 +3,19 @@ import { savePublicValue, togglePublicValue } from "./public-value-actions";
 
 function fakeApi(fail?: Error) {
 	const calls: Array<[string, boolean, string | undefined]> = [];
+	const planCalls: Array<string | null | undefined> = [];
 	return {
 		calls,
+		planCalls,
 		api: {
 			async setAccountPublicValue(
 				id: string,
 				enabled: boolean,
 				label?: string,
+				plan?: string | null,
 			) {
 				calls.push([id, enabled, label]);
+				planCalls.push(plan);
 				if (fail) throw fail;
 			},
 		},
@@ -67,5 +71,20 @@ describe("savePublicValue", () => {
 				(e) => (e as Error).message,
 			),
 		).toEqual({ ok: false, error: "Label must not contain the account name" });
+	});
+});
+
+describe("savePublicValue plan", () => {
+	it("sends the chosen plan key with the label", async () => {
+		const { api, calls, planCalls } = fakeApi();
+		await savePublicValue({ id: "a" }, "Team", api, String, "claude-ultra");
+		expect(calls).toEqual([["a", true, "Team"]]);
+		expect(planCalls).toEqual(["claude-ultra"]);
+	});
+
+	it("sends null to clear the plan", async () => {
+		const { api, planCalls } = fakeApi();
+		await savePublicValue({ id: "a" }, "Team", api, String, null);
+		expect(planCalls).toEqual([null]);
 	});
 });

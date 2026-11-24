@@ -1061,3 +1061,190 @@ describe("atomic publish write", () => {
 		expect(await snapshot()).toBe(before);
 	});
 });
+
+describe("public-value plan", () => {
+	async function addProviderAccount(id: string, provider: string) {
+		await db
+			.getAdapter()
+			.run(
+				"INSERT INTO accounts (id,name,provider,created_at) VALUES (?, ?, ?, 100)",
+				[id, `name-${id}`, provider],
+			);
+	}
+	async function stored(id: string) {
+		return (await db
+			.getAdapter()
+			.get(
+				"SELECT public_value_enabled, public_value_label, public_value_id, public_value_plan FROM accounts WHERE id = ?",
+				[id],
+			)) as {
+			public_value_enabled: number;
+			public_value_label: string | null;
+			public_value_id: string | null;
+			public_value_plan: string | null;
+		};
+	}
+	async function planSnapshot(): Promise<string> {
+		return JSON.stringify(
+			await db
+				.getAdapter()
+				.query(
+					"SELECT id, public_value_enabled, public_value_label, public_value_id, public_value_plan FROM accounts ORDER BY id",
+				),
+		);
+	}
+
+	it("refuses a plan that is not a string or null, writing nothing", async () => {
+		await addAccount("p-1", "n1");
+		const before = await planSnapshot();
+		for (const plan of [5, true, {}, [], ["claude-pro"]]) {
+			const response = await post("p-1", { enabled: true, label: "L", plan });
+			expect(response.status).toBe(400);
+		}
+		expect(await planSnapshot()).toBe(before);
+	});
+
+	it("refuses an unknown plan key, writing nothing", async () => {
+		await addAccount("p-1", "n1");
+		const before = await planSnapshot();
+		for (const plan of ["nope", "", "CLAUDE-PRO", "claude-pro "]) {
+			const response = await post("p-1", { enabled: true, label: "L", plan });
+			expect(response.status).toBe(400);
+		}
+		expect(await planSnapshot()).toBe(before);
+	});
+
+	it("refuses a claude plan on a codex account, writing nothing", async () => {
+		await addProviderAccount("p-codex", "codex");
+		const before = await planSnapshot();
+		const response = await post("p-codex", {
+			enabled: true,
+			label: "L",
+			plan: "claude-max",
+		});
+		expect(response.status).toBe(400);
+		expect(await planSnapshot()).toBe(before);
+	});
+
+	it("refuses a chatgpt plan on an anthropic account, writing nothing", async () => {
+		await addAccount("p-1", "n1");
+		const before = await planSnapshot();
+		const response = await post("p-1", {
+			enabled: true,
+			label: "L",
+			plan: "chatgpt-pro-200",
+		});
+		expect(response.status).toBe(400);
+		expect(await planSnapshot()).toBe(before);
+	});
+
+	it("sets the plan with the label in one write and reports it", async () => {
+		await addAccount("p-1", "n1");
+		await addProviderAccount("p-codex", "codex");
+		const response = await post("p-1", {
+			enabled: true,
+			label: "Weekly A",
+			plan: "claude-ultra",
+		});
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({
+			publicValueEnabled: true,
+			publicValueLabel: "Weekly A",
+			publicValuePlan: "claude-ultra",
+		});
+		expect(await stored("p-1")).toMatchObject({
+			public_value_label: "Weekly A",
+			public_value_plan: "claude-ultra",
+		});
+		const codex = await post("p-codex", {
+			enabled: true,
+			label: "Codex A",
+			plan: "chatgpt-pro-200",
+		});
+		expect(codex.status).toBe(200);
+		expect((await stored("p-codex")).public_value_plan).toBe("chatgpt-pro-200");
+	});
+
+	it("keeps the stored plan when plan is absent, and reports it", async () => {
+		await addAccount("p-1", "n1");
+		await post("p-1", { enabled: true, label: "One", plan: "claude-max" });
+		const response = await post("p-1", { enabled: true, label: "Two" });
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({
+			publicValueLabel: "Two",
+			publicValuePlan: "claude-max",
+		});
+		expect((await stored("p-1")).public_value_plan).toBe("claude-max");
+	});
+
+	it("clears the plan on null", async () => {
+		await addAccount("p-1", "n1");
+		await post("p-1", { enabled: true, label: "One", plan: "claude-max" });
+		const response = await post("p-1", { enabled: true, plan: null });
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({ publicValuePlan: null });
+		expect((await stored("p-1")).public_value_plan).toBeNull();
+	});
+
+	it("keeps the plan when the account is unpublished", async () => {
+		await addAccount("p-1", "n1");
+		await post("p-1", { enabled: true, label: "One", plan: "claude-pro" });
+		const response = await post("p-1", { enabled: false });
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({
+			publicValueEnabled: false,
+			publicValuePlan: "claude-pro",
+		});
+		expect(await stored("p-1")).toMatchObject({
+			public_value_enabled: 0,
+			public_value_plan: "claude-pro",
+		});
+	});
+
+	it("leaves the plan unchanged when a label problem refuses the request", async () => {
+		await addAccount("p-1", "n1");
+		await post("p-1", { enabled: true, label: "One", plan: "claude-pro" });
+		const before = await planSnapshot();
+		const response = await post("p-1", {
+			enabled: true,
+			label: " padded",
+			plan: "claude-max",
+		});
+		expect(response.status).toBe(400);
+		expect(await planSnapshot()).toBe(before);
+	});
+
+	it("bumps the roster generation on a plan write, and the feed sends the new plan", async () => {
+		await addAccount("p-1", "n1");
+		await post("p-1", { enabled: true, label: "One" });
+		expect((await feedBody()).body.subscriptions[0].plan).toBeNull();
+		const start = getPublicRosterGeneration();
+		await post("p-1", { enabled: true, plan: "claude-ultra" });
+		expect(getPublicRosterGeneration()).toBeGreaterThan(start);
+		expect((await feedBody()).body.subscriptions[0].plan).toEqual({
+			key: "claude-ultra",
+			name: "Claude Ultra",
+			formerName: "Claude Max 20x",
+			monthlyUsd: 200,
+			priceSource: "https://claude.com/pricing",
+			priceCheckedOn: "2026-11-23",
+		});
+	});
+
+	it("picks up a plan changed by another process within the roster recheck interval", async () => {
+		await addAccount("p-1", "n1");
+		await post("p-1", { enabled: true, label: "One", plan: "claude-pro" });
+		expect((await feedBody()).body.subscriptions[0].plan.key).toBe(
+			"claude-pro",
+		);
+		await db
+			.getAdapter()
+			.run(
+				"UPDATE accounts SET public_value_plan = 'claude-max' WHERE id = 'p-1'",
+			);
+		now += 6_000;
+		expect((await feedBody()).body.subscriptions[0].plan.key).toBe(
+			"claude-max",
+		);
+	});
+});
