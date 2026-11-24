@@ -10,6 +10,7 @@
  * `scratch`, which is never on the filesystem under test.
  */
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import {
 	chmodSync,
 	existsSync,
@@ -157,6 +158,8 @@ export async function startRunner(
 ): Promise<RunnerFixture> {
 	const node = resolveNodeExecutable();
 	const capture = join(layout.scratch, "capture");
+	// A layout can be reused; wait only on listeners started by this child.
+	const listenerStarts = join(capture, `listener-starts-${randomUUID()}.log`);
 	const home = join(layout.state, "home");
 	const handoff = join(layout.state, "handoff");
 	const pin = join(layout.state, "pin");
@@ -207,6 +210,7 @@ export async function startRunner(
 			'	delay="$CAPTURE_DIR/delay-command-$2"',
 			'	if [[ -f "$delay" ]]; then sleep "$(<"$delay")"; fi',
 			'	printf \'%s\\n\' "$2" >>"$CAPTURE_DIR/started-commands.log"',
+			'	if [[ "$2" == serve ]]; then printf \'%s\\n\' "$2" >>"$FIXTURE_LISTENER_STARTS"; fi',
 			"fi",
 			'refusal="$CAPTURE_DIR/refuse-command-${2:-}"',
 			'if [[ -n "${2:-}" && -f "$refusal" ]]; then',
@@ -274,6 +278,7 @@ export async function startRunner(
 		AI_GATEWAY_TUNNEL_REQUIRED: "0",
 		TMPDIR: layout.tmp,
 		CAPTURE_DIR: capture,
+		FIXTURE_LISTENER_STARTS: listenerStarts,
 		// The unit's values, not whatever this test process happens to carry.
 		INVOCATION_ID: undefined,
 		RUNNER_PERSISTENT_GUARD: undefined,
@@ -328,9 +333,8 @@ export async function startRunner(
 		return result;
 	};
 	const listenersStarted = () => {
-		const path = join(capture, "started-commands.log");
-		if (!existsSync(path)) return 0;
-		return readFileSync(path, "utf8")
+		if (!existsSync(listenerStarts)) return 0;
+		return readFileSync(listenerStarts, "utf8")
 			.split("\n")
 			.filter((command) => command === "serve").length;
 	};
