@@ -11,7 +11,7 @@
 		"@better-ccflare/core": "workspace:*"
 	},
 	"devDependencies": {
-		"@types/bun": "1.1.15",
-		"typescript": "^6.0.2"
+		"@types/bun": "1.4.5",
+		"typescript": "^6.0.3"
 	}
 }

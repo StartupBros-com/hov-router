@@ -48,6 +48,7 @@ describe("AccountRepository requires_reauth", () => {
 				public_value_enabled INTEGER NOT NULL DEFAULT 0,
 				public_value_label TEXT,
 				public_value_id TEXT,
+				public_value_plan TEXT,
 				custom_endpoint TEXT,
 				model_mappings TEXT,
 				cross_region_mode TEXT,

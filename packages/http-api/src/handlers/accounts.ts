@@ -512,6 +512,7 @@ export function createAccountsListHandler(
 			codex_credit_drain_enabled: 0 | 1;
 			public_value_enabled: 0 | 1;
 			public_value_label: string | null;
+			public_value_plan: string | null;
 			custom_endpoint: string | null;
 			model_mappings: string | null;
 			cross_region_mode: string | null;
@@ -551,6 +552,7 @@ export function createAccountsListHandler(
 					COALESCE(codex_credit_drain_enabled, 0) as codex_credit_drain_enabled,
 					COALESCE(public_value_enabled, 0) as public_value_enabled,
 					public_value_label,
+					public_value_plan,
 
 					model_mappings,
 					cross_region_mode,
@@ -972,6 +974,7 @@ export function createAccountsListHandler(
 					codexCreditDrainEnabled: account.codex_credit_drain_enabled === 1,
 					publicValueEnabled: Number(account.public_value_enabled) === 1,
 					publicValueLabel: account.public_value_label ?? null,
+					publicValuePlan: account.public_value_plan ?? null,
 					codexCreditDrainActive: creditDrainActive,
 					codexCreditDrainServing: creditDrainServing,
 					...(bankedResetsById.has(account.id)

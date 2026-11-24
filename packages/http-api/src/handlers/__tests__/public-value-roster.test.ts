@@ -17,6 +17,7 @@ const scratch = mkdtempSync(join(tmpdir(), "ccflare-public-roster-"));
 process.env.BETTER_CCFLARE_DB_PATH = join(scratch, "isolated.db");
 process.env.BETTER_CCFLARE_CONFIG_PATH = join(scratch, "isolated-config.json");
 process.env.DATABASE_URL = "";
+const { VALUE_PRICING_VERSION } = await import("@better-ccflare/core");
 const { DatabaseOperations } = await import("@better-ccflare/database");
 const { createPublicSubscriptionValueHandler } = await import(
 	"../public-subscription-value"
@@ -304,9 +305,10 @@ describe("public subscription value feed, accounts mode", () => {
 		const { status, body } = await feedBody();
 		expect(status).toBe(200);
 		expect(body).toEqual({
-			schemaVersion: 1,
+			schemaVersion: 2,
 			valueBasis: "api_equivalent_usd",
 			windowKey: "seven_day",
+			pricingVersion: VALUE_PRICING_VERSION,
 			generatedAt: now,
 			subscriptions: [],
 		});
@@ -944,6 +946,72 @@ describe("rebuild ahead of expiry", () => {
 		});
 	}
 
+	it("does not reuse a warmed body for a plan changed after the held roster snapshot", async () => {
+		await publishWithOpenWindow();
+		expect(
+			(await post("rb-1", { enabled: true, plan: "claude-pro" })).status,
+		).toBe(200);
+		const generation = getPublicRosterGeneration();
+		const clock = { t: 10_000 };
+		const timers = manualScheduler();
+		const handler = instance(clock, timers);
+		const initial = await handler();
+		expect(initial.status).toBe(200);
+		expect(await initial.json()).toMatchObject({
+			schemaVersion: 2,
+			generatedAt: 10_000,
+			subscriptions: [{ plan: { key: "claude-pro", monthlyUsd: 20 } }],
+		});
+		const savedRoster = await db.listPublishedPublicValue(17);
+		let release!: () => void;
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const read = spyOn(db, "listPublishedPublicValue").mockImplementationOnce(
+			async () => {
+				await held;
+				return savedRoster;
+			},
+		);
+		try {
+			clock.t = 55_000;
+			const checking = handler();
+			expect(read).toHaveBeenCalledTimes(1);
+			// Another process changes only the plan. No local generation bump.
+			await db
+				.getAdapter()
+				.run(
+					"UPDATE accounts SET public_value_plan = 'claude-max' WHERE id = 'rb-1'",
+				);
+			expect(getPublicRosterGeneration()).toBe(generation);
+			await timers.fire();
+			const [warmed] = timers.live();
+			clock.t = 70_000;
+			release();
+			const refused = await checking;
+			expect(refused.status).toBe(503);
+			expect(await refused.json()).toEqual({ error: "Unavailable" });
+			expect(timers.live()[0]).toBe(warmed);
+
+			const fresh = await handler();
+			expect(fresh.status).toBe(200);
+			expect(await fresh.json()).toMatchObject({
+				schemaVersion: 2,
+				pricingVersion: VALUE_PRICING_VERSION,
+				generatedAt: 55_000,
+				subscriptions: [
+					{
+						provider: "anthropic",
+						plan: { key: "claude-max", monthlyUsd: 100 },
+					},
+				],
+			});
+		} finally {
+			release();
+			read.mockRestore();
+		}
+	});
+
 	it("still rebuilds in the request after a roster change, and the timer follows the new roster", async () => {
 		await publishWithOpenWindow();
 		const clock = { t: 10_000 };
@@ -1178,5 +1246,192 @@ describe("atomic publish write", () => {
 			stub.mockRestore();
 		}
 		expect(await snapshot()).toBe(before);
+	});
+});
+
+describe("public-value plan", () => {
+	async function addProviderAccount(id: string, provider: string) {
+		await db
+			.getAdapter()
+			.run(
+				"INSERT INTO accounts (id,name,provider,created_at) VALUES (?, ?, ?, 100)",
+				[id, `name-${id}`, provider],
+			);
+	}
+	async function stored(id: string) {
+		return (await db
+			.getAdapter()
+			.get(
+				"SELECT public_value_enabled, public_value_label, public_value_id, public_value_plan FROM accounts WHERE id = ?",
+				[id],
+			)) as {
+			public_value_enabled: number;
+			public_value_label: string | null;
+			public_value_id: string | null;
+			public_value_plan: string | null;
+		};
+	}
+	async function planSnapshot(): Promise<string> {
+		return JSON.stringify(
+			await db
+				.getAdapter()
+				.query(
+					"SELECT id, public_value_enabled, public_value_label, public_value_id, public_value_plan FROM accounts ORDER BY id",
+				),
+		);
+	}
+
+	it("refuses a plan that is not a string or null, writing nothing", async () => {
+		await addAccount("p-1", "n1");
+		const before = await planSnapshot();
+		for (const plan of [5, true, {}, [], ["claude-pro"]]) {
+			const response = await post("p-1", { enabled: true, label: "L", plan });
+			expect(response.status).toBe(400);
+		}
+		expect(await planSnapshot()).toBe(before);
+	});
+
+	it("refuses an unknown plan key, writing nothing", async () => {
+		await addAccount("p-1", "n1");
+		const before = await planSnapshot();
+		for (const plan of ["nope", "", "CLAUDE-PRO", "claude-pro "]) {
+			const response = await post("p-1", { enabled: true, label: "L", plan });
+			expect(response.status).toBe(400);
+		}
+		expect(await planSnapshot()).toBe(before);
+	});
+
+	it("refuses a claude plan on a codex account, writing nothing", async () => {
+		await addProviderAccount("p-codex", "codex");
+		const before = await planSnapshot();
+		const response = await post("p-codex", {
+			enabled: true,
+			label: "L",
+			plan: "claude-max",
+		});
+		expect(response.status).toBe(400);
+		expect(await planSnapshot()).toBe(before);
+	});
+
+	it("refuses a chatgpt plan on an anthropic account, writing nothing", async () => {
+		await addAccount("p-1", "n1");
+		const before = await planSnapshot();
+		const response = await post("p-1", {
+			enabled: true,
+			label: "L",
+			plan: "chatgpt-pro-200",
+		});
+		expect(response.status).toBe(400);
+		expect(await planSnapshot()).toBe(before);
+	});
+
+	it("sets the plan with the label in one write and reports it", async () => {
+		await addAccount("p-1", "n1");
+		await addProviderAccount("p-codex", "codex");
+		const response = await post("p-1", {
+			enabled: true,
+			label: "Weekly A",
+			plan: "claude-ultra",
+		});
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({
+			publicValueEnabled: true,
+			publicValueLabel: "Weekly A",
+			publicValuePlan: "claude-ultra",
+		});
+		expect(await stored("p-1")).toMatchObject({
+			public_value_label: "Weekly A",
+			public_value_plan: "claude-ultra",
+		});
+		const codex = await post("p-codex", {
+			enabled: true,
+			label: "Codex A",
+			plan: "chatgpt-pro-200",
+		});
+		expect(codex.status).toBe(200);
+		expect((await stored("p-codex")).public_value_plan).toBe("chatgpt-pro-200");
+	});
+
+	it("keeps the stored plan when plan is absent, and reports it", async () => {
+		await addAccount("p-1", "n1");
+		await post("p-1", { enabled: true, label: "One", plan: "claude-max" });
+		const response = await post("p-1", { enabled: true, label: "Two" });
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({
+			publicValueLabel: "Two",
+			publicValuePlan: "claude-max",
+		});
+		expect((await stored("p-1")).public_value_plan).toBe("claude-max");
+	});
+
+	it("clears the plan on null", async () => {
+		await addAccount("p-1", "n1");
+		await post("p-1", { enabled: true, label: "One", plan: "claude-max" });
+		const response = await post("p-1", { enabled: true, plan: null });
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({ publicValuePlan: null });
+		expect((await stored("p-1")).public_value_plan).toBeNull();
+	});
+
+	it("keeps the plan when the account is unpublished", async () => {
+		await addAccount("p-1", "n1");
+		await post("p-1", { enabled: true, label: "One", plan: "claude-pro" });
+		const response = await post("p-1", { enabled: false });
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({
+			publicValueEnabled: false,
+			publicValuePlan: "claude-pro",
+		});
+		expect(await stored("p-1")).toMatchObject({
+			public_value_enabled: 0,
+			public_value_plan: "claude-pro",
+		});
+	});
+
+	it("leaves the plan unchanged when a label problem refuses the request", async () => {
+		await addAccount("p-1", "n1");
+		await post("p-1", { enabled: true, label: "One", plan: "claude-pro" });
+		const before = await planSnapshot();
+		const response = await post("p-1", {
+			enabled: true,
+			label: " padded",
+			plan: "claude-max",
+		});
+		expect(response.status).toBe(400);
+		expect(await planSnapshot()).toBe(before);
+	});
+
+	it("bumps the roster generation on a plan write, and the feed sends the new plan", async () => {
+		await addAccount("p-1", "n1");
+		await post("p-1", { enabled: true, label: "One" });
+		expect((await feedBody()).body.subscriptions[0].plan).toBeNull();
+		const start = getPublicRosterGeneration();
+		await post("p-1", { enabled: true, plan: "claude-ultra" });
+		expect(getPublicRosterGeneration()).toBeGreaterThan(start);
+		expect((await feedBody()).body.subscriptions[0].plan).toEqual({
+			key: "claude-ultra",
+			name: "Claude Ultra",
+			formerName: "Claude Max 20x",
+			monthlyUsd: 200,
+			priceSource: "https://claude.com/pricing",
+			priceCheckedOn: "2026-11-23",
+		});
+	});
+
+	it("picks up a plan changed by another process within the roster recheck interval", async () => {
+		await addAccount("p-1", "n1");
+		await post("p-1", { enabled: true, label: "One", plan: "claude-pro" });
+		expect((await feedBody()).body.subscriptions[0].plan.key).toBe(
+			"claude-pro",
+		);
+		await db
+			.getAdapter()
+			.run(
+				"UPDATE accounts SET public_value_plan = 'claude-max' WHERE id = 'p-1'",
+			);
+		now += 6_000;
+		expect((await feedBody()).body.subscriptions[0].plan.key).toBe(
+			"claude-max",
+		);
 	});
 });

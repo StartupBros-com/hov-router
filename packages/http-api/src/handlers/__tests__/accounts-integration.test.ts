@@ -1371,6 +1371,30 @@ describe("Accounts Handler - OAuth control-plane hotfix (U8)", () => {
 		expect(account?.paused).toBe(false);
 		expect(account?.pauseReason).toBeNull();
 	});
+
+	it("lists the stored public value plan key, or null, next to the label", async () => {
+		await insertAccount("acct-planned");
+		await insertAccount("acct-unplanned");
+		await dbOps
+			.getAdapter()
+			.run(
+				"UPDATE accounts SET public_value_label = 'Weekly', public_value_plan = 'claude-max' WHERE id = 'acct-planned'",
+			);
+
+		const response = await createAccountsListHandler(dbOps, config)();
+		const payload = (await response.json()) as Array<{
+			id: string;
+			publicValueLabel: string | null;
+			publicValuePlan: string | null;
+		}>;
+		const byId = new Map(payload.map((a) => [a.id, a]));
+
+		expect(byId.get("acct-planned")).toMatchObject({
+			publicValueLabel: "Weekly",
+			publicValuePlan: "claude-max",
+		});
+		expect(byId.get("acct-unplanned")?.publicValuePlan).toBeNull();
+	});
 });
 
 /**

@@ -26,10 +26,10 @@
 		"node": ">=18.0.0"
 	},
 	"devDependencies": {
-		"@types/node": "^20.0.0"
+		"@types/node": "^20.19.43"
 	},
 	"dependencies": {
-		"dotenv": "^17.4.0"
+		"dotenv": "^17.4.2"
 	},
 	"files": [
 		"dist/better-ccflare",

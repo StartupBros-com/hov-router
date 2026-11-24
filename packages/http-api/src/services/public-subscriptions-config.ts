@@ -3,6 +3,8 @@ export interface PublicSubscriptionMapping {
 	accountCreatedAt: number;
 	id: string;
 	label: string;
+	/** Roster mode only: the plan key stored when the roster was read. */
+	plan?: string | null;
 }
 
 export type PublicSubscriptionsConfig =

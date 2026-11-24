@@ -1,3 +1,4 @@
+import { PUBLIC_VALUE_PLANS } from "@better-ccflare/core";
 import { useState } from "react";
 import { Button } from "../ui/button";
 import {
@@ -16,8 +17,12 @@ interface PublicValueDialogProps {
 	accountName: string;
 	/** Stored label, or "" when none. */
 	initialLabel: string;
+	/** The account's provider; only that provider's plans are offered. */
+	provider: string;
+	/** Stored plan key, or null when none. */
+	initialPlan: string | null;
 	onClose: () => void;
-	onSave: (label: string) => void;
+	onSave: (label: string, plan: string | null) => void;
 	isLoading?: boolean;
 	/** Server error (e.g. the 400 message) shown under the input. */
 	error?: string | null;
@@ -30,12 +35,19 @@ interface PublicValueDialogProps {
 export function PublicValueForm({
 	accountName,
 	initialLabel,
+	provider,
+	initialPlan,
 	onClose,
 	onSave,
 	isLoading = false,
 	error = null,
 }: Omit<PublicValueDialogProps, "isOpen">) {
 	const [label, setLabel] = useState(initialLabel);
+	const plans = PUBLIC_VALUE_PLANS.filter((plan) => plan.provider === provider);
+	// A stored key the catalog no longer offers for this provider shows as "Not set".
+	const [plan, setPlan] = useState(
+		plans.some((entry) => entry.key === initialPlan) ? (initialPlan ?? "") : "",
+	);
 	const [localError, setLocalError] = useState("");
 
 	const handleSubmit = (e: React.FormEvent) => {
@@ -46,7 +58,7 @@ export function PublicValueForm({
 			return;
 		}
 		setLocalError("");
-		onSave(trimmed);
+		onSave(trimmed, plan === "" ? null : plan);
 	};
 
 	const shownError = localError || error;
@@ -76,6 +88,25 @@ export function PublicValueForm({
 					<p className="text-xs text-muted-foreground">
 						This label is shown publicly on the House of Vibe site. It must not
 						be the account name.
+					</p>
+					<Label htmlFor="public-value-plan">Plan</Label>
+					<select
+						id="public-value-plan"
+						data-test="public-value-plan"
+						className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+						value={plan}
+						onChange={(e) => setPlan(e.target.value)}
+						disabled={isLoading}
+					>
+						<option value="">Not set</option>
+						{plans.map((entry) => (
+							<option key={entry.key} value={entry.key}>
+								{entry.name} (${entry.monthlyUsd}/month)
+							</option>
+						))}
+					</select>
+					<p className="text-xs text-muted-foreground">
+						The plan's monthly price is shown publicly next to this account.
 					</p>
 					{shownError && (
 						<p className="text-sm text-destructive" role="alert">

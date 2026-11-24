@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { beforeEach, expect, test } from "bun:test";
+import { beforeEach, expect, spyOn, test } from "bun:test";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { runMigrations } from "../../migrations";
 import {
@@ -568,4 +568,29 @@ test("conflicting cloud claims leave an event unattributed and no later claim or
 	expect(attribution()).toEqual([
 		{ account_id: null, attribution_basis: "conflict" },
 	]);
+});
+test("ingest reads the Codex weekly windows on the bulk reader, off the main thread (#991)", async () => {
+	// On the main connection this unbounded window list stopped the event loop
+	// for 5.7 s on a busy disk.
+	window("a", 100);
+	const adapter = new BunSqlAdapter(db);
+	const offThread = new ExternalUsageRepository(adapter);
+	const bulkSql: string[] = [];
+	adapter.setOffThreadReader({
+		all: async <R>(sql: string, params: unknown[] = []) => {
+			bulkSql.push(sql);
+			return db.query(sql).all(...(params as never[])) as R[];
+		},
+		get: async <R>(sql: string, params: unknown[] = []) =>
+			(db.query(sql).get(...(params as never[])) as R | null) ?? null,
+	});
+	const query = spyOn(adapter, "query");
+	expect((await offThread.ingest([event()])).inserted).toBe(1);
+	expect(
+		db.query("SELECT account_id FROM external_usage_events").get(),
+	).toEqual({ account_id: "a" });
+	const windowList = (sql: string) =>
+		sql.includes("FROM usage_windows w JOIN accounts a");
+	expect(bulkSql.filter(windowList)).toHaveLength(1);
+	expect(query.mock.calls.map(([sql]) => sql).filter(windowList)).toEqual([]);
 });

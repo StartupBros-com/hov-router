@@ -449,15 +449,51 @@ with the reason in the server log. An empty array publishes an empty list.
 | `405` | A method other than `GET` on this endpoint; includes `Allow: GET`. |
 | `503` | Invalid configuration or unavailable data; the server log records the reason. |
 
-The fixed version-1 projection contains only `schemaVersion`, `valueBasis`,
-`windowKey`, `generatedAt`, and `subscriptions`. Each subscription exposes its
-public `id` and `label`, `sourceObservedAt`, one `current` window (or null), and up
-to eight newest `completed` windows. Window fields are only `startedAt`,
-`resetsAt`, `closedAt`, `valueUsd`, `pricingCoverage`, and
-`partialFirstObservation`. Timestamps are epoch milliseconds. Account IDs,
-providers, token counts, models, utilization, and credentials are never published.
-Query parameters cannot select accounts or history; admin routes retain their
-authentication requirements.
+The fixed version-2 projection (`schemaVersion: 2`) contains only `schemaVersion`,
+`valueBasis`, `windowKey`, `pricingVersion` (the value pricing version the
+numbers were computed under), `generatedAt`, and `subscriptions` (at most 16).
+Each subscription exposes its public `id` and `label`, `provider`, `plan`,
+`sourceObservedAt`, one `current` window (or null), `completed` windows and
+`periods`. `provider` is the account's provider with `codex` shown as `openai`;
+`plan` is `null` when the account has no stored plan (or the stored key is no
+longer in the catalog, which logs one warning per key at most once a minute), and
+otherwise the plan object with exactly the keys `key`, `name`, `formerName`
+(or null), `monthlyUsd`, `priceSource` and `priceCheckedOn` (`YYYY-MM-DD`, the
+day the price was read on the provider's page). The operator sets the plan per
+published account from a fixed catalog: `claude-pro` ($20), `claude-max` ($100),
+`claude-ultra` ($200) for Claude accounts and `chatgpt-pro-100`,
+`chatgpt-pro-200`, `chatgpt-pro-500` ($100, $200, $500) for Codex accounts.
+
+- **Window fields** (`current` and `completed`) are only `startedAt`, `resetsAt`,
+  `closedAt`, `valueUsd`, `pricingCoverage`, `grantType` (`natural`,
+  `early_reset` or `first_observed`; any other stored value makes the feed
+  unavailable), `pointsUsed` and `counterResets`. The last two are the closed
+  row's recorded values and are always `null` for `current`.
+- **`completed`**: closed windows that closed within the last 35 days, or the 8
+  most recent closed windows when fewer qualify, at most 32, newest `resetsAt`
+  first.
+- **`periods`**, all UTC, in this order: `trailing_30_days` (the 30 days before
+  `generatedAt`), `calendar_month` for the current month to date, then the three
+  previous complete calendar months, newest first. Each carries `kind`,
+  `startsAt`, `endsAt`, `valueUsd`, `coveredMs`, `lowerBound`, `earlyResets` and
+  `counterResets`. A window's span is `[startedAt, closedAt)` when closed and
+  `[startedAt, generatedAt)` when open, so an early close is prorated by when it
+  actually ended, not its scheduled reset. `valueUsd` sums each window's value
+  times the share of its span inside the period (`null` when no window overlaps);
+  `coveredMs` is the length of the union of those overlaps; `lowerBound` is true
+  when coverage is short of the period or any overlapping window has a null
+  value, a pricing coverage other than `complete`, or grant type `first_observed`;
+  `earlyResets` counts `early_reset` windows that started inside the period;
+  `counterResets` sums the counter resets of windows that closed inside the period
+  (`null` if any of them recorded none, `0` when none closed). A month-to-date
+  period that would be empty (the instant a month starts) is left out.
+- Version 1 is gone: its `partialFirstObservation` is replaced by `grantType`.
+- The whole body must stay under 256 KiB as compact JSON; a larger body makes the
+  feed unavailable (`503`).
+
+Timestamps are epoch milliseconds. Account IDs, token counts, models, utilization,
+and credentials are never published. Query parameters cannot select accounts or
+history; admin routes retain their authentication requirements.
 
 Values reuse the window ledger's API-equivalent USD pricing, with completed
 values persisted and current values calculated at the window's grant-time prices.

@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
-    "The fleet's Renovate run (StartupBros-com/home-infrastructure, renovate-config.js) sets the schedule, PR limits, release-age floors and automerge. This file adds only what this repository needs. Dependabot keeps the GitHub Actions bumps (.github/dependabot.yml), as everywhere in the fleet."
+    "The fleet's Renovate run (StartupBros-com/home-infrastructure, renovate-config.js) sets the schedule, PR limits, release-age floors and automerge. Since .github/dependabot.yml was deleted, that run also pins and updates the GitHub Actions. This file adds only what this repository needs."
   ],
   "constraints": {
     "bun": "1.4.2"
@@ -12,6 +12,13 @@
       "description": "The Bun runtime moves by hand, in .bun-version, the Dockerfile, package.json and this file's constraints together (docs/contributing.md, \"Bumping the Bun toolchain\"). Renovate names those pins bun, oven/bun (the Dockerfile image) and oven-sh/bun (constraints.bun, a GitHub release).",
       "matchPackageNames": ["bun", "oven/bun", "oven-sh/bun"],
       "enabled": false
+    },
+    {
+      "description": "scripts/__tests__/router-release-workflow.test.ts asserts this action's exact commit, because it receives the release App's private key: a bump fails there until someone has read its action.yml and main.js (docs/hov-router-releases.md, \"Evidence required for each release\"). A group of its own puts it on its own branch, so that expected failure holds back none of the month's other Actions updates, and it never automerges: a person reads it first, as with Dependabot.",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["actions/create-github-app-token"],
+      "groupName": "create-github-app-token",
+      "automerge": false
     }
   ]
 }

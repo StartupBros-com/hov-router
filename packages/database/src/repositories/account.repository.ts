@@ -41,6 +41,7 @@ export interface PublishedPublicValueRow {
 	created_at: number;
 	public_value_label: string | null;
 	public_value_id: string | null;
+	public_value_plan: string | null;
 }
 
 export class AccountRepository extends BaseRepository<Account> {
@@ -62,6 +63,7 @@ export class AccountRepository extends BaseRepository<Account> {
 				COALESCE(public_value_enabled, 0) as public_value_enabled,
 				public_value_label,
 				public_value_id,
+				public_value_plan,
 				custom_endpoint,
 				model_mappings,
 				cross_region_mode,
@@ -98,6 +100,7 @@ export class AccountRepository extends BaseRepository<Account> {
 				COALESCE(public_value_enabled, 0) as public_value_enabled,
 				public_value_label,
 				public_value_id,
+				public_value_plan,
 				custom_endpoint,
 				model_mappings,
 				cross_region_mode,
@@ -826,7 +829,7 @@ export class AccountRepository extends BaseRepository<Account> {
 		limit: number,
 	): Promise<PublishedPublicValueRow[]> {
 		return this.query<PublishedPublicValueRow>(
-			`SELECT id, name, created_at, public_value_label, public_value_id
+			`SELECT id, name, created_at, public_value_label, public_value_id, public_value_plan
 			 FROM accounts WHERE COALESCE(public_value_enabled, 0) = 1 LIMIT ?`,
 			[limit],
 		);
@@ -841,24 +844,33 @@ export class AccountRepository extends BaseRepository<Account> {
 	 */
 	async setPublicValue(
 		accountId: string,
-		value: { enabled: boolean; label: string | null; publicId: string | null },
+		value: {
+			enabled: boolean;
+			label: string | null;
+			publicId: string | null;
+			/** Catalog key, null to clear; undefined keeps the stored plan. */
+			plan?: string | null;
+		},
 		maxPublished = 16,
 	): Promise<boolean> {
+		const planSql = value.plan === undefined ? "" : ", public_value_plan = ?";
+		const planParams = value.plan === undefined ? [] : [value.plan];
 		if (!value.enabled) {
 			const changes = await this.runWithChanges(
-				`UPDATE accounts SET public_value_enabled = 0, public_value_label = ?, public_value_id = ? WHERE id = ?`,
-				[value.label, value.publicId, accountId],
+				`UPDATE accounts SET public_value_enabled = 0, public_value_label = ?, public_value_id = ?${planSql} WHERE id = ?`,
+				[value.label, value.publicId, ...planParams, accountId],
 			);
 			return changes > 0;
 		}
 		const publish = {
-			sql: `UPDATE accounts SET public_value_enabled = 1, public_value_label = ?, public_value_id = ?
+			sql: `UPDATE accounts SET public_value_enabled = 1, public_value_label = ?, public_value_id = ?${planSql}
 			 WHERE id = ?
 			 AND (SELECT COUNT(*) FROM accounts WHERE COALESCE(public_value_enabled, 0) = 1 AND id <> ?) < ?
 			 AND NOT EXISTS (SELECT 1 FROM accounts WHERE COALESCE(public_value_enabled, 0) = 1 AND id <> ? AND lower(public_value_label) = lower(?))`,
 			params: [
 				value.label,
 				value.publicId,
+				...planParams,
 				accountId,
 				accountId,
 				maxPublished,

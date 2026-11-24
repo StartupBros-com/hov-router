@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { getPublicValuePlan } from "@better-ccflare/core";
 import type { DatabaseOperations } from "@better-ccflare/database";
 import {
 	BadRequest,
@@ -74,10 +75,13 @@ function labelProblem(
 }
 
 /**
- * POST /api/accounts/:id/public-value  { enabled: boolean, label?: string }
+ * POST /api/accounts/:id/public-value
+ *   { enabled: boolean, label?: string, plan?: string | null }
  *
  * Publishes, unpublishes or relabels an account on the public subscription
- * value feed. Every refusal writes nothing. Success invalidates the feed cache.
+ * value feed, and sets its plan (a catalog key for the account's provider, or
+ * null to clear; absent keeps the stored plan). Every refusal writes nothing.
+ * Success invalidates the feed cache.
  */
 export function createAccountPublicValueHandler(dbOps: DatabaseOperations) {
 	return async (req: Request, accountId: string): Promise<Response> => {
@@ -90,11 +94,17 @@ export function createAccountPublicValueHandler(dbOps: DatabaseOperations) {
 			}
 			if (!body || typeof body !== "object" || Array.isArray(body))
 				return errorResponse(BadRequest("Request body must be a JSON object"));
-			const { enabled, label } = body as { enabled?: unknown; label?: unknown };
+			const { enabled, label, plan } = body as {
+				enabled?: unknown;
+				label?: unknown;
+				plan?: unknown;
+			};
 			if (typeof enabled !== "boolean")
 				return errorResponse(BadRequest("enabled must be a boolean"));
 			if (label !== undefined && typeof label !== "string")
 				return errorResponse(BadRequest("label must be a string"));
+			if (plan !== undefined && plan !== null && typeof plan !== "string")
+				return errorResponse(BadRequest("plan must be a string or null"));
 
 			return await runExclusiveRosterWrite(async () => {
 				const account = await dbOps.getAccount(accountId);
@@ -104,7 +114,17 @@ export function createAccountPublicValueHandler(dbOps: DatabaseOperations) {
 					const problem = labelProblem(label, account);
 					if (problem) return errorResponse(BadRequest(problem));
 				}
+				if (typeof plan === "string") {
+					const entry = getPublicValuePlan(plan);
+					if (!entry) return errorResponse(BadRequest("Unknown plan"));
+					if (entry.provider !== account.provider)
+						return errorResponse(
+							BadRequest("Plan does not apply to this account's provider"),
+						);
+				}
 				const effectiveLabel = label ?? account.public_value_label ?? null;
+				const effectivePlan =
+					plan === undefined ? (account.public_value_plan ?? null) : plan;
 				let publicId = account.public_value_id ?? null;
 
 				if (enabled) {
@@ -151,7 +171,7 @@ export function createAccountPublicValueHandler(dbOps: DatabaseOperations) {
 				try {
 					changed = await dbOps.setPublicValue(
 						account.id,
-						{ enabled, label: effectiveLabel, publicId },
+						{ enabled, label: effectiveLabel, publicId, plan: effectivePlan },
 						MAX_PUBLIC_SUBSCRIPTIONS,
 					);
 				} catch (error) {
@@ -169,6 +189,7 @@ export function createAccountPublicValueHandler(dbOps: DatabaseOperations) {
 					success: true,
 					publicValueEnabled: enabled,
 					publicValueLabel: effectiveLabel,
+					publicValuePlan: effectivePlan,
 				});
 			});
 		} catch (error) {

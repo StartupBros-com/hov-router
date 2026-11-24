@@ -1795,7 +1795,12 @@ OAuth tokens will need to be re-authenticated.
 
 	async setPublicValue(
 		accountId: string,
-		value: { enabled: boolean; label: string | null; publicId: string | null },
+		value: {
+			enabled: boolean;
+			label: string | null;
+			publicId: string | null;
+			plan?: string | null;
+		},
 		maxPublished?: number,
 	): Promise<boolean> {
 		return this.accounts.setPublicValue(accountId, value, maxPublished);
