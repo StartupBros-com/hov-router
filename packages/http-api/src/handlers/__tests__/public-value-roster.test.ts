@@ -825,6 +825,193 @@ describe("rebuild ahead of expiry", () => {
 		expect(timers.live().length).toBe(1);
 	});
 
+	it("keeps the timer's new body when a cache hit finishes a roster recheck", async () => {
+		await publishWithOpenWindow();
+		const clock = { t: 10_000 };
+		const timers = manualScheduler();
+		const handler = instance(clock, timers);
+		expect(await generatedAt(handler)).toBe(10_000);
+
+		const roster = db.listPublishedPublicValue.bind(db);
+		let release!: () => void;
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const read = spyOn(db, "listPublishedPublicValue").mockImplementationOnce(
+			async (limit) => {
+				await held;
+				return roster(limit);
+			},
+		);
+		try {
+			clock.t = 55_000;
+			const checking = generatedAt(handler);
+			expect(read).toHaveBeenCalledTimes(1);
+			await timers.fire();
+			const [warmed] = timers.live();
+
+			clock.t = 66_000;
+			release();
+			expect(await checking).toBe(10_000);
+			expect(timers.live()[0]).toBe(warmed);
+
+			const reads = perAccountReads.map((method) => spyOn(db, method));
+			try {
+				clock.t = 71_000;
+				expect(await generatedAt(handler)).toBe(55_000);
+				for (const accountRead of reads)
+					expect(accountRead).toHaveBeenCalledTimes(0);
+			} finally {
+				for (const accountRead of reads) accountRead.mockRestore();
+			}
+		} finally {
+			release();
+			read.mockRestore();
+		}
+	});
+
+	for (const { name, responseAt, rejectRoster, expectedStatus } of [
+		{
+			name: "uses the timer's fresh body after the captured body expires",
+			responseAt: 71_000,
+			rejectRoster: false,
+			expectedStatus: 200,
+		},
+		{
+			name: "rejects the timer's body at its own expiry",
+			responseAt: 115_000,
+			rejectRoster: false,
+			expectedStatus: 503,
+		},
+		{
+			name: "rejects a failed roster read despite a fresh timer body",
+			responseAt: 71_000,
+			rejectRoster: true,
+			expectedStatus: 503,
+		},
+	]) {
+		it(name, async () => {
+			await publishWithOpenWindow();
+			const clock = { t: 10_000 };
+			const timers = manualScheduler();
+			const handler = instance(clock, timers);
+			expect(await generatedAt(handler)).toBe(10_000);
+
+			const roster = db.listPublishedPublicValue.bind(db);
+			let release!: () => void;
+			const held = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			const read = spyOn(db, "listPublishedPublicValue").mockImplementationOnce(
+				async (limit) => {
+					await held;
+					if (rejectRoster) throw new Error("db down");
+					return roster(limit);
+				},
+			);
+			try {
+				clock.t = 55_000;
+				const checking = handler();
+				expect(read).toHaveBeenCalledTimes(1);
+				await timers.fire();
+				const [warmed] = timers.live();
+				const reads = perAccountReads.map((method) => spyOn(db, method));
+				try {
+					// The held request captured the body that expired at 70_000.
+					clock.t = responseAt;
+					release();
+					const served = await checking;
+					expect(served.status).toBe(expectedStatus);
+					expect(served.headers.get("Cache-Control")).toBe("no-store");
+					const body = await served.json();
+					if (expectedStatus === 200) expect(body.generatedAt).toBe(55_000);
+					else expect(body).toEqual({ error: "Unavailable" });
+					expect(read).toHaveBeenCalledTimes(2);
+					expect(timers.live().length).toBe(1);
+					expect(timers.live()[0]).toBe(warmed);
+					if (expectedStatus === 200) {
+						// Using the warmed body did not postpone its due roster check.
+						expect(await generatedAt(handler)).toBe(55_000);
+						expect(read).toHaveBeenCalledTimes(3);
+					}
+					for (const accountRead of reads)
+						expect(accountRead).toHaveBeenCalledTimes(0);
+				} finally {
+					for (const accountRead of reads) accountRead.mockRestore();
+				}
+			} finally {
+				release();
+				read.mockRestore();
+			}
+		});
+	}
+
+	it("does not reuse a warmed body for a plan changed after the held roster snapshot", async () => {
+		await publishWithOpenWindow();
+		expect(
+			(await post("rb-1", { enabled: true, plan: "claude-pro" })).status,
+		).toBe(200);
+		const generation = getPublicRosterGeneration();
+		const clock = { t: 10_000 };
+		const timers = manualScheduler();
+		const handler = instance(clock, timers);
+		const initial = await handler();
+		expect(initial.status).toBe(200);
+		expect(await initial.json()).toMatchObject({
+			schemaVersion: 2,
+			generatedAt: 10_000,
+			subscriptions: [{ plan: { key: "claude-pro", monthlyUsd: 20 } }],
+		});
+		const savedRoster = await db.listPublishedPublicValue(17);
+		let release!: () => void;
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const read = spyOn(db, "listPublishedPublicValue").mockImplementationOnce(
+			async () => {
+				await held;
+				return savedRoster;
+			},
+		);
+		try {
+			clock.t = 55_000;
+			const checking = handler();
+			expect(read).toHaveBeenCalledTimes(1);
+			// Another process changes only the plan. No local generation bump.
+			await db
+				.getAdapter()
+				.run(
+					"UPDATE accounts SET public_value_plan = 'claude-max' WHERE id = 'rb-1'",
+				);
+			expect(getPublicRosterGeneration()).toBe(generation);
+			await timers.fire();
+			const [warmed] = timers.live();
+			clock.t = 70_000;
+			release();
+			const refused = await checking;
+			expect(refused.status).toBe(503);
+			expect(await refused.json()).toEqual({ error: "Unavailable" });
+			expect(timers.live()[0]).toBe(warmed);
+
+			const fresh = await handler();
+			expect(fresh.status).toBe(200);
+			expect(await fresh.json()).toMatchObject({
+				schemaVersion: 2,
+				pricingVersion: VALUE_PRICING_VERSION,
+				generatedAt: 55_000,
+				subscriptions: [
+					{
+						provider: "anthropic",
+						plan: { key: "claude-max", monthlyUsd: 100 },
+					},
+				],
+			});
+		} finally {
+			release();
+			read.mockRestore();
+		}
+	});
+
 	it("still rebuilds in the request after a roster change, and the timer follows the new roster", async () => {
 		await publishWithOpenWindow();
 		const clock = { t: 10_000 };

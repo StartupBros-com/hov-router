@@ -510,6 +510,7 @@ export function createPublicSubscriptionValueHandler(
 			const at = now();
 			if (!timestamp(at)) throw new FeedUnavailable("clock");
 			let entry = cache;
+			let unchangedSignature: string | undefined;
 			let needsRefresh =
 				!entry ||
 				entry.raw !== target.key ||
@@ -535,16 +536,36 @@ export function createPublicSubscriptionValueHandler(
 				} finally {
 					if (rosterRecheck === pendingCheck) rosterRecheck = undefined;
 				}
-				if (signature === entry.signature) entry.rosterCheckedAt = at;
-				else needsRefresh = true;
+				if (signature === entry.signature) {
+					entry.rosterCheckedAt = at;
+					unchangedSignature = signature;
+				} else needsRefresh = true;
 			}
 			if (needsRefresh) entry = await build(target, at);
 			if (!entry) throw new FeedUnavailable("expired");
 			const responseAt = now();
 			if (!timestamp(responseAt)) throw new FeedUnavailable("clock");
+			const warmed = cache;
+			// The roster check can outlive the captured entry. Reuse a warmer
+			// body only for the exact roster and target we just validated.
+			if (
+				responseAt >= entry.expiresAt &&
+				unchangedSignature !== undefined &&
+				warmed &&
+				warmed.raw === target.key &&
+				warmed.signature === unchangedSignature &&
+				warmed.body.generatedAt > entry.body.generatedAt &&
+				responseAt >= warmed.body.generatedAt &&
+				responseAt < warmed.expiresAt &&
+				getConfig() === target.raw &&
+				getGeneration() === target.generation
+			)
+				entry = warmed;
 			if (responseAt < entry.body.generatedAt || responseAt >= entry.expiresAt)
 				throw new FeedUnavailable("expired");
-			if (cache !== entry) {
+			// A cache hit may have waited for a roster read while the timer installed
+			// a newer body. Only a request that built a body may update the cache.
+			if (needsRefresh && cache !== entry) {
 				cache = entry;
 				armAhead(entry, responseAt);
 			}
