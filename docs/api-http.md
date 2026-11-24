@@ -775,7 +775,7 @@ curl -X POST http://localhost:8080/api/accounts/uuid-here/redeem-reset \
 
 #### POST /api/accounts/:accountId/public-value
 
-Publish or unpublish an account on the public subscription value feed (`GET /api/public/subscription-value`) when the server runs with `BETTER_CCFLARE_PUBLIC_SUBSCRIPTIONS=accounts`. Requires admin authentication like other account routes (`401` while an API key is active and the caller is unauthenticated). The default is unpublished.
+Publish or unpublish an account on the public subscription value feed (`GET /api/public/subscription-value`) when the server runs with `BETTER_CCFLARE_PUBLIC_SUBSCRIPTIONS=accounts`. Requires admin authentication like other account routes (`401` while an API key is active and the caller is unauthenticated). The default is unpublished. The feed answers `schemaVersion: 2`; its shape is in [docs/reference.md](reference.md#optional-public-subscription-value-feed).
 
 **Request Body:**
 ```json
