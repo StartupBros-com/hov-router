@@ -707,6 +707,7 @@ describe("cross-process roster revalidation", () => {
 
 describe("rebuild ahead of expiry", () => {
 	const {
+		MAX_AGE_MS,
 		REBUILD_LEAD_MS,
 		REBUILD_MIN_DELAY_MS,
 		REBUILD_RETRY_MS,
@@ -816,8 +817,10 @@ describe("rebuild ahead of expiry", () => {
 		try {
 			const rebuilding = timers.fire();
 			clock.t = 71_000;
+			// The first body is still servable, so the request answers from it at
+			// once and joins the timer's running build instead of starting another.
 			const [served] = await Promise.all([generatedAt(handler), rebuilding]);
-			expect(served).toBe(55_000);
+			expect(served).toBe(10_000);
 			expect(aggregate).toHaveBeenCalledTimes(1);
 		} finally {
 			aggregate.mockRestore();
@@ -877,9 +880,9 @@ describe("rebuild ahead of expiry", () => {
 		// Still inside the first body's lifetime: served as before.
 		clock.t = 60_000;
 		expect(await generatedAt(handler)).toBe(10_000);
-		// After expiry with no successful rebuild, the request rebuilds as before.
-		clock.t = 70_000;
-		expect(await generatedAt(handler)).toBe(70_000);
+		// At MAX_AGE_MS it is never served, and the request rebuilds.
+		clock.t = 10_000 + MAX_AGE_MS;
+		expect(await generatedAt(handler)).toBe(10_000 + MAX_AGE_MS);
 		expect(timers.live().length).toBe(1);
 	});
 
@@ -935,8 +938,9 @@ describe("rebuild ahead of expiry", () => {
 			const scheduled = timeouts.mock.results
 				.slice(before)
 				.map((result) => result.value as ReturnType<typeof setTimeout>);
-			expect(scheduled.length).toBe(1);
-			expect(scheduled[0].hasRef()).toBe(false);
+			// The request deadline and the rebuild timer.
+			expect(scheduled.length).toBe(2);
+			for (const timer of scheduled) expect(timer.hasRef()).toBe(false);
 			for (const timer of scheduled) clearTimeout(timer);
 		} finally {
 			timeouts.mockRestore();

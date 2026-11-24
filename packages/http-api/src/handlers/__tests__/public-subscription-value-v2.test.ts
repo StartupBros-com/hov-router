@@ -19,7 +19,7 @@ process.env.BETTER_CCFLARE_DB_PATH = join(scratch, "isolated.db");
 process.env.BETTER_CCFLARE_CONFIG_PATH = join(scratch, "isolated-config.json");
 process.env.DATABASE_URL = "";
 const { DatabaseOperations } = await import("@better-ccflare/database");
-const { createPublicSubscriptionValueHandler } = await import(
+const { createPublicSubscriptionValueHandler, MAX_AGE_MS } = await import(
 	"../public-subscription-value"
 );
 
@@ -435,7 +435,7 @@ describe("public subscription value feed, version 2", () => {
 			"openai",
 		);
 		await db.getAdapter().run("UPDATE accounts SET provider = 'zai'");
-		now += 60_001;
+		now += MAX_AGE_MS;
 		expect((await (await handler()).json()).subscriptions[0].provider).toBe(
 			"zai",
 		);
@@ -493,7 +493,7 @@ describe("public subscription value feed, version 2", () => {
 			.run(
 				"UPDATE usage_windows SET points_used = 100001 WHERE id = 'fractional'",
 			);
-		now += 60_001;
+		now += MAX_AGE_MS;
 		expect((await handler()).status).toBe(503);
 		expect(JSON.stringify(warn.mock.calls)).toContain("invalid_window");
 	});
@@ -603,7 +603,7 @@ describe("public subscription value feed, plan", () => {
 		expect(planWarnings()).toHaveLength(1);
 		expect(JSON.stringify(planWarnings()[0])).toContain("retired-plan");
 		// A rebuild after the cache expired, a minute on, may warn again.
-		now += 60_001;
+		now += MAX_AGE_MS;
 		expect((await handler()).status).toBe(200);
 		expect(planWarnings()).toHaveLength(2);
 	});

@@ -19,7 +19,7 @@ process.env.BETTER_CCFLARE_CONFIG_PATH = join(scratch, "isolated-config.json");
 process.env.DATABASE_URL = "";
 const { VALUE_PRICING_VERSION } = await import("@better-ccflare/core");
 const { DatabaseOperations } = await import("@better-ccflare/database");
-const { createPublicSubscriptionValueHandler } = await import(
+const { createPublicSubscriptionValueHandler, MAX_AGE_MS } = await import(
 	"../public-subscription-value"
 );
 const db = new DatabaseOperations(":memory:");
@@ -286,7 +286,7 @@ describe("public subscription value read projection", () => {
 			pointsUsed: null,
 			counterResets: null,
 		});
-		now += 60_001;
+		now += MAX_AGE_MS;
 		expect((await (await handler()).json()).subscriptions[0].completed).toEqual(
 			[],
 		);
@@ -336,7 +336,7 @@ describe("public subscription value read projection", () => {
 		config = JSON.stringify([mapping]);
 		expect((await handler()).status).toBe(200);
 		config = invalid;
-		now += 60_001;
+		now += MAX_AGE_MS;
 		expect((await handler()).status).toBe(503);
 		config = JSON.stringify([mapping]);
 		expect((await handler()).status).toBe(200);
@@ -565,7 +565,7 @@ describe("public subscription value read projection", () => {
 			(await (await handler()).json()).subscriptions[0].current,
 		).toBeNull();
 		await db.getAdapter().run("DELETE FROM usage_windows");
-		now += 60_001;
+		now += MAX_AGE_MS;
 		expect(
 			(await (await handler()).json()).subscriptions[0].current,
 		).toBeNull();
@@ -644,7 +644,7 @@ describe("public subscription value read projection", () => {
 		expect(
 			(await (await handler()).json()).subscriptions[0].current,
 		).not.toBeNull();
-		now += 60_001;
+		now += MAX_AGE_MS;
 		expect(
 			(await (await handler()).json()).subscriptions[0].current,
 		).toBeNull();
@@ -654,7 +654,7 @@ describe("public subscription value read projection", () => {
 				mapping.accountId,
 			]);
 		expect((await handler()).status).toBe(200);
-		now += 60_001;
+		now += MAX_AGE_MS;
 		expect((await handler()).status).toBe(503);
 	});
 });
