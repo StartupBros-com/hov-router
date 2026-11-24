@@ -475,6 +475,29 @@ describe("public subscription value feed, version 2", () => {
 		}
 	});
 
+	it("publishes fractional limit points and fails closed past the page's bounds", async () => {
+		await insertWindow({
+			id: "fractional",
+			startedAt: t(1),
+			resetsAt: t(8),
+			closedAt: t(8),
+			value: 10,
+			points: 37.5,
+			counterResets: 0,
+		});
+		expect(
+			(await (await handler()).json()).subscriptions[0].completed[0].pointsUsed,
+		).toBe(37.5);
+		await db
+			.getAdapter()
+			.run(
+				"UPDATE usage_windows SET points_used = 100001 WHERE id = 'fractional'",
+			);
+		now += 60_001;
+		expect((await handler()).status).toBe(503);
+		expect(JSON.stringify(warn.mock.calls)).toContain("invalid_window");
+	});
+
 	it("serializes 16 subscriptions of 32 completed windows and 5 periods under 256 KiB", async () => {
 		const mappings = [];
 		for (let s = 0; s < 16; s++) {

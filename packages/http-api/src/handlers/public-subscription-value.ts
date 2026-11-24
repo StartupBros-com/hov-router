@@ -47,8 +47,13 @@ const CLOSED_READ_LIMIT = 200;
 const MAX_BODY_BYTES = 256 * 1024;
 const PROVIDER_PATTERN = /^[a-z][a-z0-9-]{0,31}$/;
 const GRANT_TYPES = new Set(["natural", "early_reset", "first_observed"]);
+// The value page refuses a body past these bounds, so the feed refuses it first.
+// points_used is REAL: a fractional reading is valid and must not fail the feed.
+const pointsOrNull = (value: number | null): boolean =>
+	value === null || (Number.isFinite(value) && value >= 0 && value <= 100_000);
 const countOrNull = (value: number | null): boolean =>
-	value === null || (Number.isSafeInteger(value) && value >= 0);
+	value === null ||
+	(Number.isSafeInteger(value) && value >= 0 && value <= 10_000);
 
 const CACHE_MS = 60_000;
 /**
@@ -86,7 +91,7 @@ function publicWindow(
 				window.closedAt > now + CLOCK_SKEW_MS)) ||
 		(valueUsd !== null && (!Number.isFinite(valueUsd) || valueUsd < 0)) ||
 		!GRANT_TYPES.has(window.grantType) ||
-		!countOrNull(window.pointsUsed) ||
+		!pointsOrNull(window.pointsUsed) ||
 		!countOrNull(window.counterResets)
 	)
 		throw new FeedUnavailable("invalid_window");
