@@ -111,12 +111,13 @@ const SETTING_CLASS =
 // Explicit dimensions avoid the switch's border shrinking an inset-based target.
 const SETTING_SWITCH_CLASS =
 	"relative after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']";
-// Clear cooldown: a small bordered button on the router retry line. The border
-// marks it as a control; at 20px it is no taller than the status pills, while
-// the hit area is still 44px tall. z-10 keeps the lower half of that area above
-// the usage block, which comes later in the row.
+// Clear cooldown: the standard small outline button, after the router retry
+// time. Its 32px box reads as a button, not a text field. The tap area reaches
+// 44px, 6px past each edge, which is no more than the status lines' 6px gap, so
+// it never covers Re-authenticate or the usage block. 32px is the smallest box
+// for which that holds, so no row needs an extra margin or stacking order.
 const CLEAR_COOLDOWN_CLASS =
-	"relative z-10 h-5 px-2 py-0 text-xs leading-4 text-foreground after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2 after:content-['']";
+	"relative text-foreground after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2 after:content-['']";
 
 /**
  * Codex-only usage extras (plan_type, credits_balance) come from the free
@@ -733,8 +734,7 @@ export function AccountListItem({
 					<Button
 						variant="default"
 						size="touch-sm"
-						// Above Clear cooldown's tap area where the two meet.
-						className="relative z-20 gap-1 text-xs text-black hover:text-black"
+						className="gap-1 text-xs text-black hover:text-black"
 						onClick={() => reauth.handler(account)}
 						title={reauth.title}
 					>
@@ -773,14 +773,7 @@ export function AccountListItem({
 					</StatusPill>
 				)}
 				{(status.routerRetryAt != null || showForceReset) && (
-					<span
-						className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground ${
-							// Re-authenticate can sit just above. Clear cooldown's tap area
-							// reaches 12px above the button and the lines are 6px apart, so
-							// 6px more keeps the two tap areas apart.
-							showForceReset && reauthShown ? "mt-1.5" : ""
-						}`}
-					>
+					<span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
 						{status.routerRetryAt != null && (
 							<span
 								title={new Date(
@@ -798,14 +791,11 @@ export function AccountListItem({
 						{showForceReset && (
 							<Button
 								variant="outline"
+								size="sm"
 								className={CLEAR_COOLDOWN_CLASS}
 								onClick={() => onForceResetRateLimit(account)}
 								aria-label={`Clear cooldown for ${account.name}`}
-								title={
-									staleLockDetected
-										? "Clear a possibly stale router cooldown. Provider usage limits are unchanged."
-										: "Clear the router’s saved rate-limit state. Provider usage limits are unchanged."
-								}
+								title="Clear the router’s saved rate-limit state. Provider usage limits are unchanged."
 							>
 								Clear cooldown
 							</Button>
