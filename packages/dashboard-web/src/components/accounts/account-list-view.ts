@@ -41,7 +41,7 @@ export function accountNextReset(account: Account, now = Date.now()) {
 	);
 }
 
-export type AttentionReason = "reconnect" | "refused" | "routing";
+export type AttentionReason = "reconnect" | "refused" | "payment" | "routing";
 
 /**
  * What the operator has to do for this account, if anything. A usage limit,
@@ -57,6 +57,8 @@ function accountAttentionReason(
 	if (status.reauth) return "reconnect";
 	// Anthropic refusing the organization: billing or Claude Code access on claude.ai.
 	if (status.reason === "refused") return "refused";
+	// The provider wants payment (402): billing or credits for this account.
+	if (status.reason === "payment") return "payment";
 	if (routing.some(routingNeedsReview)) return "routing";
 	return null;
 }
@@ -83,16 +85,16 @@ export function accountListView(
 	const attentionReasons: Record<AttentionReason, number> = {
 		reconnect: 0,
 		refused: 0,
+		payment: 0,
 		routing: 0,
 	};
+	let attention = 0;
 	for (const account of accounts) {
 		const reason = accountAttentionReason(account, routing[account.id], now);
-		if (reason) attentionReasons[reason]++;
+		if (!reason) continue;
+		attentionReasons[reason]++;
+		attention++;
 	}
-	const attention =
-		attentionReasons.reconnect +
-		attentionReasons.refused +
-		attentionReasons.routing;
 	// Once nothing needs the operator, the attention view has nothing to show.
 	const attentionOnly = !!filters.attentionOnly && attention > 0;
 	return {

@@ -123,6 +123,7 @@ export type AccountStatusReason =
 	| "reauth"
 	| "paused"
 	| "refused"
+	| "payment"
 	| "cooldown"
 	| "exhausted"
 	| "hard-limit"
@@ -156,6 +157,13 @@ export function classifyAccountStatus(input: AccountStatusInput, now: number) {
 		typeof input.usageOrgRefusedAt === "number" &&
 		Number.isFinite(input.usageOrgRefusedAt);
 	const refused = orgBench || (usageRefused && !cooldown);
+	// A 402 bench (#1025): the provider wants billing or credits. The router
+	// probes again at the deadline, but each probe fails until the operator
+	// fixes billing, so the row names it. The stored reason outlives recovery,
+	// so it counts only while the bench is live. xAI's 402 is a capacity
+	// signal with its own reason and stays a cooldown.
+	const payment =
+		cooldown && input.rateLimitedReason === "upstream_402_payment_required";
 	const pacing = isFutureDeadline(input.usageThrottledUntil, now);
 	const refreshDelayed = isFutureDeadline(input.usageRateLimitedUntil, now);
 	const exhausted = /^(usage_exhausted|usage exhausted)(?:$|\s)/.test(base);
@@ -185,6 +193,7 @@ export function classifyAccountStatus(input: AccountStatusInput, now: number) {
 	if (reauth) reason = "reauth";
 	else if (input.paused) reason = "paused";
 	else if (refused) reason = "refused";
+	else if (payment) reason = "payment";
 	else if (cooldown) reason = "cooldown";
 	else if (exhausted) reason = "exhausted";
 	else if (hard) reason = "hard-limit";
@@ -205,6 +214,7 @@ export function classifyAccountStatus(input: AccountStatusInput, now: number) {
 		reauth: "Reconnect required",
 		paused: "Paused",
 		refused: "Anthropic refused",
+		payment: "Payment required",
 		cooldown: "Cooling down",
 		exhausted: "Usage exhausted",
 		"hard-limit": "Reported hard limit",
@@ -223,9 +233,14 @@ export function classifyAccountStatus(input: AccountStatusInput, now: number) {
 	let tone: "ok" | "warning" | "bad" | "muted";
 	if (reason === "paused") tone = "muted";
 	else if (
-		["reauth", "refused", "cooldown", "exhausted", "hard-limit"].includes(
-			reason,
-		)
+		[
+			"reauth",
+			"refused",
+			"payment",
+			"cooldown",
+			"exhausted",
+			"hard-limit",
+		].includes(reason)
 	)
 		tone = "bad";
 	else if (reason === "normal" && notices.length === 0) tone = "ok";
@@ -255,6 +270,8 @@ export function classifyAccountStatus(input: AccountStatusInput, now: number) {
 		hint:
 			reason === "refused"
 				? "Anthropic is refusing this account's organization. Check billing and Claude Code access on claude.ai; the router keeps retrying."
-				: null,
+				: reason === "payment"
+					? "The provider wants payment. Check this account's billing or credits; the router keeps retrying."
+					: null,
 	};
 }

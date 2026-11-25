@@ -161,6 +161,7 @@ const ACCOUNT_BLOCKED_STATUS = new Set<AccountStatusReason>([
 	"reauth",
 	"paused",
 	"refused",
+	"payment",
 	"cooldown",
 	"exhausted",
 	"hard-limit",

@@ -667,6 +667,25 @@ describe("account scan layout", () => {
 		expect(visible).not.toContain("Clear cooldown");
 		expect(visible).not.toContain("Cooling down");
 	});
+	it("names a 402 bench as payment required and keeps Clear cooldown (#1025)", () => {
+		const html = renderToStaticMarkup(
+			<AccountListItem
+				account={makeAccount({
+					paused: false,
+					rateLimitStatus: "Rate limited (5m)",
+					rateLimitedUntil: Date.now() + 300_000,
+					rateLimitedReason: "upstream_402_payment_required",
+				})}
+				{...requiredHandlers}
+			/>,
+		);
+		const visible = withoutDetailsContent(html);
+		expect(visible).toContain("Payment required");
+		expect(visible).toContain("billing or credits");
+		expect(visible).toContain("Router retry");
+		expect(visible).toContain("Clear cooldown");
+		expect(visible).not.toContain("Cooling down");
+	});
 	it("keeps naming the refusal after the bench lapses while the usage check is refused (#941)", () => {
 		// max-quaternary-spgm on 2026-11-21 read "Ready" for 14 hours here.
 		const html = renderToStaticMarkup(
@@ -2526,25 +2545,35 @@ describe("compact hybrid list", () => {
 		expect(html).not.toContain("attention");
 	});
 	it("names each kind of operator action and switches between the attention view and all accounts", () => {
-		const reasons = { reconnect: 1, refused: 2, routing: 1 };
+		const reasons = { reconnect: 1, refused: 2, payment: 1, routing: 1 };
 		const off = renderToStaticMarkup(
 			<AccountAttentionSummary
-				count={4}
+				count={5}
 				reasons={reasons}
 				showingOnlyAttention={false}
 				onToggle={noop}
 			/>,
 		);
 		const visible = off.replace(/<[^>]*>/g, " ");
-		expect(visible).toContain("4 need attention");
+		expect(visible).toContain("5 need attention");
 		expect(visible).toContain("1 to reconnect");
 		expect(visible).toContain("2 refused by Anthropic");
+		expect(visible).toContain("1 needs billing");
 		expect(visible).toContain("1 routing decision in Combos");
 		expect(off).toContain("Review accounts");
+		const plural = renderToStaticMarkup(
+			<AccountAttentionSummary
+				count={2}
+				reasons={{ reconnect: 0, refused: 0, payment: 2, routing: 0 }}
+				showingOnlyAttention={false}
+				onToggle={noop}
+			/>,
+		);
+		expect(plural.replace(/<[^>]*>/g, " ")).toContain("2 need billing");
 		const on = renderToStaticMarkup(
 			<AccountAttentionSummary
 				count={1}
-				reasons={{ reconnect: 0, refused: 0, routing: 1 }}
+				reasons={{ reconnect: 0, refused: 0, payment: 0, routing: 1 }}
 				showingOnlyAttention
 				onToggle={noop}
 			/>,

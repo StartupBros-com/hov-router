@@ -244,6 +244,62 @@ test("only a live org-refusal bench reads as refused", () => {
 		expect(expired.hint).toBeNull();
 	}
 });
+test("a live 402 bench names payment required, its retry and Clear cooldown (#1025)", () => {
+	const until = now + 60_000;
+	for (const rateLimitStatus of [
+		"Rate limited (1m)",
+		"payment_required (1m)",
+		undefined,
+	]) {
+		const payment = classifyAccountStatus(
+			{
+				rateLimitStatus,
+				rateLimitedUntil: until,
+				rateLimitedReason: "upstream_402_payment_required",
+			},
+			now,
+		);
+		expect(payment.reason).toBe("payment");
+		expect(payment.label).toBe("Payment required");
+		expect(payment.tone).toBe("bad");
+		expect(payment.routerRetryAt).toBe(until);
+		// Once billing is fixed, clearing the bench retries at once.
+		expect(payment.clearCooldown).toBe(true);
+		expect(payment.capacityAttention).toBe(true);
+		expect(payment.overview).toBe(true);
+		expect(payment.hint).toContain("billing or credits");
+	}
+	const benched = {
+		rateLimitedUntil: until,
+		rateLimitedReason: "upstream_402_payment_required",
+	};
+	expect(classifyAccountStatus({ ...benched, paused: true }, now).reason).toBe(
+		"paused",
+	);
+	expect(
+		classifyAccountStatus({ ...benched, requiresReauth: true }, now).reason,
+	).toBe("reauth");
+	// The stored reason outlives recovery, so only a live bench counts.
+	for (const rateLimitedUntil of [now, now - 1, null]) {
+		const lapsed = classifyAccountStatus({ ...benched, rateLimitedUntil }, now);
+		expect(lapsed.reason).toBe("normal");
+		expect(lapsed.label).toBe("Ready");
+		expect(lapsed.hint).toBeNull();
+	}
+	// xAI's 402 is a capacity signal, not billing, and stays a cooldown.
+	for (const rateLimitedReason of [
+		"xai_capacity_402",
+		"upstream_429_with_reset",
+	]) {
+		const other = classifyAccountStatus(
+			{ rateLimitedUntil: until, rateLimitedReason },
+			now,
+		);
+		expect(other.reason).toBe("cooldown");
+		expect(other.label).toBe("Cooling down");
+		expect(other.hint).toBeNull();
+	}
+});
 test("a refused usage check reads as refused after the router's bench lapses (#941)", () => {
 	// max-quaternary-spgm on 2026-11-21: the 30 s bench was long over, but
 	// every usage check was still refused, and the card said Ready.
