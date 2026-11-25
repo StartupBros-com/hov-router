@@ -1351,7 +1351,6 @@ describe("buildStrategy() routing recorder sharing (#197)", () => {
 			custom_endpoint: null,
 			model_mappings: null,
 			cross_region_mode: null,
-			model_fallbacks: null,
 			billing_type: null,
 			pause_reason: null,
 			refresh_token_issued_at: null,

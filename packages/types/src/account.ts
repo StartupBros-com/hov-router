@@ -2,11 +2,6 @@ import type { ComboFamily } from "./combo";
 
 export type RateLimitReason =
 	| "upstream_429_with_reset"
-	/** @deprecated written by ccflare ≤ v3.5.x when no-reset 429s used a 5h ban.
-	 *  v3.5.2+ emits `upstream_429_no_reset_probe_cooldown` for the same path
-	 *  with a configurable shorter default. Existing DB rows keep the old
-	 *  value for history. */
-	| "upstream_429_no_reset_default_5h"
 	| "upstream_429_no_reset_probe_cooldown"
 	| "upstream_402_payment_required"
 	| "model_fallback_429"
@@ -337,7 +332,6 @@ export interface AccountRow {
 	custom_endpoint?: string | null;
 	model_mappings?: string | null; // JSON string for OpenAI-compatible providers
 	cross_region_mode?: string | null; // Bedrock cross-region inference mode
-	model_fallbacks?: string | null; // JSON string for model family fallback mappings
 	billing_type?: string | null; // Per-account billing override
 	pause_reason?: string | null; // null=not paused, 'manual'=user paused, 'failure_threshold'=auto-refresh failures (setter removed; legacy rows), 'overage'=billing overage
 	refresh_token_issued_at?: number | null; // Timestamp when the current refresh token was issued (updated on each token refresh)
@@ -394,7 +388,6 @@ export interface Account {
 	custom_endpoint: string | null;
 	model_mappings: string | null; // JSON string for OpenAI-compatible providers
 	cross_region_mode: string | null; // Bedrock cross-region inference mode
-	model_fallbacks: string | null; // JSON string for model family fallback mappings
 	billing_type: string | null;
 	pause_reason: string | null; // null=not paused, 'manual'=user paused, 'failure_threshold'=auto-refresh failures (setter removed; legacy rows), 'overage'=billing overage
 	refresh_token_issued_at: number | null; // Timestamp when the current refresh token was issued (updated on each token refresh)
@@ -654,7 +647,6 @@ export interface AccountResponse {
 	usageThrottledWindows: string[]; // Exact usage windows currently being throttled
 	hasRefreshToken: boolean; // Indicates if the account has a refresh token (OAuth account)
 	crossRegionMode?: string | null; // Cross-region inference mode for Bedrock accounts
-	modelFallbacks?: { [key: string]: string } | null;
 	billingType?: string | null;
 	sessionStats: SessionStats | null;
 	/**
@@ -788,7 +780,6 @@ export function toAccount(row: AccountRow): Account {
 		custom_endpoint: row.custom_endpoint || null,
 		model_mappings: row.model_mappings || null,
 		cross_region_mode: row.cross_region_mode || null,
-		model_fallbacks: row.model_fallbacks || null,
 		billing_type: row.billing_type || null,
 		pause_reason: row.pause_reason || null,
 		refresh_token_issued_at: toNumOrNull(row.refresh_token_issued_at),
@@ -823,27 +814,6 @@ export function toAccountResponse(account: Account): AccountResponse {
 		} catch {
 			// If parsing fails, ignore model mappings
 			modelMappings = null;
-		}
-	} else if (account.custom_endpoint) {
-		// Also try parsing from custom_endpoint for backwards compatibility
-		try {
-			const parsed = JSON.parse(account.custom_endpoint);
-			if (parsed.modelMappings) {
-				modelMappings = parsed.modelMappings;
-			}
-		} catch {
-			// If parsing fails, ignore model mappings
-			modelMappings = null;
-		}
-	}
-
-	// Parse model fallbacks for all providers
-	let modelFallbacks: { [key: string]: string } | null = null;
-	if (account.model_fallbacks) {
-		try {
-			modelFallbacks = JSON.parse(account.model_fallbacks);
-		} catch {
-			modelFallbacks = null;
 		}
 	}
 
@@ -894,7 +864,6 @@ export function toAccountResponse(account: Account): AccountResponse {
 		usageThrottledWindows: [],
 		hasRefreshToken: !!account.refresh_token, // OAuth accounts have refresh tokens
 		crossRegionMode: account.cross_region_mode,
-		modelFallbacks,
 		billingType: account.billing_type,
 		sessionStats: null,
 		isPrimary: false,

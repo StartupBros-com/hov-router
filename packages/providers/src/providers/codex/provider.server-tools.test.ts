@@ -269,7 +269,6 @@ function codexOAuthAccount(overrides: Partial<Account> = {}): Account {
 		model_mappings: null,
 		cross_region_mode: "geographic",
 		billing_type: null,
-		model_fallbacks: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
 		consecutive_rate_limits: 0,

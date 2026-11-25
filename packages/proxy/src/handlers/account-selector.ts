@@ -3887,7 +3887,6 @@ async function selectAccountsForRequestInternal(
 				{
 					provider: Account["provider"];
 					modelMappings: Account["model_mappings"];
-					modelFallbacks: Account["model_fallbacks"];
 					customEndpoint: Account["custom_endpoint"];
 					catalog: ReturnType<typeof getKnownCodexModels>;
 					serves: boolean;
@@ -3902,7 +3901,6 @@ async function selectAccountsForRequestInternal(
 							previous &&
 							previous.provider === account.provider &&
 							previous.modelMappings === account.model_mappings &&
-							previous.modelFallbacks === account.model_fallbacks &&
 							previous.customEndpoint === account.custom_endpoint &&
 							previous.catalog?.models === catalog?.models
 						) {
@@ -3911,7 +3909,6 @@ async function selectAccountsForRequestInternal(
 						const proof = {
 							provider: account.provider,
 							modelMappings: account.model_mappings,
-							modelFallbacks: account.model_fallbacks,
 							customEndpoint: account.custom_endpoint,
 							catalog,
 							serves: false,

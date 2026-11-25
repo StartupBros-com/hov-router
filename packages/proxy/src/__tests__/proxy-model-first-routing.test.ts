@@ -77,7 +77,6 @@ function makeAccount(id: string, fallbacks: string[] = [FABLE, OPUS]): Account {
 		custom_endpoint: null,
 		model_mappings: JSON.stringify({ fable: fallbacks }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

@@ -87,7 +87,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: "https://capability.invalid/v1/responses",
 		model_mappings: JSON.stringify({ sonnet: MODEL }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

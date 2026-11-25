@@ -38,7 +38,6 @@ const routingAccount = (overrides: Partial<Account> = {}): Account =>
 		billing_type: null,
 		priority: 0,
 		model_mappings: null,
-		model_fallbacks: null,
 		custom_endpoint: null,
 		...overrides,
 	}) as Account;

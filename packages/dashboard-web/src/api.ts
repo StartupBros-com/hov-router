@@ -45,7 +45,6 @@ import { type RedeemResetAnswer, sendRedeemReset } from "./lib/redeem-reset";
 // Re-export types with dashboard-specific aliases for backward compatibility
 export type Account = AccountResponse & {
 	/** @deprecated Fallbacks are now merged into modelMappings as arrays */
-	modelFallbacks?: { [key: string]: string } | null;
 };
 export type LogEntry = LogEvent;
 export type RequestSummary = RequestResponse;

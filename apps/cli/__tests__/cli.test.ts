@@ -798,9 +798,12 @@ describe("CLI Integration Tests", () => {
 			expect(output).toMatch(/hov-router.*--add-account.*--mode.*--priority/);
 		});
 
-		// Note: "max" mode is remapped to "claude-oauth" with a deprecation warning,
-		// but then starts an interactive OAuth flow that cannot be tested non-interactively.
-		// The deprecation handling is covered by unit tests in the providers package.
+		it('rejects removed "max" account mode', async () => {
+			const result = await runCLI(["--add-account", "test", "--mode", "max"]);
+			expect(result.exitCode).not.toBe(0);
+			expect(result.stderr).toContain("Invalid mode: max");
+			expect(result.stderr).toContain("claude-oauth");
+		});
 
 		it("should reject invalid mode value", async () => {
 			const result = await runCLI([

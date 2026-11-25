@@ -11,6 +11,7 @@ import {
 	PAUSE_REASON_NEEDS_REAUTH,
 	patterns,
 	REAUTHENTICATION_REQUIRED_CODE,
+	rejectRetiredModelMappingInput,
 	resolveExtraUsageState,
 	sanitizers,
 	validateAndSanitizeModelMappings,
@@ -123,9 +124,6 @@ interface SessionStatsSnapshot {
 
 const RATE_LIMIT_REASONS = new Set<RateLimitReason>([
 	"upstream_429_with_reset",
-	// Kept for backwards-compat with DB rows written by ccflare ≤ v3.5.x;
-	// new code emits `upstream_429_no_reset_probe_cooldown` instead.
-	"upstream_429_no_reset_default_5h",
 	"upstream_429_no_reset_probe_cooldown",
 	"upstream_402_payment_required",
 	"model_fallback_429",
@@ -678,7 +676,6 @@ export function createAccountsListHandler(
 			custom_endpoint: string | null;
 			model_mappings: string | null;
 			cross_region_mode: string | null;
-			model_fallbacks: string | null;
 			billing_type: string | null;
 			pause_reason: string | null;
 			extra_usage_holds: string | null;
@@ -718,7 +715,6 @@ export function createAccountsListHandler(
 
 					model_mappings,
 					cross_region_mode,
-					model_fallbacks,
 					billing_type,
 					pause_reason,
 					extra_usage_holds,
@@ -1056,36 +1052,11 @@ export function createAccountsListHandler(
 				if (account.model_mappings) {
 					try {
 						const parsed = JSON.parse(account.model_mappings);
-						// Handle both formats: direct mappings or wrapped in modelMappings
-						modelMappings = parsed.modelMappings || parsed || null;
+						// Stored mappings are flat.
+						modelMappings = parsed || null;
 					} catch {
 						// If parsing fails, ignore model mappings
 						modelMappings = null;
-					}
-				} else if (
-					account.provider === "openai-compatible" &&
-					account.custom_endpoint
-				) {
-					// Also try parsing from custom_endpoint for backwards compatibility
-					try {
-						const parsed = JSON.parse(account.custom_endpoint);
-						if (parsed.modelMappings) {
-							modelMappings = parsed.modelMappings;
-						}
-					} catch {
-						// If parsing fails, ignore model mappings
-						modelMappings = null;
-					}
-				}
-
-				// Parse model fallbacks for all providers
-				let modelFallbacks: { [key: string]: string } | null = null;
-				if (account.model_fallbacks) {
-					try {
-						const parsed = JSON.parse(account.model_fallbacks);
-						modelFallbacks = parsed.modelFallbacks || parsed || null;
-					} catch {
-						modelFallbacks = null;
 					}
 				}
 
@@ -1163,7 +1134,6 @@ export function createAccountsListHandler(
 						!!account.refresh_token &&
 						account.refresh_token !== account.access_token, // API-key providers store key in both fields
 					crossRegionMode: account.cross_region_mode,
-					modelFallbacks,
 					billingType: account.billing_type,
 					sessionStats: sessionStatsById.get(account.id)?.stats ?? null,
 					sessionStatsAsOf: sessionStatsById.get(account.id)?.asOf ?? null,
@@ -1185,6 +1155,7 @@ export function createAccountPriorityUpdateHandler(dbOps: DatabaseOperations) {
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate priority input using the centralized validation function
 			// Check if priority is provided (required)
@@ -1284,6 +1255,7 @@ export function createAccountAddHandler(
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -1434,6 +1406,7 @@ export function createAccountRemoveHandler(dbOps: DatabaseOperations) {
 		try {
 			// Parse and validate confirmation
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate confirmation string
 			const confirm = validateString(body.confirm, "confirm", {
@@ -1597,6 +1570,7 @@ export function createAccountRenameHandler(dbOps: DatabaseOperations) {
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate new name
 			const newName = validateString(body.name, "name", {
@@ -1686,6 +1660,7 @@ export function createZaiAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -1870,6 +1845,7 @@ export function createOpenAIAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -2065,6 +2041,7 @@ export function createVertexAIAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -2216,6 +2193,7 @@ export function createMinimaxAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -2364,6 +2342,7 @@ export function createDeepseekAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 			const name = validateString(body.name, "name", {
 				required: true,
 				minLength: 1,
@@ -2485,6 +2464,7 @@ export function createNanoGPTAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 			// Validate account name
 			const name = validateString(body.name, "name", {
 				required: true,
@@ -2669,6 +2649,7 @@ export function createAnthropicCompatibleAccountAddHandler(
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -2851,6 +2832,7 @@ export function createMetaAccountAddHandler(dbOps: DatabaseOperations) {
 		let name: string | undefined;
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			name = validateString(body.name, "name", {
@@ -3036,6 +3018,7 @@ export function createOllamaAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			const name = validateString(body.name, "name", {
 				required: true,
@@ -3196,6 +3179,7 @@ export function createOllamaCloudAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			const name = validateString(body.name, "name", {
 				required: true,
@@ -3349,6 +3333,7 @@ export function createAccountAutoFallbackHandler(dbOps: DatabaseOperations) {
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate enabled parameter
 			const enabled = validateNumber(body.enabled, "enabled", {
@@ -3412,6 +3397,7 @@ export function createAccountCodexCreditDrainHandler(
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			const enabled = validateNumber(body.enabled, "enabled", {
 				required: true,
@@ -3476,6 +3462,7 @@ export function createAccountAutoPauseOnOverageHandler(
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate enabled parameter
 			const enabled = validateNumber(body.enabled, "enabled", {
@@ -3557,6 +3544,7 @@ export function createAccountPeakHoursPauseHandler(dbOps: DatabaseOperations) {
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate enabled parameter
 			const enabled = validateNumber(body.enabled, "enabled", {
@@ -3622,6 +3610,7 @@ export function createAccountBillingTypeHandler(dbOps: DatabaseOperations) {
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			const billingType = validateString(body.billingType, "billingType", {
 				required: true,
@@ -3688,6 +3677,7 @@ export function createAccountCustomEndpointUpdateHandler(
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate custom endpoint
 			const customEndpoint = validateString(
@@ -3764,6 +3754,7 @@ export function createAccountModelMappingsUpdateHandler(
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Get account to verify it supports model mappings
 			const db = dbOps.getAdapter();
@@ -4035,6 +4026,7 @@ export function createBedrockAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -4223,6 +4215,7 @@ export function createKiloAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -4385,6 +4378,7 @@ export function createAlibabaCodingPlanAccountAddHandler(
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			const name = validateString(body.name, "name", {
 				required: true,
@@ -4540,6 +4534,7 @@ export function createOpenRouterAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {

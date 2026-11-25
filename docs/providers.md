@@ -987,9 +987,9 @@ HoV Router uses an account priority system to control request routing order:
 Accounts are selected based on their priority value (lower numbers = higher priority). The priority system works with the session-based load balancing strategy:
 
 ```bash
-better-ccflare --add-account primary-account --mode max --priority 0
-better-ccflare --add-account secondary-account --mode max --priority 10
-better-ccflare --add-account backup-account --mode max --priority 50
+better-ccflare --add-account primary-account --mode claude-oauth --priority 0
+better-ccflare --add-account secondary-account --mode claude-oauth --priority 10
+better-ccflare --add-account backup-account --mode claude-oauth --priority 50
 ```
 
 ### Priority-Based Load Balancing

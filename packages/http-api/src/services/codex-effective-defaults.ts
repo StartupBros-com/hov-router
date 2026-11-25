@@ -1,7 +1,5 @@
 import {
 	isForceAccountModelEnabled,
-	parseCustomEndpointData,
-	parseModelFallbacks,
 	parseModelMappings,
 } from "@better-ccflare/core";
 import { resolveCodexRequestModel } from "@better-ccflare/providers/codex";
@@ -22,8 +20,6 @@ import type { Account } from "@better-ccflare/types";
  */
 export type CodexAccountFamilySource =
 	| "account_mapping_pin"
-	| "custom_endpoint_mapping"
-	| "model_fallbacks"
 	| "environment_mapping"
 	| "global_provider_override"
 	| "account_catalog"
@@ -98,16 +94,12 @@ export function describeCodexAccountCatalog(
  * one resolver for what a family actually maps to; this function only adds
  * the `source`/`pinned`/`globalOverridePinsUnmappedAccount` attribution on
  * top, mirroring the precedence `mergeAccountModelMappings` already applies
- * at request time (custom_endpoint.modelMappings overwrites model_mappings
- * overwrites the environment mapping; model_fallbacks only fills a family
- * still left empty by the other three).
+ * at request time (account mappings override environment mappings).
  *
  * `resolveCodexRequestModel` calls `mapModelName`, which returns its input
- * unchanged whenever `isForceAccountModelEnabled()` — in that mode none of
- * the account/env/custom-endpoint/model_fallbacks pins below are actually
- * applied, so this function skips straight to the (still force-mode-active)
- * global override and catalog/compiled attribution instead of claiming one
- * of those four pins. `resolveProviderModelDefault` (the global-override and
+ * unchanged whenever `isForceAccountModelEnabled()` — in that mode account
+ * and environment pins are not applied, so this function skips straight to the (still force-mode-active)
+ * global override and catalog/compiled attribution instead of claiming an account or environment pin. `resolveProviderModelDefault` (the global-override and
  * catalog/compiled source of truth `resolveCodexRequestModel` falls back to)
  * is not gated by force mode, so those two attributions stay accurate in
  * both modes.
@@ -130,24 +122,12 @@ export function resolveCodexAccountFamilyDefault(
 
 	if (!isForceAccountModelEnabled()) {
 		const modelMappingsMap = parseModelMappings(account.model_mappings);
-		const customEndpointMap = parseCustomEndpointData(
-			account.custom_endpoint,
-		)?.modelMappings;
-		const fallbacksMap = parseModelFallbacks(account.model_fallbacks);
 		const envRaw =
 			typeof process !== "undefined"
 				? process.env?.OPENAI_COMPATIBLE_MODEL_MAPPINGS
 				: undefined;
 		const envMap = envRaw ? parseModelMappings(envRaw) : null;
 
-		if (customEndpointMap?.[family] !== undefined) {
-			return {
-				family,
-				effectiveModel,
-				source: "custom_endpoint_mapping",
-				pinned: true,
-			};
-		}
 		if (modelMappingsMap?.[family] !== undefined) {
 			return {
 				family,
@@ -161,14 +141,6 @@ export function resolveCodexAccountFamilyDefault(
 				family,
 				effectiveModel,
 				source: "environment_mapping",
-				pinned: true,
-			};
-		}
-		if (fallbacksMap?.[family] !== undefined) {
-			return {
-				family,
-				effectiveModel,
-				source: "model_fallbacks",
 				pinned: true,
 			};
 		}

@@ -734,18 +734,9 @@ export function createOAuthInitHandler(dbOps: DatabaseOperations) {
 				return errorResponse(BadRequest("Valid account name is required"));
 			}
 
-			// Validate mode (with backward compatibility for deprecated "max" mode)
-			let mode = (validateString(body.mode, "mode", {
-				allowedValues: ["claude-oauth", "console", "max"] as const,
-			}) || "claude-oauth") as "claude-oauth" | "console" | "max";
-
-			// Handle deprecated "max" mode with warning
-			if (mode === "max") {
-				log.warn(
-					'Deprecated mode "max" detected, treating as "claude-oauth". Please update to use "claude-oauth" instead.',
-				);
-				mode = "claude-oauth";
-			}
+			const mode = (validateString(body.mode, "mode", {
+				allowedValues: ["claude-oauth", "console"] as const,
+			}) || "claude-oauth") as "claude-oauth" | "console";
 
 			// Validate custom endpoint
 			const customEndpoint = validateString(

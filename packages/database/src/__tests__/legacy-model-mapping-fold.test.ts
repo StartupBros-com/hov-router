@@ -1,10 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import {
-	getAccountOwnedModelMappings,
 	MAX_MODEL_MAPPING_CANDIDATES,
 	parseModelMappings,
 } from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
 import {
 	foldLegacyModelMappings,
 	type LegacyModelMappingRow,
@@ -219,16 +217,6 @@ describe("foldLegacyModelMappings", () => {
 				);
 			}
 			expect(folded.warnings).toHaveLength(testCase.warnings ?? 0);
-		});
-
-		// Proves the fold routes exactly as the request-time merge it replaces.
-		// Removed together with that merge.
-		it(`${testCase.name}: matches the request-time merge`, () => {
-			const folded = foldLegacyModelMappings(testCase.row);
-			const account = { name: "fold-test", ...testCase.row } as Account;
-			expect(parseModelMappings(folded.model_mappings) ?? {}).toEqual(
-				getAccountOwnedModelMappings(account),
-			);
 		});
 	}
 

@@ -156,6 +156,37 @@ The guard no longer reads `GUARD_ALLOW_LEGACY_POOL_BODY`. Responses without the
 proxy recovery header are forwarded without retrying. Rollback validation now
 requires the guard body limits and systemd policies introduced in 3.6.0.
 
+## Old model mapping formats removed
+
+On first start, 7.0.0 moves mappings stored in `custom_endpoint` JSON
+(`modelMappings`) and in `model_fallbacks` into `model_mappings`, in the order
+the router applied them. The endpoint mapping overrides a family, and a fallback
+is appended as the next candidate. It then drops the `model_fallbacks` column.
+Values the router could not parse were never used and are dropped with a warning
+in the log.
+
+The API and CLI no longer accept `modelFallbacks`, a `modelMappings` key inside
+`customEndpoint`, or a `model_mappings` value wrapped as
+`{"modelMappings": {...}}`. Send ordered candidates as `modelMappings` arrays.
+The API returns HTTP 400 for these retired inputs.
+
+One case changes routing: a fallback for a family that had no account mapping
+but did have one from `OPENAI_COMPATIBLE_MODEL_MAPPINGS` used to be tried after
+the environment mapping. It is now the account's mapping for that family and
+replaces the environment one. Add the family's full candidate list to the
+account to keep the old order.
+
+## max account mode removed
+
+Use `--mode claude-oauth` in the CLI or `mode: "claude-oauth"` in the API.
+The removed mode is rejected as an unknown mode.
+
+## Retired 5h rate-limit reason renamed
+
+Accounts stored with `upstream_429_no_reset_default_5h`, written only by ccflare
+3.5.x and earlier, are renamed to `upstream_429_no_reset_probe_cooldown`, which
+the router treats the same way.
+
 ## Manual source updates
 
 Branded builds do not offer an actionable upstream update. Do not install a registry package or a tombii release to update this fork: those are upstream distributions, not HoV Router.

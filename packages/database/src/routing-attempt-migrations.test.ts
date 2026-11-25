@@ -220,7 +220,7 @@ describe("routing_attempts migrations", () => {
 			}
 
 			for (const reason of [
-				"upstream_429_no_reset_default_5h",
+				"retired_rate_limit_reason",
 				"not_a_routing_attempt_reason",
 			]) {
 				expect(() =>
@@ -355,7 +355,7 @@ describe("routing_attempts migrations", () => {
 			runMigrations(db);
 
 			for (const reason of [
-				"upstream_429_no_reset_default_5h",
+				"retired_rate_limit_reason",
 				"not_a_routing_attempt_reason",
 			]) {
 				expect(() =>

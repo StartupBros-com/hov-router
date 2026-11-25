@@ -1604,8 +1604,8 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 		await dbOps.getAdapter().run(
 			`INSERT INTO accounts (
 				id, name, provider, api_key, refresh_token, access_token,
-				expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings, model_fallbacks
-			) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, 0, 0, ?, ?, NULL, NULL)`,
+				expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings
+			) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, 0, 0, ?, ?, NULL)`,
 			[
 				cliId,
 				"cli-equivalent",

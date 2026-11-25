@@ -653,7 +653,7 @@ export async function runCli(argv: string[]): Promise<void> {
 				}
 
 				// Parse options
-				let mode = values.mode as
+				const mode = values.mode as
 					| "claude-oauth"
 					| "console"
 					| "codex"
@@ -673,16 +673,36 @@ export async function runCli(argv: string[]): Promise<void> {
 					| "ollama"
 					| "ollama-cloud"
 					| "meta"
-					| "max"
 					| undefined;
 
-				// Handle deprecated "max" mode with warning
-				if (mode === "max") {
-					console.warn(
-						'⚠️  Mode "max" is deprecated. Please use "claude-oauth" instead.',
+				const validModes = [
+					"claude-oauth",
+					"console",
+					"codex",
+					"qwen",
+					"xai",
+					"zai",
+					"minimax",
+					"deepseek",
+					"anthropic-compatible",
+					"openai-compatible",
+					"nanogpt",
+					"vertex-ai",
+					"bedrock",
+					"kilo",
+					"openrouter",
+					"alibaba-coding-plan",
+					"ollama",
+					"ollama-cloud",
+					"meta",
+				];
+				if (mode !== undefined && !validModes.includes(mode)) {
+					console.error(
+						`Invalid mode: ${mode}. Valid modes: ${validModes.join(", ")}`,
 					);
-					mode = "claude-oauth";
+					process.exit(1);
 				}
+
 				const priorityValue = values.priority
 					? parseInt(values.priority as string, 10)
 					: undefined;
