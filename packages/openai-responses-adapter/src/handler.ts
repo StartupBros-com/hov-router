@@ -624,36 +624,44 @@ export async function handleResponsesRequest(
 			};
 		};
 		let stableCode = "api_error";
-		const contentType = anthropicResp.headers.get("content-type") ?? "";
-		if (contentType.includes("application/json")) {
-			try {
-				const anthropicError = (await anthropicResp.json()) as {
+		// Read the error envelope whatever the content-type says. A Codex HTTP
+		// error reaches here without one (the provider passes the upstream
+		// response through), and gating on `application/json` turned every such
+		// rejection into "Unknown error", hiding the provider's reason (#324).
+		let anthropicError:
+			| {
 					type?: string;
 					error?: Record<string, unknown> & {
 						type?: string;
 						code?: string;
 						message?: string;
 					};
-				};
-				const errType = anthropicError?.error?.type ?? "api_error";
-				stableCode = anthropicError?.error?.code ?? errType;
-				errorBody = {
-					error: {
-						...anthropicError?.error,
-						message: anthropicError?.error?.message ?? "Unknown error",
-						type: errType,
-						code: stableCode,
-					},
-				};
-			} catch {
-				errorBody = {
-					error: {
-						message: "Unknown error",
-						type: "api_error",
-						code: "api_error",
-					},
-				};
+			  }
+			| undefined;
+		try {
+			const parsed: unknown = JSON.parse(await anthropicResp.text());
+			if (
+				typeof parsed === "object" &&
+				parsed !== null &&
+				typeof (parsed as { error?: unknown }).error === "object" &&
+				(parsed as { error?: unknown }).error !== null
+			) {
+				anthropicError = parsed as typeof anthropicError;
 			}
+		} catch {
+			anthropicError = undefined;
+		}
+		if (anthropicError) {
+			const errType = anthropicError.error?.type ?? "api_error";
+			stableCode = anthropicError.error?.code ?? errType;
+			errorBody = {
+				error: {
+					...anthropicError.error,
+					message: anthropicError.error?.message ?? "Unknown error",
+					type: errType,
+					code: stableCode,
+				},
+			};
 		} else {
 			errorBody = {
 				error: {
