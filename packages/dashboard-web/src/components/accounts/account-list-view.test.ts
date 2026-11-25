@@ -254,9 +254,17 @@ test("attention means operator action: a limit that clears on its own never coun
 		{ usageThrottledUntil: 101 },
 		// A delayed usage poll is the router's to retry.
 		{ usageRateLimitedUntil: 101 },
-		// A 402 bench is timed and the router retries it. The row shows it only as
-		// "Cooling down", so counting it would point at a line that is not there.
+		// A 402 bench is timed and the router retries it. Its status pill reads
+		// "Cooling down" whatever the provider reported, so counting it would point
+		// at a pill that does not name the cause. Both shapes the API can send:
+		// its own retry label, and a provider-reported payment status.
 		{
+			rateLimitStatus: "Rate limited (5m)",
+			rateLimitedUntil: 101,
+			rateLimitedReason: "upstream_402_payment_required",
+		},
+		{
+			rateLimitStatus: "payment_required (5m)",
 			rateLimitedUntil: 101,
 			rateLimitedReason: "upstream_402_payment_required",
 		},
