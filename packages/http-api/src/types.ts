@@ -4,8 +4,6 @@ export type {
 	AccountResponse,
 	AnalyticsResponse,
 	APIContext,
-	CacheInsightsResponse,
-	CacheInsightsRow,
 	CleanupResponse,
 	ConfigResponse,
 	FullDiskStatus,

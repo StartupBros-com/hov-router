@@ -1044,7 +1044,9 @@ HoV Router maintains a cache of the Anthropic model catalog (id, display name, c
 
 ### Why this isn't fetched from every account
 
-Catalog refresh lists models (`/v1/models`); it does not send inference. The router prefers an eligible Anthropic Console API-key account over OAuth regardless of priority and excludes paused accounts and custom endpoints:
+A consumer OAuth account (`claude-oauth` mode) is meant for Claude Code traffic. Recurring background API calls made by Router itself — and the proactive OAuth token refreshes they can trigger — are an atypical automation pattern for that account type and risk a flag or ban. API-key accounts (`console`, `zai`, `minimax`, `muse-spark`, `anthropic-compatible`, `openai-compatible`) are the sanctioned surface for unattended, programmatic requests. Because of this, the model catalog refresh is deliberately restrictive by default:
+
+The catalog implementation lists models (`/v1/models`), not inference. It prefers an eligible Anthropic Console API-key account over OAuth regardless of priority and excludes paused accounts and custom endpoints. The following describes its existing behavior, not an exception to the [subscription-account usage rule](../AGENTS.md):
 
 - **Scheduled (automatic) refresh**: only console/API-key accounts are eligible, unless `BETTER_CCFLARE_MODELS_OAUTH_REFRESH=1` (or the `model_catalog_oauth_refresh_enabled` config field) opts in to an OAuth fallback.
 - **Manual refresh** (`POST /api/models/refresh`, human-triggered from the dashboard or `curl`): always allows the OAuth fallback in addition to console accounts, regardless of the scheduled-refresh setting.

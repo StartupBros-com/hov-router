@@ -71,17 +71,21 @@ describe("repository agent instructions", () => {
 		}
 	});
 
-	test("managed CLI checks support print mode without authorizing spend or raw subscription probes", () => {
-		const rules = readRepositoryFile("AGENTS.md")
-			.split("## Repository rules for live inference tests\n")[1]
-			.split("\n## ")[0];
-		expect(rules).not.toContain("must only be used through a real interactive");
-		expect(rules).not.toContain("banned for automated/scripted usage");
-		expect(rules).toContain("`claude -p`");
-		expect(rules).toContain("approved managed gateway");
-		expect(rules).toContain("Do not incur unapproved charges or overages");
-		expect(rules).toContain("Never use subscription OAuth or setup-tokens for raw HTTP tests");
-		expect(rules).toContain("`x-better-ccflare-account-id`");
+	test("native CLI print mode preserves the subscription-account boundary", () => {
+		// The native-client boundary applies beyond testing; headless Claude Code
+		// is supported without allowing arbitrary clients or paid overage.
+		const instructions = readRepositoryFile("AGENTS.md");
+
+		expect(instructions).toContain("`claude` account");
+		expect(instructions).toContain(
+			"Never send an Anthropic-backed account a request that does not come from Claude Code",
+		);
+		expect(instructions).toMatch(/no curl, test harness, SDK script/);
+		expect(instructions).not.toMatch(/CRITICAL: Testing Restrictions/);
+		expect(instructions).not.toContain("must only be used through a real interactive");
+		expect(instructions).toContain("headless `claude -p`");
+		expect(instructions).toContain("Nothing here authorizes paid overage");
+		expect(instructions).toContain("`x-better-ccflare-account-id`");
 	});
 
 	test("the canonical instructions omit stale repository guidance", () => {

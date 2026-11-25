@@ -71,6 +71,7 @@ import {
 	createApiKeyUpdateRoleHandler,
 } from "./handlers/api-keys";
 import { createBankedResetsSummaryHandler } from "./handlers/banked-resets";
+import { createCacheParityHandler } from "./handlers/cache-parity";
 import {
 	createCodexModelMigrationApplyHandler,
 	createCodexModelMigrationPreviewHandler,
@@ -103,12 +104,6 @@ import {
 	createRssHandler,
 } from "./handlers/debug";
 import { createHealthHandler } from "./handlers/health";
-import {
-	createAnomalyInsightsHandler,
-	createCacheInsightsHandler,
-	createCacheParityHandler,
-	createContextInsightsHandler,
-} from "./handlers/insights";
 import { createLogsStreamHandler } from "./handlers/logs";
 import { createLogsHistoryHandler } from "./handlers/logs-history";
 import { createCleanupHandler } from "./handlers/maintenance";
@@ -291,10 +286,7 @@ export class APIRouter {
 		const publicSubscriptionValueHandler = createPublicSubscriptionValueHandler(
 			this.context,
 		);
-		const cacheInsightsHandler = createCacheInsightsHandler(this.context);
 		const cacheParityHandler = createCacheParityHandler(this.context);
-		const anomalyInsightsHandler = createAnomalyInsightsHandler(this.context);
-		const contextInsightsHandler = createContextInsightsHandler(this.context);
 		const alertsHistoryHandler = createAlertsHistoryHandler(this.context);
 		const alertsConfigGetHandler = createAlertsConfigGetHandler(this.context);
 		const alertsConfigSetHandler = createAlertsConfigSetHandler(this.context);
@@ -561,17 +553,8 @@ export class APIRouter {
 		this.handlers.set("GET:/api/public/subscription-value", () =>
 			publicSubscriptionValueHandler(),
 		);
-		this.handlers.set("GET:/api/insights/cache", (_req, url) =>
-			cacheInsightsHandler(url.searchParams),
-		);
 		this.handlers.set("GET:/api/insights/cache-parity", () =>
 			cacheParityHandler(),
-		);
-		this.handlers.set("GET:/api/insights/anomalies", (_req, url) =>
-			anomalyInsightsHandler(url.searchParams),
-		);
-		this.handlers.set("GET:/api/insights/context", (_req, url) =>
-			contextInsightsHandler(url.searchParams),
 		);
 		// Alert routes
 		this.handlers.set("GET:/api/insights/alerts", (_req, url) =>

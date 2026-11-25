@@ -107,6 +107,20 @@ Release 5.0.0 logs one startup warning naming each Codex variable that is still 
 
 **Alerts.** The alert for a new model outside its approved line now checks only the Codex lines a route profile can pin (`gpt-astra`, `gpt-sol`). A newer Claude model is no longer flagged this way.
 
+## Insights page removed
+
+**What changed.** Release 7.0.0 removes the dashboard's Insights page and its cache efficiency, context composition and anomalies sections. The alert list it held moved to a new Alerts page at `/alerts`, and an old `/insights` link opens Alerts. The sidebar badge on Alerts counts unacknowledged warning and critical alerts from the last 24 hours. It used to count every unacknowledged alert ever stored, including info notices. Older alerts are still listed on the page.
+
+**Endpoints.** These answer `410 Gone` from the router itself, for every method, with `removedIn: "7.0.0"`:
+
+| Removed | Use instead |
+|---|---|
+| `GET /api/insights/cache` | `GET /api/analytics?modelBreakdown=true`, which reports the cache hit rate per model over time from the same token columns. The Analytics page charts it. |
+| `GET /api/insights/context` | Nothing. A request's stored payload is still shown in its details on the Requests page. |
+| `GET /api/insights/anomalies` | Nothing. The Requests and Analytics pages show per-request tokens and cost. |
+
+**Kept.** The alert routes keep their paths and responses: `GET` and `POST /api/insights/alerts`, `GET /api/insights/alerts/config`, `POST /api/insights/alerts/acknowledge-all`, `POST /api/insights/alerts/<id>` (acknowledge one alert) and `GET /api/insights/alerts/stream`. So does `GET /api/insights/cache-parity`. Stored alerts are untouched.
+
 ## Manual source updates
 
 Branded builds do not offer an actionable upstream update. Do not install a registry package or a tombii release to update this fork: those are upstream distributions, not HoV Router.

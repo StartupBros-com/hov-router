@@ -76,7 +76,7 @@ An existing OAuth login and a new `ANTHROPIC_AUTH_TOKEN` conflict. Don't blindly
 
 Before sending, confirm the selected route's cost and get approval for paid usage or overages; for a Claude login, [check its extra usage](#check-extra-usage-on-each-claude-login) first. If pricing is unclear, pause.
 
-Use the configured native Claude Code CLI and the intended model on the approved managed gateway. Send a small interactive request or use print mode (`claude -p`) for one tiny reply, with `--tools ""`, `--max-turns 1`, and `--no-session-persistence`. Do not use `--bare` if the check needs native OAuth/keychain login or saved gateway settings. A non-Anthropic test does not prove the Claude route.
+For Anthropic-backed accounts, send a small request from **Claude Code itself**: an interactive session or a headless `claude -p`, using the intended model and configured gateway. For a tiny tool-free print-mode check, use `--tools ""`, `--max-turns 1`, and `--no-session-persistence`. Do not use `--bare` if the check needs native OAuth/keychain login or saved gateway settings. Never probe these subscription accounts using raw curl, an SDK script, or another non-Claude-Code client, directly or through Router. Non-Anthropic local/synthetic checks are not proof of Anthropic OAuth success.
 
 Match the client request to the dashboard's **Requests** entry by time and request details, with owner assistance if access is restricted. Confirm the intended account, actual model, successful status, and completed stream, not just HTTP 200. If the client succeeds but the owner has not supplied matching evidence, report client success with route verification pending. A health check, account listing, routing preview, or truncated stream is insufficient. If it failed, use [troubleshooting](troubleshooting.md) and report the observed failure without silently switching providers or enabling paid overages.
 
@@ -88,7 +88,7 @@ Provider guidance checked November 24, 2026:
 - [Claude Code's credential rules](https://code.claude.com/docs/en/legal-and-compliance.md) distinguish individual use and hosting unmodified Claude Code with each user signing into their own account from offering Claude.ai login in another app. Developers must not collect, store, or intermediate users' personal-plan credentials or route requests on their behalf through those credentials. Subscription billing does not authorize pooling accounts for others.
 - [OpenClaw's provider guide](https://docs.openclaw.ai/providers/anthropic) distinguishes the native Claude Code backend, where the CLI owns login, from setup-token compatibility and API keys. A client accepting a token is not provider authorization to use it.
 
-For this repository's raw HTTP test and spending rules, see [AGENTS.md](../AGENTS.md#repository-rules-for-live-inference-tests).
+These sources describe upstream billing and integration conditions; they do not relax this repository's [subscription-account usage rule](../AGENTS.md). Traffic to its Claude subscription accounts must originate from the unmodified Claude Code binary, including when a program runs that binary. An SDK script or third-party harness must not call those accounts directly. No paid overage is authorized.
 
 ## 6. Hand back a usable setup
 

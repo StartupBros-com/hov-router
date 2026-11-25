@@ -10,7 +10,7 @@ describe("page meta", () => {
 		expect(byPath("title")).toEqual({
 			"/": "Overview",
 			"/analytics": "Analytics",
-			"/insights": "Insights",
+			"/alerts": "Alerts",
 			"/requests": "Requests",
 			"/accounts": "Accounts",
 			"/usage-history": "Usage History",
@@ -28,7 +28,8 @@ describe("page meta", () => {
 		expect(byPath("description")).toEqual({
 			"/": `Monitor your ${PRODUCT_NAME} performance and usage`,
 			"/analytics": "Usage patterns and trends over time",
-			"/insights": "Cache efficiency and estimated cost savings",
+			"/alerts":
+				"Alerts on usage windows, cache health, account auth and routing",
 			"/requests": "View detailed request and response data",
 			"/accounts": "Provider accounts, usage limits and routing settings",
 			"/usage-history":
