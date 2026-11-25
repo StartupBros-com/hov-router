@@ -495,7 +495,6 @@ export function resolveCompatibleEndpoint(
 	}
 }
 
-/** Create endpoint JSON. */
 export function createCustomEndpointData(endpoint: string): string {
 	return JSON.stringify({ endpoint });
 }
