@@ -78,7 +78,11 @@ describe("repository agent instructions", () => {
 		const instructions = readRepositoryFile("AGENTS.md");
 
 		expect(instructions).toContain("`claude` account");
-		expect(instructions).toMatch(/must only be used through a real interactive/);
+		expect(instructions).toContain(
+			"Never send an Anthropic-backed account a request that does not come from Claude Code",
+		);
+		expect(instructions).toMatch(/no curl, test harness, SDK script/);
+		expect(instructions).not.toMatch(/CRITICAL: Testing Restrictions/);
 	});
 
 	test("the canonical instructions omit stale repository guidance", () => {
