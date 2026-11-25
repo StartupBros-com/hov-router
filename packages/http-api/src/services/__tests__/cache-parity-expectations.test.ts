@@ -12,66 +12,54 @@ describe("buildCacheParityDriftReport", () => {
 		expect(report.declaredDefaults).toEqual(CACHE_PARITY_DECLARED_DEFAULTS);
 	});
 
-	test("removed turnStatePercent at its constant has no drift", () => {
-		const report = buildCacheParityDriftReport({
-			...CACHE_PARITY_DECLARED_DEFAULTS,
-			turnStatePercent: 0,
-			turnStateObserveOnly: false,
-		});
-		expect(
-			report.deviations.find(
-				(deviation) => deviation.lever === "turnStatePercent",
-			),
-		).toBeUndefined();
-		expect(report.deviations).toEqual([]);
+	test("declares only the levers the router still has", () => {
+		// The removed Codex levers (session keys, prefix sharding, continuity
+		// percentage, settle window, pacing bypass, explicit breakpoints, turn
+		// state, WebSocket) were reported at fixed values until 7.0.0.
+		expect(Object.keys(CACHE_PARITY_DECLARED_DEFAULTS).sort()).toEqual([
+			"cacheKeyMode",
+			"globalKeepaliveTtlMinutes",
+			"pacingMs",
+			"promptCacheKeyEnabled",
+			"xaiCacheKeepaliveTtlMinutes",
+		]);
 	});
 
 	test("an undeclared deviation reports as unacknowledged", () => {
 		const report = buildCacheParityDriftReport({
 			...CACHE_PARITY_DECLARED_DEFAULTS,
-			webSocketPercent: 25,
+			pacingMs: 0,
 		});
-		const entry = report.deviations.find(
-			(deviation) => deviation.lever === "webSocketPercent",
-		);
-		expect(entry).toBeDefined();
-		expect(entry?.acknowledged).toBe(false);
-		expect(entry?.acknowledgement).toBeNull();
+		expect(report.deviations).toEqual([
+			{
+				lever: "pacingMs",
+				declaredValue: 60_000,
+				liveValue: 0,
+				acknowledged: false,
+				acknowledgement: null,
+			},
+		]);
 	});
 
 	test("a deviation listed in the acknowledgement map reports as acknowledged", () => {
-		// The map ships empty since turn-state replay (#199) was removed, so add
-		// one entry for this test and remove it again afterwards.
+		// The map ships empty, so add one entry for this test and remove it
+		// again afterwards.
 		const acknowledgement = { issue: 730, note: "test-only acknowledgement" };
-		CACHE_PARITY_ACKNOWLEDGED_DEVIATIONS.webSocketPercent = acknowledgement;
+		CACHE_PARITY_ACKNOWLEDGED_DEVIATIONS.pacingMs = acknowledgement;
 		try {
 			const report = buildCacheParityDriftReport({
 				...CACHE_PARITY_DECLARED_DEFAULTS,
-				webSocketPercent: 25,
+				pacingMs: 0,
 			});
 			const entry = report.deviations.find(
-				(deviation) => deviation.lever === "webSocketPercent",
+				(deviation) => deviation.lever === "pacingMs",
 			);
 			expect(entry?.acknowledged).toBe(true);
 			expect(entry?.acknowledgement).toEqual(acknowledgement);
 		} finally {
-			delete CACHE_PARITY_ACKNOWLEDGED_DEVIATIONS.webSocketPercent;
+			delete CACHE_PARITY_ACKNOWLEDGED_DEVIATIONS.pacingMs;
 		}
 		expect(CACHE_PARITY_ACKNOWLEDGED_DEVIATIONS).toEqual({});
-	});
-
-	test("excludes the explicitBreakpointSuppressedScopes counter from drift, even when nonzero", () => {
-		const report = buildCacheParityDriftReport({
-			...CACHE_PARITY_DECLARED_DEFAULTS,
-			explicitBreakpointSuppressedScopes: 26,
-		});
-		expect(
-			report.deviations.some(
-				(deviation) =>
-					// @ts-expect-error — deliberately probing an excluded key
-					deviation.lever === "explicitBreakpointSuppressedScopes",
-			),
-		).toBe(false);
 	});
 
 	test("reports only declared defaults and deviations", () => {

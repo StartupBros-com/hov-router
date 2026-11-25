@@ -74,7 +74,7 @@ There is no PostgreSQL-to-SQLite migration tool, so option 2 starts with an empt
 | `GET /api/workspaces` | `GET /api/agents`, whose `workspaces` field lists the same workspaces. For a per-workspace agent count, count its `workspaceAgents` entries by `workspace`. |
 | `POST /api/debug/cache-diagnosis` | Nothing. It ran only when `CCFLARE_CACHE_DIAG` was set. |
 
-**Fields.** Account API responses no longer include `autoRefreshEnabled`. `GET /api/config` no longer includes `default_agent_model`. Until the next major release, `GET /api/cache-parity` (`/api/insights/cache-parity` before 7.0.0) still reports the removed Codex levers, at fixed values: session keys, prefix sharding, settle window, pacing bypass, explicit breakpoints, turn state and WebSocket, with continuity fixed on. `GET /api/debug/cache-pacing` reports `codex_settle_ms` as `0`.
+**Fields.** Account API responses no longer include `autoRefreshEnabled`. `GET /api/config` no longer includes `default_agent_model`. Through the 5.x and 6.x releases, `GET /api/cache-parity` (`/api/insights/cache-parity` before 7.0.0) kept reporting the removed Codex levers at fixed values, and `GET /api/debug/cache-pacing` kept reporting `codex_settle_ms` as `0`. Release 7.0.0 removes those fields; see [Codex lever fields removed](#codex-lever-fields-removed).
 
 **Commands.** `--get-model` and `--set-model` are gone and now exit with status 1 as unknown arguments. `--show-config` still reads the configuration file without writing it.
 
@@ -119,7 +119,7 @@ Release 5.0.0 logs one startup warning naming each Codex variable that is still 
 | `GET /api/insights/context` | Nothing. A request's stored payload is still shown in its details on the Requests page. |
 | `GET /api/insights/anomalies` | Nothing. The Requests and Analytics pages show per-request tokens and cost. |
 
-**Moved.** The alert and cache-parity routes moved out from under `/api/insights`. Point any script or proxy rule at the new path; the old one answers `410 Gone` naming it. Requests and responses are unchanged apart from the alert settings fields listed under Anomaly alerts below.
+**Moved.** The alert and cache-parity routes moved out from under `/api/insights`. Point any script or proxy rule at the new path; the old one answers `410 Gone` naming it. Requests and responses are unchanged apart from the alert settings fields listed under Anomaly alerts below and the cache-parity fields listed under [Codex lever fields removed](#codex-lever-fields-removed).
 
 | Old path | New path |
 |---|---|
@@ -136,6 +136,15 @@ A dashboard tab left open across the upgrade keeps calling the old paths, so its
 **Anomaly alerts.** Release 7.0.0 also removes the anomaly alert sweep. It was off by default and raised `anomaly_token_outlier`, `anomaly_output_blowup`, `anomaly_runaway_loop` and `anomaly_model_misrouting` alerts. Its settings are ignored and left where they are: `ALERT_ANOMALY_ENABLED`, `ALERT_ANOMALY_INTERVAL_MINUTES`, `ALERT_ANOMALY_BASELINE_WINDOW_MINUTES`, `ALERT_ANOMALY_LOOP_MIN_REQUESTS` and the matching `alert_anomaly_*` config-file keys. If the sweep was turned on, startup logs one warning until you delete them. The alert settings that `GET /api/alerts/config` and `POST /api/alerts` return no longer include `anomalyEnabled`, `anomalyIntervalMinutes`, `anomalyBaselineWindowMinutes` or `loopMinRequests`. A `POST` that still sends them succeeds and ignores them. The four `anomaly_*` type names are still accepted in `ALERT_WEBHOOK_TYPES` and `alert_webhook_types`, so a saved allowlist loads and saves as before; nothing raises those types any more.
 
 **Kept.** Stored alerts are untouched, including any `anomaly_*` alerts.
+
+## Codex lever fields removed
+
+**What changed.** Release 7.0.0 removes the response fields that still reported removed Codex cache levers at fixed values. The 5.0.0 notes kept them for one release, and 5.1.0 changed that to until the next major release; 6.0.0 still carried them.
+
+- `GET /api/cache-parity`: `policy` and `driftReport.declaredDefaults` no longer include `cacheKeySessionPercent`, `cacheKeyContinuityPercent`, `cacheKeyPrefixShardPercent`, `codexSettleMs`, `pacingBypassPercent`, `explicitBreakpointPercent`, `explicitBreakpointSuppressedScopes`, `turnStatePercent`, `turnStateObserveOnly` or `webSocketPercent`, so no `driftReport.deviations` entry can name them. `backendCapability` no longer includes `explicitBreakpoint`, which was always `"not_requested"`.
+- `GET /api/debug/cache-pacing` no longer includes `codex_settle_ms`, which was always `0`.
+
+**Kept.** `policy` still reports `promptCacheKeyEnabled`, `cacheKeyMode`, `pacingMs`, `globalKeepaliveTtlMinutes` and `xaiCacheKeepaliveTtlMinutes`, and the verdict, windows and `backendCapability.endpoint` are unchanged. The removed levers' environment variables stay ignored, as listed under [Removed in 5.0.0](#removed-in-500).
 
 ## Manual source updates
 
