@@ -654,7 +654,9 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 		// On the interactive reader, not the bulk one: the usage-window page and
 		// the public value feed list windows here, and the bulk lane carries the
 		// ledger's long token aggregates. Under disk pressure this read took up to
-		// 2.6 s on the main thread (#1013).
+		// 2.3 s on the main thread in steady state (#1013). Its slow-SQL line is
+		// cut before FROM, so it shares one fingerprint with five other reads; kind
+		// `all` and a time well after startup mark it.
 		const rows = await this.queryOffThread<UsageWindowRow>(
 			`SELECT ${WINDOW_COLUMNS} FROM usage_windows
 			 ${where}
