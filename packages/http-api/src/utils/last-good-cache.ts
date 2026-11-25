@@ -9,6 +9,8 @@ export interface LastGood<T> {
 	 * running or failed.
 	 */
 	fresh: boolean;
+	/** Set when this older value stands in for a load that failed. */
+	error?: unknown;
 }
 
 export interface LastGoodCacheOptions {
@@ -124,9 +126,11 @@ export function createLastGoodCache<T>(options: LastGoodCacheOptions) {
 
 			if (outcome.kind === "landed") return outcome.result;
 			const fallback = lastGood(key);
-			if (fallback) return fallback;
-			if (outcome.kind === "failed") throw outcome.error;
-			return null;
+			if (outcome.kind === "failed") {
+				if (fallback) return { ...fallback, error: outcome.error };
+				throw outcome.error;
+			}
+			return fallback;
 		},
 		clear() {
 			generation++;

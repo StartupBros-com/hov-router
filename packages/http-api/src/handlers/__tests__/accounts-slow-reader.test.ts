@@ -222,6 +222,65 @@ describe("GET /api/accounts with a slow reader", () => {
 		expect(byName.get("claude-a")?.sessionStatsUnavailable).toBe(true);
 	});
 
+	it("retries a failed Codex payload read on the next poll instead of remembering it as no payloads", async () => {
+		await addAccount("codex-quiet", "codex", null);
+		const handler = makeHandler();
+		const payloadReads = spyOn(adapter, "getOffThread").mockImplementation(
+			async () => {
+				throw new Error("off-thread interactive reader busy");
+			},
+		);
+		await list(handler);
+		now = NOW + 10_000;
+		await list(handler);
+		expect(payloadReads).toHaveBeenCalledTimes(2);
+	});
+
+	it("does not overwrite usage the proxy recorded while a slow payload read was running", async () => {
+		await addAccount("codex-quiet", "codex", null);
+		await adapter.run(
+			"INSERT INTO requests (id, timestamp, method, path, success, response_time_ms, failover_attempts, account_used) VALUES ('r1', ?, 'POST', '/v1/responses', 1, 10, 0, 'codex-quiet')",
+			[NOW - 60_000],
+		);
+		await adapter.run(
+			"INSERT INTO request_payloads (id, json, timestamp) VALUES ('r1', ?, ?)",
+			[
+				JSON.stringify({
+					response: {
+						status: 200,
+						headers: {
+							"x-codex-primary-window-minutes": "300",
+							"x-codex-primary-used-percent": "10",
+							"x-codex-primary-reset-at": String(NOW / 1000 + 3600),
+						},
+					},
+					meta: { timestamp: NOW - 60_000 },
+				}),
+				NOW - 60_000,
+			],
+		);
+		let releasePayloads: () => void = () => {};
+		const held = new Promise<void>((resolve) => {
+			releasePayloads = resolve;
+		});
+		const getOffThread = adapter.getOffThread.bind(adapter);
+		spyOn(adapter, "getOffThread").mockImplementation(async (...args) => {
+			await held;
+			return getOffThread(...(args as Parameters<typeof getOffThread>));
+		});
+
+		await list(makeHandler());
+		// The proxy records fresher usage while the read is still running.
+		const live = {
+			five_hour: { utilization: 70, resets_at: null },
+			seven_day: { utilization: 20, resets_at: null },
+		};
+		usageCache.set("codex-quiet", live as never);
+		releasePayloads();
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(usageCache.get("codex-quiet")).toEqual(live as never);
+	});
+
 	it("does not hold the response on a stuck Codex payload read, or start another each poll", async () => {
 		await addAccount("codex-quiet", "codex", null);
 		const handler = makeHandler();

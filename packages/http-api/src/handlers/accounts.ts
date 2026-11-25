@@ -425,11 +425,11 @@ async function recoverCodexUsageFromPayloads(
 				"interactive",
 			);
 	} catch (error) {
-		// A busy or failed reader must not fail the whole accounts list; the
-		// durable snapshot below still answers.
-		log.warn(
-			`Failed to read stored payloads for ${accountName}:`,
-			error instanceof Error ? error.message : String(error),
+		// Thrown, not answered as "no payloads": the caller's cache must not keep
+		// a failed read. The caller logs it and falls back to the weekly snapshot.
+		throw new Error(
+			`Failed to read stored payloads for ${accountName}: ${error instanceof Error ? error.message : String(error)}`,
+			{ cause: error },
 		);
 	}
 
@@ -459,7 +459,10 @@ async function recoverCodexUsageFromPayloads(
 			// The cache's window type still declares `utilization: number`, while a
 			// normalized window may legitimately be unknown (null). Storing it is
 			// intended: every reader re-normalizes, and null renders as N/A.
-			usageCache.set(accountId, normalizedUsage as AnyUsageData);
+			// The read may land after the request stopped waiting; usage the proxy
+			// recorded meanwhile is newer than these stored headers and stays.
+			if (!usageCache.get(accountId))
+				usageCache.set(accountId, normalizedUsage as AnyUsageData);
 			log.debug(`Recovered Codex usage from stored payload for ${accountName}`);
 			return normalizedUsage;
 		} catch (error) {
@@ -546,12 +549,25 @@ export function createAccountsListHandler(
 		accountId,
 		accountName,
 	) => {
-		const read = await codexPayloadReads.get(
-			accountId,
-			() => recoverCodexUsageFromPayloads(dbOps, accountId, accountName),
-			{ waitMs: slowReadWaitMs },
-		);
-		if (!read)
+		// A busy or failed reader must not fail the whole accounts list; the
+		// durable snapshot still answers.
+		const read = await codexPayloadReads
+			.get(
+				accountId,
+				() => recoverCodexUsageFromPayloads(dbOps, accountId, accountName),
+				{ waitMs: slowReadWaitMs },
+			)
+			.catch((error: unknown) => {
+				log.warn(
+					`${error instanceof Error ? error.message : String(error)}; answering from the weekly snapshot`,
+				);
+				return undefined;
+			});
+		if (read?.error)
+			log.warn(
+				`${read.error instanceof Error ? read.error.message : String(read.error)}; answering from usage read ${Math.round((Date.now() - read.asOf) / 1000)}s ago`,
+			);
+		else if (read === null)
 			log.warn(
 				`Stored-payload usage read for ${accountName} still running after ${slowReadWaitMs}ms; answering from the weekly snapshot`,
 			);
@@ -595,6 +611,10 @@ export function createAccountsListHandler(
 		if (!read)
 			log.warn(
 				`Session totals unavailable (read failed or still running after ${slowReadWaitMs}ms); listing accounts without them`,
+			);
+		else if (read.error)
+			log.warn(
+				`Failed to read session totals (${read.error instanceof Error ? read.error.message : String(read.error)}); serving totals from ${Math.round((Date.now() - read.asOf) / 1000)}s ago`,
 			);
 		else if (!read.fresh)
 			log.warn(

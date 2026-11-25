@@ -152,8 +152,20 @@ describe("last-good cache", () => {
 		await seeded;
 		now = 500;
 		const fallback = cache.get("k", loads.load, { waitMs: 1_000 });
-		loads.reject(2, new Error("disk"));
-		expect(await fallback).toEqual({ value: 7, asOf: 0, fresh: false });
+		const failure = new Error("disk");
+		loads.reject(2, failure);
+		// The fallback names the failure, so a caller can report it rather than
+		// mistake it for a load that is still running.
+		expect(await fallback).toEqual({
+			value: 7,
+			asOf: 0,
+			fresh: false,
+			error: failure,
+		});
+		// A fallback served because the load is still running carries no error.
+		now = 600;
+		const waiting = await cache.get("k", loads.load, { waitMs: 1 });
+		expect(waiting).toEqual({ value: 7, asOf: 0, fresh: false });
 	});
 
 	it("reloads a fresh value that does not cover what the caller needs", async () => {
