@@ -116,13 +116,22 @@ describe("cache parity handler", () => {
 		const data = await response.json();
 		expect(data.verdict).toBe("insufficient_evidence");
 		expect(data.metricScopes.durable).toBe("logical_request_final_usage");
-		expect(data.policy.turnStatePercent).toBe(0);
-		expect(data.policy.turnStateObserveOnly).toBe(false);
-		expect(
-			data.driftReport.deviations.find(
-				(entry: { lever: string }) => entry.lever === "turnStatePercent",
-			),
-		).toBeUndefined();
+		// The removed Codex levers were reported at fixed values until 7.0.0;
+		// the snapshot now carries only the levers that still do something.
+		const liveLevers = [
+			"cacheKeyMode",
+			"globalKeepaliveTtlMinutes",
+			"pacingMs",
+			"promptCacheKeyEnabled",
+			"xaiCacheKeepaliveTtlMinutes",
+		];
+		expect(Object.keys(data.policy).sort()).toEqual(liveLevers);
+		expect(Object.keys(data.driftReport.declaredDefaults).sort()).toEqual(
+			liveLevers,
+		);
+		expect(data.backendCapability).toEqual({
+			endpoint: "chatgpt_subscription",
+		});
 		const codex = data.windows.authoritative7d.providers.find(
 			(item: { key: string }) => item.key === "codex",
 		);

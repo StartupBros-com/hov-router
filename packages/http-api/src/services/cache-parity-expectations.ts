@@ -19,40 +19,24 @@ import type {
 } from "@better-ccflare/types";
 
 /**
- * Declared default for every lever in CacheParityPolicySnapshot (excluding
- * the `explicitBreakpointSuppressedScopes` observed counter — see
- * CacheParityLeverKey). Values mirror docs/configuration.md:
+ * Declared default for every lever in CacheParityPolicySnapshot. Values
+ * mirror docs/configuration.md:
  *
  * - promptCacheKeyEnabled / cacheKeyMode / pacingMs (60s): KEEP — the proven
  *   production controls. pacingMs is recorded as its deployed value
  *   (2026-08-20 plan doc Sources block: `CCFLARE_CACHE_PACING_MS=60000`), not
  *   the env-unset code default, because the ownership table declares it
  *   KEPT ON.
- * - cacheKeyContinuityPercent (100): KEEP — continuity is always on in code,
- *   and the snapshot reports a fixed 100 for one release.
- * - cacheKeySessionPercent, cacheKeyPrefixShardPercent, codexSettleMs,
- *   pacingBypassPercent, explicitBreakpointPercent, webSocketPercent:
- *   REMOVED — the code is gone and the snapshot reports a fixed 0 for one
- *   release.
- * - turnStatePercent: REMOVED — fixed at 0 for one release.
  * - globalKeepaliveTtlMinutes, xaiCacheKeepaliveTtlMinutes: default-off
  *   diagnostic/compatibility surfaces with no parity claim, declared default 0.
- * - turnStateObserveOnly: REMOVED — fixed at false for one release.
+ *
+ * The REMOVED levers have no default here: 7.0.0 dropped them from the
+ * snapshot, which had reported them at fixed values since 5.0.0.
  */
 export const CACHE_PARITY_DECLARED_DEFAULTS: CacheParityPolicySnapshot = {
 	promptCacheKeyEnabled: true,
 	cacheKeyMode: "conversation",
-	cacheKeySessionPercent: 0,
-	cacheKeyContinuityPercent: 100,
-	cacheKeyPrefixShardPercent: 0,
 	pacingMs: 60_000,
-	codexSettleMs: 0,
-	pacingBypassPercent: 0,
-	explicitBreakpointPercent: 0,
-	explicitBreakpointSuppressedScopes: 0,
-	turnStatePercent: 0,
-	turnStateObserveOnly: false,
-	webSocketPercent: 0,
 	globalKeepaliveTtlMinutes: 0,
 	xaiCacheKeepaliveTtlMinutes: 0,
 };
@@ -66,22 +50,11 @@ export const CACHE_PARITY_ACKNOWLEDGED_DEVIATIONS: Partial<
 	Record<CacheParityLeverKey, CacheParityDeclaredAcknowledgement>
 > = {};
 
-const DECLARED_LEVER_KEYS: CacheParityLeverKey[] = [
-	"promptCacheKeyEnabled",
-	"cacheKeyMode",
-	"cacheKeySessionPercent",
-	"cacheKeyContinuityPercent",
-	"cacheKeyPrefixShardPercent",
-	"pacingMs",
-	"codexSettleMs",
-	"pacingBypassPercent",
-	"explicitBreakpointPercent",
-	"turnStatePercent",
-	"turnStateObserveOnly",
-	"webSocketPercent",
-	"globalKeepaliveTtlMinutes",
-	"xaiCacheKeepaliveTtlMinutes",
-];
+// Every snapshot field is a lever, and the object literal above cannot carry
+// a key the snapshot type lacks, so its keys are exactly the levers.
+const DECLARED_LEVER_KEYS = Object.keys(
+	CACHE_PARITY_DECLARED_DEFAULTS,
+) as CacheParityLeverKey[];
 
 /** Diff a live cache-parity policy snapshot against the declared defaults. */
 export function buildCacheParityDriftReport(
