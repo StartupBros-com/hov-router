@@ -42,8 +42,7 @@ That makes an unknown path a live routing attempt, not a harmless 404.
 
 A probe harness waited for a locally-started ccflare by polling `/api/health` in a
 loop. That path is not a route. Every poll fell through to the generic proxy and was
-attempted against real accounts — including **Anthropic-backed ones**, which this
-repository's top-level instruction says must never receive scripted traffic:
+attempted against real accounts, including Anthropic-backed accounts. A readiness poll should never reach an upstream account; it is not a [CLI route check](../../agent-setup.md#5-connect-claude-code-and-prove-the-route):
 
 ```
 ERROR [ProxyOperations] ValidationError: Provider cannot handle path: /api/health

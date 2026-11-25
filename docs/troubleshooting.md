@@ -291,7 +291,7 @@ mix and an idle-vs-traffic RSS comparison on an issue.
    - `session` (default): One global sticky session per account, duration `SESSION_DURATION_MS` (default 5 hours / 18000000ms, `TIME_CONSTANTS.ANTHROPIC_SESSION_DURATION_DEFAULT`) — not 1 hour.
    - `session-affinity`: Independent per-client sticky affinity instead of one shared global session; see "Parallel sessions causing cache misses" below.
    - `session-drain-soonest`: Opt-in `session-affinity` variant that additionally drains by weekly pace band, then the soonest all-model weekly reset; see [Drain ordering](load-balancing.md#drain-ordering).
-   - `least-used`: Orders accounts by utilization instead of session stickiness; intended for non-OAuth/API-key pools, not Anthropic OAuth accounts, where per-request spreading risks anti-abuse bans.
+   - `least-used`: Orders accounts by effective utilization rather than client affinity. A later turn can land on a different account and miss the previous account's cache.
    - Full descriptions and use cases: [`docs/configuration.md`](configuration.md#load-balancing-strategy).
 
 ### Parallel Sessions Causing Cache Misses

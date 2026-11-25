@@ -28,22 +28,20 @@ import { StatusPill } from "../ui/status-pill";
 import { Switch } from "../ui/switch";
 import { getErrorMeta } from "./system-status/errorCodeMeta";
 
-// Only session-class strategies are offered from the dashboard. Per-request
-// spreading strategies (least-used, session-affinity) can trip Claude's
-// anti-abuse systems and get accounts banned, so they remain deliberately
-// hidden even though StrategyName defines them. Values come from the shared
-// StrategyName enum so this list cannot drift from the authoritative values.
-const STRATEGY_OPTIONS: ReadonlyArray<{ label: string; value: string }> = [
-	{ label: "Session", value: StrategyName.Session },
-	{
-		label: "Session — drain soonest",
-		value: StrategyName.SessionDrainSoonest,
-	},
-	{
-		label: "Session — drain soonest (strict)",
-		value: StrategyName.SessionDrainSoonestStrict,
-	},
-];
+const STRATEGY_OPTIONS: ReadonlyArray<{ label: string; value: StrategyName }> =
+	[
+		{ label: "Session", value: StrategyName.Session },
+		{ label: "Session affinity", value: StrategyName.SessionAffinity },
+		{ label: "Least used", value: StrategyName.LeastUsed },
+		{
+			label: "Session — drain soonest",
+			value: StrategyName.SessionDrainSoonest,
+		},
+		{
+			label: "Session — drain soonest (strict)",
+			value: StrategyName.SessionDrainSoonestStrict,
+		},
+	];
 
 export interface StrategySelectItem {
 	label: string;
@@ -51,19 +49,7 @@ export interface StrategySelectItem {
 	disabled?: boolean;
 }
 
-/**
- * Build the strategy Select's item list. The dashboard only offers the
- * session-class strategies above, but the server's effective strategy
- * (getStrategy()) can be any StrategyName value — settable via
- * LB_STRATEGY, an older config file, or a hand-edited one. An out-of-list
- * value used to leave the Select's trigger blank with no indication it was
- * active, and selecting a listed option would silently overwrite it
- * with no recovery path (routing-settings-ui-2026-07-20 review, rank 1).
- * When the current strategy isn't one of the listed options, it is
- * appended as a disabled item labelled "<value> (current)" so its state is
- * visible without being re-selectable; the deliberate options stay
- * selectable.
- */
+// Show an unknown server value without offering to save it.
 export function getStrategySelectItems(
 	strategy: string,
 ): readonly StrategySelectItem[] {
@@ -150,11 +136,11 @@ export function RoutingCardView({
 							)}
 						</div>
 						<div className="text-sm text-muted-foreground">
-							<span className="font-medium">Session</span> keeps each client on
-							one account for the session duration.{" "}
-							<span className="font-medium">Session — drain soonest</span> is
-							sticky: its affinity owner is never preempted; weekly-reset
-							ranking only orders fresh selection and failover.{" "}
+							<span className="font-medium">Session</span> reuses one
+							account-level session across clients.{" "}
+							<span className="font-medium">Session — drain soonest</span> keeps
+							its owner while affinity and routing policy allow; weekly-reset
+							ranking orders fresh selection and failover.{" "}
 							<span className="font-medium">
 								Session — drain soonest (strict)
 							</span>{" "}
@@ -191,9 +177,9 @@ export function RoutingCardView({
 							</SelectContent>
 						</Select>
 						<div className="text-xs text-muted-foreground">
-							Only session-class strategies are shown. Strategies that spread
-							individual requests across accounts can trigger Claude's
-							anti-abuse systems and risk account bans.
+							Session affinity keeps a client on its eligible account for cache
+							reuse. Least used considers utilization and recent picks on each
+							request, spreading bursts but potentially losing cache hits.
 						</div>
 						{strategySaveFailed && (
 							<p role="alert" className="text-xs text-destructive">

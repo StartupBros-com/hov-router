@@ -794,7 +794,7 @@ claude
 - Your OAuth credentials stay secure on your trusted server
 - Clients hold a Router key, not the server's provider OAuth credentials; protect that key too
 
-Verify with a real interactive Claude Code request and a matching **Requests** entry, following [request verification](agent-setup.md#5-connect-claude-code-and-prove-the-route). If dashboard access is restricted, get owner-assisted evidence; until then route verification is pending. Do not issue admin keys merely for this check or use raw scripted Anthropic inference.
+Verify with a small native Claude Code request (interactive or bounded, tool-free print mode through the approved managed gateway) and a matching **Requests** entry, following [request verification](agent-setup.md#5-connect-claude-code-and-prove-the-route). If dashboard access is restricted, get owner-assisted evidence; until then route verification is pending. Do not issue admin keys merely for this check or use subscription credentials for raw HTTP probes.
 
 ### Which method should I use?
 

@@ -318,7 +318,7 @@ Managed routing changes which accounts can receive real traffic. Roll it out as 
 6. Keep the first family as a canary until at least 20 clean natural requests span more than one conversation and more than one eligible account, with no Managed-specific terminal regression.
 7. Compare aggregate selected-source counts, account/tier distribution, fallback count, terminal-error count, latency, cache behavior, and capability/exclusion reasons before and after enablement. Keep prompts, custom endpoints, raw mappings, and credentials out of diagnostics.
 8. Continue through at least one account priority/mapping refresh or operational availability transition to verify dynamic recomputation.
-9. Never send scripted inference to Anthropic or Codex for validation.
+9. Do not count synthetic pings toward the 20 natural requests. A [bounded native CLI check](agent-setup.md#5-connect-claude-code-and-prove-the-route) proves a route, not representative canary behavior.
 10. If routing regresses, set only `membership_mode` back to `manual`, then inspect the retained rules and exclusions before trying again.
 
 Enable the next family only after the first family meets that evidence threshold.
@@ -414,4 +414,4 @@ Content-Type: application/json
 }
 ```
 
-Read the family policy again to confirm `legacy`. Subsequent requests resume the existing combo/session fallback configuration. Validate production behavior only through natural interactive Claude Code use; offline mocked tests cover scripted inference scenarios.
+Read the family policy again to confirm `legacy`. Subsequent requests resume the existing combo/session fallback configuration. Verify the restored route with [a matching native Claude Code request](agent-setup.md#5-connect-claude-code-and-prove-the-route); use offline mocks for repeatable failure scenarios.

@@ -1964,12 +1964,8 @@ export class Config extends EventEmitter {
 	/**
 	 * Whether the automatic (non-manual) model catalog refresh is allowed to
 	 * fall back to an OAuth account when no eligible API-key account exists.
-	 * Defaults to false: recurring background traffic — and the proactive
-	 * OAuth token refreshes it can trigger — on a consumer OAuth account is an
-	 * atypical automation pattern that risks an account flag/ban, whereas
-	 * API-key accounts are the sanctioned programmatic surface. A manual,
-	 * human-triggered refresh always allows the OAuth fallback regardless of
-	 * this flag.
+	 * Defaults to false for scheduled /v1/models lookups. A manual catalog
+	 * refresh always allows the fallback. Neither path requests inference.
 	 */
 	getModelCatalogOAuthRefreshEnabled(): boolean {
 		const fromEnv = parseEnabledEnvFlag(

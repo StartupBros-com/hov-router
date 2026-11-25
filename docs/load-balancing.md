@@ -12,7 +12,7 @@
 
 ## Overview
 
-HoV Router supports four load-balancing strategies for distributing requests across compatible accounts: `session` (the default), `least-used`, `session-affinity`, and the opt-in `session-drain-soonest`. Session-based strategies preserve account or client stickiness where prompt-cache locality and provider safety matter; `least-used` is available when per-request spreading is appropriate.
+HoV Router defaults to `session`. Choose `session-affinity` for per-client cache locality, either drain-soonest mode to prioritize expiring weekly capacity, or `least-used` for per-request balancing.
 
 ### Key Features
 - **Account Health Monitoring**: Automatically filters out rate-limited or paused accounts
@@ -26,18 +26,17 @@ HoV Router supports four load-balancing strategies for distributing requests acr
 
 ## Available Strategies
 
-The strategy is selected with `LB_STRATEGY`, the `lb_strategy` configuration key, or the HTTP configuration endpoint. All four values are valid:
+The strategy is selected with `LB_STRATEGY`, the `lb_strategy` configuration key, or the HTTP configuration endpoint. The supported values are:
 
 | Strategy | Routing behavior | OAuth and provider guidance |
 |----------|------------------|-----------------------------|
 | `session` (default) | Maintains one account-level session and returns ordered fallbacks. Session duration is configurable (5 hours by default). | Preserves stickiness for providers that require session-window tracking, including Anthropic OAuth and Codex OAuth. Anthropic OAuth sessions also reset when a known `rate_limit_reset` has passed. |
-| `least-used` | Orders available accounts by priority and utilization, with a short recency penalty to spread bursts. Each request can select a different account. | Does not preserve OAuth stickiness. Use for API-key or compatible-provider pools where per-request spreading is explicitly safe. |
+| `least-used` | Orders available accounts by priority and utilization, with a short recency penalty to spread bursts. Each request can select a different account. | Spreads bursts at the expense of prompt-cache locality. |
 | `session-affinity` | Maps each client session or affinity lane to a sticky account, while retaining automatic failover and expiry. New clients are spread across the pool. | Recommended when multiple concurrent clients need cache-local routing without one global account owner. |
 | `session-drain-soonest` (opt-in) | Extends `session-affinity`. A fresh assignment or account failover ranks candidates by fallback rung, tier, weekly pace band, then the earliest known future all-model weekly reset, then priority/utilization (see [Drain ordering](#drain-ordering)). Existing owners stay put unless a same-tier account reaches a higher pace band; Codex owners always stay, Anthropic owners stay only while their prompt cache is warm (bounded hold). | Unknown, malformed, or past reset telemetry is treated as unavailable and falls back to ordinary affinity ordering. Enable deliberately for pools where draining expiring weekly capacity is useful. |
+| `session-drain-soonest-strict` | Ranks by earliest future weekly reset within each authorized routing class. | Active sessions break ties rather than taking precedence over reset order. |
 
-For Anthropic OAuth accounts, prefer `session`, `session-affinity`, or the opt-in `session-drain-soonest`. These preserve natural account stickiness. `least-used` intentionally spreads requests and may trigger provider anti-abuse controls when used with OAuth credentials.
-
-**Dashboard exposure**: the dashboard's strategy selector deliberately offers only `session` and its `session-drain-soonest`/`session-drain-soonest-strict` variants — `least-used` and `session-affinity` are per-request spreading strategies that can trip provider anti-abuse systems, so they are excluded from the dropdown even though both remain fully supported via `LB_STRATEGY`, the config file, or the HTTP configuration endpoint. If either is already active (set out-of-band), the dashboard shows it as a disabled "(current)" entry rather than silently switching away from it. (Source: `packages/dashboard-web/src/components/overview/RoutingCard.tsx`.)
+**Dashboard selector:** All five strategies are selectable unless `LB_STRATEGY` locks the setting. An unrecognized current value from the server remains visible as a disabled “(current)” entry.
 
 ## Session-Based Strategy
 
@@ -395,7 +394,7 @@ The strategy configuration can be changed at runtime via the HTTP API:
 # Get current strategy
 curl http://localhost:8080/api/config/strategy
 
-# Update strategy (all four values are valid; session-drain-soonest is opt-in)
+# Select the default session strategy
 curl -X PUT http://localhost:8080/api/config/strategy \
   -H "Content-Type: application/json" \
   -d '{"strategy": "session"}'
@@ -533,7 +532,7 @@ Monitor these key metrics:
 
 ## Strategy Selection and OAuth Safety
 
-All four built-in strategies are supported. The right choice depends on whether
+All five built-in strategies are supported. The right choice depends on whether
 the provider and credential type benefit from account stickiness:
 
 ### Account and client stickiness
@@ -617,17 +616,11 @@ durable account lock or a guarantee that the upstream still has a cached prefix.
 `least-used` orders available accounts by priority and utilization on every
 request, with a bounded recency penalty to prevent concurrent bursts from
 converging on one account. It intentionally does not preserve OAuth stickiness.
-Use it for API-key or compatible-provider pools where per-request spreading is
-safe and prompt-cache reuse is less important.
+Use it when spreading bursts matters more than prompt-cache reuse.
 
-### Anti-abuse guidance
+### Cache locality and utilization
 
-Rapidly switching among Anthropic OAuth accounts can look unlike normal user
-behavior and may trigger provider anti-abuse controls. For Anthropic OAuth,
-prefer `session`, `session-affinity`, or the opt-in `session-drain-soonest` and
-monitor account health and rate-limit telemetry. `least-used` is not unsafe by
-definition, but should be reserved for credentials and providers where that
-traffic pattern is explicitly acceptable.
+Use `session-affinity` to keep each client's requests on an eligible account and reuse its prompt cache. Use `least-used` to spread bursts by effective utilization instead. Compare cache reads, account utilization, and rate-limit telemetry on representative traffic before changing the strategy.
 
 If you need to tune the default account-level behavior, adjust
 `session_duration_ms` rather than inventing a custom strategy:
