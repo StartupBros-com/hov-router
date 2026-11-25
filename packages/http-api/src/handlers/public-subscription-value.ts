@@ -88,6 +88,13 @@ export const REBUILD_RETRY_MS = 15_000;
  * made by another process sharing the database is picked up within this bound.
  */
 export const ROSTER_RECHECK_MS = 5_000;
+/**
+ * A build that takes this long logs its landing or rejection as a warning, so
+ * production, which logs at warn, records the builds that open gaps: a gap
+ * opens when two consecutive builds plus the CACHE_MS - REBUILD_LEAD_MS wait
+ * pass MAX_AGE_MS. Faster builds stay at info.
+ */
+export const SLOW_BUILD_MS = 60_000;
 /** Source clocks may lead this server by at most five seconds. */
 const CLOCK_SKEW_MS = 5_000;
 const timestamp = (value: number): boolean =>
@@ -557,22 +564,27 @@ export function createPublicSubscriptionValueHandler(
 			bodyAgeMs = landedAt - entry.body.generatedAt;
 			if (landedAt < entry.body.generatedAt || landedAt >= entry.expiresAt)
 				throw new FeedUnavailable("expired");
-			log.info("Public subscription value build landed", {
-				ms: Math.round(performance.now() - startedAt),
-				bodyAgeMs,
-				accounts: entry.body.subscriptions.length,
-			});
+			const ms = Math.round(performance.now() - startedAt);
+			log[ms >= SLOW_BUILD_MS ? "warn" : "info"](
+				"Public subscription value build landed",
+				{ ms, bodyAgeMs, accounts: entry.body.subscriptions.length },
+			);
 			cache = entry;
 			failures = 0;
 			retryNotBefore = 0;
 			armAhead(entry, landedAt);
 			return entry;
 		} catch (error) {
-			log.info("Public subscription value build rejected", {
-				outcome: error instanceof FeedUnavailable ? error.reason : "unexpected",
-				ms: Math.round(performance.now() - startedAt),
-				...(bodyAgeMs === undefined ? {} : { bodyAgeMs }),
-			});
+			const ms = Math.round(performance.now() - startedAt);
+			log[ms >= SLOW_BUILD_MS ? "warn" : "info"](
+				"Public subscription value build rejected",
+				{
+					outcome:
+						error instanceof FeedUnavailable ? error.reason : "unexpected",
+					ms,
+					...(bodyAgeMs === undefined ? {} : { bodyAgeMs }),
+				},
+			);
 			const delay = noteFailure(error);
 			// Keep the feed warm when no request arrives; the delay doubles per failure.
 			if (cache) armRebuild(delay);
