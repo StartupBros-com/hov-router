@@ -11,6 +11,9 @@ export const MAX_UPSTREAM_ERROR_OBSERVATION_BYTES = 64 * 1024;
 
 const SAFE_ERROR_TYPE = /^[A-Za-z][A-Za-z0-9._:-]{0,63}$/;
 const SAFE_ERROR_CODE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+// A request field path such as `input[0].type` or `reasoning.context`: the
+// name of the field the provider rejected, never its value.
+const SAFE_ERROR_PARAM = /^[A-Za-z_][A-Za-z0-9_.[\]-]{0,127}$/;
 
 export interface UpstreamErrorTelemetry {
 	errorType?: string;
@@ -31,6 +34,12 @@ function safeType(value: unknown): string | undefined {
 
 function safeCode(value: unknown): string | undefined {
 	return typeof value === "string" && SAFE_ERROR_CODE.test(value)
+		? value
+		: undefined;
+}
+
+function safeParam(value: unknown): string | undefined {
+	return typeof value === "string" && SAFE_ERROR_PARAM.test(value)
 		? value
 		: undefined;
 }
@@ -56,7 +65,7 @@ function boundedBodyText(body: string | Uint8Array): string | undefined {
  */
 function parseUpstreamErrorFields(
 	body: string | Uint8Array | null | undefined,
-): { errorType?: string; errorCode?: string } {
+): { errorType?: string; errorCode?: string; errorParam?: string } {
 	const text = body == null ? undefined : boundedBodyText(body);
 	if (text === undefined) return {};
 	try {
@@ -74,9 +83,11 @@ function parseUpstreamErrorFields(
 		// misleading telemetry when the nested object is absent.
 		if (!hasNestedError && errorType === "error") errorType = undefined;
 		const errorCode = safeCode(nested.code);
+		const errorParam = safeParam(nested.param);
 		return {
 			...(errorType ? { errorType } : {}),
 			...(errorCode ? { errorCode } : {}),
+			...(errorParam ? { errorParam } : {}),
 		};
 	} catch {
 		// A plain-text or malformed provider error still yields its status.
@@ -98,24 +109,32 @@ export function extractUpstreamErrorTelemetry(
 	upstreamStatus: number,
 ): UpstreamErrorTelemetry | null {
 	if (upstreamStatus !== 403) return null;
-	return { ...parseUpstreamErrorFields(body), upstreamStatus };
+	const { errorType, errorCode } = parseUpstreamErrorFields(body);
+	return {
+		...(errorType ? { errorType } : {}),
+		...(errorCode ? { errorCode } : {}),
+		upstreamStatus,
+	};
 }
 
 /**
  * The stored cause of a failed, forwarded upstream response (#756):
- * `upstream_http_<status>`, then ` type=<type>` and ` code=<code>` when the
- * bounded body carries safe values. It never includes message text, so the
- * request row's `error_message` keeps the same privacy contract as the 403
- * log above.
+ * `upstream_http_<status>`, then ` type=<type>`, ` code=<code>` and
+ * ` param=<field>` when the bounded body carries safe values. `param` is the
+ * name of the request field the provider rejected (OpenAI's `error.param`),
+ * which is what makes a 400 diagnosable without the message. It never
+ * includes message text or field values, so the request row's
+ * `error_message` keeps the same privacy contract as the 403 log above.
  */
 export function describeUpstreamFailure(
 	body: string | Uint8Array | null | undefined,
 	upstreamStatus: number,
 ): string {
-	const { errorType, errorCode } = parseUpstreamErrorFields(body);
+	const { errorType, errorCode, errorParam } = parseUpstreamErrorFields(body);
 	return [
 		`upstream_http_${upstreamStatus}`,
 		...(errorType ? [`type=${errorType}`] : []),
 		...(errorCode ? [`code=${errorCode}`] : []),
+		...(errorParam ? [`param=${errorParam}`] : []),
 	].join(" ");
 }

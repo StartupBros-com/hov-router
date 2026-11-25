@@ -803,12 +803,14 @@ function getMidstreamMeta(errorType: string): ErrorMeta {
 
 function getUpstreamHttpMeta(value: string): ErrorMeta {
 	// describeUpstreamFailure (packages/proxy/src/upstream-error-observability.ts):
-	// `upstream_http_<status>`, then ` type=<type>` and ` code=<code>`.
+	// `upstream_http_<status>`, then ` type=<type>`, ` code=<code>` and
+	// ` param=<field>`.
 	const [status = "", ...fields] = value.split(" ");
 	const field = (name: string) =>
 		fields.find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1);
 	const type = field("type");
 	const code = field("code");
+	const param = field("param");
 	const statusNumber = Number(status);
 	const overloaded = statusNumber === 529 || type === "overloaded_error";
 	const serverSide = overloaded || statusNumber >= 500;
@@ -828,6 +830,7 @@ function getUpstreamHttpMeta(value: string): ErrorMeta {
 	const details = [
 		...(type ? [`error type ${type}`] : []),
 		...(code ? [`code ${code}`] : []),
+		...(param ? [`rejected field ${param}`] : []),
 	].join(" and ");
 	return {
 		title,
@@ -835,13 +838,13 @@ function getUpstreamHttpMeta(value: string): ErrorMeta {
 			`The provider answered HTTP ${status}` +
 			(details ? ` with ${details}` : "") +
 			", and the router passed that reply to the client. This error line " +
-			"keeps only the status, error type and code, never the provider's " +
-			"message text.",
+			"keeps only the status, error type, code and the name of the field " +
+			"the provider rejected, never the provider's message text.",
 		suggestion: serverSide
 			? "This is trouble on the provider's side. Occasional ones need no " +
 				"action; if they repeat, check the provider's status page."
-			: "The error type and code say what the provider objected to. Check the " +
-				"request and the account at the provider.",
+			: "The error type, code and rejected field say what the provider " +
+				"objected to. Check the request and the account at the provider.",
 		severity: overloaded ? "warning" : "error",
 	};
 }

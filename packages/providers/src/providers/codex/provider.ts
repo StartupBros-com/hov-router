@@ -200,6 +200,15 @@ const CODEX_SYNTHETIC_RESPONSE_URL =
 export const CODEX_PROMPT_CACHE_KEY_ENV = "CCFLARE_CODEX_PROMPT_CACHE_KEY";
 // The Codex CLI's turn-state header must never be forwarded to the subscription backend.
 const CODEX_CLIENT_TURN_STATE_HEADER = "x-codex-turn-state";
+/**
+ * Codex CLI sends this header with the Responses Lite request shape (catalog
+ * models with `use_responses_lite`). It asks the backend to validate the body
+ * as Lite. The provider always rebuilds the body in the classic shape (top-level
+ * `instructions`, `reasoning` reduced to `effort`), so forwarding the header
+ * makes the backend reject every such request with 400 `unsupported_value`
+ * (#324). Lite's `additional_tools` input items still work without it.
+ */
+const CODEX_RESPONSES_LITE_HEADER = "x-openai-internal-codex-responses-lite";
 /** "conversation" (default) or "session"; see derivePromptCacheKey. */
 export const CODEX_CACHE_KEY_MODE_ENV = "CCFLARE_CODEX_CACHE_KEY_MODE";
 /**
@@ -2511,6 +2520,7 @@ export class CodexProvider extends BaseProvider {
 		newHeaders.delete("x-api-key");
 		newHeaders.delete("host");
 		newHeaders.delete(CODEX_CLIENT_TURN_STATE_HEADER);
+		newHeaders.delete(CODEX_RESPONSES_LITE_HEADER);
 
 		// Remove internal proxy headers.
 		for (const key of [...newHeaders.keys()]) {

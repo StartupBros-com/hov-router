@@ -65,6 +65,44 @@ describe("describeUpstreamFailure", () => {
 		expect(describeUpstreamFailure(oversized, 500)).toBe("upstream_http_500");
 	});
 
+	it("names the rejected request field without its value or the message", () => {
+		const result = describeUpstreamFailure(
+			JSON.stringify({
+				error: {
+					message: "Unsupported value: 'private prompt text' for this model.",
+					type: "invalid_request_error",
+					param: "input[0].type",
+					code: "unsupported_value",
+				},
+			}),
+			400,
+		);
+		expect(result).toBe(
+			"upstream_http_400 type=invalid_request_error code=unsupported_value param=input[0].type",
+		);
+		expect(result).not.toContain("private");
+	});
+
+	it("drops a param that is not a plain field path", () => {
+		for (const param of [
+			"reasoning context",
+			"input[0]\nforged-log-line",
+			"'value'",
+			"",
+			null,
+			7,
+		]) {
+			expect(
+				describeUpstreamFailure(
+					JSON.stringify({
+						error: { type: "invalid_request_error", code: "bad", param },
+					}),
+					400,
+				),
+			).toBe("upstream_http_400 type=invalid_request_error code=bad");
+		}
+	});
+
 	it("keeps only the code when the type is absent", () => {
 		expect(
 			describeUpstreamFailure(
