@@ -8,17 +8,7 @@ import {
 const POLICY: CacheParityPolicy = {
 	promptCacheKeyEnabled: true,
 	cacheKeyMode: "conversation",
-	cacheKeySessionPercent: 0,
-	cacheKeyContinuityPercent: 100,
-	cacheKeyPrefixShardPercent: 0,
 	pacingMs: 60_000,
-	codexSettleMs: 0,
-	pacingBypassPercent: 0,
-	explicitBreakpointPercent: 0,
-	explicitBreakpointSuppressedScopes: 0,
-	turnStatePercent: 0,
-	turnStateObserveOnly: false,
-	webSocketPercent: 0,
 	globalKeepaliveTtlMinutes: 0,
 	xaiCacheKeepaliveTtlMinutes: 0,
 };
@@ -156,20 +146,20 @@ describe("buildCacheParityResponse", () => {
 		);
 	});
 
-	test("carries a drift report with no deviation for the removed turnStatePercent constant", () => {
-		const data = response([row()], [row()], {
-			...POLICY,
-			turnStatePercent: 0,
-			turnStateObserveOnly: false,
-		});
-		expect(
-			data.driftReport.deviations.find(
-				(deviation) => deviation.lever === "turnStatePercent",
-			),
-		).toBeUndefined();
+	test("carries a drift report with no deviation at the declared defaults", () => {
+		const data = response([row()]);
+		expect(data.driftReport.deviations).toEqual([]);
 		expect(Object.keys(data.driftReport).sort()).toEqual([
 			"declaredDefaults",
 			"deviations",
 		]);
+	});
+
+	test("names the subscription backend without a removed explicit-breakpoint state", () => {
+		// The explicit breakpoint was removed, so the always-"not_requested"
+		// capability field went with it in 7.0.0.
+		expect(response([row()]).backendCapability).toEqual({
+			endpoint: "chatgpt_subscription",
+		});
 	});
 });

@@ -261,8 +261,6 @@ export function buildCacheParityResponse(
 		},
 		backendCapability: {
 			endpoint: "chatgpt_subscription",
-			// GPT-5.6 explicit breakpoints were removed, so none is ever requested.
-			explicitBreakpoint: "not_requested",
 		},
 		policy: input.policy,
 		driftReport: buildCacheParityDriftReport(input.policy),

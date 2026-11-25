@@ -159,25 +159,7 @@ function readCacheParityPolicy(context: APIContext): CacheParityPolicy {
 			process.env[CODEX_CACHE_KEY_MODE_ENV] === "session"
 				? "session"
 				: "conversation",
-		// The cache-key canaries were removed: session keys and prefix sharding
-		// are always off and continuity is always on. The levers stay in the
-		// declared policy for one release at their fixed values.
-		cacheKeySessionPercent: 0,
-		cacheKeyContinuityPercent: 100,
-		cacheKeyPrefixShardPercent: 0,
 		pacingMs: readCachePacingMs(),
-		// The Codex settle window and pacing bypass were removed; always 0.
-		codexSettleMs: 0,
-		pacingBypassPercent: 0,
-		// GPT-5.6 explicit breakpoints were removed; always off.
-		explicitBreakpointPercent: 0,
-		explicitBreakpointSuppressedScopes: 0,
-		// Removed lever; keep these compatibility fields for one release.
-		turnStatePercent: 0,
-		turnStateObserveOnly: false,
-		// The Codex WebSocket transport was removed; the lever stays in the
-		// declared levers for one release and always reads as off.
-		webSocketPercent: 0,
 		// Read directly: this feeds the R18 fail-closed guard, so a missing or
 		// renamed accessor must break loudly rather than resolve to 0, which
 		// would read as "no synthetic traffic" and let parity pass.
