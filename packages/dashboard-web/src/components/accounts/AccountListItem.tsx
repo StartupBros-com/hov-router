@@ -71,6 +71,13 @@ const STATUS_ICON = {
 	muted: CirclePause,
 };
 
+/**
+ * Session totals older than this say when they were read. Under a slow
+ * database the server answers each 60 s poll with its last read, so totals a
+ * minute or two old are normal and stay unlabelled.
+ */
+const SESSION_TOTALS_SHOWN_AS_OLD_MS = 5 * 60_000;
+
 function formatTokenCount(n: number): string {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
 	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
@@ -973,9 +980,26 @@ export function AccountListItem({
 									{sessionInfo}
 								</span>
 							)}
+							{account.sessionStatsUnavailable && !account.sessionStats && (
+								<p className="text-xs text-muted-foreground">
+									Session totals unavailable right now. They return once the
+									database answers.
+								</p>
+							)}
 							{account.sessionStats && (
 								<div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
 									<span className="font-medium">Session</span>
+									{account.sessionStatsAsOf != null &&
+										now - account.sessionStatsAsOf >=
+											SESSION_TOTALS_SHOWN_AS_OLD_MS && (
+											<span
+												title={new Date(
+													account.sessionStatsAsOf,
+												).toLocaleString()}
+											>
+												as of {formatClockTime(account.sessionStatsAsOf, now)}
+											</span>
+										)}
 									<span>{account.sessionStats.requests} requests</span>
 									<span>
 										{formatTokenCount(account.sessionStats.inputTokens)} in

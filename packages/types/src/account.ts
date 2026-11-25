@@ -657,6 +657,17 @@ export interface AccountResponse {
 	modelFallbacks?: { [key: string]: string } | null;
 	billingType?: string | null;
 	sessionStats: SessionStats | null;
+	/**
+	 * When `sessionStats` was read (epoch ms). Earlier than the response when
+	 * the current read was slow and the last read for this session was served.
+	 * Null when nothing was read. Optional because older servers omit it.
+	 */
+	sessionStatsAsOf?: number | null;
+	/**
+	 * True when the account is in a session but its totals could not be read in
+	 * time; `sessionStats` is then null, which does not mean zero requests.
+	 */
+	sessionStatsUnavailable?: boolean;
 	isPrimary: boolean; // True if this is the account the load balancer would pick next
 }
 
