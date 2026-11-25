@@ -165,6 +165,60 @@ function isCurrentInvalidationGeneration(
  */
 let providerWide: CodexModelListing | null = null;
 
+/**
+ * The newest provider-wide read exactly as OpenAI sent it, for the Codex CLI's
+ * own catalog request (`GET /v1/models?client_version=…`).
+ *
+ * The normalised listings above cannot stand in for it: they keep a handful of
+ * the fields the CLI decodes and drop the `hide` entries, among them the model
+ * the CLI's automatic review runs on. Published under the same start-order
+ * fence as {@link providerWide}, and like every listing here it lives in
+ * process memory only.
+ */
+interface CodexClientCatalog {
+	/** The upstream response body, unmodified. */
+	body: string;
+	/**
+	 * The upstream `ETag`. The CLI compares it with the `X-Models-Etag` header
+	 * on each model response and refetches its catalog when they differ, so a
+	 * value minted here would make it refetch on every turn.
+	 */
+	etag: string | null;
+}
+
+let clientCatalog: CodexClientCatalog | null = null;
+
+/**
+ * Answer the Codex CLI's catalog request from memory. The CLI asks whenever
+ * its own copy is more than five minutes old or the ETag moves, which is most
+ * runs, so this never calls upstream.
+ *
+ * Before any account has read a catalog the answer is 404, not 503: the CLI
+ * retries a 5xx four times over about three seconds, which only delays its
+ * start (the refresh heartbeat's first read begins 30 to 120 seconds after
+ * startup). A 404 sends it straight to the catalog bundled with its binary.
+ */
+export function codexClientCatalogResponse(): Response {
+	if (!clientCatalog) {
+		return Response.json(
+			{
+				error: {
+					type: "not_found_error",
+					message:
+						"No Codex model catalog has been read yet; the Codex CLI uses its bundled catalog until one is.",
+				},
+			},
+			{ status: 404, headers: { "cache-control": "no-store" } },
+		);
+	}
+	const headers = new Headers({
+		"content-type": "application/json",
+		"cache-control": "no-store",
+	});
+	if (clientCatalog.etag) headers.set("etag", clientCatalog.etag);
+	return new Response(clientCatalog.body, { status: 200, headers });
+}
+
 /** Retry only unresolved accounts; exact live or cached-own evidence stops it. */
 const ensureRetryByAccount = new Map<string, EnsureRetryState>();
 
@@ -215,6 +269,7 @@ export function clearCodexModelCacheForTests(): void {
 	clearCodexAccountModelContextMetadata();
 	invalidationGenerationByAccount.clear();
 	providerWide = null;
+	clientCatalog = null;
 	ensureRetryByAccount.clear();
 	ensureInFlight.clear();
 	unknownRevalidationAt.clear();
@@ -385,7 +440,11 @@ async function fetchLive(
 	ctx: ProxyContext,
 	generation: number,
 	invalidationGeneration: number,
-): Promise<{ models: CodexModelEntry[]; fingerprint: string }> {
+): Promise<{
+	models: CodexModelEntry[];
+	fingerprint: string;
+	clientCatalog: CodexClientCatalog;
+}> {
 	const identity = resolveCodexClientIdentity();
 	const accessToken = await getValidAccessToken(account, ctx);
 	if (!accessToken) throw new Error("no access token for this account");
@@ -426,9 +485,13 @@ async function fetchLive(
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}`);
 		}
+		// Read once as text: the routing listing is parsed from it, and the
+		// CLI's own catalog request is answered with it unchanged.
+		const body = await response.text();
 		return {
-			models: normalize((await response.json()) as CodexModelsResponse),
+			models: normalize(JSON.parse(body) as CodexModelsResponse),
 			fingerprint,
+			clientCatalog: { body, etag: response.headers.get("etag") },
 		};
 	} finally {
 		clearTimeout(timeout);
@@ -691,12 +754,11 @@ export async function getCodexModels(
 	const account = { ...resolvedAccount };
 
 	try {
-		const { models, fingerprint } = await fetchLive(
-			account,
-			ctx,
-			fetchGeneration,
-			invalidationGeneration,
-		);
+		const {
+			models,
+			fingerprint,
+			clientCatalog: upstreamCatalog,
+		} = await fetchLive(account, ctx, fetchGeneration, invalidationGeneration);
 		// An answer with nothing usable in it is not an answer. Recording it
 		// would mark the account as resolved and stop every later attempt, so a
 		// single odd response would freeze the account with no defaults at all.
@@ -732,6 +794,7 @@ export async function getCodexModels(
 			}
 			if (fetchGeneration > publishedProviderCatalogGeneration) {
 				providerWide = listing;
+				clientCatalog = upstreamCatalog;
 				setDerivedProviderModelDefaults("codex", accountId, families);
 				publishedProviderCatalogGeneration = fetchGeneration;
 			}
