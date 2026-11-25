@@ -19,10 +19,17 @@ import type { AccountResponse } from "@better-ccflare/types";
 import { OffThreadReader } from "../../../../database/src/off-thread-reader";
 import { CacheHealthRepository } from "../../../../database/src/repositories/cache-health.repository";
 import { ExternalUsageRepository } from "../../../../database/src/repositories/external-usage.repository";
+import { createCacheParityConfigStub } from "../../__tests__/support/cache-parity-config-stub";
 import { AlertService } from "../../services/alerts";
 import type { APIContext } from "../../types";
 import { createAccountsListHandler } from "../accounts";
 import { createAnalyticsHandler } from "../analytics";
+import {
+	createAnomalyInsightsHandler,
+	createCacheInsightsHandler,
+	createCacheParityHandler,
+	createContextInsightsHandler,
+} from "../insights";
 import { createStatsHandler } from "../stats";
 
 const DAY = 86400000;
@@ -175,6 +182,66 @@ describe("heavy read result equivalence", () => {
 		expect(await worker.text()).toBe(await main.text());
 		expect(reader.readsServed - before).toBe(4);
 	});
+	it("returns identical insights reports through the reader and scans no requests on the main thread", async () => {
+		// No models.dev fetch: both passes price from the same local catalogue.
+		const offline = process.env.CF_PRICING_OFFLINE;
+		process.env.CF_PRICING_OFFLINE = "1";
+		try {
+			const context = {
+				dbOps: db,
+				config: createCacheParityConfigStub(),
+			} as unknown as APIContext;
+			const reports: Array<[string, () => Promise<Response>]> = [
+				[
+					"cache",
+					() =>
+						createCacheInsightsHandler(context)(
+							new URLSearchParams({ range: "30d" }),
+						),
+				],
+				["cache-parity", () => createCacheParityHandler(context)()],
+				[
+					"anomalies",
+					() =>
+						createAnomalyInsightsHandler(context)(
+							new URLSearchParams({ range: "30d" }),
+						),
+				],
+				[
+					"context",
+					() =>
+						createContextInsightsHandler(context)(
+							new URLSearchParams({ range: "30d" }),
+						),
+				],
+			];
+			const adapter = db.getAdapter();
+			for (const [name, report] of reports) {
+				adapter.setOffThreadReader(undefined);
+				const main = await report();
+				expect([name, main.status]).toEqual([name, 200]);
+				const mainBody = await main.text();
+
+				adapter.setOffThreadReader(reader);
+				const mainQuery = spyOn(adapter, "query");
+				const before = reader.readsServed;
+				const worker = await report();
+				expect([name, worker.status]).toEqual([name, 200]);
+				expect(await worker.text()).toBe(mainBody);
+				expect(reader.readsServed - before).toBeGreaterThan(0);
+				const scansRequests = ([sql]: unknown[]) =>
+					/FROM requests/.test(String(sql));
+				expect([name, mainQuery.mock.calls.filter(scansRequests)]).toEqual([
+					name,
+					[],
+				]);
+				mainQuery.mockRestore();
+			}
+		} finally {
+			if (offline === undefined) delete process.env.CF_PRICING_OFFLINE;
+			else process.env.CF_PRICING_OFFLINE = offline;
+		}
+	});
 	it("returns identical accounts-page session stats through the reader", async () => {
 		const sessions = [
 			{ id: "a1", session_start: NOW - 3 * DAY },
@@ -305,14 +372,15 @@ describe("heavy read result equivalence", () => {
 				[id, json, NOW - 60_000],
 			);
 		const ids = ["a1", "a2", "a3"];
-		const handler = createAccountsListHandler(db, {
-			getUsageThrottlingFiveHourEnabled: () => false,
-			getUsageThrottlingWeeklyEnabled: () => false,
-		} as unknown as Config);
 		const usage = async () => {
 			// After a restart the cache is empty, which is what sends the handler to
-			// the stored payloads.
+			// the stored payloads. A new handler per pass: one handler reuses its
+			// payload recovery for a minute (#1013), so a second pass would not read.
 			for (const id of ids) usageCache.delete(id);
+			const handler = createAccountsListHandler(db, {
+				getUsageThrottlingFiveHourEnabled: () => false,
+				getUsageThrottlingWeeklyEnabled: () => false,
+			} as unknown as Config);
 			const accounts = (await (await handler()).json()) as AccountResponse[];
 			return ids.map(
 				(id) => accounts.find((account) => account.id === id)?.usageData,

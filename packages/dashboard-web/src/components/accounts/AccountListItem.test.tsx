@@ -1006,6 +1006,49 @@ describe("AccountListItem row actions", () => {
 	});
 });
 
+describe("session totals on the usage tab", () => {
+	const NOW = Date.UTC(2026, 10, 24, 15, 0);
+	const totals = {
+		requests: 4,
+		inputTokens: 1_200,
+		cacheCreationInputTokens: 0,
+		cacheReadInputTokens: 0,
+		outputTokens: 300,
+		planCostUsd: 0,
+		apiCostUsd: 0,
+	};
+	const usageTab = (account: Account) => {
+		const html = renderToStaticMarkup(
+			<AccountListItem account={account} now={NOW} {...requiredHandlers} />,
+		);
+		return html.slice(html.indexOf("Usage and resets"));
+	};
+
+	it("says the totals could not be read instead of dropping the line", () => {
+		const usage = usageTab(
+			makeAccount({ sessionStats: null, sessionStatsUnavailable: true }),
+		);
+		expect(usage).toContain("Session totals unavailable right now");
+		// The totals line itself (its "Session" label) is absent, not zeroed.
+		expect(usage).not.toContain('font-medium">Session</span>');
+	});
+
+	it("names when the totals were read only once they are minutes old", () => {
+		const recent = usageTab(
+			makeAccount({ sessionStats: totals, sessionStatsAsOf: NOW - 90_000 }),
+		);
+		expect(recent).toContain("4 requests");
+		expect(recent).not.toContain("as of");
+
+		const readAt = NOW - 6 * 60_000;
+		const old = usageTab(
+			makeAccount({ sessionStats: totals, sessionStatsAsOf: readAt }),
+		);
+		expect(old).toContain("4 requests");
+		expect(old).toContain(`as of ${formatClockTime(readAt, NOW)}`);
+	});
+});
+
 describe("account model mapping edits", () => {
 	it("preserves unrelated exact pins and one-element ordered arrays", () => {
 		const existing = {

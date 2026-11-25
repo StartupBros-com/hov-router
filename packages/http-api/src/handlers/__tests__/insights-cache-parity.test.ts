@@ -147,7 +147,7 @@ describe("cache parity handler", () => {
 			...context,
 			dbOps: {
 				getAdapter: () => ({
-					query: async () => {
+					queryOffThread: async () => {
 						throw new Error("boom");
 					},
 				}),

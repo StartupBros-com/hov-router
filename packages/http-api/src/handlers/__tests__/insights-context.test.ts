@@ -461,7 +461,7 @@ describe("context insights handler (SQLite integration)", () => {
 			config: {} as APIContext["config"],
 			dbOps: {
 				getAdapter: () => ({
-					query: async () => {
+					queryOffThread: async () => {
 						throw new Error("boom");
 					},
 				}),

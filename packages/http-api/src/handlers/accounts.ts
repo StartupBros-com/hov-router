@@ -68,6 +68,7 @@ import type {
 	FullUsageData,
 	LoadBalancingStrategy,
 	RateLimitReason,
+	SessionStats,
 } from "@better-ccflare/types";
 import {
 	parseExtraUsageHoldState,
@@ -79,6 +80,7 @@ import {
 } from "../services/public-subscription-roster";
 import type { AccountResponse } from "../types";
 import { accountCreatedResponse } from "../utils/account-created-response";
+import { createLastGoodCache } from "../utils/last-good-cache";
 import { labelRevealsAccount } from "./account-public-value";
 import { loadBankedResets } from "./banked-resets";
 import {
@@ -88,6 +90,36 @@ import {
 } from "./rate-limit-status";
 
 const log = new Logger("AccountsHandler");
+
+/**
+ * How long GET /api/accounts waits on a read from the interactive reader
+ * before answering without it (#1013). On a saturated disk the session-totals
+ * aggregate took up to 119 s while the dashboard gives the request 30 s, and
+ * the reader runs one read at a time, so each poll queued another behind it.
+ * The read keeps running and serves a later poll when it lands.
+ */
+const SLOW_READ_WAIT_MS = 2_000;
+/** Session totals younger than this are answered without a new read. */
+const SESSION_STATS_FRESH_MS = 15_000;
+/** Older session totals are never shown; the row says they are unavailable. */
+const SESSION_STATS_MAX_AGE_MS = 10 * 60_000;
+/** A Codex usage recovery from stored payloads is reused for this long. */
+const CODEX_PAYLOAD_FRESH_MS = 60_000;
+/** Matches the usage cache TTL the recovered value is also written to. */
+const CODEX_PAYLOAD_MAX_AGE_MS = 10 * 60_000;
+
+/** One account's session totals as the response reports them. */
+interface SessionStatsRead {
+	stats: SessionStats | null;
+	asOf: number | null;
+	unavailable: boolean;
+}
+
+/** One session-totals read: the session each account was read for, and its totals. */
+interface SessionStatsSnapshot {
+	sessionStartById: Map<string, number>;
+	stats: Map<string, SessionStats>;
+}
 
 const RATE_LIMIT_REASONS = new Set<RateLimitReason>([
 	"upstream_429_with_reset",
@@ -308,14 +340,18 @@ async function getPersistedAnthropicUsage(
  * Step 3 exists because Codex has no usage-polling endpoint: without it the
  * weekly percentage — the window that actually limits the account — is gone
  * after a restart or a quiet day, and the card shows an empty bar.
+ *
+ * Step 2 goes through `recoverFromPayloads`, which bounds the wait (#1013): a
+ * quiet account's cache empties after 10 minutes, and from then on every
+ * accounts poll would queue another payload read on the interactive reader.
  */
 async function getCachedOrPersistedCodexUsage(
 	dbOps: DatabaseOperations,
 	accountId: string,
 	accountName: string,
 	cacheData: FullUsageData | null,
+	recoverFromPayloads: CodexPayloadRecovery,
 ): Promise<FullUsageData | null> {
-	const db = dbOps.getAdapter();
 	if (cacheData) {
 		const normalizedCache = normalizeCodexUsageData(
 			cacheData as CodexUsageInput,
@@ -324,6 +360,43 @@ async function getCachedOrPersistedCodexUsage(
 			return normalizedCache;
 		}
 	}
+
+	const recovered = await recoverFromPayloads(accountId, accountName);
+	if (recovered) return recovered;
+
+	// Last resort: the durable weekly snapshot (see readStoredUsageWindows).
+	const stored = await readStoredUsageWindows(dbOps, accountId, accountName, [
+		"seven_day",
+	]);
+	if (stored) {
+		const normalizedSnapshot = normalizeCodexUsageData({
+			five_hour: { ...UNKNOWN_WINDOW },
+			seven_day: stored.seven_day,
+		});
+		if (normalizedSnapshot) {
+			log.debug(`Recovered Codex weekly usage from history for ${accountName}`);
+			return normalizedSnapshot;
+		}
+	}
+
+	return null;
+}
+
+type CodexPayloadRecovery = (
+	accountId: string,
+	accountName: string,
+) => Promise<FullUsageData | null>;
+
+/**
+ * Codex usage reparsed from the headers of the account's most recent stored
+ * payloads, or null. A recovered value is also written to the usage cache.
+ */
+async function recoverCodexUsageFromPayloads(
+	dbOps: DatabaseOperations,
+	accountId: string,
+	accountName: string,
+): Promise<FullUsageData | null> {
+	const db = dbOps.getAdapter();
 	// On the reader thread (#606). After a restart the cache is empty, and on the
 	// main thread this read of a cold page cache was the top statement in the
 	// event-loop stall (19-86 s) that froze the proxy at every backend start.
@@ -397,21 +470,6 @@ async function getCachedOrPersistedCodexUsage(
 		}
 	}
 
-	// Last resort: the durable weekly snapshot (see readStoredUsageWindows).
-	const stored = await readStoredUsageWindows(dbOps, accountId, accountName, [
-		"seven_day",
-	]);
-	if (stored) {
-		const normalizedSnapshot = normalizeCodexUsageData({
-			five_hour: { ...UNKNOWN_WINDOW },
-			seven_day: stored.seven_day,
-		});
-		if (normalizedSnapshot) {
-			log.debug(`Recovered Codex weekly usage from history for ${accountName}`);
-			return normalizedSnapshot;
-		}
-	}
-
 	return null;
 }
 
@@ -474,7 +532,91 @@ export function createAccountsListHandler(
 	dbOps: DatabaseOperations,
 	config: Config,
 	getStrategy?: () => LoadBalancingStrategy | null,
+	{ slowReadWaitMs = SLOW_READ_WAIT_MS }: { slowReadWaitMs?: number } = {},
 ) {
+	const sessionStatsReads = createLastGoodCache<SessionStatsSnapshot>({
+		freshMs: SESSION_STATS_FRESH_MS,
+		maxAgeMs: SESSION_STATS_MAX_AGE_MS,
+	});
+	const codexPayloadReads = createLastGoodCache<FullUsageData | null>({
+		freshMs: CODEX_PAYLOAD_FRESH_MS,
+		maxAgeMs: CODEX_PAYLOAD_MAX_AGE_MS,
+	});
+	const recoverCodexPayloads: CodexPayloadRecovery = async (
+		accountId,
+		accountName,
+	) => {
+		const read = await codexPayloadReads.get(
+			accountId,
+			() => recoverCodexUsageFromPayloads(dbOps, accountId, accountName),
+			{ waitMs: slowReadWaitMs },
+		);
+		if (!read)
+			log.warn(
+				`Stored-payload usage read for ${accountName} still running after ${slowReadWaitMs}ms; answering from the weekly snapshot`,
+			);
+		return read?.value ?? null;
+	};
+
+	/**
+	 * Session totals for every account in a session. One read runs at a time;
+	 * a slow one answers with the last totals read for the same session, or
+	 * marks the account unavailable. Never zeros in place of a missing read.
+	 */
+	async function readSessionStats(
+		inSession: Array<{ id: string; session_start: number }>,
+	): Promise<Map<string, SessionStatsRead>> {
+		const result = new Map<string, SessionStatsRead>();
+		if (inSession.length === 0) return result;
+		const read = await sessionStatsReads
+			.get(
+				"session-stats",
+				async () => ({
+					sessionStartById: new Map(
+						inSession.map((a) => [a.id, a.session_start]),
+					),
+					stats: await dbOps.getStatsRepository().getSessionStats(inSession),
+				}),
+				{
+					waitMs: slowReadWaitMs,
+					covers: (snapshot) =>
+						inSession.every(
+							(a) => snapshot.sessionStartById.get(a.id) === a.session_start,
+						),
+				},
+			)
+			.catch((error: unknown) => {
+				log.warn(
+					"Failed to read session totals:",
+					error instanceof Error ? error.message : String(error),
+				);
+				return null;
+			});
+		if (!read)
+			log.warn(
+				`Session totals unavailable (read failed or still running after ${slowReadWaitMs}ms); listing accounts without them`,
+			);
+		else if (!read.fresh)
+			log.warn(
+				`Session totals read still running; serving totals from ${Math.round((Date.now() - read.asOf) / 1000)}s ago`,
+			);
+		for (const account of inSession) {
+			const readForThisSession =
+				read?.value.sessionStartById.get(account.id) === account.session_start;
+			result.set(
+				account.id,
+				read && readForThisSession
+					? {
+							stats: read.value.stats.get(account.id) ?? null,
+							asOf: read.asOf,
+							unavailable: false,
+						}
+					: { stats: null, asOf: null, unavailable: true },
+			);
+		}
+		return result;
+	}
+
 	return async (): Promise<Response> => {
 		const db = dbOps.getAdapter();
 		const now = Date.now();
@@ -618,18 +760,16 @@ export function createAccountsListHandler(
 				)
 			: null;
 
-		// Fetch session-window token stats only for providers with session-based limits
-		const sessionStatsMap = await dbOps
-			.getStatsRepository()
-			.getSessionStats(
-				accounts
-					.filter((a) => requiresSessionDurationTracking(a.provider ?? ""))
-					.map((a) => ({
-						id: a.id,
-						session_start: a.session_start ? Number(a.session_start) : null,
-					})),
-			)
-			.catch(() => new Map());
+		// Session-window token totals only for providers with session-based limits
+		const sessionStatsById = await readSessionStats(
+			accounts
+				.filter(
+					(a) =>
+						requiresSessionDurationTracking(a.provider ?? "") &&
+						a.session_start,
+				)
+				.map((a) => ({ id: a.id, session_start: Number(a.session_start) })),
+		);
 
 		const bankedResetsById = await loadBankedResets(dbOps, accounts, now).catch(
 			(error) => {
@@ -653,6 +793,7 @@ export function createAccountsListHandler(
 						account.id,
 						account.name,
 						usageData,
+						recoverCodexPayloads,
 					);
 				} else if (account.provider === "anthropic" && !usageData) {
 					usageData = await getPersistedAnthropicUsage(
@@ -1004,7 +1145,10 @@ export function createAccountsListHandler(
 					crossRegionMode: account.cross_region_mode,
 					modelFallbacks,
 					billingType: account.billing_type,
-					sessionStats: sessionStatsMap.get(account.id) ?? null,
+					sessionStats: sessionStatsById.get(account.id)?.stats ?? null,
+					sessionStatsAsOf: sessionStatsById.get(account.id)?.asOf ?? null,
+					sessionStatsUnavailable:
+						sessionStatsById.get(account.id)?.unavailable ?? false,
 					isPrimary: account.id === primaryId,
 				};
 			}),

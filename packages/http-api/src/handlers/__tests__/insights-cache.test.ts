@@ -71,7 +71,7 @@ function createMockContext(
 	const mockDb = {
 		// First query (account x model) carries the accounts LEFT JOIN;
 		// second query (project x model) does not.
-		query: async (sql: string) =>
+		queryOffThread: async (sql: string) =>
 			sql.includes("LEFT JOIN accounts") ? accountRows : projectRows,
 	};
 
@@ -232,7 +232,7 @@ describe("cache insights handler (mock adapter)", () => {
 			config: {} as APIContext["config"],
 			dbOps: {
 				getAdapter: () => ({
-					query: async () => {
+					queryOffThread: async () => {
 						throw new Error("boom");
 					},
 				}),

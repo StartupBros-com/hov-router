@@ -8,7 +8,7 @@ import { createAnomalyInsightsHandler, parseDetectorParam } from "../insights";
 /**
  * Tests for the anomaly insights handler: query-param parsing/clamping and
  * the row-scan truncation path. The DB adapter is faked (the handler only
- * calls getAdapter().query); rows use a null model so no pricing lookups
+ * calls getAdapter().queryOffThread); rows use a null model so no pricing lookups
  * (network-backed) are triggered.
  */
 
@@ -31,7 +31,7 @@ function contextWithRows(rows: unknown[]): APIContext {
 	return {
 		dbOps: {
 			getAdapter: () => ({
-				query: async () => rows,
+				queryOffThread: async () => rows,
 			}),
 		},
 	} as unknown as APIContext;
@@ -136,7 +136,7 @@ describe("createAnomalyInsightsHandler", () => {
 		const context = {
 			dbOps: {
 				getAdapter: () => ({
-					query: async () => {
+					queryOffThread: async () => {
 						throw new Error("boom");
 					},
 				}),

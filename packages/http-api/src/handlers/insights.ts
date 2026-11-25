@@ -1,4 +1,5 @@
 import { getModelRates, type ModelRates } from "@better-ccflare/core";
+import type { DatabaseOperations } from "@better-ccflare/database";
 import {
 	errorResponse,
 	InternalServerError,
@@ -48,9 +49,53 @@ import {
 	type PayloadAnalysis,
 } from "../services/context-insights";
 import type { APIContext } from "../types";
+import {
+	createLastGoodResponses,
+	type LastGoodResponses,
+	lastGoodResponseKey,
+} from "../utils/last-good-response";
 import { buildRequestFilters, getRangeConfig } from "../utils/query-filters";
 
 const log = new Logger("InsightsHandler");
+
+// Every insights read runs on the bulk reader (#1013). On the main thread the
+// cache aggregates took 28-74 s on a saturated disk, and every API response
+// and the stream relay waited with them.
+
+/**
+ * The Insights tab polls each of its three reports every 60 s and the
+ * dashboard gives a request 30 s, while the bulk reader runs one read at a
+ * time and cannot stop one. Unshared, each poll would queue another long scan
+ * behind the last. The longest wait stays under 30 s so the dashboard gets
+ * the 503 (which it retries) rather than an abort (which it does not).
+ */
+const INSIGHTS_RESPONSE_CACHE = {
+	freshMs: 60_000,
+	maxAgeMs: 10 * 60_000,
+	waitMs: 20_000,
+	staleWaitMs: 3_000,
+	busyMessage: "Insights are still being computed. Try again in a minute.",
+};
+const insightsResponses = new WeakMap<DatabaseOperations, LastGoodResponses>();
+
+/**
+ * Answer an insights GET through its per-database last-good cache: one
+ * computation per path and query at a time. Cleared when request history is
+ * deleted, like the stats cache.
+ */
+export function respondWithLastGoodInsights(
+	dbOps: DatabaseOperations,
+	url: URL,
+	compute: () => Promise<Response>,
+): Promise<Response> {
+	let cache = insightsResponses.get(dbOps);
+	if (!cache) {
+		cache = createLastGoodResponses(INSIGHTS_RESPONSE_CACHE);
+		dbOps.onRequestsDeleted(cache.clear);
+		insightsResponses.set(dbOps, cache);
+	}
+	return cache.respond(lastGoodResponseKey(url), compute);
+}
 
 /** Raw GROUP BY row shape shared by both insights queries. */
 interface GroupedTokenSqlRow {
@@ -105,7 +150,7 @@ export function createCacheInsightsHandler(context: APIContext) {
 
 		try {
 			// account x model (also the source for byModel and totals)
-			const accountModelSqlRows = await db.query<GroupedTokenSqlRow>(
+			const accountModelSqlRows = await db.queryOffThread<GroupedTokenSqlRow>(
 				`
 				SELECT
 					COALESCE(a.name, 'Unknown') as dimension_key,
@@ -123,7 +168,7 @@ export function createCacheInsightsHandler(context: APIContext) {
 			);
 
 			// project x model
-			const projectModelSqlRows = await db.query<GroupedTokenSqlRow>(
+			const projectModelSqlRows = await db.queryOffThread<GroupedTokenSqlRow>(
 				`
 				SELECT
 					COALESCE(r.project, 'Unknown') as dimension_key,
@@ -350,10 +395,10 @@ export function createCacheParityHandler(context: APIContext) {
 		const generatedAt = Date.now();
 		try {
 			const [rows24h, rows7d] = await Promise.all([
-				db.query<CacheParitySqlRow>(CACHE_PARITY_WINDOW_SQL, [
+				db.queryOffThread<CacheParitySqlRow>(CACHE_PARITY_WINDOW_SQL, [
 					generatedAt - 24 * 60 * 60 * 1000,
 				]),
-				db.query<CacheParitySqlRow>(CACHE_PARITY_WINDOW_SQL, [
+				db.queryOffThread<CacheParitySqlRow>(CACHE_PARITY_WINDOW_SQL, [
 					generatedAt - 7 * 24 * 60 * 60 * 1000,
 				]),
 			]);
@@ -520,7 +565,7 @@ export function createAnomalyInsightsHandler(context: APIContext) {
 		try {
 			// Safety cap on the batch fetch: scan at most the most recent
 			// MAX_ANOMALY_SCAN_ROWS rows (fetch one extra to detect truncation).
-			const sqlRows = await db.query<AnomalyRequestSqlRow>(
+			const sqlRows = await db.queryOffThread<AnomalyRequestSqlRow>(
 				`
 				SELECT
 					r.id as id,
@@ -706,7 +751,7 @@ export function createContextInsightsHandler(context: APIContext) {
 		try {
 			// Coverage: how many requests in the window have a stored payload at
 			// all — payload storage is optional, so this can be far below 100%.
-			const coverageRows = await db.query<ContextCoverageSqlRow>(
+			const coverageRows = await db.queryOffThread<ContextCoverageSqlRow>(
 				`
 				SELECT
 					COUNT(*) as requests_in_range,
@@ -725,7 +770,7 @@ export function createContextInsightsHandler(context: APIContext) {
 
 			// Candidate ids: metadata-only (the json column is deliberately NOT
 			// selected here), most recent first, one extra row to detect truncation.
-			const candidateSqlRows = await db.query<ContextRequestSqlRow>(
+			const candidateSqlRows = await db.queryOffThread<ContextRequestSqlRow>(
 				`
 				SELECT
 					r.id as id,
@@ -775,7 +820,7 @@ export function createContextInsightsHandler(context: APIContext) {
 
 			// Growth curve: exact token columns over the whole window, no payload
 			// join. Fetch one extra row to detect truncation at the scan cap.
-			const growthSqlRows = await db.query<ContextGrowthSqlRow>(
+			const growthSqlRows = await db.queryOffThread<ContextGrowthSqlRow>(
 				`
 				SELECT
 					r.id as id,
