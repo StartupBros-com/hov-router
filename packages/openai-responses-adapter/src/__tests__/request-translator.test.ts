@@ -577,6 +577,81 @@ describe("translateRequestToAnthropic", () => {
 		});
 	});
 
+	describe("tool output given as content parts (#324)", () => {
+		const outputOf = (
+			type: "custom_tool_call_output" | "function_call_output",
+			output: unknown,
+			tools: ResponsesRequest["tools"] = HISTORY_TOOLS,
+		) => {
+			const req = {
+				model: "gpt-6-astra",
+				tools,
+				input: [
+					{
+						type: "custom_tool_call",
+						call_id: "c1",
+						name: "exec",
+						input: "cat f",
+					},
+					{ type, call_id: "c1", output },
+				],
+			} as unknown as ResponsesRequest;
+			return translateRequestToAnthropic(req).messages;
+		};
+
+		test("Codex Lite's input_text parts become the tool result's text", () => {
+			const messages = outputOf("custom_tool_call_output", [
+				{ type: "input_text", text: "Exit code: 0" },
+				{ type: "input_text", text: "tok-123" },
+			]);
+			expect(messages[1].content[0]).toEqual({
+				type: "tool_result",
+				tool_use_id: "c1",
+				content: "Exit code: 0\ntok-123",
+			});
+		});
+
+		test("function_call_output parts are joined the same way", () => {
+			const messages = outputOf("function_call_output", [
+				{ type: "input_text", text: "a" },
+				{ type: "output_text", text: "b" },
+			]);
+			expect(messages[1].content[0]).toMatchObject({ content: "a\nb" });
+		});
+
+		test("the result text survives when the request declares no tools", () => {
+			// Lite declares its tools in an additional_tools input item, so the
+			// translator sees no top-level tools and flattens history to text.
+			const messages = outputOf(
+				"custom_tool_call_output",
+				[{ type: "input_text", text: "tok-123" }],
+				[],
+			);
+			expect(JSON.stringify(messages[1])).toContain("tok-123");
+			expect(messages[1].content.every((b) => b.type === "text")).toBe(true);
+		});
+
+		test("images, unknown parts and malformed parts never pass through raw", () => {
+			const messages = outputOf("custom_tool_call_output", [
+				{ type: "input_image", image_url: "data:image/png;base64,AAAA" },
+				{ type: "input_file", file_id: "f1" },
+				{ type: "input_text", text: "" },
+				{ type: "input_text", text: 7 },
+				null,
+				"loose",
+			]);
+			expect(messages[1].content[0]).toMatchObject({
+				content:
+					"[image content omitted]\n[input_file content omitted]\n[input_text content omitted]",
+			});
+		});
+
+		test("a non-string, non-array output becomes an empty result", () => {
+			const messages = outputOf("custom_tool_call_output", { text: "x" });
+			expect(messages[1].content[0]).toMatchObject({ content: "" });
+		});
+	});
+
 	test("model passthrough for non-gpt-5 names", () => {
 		const req: ResponsesRequest = {
 			model: "claude-opus-4-5",
