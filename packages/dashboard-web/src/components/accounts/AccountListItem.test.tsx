@@ -686,6 +686,29 @@ describe("account scan layout", () => {
 		expect(visible).toContain("Clear cooldown");
 		expect(visible).not.toContain("Cooling down");
 	});
+	it("keeps naming payment required after the 402 bench lapses, without a stale-cooldown pill (#1025)", () => {
+		const html = renderToStaticMarkup(
+			<AccountListItem
+				account={makeAccount({
+					paused: false,
+					rateLimitStatus: "OK",
+					rateLimitedUntil: null,
+					rateLimitedAt: Date.now() - 120_000,
+					rateLimitedReason: "upstream_402_payment_required",
+					// Usage under its limit is no reason to doubt a billing failure.
+					usageUtilization: 20,
+				})}
+				{...requiredHandlers}
+			/>,
+		);
+		const visible = withoutDetailsContent(html);
+		expect(visible).toContain("Payment required");
+		expect(visible).toContain("billing or credits");
+		expect(visible).toContain("Clear cooldown");
+		expect(visible).not.toContain("Router retry");
+		expect(visible).not.toContain("Ready");
+		expect(visible).not.toContain("Possible stale cooldown");
+	});
 	it("keeps naming the refusal after the bench lapses while the usage check is refused (#941)", () => {
 		// max-quaternary-spgm on 2026-11-21 read "Ready" for 14 hours here.
 		const html = renderToStaticMarkup(

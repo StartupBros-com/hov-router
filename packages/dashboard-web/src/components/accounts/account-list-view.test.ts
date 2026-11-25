@@ -251,6 +251,12 @@ test("attention means operator action: a limit that clears on its own never coun
 			rateLimitedUntil: 101,
 			rateLimitedReason: "upstream_402_payment_required",
 		},
+		// The expiry sweep lifted the bench, and nothing has served since.
+		{
+			rateLimitedUntil: null,
+			rateLimitedAt: 40,
+			rateLimitedReason: "upstream_402_payment_required",
+		},
 	];
 	for (const patch of operatorAction)
 		expect(needsAccountAttention(account("a", patch), [], now)).toBe(true);
@@ -271,8 +277,9 @@ test("attention means operator action: a limit that clears on its own never coun
 		{ usageThrottledUntil: 101 },
 		// A delayed usage poll is the router's to retry.
 		{ usageRateLimitedUntil: 101 },
-		// A lapsed 402 bench keeps its stored reason after recovery, and xAI's
-		// 402 is a capacity signal.
+		// After a request is served past the 402 (rate_limited_at cleared), the
+		// stored reason stays behind and no longer counts. xAI's 402 is a
+		// capacity signal.
 		{
 			rateLimitedUntil: 99,
 			rateLimitedReason: "upstream_402_payment_required",

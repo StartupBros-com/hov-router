@@ -385,8 +385,11 @@ export function AccountListItem({
 	const showForceReset = status.clearCooldown;
 	// staleLockDetected only fires when numeric usage data exists (Anthropic accounts);
 	// Zai/NanoGPT accounts have usageUtilization === null and are correctly excluded
+	// A 402 is a billing failure, not a usage limit, so usage under 100% says
+	// nothing about it.
 	const staleLockDetected =
 		showForceReset &&
+		status.reason !== "payment" &&
 		typeof account.usageUtilization === "number" &&
 		account.usageUtilization < 100;
 	const codexUsageExtras = getCodexUsageExtras(account);
