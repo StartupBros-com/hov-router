@@ -435,7 +435,7 @@ describe("proxy affinity lane export wiring", () => {
 		expect(rows).toHaveLength(1);
 		const row = await db
 			.getAdapter()
-			.get<{ routing_attempt_summary: string }>(
+			.getMain<{ routing_attempt_summary: string }>(
 				"SELECT routing_attempt_summary FROM requests WHERE id = ?",
 				[rows[0].id],
 			);
@@ -514,7 +514,7 @@ describe("canonical history for caller cancellation before forwarding", () => {
 		});
 		const row = await db
 			.getAdapter()
-			.get<{ routing_attempt_summary: string }>(
+			.getMain<{ routing_attempt_summary: string }>(
 				"SELECT routing_attempt_summary FROM requests WHERE id=?",
 				[requestMeta.id],
 			);
@@ -737,7 +737,7 @@ describe("canonical history for caller cancellation before forwarding", () => {
 		if (phase !== "started") {
 			const row = await db
 				.getAdapter()
-				.get<Record<string, unknown>>(
+				.getMain<Record<string, unknown>>(
 					"SELECT input_tokens, output_tokens FROM requests WHERE id=?",
 					[rows[0].id],
 				);
@@ -814,7 +814,7 @@ describe("canonical history for caller cancellation before forwarding", () => {
 		expect(discarded).toBe(phase === "prepared" ? 1 : 0);
 		const persisted = await db
 			.getAdapter()
-			.get<Record<string, unknown>>("SELECT * FROM requests WHERE id=?", [
+			.getMain<Record<string, unknown>>("SELECT * FROM requests WHERE id=?", [
 				originalRequestId,
 			]);
 		expect(persisted).toMatchObject({

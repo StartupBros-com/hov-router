@@ -2019,7 +2019,7 @@ export async function removeAccountById(
 	// so the caller can keep using the removed account's display label
 	// for cache cleanup (the cache key is the id, the user-facing label is
 	// the name).
-	const existing = await adapter.get<{ name: string }>(
+	const existing = await adapter.getMain<{ name: string }>(
 		"SELECT name FROM accounts WHERE id = ?",
 		[id],
 	);
@@ -2065,7 +2065,7 @@ export async function removeAccount(
 	name: string,
 ): Promise<{ success: boolean; message: string }> {
 	const adapter = dbOps.getAdapter();
-	const matches = await adapter.query<{ id: string }>(
+	const matches = await adapter.queryMain<{ id: string }>(
 		"SELECT id FROM accounts WHERE name = ?",
 		[name],
 	);
@@ -2101,7 +2101,7 @@ export async function removeAccountWithConfirmation(
 	force?: boolean,
 ): Promise<{ success: boolean; message: string }> {
 	const adapter = dbOps.getAdapter();
-	const matches = await adapter.query<{ id: string; name: string }>(
+	const matches = await adapter.queryMain<{ id: string; name: string }>(
 		"SELECT id, name FROM accounts WHERE name = ?",
 		[name],
 	);
@@ -2151,7 +2151,7 @@ async function toggleAccountPause(
 	const adapter = dbOps.getAdapter();
 
 	// Get account ID by name
-	const account = await adapter.get<{ id: string; paused: number }>(
+	const account = await adapter.getMain<{ id: string; paused: number }>(
 		"SELECT id, COALESCE(paused, 0) as paused FROM accounts WHERE name = ?",
 		[name],
 	);
@@ -2231,7 +2231,7 @@ export async function setAccountPriority(
 	const adapter = dbOps.getAdapter();
 
 	// Get account ID by name
-	const account = await adapter.get<{ id: string }>(
+	const account = await adapter.getMain<{ id: string }>(
 		"SELECT id FROM accounts WHERE name = ?",
 		[name],
 	);
@@ -2269,7 +2269,7 @@ export async function forceResetRateLimit(
 	config: Config,
 ): Promise<{ success: boolean; message: string }> {
 	const adapter = dbOps.getAdapter();
-	const account = await adapter.get<{ id: string; name: string }>(
+	const account = await adapter.getMain<{ id: string; name: string }>(
 		"SELECT id, name FROM accounts WHERE name = ?",
 		[name],
 	);
@@ -2572,7 +2572,7 @@ export async function reauthenticateAccount(
 	const db = dbOps.getAdapter();
 
 	// Get account by name
-	const account = await db.get<{
+	const account = await db.getMain<{
 		id: string;
 		provider: string;
 		priority: number;

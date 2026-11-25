@@ -49,7 +49,7 @@ function failingCleanupDb() {
 	const deleted: string[] = [];
 	const dbOps = {
 		getAdapter: () => ({
-			get: async () => ({ id: "cleanup-account-id" }),
+			getMain: async () => ({ id: "cleanup-account-id" }),
 			run: async () => {},
 		}),
 		getOAuthSession: async () => ({

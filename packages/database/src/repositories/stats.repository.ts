@@ -64,6 +64,7 @@ export class StatsRepository {
 			FROM requests
 			WHERE timestamp > ?`,
 			[since],
+			"bulk",
 		);
 
 		const s = stats ?? {};
@@ -127,7 +128,7 @@ export class StatsRepository {
 		}>;
 
 		if (includeUnauthenticated) {
-			accountStats = await this.adapter.query<{
+			accountStats = await this.adapter.queryMain<{
 				id: string;
 				name: string;
 				requestCount: number;
@@ -149,7 +150,7 @@ export class StatsRepository {
 				[NO_ACCOUNT_ID, NO_ACCOUNT_ID, limit],
 			);
 		} else {
-			accountStats = await this.adapter.query<{
+			accountStats = await this.adapter.queryMain<{
 				id: string;
 				name: string;
 				requestCount: number;
@@ -191,7 +192,7 @@ export class StatsRepository {
 		const accountPredicate = includesNoAccount
 			? `(account_used IN (${placeholders}) OR account_used IS NULL)`
 			: `account_used IN (${placeholders})`;
-		const successRates = await this.adapter.query<{
+		const successRates = await this.adapter.queryMain<{
 			accountId: string;
 			total: number;
 			successful: number;
@@ -278,6 +279,7 @@ export class StatsRepository {
 			ORDER BY request_count DESC
 			LIMIT ?`,
 			[NO_ACCOUNT_ID, NO_ACCOUNT_ID, NO_ACCOUNT_ID, NO_ACCOUNT_ID, limit],
+			"bulk",
 		);
 		return rows.map((row) => ({
 			name: row.name,
@@ -296,7 +298,7 @@ export class StatsRepository {
 	 * Get count of active accounts
 	 */
 	async getActiveAccountCount(): Promise<number> {
-		const result = await this.adapter.get<{ count: unknown }>(
+		const result = await this.adapter.getMain<{ count: unknown }>(
 			"SELECT COUNT(*) as count FROM accounts WHERE request_count > 0",
 		);
 		return Number(result?.count) || 0;
@@ -380,6 +382,7 @@ export class StatsRepository {
 			)
 			ORDER BY r.timestamp DESC, r.id`,
 			[NO_ACCOUNT_ID, sinceMs, limit, NO_ACCOUNT_ID, NO_ACCOUNT_ID],
+			"bulk",
 		);
 
 		return rows.map((row) => {
@@ -450,6 +453,7 @@ export class StatsRepository {
 			ORDER BY mc.count DESC
 			LIMIT ?`,
 			[limit],
+			"bulk",
 		);
 		return rows.map((r) => ({
 			model: r.model,
@@ -470,7 +474,7 @@ export class StatsRepository {
 		}>
 	> {
 		// Single GROUP BY pass: request count and success count together.
-		const rawStats = await this.adapter.query<{
+		const rawStats = await this.adapter.queryMain<{
 			id: string;
 			name: string;
 			requests: number;

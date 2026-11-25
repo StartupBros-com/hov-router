@@ -264,6 +264,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 			   AND REPLACE(routing_attempt_summary, '"affinityLane"', '') <> routing_attempt_summary
 			 ORDER BY timestamp DESC LIMIT ?`,
 			[sinceMs, limit + 1],
+			"bulk",
 		);
 		return {
 			summaries: rows.slice(0, limit).map((row) => row.routing_attempt_summary),
@@ -324,6 +325,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 			WHERE route_profile_id IS NOT NULL AND route_profile_id <> ''
 			ORDER BY last_started DESC LIMIT ?`,
 			[sinceMs, limit + 1],
+			"bulk",
 		);
 		return {
 			sessions: rows.slice(0, limit).map((row) => ({
@@ -517,7 +519,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 	}
 
 	async getPayload(id: string): Promise<unknown | null> {
-		const row = await this.get<{ json: string }>(
+		const row = await this.getMain<{ json: string }>(
 			`SELECT json FROM request_payloads WHERE id = ?`,
 			[id],
 		);
@@ -545,7 +547,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 			quality_decision: string | null;
 		}>
 	> {
-		const rows = await this.query<{
+		const rows = await this.queryMain<{
 			id: string;
 			json: string | null;
 			timestamp: number;
@@ -586,7 +588,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 			response_time_ms: number | null;
 		}>
 	> {
-		const rows = await this.query<{
+		const rows = await this.queryMain<{
 			id: string;
 			timestamp: number;
 			method: string;
@@ -680,6 +682,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 			GROUP BY model
 		`,
 			[accountId, fromMs, toMs, accountId, fromMs, toMs],
+			"bulk",
 		);
 		// Advisor iterations (R14): advisor_usage holds per-model token totals
 		// as JSON. Each entry joins its own model's line and adds no request
@@ -700,6 +703,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 			  AND advisor_usage IS NOT NULL
 		`,
 			[accountId, fromMs, toMs],
+			"bulk",
 		);
 		const aggregates: LedgerAggregate[] = this.mapTokenAggregateRows(rows);
 		const malformedAdvisorIds: string[] = [];

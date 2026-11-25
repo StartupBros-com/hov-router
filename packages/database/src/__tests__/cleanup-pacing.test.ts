@@ -36,7 +36,7 @@ async function run(sql: string, params: unknown[]): Promise<void> {
 async function count(table: string): Promise<number> {
 	const row = await db
 		.getAdapter()
-		.get<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`);
+		.getMain<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`);
 	return Number(row?.n ?? 0);
 }
 

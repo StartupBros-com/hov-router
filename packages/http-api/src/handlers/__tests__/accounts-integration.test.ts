@@ -1244,7 +1244,7 @@ describe("Accounts Handler - OAuth control-plane hotfix (U8)", () => {
 	): Promise<{ paused: number; pause_reason: string | null }> {
 		const row = await dbOps
 			.getAdapter()
-			.get<{ paused: number; pause_reason: string | null }>(
+			.getMain<{ paused: number; pause_reason: string | null }>(
 				"SELECT paused, pause_reason FROM accounts WHERE id = ?",
 				[id],
 			);
@@ -1557,7 +1557,7 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 	async function fetchCredentialRow(id: string): Promise<CredentialRow> {
 		const row = await dbOps
 			.getAdapter()
-			.get<CredentialRow>(
+			.getMain<CredentialRow>(
 				"SELECT api_key, refresh_token, access_token, expires_at FROM accounts WHERE id = ?",
 				[id],
 			);
@@ -1670,7 +1670,7 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 			],
 		);
 
-		const mirroredRow = await dbOps.getAdapter().get<{
+		const mirroredRow = await dbOps.getAdapter().getMain<{
 			provider: string;
 			billing_type: string | null;
 			api_key: string | null;
@@ -1698,7 +1698,7 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 				"https://legacy.example.com/v1",
 			],
 		);
-		const canonicalRow = await dbOps.getAdapter().get<{
+		const canonicalRow = await dbOps.getAdapter().getMain<{
 			provider: string;
 			billing_type: string | null;
 			api_key: string | null;
@@ -1765,7 +1765,7 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 
 		const row = await dbOps
 			.getAdapter()
-			.get<{ paused: number; pause_reason: string | null }>(
+			.getMain<{ paused: number; pause_reason: string | null }>(
 				"SELECT paused, pause_reason FROM accounts WHERE id = ?",
 				[payload.account.id],
 			);
@@ -1791,7 +1791,7 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 
 		const row = await dbOps
 			.getAdapter()
-			.get<{ paused: number; pause_reason: string | null }>(
+			.getMain<{ paused: number; pause_reason: string | null }>(
 				"SELECT paused, pause_reason FROM accounts WHERE id = ?",
 				[payload.account.id],
 			);
@@ -1857,7 +1857,7 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 		};
 		expect(payload.accountId).toBe(payload.account.id);
 		expect(payload.account.provider).toBe("deepseek");
-		const row = await dbOps.getAdapter().get<{
+		const row = await dbOps.getAdapter().getMain<{
 			custom_endpoint: string | null;
 			model_mappings: string | null;
 		}>("SELECT custom_endpoint, model_mappings FROM accounts WHERE id = ?", [

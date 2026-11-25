@@ -6,7 +6,7 @@ export class ApiKeyRepository extends BaseRepository<ApiKey> {
 	 * Find all API keys, ordered by creation date (newest first)
 	 */
 	async findAll(): Promise<ApiKey[]> {
-		const rows = await this.query<ApiKeyRow>(`
+		const rows = await this.queryMain<ApiKeyRow>(`
 			SELECT
 				id, name, hashed_key, prefix_last_8, created_at,
 				last_used, usage_count, is_active, role
@@ -20,7 +20,7 @@ export class ApiKeyRepository extends BaseRepository<ApiKey> {
 	 * Find only active API keys
 	 */
 	async findActive(): Promise<ApiKey[]> {
-		const rows = await this.query<ApiKeyRow>(`
+		const rows = await this.queryMain<ApiKeyRow>(`
 			SELECT
 				id, name, hashed_key, prefix_last_8, created_at,
 				last_used, usage_count, is_active, role
@@ -35,7 +35,7 @@ export class ApiKeyRepository extends BaseRepository<ApiKey> {
 	 * Find API key by ID
 	 */
 	async findById(id: string): Promise<ApiKey | null> {
-		const row = await this.get<ApiKeyRow>(
+		const row = await this.getMain<ApiKeyRow>(
 			`
 			SELECT
 				id, name, hashed_key, prefix_last_8, created_at,
@@ -53,7 +53,7 @@ export class ApiKeyRepository extends BaseRepository<ApiKey> {
 	 * Find API key by name
 	 */
 	async findByName(name: string): Promise<ApiKey | null> {
-		const row = await this.get<ApiKeyRow>(
+		const row = await this.getMain<ApiKeyRow>(
 			`
 			SELECT
 				id, name, hashed_key, prefix_last_8, created_at,
@@ -71,7 +71,7 @@ export class ApiKeyRepository extends BaseRepository<ApiKey> {
 	 * Check if an API key name already exists
 	 */
 	async nameExists(name: string): Promise<boolean> {
-		const row = await this.get<{ count: number }>(
+		const row = await this.getMain<{ count: number }>(
 			`
 			SELECT COUNT(*) as count
 			FROM api_keys
@@ -189,7 +189,7 @@ export class ApiKeyRepository extends BaseRepository<ApiKey> {
 	 * Count the number of active API keys
 	 */
 	async countActive(): Promise<number> {
-		const row = await this.get<{ count: number }>(`
+		const row = await this.getMain<{ count: number }>(`
 			SELECT COUNT(*) as count
 			FROM api_keys
 			WHERE is_active = 1
@@ -203,7 +203,7 @@ export class ApiKeyRepository extends BaseRepository<ApiKey> {
 	 * Count the total number of API keys (active and inactive)
 	 */
 	async countAll(): Promise<number> {
-		const row = await this.get<{ count: number }>(`
+		const row = await this.getMain<{ count: number }>(`
 			SELECT COUNT(*) as count
 			FROM api_keys
 		`);

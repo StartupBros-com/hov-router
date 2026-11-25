@@ -132,7 +132,7 @@ async function coolDown(id: string, observedAt: number, until: number) {
 async function cooldownUntil(id: string): Promise<number | null> {
 	const row = await dbOps
 		.getAdapter()
-		.get<{ rate_limited_until: number | null }>(
+		.getMain<{ rate_limited_until: number | null }>(
 			`SELECT rate_limited_until FROM accounts WHERE id = ?`,
 			[id],
 		);

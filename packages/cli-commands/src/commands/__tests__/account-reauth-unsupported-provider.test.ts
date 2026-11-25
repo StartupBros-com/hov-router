@@ -5,7 +5,7 @@ import { reauthenticateAccount } from "../account";
 function dbOpsWith(provider: string) {
 	return {
 		getAdapter: () => ({
-			get: async () => ({
+			getMain: async () => ({
 				id: "account-1",
 				provider,
 				priority: 0,

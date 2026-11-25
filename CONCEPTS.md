@@ -774,8 +774,10 @@ ping; only *Meaningful progress* meets it.
 
 A read-only database connection on its own worker thread that dashboard reads can be sent to,
 so a slow read never blocks the thread serving proxy traffic. There are two: the bulk lane
-takes every read not marked otherwise, including the heavy analytics and statistics scans, and
-the interactive lane takes the small reads a page waits on before it can render.
+takes the heavy analytics and statistics scans and background reads, and the interactive lane
+takes the small reads a page waits on before it can render. Every off-thread read names its
+lane; there is no default (#1042). A read that stays on the main connection uses `queryMain`
+or `getMain`, and `main-thread-reads.json` lists each one.
 
 A lane runs one read at a time while the rest wait their turn, which is why the interactive
 lane exists: on a shared lane a page read waits behind whatever scan is running. A read that

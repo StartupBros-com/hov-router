@@ -135,7 +135,7 @@ export function createAccountRedeemResetHandler(
 			);
 		}
 		try {
-			const account = await dbOps.getAdapter().get<{
+			const account = await dbOps.getAdapter().getMain<{
 				name: string;
 				provider: string;
 				custom_endpoint: string | null;

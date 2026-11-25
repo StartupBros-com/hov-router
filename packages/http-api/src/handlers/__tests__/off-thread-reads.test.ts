@@ -199,7 +199,7 @@ describe("heavy read result equivalence", () => {
 				const mainBody = await main.text();
 
 				adapter.setOffThreadReader(reader);
-				const mainQuery = spyOn(adapter, "query");
+				const mainQuery = spyOn(adapter, "queryMain");
 				const before = reader.readsServed;
 				const worker = await report();
 				expect([name, worker.status]).toEqual([name, 200]);
@@ -289,7 +289,7 @@ describe("heavy read result equivalence", () => {
 		});
 		const external = new ExternalUsageRepository(adapter);
 		adapter.setOffThreadReader(reader);
-		const mainQuery = spyOn(adapter, "query");
+		const mainQuery = spyOn(adapter, "queryMain");
 		await external.ingest([event("a-direct", 100), event("vote-1", null)]);
 		const before = reader.readsServed;
 		// The pending read must see the NULL row this pass inserts, and the evidence
@@ -309,7 +309,7 @@ describe("heavy read result equivalence", () => {
 			),
 		).toEqual([]);
 		expect(
-			await adapter.query(
+			await adapter.queryMain(
 				"SELECT timestamp,account_id,attribution_basis FROM external_usage_events WHERE source_kind='rollout' ORDER BY timestamp",
 			),
 		).toEqual([
@@ -371,7 +371,7 @@ describe("heavy read result equivalence", () => {
 			expect(main[1]).toMatchObject({ seven_day: { utilization: 56 } });
 			expect(main[2]).toBeNull();
 			adapter.setOffThreadReader(reader);
-			const mainQuery = spyOn(adapter, "query");
+			const mainQuery = spyOn(adapter, "queryMain");
 			const readerAll = spyOn(reader, "all");
 			const worker = await usage();
 			expect(JSON.stringify(worker)).toBe(JSON.stringify(main));
@@ -485,7 +485,7 @@ describe("heavy read result equivalence", () => {
 			getUsageThrottlingFiveHourEnabled: () => false,
 			getUsageThrottlingWeeklyEnabled: () => false,
 		} as unknown as Config);
-		const mainQuery = spyOn(adapter, "query");
+		const mainQuery = spyOn(adapter, "queryMain");
 		const readerAll = spyOn(reader, "all");
 		try {
 			for (const id of ids) usageCache.delete(id);
@@ -594,7 +594,7 @@ describe("heavy read result equivalence", () => {
 			expect(main.sources).toHaveLength(2);
 			expect(main.buckets.length).toBeGreaterThan(0);
 			adapter.setOffThreadReader(reader);
-			const mainQuery = spyOn(adapter, "query");
+			const mainQuery = spyOn(adapter, "queryMain");
 			const readerAll = spyOn(reader, "all");
 			expect(JSON.stringify(await readAll())).toBe(JSON.stringify(main));
 			for (const moved of [
@@ -631,7 +631,7 @@ describe("heavy read result equivalence", () => {
 		// Only the interactive lane has a reader, so a read left on the bulk
 		// lane would fall back to the main thread and show up on adapter.query.
 		adapter.setOffThreadReader(reader, "interactive");
-		const mainQuery = spyOn(adapter, "query");
+		const mainQuery = spyOn(adapter, "queryMain");
 		const readerAll = spyOn(reader, "all");
 		expect(JSON.stringify(await readAll())).toBe(JSON.stringify(main));
 		for (const moved of [
@@ -663,7 +663,7 @@ describe("heavy read result equivalence", () => {
 		// The alert scanner's state reads share the bulk lane with its bucket
 		// aggregate; an interactive-only reader takes none of them.
 		adapter.setOffThreadReader(reader, "interactive");
-		const mainQuery = spyOn(adapter, "query");
+		const mainQuery = spyOn(adapter, "queryMain");
 		const readerAll = spyOn(reader, "all");
 		expect(await repo.loadStates(CACHE_TEST_TIME)).toHaveLength(2);
 		expect(readerAll.mock.calls.filter(stateReads)).toEqual([]);
@@ -683,10 +683,10 @@ describe("heavy read result equivalence", () => {
 	it("wires file-backed databases by default and honors every opt-out spelling", async () => {
 		const wired = new DatabaseOperations(join(dir, "test.db"));
 		others.push(wired);
-		const mainQuery = spyOn(wired.getAdapter(), "query");
-		expect(await wired.getAdapter().queryOffThread("SELECT 7 AS n")).toEqual([
-			{ n: 7 },
-		]);
+		const mainQuery = spyOn(wired.getAdapter(), "queryMain");
+		expect(
+			await wired.getAdapter().queryOffThread("SELECT 7 AS n", [], "bulk"),
+		).toEqual([{ n: 7 }]);
 		expect(
 			await wired
 				.getAdapter()
@@ -699,9 +699,11 @@ describe("heavy read result equivalence", () => {
 				process.env.BETTER_CCFLARE_DB_READER_WORKER = value;
 				const disabled = new DatabaseOperations(join(dir, "test.db"));
 				others.push(disabled);
-				const query = spyOn(disabled.getAdapter(), "query");
+				const query = spyOn(disabled.getAdapter(), "queryMain");
 				expect(
-					await disabled.getAdapter().queryOffThread("SELECT 8 AS n"),
+					await disabled
+						.getAdapter()
+						.queryOffThread("SELECT 8 AS n", [], "bulk"),
 				).toEqual([{ n: 8 }]);
 				expect(
 					await disabled
@@ -721,13 +723,14 @@ describe("heavy read result equivalence", () => {
 		others.push(wired);
 		const adapter = wired.getAdapter();
 		// Warm both workers so spawn time is not part of the race.
-		await adapter.queryOffThread("SELECT 1");
+		await adapter.queryOffThread("SELECT 1", [], "bulk");
 		await adapter.queryOffThread("SELECT 1", [], "interactive");
 		const order: string[] = [];
 		const scan = adapter
 			.queryOffThread(
 				"WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c WHERE x < ?) SELECT count(*) AS n FROM c",
 				[3_000_000],
+				"bulk",
 			)
 			.then(() => order.push("bulk"));
 		const quick = adapter

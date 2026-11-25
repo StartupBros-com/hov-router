@@ -78,7 +78,7 @@ function makeCtx(opts: {
 			updateAccountUsage: () => {},
 			updateAccountRateLimitMeta: () => {},
 			getAdapter: () => ({
-				get: async () => ({ rate_limited_until: null }),
+				getMain: async () => ({ rate_limited_until: null }),
 				run: async () => {},
 			}),
 		},
@@ -135,7 +135,7 @@ function makeCtxWithReason(opts: {
 			updateAccountUsage: () => {},
 			updateAccountRateLimitMeta: () => {},
 			getAdapter: () => ({
-				get: async () => ({ rate_limited_until: null }),
+				getMain: async () => ({ rate_limited_until: null }),
 				run: async () => {},
 			}),
 		},
@@ -785,7 +785,7 @@ function makeXaiCtx(opts: {
 			updateAccountUsage: () => {},
 			updateAccountRateLimitMeta: () => {},
 			getAdapter: () => ({
-				get: async () => ({ rate_limited_until: null }),
+				getMain: async () => ({ rate_limited_until: null }),
 				run: async () => {},
 			}),
 		},

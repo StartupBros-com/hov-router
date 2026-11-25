@@ -31,7 +31,7 @@ export class ModelTranslationRepository extends BaseRepository<ModelTranslation>
 		clientName: string,
 		maxResults = 5,
 	): Promise<SimilarModel[]> {
-		const allTranslations = await this.query<{ client_name: string }>(
+		const allTranslations = await this.queryMain<{ client_name: string }>(
 			`SELECT client_name FROM model_translations ORDER BY client_name`,
 		);
 

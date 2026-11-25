@@ -161,7 +161,7 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 		toMs: number,
 		clusterToleranceMs: number,
 	): Promise<number[]> {
-		const rows = await this.query<{ utilization: number }>(
+		const rows = await this.queryMain<{ utilization: number }>(
 			`SELECT utilization FROM usage_snapshots
 			 WHERE account_id = ? AND window_key = ?
 			   AND COALESCE(active, 1) = 1
@@ -183,7 +183,7 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 		accountId: string,
 		windowKey: string,
 	): Promise<number | null> {
-		const row = await this.get<{ oldest: number | null }>(
+		const row = await this.getMain<{ oldest: number | null }>(
 			`SELECT MIN(timestamp) AS oldest FROM usage_snapshots
 			 WHERE account_id = ? AND window_key = ?`,
 			[accountId, windowKey],
@@ -213,7 +213,7 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 		// The bucket expression is computed ONCE in a subquery and grouped by
 		// its alias rather than repeating `timestamp / ?` in SELECT and GROUP BY.
 		const rows = bucketMs
-			? await this.query<SnapshotDbRow>(
+			? await this.queryMain<SnapshotDbRow>(
 					`SELECT account_id, bucket * ? AS timestamp, window_key,
 					        AVG(utilization) AS utilization, MAX(resets_at) AS resets_at
 					 FROM (
@@ -225,7 +225,7 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 					 ORDER BY timestamp ASC`,
 					[bucketMs, bucketMs, ...whereParams],
 				)
-			: await this.query<SnapshotDbRow>(
+			: await this.queryMain<SnapshotDbRow>(
 					`SELECT account_id, timestamp, window_key, utilization, resets_at
 					 FROM usage_snapshots
 					 WHERE ${clauses.join(" AND ")}
@@ -265,7 +265,7 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 		windowKey: string,
 		sinceMs = 0,
 	): Promise<RawUsageSnapshot[]> {
-		const rows = await this.query<SnapshotDbRow>(
+		const rows = await this.queryMain<SnapshotDbRow>(
 			`SELECT account_id, timestamp, window_key, utilization, resets_at
 			 FROM usage_snapshots
 			 WHERE account_id = ? AND window_key = ? AND timestamp >= ?
@@ -455,7 +455,7 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 				         snapshots.window_key ${bytewiseCollationSql} ASC,
 				         snapshots.timestamp ASC,
 				         snapshots.append_order ASC`;
-		const dbRows = await this.query<FleetSnapshotDbRow>(fleetSql, params);
+		const dbRows = await this.queryMain<FleetSnapshotDbRow>(fleetSql, params);
 		const rows = dbRows.map((r) => ({
 			accountId: r.account_id,
 			timestamp: Number(r.timestamp),
@@ -499,7 +499,7 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 		accountId: string,
 		windowKey: string,
 	): Promise<UsageSnapshotRow | null> {
-		const rows = await this.query<SnapshotDbRow>(
+		const rows = await this.queryMain<SnapshotDbRow>(
 			`SELECT account_id, timestamp, window_key, utilization, resets_at, active
 			 FROM usage_snapshots
 			 WHERE account_id = ? AND window_key = ?

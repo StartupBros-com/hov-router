@@ -98,7 +98,7 @@ export class RoutingAttemptRepository extends BaseRepository<RoutingAttemptData>
 		now = Date.now(),
 	): Promise<RoutingAttemptSummary> {
 		const since = now - ROUTING_ATTEMPT_SUMMARY_WINDOWS[window];
-		const rows = await this.query<SummaryRow>(
+		const rows = await this.queryMain<SummaryRow>(
 			`WITH retained_history AS (
 				SELECT MIN(timestamp) AS first_observed_at
 				FROM routing_attempts

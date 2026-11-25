@@ -94,7 +94,7 @@ const snapshotCount = async (id: string) =>
 	(
 		await dbOps
 			.getAdapter()
-			.get<{ n: number }>(
+			.getMain<{ n: number }>(
 				"SELECT COUNT(*) AS n FROM usage_snapshots WHERE account_id = ?",
 				[id],
 			)

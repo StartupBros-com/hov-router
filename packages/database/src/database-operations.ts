@@ -1016,7 +1016,7 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 
 		// Null account rows (requests with account_used IS NULL in last 24h)
 		const cutoff = Date.now() - TIME_CONSTANTS.DAY;
-		const nullAccountRow = await this.adapter.get<{ count: number }>(
+		const nullAccountRow = await this.adapter.getMain<{ count: number }>(
 			"SELECT COUNT(*) AS count FROM requests WHERE account_used IS NULL AND timestamp >= ?",
 			[cutoff],
 		);
@@ -2058,7 +2058,7 @@ OAuth tokens will need to be re-authenticated.
 
 	/** Global retention boundary. */
 	async getOldestRequestTimestamp(): Promise<number | null> {
-		const row = await this.adapter.get<{ oldest: number | string | null }>(
+		const row = await this.adapter.getMain<{ oldest: number | string | null }>(
 			"SELECT MIN(timestamp) AS oldest FROM requests",
 		);
 		return row?.oldest == null ? null : Number(row.oldest);
@@ -2161,18 +2161,18 @@ OAuth tokens will need to be re-authenticated.
 	private async scanTableRowCounts(): Promise<
 		Array<{ name: string; rowCount: number; dataBytes?: number }>
 	> {
-		const tables = await this.adapter.query<{ name: string }>(
+		const tables = await this.adapter.queryMain<{ name: string }>(
 			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
 		);
 		const rows = await Promise.all(
 			tables.map(async ({ name }) => {
-				const countRow = await this.adapter.get<{ rowCount: number }>(
+				const countRow = await this.adapter.getMain<{ rowCount: number }>(
 					`SELECT COUNT(*) AS rowCount FROM "${name}"`,
 				);
 				const rowCount = countRow?.rowCount ?? 0;
 				// Measure actual data bytes for tables with known large text/blob columns
 				if (name === "request_payloads") {
-					const sizeRow = await this.adapter.get<{ dataBytes: number }>(
+					const sizeRow = await this.adapter.getMain<{ dataBytes: number }>(
 						`SELECT SUM(LENGTH(json)) AS dataBytes FROM "${name}"`,
 					);
 					return { name, rowCount, dataBytes: sizeRow?.dataBytes ?? 0 };

@@ -154,7 +154,7 @@ const notice = (key: string) =>
 async function allNotices() {
 	return dbOps
 		.getAdapter()
-		.query<{ notice_key: string; content: string }>(
+		.queryMain<{ notice_key: string; content: string }>(
 			`SELECT notice_key, content FROM member_notices ORDER BY notice_key`,
 		);
 }
@@ -472,7 +472,7 @@ describe("early reset notices", () => {
 		expect(
 			await dbOps
 				.getAdapter()
-				.query(
+				.queryMain(
 					`SELECT notice_key FROM member_notices WHERE kind = 'early_reset'`,
 				),
 		).toHaveLength(1);

@@ -21,12 +21,12 @@ function createContext(additionalDataRows: AdditionalDataRow[]): APIContext {
 	let callCount = 0;
 	const mockDb = {
 		getOffThread() {
-			return this.get();
+			return this.getMain();
 		},
 		queryOffThread(sql: string) {
-			return this.query(sql);
+			return this.queryMain(sql);
 		},
-		get: async () => ({
+		getMain: async () => ({
 			total_requests: 0,
 			success_rate: 0,
 			avg_response_time: 0,
@@ -41,7 +41,7 @@ function createContext(additionalDataRows: AdditionalDataRow[]): APIContext {
 			cache_creation_input_tokens: 0,
 			output_tokens: 0,
 		}),
-		query: async (_sql: string) => {
+		queryMain: async (_sql: string) => {
 			callCount++;
 			if (callCount === 2) {
 				// Second call is the additionalData UNION query

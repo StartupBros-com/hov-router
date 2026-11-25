@@ -2035,7 +2035,7 @@ export class AlertService {
 		const loaded = await repository.loadStates(nowMs); // includes repository cleanup
 		if (!current()) return;
 		// Labels only: never select a credential-bearing Account row.
-		const labels = await this.db.query<CacheHealthAccountLabel>(
+		const labels = await this.db.queryMain<CacheHealthAccountLabel>(
 			"SELECT id, name, created_at FROM accounts",
 		);
 		if (!current()) return;
@@ -2201,7 +2201,7 @@ export class AlertService {
 			open.usageRefused = true;
 			return;
 		}
-		const row = await this.db.get<{ name: string; paused: number | null }>(
+		const row = await this.db.getMain<{ name: string; paused: number | null }>(
 			"SELECT name, paused FROM accounts WHERE id = ?",
 			[event.accountId],
 		);
@@ -2394,7 +2394,7 @@ export class AlertService {
 			case "own_catalog_published": {
 				// Credential-free columns only, read fresh so attribution sees the
 				// account's current pins; a deleted account has nothing to report.
-				const row = await this.db.get<CodexPinAccountRow>(
+				const row = await this.db.getMain<CodexPinAccountRow>(
 					`SELECT id, name, provider, model_mappings, custom_endpoint, model_fallbacks, created_at
 					 FROM accounts WHERE id = ?`,
 					[event.accountId],
@@ -2427,7 +2427,7 @@ export class AlertService {
 			case "route_role_unavailable": {
 				const accountName = event.accountId
 					? ((
-							await this.db.get<{ name: string }>(
+							await this.db.getMain<{ name: string }>(
 								"SELECT name FROM accounts WHERE id = ?",
 								[event.accountId],
 							)
@@ -2459,7 +2459,7 @@ export class AlertService {
 
 	private async lookupAccountName(accountId: string): Promise<string | null> {
 		try {
-			const row = await this.db.get<{ name: string }>(
+			const row = await this.db.getMain<{ name: string }>(
 				"SELECT name FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -2713,6 +2713,7 @@ export class AlertService {
 			 GROUP BY timestamp / 300000
 			 ORDER BY MAX(timestamp) ASC`,
 			[accountId, windowKey, windowStartMs, timestamp],
+			"bulk",
 		);
 		const points: PredictionPoint[] = rows.map((row) => ({
 			t: Number(row.timestamp),
@@ -2781,7 +2782,7 @@ export class AlertService {
 		const threshold =
 			config.usageWindowValueDropThreshold ??
 			DEFAULT_USAGE_WINDOW_VALUE_DROP_THRESHOLD;
-		const priorRows = await this.db.query<{ value_usd: number }>(
+		const priorRows = await this.db.queryMain<{ value_usd: number }>(
 			`SELECT value_usd FROM usage_windows
 			 WHERE account_id = ? AND window_key = ? AND id != ?
 			   AND closed_at IS NOT NULL AND value_usd IS NOT NULL
@@ -2840,19 +2841,20 @@ export class AlertService {
 		const rows = await this.db.queryOffThread<AlertRow>(
 			`SELECT * FROM alerts ORDER BY timestamp DESC LIMIT ?`,
 			[Math.max(1, Math.min(500, Math.round(limit)))],
+			"bulk",
 		);
 		return rows.map(toAlertEvent);
 	}
 
 	async getUnacknowledgedCount(): Promise<number> {
-		const row = await this.db.get<{ count: number }>(
+		const row = await this.db.getMain<{ count: number }>(
 			`SELECT COUNT(*) as count FROM alerts WHERE acknowledged = 0`,
 		);
 		return Number(row?.count) || 0;
 	}
 
 	async acknowledgeAlert(id: string): Promise<boolean> {
-		const row = await this.db.get<{ cnt: number }>(
+		const row = await this.db.getMain<{ cnt: number }>(
 			`SELECT COUNT(*) as cnt FROM alerts WHERE id = ?`,
 			[id],
 		);
@@ -2878,7 +2880,7 @@ export class AlertService {
 		const dayStart = new Date(timestamp);
 		dayStart.setHours(0, 0, 0, 0);
 		if (config.dailySpendUsd > 0) {
-			const row = await this.db.get<DailySpendRow>(
+			const row = await this.db.getMain<DailySpendRow>(
 				`SELECT SUM(COALESCE(cost_usd, 0)) as total FROM requests WHERE timestamp >= ?`,
 				[dayStart.getTime()],
 			);
@@ -2907,7 +2909,7 @@ export class AlertService {
 			}
 		}
 		if (config.tokensPerHour > 0) {
-			const row = await this.db.get<TokensPerHourRow>(
+			const row = await this.db.getMain<TokensPerHourRow>(
 				`SELECT SUM(COALESCE(total_tokens, 0)) as total FROM requests WHERE timestamp >= ?`,
 				[timestamp - HOUR_MS],
 			);

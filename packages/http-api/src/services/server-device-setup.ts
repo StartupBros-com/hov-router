@@ -172,7 +172,7 @@ export function createServerDeviceSetupCoordinator(
 			Boolean(
 				await dbOps
 					.getAdapter()
-					.get<{ id: string }>("SELECT id FROM accounts WHERE id = ?", [
+					.getMain<{ id: string }>("SELECT id FROM accounts WHERE id = ?", [
 						accountId,
 					]),
 			),

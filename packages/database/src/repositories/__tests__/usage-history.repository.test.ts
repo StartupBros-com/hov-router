@@ -617,7 +617,7 @@ describe("UsageHistoryRepository", () => {
 	it("uses append_order as the latest-snapshot append tie-break", async () => {
 		let latestSql = "";
 		const stubAdapter = {
-			query: async <R>(sql: string): Promise<R[]> => {
+			queryMain: async <R>(sql: string): Promise<R[]> => {
 				latestSql = sql;
 				return [
 					{

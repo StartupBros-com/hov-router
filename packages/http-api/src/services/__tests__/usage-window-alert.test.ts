@@ -739,8 +739,8 @@ describe("AlertService usage-window alerts", () => {
 		});
 		let replaced = false;
 		class ReplaceAfterHistoryQueryAdapter extends BunSqlAdapter {
-			async query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-				const rows = await super.query<T>(sql, params);
+			async queryMain<T>(sql: string, params: unknown[] = []): Promise<T[]> {
+				const rows = await super.queryMain<T>(sql, params);
 				if (!replaced && sql.includes("FROM usage_snapshots")) {
 					replaced = true;
 					sqlite.run("DELETE FROM accounts WHERE id = ?", [accountId]);

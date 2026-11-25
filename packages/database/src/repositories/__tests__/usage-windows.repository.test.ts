@@ -1015,7 +1015,7 @@ describe("listEarlyResetCandidates", () => {
 			},
 			"interactive",
 		);
-		const query = spyOn(adapter, "query");
+		const query = spyOn(adapter, "queryMain");
 		try {
 			expect(await repo.listEarlyResetCandidates(0)).toEqual([
 				{

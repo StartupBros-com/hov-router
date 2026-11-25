@@ -141,6 +141,7 @@ export class CacheHealthRepository extends BaseRepository<CacheHealthState> {
 		const rows = await this.queryOffThread<BucketRow>(
 			cacheHealthBucketQuery(),
 			[startMs, endMs],
+			"bulk",
 		);
 		return rows.map((row) => {
 			const tokens = [row.input_tokens, row.read_tokens, row.write_tokens].map(
@@ -196,6 +197,8 @@ export class CacheHealthRepository extends BaseRepository<CacheHealthState> {
 		const rows = await this.queryOffThread<StateRow>(
 			`SELECT scope_key, revision, last_bucket_end, snapshot FROM cache_health_state
 			WHERE ${LIVE_GENERATION}`,
+			[],
+			"bulk",
 		);
 		return rows.map(readState);
 	}
@@ -209,6 +212,7 @@ export class CacheHealthRepository extends BaseRepository<CacheHealthState> {
 			`SELECT scope_key, revision, last_bucket_end, snapshot FROM cache_health_state
 			WHERE last_bucket_end < ? AND ${LIVE_GENERATION}`,
 			[nowMs - DAY_MS],
+			"bulk",
 		);
 		for (const row of rows) {
 			const state = readState(row);
