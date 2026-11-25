@@ -2,11 +2,13 @@
 
 Instructions for any agent working on **HoV Router** (`hov-router`): a load balancer and gateway that routes Claude Code and other clients across multiple provider accounts, with a dashboard for usage, cost and errors. It is a House of Vibe project at [StartupBros-com/hov-router](https://github.com/StartupBros-com/hov-router), a product fork of [tombii/better-ccflare](https://github.com/tombii/better-ccflare) (MIT). `CLAUDE.md` only imports this file, so edit this one.
 
-## ⚠️ CRITICAL: Testing Restrictions
+## ⚠️ CRITICAL: Anthropic accounts take Claude Code traffic only
 
-**Anthropic-backed accounts, including the `claude` account, must only be used through a real interactive Claude Code CLI session, except for the managed gateway-routed headless Claude Code CLI sessions covered by the operator-approved exception below.** Interactive sessions remain permitted. The operator-approved exception (2026-10-07) also permits managed gateway-routed headless Claude Code sessions, including bounded tiny tool-free CLI acceptance checks. This exception does not authorize paid overages or a switch to Codex CLI.
+Anthropic-backed accounts, including the `claude` account, are Claude subscription logins. Traffic from the unmodified Claude Code binary is normal use: interactive sessions, headless `claude -p`, and programs or containers that run the binary through Router. Anthropic documents `claude -p` for scripts and CI ([headless](https://code.claude.com/docs/en/headless)) and documents gateways that pass subscription traffic through ([LLM gateway](https://code.claude.com/docs/en/llm-gateway)).
 
-**Raw scripted Anthropic inference remains prohibited** — directly and through the proxy: no curl, test harness, or diagnostic-script probes, whether or not you would call them "testing". Real Anthropic accounts can get banned for automated/scripted usage. For scripted API requests, use a non-Anthropic account (ollama, litellm, omniroute, etc.) and force-route with `x-better-ccflare-account-id`.
+**Never send an Anthropic-backed account a request that does not come from Claude Code**, directly or through Router: no curl, test harness, SDK script, diagnostic probe or third-party agent harness, whether or not you would call it "testing". Anthropic limits subscription logins to "ordinary use of Claude Code and other native Anthropic applications" and can enforce that without notice ([legal and compliance](https://code.claude.com/docs/en/legal-and-compliance)), so such a request puts the account at risk. For scripted API requests, use a non-Anthropic account (ollama, litellm, omniroute, etc.) and force-route with `x-better-ccflare-account-id`.
+
+Nothing here authorizes paid overage.
 
 ## ⚠️ CRITICAL: Names that must NOT be renamed
 
@@ -186,7 +188,7 @@ curl -s https://openrouter.ai/api/v1/models | \
 ```
 
 Then send it, force-routing to the openrouter account so the request cannot land
-on an Anthropic-backed one (see the testing restriction at the top of this file):
+on an Anthropic-backed one (see the Anthropic-accounts rule at the top of this file):
 ```bash
 curl -X POST http://localhost:8081/v1/messages \
   -H "Content-Type: application/json" -H "Authorization: Bearer test" \

@@ -24,12 +24,7 @@ import { AlertService } from "../../services/alerts";
 import type { APIContext } from "../../types";
 import { createAccountsListHandler } from "../accounts";
 import { createAnalyticsHandler } from "../analytics";
-import {
-	createAnomalyInsightsHandler,
-	createCacheInsightsHandler,
-	createCacheParityHandler,
-	createContextInsightsHandler,
-} from "../insights";
+import { createCacheParityHandler } from "../cache-parity";
 import { createStatsHandler } from "../stats";
 
 const DAY = 86400000;
@@ -182,7 +177,7 @@ describe("heavy read result equivalence", () => {
 		expect(await worker.text()).toBe(await main.text());
 		expect(reader.readsServed - before).toBe(4);
 	});
-	it("returns identical insights reports through the reader and scans no requests on the main thread", async () => {
+	it("returns an identical cache-parity report through the reader and scans no requests on the main thread", async () => {
 		// No models.dev fetch: both passes price from the same local catalogue.
 		const offline = process.env.CF_PRICING_OFFLINE;
 		process.env.CF_PRICING_OFFLINE = "1";
@@ -192,28 +187,7 @@ describe("heavy read result equivalence", () => {
 				config: createCacheParityConfigStub(),
 			} as unknown as APIContext;
 			const reports: Array<[string, () => Promise<Response>]> = [
-				[
-					"cache",
-					() =>
-						createCacheInsightsHandler(context)(
-							new URLSearchParams({ range: "30d" }),
-						),
-				],
 				["cache-parity", () => createCacheParityHandler(context)()],
-				[
-					"anomalies",
-					() =>
-						createAnomalyInsightsHandler(context)(
-							new URLSearchParams({ range: "30d" }),
-						),
-				],
-				[
-					"context",
-					() =>
-						createContextInsightsHandler(context)(
-							new URLSearchParams({ range: "30d" }),
-						),
-				],
 			];
 			const adapter = db.getAdapter();
 			for (const [name, report] of reports) {

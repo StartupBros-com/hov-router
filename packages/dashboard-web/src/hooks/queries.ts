@@ -25,6 +25,7 @@ import {
 	type RequestSummary,
 	type TokenHealthResponse,
 } from "../api";
+import { ALERTS_LIST_LIMIT } from "../lib/alert-attention";
 import { queryKeys } from "../lib/query-keys";
 import {
 	fetchRouteLanes,
@@ -717,18 +718,6 @@ export const useAnalytics = (
 	});
 };
 
-export const useCacheInsights = (timeRange: string, threshold?: number) => {
-	return useQuery({
-		queryKey: queryKeys.insightsCache(timeRange, threshold),
-		queryFn: () => api.getCacheInsights(timeRange, threshold),
-		staleTime: 45000,
-		refetchInterval: 60000,
-		refetchIntervalInBackground: false,
-		gcTime: 15 * 60 * 1000,
-		enabled: !!timeRange,
-	});
-};
-
 export const useUsageHistory = (account: string, range: string) => {
 	return useQuery({
 		queryKey: queryKeys.usageHistory(account, range),
@@ -767,30 +756,6 @@ export const useFleetUsageHistory = (range: string, enabled = true) => {
 		refetchIntervalInBackground: false,
 		gcTime: 15 * 60 * 1000,
 		enabled,
-	});
-};
-
-export const useContextInsights = (timeRange: string) => {
-	return useQuery({
-		queryKey: queryKeys.insightsContext(timeRange),
-		queryFn: () => api.getContextInsights(timeRange),
-		staleTime: 45000,
-		refetchInterval: 60000,
-		refetchIntervalInBackground: false,
-		gcTime: 15 * 60 * 1000,
-		enabled: !!timeRange,
-	});
-};
-
-export const useAnomalyInsights = (timeRange: string) => {
-	return useQuery({
-		queryKey: queryKeys.insightsAnomalies(timeRange),
-		queryFn: () => api.getAnomalyInsights(timeRange),
-		staleTime: 45000,
-		refetchInterval: 60000,
-		refetchIntervalInBackground: false,
-		gcTime: 15 * 60 * 1000,
-		enabled: !!timeRange,
 	});
 };
 
@@ -1415,10 +1380,7 @@ export const useReorderComboSlots = () => {
 export const useAlerts = () => {
 	return useQuery({
 		queryKey: queryKeys.insightsAlerts(),
-		queryFn: async () => {
-			const res = await api.getAlerts(200);
-			return res;
-		},
+		queryFn: () => api.getAlerts(ALERTS_LIST_LIMIT),
 		staleTime: 15_000,
 		refetchInterval: 30_000,
 		refetchIntervalInBackground: false,
