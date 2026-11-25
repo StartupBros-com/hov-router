@@ -230,3 +230,56 @@ describe("Auto quality lane controls removed in 6.0.0 (#816)", () => {
 		}
 	});
 });
+
+describe("Insights analysis endpoints removed in 7.0.0 (#1012)", () => {
+	const REMOVED_7 = [
+		["/api/insights/cache", "GET /api/analytics"],
+		["/api/insights/context", null],
+		["/api/insights/anomalies", null],
+	] as const;
+
+	it("answers 410 for every method, with the replacement where one exists", async () => {
+		for (const [path, replacement] of REMOVED_7) {
+			for (const method of ["GET", "HEAD", "POST", "DELETE"]) {
+				const response = await send(
+					method,
+					`${path}?range=24h`,
+					method === "POST" ? {} : undefined,
+				);
+				expect(response?.status).toBe(410);
+				if (method === "HEAD") continue;
+				const body = (await response?.json()) as Record<string, unknown>;
+				expect(body).toMatchObject({
+					error: "Gone",
+					endpoint: path,
+					removedIn: "7.0.0",
+					replacement,
+				});
+			}
+		}
+	});
+
+	it("keeps the cache-parity and alert routes that share the prefix", async () => {
+		for (const [method, path] of [
+			["GET", "/api/insights/cache-parity"],
+			["GET", "/api/insights/alerts"],
+			["GET", "/api/insights/alerts/config"],
+			["POST", "/api/insights/alerts/acknowledge-all"],
+		] as const) {
+			const response = await send(
+				method,
+				path,
+				method === "POST" ? {} : undefined,
+			);
+			expect(response).not.toBeNull();
+			expect(response?.status).not.toBe(410);
+		}
+		for (const path of [
+			"/api/insights/cache/extra",
+			"/api/insights/context-x",
+			"/api/insights/anomalies/extra",
+		]) {
+			expect((await send("GET", path))?.status).not.toBe(410);
+		}
+	});
+});

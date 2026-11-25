@@ -62,6 +62,38 @@ const EXACT = new Map<string, RemovedEndpoint>([
 				"Cache diagnosis ran only when CCFLARE_CACHE_DIAG was set, and that variable is now ignored.",
 		},
 	],
+	// The Insights page's analysis endpoints (#1012). The alert and
+	// cache-parity routes under /api/insights/ stay, so these match exactly.
+	[
+		"/api/insights/cache",
+		{
+			endpoint: "/api/insights/cache",
+			removedIn: "7.0.0",
+			replacement: "GET /api/analytics",
+			advice:
+				"GET /api/analytics?modelBreakdown=true reports the cache hit rate per model over time.",
+		},
+	],
+	[
+		"/api/insights/context",
+		{
+			endpoint: "/api/insights/context",
+			removedIn: "7.0.0",
+			replacement: null,
+			advice:
+				"Context composition is gone; open a request on the Requests page to read its stored payload.",
+		},
+	],
+	[
+		"/api/insights/anomalies",
+		{
+			endpoint: "/api/insights/anomalies",
+			removedIn: "7.0.0",
+			replacement: null,
+			advice:
+				"Token anomaly detection is gone; the Requests and Analytics pages show per-request tokens and cost.",
+		},
+	],
 ]);
 
 const ACCOUNT_ACTIONS = new Map<string, RemovedEndpoint>([

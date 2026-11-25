@@ -14,7 +14,6 @@ describe("page shell", () => {
 	it("shows a lazy page's header and loading state while its chunk loads", () => {
 		for (const [page, title] of [
 			["analytics", "Analytics"],
-			["insights", "Insights"],
 			["usageHistory", "Usage History"],
 			["windowValue", "Window Value"],
 		] as const) {
@@ -32,10 +31,10 @@ describe("page shell", () => {
 	});
 
 	it("renders the loading page as the header above a page-size loading state", () => {
-		const html = renderToStaticMarkup(<PageLoading page="insights" />);
+		const html = renderToStaticMarkup(<PageLoading page="analytics" />);
 		expect(html.startsWith('<div class="space-y-4">')).toBe(true);
-		expect(html).toContain("Cache efficiency and estimated cost savings");
-		expect(html).toContain('aria-label="Loading insights"');
+		expect(html).toContain("Usage patterns and trends over time");
+		expect(html).toContain('aria-label="Loading analytics"');
 		expect(html).toContain("animate-pulse");
 	});
 
@@ -55,10 +54,15 @@ describe("page shell", () => {
 describe("App page chrome", () => {
 	const app = readFileSync(join(import.meta.dir, "../App.tsx"), "utf8");
 
+	it("sends the removed Insights page to Alerts", () => {
+		expect(app).toContain('path="/insights"');
+		expect(app).toContain("<Navigate to={PAGE_META.alerts.path} replace />");
+	});
+
 	it("wraps every lazy route in LazyPage instead of its own skeleton", () => {
 		expect(app).not.toContain("<Suspense");
 		expect(app).not.toContain("LoadingSkeleton");
-		expect(app.match(/<LazyPage page="/g)).toHaveLength(4);
+		expect(app.match(/<LazyPage page="/g)).toHaveLength(3);
 	});
 
 	it("leaves no gradient title anywhere in the dashboard", () => {
