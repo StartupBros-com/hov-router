@@ -17,8 +17,8 @@ import {
 import { SessionAffinityStrategy } from "@better-ccflare/load-balancer";
 import { handleResponsesRequest } from "@better-ccflare/openai-responses-adapter";
 import {
-	clearDerivedProviderModelDefaults,
 	CodexProvider,
+	clearDerivedProviderModelDefaults,
 	usageCache,
 } from "@better-ccflare/providers";
 import type { Account, Agent } from "@better-ccflare/types";
@@ -3637,8 +3637,16 @@ describe("catalog-role Codex route profiles", () => {
 	it.each([
 		{ label: "explicit max", reasoning: { effort: "max" }, expected: "max" },
 		{ label: "no effort", reasoning: undefined, expected: "xhigh" },
-		{ label: "summary only", reasoning: { summary: "auto" }, expected: "xhigh" },
-		{ label: "invalid effort", reasoning: { effort: "extreme" }, expected: null },
+		{
+			label: "summary only",
+			reasoning: { summary: "auto" },
+			expected: "xhigh",
+		},
+		{
+			label: "invalid effort",
+			reasoning: { effort: "extreme" },
+			expected: null,
+		},
 	])("uses $label from a Responses request on a Codex pool with a default", async ({
 		reasoning,
 		expected,
@@ -3663,16 +3671,17 @@ describe("catalog-role Codex route profiles", () => {
 		// The routing envelope may omit the resolver's specific validation error.
 		const transformSpy =
 			expected === null
-				? spyOn(CodexProvider.prototype, "transformRequestBody").mockImplementation(
-						async function (this: CodexProvider, ...args) {
-							try {
-								return await transform.apply(this, args);
-							} catch (error) {
-								failures.push(error);
-								throw error;
-							}
-						},
-					)
+				? spyOn(
+						CodexProvider.prototype,
+						"transformRequestBody",
+					).mockImplementation(async function (this: CodexProvider, ...args) {
+						try {
+							return await transform.apply(this, args);
+						} catch (error) {
+							failures.push(error);
+							throw error;
+						}
+					})
 				: undefined;
 		try {
 			const response = await handleResponsesRequest(
