@@ -298,7 +298,8 @@ describe("navigation alert badge", () => {
 		requestId: null,
 		acknowledged,
 	});
-	const alertsLink = (alerts: unknown[], unacknowledgedCount: number) => {
+	/** The Alerts nav item's badge text, or null when it shows no badge. */
+	const alertsBadge = (alerts: unknown[], unacknowledgedCount: number) => {
 		const queryClient = new QueryClient();
 		queryClient.setQueryData(
 			queryKeys.insightsAlerts(),
@@ -319,7 +320,10 @@ describe("navigation alert badge", () => {
 			).split("<aside")[1];
 			const link = sidebar.match(/<a\b[^>]*href="\/alerts"[^>]*>(.*?)<\/a>/);
 			expect(link).not.toBeNull();
-			return (link?.[1] ?? "").replace(/<[^>]*>/g, "").trim();
+			const badge = (link?.[1] ?? "").match(
+				/<span class="ml-auto rounded-full[^"]*">([^<]*)<\/span>/,
+			);
+			return badge ? badge[1] : null;
 		} finally {
 			theme.mockRestore();
 			queryClient.clear();
@@ -328,13 +332,13 @@ describe("navigation alert badge", () => {
 
 	it("counts recent unacknowledged warning and critical alerts", () => {
 		expect(
-			alertsLink([alert("a", "critical", 1), alert("b", "warning", 2)], 2),
-		).toBe("Alerts2");
+			alertsBadge([alert("a", "critical", 1), alert("b", "warning", 2)], 2),
+		).toBe("2");
 	});
 
 	it("shows no badge for info, acknowledged or day-old alerts, whatever the stored total", () => {
 		expect(
-			alertsLink(
+			alertsBadge(
 				[
 					alert("info", "info", 1),
 					alert("acked", "critical", 1, true),
@@ -342,7 +346,7 @@ describe("navigation alert badge", () => {
 				],
 				2428,
 			),
-		).toBe("Alerts");
+		).toBeNull();
 	});
 });
 
