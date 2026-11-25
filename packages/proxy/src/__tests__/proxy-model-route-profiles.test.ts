@@ -1035,6 +1035,68 @@ describe("Claude Code gateway model route profiles", () => {
 		expect(harness.strategySelect).toHaveBeenCalledTimes(1);
 	});
 
+	it("serves the Codex CLI its own catalog from memory ahead of route discovery", async () => {
+		const codex = makeAccount("catalog-codex-account");
+		codex.provider = "codex";
+		codex.api_key = null;
+		codex.access_token = "codex-test-token";
+		codex.expires_at = Date.now() + 3_600_000;
+		const upstreamBody = JSON.stringify({
+			models: [
+				{ slug: "gpt-6.2-sol", visibility: "list", priority: 1 },
+				{ slug: "codex-auto-review", visibility: "hide", priority: 40 },
+			],
+		});
+		globalThis.fetch = (async () =>
+			new Response(upstreamBody, {
+				status: 200,
+				headers: { "content-type": "application/json", etag: '"cat-1"' },
+			})) as unknown as typeof fetch;
+		// The instance handleProxy imports, as the other catalog seeds here use.
+		const listing = await codexModelCatalogModule.getCodexModels(codex.id, {
+			dbOps: { getAccount: async () => codex },
+			refreshInFlight: new Map(),
+		} as unknown as ProxyContext);
+		expect(listing?.source).toBe("live");
+
+		const harness = makeContext(makeRegistry(), { accounts: [codex] });
+		const { fetchMock } = installJsonUpstream();
+		const request = new Request(
+			"https://proxy.local/v1/models?client_version=0.172.0",
+		);
+		const response = await handleProxy(
+			request,
+			new URL(request.url),
+			harness.ctx,
+			"key-1",
+		);
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("etag")).toBe('"cat-1"');
+		expect(await response.text()).toBe(upstreamBody);
+		expect(fetchMock).toHaveBeenCalledTimes(0);
+		expect(harness.getAllAccounts).toHaveBeenCalledTimes(0);
+		expect(harness.strategySelect).toHaveBeenCalledTimes(0);
+	});
+
+	it("answers the Codex CLI 404 without an upstream call before any catalog is read", async () => {
+		const harness = makeContext(undefined);
+		const { fetchMock } = installJsonUpstream();
+		const request = new Request(
+			"https://proxy.local/v1/models?client_version=0.172.0",
+		);
+		const response = await handleProxy(
+			request,
+			new URL(request.url),
+			harness.ctx,
+			"key-1",
+		);
+
+		expect(response.status).toBe(404);
+		expect(fetchMock).toHaveBeenCalledTimes(0);
+		expect(harness.strategySelect).toHaveBeenCalledTimes(0);
+	});
+
 	it("routes legacy and hinted Sol picker ids through the same profile", async () => {
 		const harness = makeContext(
 			makeRegistry({ clientContextWindowHint: "1m" }),

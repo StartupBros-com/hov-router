@@ -80,7 +80,10 @@ import {
 	primeCatalogRoleCandidates,
 	resolveImplicitCodexRoute,
 } from "./codex-implicit-route";
-import { reportCatalogRoleRouteFailClosed } from "./codex-model-catalog";
+import {
+	codexClientCatalogResponse,
+	reportCatalogRoleRouteFailClosed,
+} from "./codex-model-catalog";
 import { readForcedAccountHeader } from "./force-account-header";
 import {
 	type AgentInterceptResult,
@@ -931,6 +934,18 @@ async function handleProxyCoreImpl(
 				reason: provenance.reason,
 			},
 		});
+	}
+
+	// The Codex CLI fetches its own model catalog from its provider, naming
+	// itself with `client_version`, and decodes only OpenAI's native catalog
+	// shape: neither the route list below nor the provider's OpenAI-list
+	// translation. Answer it from the last catalog an account read.
+	if (
+		req.method === "GET" &&
+		url.pathname === "/v1/models" &&
+		url.searchParams.has("client_version")
+	) {
+		return codexClientCatalogResponse();
 	}
 
 	// handleProxy is entered only after the server's authentication layer. These
