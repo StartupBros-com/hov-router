@@ -53,6 +53,16 @@ function account(db: Database, id: string) {
 	} | null;
 }
 
+function legacyEndpointRows(db: Database): number {
+	return (
+		db
+			.prepare(
+				"SELECT COUNT(*) AS n FROM accounts WHERE custom_endpoint LIKE '%modelMappings%'",
+			)
+			.get() as { n: number }
+	).n;
+}
+
 function routingRevision(db: Database): number {
 	return (
 		db
@@ -151,6 +161,12 @@ describe("legacy model mapping migration", () => {
 			insert.run("b2", "dup", "openai-compatible", null, "{}", null, null);
 
 			runMigrations(db);
+			// Nothing is left for a later start to fold again, so an edit made
+			// after the upgrade survives the next start.
+			expect(legacyEndpointRows(db)).toBe(0);
+			db.run(
+				"UPDATE accounts SET model_mappings = '{\"opus\":\"edited\"}' WHERE id = 'b1'",
+			);
 			runMigrations(db);
 
 			expect(JSON.parse(account(db, "a1")?.model_mappings ?? "null")).toEqual({
@@ -172,8 +188,8 @@ describe("legacy model mapping migration", () => {
 				"upstream_429_with_reset",
 			);
 			expect(account(db, "b1")).toEqual({
-				model_mappings: '{"opus":"x"}',
-				custom_endpoint: '{"modelMappings":{"opus":"x"}}',
+				model_mappings: '{"opus":"edited"}',
+				custom_endpoint: '{"foldedLegacyMappingsFor":"b1"}',
 				rate_limited_reason: null,
 			});
 			expect(account(db, "b2")?.custom_endpoint).toBe("{}");
@@ -271,15 +287,124 @@ describe("legacy model mapping migration", () => {
 			runMigrations(db);
 			runMigrations(db);
 
-			// Each duplicate's fallback was folded before the merge, so the
-			// survivor keeps one row's mappings whole.
+			// Each duplicate's fallback is folded before the merge, and the merge
+			// keeps the survivor's own model_mappings (d2, the newer row). Before
+			// 7.0.0 the merge also adopted d1's mapping, so sonnet tried s, then sfb.
 			const duplicates = db
 				.prepare("SELECT model_mappings FROM accounts WHERE name = 'dup'")
 				.all() as Array<{ model_mappings: string | null }>;
-			expect(duplicates).toHaveLength(1);
-			expect(['{"sonnet":"s"}', '{"sonnet":"sfb"}']).toContain(
-				duplicates[0]?.model_mappings ?? "",
+			expect(duplicates).toEqual([{ model_mappings: '{"sonnet":"sfb"}' }]);
+			expectRetiredShape(db);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("merges exact duplicates that both carry endpoint mappings", () => {
+		const db = new Database(":memory:");
+		try {
+			db.exec(`
+				CREATE TABLE accounts (
+					id TEXT PRIMARY KEY,
+					name TEXT NOT NULL,
+					provider TEXT DEFAULT 'anthropic',
+					api_key TEXT,
+					refresh_token TEXT,
+					access_token TEXT,
+					expires_at INTEGER,
+					created_at INTEGER NOT NULL,
+					last_used INTEGER,
+					request_count INTEGER DEFAULT 0,
+					total_requests INTEGER DEFAULT 0,
+					priority INTEGER DEFAULT 0,
+					custom_endpoint TEXT,
+					model_mappings TEXT
+				)
+			`);
+			const insert = db.prepare(
+				"INSERT INTO accounts (id, name, provider, created_at, custom_endpoint) VALUES (?, 'dup', 'openai-compatible', ?, ?)",
 			);
+			const endpoint =
+				'{"endpoint":"https://e.example","modelMappings":{"opus":"o"}}';
+			insert.run("d1", 1, endpoint);
+			insert.run("d2", 2, endpoint);
+
+			runMigrations(db);
+			runMigrations(db);
+
+			// They were one account before the fold, so they stay one after it.
+			expect(
+				db
+					.prepare(
+						"SELECT model_mappings, custom_endpoint FROM accounts WHERE name = 'dup'",
+					)
+					.all(),
+			).toEqual([
+				{
+					model_mappings: '{"opus":"o"}',
+					custom_endpoint: '{"endpoint":"https://e.example"}',
+				},
+			]);
+			expect(legacyEndpointRows(db)).toBe(0);
+			expectRetiredShape(db);
+		} finally {
+			db.close();
+		}
+	});
+
+	it("keeps exact duplicates together when the bare endpoint is taken", () => {
+		const db = new Database(":memory:");
+		try {
+			db.exec(`
+				CREATE TABLE accounts (
+					id TEXT PRIMARY KEY,
+					name TEXT NOT NULL,
+					provider TEXT DEFAULT 'anthropic',
+					api_key TEXT,
+					refresh_token TEXT,
+					access_token TEXT,
+					expires_at INTEGER,
+					created_at INTEGER NOT NULL,
+					last_used INTEGER,
+					request_count INTEGER DEFAULT 0,
+					total_requests INTEGER DEFAULT 0,
+					priority INTEGER DEFAULT 0,
+					custom_endpoint TEXT,
+					model_mappings TEXT
+				)
+			`);
+			const insert = db.prepare(
+				"INSERT INTO accounts (id, name, provider, created_at, custom_endpoint) VALUES (?, 'dup', 'openai-compatible', ?, ?)",
+			);
+			const endpoint =
+				'{"endpoint":"https://e.example","modelMappings":{"opus":"o"}}';
+			insert.run("d1", 1, endpoint);
+			insert.run("d2", 2, endpoint);
+			insert.run("bare", 3, '{"endpoint":"https://e.example"}');
+
+			runMigrations(db);
+			runMigrations(db);
+
+			// d1 and d2 get the same marker, so they still merge into one account,
+			// and that account stays apart from the one without mappings.
+			expect(
+				db
+					.prepare(
+						"SELECT model_mappings, custom_endpoint FROM accounts WHERE name = 'dup' ORDER BY created_at",
+					)
+					.all(),
+			).toEqual([
+				{
+					model_mappings: '{"opus":"o"}',
+					custom_endpoint:
+						'{"endpoint":"https://e.example","foldedLegacyMappingsFor":"d1"}',
+				},
+				{
+					model_mappings: null,
+					custom_endpoint: '{"endpoint":"https://e.example"}',
+				},
+			]);
+			expect(legacyEndpointRows(db)).toBe(0);
 			expectRetiredShape(db);
 		} finally {
 			db.close();

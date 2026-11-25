@@ -1182,15 +1182,28 @@ function migrateLegacyAccountModelMappings(db: Database): void {
 		.all();
 
 	// idx_accounts_unique_name_provider_endpoint covers custom_endpoint, so a
-	// rewritten value must not match another account's tuple.
-	const endpointTaken = db.query<
-		{ found: number },
+	// rewritten value must not match another account's tuple. A partner that
+	// held the same custom_endpoint before the fold is an exact duplicate from a
+	// database older than the index; the duplicate collapse merges the two.
+	const originalEndpoint = new Map(
+		rows.map((row) => [row.id, row.custom_endpoint]),
+	);
+	// Exact duplicates share one marker so they stay identical for the collapse.
+	const duplicateKey = (row: (typeof rows)[number]) =>
+		JSON.stringify([row.name, row.provider, row.custom_endpoint]);
+	const markerId = new Map<string, string>();
+	for (const row of rows) {
+		const key = duplicateKey(row);
+		const current = markerId.get(key);
+		if (current === undefined || row.id < current) markerId.set(key, row.id);
+	}
+	const endpointPartners = db.query<
+		{ id: string },
 		[string, string, string | null, string]
 	>(
-		`SELECT 1 AS found FROM accounts
+		`SELECT id FROM accounts
 		 WHERE id != ?1 AND name = ?2 AND provider = ?3
-		   AND COALESCE(custom_endpoint, '') = ?4
-		 LIMIT 1`,
+		   AND COALESCE(custom_endpoint, '') = ?4`,
 	);
 	const update = db.prepare<unknown, [string | null, string | null, string]>(
 		"UPDATE accounts SET model_mappings = ?1, custom_endpoint = ?2 WHERE id = ?3",
@@ -1200,13 +1213,25 @@ function migrateLegacyAccountModelMappings(db: Database): void {
 	for (const row of rows) {
 		const result = foldLegacyModelMappings(row);
 		let customEndpoint = result.custom_endpoint;
-		if (
+		const collides =
 			customEndpoint !== row.custom_endpoint &&
-			endpointTaken.get(row.id, row.name, row.provider, customEndpoint ?? "")
-		) {
-			customEndpoint = row.custom_endpoint;
+			endpointPartners
+				.all(row.id, row.name, row.provider, customEndpoint ?? "")
+				.some(
+					(partner) =>
+						!originalEndpoint.has(partner.id) ||
+						originalEndpoint.get(partner.id) !== row.custom_endpoint,
+				);
+		if (collides) {
+			// Removing the key alone would give this row another account's tuple.
+			// Its id keeps it distinct, and the key no longer matches the selector
+			// above, so a later start does not fold it again over edits.
+			customEndpoint = JSON.stringify({
+				...JSON.parse(customEndpoint ?? "{}"),
+				foldedLegacyMappingsFor: markerId.get(duplicateKey(row)) ?? row.id,
+			});
 			result.warnings.push(
-				"kept the modelMappings key in custom_endpoint because removing it would match another account; nothing reads it",
+				"replaced modelMappings in custom_endpoint with foldedLegacyMappingsFor, because removing it alone would match another account; nothing reads that key",
 			);
 		}
 		for (const warning of result.warnings) {

@@ -163,7 +163,10 @@ On first start, 7.0.0 moves mappings stored in `custom_endpoint` JSON
 the router applied them. The endpoint mapping overrides a family, and a fallback
 is appended as the next candidate. It then drops the `model_fallbacks` column.
 Values the router could not parse were never used and are dropped with a warning
-in the log.
+in the log. When removing `modelMappings` would leave an account with the same
+name, provider and endpoint as another account, the key is replaced with
+`foldedLegacyMappingsFor`, holding an account ID, so the two stay distinct.
+Nothing reads that key.
 
 The API and CLI no longer accept `modelFallbacks`, a `modelMappings` key inside
 `customEndpoint`, or a `model_mappings` value wrapped as
