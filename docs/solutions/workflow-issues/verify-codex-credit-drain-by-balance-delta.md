@@ -149,7 +149,7 @@ To attribute spending without reading secrets:
 
 ## Examples
 
-A live check that proves billing and never touches Anthropic-backed accounts (see the testing restriction in AGENTS.md):
+A live check that proves billing and never touches Anthropic-backed accounts (see the Anthropic-accounts rule in AGENTS.md):
 
 1. Rule out other spenders. Confirm the local Codex CLI is logged into a different account (Guidance §5), and that nothing else uses the target account during the test.
 2. Read `GET /api/accounts` and record the target account's `credits_balance`, `codex_subscription` flags and `codexCreditDrainActive`. If a drain-on account at 100% shows `codexCreditDrainActive: false`, there is no fresh credit evidence yet; wait one poll.

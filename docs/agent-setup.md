@@ -76,7 +76,7 @@ An existing OAuth login and a new `ANTHROPIC_AUTH_TOKEN` conflict. Don't blindly
 
 Before sending, confirm the selected route's cost and get approval for paid usage or overages; for a Claude login, [check its extra usage](#check-extra-usage-on-each-claude-login) first. If pricing is unclear, pause.
 
-For Anthropic-backed accounts, ask the human to send a small request in a **real interactive Claude Code CLI session**. Only an explicitly operator-approved, bounded, managed gateway-routed headless Claude Code CLI check may substitute. Never probe Anthropic inference using raw curl or a diagnostic script, directly or through Router. Non-Anthropic local/synthetic checks can establish that route's behavior, but are not proof of Anthropic OAuth success.
+For Anthropic-backed accounts, send a small request from **Claude Code itself**: an interactive session or a headless `claude -p`. Never probe Anthropic inference using raw curl or a diagnostic script, directly or through Router. Non-Anthropic local/synthetic checks can establish that route's behavior, but are not proof of Anthropic OAuth success.
 
 Match the client request to the dashboard's **Requests** entry by time and request details, with owner assistance if access is restricted. Confirm the intended account, actual model, successful status, and completed stream, not just HTTP 200. If the client succeeds but the owner has not supplied matching evidence, report client success with route verification pending. A health check, account listing, routing preview, or truncated stream is insufficient. If it failed, use [troubleshooting](troubleshooting.md) and report the observed failure without silently switching providers or enabling paid overages.
 
