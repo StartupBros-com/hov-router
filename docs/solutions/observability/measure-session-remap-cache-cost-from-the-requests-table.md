@@ -185,9 +185,7 @@ because the denominator grows faster. The post-#510 comparison under both readin
      journal start counts. A restored start should move few lanes, so its start count no
      longer predicts remaps.
 
-10. **Read the production database only with `sqlite3 -readonly`.** Never size or verify this
-    with scripted requests through Anthropic accounts; AGENTS.md prohibits scripted Anthropic
-    inference.
+10. **Read the production database only with `sqlite3 -readonly`.** Measure natural session remaps, not synthetic requests. A [CLI route check](../../agent-setup.md#5-connect-claude-code-and-prove-the-route) cannot establish representative cache cost.
 
 ### The queries
 

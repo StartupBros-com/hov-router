@@ -1135,11 +1135,11 @@ Update load balancing strategy.
 
 **Available Strategies:**
 - `session` - The default account-level session strategy. For providers with session-window tracking (including Anthropic OAuth and Codex OAuth), it keeps requests on the active account for the configured session duration.
-- `least-used` - Orders available accounts by utilization for per-request spreading. It does not preserve OAuth stickiness; use it only where spreading traffic across credentials is safe.
+- `least-used` - Orders available accounts by utilization for per-request spreading. It does not preserve a client's cache locality.
 - `session-affinity` - Assigns each client or affinity lane a sticky account, with automatic failover and expiry, so concurrent clients can spread across the pool while each client keeps prompt-cache locality.
 - `session-drain-soonest` - Opt-in `session-affinity` variant. It ranks fresh assignments and account failover by weekly pace band, then the earliest known future all-model weekly reset, then normal priority/utilization tie-breakers. Besides normal failover, an existing owner also moves when a same-tier account reaches a higher pace band (Codex owners stay; Anthropic owners get a bounded warm-cache hold). Unknown, malformed, or stale reset telemetry fails open to ordinary affinity ordering. See [Drain ordering](load-balancing.md#drain-ordering).
 
-For Anthropic OAuth traffic, prefer `session`, `session-affinity`, or the opt-in `session-drain-soonest` because they preserve account stickiness. Per-request spreading with `least-used` can create provider anti-abuse patterns.
+- `session-drain-soonest-strict` - Ranks by earliest future weekly reset within each authorized routing class; active sessions break ties.
 
 **Example:**
 ```bash
@@ -1587,7 +1587,7 @@ curl -X POST http://localhost:8080/api/models/preview \
 
 #### POST /api/models/refresh
 
-Force an immediate live model catalog refresh, bypassing the scheduled interval. Prefers a console/API-key account but falls back to an OAuth account if `BETTER_CCFLARE_MODELS_OAUTH_REFRESH` (or the equivalent config toggle) is enabled. Never throws — always returns `200` with the outcome, even on failure (e.g. no eligible account, network error).
+Force an immediate live model catalog refresh, bypassing the scheduled interval. Prefers a console/API-key account and allows an OAuth fallback regardless of `BETTER_CCFLARE_MODELS_OAUTH_REFRESH`; that flag controls scheduled refreshes only. This lists models, not inference. The offline switch still prevents the refresh. Never throws — always returns `200` with the outcome, even on failure (e.g. no eligible account, network error).
 
 **Response:**
 ```json
@@ -1803,7 +1803,7 @@ HoV Router can be configured using the following environment variables:
 - `BETTER_CCFLARE_MODELS_REFRESH_HOURS` - Hours between scheduled model catalog refreshes, 0 disables scheduled refresh (default: 168 / 7 days). See [Model Catalog](configuration.md#model-catalog).
 - `BETTER_CCFLARE_MODELS_OFFLINE` - Disable scheduled/manual model catalog refresh and passive `/v1/models` capture (default: unset)
 - `BETTER_CCFLARE_MODELS_CACHE_DIR` - Directory for the persisted model catalog cache file (default: platform config dir)
-- `BETTER_CCFLARE_MODELS_OAUTH_REFRESH` - Allow OAuth accounts as a fallback source for manual model catalog refreshes (default: unset / console-only)
+- `BETTER_CCFLARE_MODELS_OAUTH_REFRESH` - Allow OAuth accounts as a fallback source for scheduled model catalog refreshes (default: unset / console-only). Manual refreshes allow the fallback regardless of this setting.
 
 ### Configuration File
 
@@ -1832,11 +1832,11 @@ In addition to environment variables, HoV Router supports configuration through 
 
 The following strategies are supported:
 - `session` (default) - Account-level sticky sessions for providers with session-window tracking; Anthropic OAuth sessions also align to the provider's `rate_limit_reset` when available.
-- `least-used` - Utilization-first ordering with no sticky OAuth session; appropriate for API-key or compatible-provider pools where per-request spreading is acceptable.
+- `least-used` - Uses effective utilization for per-request balancing without retaining a sticky owner.
 - `session-affinity` - Per-client or per-lane sticky ownership with automatic failover and session expiry; useful when several concurrent clients need cache-local routing.
 - `session-drain-soonest` (opt-in) - Keeps the current affinity owner except on failover, or when a same-tier account reaches a higher weekly pace band (Codex owners stay; Anthropic owners get a bounded warm-cache hold). A fresh assignment or account failover ranks by pace band, then a known future all-model weekly reset; unknown or stale reset data falls back to ordinary affinity ordering.
 
-For Anthropic OAuth accounts, prefer a session-based strategy (`session`, `session-affinity`, or `session-drain-soonest`) to preserve natural account stickiness. `least-used` may spread requests across accounts and can trigger provider anti-abuse controls.
+- `session-drain-soonest-strict` - Prioritizes the earliest future weekly reset within each authorized class over active-session stickiness. See [load balancing](load-balancing.md) for cache and utilization tradeoffs.
 
 ## Notes
 

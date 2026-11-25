@@ -76,9 +76,19 @@ An existing OAuth login and a new `ANTHROPIC_AUTH_TOKEN` conflict. Don't blindly
 
 Before sending, confirm the selected route's cost and get approval for paid usage or overages; for a Claude login, [check its extra usage](#check-extra-usage-on-each-claude-login) first. If pricing is unclear, pause.
 
-For Anthropic-backed accounts, ask the human to send a small request in a **real interactive Claude Code CLI session**. Only an explicitly operator-approved, bounded, managed gateway-routed headless Claude Code CLI check may substitute. Never probe Anthropic inference using raw curl or a diagnostic script, directly or through Router. Non-Anthropic local/synthetic checks can establish that route's behavior, but are not proof of Anthropic OAuth success.
+Use the configured native Claude Code CLI and the intended model on the approved managed gateway. Send a small interactive request or use print mode (`claude -p`) for one tiny reply, with `--tools ""`, `--max-turns 1`, and `--no-session-persistence`. Do not use `--bare` if the check needs native OAuth/keychain login or saved gateway settings. A non-Anthropic test does not prove the Claude route.
 
 Match the client request to the dashboard's **Requests** entry by time and request details, with owner assistance if access is restricted. Confirm the intended account, actual model, successful status, and completed stream, not just HTTP 200. If the client succeeds but the owner has not supplied matching evidence, report client success with route verification pending. A health check, account listing, routing preview, or truncated stream is insufficient. If it failed, use [troubleshooting](troubleshooting.md) and report the observed failure without silently switching providers or enabling paid overages.
+
+### Claude automation and credentials
+
+Provider guidance checked November 24, 2026:
+
+- Claude Code documents [print mode for automation](https://code.claude.com/docs/en/headless.md). [Anthropic's plan guidance](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) says its June 15 update paused proposed SDK changes: individual Agent SDK, `claude -p`, and third-party app usage still draw from subscription limits. The October 7 plan API credits are separate and use a linked Console API key.
+- [Claude Code's credential rules](https://code.claude.com/docs/en/legal-and-compliance.md) distinguish individual use and hosting unmodified Claude Code with each user signing into their own account from offering Claude.ai login in another app. Developers must not collect, store, or intermediate users' personal-plan credentials or route requests on their behalf through those credentials. Subscription billing does not authorize pooling accounts for others.
+- [OpenClaw's provider guide](https://docs.openclaw.ai/providers/anthropic) distinguishes the native Claude Code backend, where the CLI owns login, from setup-token compatibility and API keys. A client accepting a token is not provider authorization to use it.
+
+For this repository's raw HTTP test and spending rules, see [AGENTS.md](../AGENTS.md#repository-rules-for-live-inference-tests).
 
 ## 6. Hand back a usable setup
 
@@ -88,6 +98,6 @@ Show the dashboard URL and report:
 - How to start the client again and restore prior client settings/login. Only for a new host, include how to stop the process you started and restore prior Router command selection; never stop the shared server.
 - Which settings or files changed, including private state paths for a new host but no secrets. For client-only setup, confirm no local Router state or server configuration was changed.
 - The account/model and request outcome actually verified, with any verification limits.
-- Any remaining human action, such as sign-in or an interactive request.
+- Any remaining human action, such as sign-in or supplying access to the matching Requests entry.
 
 A waiting human step stays open. Once the request and dashboard checks pass, the human should be able to launch the same setup without repeating installation.

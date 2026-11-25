@@ -83,7 +83,7 @@ All 431 measured attempts recorded derived affinity identity and a routing hint.
 ### Repeatable checks (natural traffic only)
 
 - `packages/providers/src/providers/codex/affinity-headers.test.ts`, `provider.affinity-headers.test.ts`.
-- Post-deploy, on naturally initiated traffic only (never scripted traffic against Codex accounts). The following is a broad persisted-usage summary with the additive denominator, not the matched trace/prefix cohort above or the seven-day parity verdict. Its `gpt%` model filter alone does not establish the Codex provider/account, and `success = 1` alone does not establish measured-usage availability; interpret it only after confirming those cohort properties. Replace the epoch with the deploy time in ms:
+- Post-deploy, use only naturally initiated traffic for this measurement. The following is a broad persisted-usage summary with the additive denominator, not the matched trace/prefix cohort above or the seven-day parity verdict. Its `gpt%` model filter alone does not establish the Codex provider/account, and `success = 1` alone does not establish measured-usage availability; interpret it only after confirming those cohort properties. Replace the epoch with the deploy time in ms:
 
   ```sql
   SELECT model, COUNT(*) AS n,

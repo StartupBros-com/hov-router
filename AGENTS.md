@@ -2,11 +2,11 @@
 
 Instructions for any agent working on **HoV Router** (`hov-router`): a load balancer and gateway that routes Claude Code and other clients across multiple provider accounts, with a dashboard for usage, cost and errors. It is a House of Vibe project at [StartupBros-com/hov-router](https://github.com/StartupBros-com/hov-router), a product fork of [tombii/better-ccflare](https://github.com/tombii/better-ccflare) (MIT). `CLAUDE.md` only imports this file, so edit this one.
 
-## ⚠️ CRITICAL: Testing Restrictions
+## Repository rules for live inference tests
 
-**Anthropic-backed accounts, including the `claude` account, must only be used through a real interactive Claude Code CLI session, except for the managed gateway-routed headless Claude Code CLI sessions covered by the operator-approved exception below.** Interactive sessions remain permitted. The operator-approved exception (2026-10-07) also permits managed gateway-routed headless Claude Code sessions, including bounded tiny tool-free CLI acceptance checks. This exception does not authorize paid overages or a switch to Codex CLI.
+Use native Claude Code interactively or in print mode (`claude -p`) through the approved managed gateway. A bounded, tiny, tool-free CLI acceptance check needs no separate headless exception. Do not incur unapproved charges or overages, or substitute Codex for a Claude-specific check.
 
-**Raw scripted Anthropic inference remains prohibited** — directly and through the proxy: no curl, test harness, or diagnostic-script probes, whether or not you would call them "testing". Real Anthropic accounts can get banned for automated/scripted usage. For scripted API requests, use a non-Anthropic account (ollama, litellm, omniroute, etc.) and force-route with `x-better-ccflare-account-id`.
+For raw HTTP tests, use a local mock first. For a live test, force-route with `x-better-ccflare-account-id` to a non-Anthropic test account or to an Anthropic API-key account whose spend is separately authorized. Never use subscription OAuth or setup-tokens for raw HTTP tests, directly or through the router. See [provider guidance and routing proof](docs/agent-setup.md#claude-automation-and-credentials).
 
 ## ⚠️ CRITICAL: Names that must NOT be renamed
 

@@ -76,7 +76,7 @@ The configuration file is stored at:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `lb_strategy` | string | `"session"` | Load balancing strategy. Supported values are `"session"` (default), `"session-affinity"`, `"session-drain-soonest"` (an opt-in affinity-preserving drain policy), and `"least-used"`. Prefer a session-based strategy for OAuth accounts; per-request spreading can trigger provider anti-abuse systems |
+| `lb_strategy` | string | `"session"` | Load balancing strategy. Supported values: `"session"`, `"session-affinity"`, `"session-drain-soonest"`, `"session-drain-soonest-strict"`, and `"least-used"` |
 | `client_id` | string | `"9d1c250a-e61b-44d9-88ed-5944d1962f5e"` | OAuth client ID for authentication |
 | `retry_attempts` | number | `3` | Maximum number of retry attempts for failed requests. Whole number from `0` to `10` |
 | `retry_delay_ms` | number | `1000` | Initial delay in milliseconds between retry attempts. Whole number from `0` to `30000` |
@@ -91,14 +91,15 @@ At startup, a retry value outside its range is moved to the nearest bound, and a
 
 ### Load Balancing Strategy
 
-⚠️ **WARNING**: Prefer `session`, `session-affinity`, or the opt-in `session-drain-soonest` for Anthropic OAuth traffic because they preserve account stickiness. `least-used` can spread individual requests across accounts and may trigger Claude's anti-abuse systems; reserve it for providers and credentials where per-request balancing is safe. `session-drain-soonest` uses quota-aware fresh-session/failover ordering within the authorized structural routing class. Existing eligible Codex owners and temporary fallbacks also retain affinity across same-tier/rung quota-pressure changes and usage-window rollovers, while account session counters still reset. Explicit retain-owner, exclusions, route circuits, and better-tier/rung recovery remain authoritative. An existing Anthropic owner gets a bounded warm-cache hold across the same change (see [Drain ordering](load-balancing.md#drain-ordering)). Other providers and `session-drain-soonest-strict` keep their existing behavior; see [affinity lifetime limits](load-balancing.md#account-and-client-stickiness).
+Choose `session-affinity` when each client should reuse its account's prompt cache. `least-used` ranks each request independently, trading cache locality for utilization balancing. `session-drain-soonest` uses quota-aware fresh-session/failover ordering within the authorized structural routing class. Existing eligible Codex owners and temporary fallbacks also retain affinity across same-tier/rung quota-pressure changes and usage-window rollovers, while account session counters still reset. Explicit retain-owner, exclusions, route circuits, and better-tier/rung recovery remain authoritative. An existing Anthropic owner gets a bounded warm-cache hold across the same change (see [Drain ordering](load-balancing.md#drain-ordering)). Other providers and `session-drain-soonest-strict` keep their existing behavior; see [affinity lifetime limits](load-balancing.md#account-and-client-stickiness).
 
 | Strategy | Description | Use Case |
 |----------|-------------|----------|
-| `session` | Maintains client-account affinity for session duration, with automatic alignment to Anthropic OAuth usage window resets | Default and recommended - mimics natural usage patterns and optimizes resource utilization |
+| `session` | Reuses one account-level session for the configured duration, with automatic alignment to Anthropic OAuth usage window resets | Default; clients share an active account rather than keeping independent owners |
 | `session-affinity` | Maintains independent client-to-account affinity while preserving automatic failover and session expiry | Multiple concurrent clients that need sticky routing without sharing one global active account |
 | `session-drain-soonest` | Opt-in session-affinity variant. Structural routing classes remain authoritative; within one authorized class, eligible auto-fallback candidates are considered first, then candidates rank by weekly pace band, earliest known future all-model weekly reset, priority, and utilization (see [Drain ordering](load-balancing.md#drain-ordering)). Unknown or stale resets fail open; explicit retain-owner and route-circuit decisions remain authoritative | OAuth pools where weekly capacity should be consumed before it expires while preserving per-client/lane stickiness |
-| `least-used` | Orders available accounts by utilization rather than maintaining sticky OAuth sessions | API-key and compatible-provider pools where per-request spreading is explicitly acceptable |
+| `session-drain-soonest-strict` | Orders by earliest future weekly reset within each authorized routing class; active sessions break ties | Prefer draining expiring capacity to retaining an active session |
+| `least-used` | Orders comparable accounts by utilization and recent picks instead of retaining a client owner | Spread bursts when cache locality matters less |
 
 ### Logging Configuration (Environment Only)
 
@@ -219,7 +220,7 @@ Continuity used to be gated by `CCFLARE_CODEX_CACHE_KEY_CONTINUITY_PERCENT`, whi
 
 The opt-in Codex JSONL trace records categorical continuity evidence plus whether the canonical identity was applied. In conversation mode, `cache_key_continuity_applied` is true whenever the election admits the request as the session's root, and `canonical_conversation_id` is emitted only then. That includes the root's own first turn, whose basis is recorded as `derived`; the outbound key differs from the request's own derived key only when its identity is not the root's. A bounded `continuity_evidence_id` sequences validated turns. The analyzer keeps compaction turns together, counts their key rotations, and reports rows by application (`canonical`, `derived`, or `unknown`), basis, safe model family, observed turn/gap band, cache-read and cache-write measurements, effective-key concentration, joined responses, and unknown measurements. It never adds prompts, instructions, raw call IDs, raw session UUIDs, credentials, or full cache keys to this provenance output. Traces written before continuity was always on can show `lineage_match` turns with `derived` application, from installs that left the old percentage at `0`. Legacy traces without schema-17 application fields remain readable but are conservatively classified as unknown.
 
-Do not validate continuity with scripted traffic against Anthropic-backed or Codex accounts; use focused fixtures or naturally initiated authorized traffic instead.
+Validate Codex continuity with focused fixtures or naturally initiated authorized Codex turns. A single Claude route check does not exercise Codex turn continuity.
 
 A client-sent `x-codex-turn-state` is dropped before the request goes upstream, and an upstream copy is never returned to clients.
 
@@ -1043,10 +1044,10 @@ HoV Router maintains a cache of the Anthropic model catalog (id, display name, c
 
 ### Why this isn't fetched from every account
 
-A consumer OAuth account (`claude-oauth` mode) is meant for interactive Claude Code traffic. Recurring background API calls — and the proactive OAuth token refreshes they can trigger — are an atypical automation pattern for that account type and risk a flag or ban. API-key accounts (`console`, `zai`, `minimax`, `muse-spark`, `anthropic-compatible`, `openai-compatible`) are the sanctioned surface for unattended, programmatic requests. Because of this, the model catalog refresh is deliberately restrictive by default:
+Catalog refresh lists models (`/v1/models`); it does not send inference. The router prefers an eligible Anthropic Console API-key account over OAuth regardless of priority and excludes paused accounts and custom endpoints:
 
 - **Scheduled (automatic) refresh**: only console/API-key accounts are eligible, unless `BETTER_CCFLARE_MODELS_OAUTH_REFRESH=1` (or the `model_catalog_oauth_refresh_enabled` config field) opts in to an OAuth fallback.
-- **Manual refresh** (`POST /api/models/refresh`, human-triggered from the dashboard or `curl`): always allows the OAuth fallback in addition to console accounts, since a one-off manual action doesn't carry the same recurring-automation risk.
+- **Manual refresh** (`POST /api/models/refresh`, human-triggered from the dashboard or `curl`): always allows the OAuth fallback in addition to console accounts, regardless of the scheduled-refresh setting.
 - If no eligible account exists at all, a refresh (scheduled or manual) is a no-op — the existing cached catalog (live or bundled fallback) is left untouched; it's never emptied or errored out.
 
 ### Refresh cadence

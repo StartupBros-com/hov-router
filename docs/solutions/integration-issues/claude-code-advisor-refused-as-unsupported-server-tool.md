@@ -61,7 +61,7 @@ Advisor is now a native Anthropic passthrough requirement. In outline (the routi
 - When no first-party account can serve it, the refusal uses the exact text Claude Code recovers from. `the advisor tool is not available` makes Claude Code drop the tool and retry, and `Advisor tool result content could not be processed` makes it strip advisor history (`packages/proxy/src/server-tool-routing-errors.ts:84`, `:91`).
 - Advisor tokens are stored per model in `requests.advisor_usage`, a `TEXT` column (`packages/database/src/migrations.ts:624` in `ensureSchema` for new installs, `:1841` in `runMigrations` for upgrades). The PostgreSQL copy went with PostgreSQL support in #723.
 
-Checking it live: the operator runs `/advisor` in an interactive Claude Code session (`AGENTS.md` forbids scripted traffic to Anthropic accounts), then reads the result without writing anything:
+Checking it live: the operator runs `/advisor` in an interactive Claude Code session (a [tool-free route check](../../agent-setup.md#5-connect-claude-code-and-prove-the-route) does not exercise `/advisor`), then reads the result without writing anything:
 
 ```sql
 -- sqlite3 -readonly ~/.config/better-ccflare/better-ccflare.db

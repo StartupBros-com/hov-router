@@ -71,14 +71,17 @@ describe("repository agent instructions", () => {
 		}
 	});
 
-	test("the canonical instructions keep the account-ban safety invariant", () => {
-		// A rewrite that neutralizes wording must not narrow this rule to "testing":
-		// any scripted call to the named claude account risks the account, so the
-		// clause naming it has to survive verbatim rewording.
-		const instructions = readRepositoryFile("AGENTS.md");
-
-		expect(instructions).toContain("`claude` account");
-		expect(instructions).toMatch(/must only be used through a real interactive/);
+	test("managed CLI checks support print mode without authorizing spend or raw subscription probes", () => {
+		const rules = readRepositoryFile("AGENTS.md")
+			.split("## Repository rules for live inference tests\n")[1]
+			.split("\n## ")[0];
+		expect(rules).not.toContain("must only be used through a real interactive");
+		expect(rules).not.toContain("banned for automated/scripted usage");
+		expect(rules).toContain("`claude -p`");
+		expect(rules).toContain("approved managed gateway");
+		expect(rules).toContain("Do not incur unapproved charges or overages");
+		expect(rules).toContain("Never use subscription OAuth or setup-tokens for raw HTTP tests");
+		expect(rules).toContain("`x-better-ccflare-account-id`");
 	});
 
 	test("the canonical instructions omit stale repository guidance", () => {

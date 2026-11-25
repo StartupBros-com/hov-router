@@ -55,7 +55,7 @@ The original investigation's recorded checks covered saved native settings, the 
 
 Use this distinction when changing a gateway, authentication mode, client version, or cache policy. Recheck the native controls and the actual outbound adapter before carrying a TTL assumption across providers.
 
-Do not enable synthetic keepalives to prove the policy. This repository forbids scripted inference against Anthropic-backed accounts.
+Do not enable synthetic keepalives to prove the policy. A [bounded CLI route check](../../agent-setup.md#5-connect-claude-code-and-prove-the-route) shows where a request went, not how long the upstream retained its cache.
 
 ## Examples
 
