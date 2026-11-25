@@ -37,7 +37,7 @@ describe("cache health alert config API", () => {
 	});
 	const update = (body: unknown) =>
 		createAlertsConfigSetHandler(context)(
-			new Request("http://fixture/api/insights/alerts/config", {
+			new Request("http://fixture/api/alerts", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -257,7 +257,7 @@ describe("member notice destination state", () => {
 
 	it("cannot be set through the alerts config API", async () => {
 		const response = await createAlertsConfigSetHandler(context)(
-			new Request("http://fixture/api/insights/alerts/config", {
+			new Request("http://fixture/api/alerts", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

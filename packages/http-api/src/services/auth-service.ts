@@ -618,7 +618,7 @@ export class AuthService {
 					? "logs"
 					: path === "/api/requests/stream"
 						? "requests"
-						: path === "/api/insights/alerts/stream"
+						: path === "/api/alerts/stream"
 							? "alerts"
 							: null
 				: null;

@@ -88,7 +88,7 @@ What to do:
    sudo tr '\0' '\n' < "/proc/$PID/environ" | grep -c '^MEMBER_NOTICE_WEBHOOK_URL='   # 1 = loaded
    ```
 
-   Then check the router's own verdict. `GET /api/insights/alerts/config` (it needs the prod API
+   Then check the router's own verdict. `GET /api/alerts/config` (it needs the prod API
    key) returns `memberNotices.state`: `off` with no address, `invalid_address` when the address
    is not https, `missing_secret` without a signing secret, and `on` otherwise.
 

@@ -45,12 +45,12 @@ describe("audience-bound stream tokens", () => {
 	for (const [audience, path] of [
 		["logs", "/api/logs/stream"],
 		["requests", "/api/requests/stream"],
-		["alerts", "/api/insights/alerts/stream"],
+		["alerts", "/api/alerts/stream"],
 	] as const) {
 		for (const target of [
 			"/api/logs/stream",
 			"/api/requests/stream",
-			"/api/insights/alerts/stream",
+			"/api/alerts/stream",
 		]) {
 			if (target === path) continue;
 			it(`${audience}: rejects and burns a token presented to ${target}`, async () => {

@@ -542,7 +542,7 @@ test.each([
 	["GET", "/v1", false],
 	["GET", "/v1/models", false],
 	["GET", "/api/logs/stream", false],
-	["GET", "/api/insights/alerts/stream?token=t", false],
+	["GET", "/api/alerts/stream?token=t", false],
 	["POST", "/api/accounts/a/pause", false],
 	["DELETE", "/api/accounts/a", false],
 	["POST", "/v1/messages", false],

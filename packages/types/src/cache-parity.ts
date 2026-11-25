@@ -1,5 +1,5 @@
 /**
- * Response types for the cache parity endpoint (/api/insights/cache-parity).
+ * Response types for the cache parity endpoint (/api/cache-parity).
  */
 
 export type CacheParityVerdict =

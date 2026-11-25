@@ -35,7 +35,7 @@ function alert(
 function render(alerts: unknown[], unacknowledgedCount: number) {
 	return renderPage(<AlertsTab />, (client) =>
 		client.setQueryData(
-			queryKeys.insightsAlerts(),
+			queryKeys.alerts(),
 			{ alerts, unacknowledgedCount },
 			{ updatedAt: NOW },
 		),
@@ -48,7 +48,7 @@ describe("Alerts states", () => {
 			const html = renderPage(<AlertsTab />, (client) =>
 				seedState(
 					client,
-					queryKeys.insightsAlerts(),
+					queryKeys.alerts(),
 					state,
 					state === "empty"
 						? { alerts: [], unacknowledgedCount: 0 }

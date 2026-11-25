@@ -302,7 +302,7 @@ describe("navigation alert badge", () => {
 	const alertsBadge = (alerts: unknown[], unacknowledgedCount: number) => {
 		const queryClient = new QueryClient();
 		queryClient.setQueryData(
-			queryKeys.insightsAlerts(),
+			queryKeys.alerts(),
 			{ alerts, unacknowledgedCount },
 			{ updatedAt: NOW },
 		);

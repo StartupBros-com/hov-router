@@ -1032,7 +1032,7 @@ The main HTTP server application that:
 - Hosts the proxy endpoints
 - Serves the web dashboard
 - Provides REST API endpoints
-- Streams live request, log and alert events to the dashboard over Server-Sent Events (`/api/requests/stream`, `/api/logs/stream`, `/api/insights/alerts/stream`)
+- Streams live request, log and alert events to the dashboard over Server-Sent Events (`/api/requests/stream`, `/api/logs/stream`, `/api/alerts/stream`)
 - Initializes agent registry
 
 ### 2. CLI Application (`apps/cli`)

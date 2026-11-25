@@ -63,7 +63,7 @@ export const AlertsView = React.memo(() => {
 	// Connect SSE stream and invalidate alerts query on new events.
 	useAlertStream({
 		onAlert: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.insightsAlerts() });
+			queryClient.invalidateQueries({ queryKey: queryKeys.alerts() });
 		},
 	});
 

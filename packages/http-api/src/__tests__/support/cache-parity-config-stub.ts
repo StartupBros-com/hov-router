@@ -2,7 +2,7 @@ import type { Config } from "@better-ccflare/config";
 
 /**
  * The exact slice of `Config` that `readCacheParityPolicy` (cache-parity.ts)
- * reads directly off `context.config` for GET /api/insights/cache-parity.
+ * reads directly off `context.config` for GET /api/cache-parity.
  *
  * Kept as its own type (rather than `Pick<Config, ...>` inlined at each call
  * site) so a new accessor added to that function shows up here as a type
