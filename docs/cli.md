@@ -662,7 +662,7 @@ The SQLite database follows the same directory structure:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LB_STRATEGY` | Load balancing strategy (only 'session' is supported) | session |
+| `LB_STRATEGY` | Load balancing strategy; see [available strategies](load-balancing.md#available-strategies) | session |
 
 ### Retry Configuration
 

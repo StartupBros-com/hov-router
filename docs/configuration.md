@@ -76,7 +76,7 @@ The configuration file is stored at:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `lb_strategy` | string | `"session"` | Load balancing strategy. Supported values: `"session"`, `"session-affinity"`, `"session-drain-soonest"`, `"session-drain-soonest-strict"`, and `"least-used"` |
+| `lb_strategy` | string | `"session"` | Load balancing strategy; see [available strategies](load-balancing.md#available-strategies) |
 | `client_id` | string | `"9d1c250a-e61b-44d9-88ed-5944d1962f5e"` | OAuth client ID for authentication |
 | `retry_attempts` | number | `3` | Maximum number of retry attempts for failed requests. Whole number from `0` to `10` |
 | `retry_delay_ms` | number | `1000` | Initial delay in milliseconds between retry attempts. Whole number from `0` to `30000` |
@@ -93,13 +93,7 @@ At startup, a retry value outside its range is moved to the nearest bound, and a
 
 Choose `session-affinity` when each client should reuse its account's prompt cache. `least-used` ranks each request independently, trading cache locality for utilization balancing. `session-drain-soonest` uses quota-aware fresh-session/failover ordering within the authorized structural routing class. Existing eligible Codex owners and temporary fallbacks also retain affinity across same-tier/rung quota-pressure changes and usage-window rollovers, while account session counters still reset. Explicit retain-owner, exclusions, route circuits, and better-tier/rung recovery remain authoritative. An existing Anthropic owner gets a bounded warm-cache hold across the same change (see [Drain ordering](load-balancing.md#drain-ordering)). Other providers and `session-drain-soonest-strict` keep their existing behavior; see [affinity lifetime limits](load-balancing.md#account-and-client-stickiness).
 
-| Strategy | Description | Use Case |
-|----------|-------------|----------|
-| `session` | Reuses one account-level session for the configured duration, with automatic alignment to Anthropic OAuth usage window resets | Default; clients share an active account rather than keeping independent owners |
-| `session-affinity` | Maintains independent client-to-account affinity while preserving automatic failover and session expiry | Multiple concurrent clients that need sticky routing without sharing one global active account |
-| `session-drain-soonest` | Opt-in session-affinity variant. Structural routing classes remain authoritative; within one authorized class, eligible auto-fallback candidates are considered first, then candidates rank by weekly pace band, earliest known future all-model weekly reset, priority, and utilization (see [Drain ordering](load-balancing.md#drain-ordering)). Unknown or stale resets fail open; explicit retain-owner and route-circuit decisions remain authoritative | OAuth pools where weekly capacity should be consumed before it expires while preserving per-client/lane stickiness |
-| `session-drain-soonest-strict` | Orders by earliest future weekly reset within each authorized routing class; active sessions break ties | Prefer draining expiring capacity to retaining an active session |
-| `least-used` | Orders comparable accounts by utilization and recent picks instead of retaining a client owner | Spread bursts when cache locality matters less |
+The [available-strategies table](load-balancing.md#available-strategies) is the operator reference for all registered values and their trade-offs. `session` remains the installation default; the effective value on an existing server may differ.
 
 ### Logging Configuration (Environment Only)
 
@@ -1120,12 +1114,14 @@ Note: The API response uses camelCase (`sessionDurationMs`) while the configurat
 GET /api/config/strategy
 ```
 
-Response:
+Example response (strategy field):
 ```json
 {
   "strategy": "session"
 }
 ```
+
+The response also includes `strategySource`, describing the effective value's source and whether an environment override locks the setting.
 
 #### Update Strategy
 ```http
@@ -1150,19 +1146,7 @@ Response:
 GET /api/strategies
 ```
 
-Response:
-```json
-["session", "least-used", "session-affinity", "session-drain-soonest"]
-```
-
-The `session-drain-soonest` strategy is opt-in. It preserves the current
-session-affinity owner and route/profile class; a fresh assignment or account
-failover ranks candidates by weekly pace band, then a known future
-`weekly_all`/`seven_day` reset. Besides normal failover, an existing owner also
-moves when a same-tier account reaches a higher pace band (Codex owners stay; Anthropic owners get a
-bounded warm-cache hold). See [Drain ordering](load-balancing.md#drain-ordering).
-Missing, malformed, or past reset telemetry falls back to the ordinary affinity
-ranking.
+Returns a JSON array of registered strategy names. See [available strategies](load-balancing.md#available-strategies) for the current values and [Drain ordering](load-balancing.md#drain-ordering) for reset, pressure, and owner-retention behavior.
 
 ### Runtime Update Behavior
 

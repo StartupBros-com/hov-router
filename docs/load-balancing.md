@@ -12,666 +12,260 @@
 
 ## Overview
 
-HoV Router defaults to `session`. Choose `session-affinity` for per-client cache locality, either drain-soonest mode to prioritize expiring weekly capacity, or `least-used` for per-request balancing.
+HoV Router defaults to `session`. The strategy orders eligible routing candidates; it does not grant access to a provider, override model eligibility, or bypass account limits. Choose based on the workload's need for cache locality, capacity use, and failover—not on a claim that one strategy is universally optimal.
 
-### Key Features
-- **Account Health Monitoring**: Automatically filters out rate-limited or paused accounts
-- **Failover Support**: Returns ordered lists of accounts for automatic failover
-- **Session Persistence**: Maintains configurable sessions on specific accounts
-- **Account Priorities**: Supports prioritized account selection for better control over load distribution
-- **Auto-Fallback**: Automatically switches back to higher priority accounts when their usage windows reset
-- **Usage Window Alignment**: Sessions automatically align with Anthropic OAuth 5-hour usage window resets for optimal resource utilization
-- **Real-time Configuration**: Change settings without restarting the server
-- **Provider Filtering**: Accounts are filtered by provider compatibility
+The registered values live in [the strategy enum](../packages/types/src/strategy.ts), the default in [core strategy configuration](../packages/core/src/strategy.ts), and the implementations in [load-balancer strategies](../packages/load-balancer/src/strategies/).
 
 ## Available Strategies
 
-The strategy is selected with `LB_STRATEGY`, the `lb_strategy` configuration key, or the HTTP configuration endpoint. The supported values are:
+Select a strategy with `LB_STRATEGY`, the `lb_strategy` configuration key, or the HTTP configuration endpoint.
 
-| Strategy | Routing behavior | OAuth and provider guidance |
-|----------|------------------|-----------------------------|
-| `session` (default) | Maintains one account-level session and returns ordered fallbacks. Session duration is configurable (5 hours by default). | Preserves stickiness for providers that require session-window tracking, including Anthropic OAuth and Codex OAuth. Anthropic OAuth sessions also reset when a known `rate_limit_reset` has passed. |
-| `least-used` | Orders available accounts by priority and utilization, with a short recency penalty to spread bursts. Each request can select a different account. | Spreads bursts at the expense of prompt-cache locality. |
-| `session-affinity` | Maps each client session or affinity lane to a sticky account, while retaining automatic failover and expiry. New clients are spread across the pool. | Recommended when multiple concurrent clients need cache-local routing without one global account owner. |
-| `session-drain-soonest` (opt-in) | Extends `session-affinity`. A fresh assignment or account failover ranks candidates by fallback rung, tier, weekly pace band, then the earliest known future all-model weekly reset, then priority/utilization (see [Drain ordering](#drain-ordering)). Existing owners stay put unless a same-tier account reaches a higher pace band; Codex owners always stay, Anthropic owners stay only while their prompt cache is warm (bounded hold). | Unknown, malformed, or past reset telemetry is treated as unavailable and falls back to ordinary affinity ordering. Enable deliberately for pools where draining expiring weekly capacity is useful. |
-| `session-drain-soonest-strict` | Ranks by earliest future weekly reset within each authorized routing class. | Active sessions break ties rather than taking precedence over reset order. |
+| Strategy | Routing behavior | Trade-off |
+|----------|------------------|-----------|
+| `session` (default) | Reuses an eligible account-level session within the best routing class and returns ordered fallbacks. Session duration is configurable, with a five-hour default. | Clients can share one active account rather than retaining independent owners. |
+| `least-used` | Orders each request by routing class, account priority, utilization, and a short recent-pick penalty. | Can spread bursts, but does not retain a client owner and may lose prompt-cache locality. |
+| `session-affinity` | Keeps a sticky owner per client session or affinity lane, with expiry, failover, and recovery subject to routing policy. | Useful for concurrent multi-turn clients; keeping an owner does not guarantee the provider still has its cached prefix. |
+| `session-drain-soonest` | Extends affinity with quota-aware fresh-assignment/failover ordering and the earliest known future all-model weekly reset as a tiebreaker. See [Drain ordering](#drain-ordering). | Tries to use expiring capacity while retaining eligible owners, including provider-specific protection across quota-pressure changes. |
+| `session-drain-soonest-strict` | Reconsiders ordering per request. Within the authorized routing class, qualifying auto-fallback precedes future weekly reset order; active sessions then break ties. | Gives reset ordering more weight than ordinary client stickiness. Explicit owner-retention directives and eligibility still apply. |
 
-**Dashboard selector:** All five strategies are selectable unless `LB_STRATEGY` locks the setting. An unrecognized current value from the server remains visible as a disabled “(current)” entry.
+**Dashboard selector:** All five strategies are selectable unless `LB_STRATEGY` locks the setting. An unrecognized current value remains visible as a disabled “(current)” entry. Neither drain mode is the installation default.
 
 ## Session-Based Strategy
 
-**Description**: Maintains one sticky session with an individual account for a configurable duration (default: 5 hours). This is the default strategy and is designed to minimize account switching and reduce the likelihood of hitting rate limits.
+`session` uses account session state rather than independent per-client ownership. An active account stays first only while it is available and remains in the best routing class. Otherwise, selection uses candidate ordering and utilization to choose a new account and ordered fallbacks. A qualifying auto-fallback can also change the selection.
 
-**Use Case**: Optimal for production environments where minimizing rate limits is crucial. Particularly effective for applications with sustained user sessions.
-
-**Implementation Details**:
-```typescript
-export class SessionStrategy implements LoadBalancingStrategy {
-    private sessionDurationMs: number;
-    private store: StrategyStore | null = null;
-    private log = new Logger("SessionStrategy");
-
-    constructor(sessionDurationMs: number = TIME_CONSTANTS.ANTHROPIC_SESSION_DURATION_DEFAULT) {
-        this.sessionDurationMs = sessionDurationMs;
-    }
-
-    initialize(store: StrategyStore): void {
-        this.store = store;
-    }
-
-    select(accounts: Account[], _meta: RequestMeta): Account[] {
-        const now = Date.now();
-        
-        // Find account with most recent active session
-        let activeAccount: Account | null = null;
-        let mostRecentSessionStart = 0;
-        
-        for (const account of accounts) {
-            if (account.session_start && 
-                now - account.session_start < this.sessionDurationMs &&
-                account.session_start > mostRecentSessionStart) {
-                activeAccount = account;
-                mostRecentSessionStart = account.session_start;
-            }
-        }
-        
-        // Use active account if available
-        if (activeAccount && isAccountAvailable(activeAccount, now)) {
-            const others = accounts.filter(
-                a => a.id !== activeAccount.id && isAccountAvailable(a, now)
-            );
-            return [activeAccount, ...others]; // Active account first, others as fallback
-        }
-        
-        // No active session - start new one with first available account
-        const available = accounts.filter(a => isAccountAvailable(a, now));
-        if (available.length === 0) return [];
-        
-        const chosenAccount = available[0];
-        this.resetSessionIfExpired(chosenAccount);
-        
-        const others = available.filter(a => a.id !== chosenAccount.id);
-        return [chosenAccount, ...others];
-    }
-}
-```
-
-**Characteristics**:
-- ✅ **Excellent Rate Limit Avoidance**: Minimizes account switching
-- ✅ **Predictable Behavior**: Consistent account usage patterns
-- ✅ **Good for Long Sessions**: Ideal for extended AI conversations
-- ⚠️ **Uneven Load Distribution**: May concentrate load on fewer accounts
-- ⚠️ **Session Dependency**: Performance tied to specific account availability
+This can reduce account switching, but it can concentrate load. It is not evidence that rate limits, latency, or throughput will improve on a particular workload. See [the implementation](../packages/load-balancer/src/strategies/index.ts) instead of a copied version of the algorithm.
 
 ## Usage Window Alignment for Anthropic OAuth
 
-**Description**: Session duration tracking is provider-specific. Anthropic OAuth has a 5-hour usage window and additionally resets a session when the API's `rate_limit_reset` has passed. Codex OAuth and Zai are also configured for session-window tracking; API-key and other pay-as-you-go providers generally do not use fixed-duration session stickiness.
+Session-window tracking is provider-specific. Anthropic OAuth, Codex OAuth, and Zai currently use fixed-duration session tracking. Anthropic OAuth additionally resets a session when a known `rate_limit_reset` has passed. Account session counters and client/lane affinity are separate state: resetting a counter need not move a conversation.
 
-**How It Works**:
-
-The system implements provider-specific session reset logic:
-
-1. **Provider Check**: First determines if the account's provider requires session duration tracking (for example, Anthropic OAuth, Codex OAuth, and Zai)
-2. **Fixed Duration Check**: For providers that require session duration tracking (such as Anthropic OAuth, Codex OAuth, and Zai), sessions reset after the configured duration (default: 5 hours)
-3. **Usage Window Reset Check**: For Anthropic OAuth accounts, sessions also reset when the API's usage window expires (based on the `rate_limit_reset` timestamp)
-
-```typescript
-// Provider-specific session duration tracking
-const needsSessionTracking = requiresSessionDurationTracking(account.provider);
-
-const fixedDurationExpired = needsSessionTracking &&
-    ( !account.session_start ||
-    now - account.session_start >= this.sessionDurationMs );
-
-const rateLimitWindowReset = !fixedDurationExpired &&
-    account.provider === "anthropic" &&
-    account.rate_limit_reset &&
-    account.rate_limit_reset < now;
-
-if (fixedDurationExpired || rateLimitWindowReset) {
-    // Reset session for optimal resource utilization
-    this.store.resetAccountSession(account.id, now);
-}
-```
-
-**Benefits**:
-
-- **Optimal Resource Utilization**: Sessions align perfectly with Anthropic's actual usage windows
-- **Reduced Waste**: No premature session resets when usage windows are still active
-- **Performance Optimized**: Rate limit checks only occur when needed (when fixed duration hasn't expired)
-
-**Provider Compatibility**:
-
-- ✅ **Anthropic OAuth**: Full usage window alignment support with 5-hour session tracking and `rate_limit_reset` checks
-- ✅ **Codex OAuth and Zai**: Provider configuration enables fixed-duration session tracking
-- ✅ **Other Providers** (API-key-based, OpenAI-compatible, etc.): No fixed-duration session tracking - operate on a pay-as-you-go basis
-- ✅ **Mixed Environments**: Works seamlessly with accounts from different providers
-
-**Race Condition Prevention**: The implementation uses strict `<` comparisons instead of `<=` to prevent race conditions where sessions might reset prematurely at the exact moment the usage window resets.
+A five-hour account session is **not** a five-hour prompt-cache TTL. Provider cache retention and the strategy's affinity lifetime are separate constraints.
 
 ### Future Extensibility for API-Based Providers
 
-**Current Implementation**: The usage window alignment is currently optimized for Anthropic OAuth accounts, which provide explicit `rate_limit_reset` timestamps via their API. Other providers (API-key-based, OpenAI-compatible, etc.) operate on a pay-as-you-go basis without fixed-duration session tracking.
-
-**Current Extensible Architecture**: The system includes a provider-specific configuration system that allows easy extension for future providers with usage windows:
-
-```typescript
-// Current implementation in types/constants.ts
-const PROVIDER_SESSION_TRACKING_CONFIG: Record<ProviderName, boolean> = {
-    [PROVIDER_NAMES.ANTHROPIC]: true,   // Anthropic has 5-hour usage windows
-    [PROVIDER_NAMES.ZAI]: false,        // Zai is typically pay-as-you-go
-    [PROVIDER_NAMES.OPENAI_COMPATIBLE]: false, // OpenAI-compatible is typically pay-as-you-go
-} as const;
-
-// Function to check if a provider requires session duration tracking
-export function requiresSessionDurationTracking(provider: string): boolean {
-    const providerName = provider as ProviderName;
-    if (providerName in PROVIDER_SESSION_TRACKING_CONFIG) {
-        return PROVIDER_SESSION_TRACKING_CONFIG[providerName];
-    }
-    // For unknown providers, default to false (no session duration tracking)
-    return false;
-}
-```
-
-**Future Enhancement Path**: For API-based providers that implement their own usage windows (5-hour, daily, or custom intervals), you can simply update the configuration:
-
-```typescript
-// Example: Adding support for a new provider with usage windows
-const PROVIDER_SESSION_TRACKING_CONFIG: Record<ProviderName, boolean> = {
-    [PROVIDER_NAMES.ANTHROPIC]: true,           // Anthropic has 5-hour usage windows
-    [PROVIDER_NAMES.ZAI]: false,                // Zai is typically pay-as-you-go
-    [PROVIDER_NAMES.OPENAI_COMPATIBLE]: false,  // OpenAI-compatible is typically pay-as-you-go
-    [PROVIDER_NAMES.NEW_PROVIDER]: true,        // New provider has usage windows
-} as const;
-```
-
-**Implementation Benefits**:
-1. **Simple Extension**: New providers can be added by updating the configuration
-2. **Backward Compatibility**: Existing providers continue working as expected
-3. **Provider-Specific Logic**: Each provider can have tailored session handling
-4. **Future-Proof**: Ready for any new providers with usage window systems
+[Provider configuration](../packages/types/src/provider-config.ts) is authoritative for session tracking and billing defaults. Do not infer the billing model from credential syntax: Zai uses an API key but is configured as a plan with session windows. When adding a provider, update that configuration and its tests rather than maintaining another provider table here.
 
 ## Account Priorities
 
-Account priorities allow you to control which accounts are preferred when multiple accounts are available. This feature gives you fine-grained control over load distribution and account selection.
+Lower numeric account priority means higher preference; the default is `0`. Route profiles and combo slots can supply candidate-specific tiers and fallback rungs, so account priority is not an escape from the outer routing policy.
 
 ### How Priorities Work
 
-- **Priority Range**: Accounts can have a priority value from 0-100 (default: 0)
-- **Lower Value = Higher Priority**: Accounts with lower priority values are selected first
-- **Optional Parameter**: Priority is optional when adding accounts and defaults to 0 (highest priority)
-- **Affects Both Primary and Fallback Selection**: Priorities determine both the primary account and the order of fallback accounts
-- **Real-time Updates**: Priority changes take effect immediately without restarting the server
-- **Usage-Balanced Tiebreaking**: When multiple accounts share the same priority, new sessions start on the account with the most remaining capacity. "Most remaining capacity" is the inverse of the maximum utilization across all usage windows — so an account at 90% on its 7-day window and 20% on its 5-hour window is considered 90% utilized (the 7-day window is the binding constraint). Accounts with no usage data available are treated as 0% utilized (fresh, maximum remaining capacity) and sort first within their priority tier.
+When comparable candidates have the same preference, utilization can break ties. Utilization reflects the most-used relevant window; an account at 90% weekly usage and 20% short-window usage is constrained by the 90% window. Missing utilization is currently treated as zero. That is a fallback assumption, not proof that the account has unused capacity.
 
 ### Setting Account Priorities
 
-Priorities can be set when adding an account or updated later:
-
 ```bash
-# Add account with priority
 better-ccflare --add-account myaccount --mode claude-oauth --priority 10
-
-# Update account priority
-better-ccflare set-priority myaccount 20
+better-ccflare --set-priority myaccount 20
 ```
+
+See [CLI account priorities](cli.md#account-priorities) for command details.
 
 ### Priority in Load Balancing
 
-The SessionStrategy considers priorities when selecting accounts:
-
-1. **Active Session Check**: First looks for an account with an active session
-2. **Priority Sorting**: If no active session or the active account is unavailable, available accounts are sorted by priority (descending)
-3. **Fallback Order**: Remaining accounts are also ordered by priority for failover scenarios
-
-```typescript
-// From load-balancer/src/strategies/index.ts
-// Filter available accounts and sort by priority (lower value = higher priority)
-const available = accounts
-    .filter((a) => isAccountAvailable(a, now))
-    .sort((a, b) => a.priority - b.priority); // Ascending sort
-```
+Candidate routing classes are considered before ordinary strategy preferences. An active session cannot override a better authorized routing class. Within comparable choices, lower priority values are preferred; utilization and recency tiebreakers depend on the strategy.
 
 ### Use Cases for Priorities
 
-1. **Primary/Backup Setup**: Assign higher priorities to preferred accounts
-2. **Cost Management**: Prioritize free or lower-cost accounts
-3. **Performance Optimization**: Prioritize accounts with better performance characteristics
-4. **Tiered Access**: Create hierarchical access patterns based on account capabilities
+Use priorities to express a primary/backup or cost preference within the eligible pool. Confirm the effective route in request diagnostics: a configured priority alone does not establish which account will handle a request.
 
 ## Auto-Fallback Feature
 
-The auto-fallback feature provides intelligent automatic switching back to higher priority accounts when their usage windows reset, allowing you to automatically take advantage of preferred accounts as soon as they become available again.
+Auto-fallback allows supported window-based providers (`anthropic`, `codex`, and `zai`) to return to a preferred account after its usage window resets. It is an account setting, disabled by default, not permission to use an otherwise excluded account.
 
 ### How Auto-Fallback Works
 
-Auto-fallback operates at the account level and uses the API's rate limit reset information to determine when accounts become available:
-
-1. **Supported window providers**: Auto-fallback is available for `anthropic`, `codex`, and `zai` accounts, which expose the reset telemetry used by the scheduler
-2. **Per-Account Setting**: Each supported account can have auto-fallback enabled or disabled independently
-3. **Priority-Based Selection**: When multiple accounts have auto-fallback enabled and become available, the system selects the one with the highest priority (lowest priority number)
-4. **API Reset Detection**: Uses the provider's `rate_limit_reset` timestamp to detect when a usage window has reset
-5. **Automatic Switching**: Before processing each request, the system checks for higher priority accounts with auto-fallback enabled that have become available
+Selection checks the account's auto-fallback setting, reset telemetry, availability, and routing policy. The session and affinity implementations apply their own owner/recovery rules; strict drain additionally prefers qualifying auto-fallback candidates before weekly reset order within a routing class.
 
 ### Auto-Fallback Logic
 
-```typescript
-// Simplified logic from load-balancer/src/strategies/index.ts
-private checkForAutoFallbackAccounts(accounts: Account[], now: number): Account[] {
-    const resetAccounts = accounts.filter((account) => {
-        if (!account.auto_fallback_enabled) return false;
-        if (account.paused) return false;
-
-        // Check if the API usage window has reset
-        const windowReset = account.rate_limit_reset && account.rate_limit_reset <= now;
-
-        // Check if the account is not currently rate limited by our system
-        const notRateLimited = !account.rate_limited_until || account.rate_limited_until <= now;
-
-        return windowReset && notRateLimited;
-    });
-
-    // Sort by priority (lower number = higher priority)
-    return resetAccounts.sort((a, b) => a.priority - b.priority);
-}
-```
+Consult [SessionStrategy](../packages/load-balancer/src/strategies/index.ts), [SessionAffinityStrategy](../packages/load-balancer/src/strategies/session-affinity.ts), and [the drain comparator](../packages/load-balancer/src/strategies/session-drain-soonest.ts). A simplified priority-only sort would omit candidate tiers, pressure, and eligibility.
 
 ### Enabling Auto-Fallback
 
-Auto-fallback can be configured via the HTTP API:
+Use the dashboard or the [account HTTP API](api-http.md) on the intended instance. Configuration writes require an authorized operator; supply that instance's API key when authentication is enabled.
 
 ```bash
-# Enable auto-fallback for an account
-curl -X POST http://localhost:8080/api/accounts/{account-id}/auto-fallback \
+curl -X POST http://localhost:8080/api/accounts/00000000-0000-4000-8000-000000000001/auto-fallback \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <admin-api-key>" \
   -d '{"enabled": 1}'
-
-# Disable auto-fallback for an account
-curl -X POST http://localhost:8080/api/accounts/{account-id}/auto-fallback \
-  -H "Content-Type: application/json" \
-  -d '{"enabled": 0}'
 ```
+
+Use `{"enabled": 0}` to disable it. Replace the placeholder account ID with one verified on that instance.
 
 ### Auto-Fallback Behavior
 
-1. **Request Processing**: Before each request, the strategy checks for auto-fallback candidates
-2. **Priority Consideration**: Only considers accounts with higher priority than the current active account
-3. **Session Reset**: When switching to an auto-fallback account, the session is reset for the new account
-4. **Logging**: The system logs when auto-fallback is triggered for transparency
+An account becoming available is only one input. A higher-tier route, an exclusion, or an open route circuit can still prevent selection. Inspect the resulting candidate order rather than assuming the reset always wins.
 
 ### Use Cases for Auto-Fallback
 
-1. **Primary Account Recovery**: Automatically switch back to your main account as soon as its rate limit window resets
-2. **Cost Optimization**: Prioritize lower-cost accounts when they become available
-3. **Performance Preference**: Automatically use higher-performance accounts when they're ready
-4. **Tiered Access Management**: Ensure priority accounts get used first when available
+Return to a preferred primary account after a reset without manually changing its priority. Keep fallback accounts available for requests the primary cannot serve.
 
 ### Example Scenario
 
-```
-Initial State:
-- Account A (priority: 0): Rate limited, auto-fallback enabled
-- Account B (priority: 10): Currently being used
-- Account C (priority: 20): Available as fallback
+If preferred account A is unavailable, account B can serve as fallback. Once A's reset and availability conditions qualify, auto-fallback can return traffic to A, subject to the strategy and routing class. This is not a guarantee that B's warm cache transfers to A.
 
-When Account A's usage window resets:
-1. System detects Account A is available again (rate_limit_reset passed)
-2. Auto-fallback triggers because Account A has higher priority and auto-fallback enabled
-3. System switches to Account A for the next request
-4. Log: "Auto-fallback triggered to account A (priority: 0, auto-fallback enabled)"
-```
+### Auto-Fallback Storage
 
-### Configuration
-
-Auto-fallback is configured per-account via the API and stored in the database:
-
-```sql
--- Database field
-ALTER TABLE accounts ADD COLUMN auto_fallback_enabled INTEGER DEFAULT 0;
-```
-
-The setting defaults to `disabled` (0) for all existing accounts to maintain backward compatibility.
+The account's `auto_fallback_enabled` setting is persisted in SQLite. Use the account API or dashboard rather than running schema changes manually.
 
 ## Configuration
 
-HoV Router uses a hierarchical configuration system where environment variables take precedence over configuration file settings.
-
 ### Configuration Precedence (highest to lowest)
-1. Environment variables
-2. Configuration file (`~/.better-ccflare/config.json`)
-3. Default values
+
+1. A valid environment override (`LB_STRATEGY`).
+2. The file's `lb_strategy` value.
+3. The built-in default.
+
+See [configuration precedence](configuration.md#configuration-precedence) and [strategy source handling](../packages/config/src/index.ts).
 
 ### Environment Variables
 
 ```bash
-# Load balancing strategy: session (default), least-used, session-affinity, or
-# session-drain-soonest (opt-in)
+# Choose a value from Available Strategies above; the default is session.
 LB_STRATEGY=session
-
-# Session duration in milliseconds (default: 18000000ms = 5 hours)
 SESSION_DURATION_MS=18000000
-
-# Server port (default: 8080)
-PORT=8080
-
-# Client ID for OAuth (default: 9d1c250a-e61b-44d9-88ed-5944d1962f5e)
-CLIENT_ID=your-client-id
-
-# Retry configuration
-RETRY_ATTEMPTS=3
-RETRY_DELAY_MS=1000
-RETRY_BACKOFF=2
 ```
+
+The [configuration mapping](configuration.md#configuration-mapping) documents the remaining variables. Setting `LB_STRATEGY` takes precedence over file/runtime changes.
 
 ### Configuration File
 
-The configuration file is automatically created at `~/.better-ccflare/config.json` on first run:
+The default Linux/macOS path is `~/.config/better-ccflare/better-ccflare.json`; see [configuration paths](configuration.md#configuration-file-format) for XDG, Windows, and custom-path behavior.
 
 ```json
 {
-    "lb_strategy": "session",
-    "session_duration_ms": 18000000,
-    "port": 8080,
-    "client_id": "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
-    "retry_attempts": 3,
-    "retry_delay_ms": 1000,
-    "retry_backoff": 2
+  "lb_strategy": "session",
+  "session_duration_ms": 18000000
 }
 ```
 
 ### Time Constants
 
-The following time constants are used throughout the system:
-- `ANTHROPIC_SESSION_DURATION_DEFAULT`: 18000000ms (5 hours)
-- `SESSION_DURATION_FALLBACK`: 3600000ms (1 hour) - used if configuration is invalid
+The default session duration is five hours. The [configuration options](configuration.md#complete-options-table) describe disabling stickiness and handling invalid values. Do not use this duration as a proxy for an upstream cache TTL.
 
 ### Dynamic Configuration
 
-The strategy configuration can be changed at runtime via the HTTP API:
+Use the following routes on the intended instance. Add its admin API key when authentication is enabled; these examples do not authorize a production change.
 
 ```bash
-# Get current strategy
-curl http://localhost:8080/api/config/strategy
+# Read the effective strategy and its source/lock state.
+curl http://localhost:8080/api/config/strategy \
+  -H "Authorization: Bearer <admin-api-key>"
 
-# Select the default session strategy
-curl -X PUT http://localhost:8080/api/config/strategy \
+# Change strategy only when the operator intends this change.
+curl -X POST http://localhost:8080/api/config/strategy \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <admin-api-key>" \
   -d '{"strategy": "session"}'
 
-# Get all configuration settings
-curl http://localhost:8080/api/config
-
-# Get available strategies
-curl http://localhost:8080/api/strategies
+# List registered strategies.
+curl http://localhost:8080/api/strategies \
+  -H "Authorization: Bearer <admin-api-key>"
 ```
+
+See [the runtime configuration API](configuration.md#runtime-configuration-api) for response shapes and other configuration endpoints.
 
 ## Account Selection Process
 
-The load balancer follows a specific process when selecting accounts for requests:
+The strategy setting is only part of selection:
 
-### 1. Auto-Fallback Check (New)
-Before checking for active sessions, the system first checks for auto-fallback candidates:
-```typescript
-// Check for higher priority accounts that have become available due to rate limit reset
-const fallbackCandidates = this.checkForAutoFallbackAccounts(accounts, now);
-if (fallbackCandidates.length > 0) {
-    // Use the highest priority auto-fallback account
-    return [chosenFallback, ...otherAccounts];
-}
-```
+1. The proxy resolves provider/model routes, combo membership, and candidate eligibility, including capacity and account health.
+2. The strategy orders those candidates using their fallback rung, tier, pressure metadata, and strategy-specific state.
+3. The selector preserves eligibility and applies any provider-specific post-selection cache ordering.
+4. The proxy attempts eligible routes and records outcomes. An ordered candidate list is not proof of a successful or completed stream.
 
-### 2. Account Filtering
-```typescript
-// From proxy/handlers/account-selector.ts
-const providerAccounts = allAccounts.filter(
-    (account) => account.provider === ctx.provider.name || account.provider === null
-);
-```
-- Accounts are first filtered by provider compatibility
-- Only accounts matching the current provider or with null provider are considered
+The authoritative orchestration is [account-selector.ts](../packages/proxy/src/handlers/account-selector.ts); [cache-affinity-orderer.ts](../packages/proxy/src/cache-affinity-orderer.ts) handles the provider-specific post-selection ordering. Candidates can share an account but differ in combo slot or model, so account IDs alone cannot describe all route changes.
 
-### 2. Availability Check
-```typescript
-// From core/strategy.ts
-export function isAccountAvailable(account: Account, now = Date.now()): boolean {
-    return (
-        !account.paused &&
-        (!account.rate_limited_until || account.rate_limited_until < now)
-    );
-}
-```
-- Paused accounts are excluded
-- Rate-limited accounts are excluded if their rate limit hasn't expired
+### Session Management
 
-### 3. Session Management
-The active strategy then applies its routing semantics:
+Account-level `session` state is distinct from per-client/lane affinity. Strategies may reset account session counters, retain an owner, use a temporary fallback, or recover a better route. See [affinity lifetime limits](#account-and-client-stickiness) and [Drain ordering](#drain-ordering).
 
-- `session` finds the most recent active account-level session, keeps it while
-  it remains available and in the best routing class, and returns ordered
-  fallbacks. A new session starts with the highest-priority available account,
-  using utilization as a same-priority tiebreaker.
-- `session-affinity` keys ownership by the request's client session or affinity
-  lane. Each client/lane stays on its owner until expiry; a temporary fallback
-  can serve while the preferred owner is unavailable without deleting the
-  preferred mapping.
-- `session-drain-soonest` ranks fresh assignments and account failover by
-  structural route class first (fallback rung, then tier, then weekly pace
-  band), and only then by the earliest known future all-model weekly reset; see
-  [Drain ordering](#drain-ordering). Unknown or stale reset telemetry fails open
-  to ordinary affinity ordering. Existing eligible Codex owners, including
-  temporary fallbacks, stay sticky across quota-pressure changes within the
-  same tier and fallback rung, and across usage-window rollovers. Existing
-  Anthropic owners get a bounded warm-cache hold across the same change. Account
-  session counters still reset when their usage window rolls over.
-- `least-used` has no sticky owner. It orders available accounts by priority and
-  utilization for each request and uses a bounded recency penalty to spread
-  concurrent bursts.
+### Session Reset
 
-For the account-level `session` strategy, the detailed process is:
+Provider-specific session tracking determines whether account counters need a reset. An expired usage window does not by itself prove a prompt cache expired or require a sticky-drain conversation to change owner.
 
-1. **Active Session Search**: Finds the account with the most recent active session
-2. **Session Validation**: Checks if the session is within the configured duration
-3. **Account Ordering**: Returns accounts in priority order:
-   - Active session account (if available) comes first
-   - Other available accounts are sorted by priority (lower values first) as fallback options
-4. **No Active Session — Utilization Tiebreaking**: When no active session exists, accounts with the same priority value are further sorted by ascending utilization (lowest first = most remaining capacity). This ensures new sessions start on the account with the most headroom, draining usage evenly across same-priority accounts. Accounts without available usage data are treated as 0% utilized and sort first (most remaining capacity) within their priority tier.
+### Database Updates
 
-### 4. Session Reset
-Sessions are reset when:
-- No active session exists
-- The current session has expired
-- A new account needs to be selected
-
-```typescript
-private resetSessionIfExpired(account: Account): void {
-    const now = Date.now();
-    
-    if (!account.session_start || 
-        now - account.session_start >= this.sessionDurationMs) {
-        // Reset session via StrategyStore
-        this.store.resetAccountSession(account.id, now);
-        account.session_start = now;
-        account.session_request_count = 0;
-    }
-}
-```
-
-### 5. Database Updates
-The StrategyStore interface provides methods for session management:
-- `resetAccountSession(accountId, timestamp)`: Resets session start time and request count
-- `updateAccountRequestCount(accountId, count)`: Updates request count for an account
-- `getAccount(accountId)`: Retrieves account information
+[StrategyStore](../packages/types/src/strategy.ts) supplies session reset, availability/resume, utilization, and optional provider-usage operations. Strategy selection is asynchronous and can update session state. Do not use production account data for an offline comparison.
 
 ## Performance Considerations
 
 ### Session-Based Performance
 
-The session strategy provides excellent rate limit avoidance at the cost of potentially uneven load distribution:
-
-- **Rate Limit Avoidance**: By maintaining sessions with individual accounts for extended periods, the strategy minimizes the risk of hitting rate limits due to rapid account switching.
-- **Load Distribution**: Load may concentrate on fewer accounts during a session window. This is acceptable for most use cases but should be monitored.
-- **Failover**: If the active session account becomes unavailable, the system automatically fails over to the next available account.
+Stickiness trades distribution for locality. Compare policies on matched model, provider, workload, and concurrency cohorts. Do not attribute a slow full response to router overhead without separating time-to-first-token, generation time, and retries.
 
 ### Session Storage
 
-Session information is stored directly in the database with the following fields:
-- `session_start`: Timestamp when the current session began
-- `session_request_count`: Number of requests in the current session
-- `rate_limited_until`: Timestamp when rate limiting expires (if applicable)
-
-These fields are updated synchronously to ensure consistency in account selection.
+Account counters (`session_start`, `session_request_count`) and rate-limit state are persisted separately from the process-local affinity map. Restart restoration and its limits are described below.
 
 ### Monitoring
 
-Monitor these key metrics:
-- Account usage distribution
-- Rate limit occurrences
-- Session duration effectiveness
-- Failover frequency
+Predeclare both the outcome and its countermetrics:
+
+- Completed eligible work and unused allowance at reset—not merely how evenly requests spread.
+- Cache-read share with its token denominator and usage-coverage count; extra cache creation on warm continuations is a countermetric.
+- Terminal failures separated from client cancellations, plus fallback frequency and time-to-first-token.
+- Continuing-lane candidate changes, not just account switches across unrelated conversations. See [the remap measurement guide](solutions/observability/measure-session-remap-cache-cost-from-the-requests-table.md).
+
+### Offline strategy comparison
+
+```bash
+bun bench/routing-strategy-comparison.ts
+```
+
+This runs the real sticky-drain and affinity `select()` implementations on identical synthetic candidate sequences with isolated state. It compares strategy-stage decisions after supplied eligibility, not the complete proxy or an upstream provider. Its selection and continuation counts can reveal behavioral differences; they cannot establish cache hits, latency, quota savings, or an optimal production policy. No production database or inference endpoint is used.
 
 ## Strategy Selection and OAuth Safety
 
-All five built-in strategies are supported. The right choice depends on whether
-the provider and credential type benefit from account stickiness:
+Supported routing choices do not change credential-use permissions. Follow the [repository's account-use rule](../AGENTS.md) and [agent setup guidance](agent-setup.md#claude-automation-and-credentials). No strategy authorizes paid overage.
 
 ### Account and client stickiness
 
-- `session` is the default account-level strategy. Providers configured for
-  session duration tracking (including Anthropic OAuth and Codex OAuth) keep an
-  active account session for the configured duration; Anthropic OAuth also
-  honors a known `rate_limit_reset` when starting the next session.
-- `session-affinity` keeps a separate sticky owner for each client session or
-  affinity lane. This spreads concurrent clients across healthy accounts while
-  preserving prompt-cache locality within each client.
-- `session-drain-soonest` is deliberately opt-in. A healthy existing Codex owner
-  or temporary fallback keeps its current route to preserve cache locality when
-  a same-tier, same-rung account enters a more urgent quota-pressure band,
-  including when that other route becomes eligible for a recovery probe. A normal usage-window rollover
-  resets the owner's account session counters without moving the conversation.
-  New assignments and necessary failovers still use quota-aware ranking and
-  earliest known future all-model weekly reset ordering within one structural
-  class. Missing, malformed, or past reset telemetry is unknown and fails open
-  to ordinary affinity ordering. Unavailable or excluded owners still fail over;
-  existing better-tier and fallback-rung recovery rules remain in effect.
-  An existing Anthropic owner gets a narrower, bounded hold across the same
-  same-tier, same-rung pace-band change (see
-  [Drain ordering](#drain-ordering)). Other providers and the per-request
-  `session-drain-soonest-strict` mode keep their existing behavior.
+- `session` maintains account-level sessions for providers configured to track them.
+- `session-affinity` maintains separate client/lane ownership, subject to routing policy, availability, failover, and recovery.
+- Sticky drain adds quota-aware fresh assignments and failovers while retaining eligible owners as described below. Strict drain ordinarily reevaluates each request instead.
 
 #### Drain ordering
 
-`session-drain-soonest` does not rank by weekly reset alone. A fresh assignment
-or failover sorts candidates by:
+`session-drain-soonest` does not rank by weekly reset alone. A fresh assignment or failover considers:
 
-1. **Fallback rung**, then **tier** (account priority): structural route class
-   always wins.
-2. **Weekly pace band**: the required burn rate
-   `(100 - weekly utilization %) / hours until that window resets`, from a fresh
-   usage snapshot. A model-scoped weekly window is used when the request's model
-   family has one; otherwise the all-model weekly window. Bands are `critical`
-   (≥ 4 %/h), `urgent` (≥ 2), `hot` (≥ 1), `warm` (≥ 0.5), `steady` (≥ 0.25),
-   otherwise `cold`; a higher band sorts first. Bands only compare candidates of
-   the same provider, billing class, window kind, and model family.
-3. **Earliest known future all-model weekly reset**, as a tie-break within one
-   band.
-4. Account priority preference, then utilization or the recency score.
+1. **Fallback rung**, then **tier**: structural route class remains authoritative.
+2. **Weekly pace band**: the required burn rate `(100 - weekly utilization %) / hours until reset`, from fresh usage telemetry. A model-scoped weekly window is used when the request's model family has one; otherwise the all-model weekly window. Bands are `critical` (≥ 4 %/h), `urgent` (≥ 2), `hot` (≥ 1), `warm` (≥ 0.5), `steady` (≥ 0.25), otherwise `cold`. Higher bands sort first, but only comparable provider, billing, window, and model-family cohorts are compared.
+3. **Earliest known future all-model weekly reset**, within comparable candidates.
+4. Account priority and utilization/recency tiebreakers.
 
-So an account with a lot of weekly quota left and a few days to go (for example
-66% over 66 hours, `hot`) outranks one that resets sooner but needs only a slow
-burn (7% over 11 hours, `warm`). Reset order decides only once both reach the
-same band, which normally happens as the deadline approaches.
+Auto-fallback and explicit owner directives also participate in selection; reset time is not an unconditional first key. Unknown, malformed, or past weekly resets do not supply an expiry preference, so ordinary affinity ordering remains available.
 
-In sticky mode, an existing owner outclassed only by a higher pace band (same
-tier and fallback rung) is handled per provider:
+For example, 66% of quota left over 66 hours (`hot`) outranks 7% left over 11 hours (`warm`) within the same structural class, despite the later reset.
 
-- **Codex**: the owner stays until it becomes unavailable.
-- **Anthropic**: the owner is held while its prompt cache is certainly warm,
-  meaning the owner served this session's previous turn less than 5 minutes ago
-  (the default cache TTL), and for at most 30 minutes from the first held turn.
-  After either limit the session moves to the higher-band account, so the hold
-  delays the drain but never blocks it. A turn back in the owner's band ends
-  the hold episode. Sessions using a 1-hour cache TTL may still be warm after 5
-  minutes; they move as before.
-- **Other providers**: the owner moves at once.
+When an existing sticky-drain owner is outclassed only by a higher pace band in the same tier and fallback rung:
 
-Tier or fallback-rung recovery, unavailable owners, and strict mode are never
-held.
+- **Codex:** an eligible owner or temporary fallback stays sticky, including across usage-window rollover. Account counters still reset when appropriate.
+- **Anthropic:** the owner is held while its previous turn was less than five minutes ago, for at most 30 minutes from the first held turn. An idle gap or the hold ceiling allows reassignment. Returning to the owner's band ends the hold episode. A one-hour upstream cache TTL does not extend this five-minute hold rule.
+- **Other providers:** the ordinary reassignment behavior applies.
 
-Client/lane affinity is held in a bounded, process-local map, separate from the
-account session counters in the database. An active lane refreshes its idle TTL
-(default five hours). Each request also records its lane's owner in its routing
-summary, and a backend start rebuilds the map from the records still within the
-TTL before it routes proxied requests; `/health` reports the outcome under
-`routing.affinityRestore`. The restore is best-effort and covers ordinary and
-route-profile lanes under `session-affinity` and sticky `session-drain-soonest`.
-A new assignment can still follow a restore abandoned at its 3-second budget or
-20,000-record cap, a child-home, quality or web-search helper lane, strategy
-replacement, an expired or evicted entry, or a changed session/lane identity. Sticky
-routing therefore preserves an eligible owner within that lifetime; it is not a
-durable account lock or a guarantee that the upstream still has a cached prefix.
+Better-tier/rung recovery, unavailable or excluded owners, and strict mode are not protected by that warm-cache hold. Route-circuit and explicit owner-retention decisions remain authoritative.
+
+Client/lane affinity lives in a bounded process-local map, separate from account counters. Active lanes refresh an idle TTL (five hours by default). Routing records allow best-effort restoration after a backend restart; `/health` reports `routing.affinityRestore`. Restoration covers ordinary and route-profile lanes under affinity and sticky drain, but can stop at its three-second budget or 20,000-record cap. Helper lanes, strategy replacement, expiry, eviction, and changed lane identity can also cause new assignment. Affinity is not a durable account lock or a guarantee of upstream cache retention.
 
 ### Per-request spreading
 
-`least-used` orders available accounts by priority and utilization on every
-request, with a bounded recency penalty to prevent concurrent bursts from
-converging on one account. It intentionally does not preserve OAuth stickiness.
-Use it when spreading bursts matters more than prompt-cache reuse.
+`least-used` intentionally has no per-client owner. Its bounded recent-pick penalty can spread bursts, but utilization is not queue delay or measured throughput. Evaluate it separately for independent requests before applying results to long coding conversations.
 
 ### Cache locality and utilization
 
-Use `session-affinity` to keep each client's requests on an eligible account and reuse its prompt cache. Use `least-used` to spread bursts by effective utilization instead. Compare cache reads, account utilization, and rate-limit telemetry on representative traffic before changing the strategy.
-
-If you need to tune the default account-level behavior, adjust
-`session_duration_ms` rather than inventing a custom strategy:
-
-```json
-{
-    "lb_strategy": "session",
-    "session_duration_ms": 18000000  // 5 hours (recommended default)
-}
-```
+Compare sticky drain with plain affinity when the question is whether reset-aware ordering earns its extra complexity. Measure unused capacity across complete reset windows and compare warm-continuation cache costs and failures. Keep existing eligibility and credential boundaries fixed. An offline decision comparison alone is not a reason to switch production.
 
 ## LoadBalancingStrategy Interface
 
-For reference, here's the interface that all load balancing strategies must implement:
+[LoadBalancingStrategy and RequestMeta](../packages/types/src/context.ts) and [StrategyStore](../packages/types/src/strategy.ts) are the authoritative contracts. `select(accounts, meta)` is asynchronous and orders accounts with their candidate metadata. `peek(accounts)` is a side-effect-free preview without the request's lane metadata; it is not a substitute for exercising the selection path in a comparison.
 
-```typescript
-// From types/context.ts
-export interface LoadBalancingStrategy {
-    /**
-     * Return a filtered & ordered list of candidate accounts.
-     * Accounts that are rate-limited should be filtered out.
-     * The first account in the list should be tried first.
-     */
-    select(accounts: Account[], meta: RequestMeta): Account[];
-
-    /**
-     * Optional initialization method to inject dependencies
-     * Used for strategies that need access to a StrategyStore
-     */
-    initialize?(store: StrategyStore): void;
-}
-```
-
-The `RequestMeta` object contains:
-- `id`: Unique request identifier
-- `method`: HTTP method
-- `path`: Request path
-- `timestamp`: Request timestamp
-- `agentUsed`: Optional agent identifier
-
-The built-in implementations are `SessionStrategy`, `LeastUsedStrategy`,
-`SessionAffinityStrategy`, and `SessionDrainSoonestStrategy` under
-`/packages/load-balancer/src/strategies/`. The latter is selected only when
-`LB_STRATEGY=session-drain-soonest` (or the equivalent config/API value) is
-explicitly set.
+`SessionDrainSoonestStrategy` implements both drain values through its mode option. See [the shared implementation](../packages/load-balancer/src/strategies/session-drain-soonest.ts); neither mode requires a separate copied implementation.
 
 ## Migration Notes
 
-When upgrading to this version, session duration tracking remains provider-specific:
-Anthropic OAuth, Codex OAuth, and Zai accounts retain the configured session-window
-behavior, while Minimax, OpenAI-compatible, and Claude console API accounts operate
-without fixed-duration session stickiness. Existing Claude console accounts will be
-automatically migrated to the new `claude-console-api` provider type. No manual
-configuration changes are required.
+Changing this documentation does not change a deployed strategy. Verify the effective strategy and its source before altering a setting. Session-window behavior remains provider-specific; use [provider configuration](../packages/types/src/provider-config.ts) rather than inferring it from the presence of an API key. For upgrade steps, see the [configuration migration guide](configuration.md#migration-guide).

@@ -160,44 +160,12 @@ Run affected suites one file at a time (`bun test <file>`). A full `bun test` ba
 - Production: guard on `:8788` forwards to the binary on `:8789`. Test local changes on port 8081.
 
 ### Account Management
-- Add: `bun run cli --add-account <name> --mode <mode> --priority <number>`
-- Accepted modes: `ACCOUNT_MODES` in `apps/cli/src/main.ts` is authoritative, and `--help` prints the same list. Read it rather than trusting a list in docs. `vertex-ai`, `openrouter`, `ollama-cloud` and `qwen` accounts are not in it; add those from the dashboard, or through the HTTP API (`POST /api/accounts/<type>`; for `qwen`, the device flow at `POST /api/oauth/qwen/init`).
-- List: `bun run cli --list`
-- Remove: `bun run cli --remove <name>` (deletes at once; see [Database](#database))
-- Reauth: `bun run cli --reauthenticate <name>` (preserves metadata, auto-notifies servers)
-- Priority: `bun run cli --set-priority <name> <priority>` (lower = higher priority, 0 = first)
-- Provider behavior: OAuth (5hr windows, session-based), API keys (pay-as-you-go, no sessions)
+Use the [CLI reference](docs/cli.md#command-reference) for account and maintenance commands, and the [HTTP API reference](docs/api-http.md) for live-server operations. Before destructive commands, read the [database warning](#database).
 
-### Maintenance
-- `bun run cli --reset-stats|--clear-history|--stats|--analyze` (`--reset-stats` and `--clear-history` write with no prompt; see [Database](#database))
-
-### API Endpoints
-- `POST /api/accounts/:id/reload|pause|resume`
+`ACCOUNT_MODES` in `apps/cli/src/main.ts` is authoritative; `--help` prints it. Other supported providers use the dashboard or provider-specific HTTP flow. Credential syntax does not determine billing or session tracking: consult [provider configuration](packages/types/src/provider-config.ts), not an OAuth/API-key rule of thumb.
 
 ### Testing OpenRouter
-Use a **currently free** model, and look one up rather than trusting a slug written
-here — OpenRouter rotates which models carry the `:free` tier, so any pinned slug
-rots. (`z-ai/glm-4.5-air:free` was named here until 2026-08-16, when it started
-returning HTTP 404 `This model is unavailable for free. The paid version is
-available now`. A pinned paid slug silently spends real money instead.)
-
-Pick one:
-```bash
-curl -s https://openrouter.ai/api/v1/models | \
-  python3 -c "import json,sys; print('\n'.join(m['id'] for m in json.load(sys.stdin)['data'] if m['id'].endswith(':free')))"
-```
-
-Then send it, force-routing to the openrouter account so the request cannot land
-on an Anthropic-backed one (see the Anthropic-accounts rule at the top of this file):
-```bash
-curl -X POST http://localhost:8081/v1/messages \
-  -H "Content-Type: application/json" -H "Authorization: Bearer test" \
-  -H "x-better-ccflare-account-id: $(sqlite3 ~/.config/better-ccflare/better-ccflare.db "SELECT id FROM accounts WHERE provider='openrouter' LIMIT 1;")" \
-  -d '{"model":"<free-slug>","messages":[{"role":"user","content":"test"}],"max_tokens":10}'
-```
-
-Add `"stream":true` to exercise the SSE translation path; a healthy stream ends
-with a `message_stop` event.
+Before an OpenRouter inference check, read [Testing OpenRouter](docs/troubleshooting.md#testing-openrouter). Select a currently free model from the live catalog and verify a nonempty OpenRouter account ID on the **same test instance** before force-routing. Do not derive that ID from the default production database or send without the force-route header.
 
 ## Qwen Provider
 - When working on the Qwen provider or streaming transform, **always mirror the qwen-code implementation**: compare against `QwenLM/qwen-code`, either a local checkout or the upstream source at a named commit or tag. In the final response, state the checkout path or source URL and the commit or tag compared; if the comparison was not performed, explicitly say so and explain why.

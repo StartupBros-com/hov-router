@@ -1102,12 +1102,14 @@ curl http://localhost:8080/api/config
 
 Get current load balancing strategy.
 
-**Response:**
+**Example response (strategy field):**
 ```json
 {
   "strategy": "session"
 }
 ```
+
+The response also includes `strategySource`, describing the effective value's source and whether an environment override locks the setting.
 
 **Example:**
 ```bash
@@ -1133,13 +1135,7 @@ Update load balancing strategy.
 }
 ```
 
-**Available Strategies:**
-- `session` - The default account-level session strategy. For providers with session-window tracking (including Anthropic OAuth and Codex OAuth), it keeps requests on the active account for the configured session duration.
-- `least-used` - Orders available accounts by utilization for per-request spreading. It does not preserve a client's cache locality.
-- `session-affinity` - Assigns each client or affinity lane a sticky account, with automatic failover and expiry, so concurrent clients can spread across the pool while each client keeps prompt-cache locality.
-- `session-drain-soonest` - Opt-in `session-affinity` variant. It ranks fresh assignments and account failover by weekly pace band, then the earliest known future all-model weekly reset, then normal priority/utilization tie-breakers. Besides normal failover, an existing owner also moves when a same-tier account reaches a higher pace band (Codex owners stay; Anthropic owners get a bounded warm-cache hold). Unknown, malformed, or stale reset telemetry fails open to ordinary affinity ordering. See [Drain ordering](load-balancing.md#drain-ordering).
-
-- `session-drain-soonest-strict` - Ranks by earliest future weekly reset within each authorized routing class; active sessions break ties.
+**Available strategies:** See the [registered values and trade-offs](load-balancing.md#available-strategies). `session` is the installation default; a valid `LB_STRATEGY` environment override takes precedence over file/runtime changes.
 
 **Example:**
 ```bash
@@ -1152,10 +1148,7 @@ curl -X POST http://localhost:8080/api/config/strategy \
 
 List all available load balancing strategies.
 
-**Response:**
-```json
-["session", "least-used", "session-affinity", "session-drain-soonest"]
-```
+**Response:** A JSON array of registered strategy names, including both drain modes. See [available strategies](load-balancing.md#available-strategies) for the current values and behavior.
 
 **Example:**
 ```bash
