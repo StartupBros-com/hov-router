@@ -135,7 +135,7 @@ function summarizeBankedResets(
 
 export function createBankedResetsSummaryHandler(dbOps: DatabaseOperations) {
 	return async (): Promise<Response> => {
-		const accounts = await dbOps.getAdapter().query<BankedResetsAccount>(
+		const accounts = await dbOps.getAdapter().queryMain<BankedResetsAccount>(
 			`SELECT id, name, provider, custom_endpoint FROM accounts
 				 WHERE provider = ? ORDER BY name, id`,
 			["codex"],

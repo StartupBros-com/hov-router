@@ -82,7 +82,7 @@ describe("POST /api/models/preview", () => {
 		expect(
 			await dbOps
 				.getAdapter()
-				.get<{ count: number }>("SELECT COUNT(*) AS count FROM accounts"),
+				.getMain<{ count: number }>("SELECT COUNT(*) AS count FROM accounts"),
 		).toEqual({ count: 0 });
 	});
 

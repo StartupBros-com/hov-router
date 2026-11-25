@@ -47,7 +47,7 @@ describe("CLI NanoGPT Account Creation", () => {
 			);
 
 			// Verify account was created
-			const db = dbOps.getDatabase();
+			const db = dbOps.getAdapter().getSQLiteDb();
 			const account = db
 				.query<
 					{
@@ -83,7 +83,7 @@ describe("CLI NanoGPT Account Creation", () => {
 			);
 
 			// Verify account was created
-			const db = dbOps.getDatabase();
+			const db = dbOps.getAdapter().getSQLiteDb();
 			const account = db
 				.query<{ custom_endpoint: string }, [string]>(
 					"SELECT custom_endpoint FROM accounts WHERE name = ?",
@@ -113,7 +113,7 @@ describe("CLI NanoGPT Account Creation", () => {
 			);
 
 			// Verify account was created
-			const db = dbOps.getDatabase();
+			const db = dbOps.getAdapter().getSQLiteDb();
 			const account = db
 				.query<{ model_mappings: string }, [string]>(
 					"SELECT model_mappings FROM accounts WHERE name = ?",
@@ -140,7 +140,7 @@ describe("CLI NanoGPT Account Creation", () => {
 			);
 
 			// Verify account was created
-			const db = dbOps.getDatabase();
+			const db = dbOps.getAdapter().getSQLiteDb();
 			const account = db
 				.query<
 					{
@@ -169,7 +169,7 @@ describe("CLI NanoGPT Account Creation", () => {
 			);
 
 			// Verify account was created with null model mappings
-			const db = dbOps.getDatabase();
+			const db = dbOps.getAdapter().getSQLiteDb();
 			const account = db
 				.query<{ model_mappings: string | null }, [string]>(
 					"SELECT model_mappings FROM accounts WHERE name = ?",
@@ -191,7 +191,7 @@ describe("CLI NanoGPT Account Creation", () => {
 			);
 
 			// Verify account was created with null model mappings
-			const db = dbOps.getDatabase();
+			const db = dbOps.getAdapter().getSQLiteDb();
 			const account = db
 				.query<{ model_mappings: string | null }, [string]>(
 					"SELECT model_mappings FROM accounts WHERE name = ?",
@@ -211,7 +211,7 @@ describe("CLI NanoGPT Account Creation", () => {
 			);
 
 			// Verify account was created
-			const db = dbOps.getDatabase();
+			const db = dbOps.getAdapter().getSQLiteDb();
 			const account = db
 				.query<{ priority: number }, [string]>(
 					"SELECT priority FROM accounts WHERE name = ?",
@@ -231,7 +231,7 @@ describe("CLI NanoGPT Account Creation", () => {
 			);
 
 			// Verify account was created
-			const db = dbOps.getDatabase();
+			const db = dbOps.getAdapter().getSQLiteDb();
 			const account = db
 				.query<{ priority: number }, [string]>(
 					"SELECT priority FROM accounts WHERE name = ?",
@@ -251,7 +251,7 @@ describe("CLI NanoGPT Account Creation", () => {
 			);
 
 			// Verify API key is stored in api_key field
-			const db = dbOps.getDatabase();
+			const db = dbOps.getAdapter().getSQLiteDb();
 			const account = db
 				.query<{ api_key: string }, [string]>(
 					"SELECT api_key FROM accounts WHERE name = ?",
@@ -271,7 +271,7 @@ describe("CLI NanoGPT Account Creation", () => {
 			);
 
 			// NanoGPT accounts use api_key field only; access_token is null
-			const db = dbOps.getDatabase();
+			const db = dbOps.getAdapter().getSQLiteDb();
 			const account = db
 				.query<{ access_token: string | null }, [string]>(
 					"SELECT access_token FROM accounts WHERE name = ?",

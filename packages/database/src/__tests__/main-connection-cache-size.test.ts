@@ -23,7 +23,7 @@ describe("DatabaseOperations constructor fallback cacheSize", () => {
 		dbOps = new DatabaseOperations(dbPath);
 		const row = await dbOps
 			.getAdapter()
-			.get<{ cache_size: number }>("PRAGMA cache_size");
+			.getMain<{ cache_size: number }>("PRAGMA cache_size");
 		expect(row?.cache_size).toBe(-262144);
 	});
 });

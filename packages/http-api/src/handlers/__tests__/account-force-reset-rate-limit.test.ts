@@ -53,7 +53,7 @@ function handledRejectedPromise<T>(error: Error): Promise<T> {
 function makeDbOps(reset: () => Promise<boolean>): DatabaseOperations {
 	return {
 		getAdapter: () => ({
-			get: mock(async () => ({
+			getMain: mock(async () => ({
 				id: "account-id",
 				name: "account-name",
 				provider: "anthropic",
@@ -171,7 +171,7 @@ describe.serial("force-reset usage fetches under a usage retry-after", () => {
 	function lockoutDbOps(id: string): DatabaseOperations {
 		return {
 			getAdapter: () => ({
-				get: mock(async () => ({
+				getMain: mock(async () => ({
 					id,
 					name: id,
 					provider: "anthropic",

@@ -644,7 +644,7 @@ export function createAccountsListHandler(
 
 		const strategy = getStrategy?.() ?? null;
 
-		const accounts = await db.query<{
+		const accounts = await db.queryMain<{
 			id: string;
 			name: string;
 			provider: string | null;
@@ -1195,7 +1195,7 @@ export function createAccountPriorityUpdateHandler(dbOps: DatabaseOperations) {
 
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ id: string }>(
+			const account = await db.getMain<{ id: string }>(
 				"SELECT id FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -1239,7 +1239,7 @@ async function assertAccountNameAvailable(
 	customEndpoint: string | null,
 ): Promise<Response | null> {
 	const db = dbOps.getAdapter();
-	const existing = await db.get<{ id: string }>(
+	const existing = await db.getMain<{ id: string }>(
 		`SELECT id FROM accounts
 		 WHERE name = ?
 		   AND provider = ?
@@ -1444,7 +1444,7 @@ export function createAccountRemoveHandler(dbOps: DatabaseOperations) {
 			// the actual stored name (defence-in-depth: a typo in the URL
 			// segment should fail with 404, not silently succeed).
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string }>(
+			const account = await db.getMain<{ name: string }>(
 				"SELECT name FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -1520,7 +1520,7 @@ export function createAccountPauseHandler(dbOps: DatabaseOperations) {
 		try {
 			// Get account name by ID
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string }>(
+			const account = await db.getMain<{ name: string }>(
 				"SELECT name FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -1555,7 +1555,7 @@ export function createAccountResumeHandler(dbOps: DatabaseOperations) {
 		try {
 			// Get account name by ID
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string }>(
+			const account = await db.getMain<{ name: string }>(
 				"SELECT name FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -1615,7 +1615,7 @@ export function createAccountRenameHandler(dbOps: DatabaseOperations) {
 
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string }>(
+			const account = await db.getMain<{ name: string }>(
 				"SELECT name FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -1625,7 +1625,7 @@ export function createAccountRenameHandler(dbOps: DatabaseOperations) {
 			}
 
 			// Check if new name is already taken
-			const existingAccount = await db.get<{ id: string }>(
+			const existingAccount = await db.getMain<{ id: string }>(
 				"SELECT id FROM accounts WHERE name = ? AND id != ?",
 				[newName, accountId],
 			);
@@ -1794,7 +1794,7 @@ export function createZaiAccountAddHandler(dbOps: DatabaseOperations) {
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -1989,7 +1989,7 @@ export function createOpenAIAccountAddHandler(dbOps: DatabaseOperations) {
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -2151,7 +2151,7 @@ export function createVertexAIAccountAddHandler(dbOps: DatabaseOperations) {
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -2290,7 +2290,7 @@ export function createMinimaxAccountAddHandler(dbOps: DatabaseOperations) {
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -2593,7 +2593,7 @@ export function createNanoGPTAccountAddHandler(dbOps: DatabaseOperations) {
 				`Successfully added NanoGPT account: ${name} (Priority ${priority})`,
 			);
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -2774,7 +2774,7 @@ export function createAnthropicCompatibleAccountAddHandler(
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -2960,7 +2960,7 @@ export function createMetaAccountAddHandler(dbOps: DatabaseOperations) {
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -3126,7 +3126,7 @@ export function createOllamaAccountAddHandler(dbOps: DatabaseOperations) {
 				`Successfully added Ollama account: ${name} (Priority ${priority})`,
 			);
 
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -3276,7 +3276,7 @@ export function createOllamaCloudAccountAddHandler(dbOps: DatabaseOperations) {
 				`Successfully added Ollama Cloud account: ${name} (Priority ${priority})`,
 			);
 
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -3362,7 +3362,7 @@ export function createAccountAutoFallbackHandler(dbOps: DatabaseOperations) {
 
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string; provider: string }>(
+			const account = await db.getMain<{ name: string; provider: string }>(
 				"SELECT name, provider FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -3423,7 +3423,7 @@ export function createAccountCodexCreditDrainHandler(
 			}
 
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string; provider: string }>(
+			const account = await db.getMain<{ name: string; provider: string }>(
 				"SELECT name, provider FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -3489,7 +3489,7 @@ export function createAccountAutoPauseOnOverageHandler(
 
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string; provider: string }>(
+			const account = await db.getMain<{ name: string; provider: string }>(
 				"SELECT name, provider FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -3570,7 +3570,7 @@ export function createAccountPeakHoursPauseHandler(dbOps: DatabaseOperations) {
 
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string; provider: string }>(
+			const account = await db.getMain<{ name: string; provider: string }>(
 				"SELECT name, provider FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -3636,7 +3636,7 @@ export function createAccountBillingTypeHandler(dbOps: DatabaseOperations) {
 
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string; provider: string }>(
+			const account = await db.getMain<{ name: string; provider: string }>(
 				"SELECT name, provider FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -3711,7 +3711,7 @@ export function createAccountCustomEndpointUpdateHandler(
 			);
 
 			const adapter = dbOps.getAdapter();
-			const account = await adapter.get<{
+			const account = await adapter.getMain<{
 				provider: string;
 			}>("SELECT provider FROM accounts WHERE id = ?", [accountId]);
 
@@ -3767,7 +3767,7 @@ export function createAccountModelMappingsUpdateHandler(
 
 			// Get account to verify it supports model mappings
 			const db = dbOps.getAdapter();
-			const account = await db.get<{
+			const account = await db.getMain<{
 				provider: string;
 				custom_endpoint: string | null;
 			}>("SELECT provider, custom_endpoint FROM accounts WHERE id = ?", [
@@ -3824,7 +3824,7 @@ export function createAccountForceResetRateLimitHandler(
 	return async (_req: Request, accountId: string): Promise<Response> => {
 		try {
 			const db = dbOps.getAdapter();
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -3917,7 +3917,7 @@ export function createAccountReloadHandler(dbOps: DatabaseOperations) {
 		try {
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string; provider: string }>(
+			const account = await db.getMain<{ name: string; provider: string }>(
 				"SELECT name, provider FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -4159,7 +4159,7 @@ export function createBedrockAccountAddHandler(dbOps: DatabaseOperations) {
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -4315,7 +4315,7 @@ export function createKiloAccountAddHandler(dbOps: DatabaseOperations) {
 				`Successfully added Kilo Gateway account: ${name} (Priority ${priority})`,
 			);
 
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -4472,7 +4472,7 @@ export function createAlibabaCodingPlanAccountAddHandler(
 				`Successfully added Alibaba Coding Plan account: ${name} (Priority ${priority})`,
 			);
 
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -4635,7 +4635,7 @@ export function createOpenRouterAccountAddHandler(dbOps: DatabaseOperations) {
 				`Successfully added OpenRouter account: ${name} (Priority ${priority})`,
 			);
 
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;

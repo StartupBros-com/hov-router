@@ -11,7 +11,7 @@ export class AgentPreferenceRepository extends BaseRepository<AgentPreference> {
 	 * Get model preference for a specific agent
 	 */
 	async getPreference(agentId: string): Promise<{ model: string } | null> {
-		return this.get<{ model: string }>(
+		return this.getMain<{ model: string }>(
 			`SELECT model FROM agent_preferences WHERE agent_id = ?`,
 			[agentId],
 		);
@@ -23,7 +23,7 @@ export class AgentPreferenceRepository extends BaseRepository<AgentPreference> {
 	async getAllPreferences(): Promise<
 		Array<{ agent_id: string; model: string }>
 	> {
-		return this.query<{ agent_id: string; model: string }>(
+		return this.queryMain<{ agent_id: string; model: string }>(
 			`SELECT agent_id, model FROM agent_preferences`,
 		);
 	}

@@ -142,7 +142,7 @@ export class ExternalUsageRepository extends BaseRepository<ExternalUsageEvent> 
 			parent_id: string | null;
 			session_timestamp: string | null;
 			last_scanned_at: number;
-		}>("SELECT * FROM external_usage_sources");
+		}>("SELECT * FROM external_usage_sources", [], "bulk");
 		return rows.map((r) => ({
 			path: r.path,
 			size: Number(r.size),
@@ -188,7 +188,7 @@ export class ExternalUsageRepository extends BaseRepository<ExternalUsageEvent> 
 	}
 	async pendingAffected(): Promise<ExternalUsageAffected[]> {
 		return (
-			await this.query<{ account_id: string; started_at: number }>(
+			await this.queryMain<{ account_id: string; started_at: number }>(
 				`SELECT w.account_id,w.started_at FROM external_usage_pending_windows p JOIN usage_windows w ON w.id=p.window_id WHERE w.closed_at IS NOT NULL`,
 			)
 		).map((row) => ({
@@ -211,6 +211,8 @@ export class ExternalUsageRepository extends BaseRepository<ExternalUsageEvent> 
 		// reader sees the windows the main connection has written.
 		const windows = await this.queryOffThread<Candidate>(
 			`SELECT w.account_id,w.resets_at,w.started_at FROM usage_windows w JOIN accounts a ON a.id=w.account_id WHERE a.provider='codex' AND w.window_key='seven_day'`,
+			[],
+			"bulk",
 		);
 		const affected: ExternalUsageAffected[] = [];
 		let inserted = 0;
@@ -361,6 +363,7 @@ export class ExternalUsageRepository extends BaseRepository<ExternalUsageEvent> 
 					const pending = await this.queryOffThread<Unresolved>(
 						"SELECT id,session_id,event_ts,rate_limit_resets_at,account_id,attribution_basis FROM external_usage_events WHERE source_kind='rollout' AND (account_id IS NULL OR attribution_basis='vote') AND attribution_basis IS DISTINCT FROM 'conflict' AND event_ts>=?",
 						[bound],
+						"bulk",
 					);
 					const tallies = new Map<string, Map<string, number>>();
 					const sessions = [...new Set(pending.map((row) => row.session_id))];
@@ -372,6 +375,7 @@ export class ExternalUsageRepository extends BaseRepository<ExternalUsageEvent> 
 						}>(
 							`SELECT session_id,rate_limit_resets_at FROM external_usage_events WHERE source_kind='rollout' AND session_id IN (${batch.map(() => "?").join(",")})`,
 							batch,
+							"bulk",
 						);
 						for (const row of evidence) {
 							const direct = resolveAccount(
@@ -531,7 +535,7 @@ export class ExternalUsageRepository extends BaseRepository<ExternalUsageEvent> 
 		if (linkBatch.length) await this.mutationBatch(linkBatch);
 
 		for (const source of sources) {
-			const stale = await this.query<{
+			const stale = await this.queryMain<{
 				id: string;
 				account_id: string | null;
 				event_ts: number;
@@ -570,6 +574,8 @@ export class ExternalUsageRepository extends BaseRepository<ExternalUsageEvent> 
 	async countUnattributedEvents(): Promise<number> {
 		const [row] = await this.queryOffThread<{ rows: number }>(
 			"SELECT COUNT(*) AS rows FROM external_usage_events WHERE account_id IS NULL",
+			[],
+			"bulk",
 		);
 		return Number(row?.rows ?? 0);
 	}
@@ -586,6 +592,8 @@ export class ExternalUsageRepository extends BaseRepository<ExternalUsageEvent> 
 			total_tokens: number;
 		}>(
 			`SELECT model,account_id,COUNT(*) AS rows,SUM(input_tokens) AS input_tokens,SUM(cache_read_input_tokens) AS cache_read_input_tokens,SUM(output_tokens) AS output_tokens,SUM(reasoning_output_tokens) AS reasoning_output_tokens,SUM(total_tokens) AS total_tokens FROM external_usage_events GROUP BY model,account_id ORDER BY model,account_id`,
+			[],
+			"bulk",
 		);
 		return rows.map((r) => ({
 			model: r.model,

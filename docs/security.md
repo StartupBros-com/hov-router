@@ -322,7 +322,6 @@ server {
 const payload = {
     request: {
         headers: Object.fromEntries(req.headers.entries()),
-        body: requestBody ? "[streamed]" : null  // Request bodies marked as streamed
     },
     response: {
         status: response.status,

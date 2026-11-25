@@ -46,7 +46,7 @@ export interface PublishedPublicValueRow {
 
 export class AccountRepository extends BaseRepository<Account> {
 	async findAll(): Promise<Account[]> {
-		const rows = await this.query<AccountRow>(`
+		const rows = await this.queryMain<AccountRow>(`
 			SELECT
 				id, name, provider, api_key, refresh_token, access_token,
 				expires_at, created_at, last_used, request_count, total_requests,
@@ -82,7 +82,7 @@ export class AccountRepository extends BaseRepository<Account> {
 	}
 
 	async findById(accountId: string): Promise<Account | null> {
-		const row = await this.get<AccountRow>(
+		const row = await this.getMain<AccountRow>(
 			`
 			SELECT
 				id, name, provider, api_key, refresh_token, access_token,
@@ -139,14 +139,6 @@ export class AccountRepository extends BaseRepository<Account> {
 				[accessToken, expiresAt, accountId],
 			);
 		}
-	}
-
-	/** Compatibility alias retained for upstream repository tests and callers. */
-	async setRequiresReauth(accountId: string, value: boolean): Promise<void> {
-		await this.run(`UPDATE accounts SET requires_reauth = ? WHERE id = ?`, [
-			value ? 1 : 0,
-			accountId,
-		]);
 	}
 
 	async updateTokensIfRefreshTokenMatches(
@@ -360,7 +352,7 @@ export class AccountRepository extends BaseRepository<Account> {
 				);
 			}
 		}
-		const row = await this.get<{ consecutive_rate_limits: number }>(
+		const row = await this.getMain<{ consecutive_rate_limits: number }>(
 			`SELECT consecutive_rate_limits FROM accounts WHERE id = ?`,
 			[accountId],
 		);
@@ -580,7 +572,7 @@ export class AccountRepository extends BaseRepository<Account> {
 		if (changes > 0) {
 			return { resumed: true, pauseReason: null };
 		}
-		const row = await this.get<{ pause_reason: string | null }>(
+		const row = await this.getMain<{ pause_reason: string | null }>(
 			`SELECT pause_reason FROM accounts WHERE id = ?`,
 			[accountId],
 		);
@@ -718,7 +710,7 @@ export class AccountRepository extends BaseRepository<Account> {
 	async getExtraUsageHoldInputs(
 		accountId: string,
 	): Promise<ExtraUsageHoldInputs | null> {
-		const row = await this.get<{
+		const row = await this.getMain<{
 			provider: string | null;
 			created_at: number;
 			switch_on: number;
@@ -828,7 +820,7 @@ export class AccountRepository extends BaseRepository<Account> {
 	async listPublishedPublicValue(
 		limit: number,
 	): Promise<PublishedPublicValueRow[]> {
-		return this.query<PublishedPublicValueRow>(
+		return this.queryMain<PublishedPublicValueRow>(
 			`SELECT id, name, created_at, public_value_label, public_value_id, public_value_plan
 			 FROM accounts WHERE COALESCE(public_value_enabled, 0) = 1 LIMIT ?`,
 			[limit],
@@ -914,7 +906,7 @@ export class AccountRepository extends BaseRepository<Account> {
 		// worst case is one row reported as "cleared" without an actual
 		// write — recordSuccess is idempotent for an already-closed circuit
 		// entry, so the breaker converges correctly.
-		const cleared = await this.query<ClearedRateLimit>(
+		const cleared = await this.queryMain<ClearedRateLimit>(
 			`SELECT id, provider FROM accounts WHERE rate_limited_until <= ?`,
 			[now],
 		);
@@ -930,7 +922,7 @@ export class AccountRepository extends BaseRepository<Account> {
 	 * Check if there are any accounts for a specific provider
 	 */
 	async hasAccountsForProvider(provider: string): Promise<boolean> {
-		const result = await this.get<{ count: number }>(
+		const result = await this.getMain<{ count: number }>(
 			`SELECT COUNT(*) as count FROM accounts WHERE provider = ?`,
 			[provider],
 		);

@@ -84,11 +84,6 @@ export const DEFAULT_GUARD_RESPONSE_IDLE_TIMEOUT_MS = 120_000;
 // short so a stalled or slow body can never meaningfully erode the
 // request's overall deadline.
 export const DEFAULT_GUARD_DELAY_INSPECTION_TIMEOUT_MS = 5_000;
-// P1 spoofing (guard side): the legacy body-only pool_exhausted fallback is
-// a temporary rolling-upgrade escape hatch, OFF by default. See
-// evaluateGuardRetry's docstring in ccflare-guard-policy.mjs for the
-// rationale.
-export const DEFAULT_GUARD_ALLOW_LEGACY_POOL_BODY = false;
 // sysexits.h EX_SOFTWARE: bounded, non-signal status reserved for a drain that
 // reached its deadline and had to destroy remaining connections.
 export const GUARD_FORCED_DRAIN_EXIT_STATUS = 70;
@@ -1791,10 +1786,6 @@ export function createGuard(options = {}) {
 			),
 		),
 	);
-	const allowLegacyPoolBody = configuredBoolean(
-		options.allowLegacyPoolBody ?? env.GUARD_ALLOW_LEGACY_POOL_BODY,
-		DEFAULT_GUARD_ALLOW_LEGACY_POOL_BODY,
-	);
 	const shutdownGraceMs = configuredNumber(
 		options.shutdownGraceMs ?? env.GUARD_SHUTDOWN_GRACE_MS,
 		600_000,
@@ -3293,9 +3284,7 @@ export function createGuard(options = {}) {
 				// before any body I/O, and settles retry authority on its own.
 				// An oversized, stalled, or malformed body must never cost a
 				// header-confirmed retry its authorization (ordering), and a
-				// header-absent body must never silently grant one unless the
-				// operator has explicitly opted into the legacy fallback
-				// (spoofing).
+				// header-absent body never grants one (spoofing).
 				const headerDecision = recoveryHeaderStatus({
 					status: upstreamResponse.status,
 					headers: upstreamResponse.headers,
@@ -3314,7 +3303,6 @@ export function createGuard(options = {}) {
 						headers: upstreamResponse.headers,
 						bodyText: "",
 						nowMs: now(),
-						allowLegacyBody: allowLegacyPoolBody,
 					});
 					let delayMs = headerHint.delayMs;
 					let recoverySource = headerHint.recoverySource;
@@ -3383,7 +3371,6 @@ export function createGuard(options = {}) {
 									headers: upstreamResponse.headers,
 									bodyText: inspection.buffer.toString("utf8"),
 									nowMs: now(),
-									allowLegacyBody: allowLegacyPoolBody,
 								});
 								if (
 									!hint.retry &&
@@ -3510,154 +3497,8 @@ export function createGuard(options = {}) {
 					continue;
 				}
 
-				if (headerStatus === "absent" && allowLegacyPoolBody) {
-					// Rolling-upgrade escape hatch: the header is absent (e.g. an
-					// older, not-yet-redeployed proxy), and the operator has
-					// explicitly opted into trusting a bounded, buffered body-shape
-					// check instead. Unlike the confirmed-header path, no header
-					// has authorized retry yet, so this read is governed by the
-					// real deadline, not a short best-effort peek.
-					let inspection;
-					try {
-						inspection = await readResponseForInspection(
-							upstreamResponse,
-							maxInspectionBytes,
-							context.signal,
-						);
-					} catch (error) {
-						lease.release();
-						lease = null;
-						throw error;
-					}
-					if (inspection.oversized) {
-						counters.oversizedInspectionBodies += 1;
-						counters.finalError += 1;
-						log("proxy_final_error", {
-							id,
-							attempt,
-							status: upstreamResponse.status,
-							outcome: outcomeForStatus(upstreamResponse.status),
-							reason: "inspection_body_too_large",
-							elapsedMs: now() - context.acceptedAt,
-						});
-						try {
-							await sendPartiallyReadResponse(
-								res,
-								upstreamResponse,
-								inspection,
-								context.beginResponse,
-								responseIdleTimeoutMs,
-								context.recordSourceFailure,
-							);
-						} finally {
-							lease.release();
-							lease = null;
-						}
-						return;
-					}
 
-					lease.release();
-					lease = null;
-					const buffer = inspection.buffer;
-					const decision = evaluateGuardRetry({
-						status: upstreamResponse.status,
-						headers: upstreamResponse.headers,
-						bodyText: buffer.toString("utf8"),
-						nowMs: now(),
-						allowLegacyBody: allowLegacyPoolBody,
-					});
-					const elapsedMs = now() - context.acceptedAt;
-					if (!decision.retry) {
-						counters.finalError += 1;
-						log("proxy_final_error", {
-							id,
-							attempt,
-							status: upstreamResponse.status,
-							outcome: outcomeForStatus(upstreamResponse.status),
-							reason: decision.reason,
-							elapsedMs,
-						});
-						await sendBufferedResponse(
-							res,
-							upstreamResponse,
-							buffer,
-							context.beginResponse,
-						);
-						return;
-					}
-
-					counters.poolExhausted += 1;
-					recordTrustedRecovery(decision.recoveryScope);
-					context.ensureBudget();
-					const remainingMs = context.remainingMs();
-					const action = planRecoveryAction({
-						recoveryDelayMs: decision.delayMs,
-						elapsedMs: now() - context.acceptedAt,
-						remainingMs,
-						retryAttemptHeadroomMs,
-						recoverySilenceBudgetMs: maxRecoverySleepMs,
-						jitterMs,
-						random,
-					});
-					if (action.kind === "forward") {
-						await forwardRecoveryWithoutRetry(
-							res,
-							context,
-							attempt,
-							upstreamResponse,
-							{
-								buffer,
-								recoveryDelayMs: decision.delayMs,
-								recoverySource: decision.recoverySource,
-								remainingMs,
-								reason: action.reason,
-							},
-						);
-						return;
-					}
-					if (attempt >= maxAttempts) {
-						sendAttemptsExhausted(res, context, attempt);
-						return;
-					}
-					const waitLease = tryAcquireRecoveryWait(decision.recoveryScope);
-					if (waitLease === null) {
-						await forwardRecoveryWithoutRetry(
-							res,
-							context,
-							attempt,
-							upstreamResponse,
-							{
-								buffer,
-								recoveryDelayMs: decision.delayMs,
-								recoverySource: decision.recoverySource,
-								remainingMs,
-								reason: "recovery_wait_capacity_full",
-							},
-						);
-						return;
-					}
-					try {
-						counters.retried += 1;
-						log("proxy_retry_wait", {
-							id,
-							attempt,
-							status: upstreamResponse.status,
-							reason: decision.reason,
-							recoveryScope: decision.recoveryScope,
-							recoverySource: decision.recoverySource,
-							delayMs: action.delayMs,
-							elapsedMs,
-						});
-						await sleep(action.delayMs, context.signal);
-					} finally {
-						waitLease.release();
-					}
-					lease = null;
-					continue;
-				}
-
-				// Header denies exhaustion, or is absent and the legacy body-only
-				// fallback is disabled (default): the retry decision needs no
+				// Header denies recovery or is absent: the retry decision needs no
 				// body at all, so stream the response straight through rather
 				// than buffering it under the inspection cap for nothing.
 				counters.finalError += 1;
@@ -3833,7 +3674,6 @@ export function createGuard(options = {}) {
 						requestDrainTimeoutMs,
 						responseIdleTimeoutMs,
 						delayInspectionTimeoutMs,
-						allowLegacyPoolBody,
 						shutdownGraceMs,
 						draining,
 						lifecycle: lifecycleSnapshot(),
@@ -3868,7 +3708,6 @@ export function createGuard(options = {}) {
 								requestDrainTimeoutMs,
 								responseIdleTimeoutMs,
 								delayInspectionTimeoutMs,
-								allowLegacyPoolBody,
 								shutdownGraceMs,
 								maxActive,
 								maxQueue,
@@ -4133,7 +3972,6 @@ export function createGuard(options = {}) {
 					requestDrainTimeoutMs,
 					responseIdleTimeoutMs,
 					delayInspectionTimeoutMs,
-					allowLegacyPoolBody,
 				});
 				resolve(address);
 			});

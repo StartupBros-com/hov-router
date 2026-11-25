@@ -180,7 +180,9 @@ async function storeThroughEveryWriter(
 
 		const row = await db
 			.getAdapter()
-			.get<UsageRow>(`SELECT ${USAGE_COLUMNS} FROM requests WHERE id = 'r1'`);
+			.getMain<UsageRow>(
+				`SELECT ${USAGE_COLUMNS} FROM requests WHERE id = 'r1'`,
+			);
 		expect(row).not.toBeNull();
 		return row as UsageRow;
 	} finally {
@@ -292,7 +294,7 @@ async function collectedRow(
 		return (
 			(await db
 				.getAdapter()
-				.get<UsageRow>(
+				.getMain<UsageRow>(
 					`SELECT ${USAGE_COLUMNS} FROM requests WHERE id = 'r1'`,
 				)) ?? null
 		);
@@ -568,7 +570,7 @@ it("stores a converted OpenAI-format reply's usage through the real client-forwa
 		await summarized;
 		await collector.drain();
 
-		const row = await adapter.get<UsageRow>(
+		const row = await adapter.getMain<UsageRow>(
 			`SELECT ${USAGE_COLUMNS} FROM requests WHERE id = 'r1'`,
 		);
 		expect(row?.model).toBe("chat");

@@ -58,7 +58,7 @@ describe("APIRouter — Meta account ingress aliases", () => {
 			};
 			expect(payload.account.provider).toBe("meta");
 
-			const row = await dbOps.getAdapter().get<{
+			const row = await dbOps.getAdapter().getMain<{
 				provider: string;
 				api_key: string | null;
 				refresh_token: string | null;

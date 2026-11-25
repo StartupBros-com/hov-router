@@ -125,7 +125,7 @@ async function insertAccount(
 async function rawMappings(id: string): Promise<string | null> {
 	const row = await dbOps
 		.getAdapter()
-		.get<{ model_mappings: string | null }>(
+		.getMain<{ model_mappings: string | null }>(
 			"SELECT model_mappings FROM accounts WHERE id = ?",
 			[id],
 		);

@@ -94,7 +94,7 @@ function makeCtxWithReason() {
 			updateAccountUsage: () => {},
 			updateAccountRateLimitMeta: () => {},
 			getAdapter: () => ({
-				get: async () => ({ rate_limited_until: null }),
+				getMain: async () => ({ rate_limited_until: null }),
 				run: async () => {},
 			}),
 		},

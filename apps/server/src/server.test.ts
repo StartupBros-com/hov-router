@@ -39,7 +39,7 @@ describe("persistForwardOnlyCodexRateLimitReset", () => {
 		await persistForwardOnlyCodexRateLimitReset(db, "acct-forward", 2_000);
 		expect(
 			(
-				await db.get<{ rate_limit_reset: number }>(
+				await db.getMain<{ rate_limit_reset: number }>(
 					"SELECT rate_limit_reset FROM accounts WHERE id = ?",
 					["acct-forward"],
 				)
@@ -53,7 +53,7 @@ describe("persistForwardOnlyCodexRateLimitReset", () => {
 		await persistForwardOnlyCodexRateLimitReset(db, "acct-forward", 3_000);
 		expect(
 			(
-				await db.get<{ rate_limit_reset: number }>(
+				await db.getMain<{ rate_limit_reset: number }>(
 					"SELECT rate_limit_reset FROM accounts WHERE id = ?",
 					["acct-forward"],
 				)
@@ -63,7 +63,7 @@ describe("persistForwardOnlyCodexRateLimitReset", () => {
 		await persistForwardOnlyCodexRateLimitReset(db, "acct-forward", 6_000);
 		expect(
 			(
-				await db.get<{ rate_limit_reset: number }>(
+				await db.getMain<{ rate_limit_reset: number }>(
 					"SELECT rate_limit_reset FROM accounts WHERE id = ?",
 					["acct-forward"],
 				)

@@ -100,7 +100,7 @@ export class MemberNoticesRepository extends BaseRepository<never> {
 	}
 
 	async findByKey(noticeKey: string): Promise<MemberNoticeRow | null> {
-		const row = await this.get<Raw>(
+		const row = await this.getMain<Raw>(
 			`SELECT * FROM member_notices WHERE notice_key = ?`,
 			[noticeKey],
 		);
@@ -112,7 +112,7 @@ export class MemberNoticesRepository extends BaseRepository<never> {
 		kind: MemberNoticeKind,
 		provider: string,
 	): Promise<{ noticeKey: string; claimedAt: number } | null> {
-		const row = await this.get<Raw>(
+		const row = await this.getMain<Raw>(
 			`SELECT notice_key, claimed_at FROM member_notices
 			 WHERE kind = ? AND provider = ?
 			 ORDER BY claimed_at DESC, notice_key DESC
@@ -126,7 +126,7 @@ export class MemberNoticesRepository extends BaseRepository<never> {
 
 	/** Open, unexpired notices whose next attempt is due, oldest first. */
 	async listDue(now: number, limit: number): Promise<MemberNoticeRow[]> {
-		const rows = await this.query<Raw>(
+		const rows = await this.queryMain<Raw>(
 			`SELECT * FROM member_notices
 			 WHERE ${OPEN} AND next_attempt_at <= ? AND expires_at > ?
 			 ORDER BY next_attempt_at, notice_key

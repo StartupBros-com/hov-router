@@ -96,7 +96,6 @@ function makeContext(
 			pauseCalls.push(args);
 			return true;
 		}),
-		setRequiresReauth: mock(async () => {}),
 	};
 	return {
 		ctx: {

@@ -108,7 +108,8 @@ describe("CLI Qwen account re-authentication", () => {
 		expect(result.success).toBe(true);
 
 		const account = dbOps
-			.getDatabase()
+			.getAdapter()
+			.getSQLiteDb()
 			.query<
 				{
 					access_token: string;
@@ -165,7 +166,8 @@ describe("CLI Qwen account re-authentication", () => {
 		expect(result.success).toBe(true);
 
 		const account = dbOps
-			.getDatabase()
+			.getAdapter()
+			.getSQLiteDb()
 			.query<{ paused: number; pause_reason: string | null }, [string]>(
 				"SELECT paused, pause_reason FROM accounts WHERE name = ?",
 			)

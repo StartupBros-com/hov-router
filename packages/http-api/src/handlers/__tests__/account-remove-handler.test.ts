@@ -79,7 +79,7 @@ describe("createAccountRemoveHandler — id-scoped delete", () => {
 		// uuid-1 is deleted earlier in this same test.)
 		const remaining = await dbOps
 			.getAdapter()
-			.query<{ id: string }>("SELECT id FROM accounts", []);
+			.queryMain<{ id: string }>("SELECT id FROM accounts", []);
 		expect(remaining.map((r) => r.id)).toEqual([]);
 	});
 
@@ -96,7 +96,7 @@ describe("createAccountRemoveHandler — id-scoped delete", () => {
 		// Row must still exist.
 		const remaining = await dbOps
 			.getAdapter()
-			.query<{ id: string }>("SELECT id FROM accounts WHERE id = ?", [
+			.queryMain<{ id: string }>("SELECT id FROM accounts WHERE id = ?", [
 				"uuid-3",
 			]);
 		expect(remaining).toHaveLength(1);
@@ -117,7 +117,7 @@ describe("createAccountRemoveHandler — id-scoped delete", () => {
 
 		const remaining = await dbOps
 			.getAdapter()
-			.query<{ id: string }>(
+			.queryMain<{ id: string }>(
 				"SELECT id FROM accounts WHERE name = ? ORDER BY id",
 				["shared"],
 			);

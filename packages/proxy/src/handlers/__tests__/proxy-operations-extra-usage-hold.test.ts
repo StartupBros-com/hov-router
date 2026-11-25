@@ -124,7 +124,7 @@ function makeCtx(inputs: ExtraUsageHoldInputs | null) {
 			updateAccountRateLimitMeta: mock(() => Promise.resolve()),
 			getAdapter: mock(() => ({
 				run: mock(() => Promise.resolve()),
-				get: mock(() => Promise.resolve(null)),
+				getMain: mock(() => Promise.resolve(null)),
 			})),
 		} as never,
 		runtime: { port: 8080, clientId: "test" } as never,

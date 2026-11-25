@@ -141,7 +141,8 @@ describe("configureSqlite: input validation", () => {
 		});
 		try {
 			const { synchronous } = dbOps
-				.getDatabase()
+				.getAdapter()
+				.getSQLiteDb()
 				.query("PRAGMA synchronous")
 				.get() as { synchronous: number };
 			// SQLite reports synchronous as an integer (NORMAL = 1).

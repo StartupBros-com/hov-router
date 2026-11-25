@@ -47,7 +47,7 @@ describe("APIRouter — GET /api/sessions/:sessionId/account (#318)", () => {
 			countActiveApiKeys: async () => 0,
 			getActiveApiKeys: async () => [],
 			getAllAccounts: async () =>
-				adapter.query<Account>("SELECT * FROM accounts"),
+				adapter.queryMain<Account>("SELECT * FROM accounts"),
 			// createAccountsListHandler (called via the session-account route)
 			// also reads session-window token stats — none in these fixtures.
 			getStatsRepository: () => ({

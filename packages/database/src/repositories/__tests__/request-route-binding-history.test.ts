@@ -262,7 +262,7 @@ test("route binding history is one off-thread read of limit + 1 rows over a time
 		expect(read).toHaveBeenCalledTimes(1);
 		const [sql, params] = read.mock.calls[0];
 		expect(params).toEqual([1_000, 3]);
-		const plan = await adapter.query<{ detail: string }>(
+		const plan = await adapter.queryMain<{ detail: string }>(
 			`EXPLAIN QUERY PLAN ${sql}`,
 			params,
 		);
