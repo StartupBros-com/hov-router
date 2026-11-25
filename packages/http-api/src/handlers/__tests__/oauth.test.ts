@@ -547,7 +547,7 @@ describe("createQwenReauthHandler", () => {
 		const status = await waitForSessionComplete(statusHandler, data.sessionId);
 		expect(status).toBe("complete");
 
-		const account = await dbOps.getAdapter().get<{
+		const account = await dbOps.getAdapter().getMain<{
 			refresh_token: string;
 			refresh_token_issued_at: number | null;
 		}>(

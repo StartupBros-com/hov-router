@@ -45,7 +45,7 @@ function request(confirm: string): Request {
 function dbOps(account: { name: string; provider?: string } | undefined) {
 	return {
 		getAdapter: () => ({
-			get: mock(async () => account),
+			getMain: mock(async () => account),
 		}),
 	};
 }

@@ -236,7 +236,7 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 	): Promise<UsageWindow | null> {
 		requireNonEmpty(accountId, "accountId");
 		requireNonEmpty(windowKey, "windowKey");
-		const row = await this.get<UsageWindowRow>(
+		const row = await this.getMain<UsageWindowRow>(
 			`SELECT ${WINDOW_COLUMNS} FROM usage_windows
 			 WHERE account_id = ? AND window_key = ? AND closed_at IS NULL
 			 ORDER BY resets_at DESC LIMIT 1`,
@@ -277,7 +277,7 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 				 ON CONFLICT (account_id, window_key, resets_at) DO NOTHING`,
 				[id, accountId, windowKey, startedAt, resetsAt, grantType],
 			);
-			const row = await this.get<UsageWindowRow>(
+			const row = await this.getMain<UsageWindowRow>(
 				`SELECT ${WINDOW_COLUMNS} FROM usage_windows
 				 WHERE account_id = ? AND window_key = ? AND resets_at = ?`,
 				[accountId, windowKey, resetsAt],
@@ -305,7 +305,7 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 				expectedCreatedAt,
 			],
 		);
-		const row = await this.get<UsageWindowRow>(
+		const row = await this.getMain<UsageWindowRow>(
 			`SELECT ${WINDOW_COLUMNS} FROM usage_windows
 			 WHERE account_id = ? AND window_key = ? AND resets_at = ?
 			   AND EXISTS (
@@ -440,7 +440,7 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 	 * integrity checks are reported in `unreadable`, not thrown.
 	 */
 	async listClosedWindowsMissingLimitCycles(): Promise<StaleClosedWindows> {
-		const rows = await this.query<UsageWindowRow>(
+		const rows = await this.queryMain<UsageWindowRow>(
 			`SELECT ${WINDOW_COLUMNS} FROM usage_windows
 			 WHERE closed_at IS NOT NULL
 			   AND points_used IS NULL
@@ -474,7 +474,7 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 		projectionVersion: string,
 	): Promise<StaleClosedWindows> {
 		requireNonEmpty(projectionVersion, "projectionVersion");
-		const rows = await this.query<UsageWindowRow>(
+		const rows = await this.queryMain<UsageWindowRow>(
 			`SELECT ${WINDOW_COLUMNS} FROM usage_windows
 			 WHERE closed_at IS NOT NULL
 			   AND model_breakdown IS NOT NULL
@@ -563,7 +563,7 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 	async pendingExternalRevision(id: string): Promise<string | null> {
 		return (
 			(
-				await this.get<{ revision: string }>(
+				await this.getMain<{ revision: string }>(
 					"SELECT revision FROM external_usage_pending_windows WHERE window_id=?",
 					[id],
 				)
@@ -608,6 +608,7 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 				WEEKLY_WINDOW_KEY,
 				requireTimestamp(startedAtOrAfter, "startedAtOrAfter"),
 			],
+			"bulk",
 		);
 		const numOrNull = (value: unknown) =>
 			value == null ? null : Number(value);

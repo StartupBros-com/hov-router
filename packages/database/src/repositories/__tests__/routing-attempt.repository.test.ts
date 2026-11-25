@@ -347,7 +347,7 @@ describe("RoutingAttemptRepository", () => {
 	it("uses one adapter query for a snapshot-consistent headline and groups", async () => {
 		let queryCount = 0;
 		const repo = new RoutingAttemptRepository({
-			query: async (sql: string, params: unknown[]) => {
+			queryMain: async (sql: string, params: unknown[]) => {
 				queryCount++;
 				if (queryCount > 1) throw new Error("getSummary issued a second query");
 				expect(sql).toContain("windowed_attempts AS");

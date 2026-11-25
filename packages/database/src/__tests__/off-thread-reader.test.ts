@@ -219,17 +219,17 @@ describe("off-thread reader real protocol", () => {
 			),
 		).toBe(
 			JSON.stringify(
-				await adapter.query("SELECT * FROM sample WHERE i = ?", [42]),
+				await adapter.queryMain("SELECT * FROM sample WHERE i = ?", [42]),
 			),
 		);
 		expect(JSON.stringify(await reader.get("SELECT * FROM sample", []))).toBe(
-			JSON.stringify(await adapter.get("SELECT * FROM sample")),
+			JSON.stringify(await adapter.getMain("SELECT * FROM sample")),
 		);
 		expect(
 			await reader.get("SELECT * FROM sample WHERE i = ?", [-1]),
 		).toBeNull();
 		const error = await adapter
-			.query("SELECT missing FROM sample")
+			.queryMain("SELECT missing FROM sample")
 			.catch((e) => e);
 		const workerError = await reader
 			.all("SELECT missing FROM sample", [])
@@ -279,7 +279,7 @@ describe("off-thread reader real protocol", () => {
 		let calibrationMs = 0;
 		while (n <= 32_000_000) {
 			const start = performance.now();
-			await adapter.query(sql, [n]);
+			await adapter.queryMain(sql, [n]);
 			calibrationMs = performance.now() - start;
 			if (calibrationMs >= 600) break;
 			n *= 2;
@@ -303,10 +303,10 @@ describe("off-thread reader real protocol", () => {
 			}
 			return maxLag;
 		}
-		const negativeLag = await lag(() => adapter.query(sql, [n]));
+		const negativeLag = await lag(() => adapter.queryMain(sql, [n]));
 		await reader.get("SELECT 1", []);
 		const served = reader.readsServed;
-		const workerLag = await lag(() => adapter.queryOffThread(sql, [n]));
+		const workerLag = await lag(() => adapter.queryOffThread(sql, [n], "bulk"));
 		console.info(JSON.stringify({ n, calibrationMs, negativeLag, workerLag }));
 		expect(negativeLag).toBeGreaterThanOrEqual(500);
 		expect(workerLag).toBeLessThan(200);
@@ -724,13 +724,28 @@ describe("off-thread reader fault lifecycle", () => {
 });
 
 describe("adapter off-thread reads", () => {
+	it("refuses a read that names no lane instead of putting it on bulk (#1042)", async () => {
+		const { adapter } = realFixture();
+		const query = spyOn(adapter, "queryMain");
+		const get = spyOn(adapter, "getMain");
+		for (const read of [
+			adapter.queryOffThread("SELECT 1", [], undefined as never),
+			adapter.getOffThread("SELECT 1", [], "fast" as never),
+		]) {
+			const error = (await read.catch((e: unknown) => e)) as Error;
+			expect(error).toBeInstanceOf(TypeError);
+			expect(error.message).toContain('needs a lane, "bulk" or "interactive"');
+		}
+		expect(query).not.toHaveBeenCalled();
+		expect(get).not.toHaveBeenCalled();
+	});
 	it("propagates read timeouts without rerunning the hung SQL on the main thread", async () => {
 		const { adapter } = realFixture();
 		const { reader } = fakeFixture({ readTimeoutMs: 20 });
 		adapter.setOffThreadReader(reader);
-		const query = spyOn(adapter, "query");
+		const query = spyOn(adapter, "queryMain");
 		const error = await adapter
-			.queryOffThread("SELECT 'private'")
+			.queryOffThread("SELECT 'private'", [], "bulk")
 			.catch((error) => error);
 		expect(error.message).toBe(
 			"off-thread read timed out after 20ms: SELECT ?",
@@ -742,10 +757,12 @@ describe("adapter off-thread reads", () => {
 		const { adapter } = realFixture();
 		const { reader, workers } = fakeFixture({ readTimeoutMs: 200 });
 		adapter.setOffThreadReader(reader);
-		const query = spyOn(adapter, "query");
-		const hung = adapter.queryOffThread("SELECT 'hung'").catch((e) => e);
+		const query = spyOn(adapter, "queryMain");
+		const hung = adapter
+			.queryOffThread("SELECT 'hung'", [], "bulk")
+			.catch((e) => e);
 		await new Promise((resolve) => setTimeout(resolve, 100));
-		const queued = adapter.queryOffThread("SELECT 2 AS n");
+		const queued = adapter.queryOffThread("SELECT 2 AS n", [], "bulk");
 		expect((await hung).message).toBe(
 			"off-thread read timed out after 200ms: SELECT ?",
 		);
@@ -770,8 +787,8 @@ describe("adapter off-thread reads", () => {
 		// reader replace it.
 		adapter.setOffThreadReader(interactive.reader, "interactive");
 		adapter.setOffThreadReader(bulk.reader);
-		const query = spyOn(adapter, "query");
-		const scan = adapter.queryOffThread("SELECT 'scan'");
+		const query = spyOn(adapter, "queryMain");
+		const scan = adapter.queryOffThread("SELECT 'scan'", [], "bulk");
 		const quick = adapter.getOffThread("SELECT 1 AS n", [], "interactive");
 		await turns();
 		const message = interactive.workers[0]?.messages.find(
@@ -818,12 +835,14 @@ describe("adapter off-thread reads", () => {
 	it("reads on the main thread only without a reader, and passes reader errors through", async () => {
 		const { adapter } = realFixture();
 		adapter.setOffThreadReader(undefined);
-		const query = spyOn(adapter, "query");
-		const get = spyOn(adapter, "get");
-		expect(await adapter.queryOffThread("SELECT ? AS n", [1])).toEqual([
+		const query = spyOn(adapter, "queryMain");
+		const get = spyOn(adapter, "getMain");
+		expect(await adapter.queryOffThread("SELECT ? AS n", [1], "bulk")).toEqual([
 			{ n: 1 },
 		]);
-		expect(await adapter.getOffThread("SELECT ? AS n", [2])).toEqual({ n: 2 });
+		expect(await adapter.getOffThread("SELECT ? AS n", [2], "bulk")).toEqual({
+			n: 2,
+		});
 		expect(query).toHaveBeenCalledTimes(1);
 		expect(get).toHaveBeenCalledTimes(1);
 		const unavailable = new OffThreadReaderUnavailableError("unavailable");
@@ -835,12 +854,12 @@ describe("adapter off-thread reads", () => {
 				throw unavailable;
 			},
 		});
-		await expect(adapter.queryOffThread("SELECT ? AS n", [3])).rejects.toBe(
-			unavailable,
-		);
-		await expect(adapter.getOffThread("SELECT ? AS n", [4])).rejects.toBe(
-			unavailable,
-		);
+		await expect(
+			adapter.queryOffThread("SELECT ? AS n", [3], "bulk"),
+		).rejects.toBe(unavailable);
+		await expect(
+			adapter.getOffThread("SELECT ? AS n", [4], "bulk"),
+		).rejects.toBe(unavailable);
 		const error = Object.assign(new Error("SQL broke"), {
 			code: "SQLITE_ERROR",
 		});
@@ -852,8 +871,12 @@ describe("adapter off-thread reads", () => {
 				throw error;
 			},
 		});
-		await expect(adapter.queryOffThread("SELECT 9")).rejects.toBe(error);
-		await expect(adapter.getOffThread("SELECT 9")).rejects.toBe(error);
+		await expect(adapter.queryOffThread("SELECT 9", [], "bulk")).rejects.toBe(
+			error,
+		);
+		await expect(adapter.getOffThread("SELECT 9", [], "bulk")).rejects.toBe(
+			error,
+		);
 		expect(query).toHaveBeenCalledTimes(1);
 		expect(get).toHaveBeenCalledTimes(1);
 	});
@@ -884,18 +907,22 @@ describe("off-thread reads never move to the main thread (#921)", () => {
 		});
 		cleanups.push(() => reader.close());
 		adapter.setOffThreadReader(reader);
-		const query = spyOn(adapter, "query");
-		const get = spyOn(adapter, "get");
+		const query = spyOn(adapter, "queryMain");
+		const get = spyOn(adapter, "getMain");
 		// Three timeouts used to spend the whole budget and switch every later
 		// read onto the main connection for the rest of the process.
 		for (let round = 0; round < 3; round++) {
-			const slow = await adapter.queryOffThread(SLOW).catch((e) => e);
+			const slow = await adapter
+				.queryOffThread(SLOW, [], "bulk")
+				.catch((e) => e);
 			expect(slow.message).toStartWith("off-thread read timed out after 150ms");
-			expect(await adapter.queryOffThread("SELECT i FROM sample")).toEqual([
-				{ i: 42 },
-			]);
+			expect(
+				await adapter.queryOffThread("SELECT i FROM sample", [], "bulk"),
+			).toEqual([{ i: 42 }]);
 		}
-		expect(await adapter.getOffThread("SELECT t FROM sample")).toEqual({
+		expect(
+			await adapter.getOffThread("SELECT t FROM sample", [], "bulk"),
+		).toEqual({
 			t: "hello",
 		});
 		expect(query).not.toHaveBeenCalled();
@@ -914,15 +941,19 @@ describe("off-thread reads never move to the main thread (#921)", () => {
 			now: () => clock,
 		});
 		adapter.setOffThreadReader(reader);
-		const query = spyOn(adapter, "query");
-		const first = adapter.queryOffThread("SELECT 1").catch((e) => e);
+		const query = spyOn(adapter, "queryMain");
+		const first = adapter
+			.queryOffThread("SELECT 1", [], "bulk")
+			.catch((e) => e);
 		await turns();
 		workers[0].onerror?.({
 			message: "worker broke",
 			preventDefault() {},
 		} as ErrorEvent);
 		expect(await first).toBeInstanceOf(OffThreadReaderUnavailableError);
-		const during = await adapter.queryOffThread("SELECT 2").catch((e) => e);
+		const during = await adapter
+			.queryOffThread("SELECT 2", [], "bulk")
+			.catch((e) => e);
 		expect(during).toBeInstanceOf(OffThreadReaderUnavailableError);
 		expect(workers).toHaveLength(1);
 		expect(
@@ -933,7 +964,7 @@ describe("off-thread reads never move to the main thread (#921)", () => {
 			),
 		).toHaveLength(1);
 		clock += 60_000;
-		const later = adapter.queryOffThread("SELECT 3 AS n");
+		const later = adapter.queryOffThread("SELECT 3 AS n", [], "bulk");
 		await turns();
 		expect(workers).toHaveLength(2);
 		const message = workers[1].messages.find((m) => m.kind === "read");
@@ -952,8 +983,8 @@ describe("off-thread reads never move to the main thread (#921)", () => {
 		const { adapter } = realFixture();
 		const { reader, workers } = fakeFixture();
 		adapter.setOffThreadReader(reader);
-		const query = spyOn(adapter, "query");
-		const read = adapter.queryOffThread("SELECT 4 AS n");
+		const query = spyOn(adapter, "queryMain");
+		const read = adapter.queryOffThread("SELECT 4 AS n", [], "bulk");
 		await turns();
 		const reads = () => workers[0].messages.filter((m) => m.kind === "read");
 		workers[0].emit({

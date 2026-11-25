@@ -31,7 +31,7 @@ interface RouteProfileConfigRow {
  */
 export class RouteProfileConfigRepository extends BaseRepository<StoredRouteProfileConfig> {
 	async read(): Promise<StoredRouteProfileConfig | null> {
-		const row = await this.get<RouteProfileConfigRow>(
+		const row = await this.getMain<RouteProfileConfigRow>(
 			"SELECT profiles_json, revision, updated_at, source FROM route_profile_config WHERE scope = 'global'",
 		);
 		if (!row) return null;
@@ -44,7 +44,7 @@ export class RouteProfileConfigRepository extends BaseRepository<StoredRouteProf
 	}
 
 	async readRevision(): Promise<number | null> {
-		const row = await this.get<{ revision: number }>(
+		const row = await this.getMain<{ revision: number }>(
 			"SELECT revision FROM route_profile_config WHERE scope = 'global'",
 		);
 		return row ? Number(row.revision) : null;

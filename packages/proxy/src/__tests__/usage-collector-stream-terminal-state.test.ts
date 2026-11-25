@@ -144,7 +144,7 @@ describe("UsageCollector - stream terminal state in the live summary", () => {
 		await collector.drain();
 		const row = await dbOps
 			.getAdapter()
-			.get<{ routing_attempt_summary: string }>(
+			.getMain<{ routing_attempt_summary: string }>(
 				"SELECT routing_attempt_summary FROM requests WHERE id = ?",
 				[requestId],
 			);
@@ -258,7 +258,7 @@ describe("UsageCollector - stream terminal state in the live summary", () => {
 		await collector.drain();
 		const row = await dbOps
 			.getAdapter()
-			.get<{ routing_attempt_summary: string }>(
+			.getMain<{ routing_attempt_summary: string }>(
 				"SELECT routing_attempt_summary FROM requests WHERE id=?",
 				[requestId],
 			);

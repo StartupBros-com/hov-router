@@ -68,7 +68,7 @@ describe("BunSqlAdapter withBusyRetry", () => {
 			const sqliteDb = (adapter as any).sqliteDb as Database;
 			const restore = stubBusyOnce(sqliteDb, "query");
 			try {
-				const rows = await adapter.query<{ id: number; val: string }>(
+				const rows = await adapter.queryMain<{ id: number; val: string }>(
 					"SELECT id, val FROM t",
 				);
 				expect(rows).toHaveLength(1);
@@ -87,7 +87,7 @@ describe("BunSqlAdapter withBusyRetry", () => {
 			const sqliteDb = (adapter as any).sqliteDb as Database;
 			const restore = stubBusyOnce(sqliteDb, "query");
 			try {
-				const row = await adapter.get<{ id: number; val: string }>(
+				const row = await adapter.getMain<{ id: number; val: string }>(
 					"SELECT id, val FROM t WHERE id = ?",
 					[2],
 				);
@@ -157,7 +157,7 @@ describe("BunSqlAdapter withBusyRetry", () => {
 			};
 
 			try {
-				await expect(adapter.query("SELECT id FROM t")).rejects.toThrow(
+				await expect(adapter.queryMain("SELECT id FROM t")).rejects.toThrow(
 					"disk I/O error",
 				);
 				// Should have thrown immediately — only one call
@@ -196,7 +196,9 @@ describe("BunSqlAdapter withBusyRetry", () => {
 			};
 
 			try {
-				await expect(adapter.query("SELECT id FROM t")).rejects.toMatchObject({
+				await expect(
+					adapter.queryMain("SELECT id FROM t"),
+				).rejects.toMatchObject({
 					code: "SQLITE_BUSY",
 				});
 			} finally {

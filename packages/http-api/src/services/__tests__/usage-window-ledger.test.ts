@@ -1233,7 +1233,7 @@ describe("UsageWindowLedger.revalueStaleClosedWindows", () => {
 		});
 		expect(summary.valueDeltaUsd).toBeCloseTo(TERRA_CURRENT - 9.99, 9);
 		const adapter = dbOps.getAdapter();
-		const raw = await adapter.get<{
+		const raw = await adapter.getMain<{
 			model_breakdown: string;
 			projection_version: string;
 		}>(
@@ -1322,7 +1322,7 @@ describe("UsageWindowLedger.revalueStaleClosedWindows", () => {
 	}
 
 	async function countStaleClosed(): Promise<number> {
-		const row = await dbOps.getAdapter().get<{ n: number }>(
+		const row = await dbOps.getAdapter().getMain<{ n: number }>(
 			`SELECT COUNT(*) AS n FROM usage_windows
 			 WHERE closed_at IS NOT NULL AND projection_version IS DISTINCT FROM ?`,
 			[VALUE_PRICING_VERSION],

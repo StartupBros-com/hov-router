@@ -45,7 +45,7 @@ describe("accounts API 402 cooldown reason", () => {
 			},
 		]);
 		const dbOps = {
-			getAdapter: () => ({ query }),
+			getAdapter: () => ({ queryMain: query }),
 			getStatsRepository: () => ({
 				getSessionStats: mock(async () => new Map()),
 			}),
@@ -109,7 +109,7 @@ describe("accounts API 402 cooldown reason", () => {
 			},
 		]);
 		const dbOps = {
-			getAdapter: () => ({ query }),
+			getAdapter: () => ({ queryMain: query }),
 			getStatsRepository: () => ({
 				getSessionStats: mock(async () => new Map()),
 			}),
@@ -180,7 +180,7 @@ describe("accounts API 402 cooldown reason", () => {
 		try {
 			const query = mock(async () => [row(refusedId), row(acceptedId)]);
 			const dbOps = {
-				getAdapter: () => ({ query }),
+				getAdapter: () => ({ queryMain: query }),
 				getStatsRepository: () => ({
 					getSessionStats: mock(async () => new Map()),
 				}),

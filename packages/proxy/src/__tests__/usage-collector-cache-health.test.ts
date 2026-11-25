@@ -247,7 +247,7 @@ async function forwardAccountingFixture(options: {
 		}
 		const summary = await summarized;
 		await collector.drain();
-		const row = await adapter.get<PersistedAccounting>(
+		const row = await adapter.getMain<PersistedAccounting>(
 			"SELECT model, routed_model, success, stream_terminal_state, input_tokens, prompt_tokens, cache_read_input_tokens, output_tokens FROM requests WHERE id = 'cache-forwarded'",
 		);
 		expect(row).not.toBeNull();

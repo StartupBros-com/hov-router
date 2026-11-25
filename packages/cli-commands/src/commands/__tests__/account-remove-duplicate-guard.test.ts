@@ -86,7 +86,7 @@ describe("removeAccountById / removeAccount duplicate-name safety", () => {
 
 		const remaining = await dbOps
 			.getAdapter()
-			.query<{ id: string }>(
+			.queryMain<{ id: string }>(
 				"SELECT id FROM accounts WHERE name = ? ORDER BY id",
 				["alpha"],
 			);
@@ -113,7 +113,7 @@ describe("removeAccountById / removeAccount duplicate-name safety", () => {
 		// No row was deleted.
 		const stillThere = await dbOps
 			.getAdapter()
-			.query<{ id: string }>(
+			.queryMain<{ id: string }>(
 				"SELECT id FROM accounts WHERE name = ? ORDER BY id",
 				["shared"],
 			);
@@ -128,7 +128,7 @@ describe("removeAccountById / removeAccount duplicate-name safety", () => {
 
 		const remaining = await dbOps
 			.getAdapter()
-			.query<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
+			.queryMain<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
 				"unique",
 			]);
 		expect(remaining).toHaveLength(0);

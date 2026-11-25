@@ -15,7 +15,8 @@ interface SqlReader {
  * Which off-thread reader serves a read. Each reader runs its reads one at a
  * time, so a long analytics scan on `bulk` delays everything queued behind it.
  * `interactive` is for short, bounded reads a page waits on (#709); without an
- * interactive reader attached, they share the bulk one.
+ * interactive reader attached, they share the bulk one. Every off-thread read
+ * names its lane: there is no default (#1042).
  */
 export type OffThreadReadLane = "bulk" | "interactive";
 
@@ -47,9 +48,11 @@ export { BatchExpectedChangesError, type BatchStatement };
 /**
  * SQL adapter over bun:sqlite, wrapping the existing synchronous Database.
  *
- * `query` and `get` read on this connection; `queryOffThread` and
- * `getOffThread` read on a reader thread when one is attached, and never move
- * to this connection, whose thread also serves live streams (#921). The `run*`
+ * `queryOffThread` and `getOffThread` read on a reader thread when one is
+ * attached, and never move to this connection, whose thread also serves live
+ * streams (#921). `queryMain` and `getMain` read on this connection; every call
+ * to them is listed in `__tests__/main-thread-reads.json`, so a new one shows up
+ * in review instead of in a production stall (#1042). The `run*`
  * methods write through the off-thread writer when one is attached, and on
  * this connection otherwise.
  *
@@ -71,6 +74,14 @@ export class BunSqlAdapter {
 	}
 
 	private readerFor(lane: OffThreadReadLane): SqlReader | undefined {
+		// The type already requires a lane. This catches a call the compiler does
+		// not check, such as one in a test file, which would otherwise land on
+		// bulk without anyone choosing it.
+		if (lane !== "bulk" && lane !== "interactive") {
+			throw new TypeError(
+				`Off-thread read needs a lane, "bulk" or "interactive"; got ${String(lane)}`,
+			);
+		}
 		return (
 			(lane === "interactive"
 				? this.offThreadReaders.interactive
@@ -141,22 +152,22 @@ export class BunSqlAdapter {
 	 */
 	async queryOffThread<R>(
 		sql: string,
-		params: unknown[] = [],
-		lane: OffThreadReadLane = "bulk",
+		params: unknown[],
+		lane: OffThreadReadLane,
 	): Promise<R[]> {
 		const reader = this.readerFor(lane);
-		if (!reader) return this.query<R>(sql, params);
+		if (!reader) return this.queryMain<R>(sql, params);
 		return this.withBusyRetry(() => reader.all<R>(sql, params));
 	}
 
 	/** As queryOffThread, for one row or null. */
 	async getOffThread<R>(
 		sql: string,
-		params: unknown[] = [],
-		lane: OffThreadReadLane = "bulk",
+		params: unknown[],
+		lane: OffThreadReadLane,
 	): Promise<R | null> {
 		const reader = this.readerFor(lane);
-		if (!reader) return this.get<R>(sql, params);
+		if (!reader) return this.getMain<R>(sql, params);
 		return this.withBusyRetry(() => reader.get<R>(sql, params));
 	}
 	/** The underlying bun:sqlite Database */
@@ -204,9 +215,12 @@ export class BunSqlAdapter {
 	}
 
 	/**
-	 * Execute a SELECT query returning multiple rows.
+	 * Execute a SELECT on this connection, returning every row. Its thread also
+	 * relays every live stream, so a slow read here pauses all of them. Prefer
+	 * queryOffThread; a new call here fails main-thread-reads.test.ts until it is
+	 * listed in main-thread-reads.json.
 	 */
-	async query<R>(sqlStr: string, params: unknown[] = []): Promise<R[]> {
+	async queryMain<R>(sqlStr: string, params: unknown[] = []): Promise<R[]> {
 		const db = this.sqliteDb;
 		return this.withBusyRetry(() =>
 			// biome-ignore lint/suspicious/noExplicitAny: SQLite params can be any binding type
@@ -214,10 +228,8 @@ export class BunSqlAdapter {
 		);
 	}
 
-	/**
-	 * Execute a SELECT query returning a single row or null.
-	 */
-	async get<R>(sqlStr: string, params: unknown[] = []): Promise<R | null> {
+	/** As queryMain, for one row or null. */
+	async getMain<R>(sqlStr: string, params: unknown[] = []): Promise<R | null> {
 		const db = this.sqliteDb;
 		const result = await this.withBusyRetry(() =>
 			// biome-ignore lint/suspicious/noExplicitAny: SQLite params can be any binding type

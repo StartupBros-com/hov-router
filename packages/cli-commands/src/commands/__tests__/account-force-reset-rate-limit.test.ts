@@ -28,7 +28,7 @@ function makeConfig(): Config {
 function makeDbOps(reset: () => Promise<boolean>): DatabaseOperations {
 	return {
 		getAdapter: () => ({
-			get: mock(async () => ({ id: "account-id", name: "account-name" })),
+			getMain: mock(async () => ({ id: "account-id", name: "account-name" })),
 		}),
 		forceResetAccountRateLimit: mock(reset),
 		// Make notification return before trying any localhost HTTP request.

@@ -109,7 +109,7 @@ export class ComboRepository extends BaseRepository<Combo> {
        VALUES (?, ?, ?, 1, ?, ?)`,
 			[id, name, description ?? null, now, now],
 		);
-		const row = await this.get<ComboRow>(
+		const row = await this.getMain<ComboRow>(
 			`SELECT id, name, description, enabled, created_at, updated_at FROM combos WHERE id = ?`,
 			[id],
 		);
@@ -118,7 +118,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 	}
 
 	async findAll(): Promise<Combo[]> {
-		const rows = await this.query<ComboRow>(
+		const rows = await this.queryMain<ComboRow>(
 			`SELECT id, name, description, enabled, created_at, updated_at
        FROM combos ORDER BY created_at DESC`,
 		);
@@ -126,7 +126,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 	}
 
 	async findById(id: string): Promise<Combo | null> {
-		const row = await this.get<ComboRow>(
+		const row = await this.getMain<ComboRow>(
 			`SELECT id, name, description, enabled, created_at, updated_at FROM combos WHERE id = ?`,
 			[id],
 		);
@@ -164,7 +164,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 			params,
 		);
 
-		const row = await this.get<ComboRow>(
+		const row = await this.getMain<ComboRow>(
 			`SELECT id, name, description, enabled, created_at, updated_at FROM combos WHERE id = ?`,
 			[id],
 		);
@@ -190,7 +190,7 @@ export class ComboRepository extends BaseRepository<Combo> {
        VALUES (?, ?, ?, ?, ?, 1)`,
 			[id, comboId, accountId, model, priority],
 		);
-		const row = await this.get<ComboSlotRow>(
+		const row = await this.getMain<ComboSlotRow>(
 			`SELECT id, combo_id, account_id, model, priority, enabled FROM combo_slots WHERE id = ?`,
 			[id],
 		);
@@ -228,7 +228,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 			params,
 		);
 
-		const row = await this.get<ComboSlotRow>(
+		const row = await this.getMain<ComboSlotRow>(
 			`SELECT id, combo_id, account_id, model, priority, enabled FROM combo_slots WHERE id = ?`,
 			[slotId],
 		);
@@ -241,7 +241,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 	}
 
 	async getSlots(comboId: string): Promise<ComboSlot[]> {
-		const rows = await this.query<ComboSlotRow>(
+		const rows = await this.queryMain<ComboSlotRow>(
 			`SELECT id, combo_id, account_id, model, priority, enabled
        FROM combo_slots WHERE combo_id = ? ORDER BY priority ASC, id ASC`,
 			[comboId],
@@ -296,7 +296,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 		if (changes !== 1) {
 			throw new Error(`Family assignment not found: ${family}`);
 		}
-		const row = await this.get<ComboFamilyAssignmentRow>(
+		const row = await this.getMain<ComboFamilyAssignmentRow>(
 			`SELECT family, combo_id, enabled, membership_mode, managed_model, exhaustion_policy
 			 FROM combo_family_assignments WHERE family = ?`,
 			[family],
@@ -306,7 +306,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 	}
 
 	async getFamilyAssignments(): Promise<ComboFamilyAssignment[]> {
-		const rows = await this.query<ComboFamilyAssignmentRow>(
+		const rows = await this.queryMain<ComboFamilyAssignmentRow>(
 			`SELECT family, combo_id, enabled, membership_mode, managed_model, exhaustion_policy
 			 FROM combo_family_assignments`,
 		);
@@ -324,7 +324,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 	async getActiveComboForFamily(
 		family: ComboFamily,
 	): Promise<ComboWithSlots | null> {
-		const assignment = await this.get<ComboFamilyAssignmentRow>(
+		const assignment = await this.getMain<ComboFamilyAssignmentRow>(
 			`SELECT family, combo_id, enabled, membership_mode, managed_model, exhaustion_policy
 			 FROM combo_family_assignments
        WHERE family = ? AND enabled = 1 AND combo_id IS NOT NULL`,
@@ -332,14 +332,14 @@ export class ComboRepository extends BaseRepository<Combo> {
 		);
 		if (!assignment?.combo_id) return null;
 
-		const comboRow = await this.get<ComboRow>(
+		const comboRow = await this.getMain<ComboRow>(
 			`SELECT id, name, description, enabled, created_at, updated_at
        FROM combos WHERE id = ? AND enabled = 1`,
 			[assignment.combo_id],
 		);
 		if (!comboRow) return null;
 
-		const slotRows = await this.query<ComboSlotRow>(
+		const slotRows = await this.queryMain<ComboSlotRow>(
 			`SELECT id, combo_id, account_id, model, priority, enabled
        FROM combo_slots
        WHERE combo_id = ? AND enabled = 1
@@ -421,7 +421,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 		family: ComboFamily,
 		comboId?: string,
 	): Promise<ComboEnrollmentRule[]> {
-		const rows = await this.query<ComboEnrollmentRuleRow>(
+		const rows = await this.queryMain<ComboEnrollmentRuleRow>(
 			`SELECT id, family, combo_id, provider, route_class, enabled, created_at, updated_at
 			 FROM combo_enrollment_rules
 			 WHERE family = ?${comboId === undefined ? "" : " AND combo_id = ?"}
@@ -442,7 +442,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 			 VALUES (?, ?, ?, ?, ?)`,
 			[id, input.family, input.combo_id, input.account_id, now],
 		);
-		const row = await this.get<ComboMembershipExclusionRow>(
+		const row = await this.getMain<ComboMembershipExclusionRow>(
 			`SELECT id, family, combo_id, account_id, created_at
 			 FROM combo_membership_exclusions WHERE id = ?`,
 			[id],
@@ -482,7 +482,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 		family: ComboFamily,
 		comboId?: string,
 	): Promise<ComboMembershipExclusion[]> {
-		const rows = await this.query<ComboMembershipExclusionRow>(
+		const rows = await this.queryMain<ComboMembershipExclusionRow>(
 			`SELECT id, family, combo_id, account_id, created_at
 			 FROM combo_membership_exclusions
 			 WHERE family = ?${comboId === undefined ? "" : " AND combo_id = ?"}
@@ -495,7 +495,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 	async getRoutingPolicySnapshot(
 		family: ComboFamily,
 	): Promise<ComboRoutingPolicySnapshot> {
-		const rows = await this.query<RoutingPolicySnapshotRow>(
+		const rows = await this.queryMain<RoutingPolicySnapshotRow>(
 			`WITH selected_assignment AS (
 				SELECT family, combo_id, enabled, membership_mode, managed_model, exhaustion_policy
 				FROM combo_family_assignments
@@ -650,7 +650,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 	}
 
 	async getRoutingPolicyRevision(): Promise<number> {
-		const row = await this.get<{ revision: number }>(
+		const row = await this.getMain<{ revision: number }>(
 			"SELECT revision FROM routing_policy_revision WHERE scope = 'global'",
 		);
 		if (!row) throw new Error("Routing policy revision row is missing");
@@ -675,7 +675,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 		const [revision, assignments, slots] = await Promise.all([
 			this.getRoutingPolicyRevision(),
 			this.getFamilyAssignments(),
-			this.query<ComboSlotRow>(
+			this.queryMain<ComboSlotRow>(
 				"SELECT id, combo_id, account_id, model, priority, enabled FROM combo_slots",
 			),
 		]);
@@ -1158,7 +1158,7 @@ export class ComboRepository extends BaseRepository<Combo> {
 	private async requireEnrollmentRule(
 		id: string,
 	): Promise<ComboEnrollmentRule> {
-		const row = await this.get<ComboEnrollmentRuleRow>(
+		const row = await this.getMain<ComboEnrollmentRuleRow>(
 			`SELECT id, family, combo_id, provider, route_class, enabled, created_at, updated_at
 			 FROM combo_enrollment_rules WHERE id = ?`,
 			[id],

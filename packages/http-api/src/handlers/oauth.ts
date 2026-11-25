@@ -189,7 +189,7 @@ export function createQwenReauthHandler(dbOps: DatabaseOperations) {
 			}
 
 			// Look up the account
-			const account = await dbOps.getAdapter().get<{
+			const account = await dbOps.getAdapter().getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -367,7 +367,7 @@ export function createCodexReauthHandler(dbOps: DatabaseOperations) {
 			}
 
 			// Look up the account
-			const account = await dbOps.getAdapter().get<{
+			const account = await dbOps.getAdapter().getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -531,7 +531,7 @@ export function createAnthropicReauthInitHandler(
 			}
 
 			// Look up the account
-			const account = await dbOps.getAdapter().get<{
+			const account = await dbOps.getAdapter().getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -639,7 +639,9 @@ export function createAnthropicReauthCallbackHandler(
 			// Look up the account by name to get its id for the UPDATE
 			const account = await dbOps
 				.getAdapter()
-				.get<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [name]);
+				.getMain<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
+					name,
+				]);
 			if (!account) {
 				return errorResponse(
 					BadRequest(`Account '${name}' not found. It may have been deleted.`),

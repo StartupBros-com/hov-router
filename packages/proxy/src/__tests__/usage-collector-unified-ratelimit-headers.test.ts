@@ -96,7 +96,7 @@ async function capture(
 		await collector.drain();
 		const row = (await db
 			.getAdapter()
-			.get(
+			.getMain(
 				"SELECT unified_ratelimit_headers FROM requests WHERE id = 'r1'",
 			)) as {
 			unified_ratelimit_headers: string | null;

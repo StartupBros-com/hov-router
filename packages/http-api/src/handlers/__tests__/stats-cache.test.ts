@@ -154,7 +154,7 @@ describe("stats caching and database invalidation", () => {
 		await createStatsResetHandler(db)();
 		expect((await (await handler(url())).json()).totalRequests).toBe(0);
 		expect(
-			await adapter.get("SELECT COUNT(*) AS n FROM routing_attempts"),
+			await adapter.getMain("SELECT COUNT(*) AS n FROM routing_attempts"),
 		).toEqual({ n: 0 });
 		expect(load).toHaveBeenCalledTimes(2);
 	});

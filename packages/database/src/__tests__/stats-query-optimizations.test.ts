@@ -66,7 +66,7 @@ describe("stats query optimizations", () => {
 		// Foreign keys enforce new writes; legacy rows predate that enforcement.
 		db.exec("PRAGMA foreign_keys = OFF");
 		request("legacy-fail", 10, "no_account", null, false);
-		const query = spyOn(adapter, "query");
+		const query = spyOn(adapter, "queryMain");
 		expect(await stats.getAccountStats()).toEqual([
 			{
 				name: "no_account",
@@ -108,7 +108,7 @@ describe("stats query optimizations", () => {
 		db.run(
 			"UPDATE requests SET api_key_id = '', api_key_name = 'Legacy' WHERE id = '3'",
 		);
-		const query = spyOn(adapter, "query");
+		const query = spyOn(adapter, "queryMain");
 		const result = await stats.getApiKeyStats();
 		expect(result.sort((a, b) => a.name.localeCompare(b.name))).toEqual([
 			{ id: "key", name: "After", requests: 1, successRate: 50 },

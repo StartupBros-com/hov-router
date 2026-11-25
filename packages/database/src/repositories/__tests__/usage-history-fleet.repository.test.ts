@@ -32,8 +32,8 @@ function countingAdapter(db: Database): {
 		params: unknown[];
 		returnedRowCount: number;
 	}[] = [];
-	const realQuery = adapter.query.bind(adapter);
-	adapter.query = (async <R>(sql: string, params?: unknown[]) => {
+	const realQuery = adapter.queryMain.bind(adapter);
+	adapter.queryMain = (async <R>(sql: string, params?: unknown[]) => {
 		count++;
 		const rows = await realQuery<R>(sql, params);
 		observations.push({
@@ -42,7 +42,7 @@ function countingAdapter(db: Database): {
 			returnedRowCount: rows.length,
 		});
 		return rows;
-	}) as typeof adapter.query;
+	}) as typeof adapter.queryMain;
 	return { adapter, queries: () => count, observations: () => observations };
 }
 
@@ -247,7 +247,7 @@ describe("UsageHistoryRepository.getFleetUsageHistory", () => {
 		const observation = observations().at(-1);
 		expect(observation?.params).toHaveLength(5);
 		expect(positionalSlots(observation?.sql ?? "")).toEqual([1, 2, 3, 4, 5]);
-		const plan = await adapter.query<{ detail: string }>(
+		const plan = await adapter.queryMain<{ detail: string }>(
 			`EXPLAIN QUERY PLAN ${observation?.sql ?? ""}`,
 			observation?.params ?? [],
 		);

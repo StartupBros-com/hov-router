@@ -40,7 +40,7 @@ export class OAuthRepository extends BaseRepository<OAuthSession> {
 	}
 
 	async getSession(sessionId: string): Promise<OAuthSession | null> {
-		const row = await this.get<{
+		const row = await this.getMain<{
 			account_name: string;
 			verifier: string;
 			mode: "console" | "claude-oauth";

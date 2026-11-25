@@ -4,9 +4,9 @@ import { StatsRepository } from "../stats.repository";
 
 const createRepoWithRows = (rows: Array<Record<string, unknown>>) => {
 	const adapter = {
-		query: async () => rows,
+		queryMain: async () => rows,
 		queryOffThread() {
-			return this.query();
+			return this.queryMain();
 		},
 	};
 

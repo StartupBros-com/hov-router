@@ -146,7 +146,7 @@ async function record(
 	if (!readLabel) return null;
 	const row = await db
 		.getAdapter()
-		.get<{ billing_type: string | null }>(
+		.getMain<{ billing_type: string | null }>(
 			"SELECT billing_type FROM requests WHERE id = ?",
 			[requestId],
 		);

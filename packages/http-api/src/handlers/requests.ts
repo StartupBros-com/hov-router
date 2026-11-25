@@ -262,7 +262,7 @@ export function createRequestPayloadHandler(dbOps: DatabaseOperations) {
 		if (typeof payload === "object" && !Array.isArray(payload)) {
 			const row = await dbOps
 				.getAdapter()
-				.get<{ quality_decision: string | null }>(
+				.getMain<{ quality_decision: string | null }>(
 					"SELECT quality_decision FROM requests WHERE id = ?",
 					[requestId],
 				);

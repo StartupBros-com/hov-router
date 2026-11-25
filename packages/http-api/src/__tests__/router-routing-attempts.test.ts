@@ -49,8 +49,8 @@ describe("APIRouter routing-attempt summary route", () => {
 				getRoutingAttemptSummary,
 				countActiveApiKeys: async () => 0,
 				getAdapter: () => ({
-					get: async () => null,
-					query: async () => [],
+					getMain: async () => null,
+					queryMain: async () => [],
 					run: async () => undefined,
 				}),
 			},

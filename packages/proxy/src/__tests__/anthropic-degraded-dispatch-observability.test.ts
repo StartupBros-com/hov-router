@@ -95,7 +95,7 @@ function makeContext(
 			updateAccountUsage: mock(async () => undefined),
 			getAdapter: mock(() => ({
 				run: mock(async () => undefined),
-				get: mock(async () => null),
+				getMain: mock(async () => null),
 			})),
 		} as never,
 		runtime: { port: 8080, clientId: "test" } as never,
