@@ -66,6 +66,11 @@ export function AccountList(props: AccountListProps) {
 		now,
 	);
 	const filtered = search.trim() !== "" || view.attentionOnly;
+	// Once nothing needs attention the view shows every account; drop the choice
+	// too, so the next account that needs attention does not shrink the list.
+	useEffect(() => {
+		if (attentionOnly && !view.attentionOnly) setAttentionOnly(false);
+	}, [attentionOnly, view.attentionOnly]);
 	const clear = () => {
 		setSearch("");
 		setAttentionOnly(false);
