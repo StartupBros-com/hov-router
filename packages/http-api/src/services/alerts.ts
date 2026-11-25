@@ -21,7 +21,6 @@ import {
 	findEraRateMismatches,
 	getLoadedPricingCatalog,
 	getModelFamily,
-	getModelRates,
 	isModelPriced,
 	isValidModelId,
 	isWellFormedConcreteClaudeModelId,
@@ -60,7 +59,6 @@ import type {
 	MemberNoticeState,
 	PredictionPoint,
 	RequestResponse,
-	RunawayLoopGroup,
 } from "@better-ccflare/types";
 import {
 	CACHE_HEALTH_BUCKET_MS,
@@ -73,12 +71,6 @@ import {
 	isWebhookOptInAlertType,
 } from "@better-ccflare/types";
 import {
-	type AnomalyRequestRow,
-	buildAnomalyInsightsResponse,
-	GROUP_KEY_SEPARATOR,
-	sanitizeProjectForDisplay,
-} from "./anomaly-insights";
-import {
 	advanceCacheHealth,
 	aggregateProviderCacheBuckets,
 	cacheHealthQueryWindow,
@@ -89,11 +81,11 @@ import {
 	type CodexAccountFamilySource,
 	resolveCodexAccountFamilyDefault,
 } from "./codex-effective-defaults";
+import { sanitizeProjectForDisplay } from "./project-display";
 import { computeUsagePrediction } from "./usage-prediction";
 
 const log = new Logger("AlertsService");
 const HOUR_MS = 60 * 60 * 1000;
-const MAX_ANOMALY_ALERTS_PER_RUN = 25;
 /** Usage windows below this utilization are never worth projecting — too
  * little signal, and a false-positive "exhaustion" alert on a near-empty
  * window would train operators to ignore the channel. */
@@ -203,20 +195,6 @@ interface UsageSnapshotSqlRow {
 	resets_at: number | null;
 }
 
-interface AnomalySqlRow {
-	id: string;
-	timestamp: number;
-	account: string | null;
-	model: string | null;
-	project: string | null;
-	agent_used: string | null;
-	input_tokens: number;
-	cache_read_input_tokens: number;
-	cache_creation_input_tokens: number;
-	output_tokens: number;
-	cost_usd: number;
-}
-
 export function getAlertsConfig(config: Config): AlertsConfigPayload {
 	return {
 		dailySpendUsd: config.getAlertDailySpendUsd(),
@@ -224,10 +202,6 @@ export function getAlertsConfig(config: Config): AlertsConfigPayload {
 		requestTokens: config.getAlertRequestTokens(),
 		usageWindowThresholdPercent: config.getAlertUsageWindowThresholdPercent(),
 		usageWindowValueDropThreshold: getUsageWindowValueDropThreshold(config),
-		anomalyEnabled: config.getAlertAnomalyEnabled(),
-		anomalyIntervalMinutes: config.getAlertAnomalyIntervalMinutes(),
-		anomalyBaselineWindowMinutes: config.getAlertAnomalyBaselineWindowMinutes(),
-		loopMinRequests: config.getAlertAnomalyLoopMinRequests(),
 		cooldownMinutes: config.getAlertCooldownMinutes(),
 		webhookUrl: config.getAlertWebhookUrl(),
 		// Legacy Config doubles implement only the older alert getters.
@@ -272,12 +246,6 @@ export function setAlertsConfig(
 			payload.usageWindowValueDropThreshold,
 		);
 	}
-	config.setAlertAnomalyEnabled(payload.anomalyEnabled);
-	config.setAlertAnomalyIntervalMinutes(payload.anomalyIntervalMinutes);
-	config.setAlertAnomalyBaselineWindowMinutes(
-		payload.anomalyBaselineWindowMinutes,
-	);
-	config.setAlertAnomalyLoopMinRequests(payload.loopMinRequests);
 	config.setAlertCooldownMinutes(payload.cooldownMinutes);
 	if (payload.cacheHealthEnabled !== undefined)
 		config.setAlertCacheHealthEnabled(payload.cacheHealthEnabled);
@@ -315,14 +283,11 @@ export function buildThresholdAlertId(
 
 /**
  * Encodes a possibly-null raw value for use inside a cooldown scope key,
- * distinguishing "no value" from a real value that happens to equal the
- * display fallback ("Unknown"). `event.account`/`event.model` on anomaly
- * events are already normalized (null -> "Unknown") for display purposes,
- * so a scope built directly from those two fields cannot tell an account
- * literally named "Unknown" apart from a request with no account at all —
- * this must be built from the raw (pre-normalization) field instead.
+ * distinguishing "no value" from a real value that happens to equal a
+ * display fallback such as "Unknown". Build a scope from the raw value,
+ * never from a display label that has already replaced null.
  *
- * `model` is attacker-controlled (taken verbatim from the inbound request's
+ * A model name is attacker-controlled (taken verbatim from the inbound request's
  * JSON `model` field, with no charset restriction — unlike account names,
  * which are validated against patterns.accountName), so no fixed sentinel
  * string is safe: a client could always send a model value equal to
@@ -334,18 +299,6 @@ export function buildThresholdAlertId(
 function encodeScopePart(raw: string | null): string {
 	if (raw === null) return "0:";
 	return `${raw.length}:${raw}`;
-}
-
-export function buildRunawayLoopAlertId(
-	loop: RunawayLoopGroup,
-	cooldownMinutes: number,
-): string {
-	return buildThresholdAlertId(
-		"anomaly_runaway_loop",
-		`${loop.account}:${loop.model}:${loop.project ?? ""}:${loop.agentUsed ?? ""}`,
-		loop.windowEndMs,
-		cooldownMinutes,
-	);
 }
 
 /**
@@ -1187,31 +1140,6 @@ function toAlertEvent(row: AlertRow): AlertEvent {
 	};
 }
 
-function toAnomalyRow(row: AnomalySqlRow): AnomalyRequestRow {
-	return {
-		id: row.id,
-		timestamp: Number(row.timestamp) || 0,
-		account: row.account,
-		model: row.model,
-		// Preserve the original project so the runaway-loop grouping key
-		// (account, model, project) sees distinct values for two projects
-		// that share a 63-char prefix but differ at the last char. The
-		// DB-side project is already sanitised at write time by
-		// sanitizeProjectName in proxy/src/project-attribution.ts
-		// (PROJECT_NAME_MAX_LEN=64, C0 control chars stripped). Display
-		// truncation for the API response below lives in the response
-		// builder, not here — truncation before detection makes the
-		// detector itself collapse distinct projects into one loop.
-		project: row.project,
-		agentUsed: row.agent_used,
-		inputTokens: Number(row.input_tokens) || 0,
-		cacheReadInputTokens: Number(row.cache_read_input_tokens) || 0,
-		cacheCreationInputTokens: Number(row.cache_creation_input_tokens) || 0,
-		outputTokens: Number(row.output_tokens) || 0,
-		costUsd: Number(row.cost_usd) || 0,
-	};
-}
-
 /**
  * Discord identifies a webhook by host + `/api/webhooks/<id>/<token>` path;
  * everything else (including the media CDN `cdn.discordapp.com` and
@@ -1470,6 +1398,8 @@ export function buildDiscordAlertContent(alert: AlertEvent): string {
 				"A request reached the configured token limit.",
 				"Inspect the request in the dashboard and reduce its workload if unintended.",
 			],
+			// Retired in 7.0.0: nothing raises the anomaly_* types any more, but
+			// stored alerts of these types still render with this guidance.
 			anomaly_token_outlier: [
 				"A request used unusually many tokens compared with recent requests.",
 				"Inspect the request and its workload in the dashboard.",
@@ -1810,7 +1740,6 @@ export class AlertService {
 	 * no recovered alert.
 	 */
 	private readonly orgRefusals = new Map<string, OrgRefusalEpisode>();
-	private anomalyTimer: ReturnType<typeof setInterval> | null = null;
 	private cacheHealthTimer: ReturnType<typeof setInterval> | null = null;
 	private cacheHealthFlight: Promise<void> | null = null;
 	private cacheHealthEpoch = 0;
@@ -1886,12 +1815,6 @@ export class AlertService {
 		};
 		this.configChangeListener = ({ key }: { key: string }) => {
 			if (
-				key === "alert_anomaly_enabled" ||
-				key === "alert_anomaly_interval_minutes"
-			) {
-				this.restartAnomalyTimer();
-			}
-			if (
 				key.startsWith("alert_cache_health_") ||
 				key === "alert_webhook_url" ||
 				key === "alert_webhook_types"
@@ -1910,7 +1833,6 @@ export class AlertService {
 		codexCatalogEvents.on("event", this.codexCatalogListener);
 		orgPermissionDeniedEvents.on("event", this.orgRefusalListener);
 		orgPermissionDeniedEvents.on("usage", this.orgUsageCheckListener);
-		this.restartAnomalyTimer();
 		this.restartCacheHealthTimer();
 	}
 
@@ -1922,10 +1844,6 @@ export class AlertService {
 		codexCatalogEvents.off("event", this.codexCatalogListener);
 		orgPermissionDeniedEvents.off("event", this.orgRefusalListener);
 		orgPermissionDeniedEvents.off("usage", this.orgUsageCheckListener);
-		if (this.anomalyTimer) {
-			clearInterval(this.anomalyTimer);
-			this.anomalyTimer = null;
-		}
 		this.invalidateCacheHealth();
 		this.pricingCatalogUnsubscribe?.();
 		this.pricingCatalogUnsubscribe = null;
@@ -2539,25 +2457,6 @@ export class AlertService {
 		}
 	}
 
-	private restartAnomalyTimer(): void {
-		if (this.anomalyTimer) {
-			clearInterval(this.anomalyTimer);
-			this.anomalyTimer = null;
-		}
-		const config = getAlertsConfig(this.config);
-		if (!config.anomalyEnabled) return;
-		this.anomalyTimer = setInterval(
-			() => {
-				// The interval has no caller to await its asynchronous database work.
-				// Catch failures at the registered callback so later ticks remain active.
-				this.evaluateAnomalies().catch((error) => {
-					log.error(`Anomaly evaluation failed: ${(error as Error).message}`);
-				});
-			},
-			config.anomalyIntervalMinutes * 60 * 1000,
-		);
-	}
-
 	private async lookupAccountName(accountId: string): Promise<string | null> {
 		try {
 			const row = await this.db.get<{ name: string }>(
@@ -3037,188 +2936,6 @@ export class AlertService {
 			}
 		}
 		return alerts;
-	}
-
-	async evaluateAnomalies(): Promise<void> {
-		const config = getAlertsConfig(this.config);
-		if (!config.anomalyEnabled) return;
-		const baselineWindowMinutes = config.anomalyBaselineWindowMinutes;
-		const intervalMinutes = config.anomalyIntervalMinutes;
-		// Query one wider window spanning both the baseline history and the
-		// scoring interval, then partition client-side below into two
-		// GENUINELY DISJOINT sets: rows strictly before scoringSince feed the
-		// baseline, rows at/after scoringSince are what gets scored. This
-		// keeps the DB hit to a single query instead of two, while still
-		// upholding the leave-one-out contract documented on
-		// detectTokenOutliers (issue #410) — a scored row must never also be
-		// a member of its own baseline population.
-		//
-		// The query window must be ADDITIVE (baselineWindowMinutes +
-		// intervalMinutes), not Math.max(...). Math.max collapses to just
-		// intervalMinutes whenever baselineWindowMinutes <= intervalMinutes
-		// (a valid config — nothing prevents anomalyBaselineWindowMinutes
-		// from being set lower than anomalyIntervalMinutes), which would
-		// fetch ONLY the scoring interval's worth of history. Every fetched
-		// row would then have timestamp >= scoringSince, so baselineRows
-		// would come up empty and every anomaly would silently go
-		// undetected. The additive formula guarantees the fetch always
-		// extends a full baselineWindowMinutes further back than
-		// scoringSince, regardless of how intervalMinutes compares to it.
-		const scoringSince = Date.now() - intervalMinutes * 60 * 1000;
-		const baselineSince = scoringSince - baselineWindowMinutes * 60 * 1000;
-		const allRows = (
-			await this.db.query<AnomalySqlRow>(
-				`
-				SELECT
-					r.id as id,
-					r.timestamp as timestamp,
-					a.name as account,
-					r.model as model,
-					r.project as project,
-					r.agent_used as agent_used,
-					COALESCE(r.input_tokens, 0) as input_tokens,
-					COALESCE(r.cache_read_input_tokens, 0) as cache_read_input_tokens,
-					COALESCE(r.cache_creation_input_tokens, 0) as cache_creation_input_tokens,
-					COALESCE(r.output_tokens, 0) as output_tokens,
-					COALESCE(r.cost_usd, 0) as cost_usd
-				FROM requests r
-				LEFT JOIN accounts a ON a.id = r.account_used
-				WHERE r.timestamp >= ?
-				ORDER BY r.timestamp ASC
-			`,
-				[baselineSince],
-			)
-		).map(toAnomalyRow);
-		if (allRows.length === 0) return;
-		// Partition by timestamp so the two sets never share a row: baseline is
-		// strictly OLDER history (up to a full baselineWindowMinutes wide),
-		// scoring is the recent slice.
-		const baselineRows = allRows.filter((row) => row.timestamp < scoringSince);
-		const scoringRows = allRows.filter((row) => row.timestamp >= scoringSince);
-		if (scoringRows.length === 0) return;
-		const modelIds = [
-			...new Set(
-				scoringRows
-					.map((row) => row.model)
-					.filter((model): model is string => model != null && model !== ""),
-			),
-		];
-		const rateList = await Promise.all(
-			modelIds.map((modelId) => getModelRates(modelId)),
-		);
-		const rates = new Map(
-			modelIds.map((modelId, index) => [modelId, rateList[index]]),
-		);
-		const response = buildAnomalyInsightsResponse({
-			baselineRows,
-			scoringRows,
-			rates,
-			options: {
-				range: `${intervalMinutes}m`,
-				baselineWindowMinutes,
-				truncated: false,
-				loopMinRequests: config.loopMinRequests,
-			},
-		});
-		const alerts: AlertEvent[] = [];
-		for (const event of response.tokenOutliers.slice(
-			0,
-			MAX_ANOMALY_ALERTS_PER_RUN,
-		)) {
-			alerts.push({
-				id: buildThresholdAlertId(
-					"anomaly_token_outlier",
-					`${encodeScopePart(event.accountRaw)}${GROUP_KEY_SEPARATOR}${encodeScopePart(event.modelRaw)}`,
-					event.timestamp,
-					config.cooldownMinutes,
-				),
-				timestamp: event.timestamp,
-				type: "anomaly_token_outlier",
-				severity: "warning",
-				title: "Token usage anomaly detected",
-				message: `Request ${event.requestId} used ${event.value.toLocaleString()} tokens (${(event.value / event.approxBaselineMedian).toFixed(1)}x the account/model baseline of ~${Math.round(event.approxBaselineMedian).toLocaleString()}; anomaly score ${event.zScore.toFixed(1)}).`,
-				value: event.value,
-				threshold: null,
-				account: event.account,
-				model: event.model,
-				project: event.project,
-				requestId: event.requestId,
-				acknowledged: false,
-			});
-		}
-		for (const event of response.outputBlowups.slice(
-			0,
-			MAX_ANOMALY_ALERTS_PER_RUN,
-		)) {
-			alerts.push({
-				id: buildThresholdAlertId(
-					"anomaly_output_blowup",
-					`${encodeScopePart(event.accountRaw)}${GROUP_KEY_SEPARATOR}${encodeScopePart(event.modelRaw)}`,
-					event.timestamp,
-					config.cooldownMinutes,
-				),
-				timestamp: event.timestamp,
-				type: "anomaly_output_blowup",
-				severity: "warning",
-				title: "Output token blowup detected",
-				message: `Request ${event.requestId} returned ${event.value.toLocaleString()} output tokens (${(event.value / event.approxBaselineMedian).toFixed(1)}x the account/model baseline of ~${Math.round(event.approxBaselineMedian).toLocaleString()} output tokens; anomaly score ${event.zScore.toFixed(1)}).`,
-				value: event.value,
-				threshold: null,
-				account: event.account,
-				model: event.model,
-				project: event.project,
-				requestId: event.requestId,
-				acknowledged: false,
-			});
-		}
-		for (const loop of response.runawayLoops.slice(
-			0,
-			MAX_ANOMALY_ALERTS_PER_RUN,
-		)) {
-			alerts.push({
-				id: buildRunawayLoopAlertId(loop, config.cooldownMinutes),
-				timestamp: loop.windowEndMs,
-				type: "anomaly_runaway_loop",
-				severity: "critical",
-				title: "Runaway loop detected",
-				message: `${loop.requests} near-identical requests were sent in a short window by ${loop.agentUsed ?? "an unattributed agent"} for ${loop.model}.`,
-				value: loop.requests,
-				threshold: null,
-				account: loop.account,
-				model: loop.model,
-				project: loop.project,
-				requestId: null,
-				acknowledged: false,
-			});
-		}
-		for (const group of response.misrouting.slice(
-			0,
-			MAX_ANOMALY_ALERTS_PER_RUN,
-		)) {
-			alerts.push({
-				id: buildThresholdAlertId(
-					"anomaly_model_misrouting",
-					`${group.account}:${group.model}`,
-					Date.now(),
-					config.cooldownMinutes,
-				),
-				timestamp: Date.now(),
-				type: "anomaly_model_misrouting",
-				severity: "info",
-				title: "Potential model misrouting detected",
-				message: `${group.requests} short requests used expensive model ${group.model}.`,
-				value: group.requests,
-				threshold: null,
-				account: group.account,
-				model: group.model,
-				project: null,
-				requestId: group.exampleRequestIds[0] ?? null,
-				acknowledged: false,
-			});
-		}
-		for (const alert of alerts) {
-			await this.persistAndEmit(alert, config.webhookUrl);
-		}
 	}
 
 	private async persistAndEmit(

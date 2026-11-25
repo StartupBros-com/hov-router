@@ -50,6 +50,15 @@ const RETIRED_QUALITY_ROUTING_POLICY_ENV =
 	"CCFLARE_QUALITY_ROUTING_POLICY_JSON";
 let warnedRetiredQualityRoutingPolicy = false;
 
+/**
+ * Retired with the anomaly alert sweep (7.0.0, #1012). The four
+ * `alert_anomaly_*` keys and `ALERT_ANOMALY_*` variables are ignored and left
+ * in place. Any install that saved alert settings holds the keys, usually
+ * with the sweep off, so startup warns only when the sweep was turned on.
+ */
+const RETIRED_ALERT_ANOMALY_ENABLED_ENV = "ALERT_ANOMALY_ENABLED";
+let warnedRetiredAlertAnomaly = false;
+
 /** Any JSON object a retired setting may still hold on disk. */
 type RetiredConfigObject = { readonly [key: string]: unknown };
 
@@ -955,6 +964,7 @@ export interface ConfigData {
 	alert_cache_health_min_requests?: number;
 	alert_cache_health_min_input_tokens?: number;
 	alert_cache_health_reminder_minutes?: number;
+	/** Retired in 7.0.0 (#1012): ignored, left on disk, kept out of settings. */
 	alert_anomaly_enabled?: boolean;
 	alert_anomaly_interval_minutes?: number;
 	alert_anomaly_baseline_window_minutes?: number;
@@ -1443,6 +1453,7 @@ export class Config extends EventEmitter {
 		});
 		this.loadConfig();
 		this.warnRetiredQualityRoutingPolicy();
+		this.warnRetiredAlertAnomaly();
 	}
 
 	private warnRetiredQualityRoutingPolicy(): void {
@@ -1457,6 +1468,21 @@ export class Config extends EventEmitter {
 		warnedRetiredQualityRoutingPolicy = true;
 		log.warn(
 			`Ignoring ${sources.join(" and ")}: the Auto quality lane was removed, so it has no effect and can be deleted.`,
+		);
+	}
+
+	private warnRetiredAlertAnomaly(): void {
+		if (warnedRetiredAlertAnomaly) return;
+		const sources = [
+			this.data.alert_anomaly_enabled === true &&
+				"alert_anomaly_enabled in the config file",
+			parseEnabledEnvFlag(process.env[RETIRED_ALERT_ANOMALY_ENABLED_ENV]) ===
+				true && RETIRED_ALERT_ANOMALY_ENABLED_ENV,
+		].filter((source): source is string => typeof source === "string");
+		if (sources.length === 0) return;
+		warnedRetiredAlertAnomaly = true;
+		log.warn(
+			`Ignoring ${sources.join(" and ")}: the anomaly alert sweep was removed in 7.0.0, so the alert_anomaly_* settings and ALERT_ANOMALY_* variables have no effect and can be deleted.`,
 		);
 	}
 
@@ -1964,12 +1990,8 @@ export class Config extends EventEmitter {
 	/**
 	 * Whether the automatic (non-manual) model catalog refresh is allowed to
 	 * fall back to an OAuth account when no eligible API-key account exists.
-	 * Defaults to false: recurring background traffic — and the proactive
-	 * OAuth token refreshes it can trigger — on a consumer OAuth account is an
-	 * atypical automation pattern that risks an account flag/ban, whereas
-	 * API-key accounts are the sanctioned programmatic surface. A manual,
-	 * human-triggered refresh always allows the OAuth fallback regardless of
-	 * this flag.
+	 * Defaults to false for scheduled /v1/models lookups. A manual catalog
+	 * refresh always allows the fallback. Neither path requests inference.
 	 */
 	getModelCatalogOAuthRefreshEnabled(): boolean {
 		const fromEnv = parseEnabledEnvFlag(
@@ -2540,71 +2562,6 @@ export class Config extends EventEmitter {
 		);
 	}
 
-	getAlertAnomalyEnabled(): boolean {
-		const fromEnv = parseEnabledEnvFlag(process.env.ALERT_ANOMALY_ENABLED);
-		if (fromEnv !== undefined) {
-			return fromEnv;
-		}
-		const fromFile = this.data.alert_anomaly_enabled;
-		if (typeof fromFile === "boolean") return fromFile;
-		return false;
-	}
-
-	setAlertAnomalyEnabled(value: boolean): void {
-		this.set("alert_anomaly_enabled", value);
-	}
-
-	getAlertAnomalyIntervalMinutes(): number {
-		const fromEnv = process.env.ALERT_ANOMALY_INTERVAL_MINUTES;
-		if (fromEnv) {
-			const n = Number.parseInt(fromEnv, 10);
-			if (!Number.isNaN(n)) return this.clamp(n, 5, 1440);
-		}
-		const fromFile = this.data.alert_anomaly_interval_minutes;
-		if (typeof fromFile === "number") return this.clamp(fromFile, 5, 1440);
-		return 15;
-	}
-
-	setAlertAnomalyIntervalMinutes(value: number): void {
-		this.set("alert_anomaly_interval_minutes", this.clamp(value, 5, 1440));
-	}
-
-	getAlertAnomalyBaselineWindowMinutes(): number {
-		const fromEnv = process.env.ALERT_ANOMALY_BASELINE_WINDOW_MINUTES;
-		if (fromEnv) {
-			const n = Number.parseInt(fromEnv, 10);
-			if (!Number.isNaN(n)) return this.clamp(n, 60, 43200);
-		}
-		const fromFile = this.data.alert_anomaly_baseline_window_minutes;
-		if (typeof fromFile === "number") return this.clamp(fromFile, 60, 43200);
-		return 1440;
-	}
-
-	setAlertAnomalyBaselineWindowMinutes(value: number): void {
-		this.set(
-			"alert_anomaly_baseline_window_minutes",
-			this.clamp(value, 60, 43200),
-		);
-	}
-
-	getAlertAnomalyLoopMinRequests(): number {
-		const fromEnv = process.env.ALERT_ANOMALY_LOOP_MIN_REQUESTS;
-		if (fromEnv) {
-			const n = Number.parseInt(fromEnv, 10);
-			if (!Number.isNaN(n)) return this.clamp(n, 5, 1000);
-		}
-		const fromFile = this.data.alert_anomaly_loop_min_requests;
-		if (typeof fromFile === "number") return this.clamp(fromFile, 5, 1000);
-		// Default 25 — above the per-agent request rate we expect from any
-		// single legitimate worker in a 5-minute window, while still well
-		// below the rate a true runaway loop reaches (50+ req/min).
-		return 25;
-	}
-
-	setAlertAnomalyLoopMinRequests(value: number): void {
-		this.set("alert_anomaly_loop_min_requests", this.clamp(value, 5, 1000));
-	}
-
 	getAlertCooldownMinutes(): number {
 		const fromEnv = process.env.ALERT_COOLDOWN_MINUTES;
 		if (fromEnv) {
@@ -2722,8 +2679,14 @@ export class Config extends EventEmitter {
 		// The member notice address and signing secret are removed here, not
 		// redacted, so no settings reader ever sees them. A retired quality
 		// policy is dropped: it is an object and no longer configures anything.
+		// The retired anomaly sweep settings are dropped for the same reason.
 		const {
 			quality_routing_policy: _retiredQualityRoutingPolicy,
+			alert_anomaly_enabled: _retiredAlertAnomalyEnabled,
+			alert_anomaly_interval_minutes: _retiredAlertAnomalyIntervalMinutes,
+			alert_anomaly_baseline_window_minutes:
+				_retiredAlertAnomalyBaselineWindowMinutes,
+			alert_anomaly_loop_min_requests: _retiredAlertAnomalyLoopMinRequests,
 			member_notice_webhook_url: _memberNoticeWebhookUrl,
 			member_notice_signing_secret: _memberNoticeSigningSecret,
 			...settings
@@ -2779,7 +2742,6 @@ export class Config extends EventEmitter {
 			alert_request_tokens: this.getAlertRequestTokens(),
 			alert_usage_window_threshold_percent:
 				this.getAlertUsageWindowThresholdPercent(),
-			alert_anomaly_enabled: this.getAlertAnomalyEnabled(),
 			alert_cache_health_enabled: this.getAlertCacheHealthEnabled(),
 			alert_cache_health_threshold_percent:
 				this.getAlertCacheHealthThresholdPercent(),
@@ -2790,10 +2752,6 @@ export class Config extends EventEmitter {
 				this.getAlertCacheHealthMinInputTokens(),
 			alert_cache_health_reminder_minutes:
 				this.getAlertCacheHealthReminderMinutes(),
-			alert_anomaly_interval_minutes: this.getAlertAnomalyIntervalMinutes(),
-			alert_anomaly_baseline_window_minutes:
-				this.getAlertAnomalyBaselineWindowMinutes(),
-			alert_anomaly_loop_min_requests: this.getAlertAnomalyLoopMinRequests(),
 			alert_cooldown_minutes: this.getAlertCooldownMinutes(),
 			alert_webhook_url: this.getAlertWebhookUrl(),
 			alert_webhook_types: this.getAlertWebhookTypes().join(","),

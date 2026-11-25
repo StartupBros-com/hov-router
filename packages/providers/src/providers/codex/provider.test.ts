@@ -234,6 +234,18 @@ describe("CodexProvider release identity", () => {
 		);
 		expect(headers.get("originator")).toBe("codex_cli_rs");
 	});
+
+	it("does not forward the Responses Lite header for a body it rebuilt as classic (#324)", () => {
+		const headers = new CodexProvider().prepareHeaders(
+			new Headers({
+				"x-openai-internal-codex-responses-lite": "true",
+				"x-codex-beta-features": "remote_compaction_v2",
+			}),
+			"test-token",
+		);
+		expect(headers.has("x-openai-internal-codex-responses-lite")).toBe(false);
+		expect(headers.get("x-codex-beta-features")).toBe("remote_compaction_v2");
+	});
 });
 
 describe("CodexProvider selected account identity", () => {

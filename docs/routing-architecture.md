@@ -1,6 +1,6 @@
 # Account Routing Architecture
 
-This document explains how HoV Router picks an account for each proxied request: the master pipeline, Claude Code model route profiles, the four load-balancing strategies, usage-throttling, model-family capacity routing, and auto-fallback. It is a technical reference for understanding *why* a given request landed on a given account — for user-facing setup guides see [Load Balancing](./load-balancing.md), [Auto-Fallback Configuration](./auto-fallback.md), [Combos](./combos.md), and [Configuration](./configuration.md).
+This document explains how HoV Router picks an account for each proxied request: the master pipeline, Claude Code model route profiles, the load-balancing strategies, usage-throttling, model-family capacity routing, and auto-fallback. It is a technical reference for understanding *why* a given request landed on a given account — for user-facing setup guides see [Load Balancing](./load-balancing.md), [Auto-Fallback Configuration](./auto-fallback.md), [Combos](./combos.md), and [Configuration](./configuration.md).
 
 > **Fork note.** This reference was ported from upstream (`tombii/better-ccflare`) and adjusted for this fork. The `session-drain-soonest` strategy is available as an explicit opt-in and preserves this fork's session-affinity/route-profile safeguards. Model-capacity routing is independently controlled by `model_scoped_capacity_routing` or its environment override — see [Model-Capacity Routing](#model-capacity-routing). This document also describes only the strategy layer; when a [Combo](./combos.md) or managed family routing is active, this fork runs an additional authoritative routing layer above it.
 
@@ -12,7 +12,7 @@ This document explains how HoV Router picks an account for each proxied request:
    - [Hosted WebSearch routing contract](#hosted-websearch-routing-contract)
    - [Advisor native routing contract](#advisor-native-routing-contract)
 4. [Anthropic Degraded Mode](#anthropic-degraded-mode)
-5. [The Four Load-Balancing Strategies](#the-four-load-balancing-strategies)
+5. [The Load-Balancing Strategies](#the-load-balancing-strategies)
    - [session](#session-sessionstrategy)
    - [session-affinity](#session-affinity-sessionaffinitystrategy)
    - [session-drain-soonest](#session-drain-soonest-sessiondrainsooneststrategy)
@@ -24,7 +24,7 @@ This document explains how HoV Router picks an account for each proxied request:
 
 ## Overview: Three Orthogonal Axes
 
-Ordinary account routing is controlled by three independent runtime controls: the **load-balancing strategy** (`lb_strategy` — which of the four strategies below picks the candidate order), **usage-throttling** (`usage_throttling_five_hour_enabled` / `usage_throttling_weekly_enabled` — an optional pacing gate applied after strategy selection), and **model-family capacity routing** (`model_scoped_capacity_routing` — a default-off, per-model-family exclusion filter that is active only in `exhausted` mode). Any runtime "combination" you observe (e.g. `least-used` with weekly throttling and model-capacity routing enabled) is not a special combined mode — it is simply the master pipeline below with its configured controls. Understanding the pipeline once is enough to reason about every valid combination. An explicit or inherited [Claude Code model route profile](#claude-code-model-route-profiles) is a profile-scoped override above those ordinary candidate-order mechanisms: legacy profiles select one exact account, while capability profiles build a constrained account pool before applying the normal strategy and capacity checks.
+Ordinary account routing is controlled by three independent runtime controls: the **load-balancing strategy** (`lb_strategy` — which strategy picks the candidate order), **usage-throttling** (`usage_throttling_five_hour_enabled` / `usage_throttling_weekly_enabled` — an optional pacing gate applied after strategy selection), and **model-family capacity routing** (`model_scoped_capacity_routing` — a default-off, per-model-family exclusion filter that is active only in `exhausted` mode). Any runtime "combination" you observe (e.g. `least-used` with weekly throttling and model-capacity routing enabled) is not a special combined mode — it is simply the master pipeline below with its configured controls. Understanding the pipeline once is enough to reason about every valid combination. An explicit or inherited [Claude Code model route profile](#claude-code-model-route-profiles) is a profile-scoped override above those ordinary candidate-order mechanisms: legacy profiles select one exact account, while capability profiles build a constrained account pool before applying the normal strategy and capacity checks.
 
 ## Master Pipeline
 
@@ -121,7 +121,7 @@ A positively established pinned capability mismatch returns `400 server_tool_for
 
 The same summary may carry `affinityLane` next to `processStartedAt`: a restart-stable lane digest, an `observedAt` timestamp, and the sticky strategy's current owner state (or `owner: null` when absent or expired). Owner state includes candidate/account identity, selection time, whether it was installed below the best configured tier, and any temporary fallback, upgrade/suppression timestamps or pressure-hold start. Candidate ids accept encoded models and repeated-account suffixes. Invalid owner state becomes a tombstone; an invalid digest or observation time omits the block. Sanitization retains the block while dropping optional decision/stream evidence to fit the 16,384-character summary cap; a summary still over the cap is rejected whole. Legacy rows have no block. This uses the existing summary column in SQLite.
 
-Merging source does not configure, activate or deploy this option. Live acceptance requires separate approval: verify entitlement and spending policy, run bounded interactive Claude Code root/subagent searches, and correlate actual results with router evidence while checking ordinary inference stays local. Roll back by removing `webSearchHelper` through the approved configuration path. No billing setting is changed automatically.
+Merging source does not configure, activate or deploy this option. Live acceptance requires separate approval: verify entitlement and spending policy, run bounded native Claude Code root/subagent searches (a tool-free route check cannot exercise the helper), and correlate actual results with router evidence while checking ordinary inference stays local. Roll back by removing `webSearchHelper` through the approved configuration path. No billing setting is changed automatically.
 
 ### Hosted WebSearch routing contract
 
@@ -190,7 +190,7 @@ The phrases match Claude Code 2.1.288's advisor recovery substrings: `the adviso
 
 **Upstream errors.** Upstream responses use the existing handling, and failover stays inside first-party accounts because the selection seam and backstop apply to every attempt. A passed-through 400 such as `cannot be used as an advisor` reaches the client unchanged, and Claude Code applies its own recovery.
 
-**Boundary.** Verified by unit and integration tests against mocked upstreams only. The live round trip is checked by the operator running `/advisor` in an interactive Claude Code session after deploy, never by scripted traffic: scripted requests to an Anthropic-backed account risk a ban.
+**Boundary.** Verified by unit and integration tests against mocked upstreams only. The live round trip is checked by the operator running `/advisor` in an interactive Claude Code session after deploy. A [tool-free CLI route check](agent-setup.md#5-connect-claude-code-and-prove-the-route) cannot verify advisor behavior.
 
 *Source: `packages/providers/src/server-tool-capabilities.ts` (`deriveNativeAnthropicToolRequirement`), `packages/core/src/model-mappings.ts` (`isFirstPartyAnthropicAccount`), `packages/proxy/src/server-tool-routing-errors.ts`, `packages/proxy/src/proxy.ts` (`handleProxy`), `packages/proxy/src/handlers/account-selector.ts`, `packages/proxy/src/handlers/proxy-operations.ts` (`proxyWithAccount`), `packages/proxy/src/usage-collector.ts`, and `packages/database/src/repositories/request.repository.ts`. Design and rationale: [Advisor Native Passthrough Plan](./plans/2026-10-03-1727-fix-advisor-native-passthrough-plan.md).*
 
@@ -329,7 +329,7 @@ flowchart TD
 
 *Source: `packages/load-balancer/src/strategies/session-affinity.ts`.*
 
-`session-affinity` and `least-used` are intentionally not offered in the dashboard's strategy selector (`packages/dashboard-web/src/components/overview/RoutingCard.tsx`) — both spread requests per-request/per-client rather than pinning one account-level session, which can trip provider anti-abuse systems when used with OAuth accounts. They remain fully valid values for `LB_STRATEGY`, the config file, and the HTTP configuration endpoint; the dashboard only hides the *dropdown option*, and shows either as a disabled "(current)" entry if already active out-of-band.
+The dashboard offers both `session-affinity` (sticky per client) and `least-used` (per-request balancing), alongside the other supported strategies. `LB_STRATEGY` locks the selector; only an unrecognized current value appears as a disabled “(current)” option.
 
 ### session-drain-soonest (SessionDrainSoonestStrategy)
 

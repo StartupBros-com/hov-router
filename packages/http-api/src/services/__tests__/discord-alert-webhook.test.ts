@@ -487,10 +487,6 @@ describe("AlertService webhook wiring (end-to-end)", () => {
 			getAlertTokensPerHour: () => 0,
 			getAlertRequestTokens: () => 0,
 			getAlertUsageWindowThresholdPercent: () => 0,
-			getAlertAnomalyEnabled: () => false,
-			getAlertAnomalyIntervalMinutes: () => 15,
-			getAlertAnomalyBaselineWindowMinutes: () => 1440,
-			getAlertAnomalyLoopMinRequests: () => 25,
 			getAlertCooldownMinutes: () => 60,
 			getAlertWebhookUrl: () =>
 				overrides.webhookUrl ?? "https://discord.com/api/webhooks/1/tok",

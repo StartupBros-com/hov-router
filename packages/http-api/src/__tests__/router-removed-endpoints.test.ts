@@ -230,3 +230,96 @@ describe("Auto quality lane controls removed in 6.0.0 (#816)", () => {
 		}
 	});
 });
+
+describe("/api/insights endpoints removed or moved in 7.0.0 (#1012)", () => {
+	// [requested path, endpoint named in the 410, replacement]
+	const REMOVED_7 = [
+		["/api/insights/cache", "/api/insights/cache", "GET /api/analytics"],
+		["/api/insights/context", "/api/insights/context", null],
+		["/api/insights/anomalies", "/api/insights/anomalies", null],
+		["/api/insights/alerts", "/api/insights/alerts", "GET /api/alerts"],
+		[
+			"/api/insights/alerts/config",
+			"/api/insights/alerts/config",
+			"GET /api/alerts/config",
+		],
+		[
+			"/api/insights/alerts/acknowledge-all",
+			"/api/insights/alerts/acknowledge-all",
+			"POST /api/alerts/acknowledge-all",
+		],
+		[
+			"/api/insights/alerts/stream",
+			"/api/insights/alerts/stream",
+			"GET /api/alerts/stream",
+		],
+		[
+			"/api/insights/alerts/stream/token",
+			"/api/insights/alerts/stream/token",
+			"POST /api/alerts/stream/token",
+		],
+		[
+			"/api/insights/alerts/cache_health%3Aacct-1",
+			"/api/insights/alerts/:id",
+			"POST /api/alerts/:id",
+		],
+		[
+			"/api/insights/cache-parity",
+			"/api/insights/cache-parity",
+			"GET /api/cache-parity",
+		],
+		// A trailing slash names the same endpoint.
+		["/api/insights/alerts/", "/api/insights/alerts", "GET /api/alerts"],
+		["/api/insights/cache/", "/api/insights/cache", "GET /api/analytics"],
+	] as const;
+
+	it("answers 410 for every method, with the replacement where one exists", async () => {
+		for (const [path, endpoint, replacement] of REMOVED_7) {
+			for (const method of ["GET", "HEAD", "POST", "DELETE"]) {
+				const response = await send(
+					method,
+					`${path}?range=24h`,
+					method === "POST" ? {} : undefined,
+				);
+				expect(response?.status).toBe(410);
+				if (method === "HEAD") continue;
+				const body = (await response?.json()) as Record<string, unknown>;
+				expect(body).toMatchObject({
+					error: "Gone",
+					endpoint,
+					removedIn: "7.0.0",
+					replacement,
+				});
+			}
+		}
+	});
+
+	// Nothing is served under /api/insights any more, so no path under it
+	// may fall through to the inference proxy.
+	it("answers 410 for any other path under /api/insights, encoded or not", async () => {
+		for (const path of [
+			"/api/insights",
+			"/api/insights/",
+			"/api/insights/cache/extra",
+			"/api/insights/context-x",
+			"/api/insights/anomalies/extra",
+			"/api/insights/alerts/alert-1/extra",
+			"/api/%69nsights/alerts",
+			"/api/insights%2Falerts",
+		]) {
+			for (const method of ["GET", "POST", "DELETE"]) {
+				const response = await send(method, path);
+				expect(response?.status).toBe(410);
+				const body = (await response?.json()) as Record<string, unknown>;
+				expect(body.removedIn).toBe("7.0.0");
+				expect(String(body.message)).toContain("/api/alerts");
+			}
+		}
+	});
+
+	it("leaves paths that only begin with the same letters alone", async () => {
+		for (const path of ["/api/insightsx", "/api/insight"]) {
+			expect((await send("GET", path))?.status).not.toBe(410);
+		}
+	});
+});

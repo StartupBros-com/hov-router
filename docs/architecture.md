@@ -359,14 +359,15 @@ classDiagram
 
 **Load Balancing Strategies:**
 
-This fork implements four selectable strategies (`packages/core/src/strategy.ts`, `packages/load-balancer/src/strategies/`), all documented for operators in [`docs/configuration.md`](configuration.md#load-balancing-strategy):
+This fork implements five selectable strategies (`packages/core/src/strategy.ts`, `packages/load-balancer/src/strategies/`), all documented for operators in [`docs/configuration.md`](configuration.md#load-balancing-strategy):
 
-- **`session`** (default): Maintains one global sticky session for a configured duration (default 5 hours, `TIME_CONSTANTS.ANTHROPIC_SESSION_DURATION_DEFAULT`). Minimizes account switching to avoid triggering Claude's anti-abuse systems, automatically handles failover when the active session account becomes unavailable, and aligns sessions with Anthropic OAuth usage window resets for optimal resource utilization.
+- **`session`** (default): Maintains one global sticky session for a configured duration (default 5 hours, `TIME_CONSTANTS.ANTHROPIC_SESSION_DURATION_DEFAULT`). Reuses the active account's cache and fails over when that account becomes unavailable.
 - **`session-affinity`**: Maintains independent, per-client sticky affinity (keyed by client session id) instead of one shared global active account, while preserving automatic failover and session expiry — needed when multiple concurrent clients/sessions must route consistently without contending over a single session slot.
 - **`session-drain-soonest`**: An opt-in `session-affinity` variant (`packages/load-balancer/src/strategies/session-drain-soonest.ts`) that additionally ranks fresh-assignment/failover candidates by weekly pace band, then earliest known future all-model weekly reset, so weekly capacity gets consumed before it expires, while still preserving per-client/lane stickiness except across a same-tier pace-band change (Codex owners stay; Anthropic owners get a bounded warm-cache hold; see [Drain ordering](load-balancing.md#drain-ordering)).
-- **`least-used`**: Orders available accounts by effective utilization rather than maintaining sticky OAuth sessions. Intended for API-key and compatible-provider pools where per-request spreading is acceptable — not for Anthropic OAuth accounts, where it can trigger anti-abuse systems.
+- **`session-drain-soonest-strict`**: Ranks by earliest future weekly reset within each authorized routing class; an active session breaks ties.
+- **`least-used`**: Uses utilization and recent picks to distribute requests among otherwise comparable accounts. It does not keep a client on one account, so successive requests may miss its prompt cache.
 
-Round-robin, least-requests, and weighted strategies were removed from the original upstream codebase because per-request spreading across Anthropic OAuth accounts could trigger account bans; the strategies above replace them with session-based (and opt-in utilization-based) alternatives instead.
+The upstream round-robin, least-requests, and weighted strategies are not selectable in this fork.
 
 ### 5. Provider Package (`packages/providers`)
 
@@ -1031,7 +1032,7 @@ The main HTTP server application that:
 - Hosts the proxy endpoints
 - Serves the web dashboard
 - Provides REST API endpoints
-- Streams live request, log and alert events to the dashboard over Server-Sent Events (`/api/requests/stream`, `/api/logs/stream`, `/api/insights/alerts/stream`)
+- Streams live request, log and alert events to the dashboard over Server-Sent Events (`/api/requests/stream`, `/api/logs/stream`, `/api/alerts/stream`)
 - Initializes agent registry
 
 ### 2. CLI Application (`apps/cli`)

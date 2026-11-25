@@ -9,7 +9,7 @@ const API_ONLY = "test-stream-api-only";
 const streamPaths = {
 	logs: "/api/logs/stream",
 	requests: "/api/requests/stream",
-	alerts: "/api/insights/alerts/stream",
+	alerts: "/api/alerts/stream",
 } as const;
 type Audience = keyof typeof streamPaths;
 let keys: ApiKey[];

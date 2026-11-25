@@ -2,6 +2,7 @@ import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
 import {
 	Activity,
 	BarChart3,
+	Bell,
 	Bot,
 	CircleDollarSign,
 	FileText,
@@ -9,7 +10,6 @@ import {
 	History,
 	Key,
 	LayoutDashboard,
-	Lightbulb,
 	LogOut,
 	Menu,
 	RefreshCw,
@@ -23,6 +23,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAlerts, useHealth } from "../hooks/queries";
 import { useMediaQuery } from "../hooks/useMediaQuery";
+import {
+	ALERTS_LIST_LIMIT,
+	alertBadgeLabel,
+	alertsNeedingAttention,
+} from "../lib/alert-attention";
 import { PAGE_META, type PageKey } from "../lib/page-meta";
 import { cn } from "../lib/utils";
 import { version } from "../lib/version";
@@ -180,11 +185,17 @@ export function Navigation({ onLogout }: NavigationProps = {}) {
 	const [updateResult, setUpdateResult] = useState<UpdateStatusResponse | null>(
 		null,
 	);
-	const { data: alertData } = useAlerts();
+	const { data: alertData, dataUpdatedAt: alertsFetchedAt } = useAlerts();
 	const status = describeSystemStatus(useHealth().data);
 	const { icon: StatusIcon, iconClass: statusIconClass } =
 		SYSTEM_STATUS_TONE[status.tone];
-	const unacknowledgedCount = alertData?.unacknowledgedCount ?? 0;
+	const alertBadge = alertBadgeLabel(
+		alertsNeedingAttention(
+			alertData?.alerts ?? [],
+			alertsFetchedAt,
+			ALERTS_LIST_LIMIT,
+		),
+	);
 	const location = useLocation();
 	const isMountedRef = useRef(true);
 	// Below lg the closed drawer is off-canvas; keep it out of the tab order.
@@ -200,11 +211,7 @@ export function Navigation({ onLogout }: NavigationProps = {}) {
 		return [
 			item("overview", LayoutDashboard),
 			item("analytics", BarChart3),
-			{
-				...item("insights", Lightbulb),
-				badge:
-					unacknowledgedCount > 0 ? String(unacknowledgedCount) : undefined,
-			},
+			{ ...item("alerts", Bell), badge: alertBadge },
 			item("requests", Activity),
 			item("accounts", Users),
 			item("usageHistory", History),
@@ -216,7 +223,7 @@ export function Navigation({ onLogout }: NavigationProps = {}) {
 			item("logs", FileText),
 			item("settings", Settings),
 		];
-	}, [unacknowledgedCount]);
+	}, [alertBadge]);
 
 	const checkForUpdates = useCallback(async () => {
 		if (!isMountedRef.current) return;

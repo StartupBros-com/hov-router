@@ -19,9 +19,8 @@ process.env.BETTER_CCFLARE_CONFIG_PATH = join(scratch, "isolated-config.json");
 process.env.DATABASE_URL = "";
 const { VALUE_PRICING_VERSION } = await import("@better-ccflare/core");
 const { DatabaseOperations } = await import("@better-ccflare/database");
-const { createPublicSubscriptionValueHandler, MAX_AGE_MS } = await import(
-	"../public-subscription-value"
-);
+const { createPublicSubscriptionValueHandler, MAX_AGE_MS, SLOW_BUILD_MS } =
+	await import("../public-subscription-value");
 const db = new DatabaseOperations(":memory:");
 const mapping = {
 	accountId: "private-account",
@@ -36,6 +35,15 @@ let handler: ReturnType<typeof createPublicSubscriptionValueHandler>;
 let warn: ReturnType<typeof spyOn<Logger, "warn">>;
 let info: ReturnType<typeof spyOn<Logger, "info">>;
 let error: ReturnType<typeof spyOn<Logger, "error">>;
+/** Info lines that report the config; the build lines are asserted on their own. */
+const configInfoCalls = () =>
+	info.mock.calls.filter(([message]) =>
+		String(message).startsWith("Public subscriptions enabled"),
+	);
+const buildInfoCalls = () =>
+	info.mock.calls.filter(([message]) =>
+		String(message).startsWith("Public subscription value "),
+	);
 
 beforeEach(async () => {
 	await db.getAdapter().run("DELETE FROM usage_windows");
@@ -106,7 +114,7 @@ describe("public subscription value read projection", () => {
 		const body = await (await handler()).json();
 		expect(body.generatedAt).toBe(now);
 		expect(body.subscriptions[0].label).toBe("Changed label");
-		expect(info).toHaveBeenCalledTimes(2);
+		expect(configInfoCalls()).toHaveLength(2);
 	});
 	it("logs rejected config once per raw value and generation failures once per minute without exposing reasons", async () => {
 		config = "PRIVATE invalid";
@@ -324,6 +332,89 @@ describe("public subscription value read projection", () => {
 		expect(error).toHaveBeenCalledTimes(1);
 		expect(error.mock.calls[0]?.[1]).toBe(failure);
 	});
+	it("logs a fast build's start, each account's valuation and the landing at info, without account names", async () => {
+		expect((await handler()).status).toBe(200);
+		const lines = buildInfoCalls();
+		expect(lines.map(([message]) => message)).toEqual([
+			"Public subscription value build started",
+			"Public subscription value account valued",
+			"Public subscription value build landed",
+		]);
+		expect(lines[1]?.[1]).toMatchObject({
+			id: mapping.id,
+			index: 0,
+			accounts: 1,
+			outcome: "ok",
+		});
+		expect(lines[2]?.[1]).toMatchObject({ bodyAgeMs: 0, accounts: 1 });
+		expect(JSON.stringify(info.mock.calls)).not.toContain("SECRET LABEL");
+	});
+	it("logs a rejected build with its reason and the age its body had", async () => {
+		const slow = createPublicSubscriptionValueHandler(context, {
+			getConfig: () => config,
+			now: () => now,
+		});
+		const original = db.getAccount.bind(db);
+		const read = spyOn(db, "getAccount").mockImplementation(async (id) => {
+			now += MAX_AGE_MS;
+			return original(id);
+		});
+		try {
+			expect((await slow()).status).toBe(503);
+		} finally {
+			read.mockRestore();
+		}
+		const rejected = buildInfoCalls().find(
+			([message]) => message === "Public subscription value build rejected",
+		);
+		expect(rejected?.[1]).toMatchObject({
+			outcome: "expired",
+			bodyAgeMs: MAX_AGE_MS,
+		});
+	});
+	describe("a build that takes SLOW_BUILD_MS or longer", () => {
+		let clock: ReturnType<typeof spyOn<Performance, "now">>;
+		beforeEach(() => {
+			let elapsed = 0;
+			// Every read of the build timer is SLOW_BUILD_MS after the last one.
+			clock = spyOn(performance, "now").mockImplementation(
+				() => (elapsed += SLOW_BUILD_MS),
+			);
+		});
+		afterEach(() => clock.mockRestore());
+		const warnedBuildLines = () =>
+			warn.mock.calls.filter(([message]) =>
+				String(message).startsWith("Public subscription value build "),
+			);
+		it("logs its landing as a warning with the build time", async () => {
+			expect((await handler()).status).toBe(200);
+			const landed = warnedBuildLines();
+			expect(landed.map(([message]) => message)).toEqual([
+				"Public subscription value build landed",
+			]);
+			expect(Number(landed[0]?.[1]?.ms)).toBeGreaterThanOrEqual(SLOW_BUILD_MS);
+			expect(buildInfoCalls().map(([message]) => message)).not.toContain(
+				"Public subscription value build landed",
+			);
+		});
+		it("logs its rejection as a warning with the reason and build time", async () => {
+			const original = db.getAccount.bind(db);
+			const read = spyOn(db, "getAccount").mockImplementation(async (id) => {
+				now += MAX_AGE_MS;
+				return original(id);
+			});
+			try {
+				expect((await handler()).status).toBe(503);
+			} finally {
+				read.mockRestore();
+			}
+			const rejected = warnedBuildLines().find(
+				([message]) => message === "Public subscription value build rejected",
+			);
+			expect(rejected?.[1]).toMatchObject({ outcome: "expired" });
+			expect(Number(rejected?.[1]?.ms)).toBeGreaterThanOrEqual(SLOW_BUILD_MS);
+		});
+	});
 	it("logs entry indices and each distinct config only once, while disabled stays silent", async () => {
 		config = undefined;
 		expect((await handler()).status).toBe(404);
@@ -341,7 +432,7 @@ describe("public subscription value read projection", () => {
 		config = JSON.stringify([mapping]);
 		expect((await handler()).status).toBe(200);
 		expect(warn).toHaveBeenCalledTimes(1);
-		expect(info).toHaveBeenCalledTimes(1);
+		expect(configInfoCalls()).toHaveLength(1);
 		expect(JSON.stringify(warn.mock.calls)).not.toContain("secret");
 	});
 	it("keeps clock failures generic and logged when the clock is invalid or throws", async () => {

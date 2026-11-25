@@ -51,7 +51,7 @@ describe("authenticated EventSource factory", () => {
 	for (const [audience, path] of [
 		["logs", "/api/logs/stream"],
 		["requests", "/api/requests/stream"],
-		["alerts", "/api/insights/alerts/stream"],
+		["alerts", "/api/alerts/stream"],
 	] as const) {
 		it(`${audience}: sends the durable key only in the mint header`, async () => {
 			api.setApiKey("durable-secret");

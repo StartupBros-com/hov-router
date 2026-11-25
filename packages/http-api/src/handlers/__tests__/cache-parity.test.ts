@@ -7,7 +7,7 @@ import {
 } from "@better-ccflare/database";
 import { createCacheParityConfigStub } from "../../__tests__/support/cache-parity-config-stub";
 import type { APIContext } from "../../types";
-import { createCacheParityHandler } from "../insights";
+import { createCacheParityHandler } from "../cache-parity";
 
 describe("cache parity handler", () => {
 	let db: Database;
@@ -147,7 +147,7 @@ describe("cache parity handler", () => {
 			...context,
 			dbOps: {
 				getAdapter: () => ({
-					query: async () => {
+					queryOffThread: async () => {
 						throw new Error("boom");
 					},
 				}),

@@ -76,7 +76,7 @@ The configuration file is stored at:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `lb_strategy` | string | `"session"` | Load balancing strategy. Supported values are `"session"` (default), `"session-affinity"`, `"session-drain-soonest"` (an opt-in affinity-preserving drain policy), and `"least-used"`. Prefer a session-based strategy for OAuth accounts; per-request spreading can trigger provider anti-abuse systems |
+| `lb_strategy` | string | `"session"` | Load balancing strategy; see [available strategies](load-balancing.md#available-strategies) |
 | `client_id` | string | `"9d1c250a-e61b-44d9-88ed-5944d1962f5e"` | OAuth client ID for authentication |
 | `retry_attempts` | number | `3` | Maximum number of retry attempts for failed requests. Whole number from `0` to `10` |
 | `retry_delay_ms` | number | `1000` | Initial delay in milliseconds between retry attempts. Whole number from `0` to `30000` |
@@ -91,14 +91,9 @@ At startup, a retry value outside its range is moved to the nearest bound, and a
 
 ### Load Balancing Strategy
 
-⚠️ **WARNING**: Prefer `session`, `session-affinity`, or the opt-in `session-drain-soonest` for Anthropic OAuth traffic because they preserve account stickiness. `least-used` can spread individual requests across accounts and may trigger Claude's anti-abuse systems; reserve it for providers and credentials where per-request balancing is safe. `session-drain-soonest` uses quota-aware fresh-session/failover ordering within the authorized structural routing class. Existing eligible Codex owners and temporary fallbacks also retain affinity across same-tier/rung quota-pressure changes and usage-window rollovers, while account session counters still reset. Explicit retain-owner, exclusions, route circuits, and better-tier/rung recovery remain authoritative. An existing Anthropic owner gets a bounded warm-cache hold across the same change (see [Drain ordering](load-balancing.md#drain-ordering)). Other providers and `session-drain-soonest-strict` keep their existing behavior; see [affinity lifetime limits](load-balancing.md#account-and-client-stickiness).
+Choose `session-affinity` when each client should reuse its account's prompt cache. `least-used` ranks each request independently, trading cache locality for utilization balancing. `session-drain-soonest` uses quota-aware fresh-session/failover ordering within the authorized structural routing class. Existing eligible Codex owners and temporary fallbacks also retain affinity across same-tier/rung quota-pressure changes and usage-window rollovers, while account session counters still reset. Explicit retain-owner, exclusions, route circuits, and better-tier/rung recovery remain authoritative. An existing Anthropic owner gets a bounded warm-cache hold across the same change (see [Drain ordering](load-balancing.md#drain-ordering)). Other providers and `session-drain-soonest-strict` keep their existing behavior; see [affinity lifetime limits](load-balancing.md#account-and-client-stickiness).
 
-| Strategy | Description | Use Case |
-|----------|-------------|----------|
-| `session` | Maintains client-account affinity for session duration, with automatic alignment to Anthropic OAuth usage window resets | Default and recommended - mimics natural usage patterns and optimizes resource utilization |
-| `session-affinity` | Maintains independent client-to-account affinity while preserving automatic failover and session expiry | Multiple concurrent clients that need sticky routing without sharing one global active account |
-| `session-drain-soonest` | Opt-in session-affinity variant. Structural routing classes remain authoritative; within one authorized class, eligible auto-fallback candidates are considered first, then candidates rank by weekly pace band, earliest known future all-model weekly reset, priority, and utilization (see [Drain ordering](load-balancing.md#drain-ordering)). Unknown or stale resets fail open; explicit retain-owner and route-circuit decisions remain authoritative | OAuth pools where weekly capacity should be consumed before it expires while preserving per-client/lane stickiness |
-| `least-used` | Orders available accounts by utilization rather than maintaining sticky OAuth sessions | API-key and compatible-provider pools where per-request spreading is explicitly acceptable |
+The [available-strategies table](load-balancing.md#available-strategies) is the operator reference for all registered values and their trade-offs. `session` remains the installation default; the effective value on an existing server may differ.
 
 ### Logging Configuration (Environment Only)
 
@@ -193,7 +188,7 @@ These environment variables are not stored in the configuration file and must be
 
 ### Codex cache parity ownership
 
-`GET /api/insights/cache-parity` is the read-only operator surface. Its rolling seven-day verdict is authoritative; the 24-hour window is advisory. It reports additive durable usage as logical-final scope and keeps schema-20 physical-attempt pacing/cache analysis separate. A nonzero global keepalive TTL makes the durable verdict `insufficient_evidence` until synthetic request origin is persisted.
+`GET /api/cache-parity` is the read-only operator surface. Its rolling seven-day verdict is authoritative; the 24-hour window is advisory. It reports additive durable usage as logical-final scope and keeps schema-20 physical-attempt pacing/cache analysis separate. A nonzero global keepalive TTL makes the durable verdict `insufficient_evidence` until synthetic request origin is persisted.
 
 The response's `driftReport` field diffs the live policy snapshot against the declared defaults in `packages/http-api/src/services/cache-parity-expectations.ts` (which mirrors the KEEP/DEFER/RETIRE table below). It no longer carries the 75% weighted / 12% zero-hit Codex follow-up floor or its `floor` and `floorHeld` fields: nothing read them. A lever that differs from its declared default shows up as a `deviations` entry and reports unacknowledged until it is either retired back to its default or added to that file's acknowledgement map with an owning issue. Removed levers (session keys, prefix sharding, the continuity percentage, terminal settle, pacing bypass, the GPT-5.6 explicit breakpoint, WebSocket transport, and turn-state replay, reported as `turnStatePercent: 0` and `turnStateObserveOnly: false`) stay in the snapshot at fixed values until the next major release, so they always match their declared defaults.
 
@@ -219,7 +214,7 @@ Continuity used to be gated by `CCFLARE_CODEX_CACHE_KEY_CONTINUITY_PERCENT`, whi
 
 The opt-in Codex JSONL trace records categorical continuity evidence plus whether the canonical identity was applied. In conversation mode, `cache_key_continuity_applied` is true whenever the election admits the request as the session's root, and `canonical_conversation_id` is emitted only then. That includes the root's own first turn, whose basis is recorded as `derived`; the outbound key differs from the request's own derived key only when its identity is not the root's. A bounded `continuity_evidence_id` sequences validated turns. The analyzer keeps compaction turns together, counts their key rotations, and reports rows by application (`canonical`, `derived`, or `unknown`), basis, safe model family, observed turn/gap band, cache-read and cache-write measurements, effective-key concentration, joined responses, and unknown measurements. It never adds prompts, instructions, raw call IDs, raw session UUIDs, credentials, or full cache keys to this provenance output. Traces written before continuity was always on can show `lineage_match` turns with `derived` application, from installs that left the old percentage at `0`. Legacy traces without schema-17 application fields remain readable but are conservatively classified as unknown.
 
-Do not validate continuity with scripted traffic against Anthropic-backed or Codex accounts; use focused fixtures or naturally initiated authorized traffic instead.
+Validate Codex continuity with focused fixtures or naturally initiated authorized Codex turns. A single Claude route check does not exercise Codex turn continuity.
 
 A client-sent `x-codex-turn-state` is dropped before the request goes upstream, and an upstream copy is never returned to clients.
 
@@ -893,16 +888,13 @@ Coverage spans both the running server process and CLI-only commands that never 
 
 ## Alerts
 
-HoV Router can emit threshold and anomaly alerts and deliver them via webhook and the dashboard. Alerts are persisted to the same database as requests and deduplicated per cooldown bucket; persistence is best-effort — a database failure is logged and skipped rather than failing the request or crashing the proxy. All `ALERT_*` env vars have equivalent config-file fields (`alert_daily_spend_usd`, `alert_tokens_per_hour`, `alert_request_tokens`, `alert_anomaly_enabled`, `alert_anomaly_interval_minutes`, `alert_cooldown_minutes`, `alert_webhook_url`, `alert_webhook_types`); env vars take precedence.
+HoV Router emits threshold alerts and the other alerts described below, and delivers them via webhook and the dashboard. Alerts are persisted to the same database as requests and deduplicated per cooldown bucket; persistence is best-effort — a database failure is logged and skipped rather than failing the request or crashing the proxy. All `ALERT_*` env vars have equivalent config-file fields (`alert_daily_spend_usd`, `alert_tokens_per_hour`, `alert_request_tokens`, `alert_cooldown_minutes`, `alert_webhook_url`, `alert_webhook_types`); env vars take precedence.
 
 | Variable | Purpose | Default | Example |
 |----------|---------|---------|---------|
 | `ALERT_DAILY_SPEND_USD` | Fire a warning alert when aggregate spend since local midnight meets or exceeds this USD amount. Clamped to `[0, 1000000]`; `0` disables | `0` | `ALERT_DAILY_SPEND_USD=25` |
 | `ALERT_TOKENS_PER_HOUR` | Fire a warning alert when total tokens consumed in the trailing hour meets or exceeds this count. `0` disables | `0` | `ALERT_TOKENS_PER_HOUR=500000` |
 | `ALERT_REQUEST_TOKENS` | Fire a critical alert when a single request's total token count meets or exceeds this value. `0` disables | `0` | `ALERT_REQUEST_TOKENS=200000` |
-| `ALERT_ANOMALY_ENABLED` | Run periodic anomaly detection over recent requests (token outliers, output blowups, runaway loops, model misrouting). Accepts `1`/`true`/`0`/`false` | `false` | `ALERT_ANOMALY_ENABLED=true` |
-| `ALERT_ANOMALY_INTERVAL_MINUTES` | Cadence of anomaly-detection sweeps, in minutes. Clamped to `[5, 1440]` | `15` | `ALERT_ANOMALY_INTERVAL_MINUTES=30` |
-| `ALERT_ANOMALY_LOOP_MIN_REQUESTS` | Minimum request count in the detection window before the runaway-loop detector will flag a burst, keyed per account + model + project + agent (with the `x-claude-code-session-id` header as an attribution fallback). Set above the rate a single legitimate worker reaches in the window so a true loop (50+ req/min) stands out. Clamped to `[5, 1000]` | `25` | `ALERT_ANOMALY_LOOP_MIN_REQUESTS=50` |
 | `ALERT_COOLDOWN_MINUTES` | Per-alert-type-and-scope cooldown bucket size in minutes — within a bucket, only the first alert is persisted and delivered (no SSE storms or duplicate webhooks). Clamped to `[1, 1440]` | `60` | `ALERT_COOLDOWN_MINUTES=120` |
 | `ALERT_WEBHOOK_URL` | `http(s)` URL to receive `POST` deliveries of alert payloads (see "Webhook delivery" below for the body shape). Unset = no webhook delivery. Must be a valid URL or the setter rejects it | unset | `ALERT_WEBHOOK_URL=https://example.com/alerts` |
 | `ALERT_WEBHOOK_TYPES` | Comma-separated webhook allowlist. A nonempty parsed list admits exactly the named types, including quiet and opt-in types. An empty parsed list for a recognized Discord webhook suppresses cache-efficiency observations (opening, critical, and recovery) and unknown-model catalog observations; monitoring-blindness alerts (including cache telemetry gaps and recovery), urgent/auth/capacity alerts, and actual stale-policy rewrite warnings remain eligible. A generic non-Discord destination with an empty parsed list admits all types except `codex_role_target_changed` and `codex_pin_superseded`; these two informational types remain opt-in for Discord too. Unknown type names are rejected when the setting is written | unset (destination-specific defaults) | `ALERT_WEBHOOK_TYPES=auth_failure,model_routing_drift` |
@@ -913,13 +905,13 @@ In addition to threshold alerts, an `auth_failure` alert (severity `critical`) f
 
 An `org_permission_denied` alert fires once when Anthropic starts refusing an account's organization (a 403 `permission_error`, such as `oauth_not_allowed_for_organization`). A failed subscription payment causes this, as does an admin turning off OAuth or Claude Code access. That first alert is `critical`. The router keeps benching the account and retrying it while the refusal lasts, and those later refusals send nothing. Anthropic's usage check counts too: a usage check refused with `oauth_not_allowed_for_organization` raises the same alert for an account no request has reached, unless the account is paused. When the account next serves a successful request that started after its latest refusal, a second `org_permission_denied` alert (severity `info`) says it is accepted again. A usage check that returns usage and started after the latest refusal sends it too, without waiting for traffic, but only if a usage check was refused during that refusal; a request refusal alone is closed only by a served request. While the latest usage check is refused, the account card shows **Anthropic refused** unless a cooldown for another cause is live, and a Refresh usage whose own check is refused says so; the next usage check that returns usage clears it. The phase is the second segment of the alert id (`org_permission_denied:refused:…` or `org_permission_denied:recovered:…`). The episode is not tied to the cooldown bucket, so a refusal that returns after a recovery alerts again within the same hour. Episodes are held in memory: a restart during a refusal alerts once more on the next refusal, and a restart before the recovery sends no recovered alert. With a nonempty `ALERT_WEBHOOK_TYPES` allowlist, add `org_permission_denied` to it for the webhook to receive these.
 
-"Scope" for the anomaly detectors (`anomaly_token_outlier`, `anomaly_output_blowup`, `anomaly_runaway_loop`) is the account/model pairing the anomaly was detected on, not the individual request — two outlier spikes on the same account and model within one cooldown bucket collapse into a single delivered alert, while a spike on a different account or model always gets its own bucket, even within the same window.
+The anomaly alert sweep was removed in 7.0.0. `ALERT_ANOMALY_ENABLED`, `ALERT_ANOMALY_INTERVAL_MINUTES`, `ALERT_ANOMALY_BASELINE_WINDOW_MINUTES`, `ALERT_ANOMALY_LOOP_MIN_REQUESTS` and the matching `alert_anomaly_*` config-file keys are ignored, and startup logs one warning if the sweep was turned on. The four `anomaly_*` type names (`anomaly_token_outlier`, `anomaly_output_blowup`, `anomaly_runaway_loop`, `anomaly_model_misrouting`) are still accepted in `ALERT_WEBHOOK_TYPES`, so a saved allowlist loads and saves as before, but nothing raises them. See [Insights page removed](hov-router-migration.md#insights-page-removed).
 
 Alerts are listed on the dashboard and via the API; unacknowledged counts surface in `/health`. Persistence uses `INSERT OR IGNORE`, so a repeated alert id is stored once.
 
 ### Recorded cache health
 
-Cache monitoring defaults to enabled in the application, independently of `ALERT_ANOMALY_ENABLED`. Implementation or merge does not change the running service; production rollout requires a separate approved deployment from main. Keep the existing webhook destination and any nonempty `ALERT_WEBHOOK_TYPES` or saved `alert_webhook_types` unchanged during implementation. For a recognized Discord webhook, an empty parsed allowlist keeps `cache_efficiency_low`, `cache_efficiency_critical`, and efficiency recovery quiet, while `cache_telemetry_gap` and telemetry recovery (`cache_efficiency_recovered`) remain eligible. A nonempty exact allowlist can opt into any of these four type names; naming the shared `cache_efficiency_recovered` type includes both efficiency and telemetry recoveries. A generic non-Discord destination with an empty parsed list admits all four types.
+Cache monitoring defaults to enabled in the application. Implementation or merge does not change the running service; production rollout requires a separate approved deployment from main. Keep the existing webhook destination and any nonempty `ALERT_WEBHOOK_TYPES` or saved `alert_webhook_types` unchanged during implementation. For a recognized Discord webhook, an empty parsed allowlist keeps `cache_efficiency_low`, `cache_efficiency_critical`, and efficiency recovery quiet, while `cache_telemetry_gap` and telemetry recovery (`cache_efficiency_recovered`) remain eligible. A nonempty exact allowlist can opt into any of these four type names; naming the shared `cache_efficiency_recovered` type includes both efficiency and telemetry recoveries. A generic non-Discord destination with an empty parsed list admits all four types.
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
@@ -930,7 +922,7 @@ Cache monitoring defaults to enabled in the application, independently of `ALERT
 | `ALERT_CACHE_HEALTH_MIN_INPUT_TOKENS` | Minimum total input tokens per reuse bucket; integer clamped to `[1, 1000000000]` | `100000` |
 | `ALERT_CACHE_HEALTH_REMINDER_MINUTES` | Elapsed time between reminders while fresh bad traffic continues; integer clamped to `[1, 43200]` | `360` |
 
-The corresponding file keys are lowercase (for example, `alert_cache_health_duration_minutes`). Environment values take precedence. Invalid or nonfinite numeric settings fall back to the shared policy default; finite numbers are clamped and fractional values are rounded down, except duration, which rounds up to a whole bucket. The `/api/insights/alerts/config` payload exposes optional `cacheHealthEnabled`, `cacheHealthThresholdPercent`, `cacheHealthDurationMinutes`, `cacheHealthMinRequests`, `cacheHealthMinInputTokens`, and `cacheHealthReminderMinutes`. Older clients and partial updates preserve omitted cache settings without saving environment overrides into those fields.
+The corresponding file keys are lowercase (for example, `alert_cache_health_duration_minutes`). Environment values take precedence. Invalid or nonfinite numeric settings fall back to the shared policy default; finite numbers are clamped and fractional values are rounded down, except duration, which rounds up to a whole bucket. The `/api/alerts/config` payload exposes optional `cacheHealthEnabled`, `cacheHealthThresholdPercent`, `cacheHealthDurationMinutes`, `cacheHealthMinRequests`, `cacheHealthMinInputTokens`, and `cacheHealthReminderMinutes`. Older clients and partial updates preserve omitted cache settings without saving environment overrides into those fields.
 
 Every five minutes the service examines up to three completed ten-minute buckets, with a two-minute settlement delay. Buckets are processed chronologically once per account generation/provider/physical model and per provider/physical model. The physical model prefers recorded response usage over routing fallbacks. State and alert history are committed together; only the winning evaluator publishes. Persisted streaks support durations longer than the thirty-minute catchup bound. Restarting does not replay older traffic, and missing buckets break incomplete streaks without recovering an active incident. Policy changes reset incompatible incomplete streaks. No cache scan is performed on an inference request.
 
@@ -980,7 +972,7 @@ Member notices are reset events for HoV members: new banked resets, a wave of ba
 | `MEMBER_NOTICE_WEBHOOK_URL` | `https` address of the receiver's intake route. Unset or empty means member notices are off. The config file key is `member_notice_webhook_url` | unset |
 | `MEMBER_NOTICE_SIGNING_SECRET` | The secret each request is signed with. The receiver holds the same value. The config file key is `member_notice_signing_secret` | unset |
 
-For both, the environment variable wins over the config file key, including when it is set to an empty value. Neither has an API or dashboard setter, and the settings API never returns either value. `GET /api/insights/alerts/config` reports only `memberNotices.state`:
+For both, the environment variable wins over the config file key, including when it is set to an empty value. Neither has an API or dashboard setter, and the settings API never returns either value. `GET /api/alerts/config` reports only `memberNotices.state`:
 
 - `off`: no address is set.
 - `invalid_address`: the address is not an `https` URL. This is checked before the secret.
@@ -1043,10 +1035,12 @@ HoV Router maintains a cache of the Anthropic model catalog (id, display name, c
 
 ### Why this isn't fetched from every account
 
-A consumer OAuth account (`claude-oauth` mode) is meant for interactive Claude Code traffic. Recurring background API calls — and the proactive OAuth token refreshes they can trigger — are an atypical automation pattern for that account type and risk a flag or ban. API-key accounts (`console`, `zai`, `minimax`, `muse-spark`, `anthropic-compatible`, `openai-compatible`) are the sanctioned surface for unattended, programmatic requests. Because of this, the model catalog refresh is deliberately restrictive by default:
+A consumer OAuth account (`claude-oauth` mode) is meant for Claude Code traffic. Recurring background API calls made by Router itself — and the proactive OAuth token refreshes they can trigger — are an atypical automation pattern for that account type and risk a flag or ban. API-key accounts (`console`, `zai`, `minimax`, `muse-spark`, `anthropic-compatible`, `openai-compatible`) are the sanctioned surface for unattended, programmatic requests. Because of this, the model catalog refresh is deliberately restrictive by default:
+
+The catalog implementation lists models (`/v1/models`), not inference. It prefers an eligible Anthropic Console API-key account over OAuth regardless of priority and excludes paused accounts and custom endpoints. The following describes its existing behavior, not an exception to the [subscription-account usage rule](../AGENTS.md):
 
 - **Scheduled (automatic) refresh**: only console/API-key accounts are eligible, unless `BETTER_CCFLARE_MODELS_OAUTH_REFRESH=1` (or the `model_catalog_oauth_refresh_enabled` config field) opts in to an OAuth fallback.
-- **Manual refresh** (`POST /api/models/refresh`, human-triggered from the dashboard or `curl`): always allows the OAuth fallback in addition to console accounts, since a one-off manual action doesn't carry the same recurring-automation risk.
+- **Manual refresh** (`POST /api/models/refresh`, human-triggered from the dashboard or `curl`): always allows the OAuth fallback in addition to console accounts, regardless of the scheduled-refresh setting.
 - If no eligible account exists at all, a refresh (scheduled or manual) is a no-op — the existing cached catalog (live or bundled fallback) is left untouched; it's never emptied or errored out.
 
 ### Refresh cadence
@@ -1120,12 +1114,14 @@ Note: The API response uses camelCase (`sessionDurationMs`) while the configurat
 GET /api/config/strategy
 ```
 
-Response:
+Example response (strategy field):
 ```json
 {
   "strategy": "session"
 }
 ```
+
+The response also includes `strategySource`, describing the effective value's source and whether an environment override locks the setting.
 
 #### Update Strategy
 ```http
@@ -1150,19 +1146,7 @@ Response:
 GET /api/strategies
 ```
 
-Response:
-```json
-["session", "least-used", "session-affinity", "session-drain-soonest"]
-```
-
-The `session-drain-soonest` strategy is opt-in. It preserves the current
-session-affinity owner and route/profile class; a fresh assignment or account
-failover ranks candidates by weekly pace band, then a known future
-`weekly_all`/`seven_day` reset. Besides normal failover, an existing owner also
-moves when a same-tier account reaches a higher pace band (Codex owners stay; Anthropic owners get a
-bounded warm-cache hold). See [Drain ordering](load-balancing.md#drain-ordering).
-Missing, malformed, or past reset telemetry falls back to the ordinary affinity
-ranking.
+Returns a JSON array of registered strategy names. See [available strategies](load-balancing.md#available-strategies) for the current values and [Drain ordering](load-balancing.md#drain-ordering) for reset, pressure, and owner-retention behavior.
 
 ### Runtime Update Behavior
 

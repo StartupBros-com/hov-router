@@ -86,7 +86,7 @@ bun run cli --add-account myaccount --mode max --priority 0
 ```bash
 # Environment variables for development
 export PORT=8080
-export LB_STRATEGY=session  # session (default), least-used, session-affinity, or session-drain-soonest (opt-in)
+export LB_STRATEGY=session  # Default; see docs/load-balancing.md for supported alternatives
 export LOG_LEVEL=DEBUG
 export LOG_FORMAT=pretty  # Options: pretty, json
 
@@ -335,7 +335,7 @@ server {
     # Dashboard live updates use Server-Sent Events. Without this block nginx
     # buffers them, so events and the 20-second keepalives arrive late.
     # The $ anchor leaves the /stream/token POSTs under location /.
-    location ~ ^/api/(requests|logs|insights/alerts)/stream$ {
+    location ~ ^/api/(requests|logs|alerts)/stream$ {
         proxy_pass http://better-ccflare_backend;
         proxy_buffering off;
         proxy_cache off;

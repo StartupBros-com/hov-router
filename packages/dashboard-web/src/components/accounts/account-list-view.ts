@@ -9,19 +9,11 @@ import { accountUsageWindows } from "./account-usage-windows";
 import { displayLabel } from "./rate-limit-helpers";
 export const ACCOUNT_SORTS = [
 	["priority", "Routing priority"],
-	["name", "Name A–Z"],
 	["next-reset", "Next reset (soonest)"],
-	["weekly-reset", "Weekly reset (soonest)"],
-	["five-hour-reset", "5-hour reset (soonest)"],
-	["weekly-remaining", "Weekly used (lowest first)"],
-	["five-hour-remaining", "5-hour used (lowest first)"],
 ] as const;
 export type AccountListSort = (typeof ACCOUNT_SORTS)[number][0];
-export function accountSortWindow(
-	account: Account,
-	sort: AccountListSort,
-	now = Date.now(),
-) {
+/** The account's soonest future window reset, which the next-reset sort orders by. */
+export function accountNextReset(account: Account, now = Date.now()) {
 	const { usages } = accountUsageWindows(
 		{
 			resetIso: account.rateLimitReset,
@@ -34,45 +26,28 @@ export function accountSortWindow(
 		},
 		now,
 	);
-	const remaining = sort.endsWith("remaining");
 	return (
 		usages
 			.filter((row) => {
-				if (!row.window) return false;
-				if (
-					sort.startsWith("weekly") &&
-					!["seven_day", "weekly", "tokens_limit_weekly"].includes(row.window)
-				)
-					return false;
-				if (
-					sort.startsWith("five-hour") &&
-					!["five_hour", "tokens_limit"].includes(row.window)
-				)
-					return false;
 				const reset = row.resetTime ? Date.parse(row.resetTime) : NaN;
-				return (
-					Number.isFinite(reset) &&
-					reset > now &&
-					(!remaining ||
-						(typeof row.utilization === "number" &&
-							Number.isFinite(row.utilization) &&
-							row.utilization >= 0))
-				);
+				return !!row.window && Number.isFinite(reset) && reset > now;
 			})
 			.map((row) => ({
 				label: displayLabel(row),
 				resetTime: row.resetTime ?? "",
-				value: remaining
-					? Math.max(0, Math.min(100, row.utilization ?? 0))
-					: Date.parse(row.resetTime ?? ""),
+				value: Date.parse(row.resetTime ?? ""),
 			}))
 			.sort((a, b) => a.value - b.value)[0] ?? null
 	);
 }
 
-export type AccountListStatus = "all" | "attention" | "paused";
-type AttentionReason = "reconnect" | "limited" | "refresh" | "routing";
+export type AttentionReason = "reconnect" | "refused" | "payment" | "routing";
 
+/**
+ * What the operator has to do for this account, if anything. A usage limit,
+ * router cooldown, pacing or delayed usage poll clears on its own, and the
+ * row's pill and bars already show it, so none of them counts here.
+ */
 function accountAttentionReason(
 	account: Account,
 	routing: readonly AccountFamilyRoutingState[] = [],
@@ -80,19 +55,11 @@ function accountAttentionReason(
 ): AttentionReason | null {
 	const status = classifyAccountStatus(account, now);
 	if (status.reauth) return "reconnect";
-	if (status.capacityAttention) return "limited";
-	if (status.refreshDelayed) return "refresh";
+	// Anthropic refusing the organization: billing or Claude Code access on claude.ai.
+	if (status.reason === "refused") return "refused";
+	// The provider wants payment (402): billing or credits for this account.
+	if (status.reason === "payment") return "payment";
 	if (routing.some(routingNeedsReview)) return "routing";
-	// A family the router skips here is a limit; the row names it with "at limit".
-	if (
-		routing.some(
-			(state) =>
-				state.availability !== null &&
-				state.availability !== "available" &&
-				state.availability !== "paused",
-		)
-	)
-		return "limited";
 	return null;
 }
 
@@ -108,42 +75,38 @@ export function accountListView(
 	accounts: readonly Account[],
 	filters: {
 		search?: string;
-		provider?: string;
-		status?: AccountListStatus;
+		attentionOnly?: boolean;
 		sort?: AccountListSort;
 	} = {},
 	routing: Readonly<Record<string, readonly AccountFamilyRoutingState[]>> = {},
 	now = Date.now(),
 ) {
 	const search = filters.search?.trim().toLowerCase() ?? "";
-	const attentionReasons = { reconnect: 0, limited: 0, refresh: 0, routing: 0 };
+	const attentionReasons: Record<AttentionReason, number> = {
+		reconnect: 0,
+		refused: 0,
+		payment: 0,
+		routing: 0,
+	};
+	let attention = 0;
 	for (const account of accounts) {
 		const reason = accountAttentionReason(account, routing[account.id], now);
-		if (reason) attentionReasons[reason]++;
+		if (!reason) continue;
+		attentionReasons[reason]++;
+		attention++;
 	}
+	// Once nothing needs the operator, the attention view has nothing to show.
+	const attentionOnly = !!filters.attentionOnly && attention > 0;
 	return {
-		counts: {
-			all: accounts.length,
-			attention:
-				attentionReasons.reconnect +
-				attentionReasons.limited +
-				attentionReasons.refresh +
-				attentionReasons.routing,
-			paused: accounts.filter((a) => a.paused).length,
-		},
+		counts: { all: accounts.length, attention },
 		attentionReasons,
-		providers: [...new Set(accounts.map((a) => a.provider))].sort(),
+		attentionOnly,
 		accounts: accounts
 			.filter(
 				(a) =>
 					(!search ||
 						`${a.name}\n${a.provider}`.toLowerCase().includes(search)) &&
-					(!filters.provider || a.provider === filters.provider) &&
-					(filters.status === "attention"
-						? needsAccountAttention(a, routing[a.id], now)
-						: filters.status === "paused"
-							? a.paused
-							: true),
+					(!attentionOnly || needsAccountAttention(a, routing[a.id], now)),
 			)
 			.sort((a, b) => {
 				const sort = filters.sort ?? "priority";
@@ -156,10 +119,8 @@ export function accountListView(
 						a.priority - b.priority ||
 						a.name.toLowerCase().localeCompare(b.name.toLowerCase())
 					);
-				if (sort === "name")
-					return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-				const left = accountSortWindow(a, sort, now)?.value;
-				const right = accountSortWindow(b, sort, now)?.value;
+				const left = accountNextReset(a, now)?.value;
+				const right = accountNextReset(b, now)?.value;
 				return left == null
 					? right == null
 						? 0

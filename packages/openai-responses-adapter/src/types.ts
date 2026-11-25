@@ -89,8 +89,20 @@ export interface FunctionCallItem {
 export interface FunctionCallOutputItem {
 	type: "function_call_output";
 	call_id: string;
-	output: string; // JSON string
+	// A string, or content parts (see ToolOutputContent).
+	output: string | ToolOutputContent[];
 }
+
+/**
+ * The parts a tool output may carry instead of a string: OpenAI types
+ * `function_call_output.output` and `custom_tool_call_output.output` as
+ * `string | Array<ResponseInputText | ResponseInputImage | ResponseInputFile>`.
+ * Codex CLI's Lite request shape sends custom tool results this way (#324).
+ */
+export type ToolOutputContent =
+	| InputTextContent
+	| InputImageContent
+	| { type: string; [key: string]: unknown };
 
 export interface CustomToolCallItem {
 	type: "custom_tool_call";
@@ -109,13 +121,8 @@ export interface CustomToolCallItem {
 export interface CustomToolCallOutputItem {
 	type: "custom_tool_call_output";
 	call_id: string;
-	// Real OpenAI shape (ResponseCustomToolCallOutput.output) is
-	// `string | Array<ResponseInputText | ResponseInputImage | ResponseInputFile>`.
-	// Only the string case is modeled/handled here; the array case would need
-	// its own content-block mapping into Anthropic's tool_result shape, which
-	// is out of scope for this fix (would mean adding real custom-tool
-	// support, not just fixing a field-name mismatch).
-	output: string;
+	// A string, or content parts (see ToolOutputContent).
+	output: string | ToolOutputContent[];
 }
 
 export interface LocalShellAction {

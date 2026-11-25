@@ -355,7 +355,7 @@ Do not send a replacement assignment or clear the combo, rules, Managed model, M
 - Treat JSON as a redacted reporting format; it must not include credentials, model mappings containing secrets, or raw authentication material.
 - Use `--json` with `routing` commands only; `--add-account --json` is rejected before creating an account.
 - Automate list, detail, and preview freely, but require explicit reviewed identifiers and confirmation for apply.
-- Never validate Managed routing by sending scripted inference to Anthropic or Codex. Use natural traffic and aggregate diagnostics for a live canary.
+- Use natural traffic and aggregate diagnostics for the Managed canary. A [bounded CLI route check](agent-setup.md#5-connect-claude-code-and-prove-the-route) does not replace that sample.
 
 ### Statistics and History
 
@@ -662,7 +662,7 @@ The SQLite database follows the same directory structure:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LB_STRATEGY` | Load balancing strategy (only 'session' is supported) | session |
+| `LB_STRATEGY` | Load balancing strategy; see [available strategies](load-balancing.md#available-strategies) | session |
 
 ### Retry Configuration
 

@@ -133,6 +133,15 @@ describe("getErrorMeta: router codes (#918)", () => {
 		expect(meta.description).toContain("cyber_policy");
 	});
 
+	test("an upstream_http value names the field the provider rejected (#324)", () => {
+		const meta = getErrorMeta(
+			"upstream_http_400 type=invalid_request_error code=unsupported_value param=input[0].type",
+		);
+		expect(meta.title).toContain("400");
+		expect(meta.description).toContain("unsupported_value");
+		expect(meta.description).toContain("rejected field input[0].type");
+	});
+
 	test("a midstream error names the stream's error type", () => {
 		const meta = getErrorMeta("anthropic_midstream_error:overloaded_error");
 		expect(meta.description).toContain("overloaded_error");

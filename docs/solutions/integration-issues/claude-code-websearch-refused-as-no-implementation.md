@@ -71,7 +71,7 @@ web_search has two lanes: the proven hosted lane (Codex, unchanged and fail-clos
 
 ## Verification
 
-No scripted request may reach a real Anthropic account (`AGENTS.md`). Tests use fake upstreams only (`websearch-native-passthrough.integration.test.ts`). After deploy, the operator runs one interactive WebSearch in Claude Code, then checks it read-only.
+A [tool-free route check](../../agent-setup.md#5-connect-claude-code-and-prove-the-route) does not exercise WebSearch. Automated passthrough tests use fake upstreams only (`websearch-native-passthrough.integration.test.ts`). After deploy, the operator runs one interactive WebSearch in Claude Code, then checks it read-only.
 
 **Served helpers carry no marker in `requests`**, except helpers of a profile with `webSearchHelper`: those record `routing_attempt_summary.webSearchHelper` (source profile, explicit or inherited, selected account, admission reason) whether served or refused. Admission is not proof that a search ran, so still check the transcript. Otherwise only a refusal records the routing decision (`routing_attempt_summary.decision.origin = "trusted_helper"`). A served helper stores the plain attempt summary, and production stores no request payloads. Do not count served helpers by token shape either: "large uncached input, no cache, one attempt" also matches WebFetch's summarizer requests. Start from the transcript instead:
 

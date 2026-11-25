@@ -88,6 +88,13 @@ export const REBUILD_RETRY_MS = 15_000;
  * made by another process sharing the database is picked up within this bound.
  */
 export const ROSTER_RECHECK_MS = 5_000;
+/**
+ * A build that takes this long logs its landing or rejection as a warning, so
+ * production, which logs at warn, records the builds that open gaps: a gap
+ * opens when two consecutive builds plus the CACHE_MS - REBUILD_LEAD_MS wait
+ * pass MAX_AGE_MS. Faster builds stay at info.
+ */
+export const SLOW_BUILD_MS = 60_000;
 /** Source clocks may lead this server by at most five seconds. */
 const CLOCK_SKEW_MS = 5_000;
 const timestamp = (value: number): boolean =>
@@ -171,6 +178,34 @@ class FeedUnavailable extends Error {
 	}
 }
 const log = new Logger("PublicSubscriptionValueHandler");
+
+/**
+ * Runs one account's valuation and logs how long it took, so a slow build can be
+ * traced to the account whose reads were slow. Logs the public id and position
+ * only; never the account name.
+ */
+async function timedAccountValuation<T>(
+	publicId: string,
+	index: number,
+	accounts: number,
+	valuation: () => Promise<T>,
+): Promise<T> {
+	const startedAt = performance.now();
+	let outcome = "failed";
+	try {
+		const value = await valuation();
+		outcome = "ok";
+		return value;
+	} finally {
+		log.info("Public subscription value account valued", {
+			id: publicId,
+			index,
+			accounts,
+			outcome,
+			ms: Math.round(performance.now() - startedAt),
+		});
+	}
+}
 
 /** A read-only, explicitly enrolled projection. Public requests never select accounts or periods. */
 export function createPublicSubscriptionValueHandler(
@@ -328,75 +363,81 @@ export function createPublicSubscriptionValueHandler(
 		// One account at a time: each open-window valuation is a heavy aggregate on
 		// the single-lane bulk reader, so they must never queue up together.
 		const subscriptions: PublicSubscriptionValue["subscriptions"] = [];
-		for (const mapping of mappings) {
+		for (const [index, mapping] of mappings.entries()) {
 			subscriptions.push(
-				await (async () => {
-					const [snapshot, open, closed] = await Promise.all([
-						context.dbOps.getLatestUsageSnapshot(
-							mapping.accountId,
-							"seven_day",
-						),
-						context.dbOps.getOpenUsageWindow(mapping.accountId, "seven_day"),
-						context.dbOps.listUsageWindows({
-							accountId: mapping.accountId,
-							windowKey: "seven_day",
-							closedOnly: true,
-							limit: CLOSED_READ_LIMIT,
-							startedAtOrAfter: mapping.accountCreatedAt,
-						}),
-					]);
-					const current =
-						open &&
-						open.startedAt >= mapping.accountCreatedAt &&
-						open.startedAt <= at &&
-						at < open.resetsAt
-							? await valueOpenWindow(context.dbOps, open, at)
+				await timedAccountValuation(
+					mapping.id,
+					index,
+					mappings.length,
+					async () => {
+						const [snapshot, open, closed] = await Promise.all([
+							context.dbOps.getLatestUsageSnapshot(
+								mapping.accountId,
+								"seven_day",
+							),
+							context.dbOps.getOpenUsageWindow(mapping.accountId, "seven_day"),
+							context.dbOps.listUsageWindows({
+								accountId: mapping.accountId,
+								windowKey: "seven_day",
+								closedOnly: true,
+								limit: CLOSED_READ_LIMIT,
+								startedAtOrAfter: mapping.accountCreatedAt,
+							}),
+						]);
+						const current =
+							open &&
+							open.startedAt >= mapping.accountCreatedAt &&
+							open.startedAt <= at &&
+							at < open.resetsAt
+								? await valueOpenWindow(context.dbOps, open, at)
+								: null;
+						// Check generation after every read, including live valuation: replaced
+						// accounts must never publish rows belonging to their prior generation.
+						const account = await context.dbOps.getAccount(mapping.accountId);
+						if (!account || account.created_at !== mapping.accountCreatedAt)
+							throw new FeedUnavailable("generation_mismatch", mapping.id);
+						// Roster mode: the row must still be published exactly as read.
+						if (
+							fromRoster &&
+							(account.public_value_enabled !== true ||
+								account.public_value_label !== mapping.label ||
+								account.public_value_id !== mapping.id ||
+								(account.public_value_plan ?? null) !==
+									(mapping.plan ?? null) ||
+								// A rename can make a stored label reveal the account name.
+								labelRevealsAccount(mapping.label, account))
+						)
+							throw new FeedUnavailable("roster_changed", mapping.id);
+						const observed = snapshot?.timestamp;
+						const provider =
+							account.provider === "codex" ? "openai" : account.provider;
+						if (!PROVIDER_PATTERN.test(provider))
+							throw new FeedUnavailable("bad_provider", mapping.id);
+						const plan = planFor(account.public_value_plan ?? null, at);
+						const currentWindow = current
+							? publicWindow(current, current.valueSoFarUsd, at)
 							: null;
-					// Check generation after every read, including live valuation: replaced
-					// accounts must never publish rows belonging to their prior generation.
-					const account = await context.dbOps.getAccount(mapping.accountId);
-					if (!account || account.created_at !== mapping.accountCreatedAt)
-						throw new FeedUnavailable("generation_mismatch", mapping.id);
-					// Roster mode: the row must still be published exactly as read.
-					if (
-						fromRoster &&
-						(account.public_value_enabled !== true ||
-							account.public_value_label !== mapping.label ||
-							account.public_value_id !== mapping.id ||
-							(account.public_value_plan ?? null) !== (mapping.plan ?? null) ||
-							// A rename can make a stored label reveal the account name.
-							labelRevealsAccount(mapping.label, account))
-					)
-						throw new FeedUnavailable("roster_changed", mapping.id);
-					const observed = snapshot?.timestamp;
-					const provider =
-						account.provider === "codex" ? "openai" : account.provider;
-					if (!PROVIDER_PATTERN.test(provider))
-						throw new FeedUnavailable("bad_provider", mapping.id);
-					const plan = planFor(account.public_value_plan ?? null, at);
-					const currentWindow = current
-						? publicWindow(current, current.valueSoFarUsd, at)
-						: null;
-					const closedWindows = closed.map((window) =>
-						publicWindow(toUsageWindowRecord(window), window.valueUsd, at),
-					);
-					return {
-						id: mapping.id,
-						label: mapping.label,
-						provider,
-						plan,
-						sourceObservedAt:
-							observed !== undefined &&
-							timestamp(observed) &&
-							observed >= mapping.accountCreatedAt &&
-							observed <= at + CLOCK_SKEW_MS
-								? observed
-								: null,
-						current: currentWindow,
-						completed: selectCompleted(closedWindows, at),
-						periods: buildPeriods(closedWindows, currentWindow, at),
-					};
-				})(),
+						const closedWindows = closed.map((window) =>
+							publicWindow(toUsageWindowRecord(window), window.valueUsd, at),
+						);
+						return {
+							id: mapping.id,
+							label: mapping.label,
+							provider,
+							plan,
+							sourceObservedAt:
+								observed !== undefined &&
+								timestamp(observed) &&
+								observed >= mapping.accountCreatedAt &&
+								observed <= at + CLOCK_SKEW_MS
+									? observed
+									: null,
+							current: currentWindow,
+							completed: selectCompleted(closedWindows, at),
+							periods: buildPeriods(closedWindows, currentWindow, at),
+						};
+					},
+				),
 			);
 		}
 		const body: PublicSubscriptionValue = {
@@ -508,20 +549,42 @@ export function createPublicSubscriptionValueHandler(
 	async function runBuild(
 		target: ReturnType<typeof feedTarget>,
 	): Promise<FeedCacheEntry> {
+		const startedAt = performance.now();
+		let bodyAgeMs: number | undefined;
+		log.info("Public subscription value build started", {
+			mode: target.source === "accounts" ? "accounts" : "env",
+			consecutiveFailures: failures,
+		});
 		try {
 			const at = now();
 			if (!timestamp(at)) throw new FeedUnavailable("clock");
 			const entry = await build(target, at);
 			const landedAt = now();
 			if (!timestamp(landedAt)) throw new FeedUnavailable("clock");
+			bodyAgeMs = landedAt - entry.body.generatedAt;
 			if (landedAt < entry.body.generatedAt || landedAt >= entry.expiresAt)
 				throw new FeedUnavailable("expired");
+			const ms = Math.round(performance.now() - startedAt);
+			log[ms >= SLOW_BUILD_MS ? "warn" : "info"](
+				"Public subscription value build landed",
+				{ ms, bodyAgeMs, accounts: entry.body.subscriptions.length },
+			);
 			cache = entry;
 			failures = 0;
 			retryNotBefore = 0;
 			armAhead(entry, landedAt);
 			return entry;
 		} catch (error) {
+			const ms = Math.round(performance.now() - startedAt);
+			log[ms >= SLOW_BUILD_MS ? "warn" : "info"](
+				"Public subscription value build rejected",
+				{
+					outcome:
+						error instanceof FeedUnavailable ? error.reason : "unexpected",
+					ms,
+					...(bodyAgeMs === undefined ? {} : { bodyAgeMs }),
+				},
+			);
 			const delay = noteFailure(error);
 			// Keep the feed warm when no request arrives; the delay doubles per failure.
 			if (cache) armRebuild(delay);
