@@ -59,34 +59,25 @@ export interface CacheParityWindow {
 	codexByAccountContinuity: CacheParityDimensionSummary[];
 }
 
+/**
+ * The live cache levers. The removed Codex levers (session keys, prefix
+ * sharding, the continuity percentage, the settle window, pacing bypass,
+ * explicit breakpoints, turn state and WebSocket) were reported here at fixed
+ * values until 7.0.0.
+ */
 export interface CacheParityPolicySnapshot {
 	promptCacheKeyEnabled: boolean;
 	cacheKeyMode: "conversation" | "session";
-	cacheKeySessionPercent: number;
-	cacheKeyContinuityPercent: number;
-	cacheKeyPrefixShardPercent: number;
 	pacingMs: number;
-	codexSettleMs: number;
-	pacingBypassPercent: number;
-	explicitBreakpointPercent: number;
-	explicitBreakpointSuppressedScopes: number;
-	turnStatePercent: number;
-	turnStateObserveOnly: boolean;
-	webSocketPercent: number;
 	globalKeepaliveTtlMinutes: number;
 	xaiCacheKeepaliveTtlMinutes: number;
 }
 
 /**
  * Levers a live {@link CacheParityPolicySnapshot} is compared against a
- * declared default for. Deliberately excludes
- * `explicitBreakpointSuppressedScopes`, which is an observed suppression
- * counter, not a settable lever with a declared intent.
+ * declared default for: every field of the snapshot.
  */
-export type CacheParityLeverKey = Exclude<
-	keyof CacheParityPolicySnapshot,
-	"explicitBreakpointSuppressedScopes"
->;
+export type CacheParityLeverKey = keyof CacheParityPolicySnapshot;
 
 /** A GitHub issue that owns a knowingly-live deviation from declared policy. */
 export interface CacheParityDeclaredAcknowledgement {
@@ -119,10 +110,6 @@ export interface CacheParityResponse {
 	};
 	backendCapability: {
 		endpoint: "chatgpt_subscription";
-		explicitBreakpoint:
-			| "not_requested"
-			| "treatment_requested"
-			| "unsupported_observed";
 	};
 	policy: CacheParityPolicySnapshot;
 	driftReport: CacheParityDriftReport;

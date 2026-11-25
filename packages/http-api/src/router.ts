@@ -584,8 +584,6 @@ export class APIRouter {
 		this.handlers.set("GET:/api/debug/cache-pacing", () =>
 			Response.json({
 				pacing_ms: readCachePacingMs(),
-				// The Codex settle window was removed; kept at 0 for one release.
-				codex_settle_ms: 0,
 				families: getCachePacingStats(),
 				routes: getCachePacingRouteStats(),
 			}),
