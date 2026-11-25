@@ -129,9 +129,6 @@ export function resolvePayloadView(
 const decodeBase64 = (str: string | null): string => {
 	if (!str) return "No data";
 	try {
-		if (str === "[streamed]") {
-			return "[Streaming data not captured]";
-		}
 		const binary = atob(str);
 		const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
 		return new TextDecoder("utf-8").decode(bytes);

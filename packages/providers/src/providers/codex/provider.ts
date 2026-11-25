@@ -995,7 +995,7 @@ function writeCodexStreamTerminalTrace(
 			state.model,
 			state.accountId,
 			state.modelContextSnapshot,
-		)?.rawContextWindow,
+		)?.maxContextWindow,
 		responseId: state.traceResponseId,
 		summary: summarizeCodexResponse(
 			state.traceNewToolCalls,
@@ -3859,7 +3859,7 @@ export class CodexProvider extends BaseProvider {
 		const contextWindowSize =
 			process.env[CODEX_EFFECTIVE_CONTEXT_ENV] === "1"
 				? capability.effectiveContextWindow
-				: capability.rawContextWindow;
+				: capability.maxContextWindow;
 
 		const inputTokens = usage?.input_tokens;
 		if (

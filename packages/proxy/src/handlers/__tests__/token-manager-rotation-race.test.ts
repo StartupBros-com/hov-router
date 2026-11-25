@@ -69,7 +69,6 @@ function makeContext(opts: {
 	refreshError?: Error;
 }) {
 	const queuedJobs: Array<() => Promise<void>> = [];
-	const setRequiresReauth = mock(async () => {});
 	const refreshCalls: Array<{ refreshTokenAtCall: string | null }> = [];
 	const refreshToken = mock(async (account: Account) => {
 		refreshCalls.push({ refreshTokenAtCall: account.refresh_token });
@@ -94,7 +93,6 @@ function makeContext(opts: {
 							refresh_token: "",
 						}),
 				),
-				setRequiresReauth,
 				updateAccountTokens: mock(async () => {}),
 				updateAccountTokensIfRefreshTokenMatches: mock(async () => true),
 				updateAccountTokensIfRefreshTokenAbsent: mock(async () => true),
@@ -107,7 +105,6 @@ function makeContext(opts: {
 			},
 		},
 		queuedJobs,
-		setRequiresReauth,
 		refreshToken,
 		refreshCalls,
 	};
@@ -287,7 +284,7 @@ describe("refreshAccessTokenSafe — benign race on invalid_grant", () => {
 			access_token: "stale",
 			expires_at: 1,
 		});
-		const { ctx, setRequiresReauth, queuedJobs } = makeContext({
+		const { ctx, queuedJobs } = makeContext({
 			refreshError: invalidGrant,
 		});
 		let call = 0;
@@ -309,7 +306,6 @@ describe("refreshAccessTokenSafe — benign race on invalid_grant", () => {
 		}
 
 		for (const job of queuedJobs) await job();
-		expect(setRequiresReauth).not.toHaveBeenCalled();
 		expect(events).toHaveLength(0);
 		expect(account.refresh_token).toBe("RT2-current");
 	});
@@ -330,7 +326,7 @@ describe("refreshAccessTokenSafe — benign race on invalid_grant", () => {
 			access_token: "also-expired",
 			expires_at: 2,
 		});
-		const { ctx, setRequiresReauth, queuedJobs } = makeContext({
+		const { ctx, queuedJobs } = makeContext({
 			refreshError: invalidGrant,
 		});
 		let call = 0;
@@ -343,7 +339,6 @@ describe("refreshAccessTokenSafe — benign race on invalid_grant", () => {
 		).rejects.toThrow();
 
 		for (const job of queuedJobs) await job();
-		expect(setRequiresReauth).not.toHaveBeenCalled();
 		expect(account.refresh_token).toBe("RT2-current");
 	});
 

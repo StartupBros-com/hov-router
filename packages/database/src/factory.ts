@@ -16,17 +16,9 @@ let dbPath: string | undefined;
 let runtimeConfig: RuntimeConfig | undefined;
 let migrationChecked = false;
 
-/**
- * The `fastMode` parameter is retained for backward compatibility with
- * callers (CLI commands, tests) that still pass it. It is now a no-op:
- * startup no longer runs `PRAGMA integrity_check`, so there's nothing
- * left to skip. Integrity is verified by the background scheduler — see
- * `packages/proxy/src/integrity-scheduler.ts`.
- */
 export function initialize(
 	dbPathParam?: string,
 	runtimeConfigParam?: RuntimeConfig,
-	_fastMode = false,
 ): void {
 	if (closing)
 		throw new Error(
@@ -47,7 +39,7 @@ export function initialize(
 	runtimeConfig = runtimeConfigParam;
 }
 
-export function getInstance(_fastMode?: boolean): DatabaseOperations {
+export function getInstance(): DatabaseOperations {
 	if (closing)
 		throw new Error(
 			"Database owner retiring; await closeAll() before replacement",
@@ -102,9 +94,7 @@ export function getInstance(_fastMode?: boolean): DatabaseOperations {
  * Get or create the database instance, running async initialization.
  * Use this in server startup code where async is available.
  */
-export async function getInstanceAsync(
-	_fastMode?: boolean,
-): Promise<DatabaseOperations> {
+export async function getInstanceAsync(): Promise<DatabaseOperations> {
 	const db = getInstance();
 	// Start the multi-instance guard and heartbeat
 	await db.initializeAsync();

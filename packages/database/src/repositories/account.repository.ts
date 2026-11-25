@@ -141,14 +141,6 @@ export class AccountRepository extends BaseRepository<Account> {
 		}
 	}
 
-	/** Compatibility alias retained for upstream repository tests and callers. */
-	async setRequiresReauth(accountId: string, value: boolean): Promise<void> {
-		await this.run(`UPDATE accounts SET requires_reauth = ? WHERE id = ?`, [
-			value ? 1 : 0,
-			accountId,
-		]);
-	}
-
 	async updateTokensIfRefreshTokenMatches(
 		accountId: string,
 		expectedRefreshToken: string,

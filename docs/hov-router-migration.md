@@ -146,6 +146,16 @@ A dashboard tab left open across the upgrade keeps calling the old paths, so its
 
 **Kept.** `policy` still reports `promptCacheKeyEnabled`, `cacheKeyMode`, `pacingMs`, `globalKeepaliveTtlMinutes` and `xaiCacheKeepaliveTtlMinutes`, and the verdict, windows and `backendCapability.endpoint` are unchanged. The removed levers' environment variables stay ignored, as listed under [Removed in 5.0.0](#removed-in-500).
 
+## Upgrade leftovers removed
+
+Release 7.0.0 no longer copies `~/.ccflare/workspaces.json`. Only the original
+ccflare before v1.2.28 wrote that path. Move it to
+`~/.better-ccflare/workspaces.json` by hand if you still need those workspaces.
+
+The guard no longer reads `GUARD_ALLOW_LEGACY_POOL_BODY`. Responses without the
+proxy recovery header are forwarded without retrying. Rollback validation now
+requires the guard body limits and systemd policies introduced in 3.6.0.
+
 ## Manual source updates
 
 Branded builds do not offer an actionable upstream update. Do not install a registry package or a tombii release to update this fork: those are upstream distributions, not HoV Router.

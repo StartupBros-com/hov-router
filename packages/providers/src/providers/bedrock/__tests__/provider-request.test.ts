@@ -46,9 +46,7 @@ mock.module("@better-ccflare/database", () => ({
 	DatabaseFactory: {
 		initialize: mock(() => {}),
 		reset: mock(() => {}),
-		getInstance: mock(() => ({
-			getDatabase: mock(() => ({})),
-		})),
+		getInstance: mock(() => ({})),
 	},
 	ModelTranslationRepository: mock(() => ({
 		findSimilar: mock(() => []),
