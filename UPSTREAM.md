@@ -81,6 +81,15 @@ would justify bringing it back.
   removed in 5.0.0 and answered with `410 Gone` (`packages/http-api/src/removed-endpoints.ts`).
   Upstream changes to these handlers are not ported. See
   [Removed in 5.0.0](docs/hov-router-migration.md#removed-in-500).
+- **The Insights page and everything under `/api/insights`** (the cache efficiency,
+  context composition and anomalies views and their `/api/insights/cache`,
+  `/context` and `/anomalies` endpoints, and the anomaly alert sweep with
+  `anomaly-insights.ts`): removed in 7.0.0 (#1012). The alert and cache-parity routes
+  moved unchanged to `/api/alerts` and `/api/cache-parity`, and every path under
+  `/api/insights` answers `410 Gone`. Upstream still serves its alert routes under
+  `/api/insights/alerts`, so map an alert fix onto `/api/alerts` and the Alerts page
+  rather than reviving the old paths. See
+  [Insights page removed](docs/hov-router-migration.md#insights-page-removed).
 - **Docker image publishing workflow:** removed earlier; the
   [Docker guide](docs/docker.md) builds from source.
 - **Wholesale-merge tooling** (`scripts/verify-upstream-sync-ledger.ts`,
