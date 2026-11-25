@@ -904,6 +904,17 @@ export NO_PROXY=localhost,127.0.0.1,internal.corp.com
 bun start
 ```
 
+## Testing OpenRouter
+
+Use this procedure only for an authorized check against a test instance. It does not authorize paid usage or a request to an Anthropic subscription account.
+
+1. Identify the test server and the database/configuration it actually uses. In that instance's dashboard or authenticated `GET /api/accounts`, verify an available account whose provider is `openrouter`. Record its nonempty ID. Do not look it up in the default production database for a different server.
+2. Read OpenRouter's [current model catalog](https://openrouter.ai/api/v1/models). Choose a currently available `:free` model and check its pricing; do not reuse an old slug or substitute its paid variant when it is unavailable.
+3. Send a small `POST /v1/messages` to that test instance with its API key, the selected model, a short message, `max_tokens: 10`, and `x-better-ccflare-account-id` set to the verified ID. Stop before sending if the ID or free-model choice is missing. Do not retry without the force-route header or against a different provider.
+4. Check the matching Requests row for the intended account/model and a successful outcome. For a streaming check, add `stream: true` and require a completed stream ending in `message_stop`; HTTP 200 or partial bytes alone are not enough.
+
+An empty account lookup can leave a request unpinned. Verifying the account on the target instance is part of this check, not an optional convenience. For native Claude Code checks, follow [agent setup](agent-setup.md#claude-automation-and-credentials) instead.
+
 ## FAQ
 
 ### Q: How do I know if HoV Router is working?
@@ -928,7 +939,7 @@ Expected response:
 
 ### Q: Can I use HoV Router with multiple client applications?
 
-**A**: Yes, HoV Router acts as a transparent proxy. Point any Claude API client to `http://localhost:8080` instead of `https://api.anthropic.com`.
+**A**: Yes, multiple clients can share Router, but the destination must permit that client and credential type. This repository's Anthropic subscription accounts take traffic only from the unmodified Claude Code binary, including headless use. Other API clients must use an appropriate non-Anthropic account and explicit routing; see [agent setup](agent-setup.md#claude-automation-and-credentials).
 
 ### Q: How do I backup my accounts?
 

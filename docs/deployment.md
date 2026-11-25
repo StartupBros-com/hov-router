@@ -86,7 +86,7 @@ bun run cli --add-account myaccount --mode max --priority 0
 ```bash
 # Environment variables for development
 export PORT=8080
-export LB_STRATEGY=session  # session (default), least-used, session-affinity, or session-drain-soonest (opt-in)
+export LB_STRATEGY=session  # Default; see docs/load-balancing.md for supported alternatives
 export LOG_LEVEL=DEBUG
 export LOG_FORMAT=pretty  # Options: pretty, json
 
