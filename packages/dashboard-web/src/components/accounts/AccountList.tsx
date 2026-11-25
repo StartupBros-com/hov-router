@@ -226,6 +226,7 @@ export function AccountList(props: AccountListProps) {
 const ATTENTION_REASON_TEXT: Record<AttentionReason, (n: number) => string> = {
 	reconnect: (n) => `${n} to reconnect`,
 	refused: (n) => `${n} refused by Anthropic`,
+	payment: (n) => `${n} ${n === 1 ? "needs" : "need"} billing`,
 	routing: (n) => `${n} routing decision${n === 1 ? "" : "s"} in Combos`,
 };
 

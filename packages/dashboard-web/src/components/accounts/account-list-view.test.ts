@@ -200,6 +200,10 @@ test("attention reasons count each account once and ignore view filters", () => 
 				paused: true,
 			}),
 			account("refused", { provider: "anthropic", usageOrgRefusedAt: 50 }),
+			account("billing", {
+				rateLimitedUntil: 101,
+				rateLimitedReason: "upstream_402_payment_required",
+			}),
 			account("throttle", { usageThrottledUntil: 101 }),
 			account("family-spent"),
 			account("routing"),
@@ -215,10 +219,11 @@ test("attention reasons count each account once and ignore view filters", () => 
 		100,
 	);
 	expect(view.accounts).toEqual([]);
-	expect(view.counts.attention).toBe(4);
+	expect(view.counts.attention).toBe(5);
 	expect(view.attentionReasons).toEqual({
 		reconnect: 2,
 		refused: 1,
+		payment: 1,
 		routing: 1,
 	});
 });
@@ -233,6 +238,24 @@ test("attention means operator action: a limit that clears on its own never coun
 			provider: "anthropic",
 			rateLimitedUntil: 101,
 			rateLimitedReason: "org_permission_denied",
+		},
+		// A 402 bench waits on billing or credits (#1025). Both shapes the API
+		// can send: its own retry label, and a provider-reported payment status.
+		{
+			rateLimitStatus: "Rate limited (5m)",
+			rateLimitedUntil: 101,
+			rateLimitedReason: "upstream_402_payment_required",
+		},
+		{
+			rateLimitStatus: "payment_required (5m)",
+			rateLimitedUntil: 101,
+			rateLimitedReason: "upstream_402_payment_required",
+		},
+		// The expiry sweep lifted the bench, and nothing has served since.
+		{
+			rateLimitedUntil: null,
+			rateLimitedAt: 40,
+			rateLimitedReason: "upstream_402_payment_required",
 		},
 	];
 	for (const patch of operatorAction)
@@ -254,20 +277,14 @@ test("attention means operator action: a limit that clears on its own never coun
 		{ usageThrottledUntil: 101 },
 		// A delayed usage poll is the router's to retry.
 		{ usageRateLimitedUntil: 101 },
-		// A 402 bench is timed and the router retries it. Its status pill reads
-		// "Cooling down" whatever the provider reported, so counting it would point
-		// at a pill that does not name the cause. Both shapes the API can send:
-		// its own retry label, and a provider-reported payment status.
+		// After a request is served past the 402 (rate_limited_at cleared), the
+		// stored reason stays behind and no longer counts. xAI's 402 is a
+		// capacity signal.
 		{
-			rateLimitStatus: "Rate limited (5m)",
-			rateLimitedUntil: 101,
+			rateLimitedUntil: 99,
 			rateLimitedReason: "upstream_402_payment_required",
 		},
-		{
-			rateLimitStatus: "payment_required (5m)",
-			rateLimitedUntil: 101,
-			rateLimitedReason: "upstream_402_payment_required",
-		},
+		{ rateLimitedUntil: 101, rateLimitedReason: "xai_capacity_402" },
 	];
 	for (const patch of clearsOnItsOwn)
 		expect(needsAccountAttention(account("a", patch), [], now)).toBe(false);

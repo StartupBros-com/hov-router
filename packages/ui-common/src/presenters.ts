@@ -38,6 +38,12 @@ export class AccountPresenter {
 						: "rate_limited_reason" in a
 							? a.rate_limited_reason
 							: null,
+				rateLimitedAt:
+					"rateLimitedAt" in a
+						? a.rateLimitedAt
+						: "rate_limited_at" in a
+							? a.rate_limited_at
+							: null,
 				rateLimitStatus: this.rateLimitStatus,
 			},
 			this.now,
