@@ -8,14 +8,14 @@ component: frontend
 severity: medium
 applies_when:
   - Adding a status, limit, hold, notice or control to the collapsed Accounts row
-  - Changing what the Accounts header counts as a routing notice or a limit
+  - Changing what the Accounts header counts as needing attention
   - Writing row heights or other layout measurements into a dashboard PR description
 root_cause: incorrect_assumption
 resolution_type: code_fix
 related_components:
   - account status classifier
   - combo routing states
-  - Accounts header filters
+  - Accounts attention summary
 tags:
   - dashboard
   - accounts-page
@@ -66,7 +66,7 @@ Before adding anything to the row, ask these in order and stop at the first yes:
 Two signs that a fact has two homes:
 
 - **A rule that hides one line when another is present.** #887's "drop the at-limit line when a plain notice exists" needed three exceptions, and #897 replaced it within hours. Remove one home instead of adding a suppression rule.
-- **A header count that a line exists to satisfy.** `accountAttentionReason` in `account-list-view.ts` counts a row as "routing" when `routingNeedsReview` holds, and as "limited" when any family's availability is neither available nor paused. When a line moves or goes, change its count in the same PR, so no count points at a line the row no longer shows. #887 kept the notices only because the count pointed at them.
+- **A header count that a line exists to satisfy.** `accountAttentionReason` in `account-list-view.ts` counts only what the operator must do: "reconnect" (the Reconnect required pill), "refused" (the Anthropic refused pill and its hint) and "routing" (`routingNeedsReview`, the notice line). A limit, cooldown, pacing or delayed usage poll clears on its own and is not counted; the pill, bars and at-limit line already show it. When a line moves or goes, change its count in the same PR, so no count points at a line the row no longer shows. #887 kept the notices only because the count pointed at them.
 
 ## Why This Matters
 
@@ -79,7 +79,7 @@ Not yet seen live as of PR #897: a Ready row's "at limit" family names (no live 
 ## When to Apply
 
 - Adding any status, limit, hold, notice or control to the collapsed row in `AccountListItem.tsx`, including the priority editing that #898 proposes.
-- Changing the header filters or their counts in `account-list-view.ts`.
+- Changing the attention summary, its count or the list's search and sort in `account-list-view.ts`.
 - Adding a routing reason or availability value in `account-routing.ts`: decide whether it is a Combos decision (a notice) or a limit (the at-limit line) before rendering it.
 
 ## Examples

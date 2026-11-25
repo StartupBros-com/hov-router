@@ -8,9 +8,9 @@ import { AccountListItem } from "./AccountListItem";
 import {
 	ACCOUNT_SORTS,
 	type AccountListSort,
-	type AccountListStatus,
+	type AttentionReason,
 	accountListView,
-	accountSortWindow,
+	accountNextReset,
 } from "./account-list-view";
 import type { AccountFamilyRoutingState } from "./account-routing";
 
@@ -58,18 +58,22 @@ export function AccountList(props: AccountListProps) {
 	);
 	const [sort, setSort] = useState<AccountListSort>("priority");
 	const [search, setSearch] = useState("");
-	const [provider, setProvider] = useState("");
-	const [status, setStatus] = useState<AccountListStatus>("all");
+	const [attentionOnly, setAttentionOnly] = useState(false);
 	const view = accountListView(
 		accounts ?? [],
-		{ search, provider, status, sort },
+		{ search, attentionOnly, sort },
 		routingByAccountId,
 		now,
 	);
+	const filtered = search.trim() !== "" || view.attentionOnly;
+	// Once nothing needs attention the view shows every account; drop the choice
+	// too, so the next account that needs attention does not shrink the list.
+	useEffect(() => {
+		if (attentionOnly && !view.attentionOnly) setAttentionOnly(false);
+	}, [attentionOnly, view.attentionOnly]);
 	const clear = () => {
 		setSearch("");
-		setProvider("");
-		setStatus("all");
+		setAttentionOnly(false);
 	};
 	if (!accounts)
 		return (
@@ -88,93 +92,41 @@ export function AccountList(props: AccountListProps) {
 	return (
 		<div className="min-w-0 space-y-3">
 			{view.counts.attention > 0 && (
-				<section
-					aria-label="Attention across all accounts"
-					className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 px-3 py-2"
-				>
-					<div className="flex min-w-0 items-center gap-2">
-						<AlertCircle
-							aria-hidden="true"
-							className="h-4 w-4 shrink-0 text-destructive"
-						/>
-						<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-							<p className="text-sm font-medium">
-								{view.counts.attention}{" "}
-								{view.counts.attention === 1 ? "needs" : "need"} attention
-							</p>
-							<p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-								{[
-									view.attentionReasons.reconnect &&
-										`${view.attentionReasons.reconnect} to reconnect`,
-									view.attentionReasons.limited &&
-										`${view.attentionReasons.limited} limited or paced`,
-									view.attentionReasons.refresh &&
-										`${view.attentionReasons.refresh} usage refresh delayed`,
-									view.attentionReasons.routing &&
-										`${view.attentionReasons.routing} routing notice${view.attentionReasons.routing === 1 ? "" : "s"}`,
-								]
-									.filter(Boolean)
-									.map((reason) => (
-										<span key={String(reason)}>{reason}</span>
-									))}
-							</p>
-						</div>
-					</div>
-					<button
-						type="button"
-						className={cn(touchTargetClass, "px-3 text-sm")}
-						onClick={() => {
-							setSearch("");
-							setProvider("");
-							setStatus("attention");
-						}}
-					>
-						Review accounts
-					</button>
-				</section>
+				<AccountAttentionSummary
+					count={view.counts.attention}
+					reasons={view.attentionReasons}
+					showingOnlyAttention={view.attentionOnly}
+					onToggle={() => {
+						setSearch("");
+						setAttentionOnly(!view.attentionOnly);
+					}}
+				/>
 			)}
-			<div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
-				<div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row">
-					<label className="relative flex min-w-0 flex-1 items-center">
-						<Search
-							aria-hidden="true"
-							className="absolute left-3 h-4 w-4 text-muted-foreground"
-						/>
-						<span className="sr-only">Search accounts</span>
-						<input
-							type="search"
-							value={search}
-							onChange={(e) => setSearch(e.target.value)}
-							placeholder="Search name or provider"
-							className="h-11 w-full min-w-0 rounded-md border bg-background pl-9 pr-11 text-sm"
-						/>
-						{search && (
-							<button
-								type="button"
-								aria-label="Clear search"
-								onClick={() => setSearch("")}
-								className="absolute right-0 flex h-11 w-11 items-center justify-center"
-							>
-								<X className="h-4 w-4" />
-							</button>
-						)}
-					</label>
-					<label className="flex min-w-0 items-center gap-2 text-sm">
-						<span>Provider</span>
-						<select
-							value={provider}
-							onChange={(e) => setProvider(e.target.value)}
-							className="h-11 min-w-0 flex-1 rounded-md border bg-background px-3 sm:w-44"
+			<div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+				<label className="relative flex min-w-0 flex-1 items-center">
+					<Search
+						aria-hidden="true"
+						className="absolute left-3 h-4 w-4 text-muted-foreground"
+					/>
+					<span className="sr-only">Search accounts</span>
+					<input
+						type="search"
+						value={search}
+						onChange={(e) => setSearch(e.target.value)}
+						placeholder="Search name or provider"
+						className="h-11 w-full min-w-0 rounded-md border bg-background pl-9 pr-11 text-sm"
+					/>
+					{search && (
+						<button
+							type="button"
+							aria-label="Clear search"
+							onClick={() => setSearch("")}
+							className="absolute right-0 flex h-11 w-11 items-center justify-center"
 						>
-							<option value="">All providers</option>
-							{view.providers.map((p) => (
-								<option key={p} value={p}>
-									{p}
-								</option>
-							))}
-						</select>
-					</label>
-				</div>
+							<X className="h-4 w-4" />
+						</button>
+					)}
+				</label>
 				<label className="flex min-w-0 items-center gap-2 text-sm">
 					<span>Sort</span>
 					<select
@@ -189,35 +141,21 @@ export function AccountList(props: AccountListProps) {
 						))}
 					</select>
 				</label>
-				<fieldset
-					className="flex min-w-0 flex-wrap items-center gap-1 xl:col-span-full"
-					aria-label="Filter by account status"
-				>
-					{(
-						[
-							["all", "All"],
-							["attention", "Needs attention"],
-							["paused", "Paused"],
-						] as const
-					).map(([value, label]) => (
-						<button
-							type="button"
-							key={value}
-							aria-pressed={status === value}
-							onClick={() => setStatus(value)}
-							className={`${touchTargetClass} whitespace-nowrap rounded-md border px-2 text-xs ${status === value ? "border-foreground/30 bg-background font-medium" : "border-transparent text-muted-foreground hover:bg-muted"}`}
-						>
-							{label}{" "}
-							<span className="ml-1 tabular-nums">{view.counts[value]}</span>
-						</button>
-					))}
-				</fieldset>
 			</div>
-			<div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+			{/* The live region stays mounted so the count is announced when a filter starts. */}
+			<div
+				className={
+					filtered
+						? "flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground"
+						: "sr-only"
+				}
+			>
 				<p role="status">
-					Showing {view.accounts.length} of {accounts.length} accounts
+					{filtered
+						? `Showing ${view.accounts.length} of ${accounts.length} accounts`
+						: ""}
 				</p>
-				{(search || provider || status !== "all") && (
+				{filtered && (
 					<button
 						type="button"
 						onClick={clear}
@@ -232,24 +170,16 @@ export function AccountList(props: AccountListProps) {
 			</div>
 			{sort !== "priority" && (
 				<p className="text-xs text-muted-foreground">
-					Sorting changes this view, not routing priority.
-					{sort.endsWith("reset") &&
-						" The highlighted reset determines the order. Missing or past resets appear last."}
+					Sorting changes this view, not routing priority. The highlighted reset
+					determines the order. Missing or past resets appear last.
 				</p>
 			)}
 			{view.accounts.length === 0 && (
 				<div className="rounded-lg border border-dashed p-6 text-center">
 					<p className="font-medium">No matching accounts</p>
 					<p className="mt-1 text-sm text-muted-foreground">
-						Try another name, provider, or status.
+						Try another name or provider.
 					</p>
-					<button
-						type="button"
-						onClick={clear}
-						className={cn(touchTargetClass, "px-3 text-sm underline")}
-					>
-						Clear filters
-					</button>
 				</div>
 			)}
 			<div className="overflow-hidden rounded-md border">
@@ -293,6 +223,63 @@ export function AccountList(props: AccountListProps) {
 	);
 }
 
+const ATTENTION_REASON_TEXT: Record<AttentionReason, (n: number) => string> = {
+	reconnect: (n) => `${n} to reconnect`,
+	refused: (n) => `${n} refused by Anthropic`,
+	routing: (n) => `${n} routing decision${n === 1 ? "" : "s"} in Combos`,
+};
+
+/**
+ * Accounts that need the operator to act, across all accounts. The button
+ * switches the list between those accounts and every account.
+ */
+export function AccountAttentionSummary({
+	count,
+	reasons,
+	showingOnlyAttention,
+	onToggle,
+}: {
+	count: number;
+	reasons: Readonly<Record<AttentionReason, number>>;
+	showingOnlyAttention: boolean;
+	onToggle: () => void;
+}) {
+	return (
+		<section
+			aria-label="Attention across all accounts"
+			className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 px-3 py-2"
+		>
+			<div className="flex min-w-0 items-center gap-2">
+				<AlertCircle
+					aria-hidden="true"
+					className="h-4 w-4 shrink-0 text-destructive"
+				/>
+				<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+					<p className="text-sm font-medium">
+						{count} {count === 1 ? "needs" : "need"} attention
+					</p>
+					<p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+						{(Object.keys(ATTENTION_REASON_TEXT) as AttentionReason[])
+							.filter((reason) => reasons[reason] > 0)
+							.map((reason) => (
+								<span key={reason}>
+									{ATTENTION_REASON_TEXT[reason](reasons[reason])}
+								</span>
+							))}
+					</p>
+				</div>
+			</div>
+			<button
+				type="button"
+				className={cn(touchTargetClass, "px-3 text-sm")}
+				onClick={onToggle}
+			>
+				{showingOnlyAttention ? "Show all accounts" : "Review accounts"}
+			</button>
+		</section>
+	);
+}
+
 /** Keep immutable keys and routing lookup together when filters change. */
 export function accountListItems(
 	{
@@ -310,9 +297,7 @@ export function accountListItems(
 			account={account}
 			now={now}
 			sortReset={
-				sort.endsWith("reset")
-					? accountSortWindow(account, sort, now)
-					: undefined
+				sort === "next-reset" ? accountNextReset(account, now) : undefined
 			}
 			settingsError={settingsErrors?.[account.id]}
 			routingStates={routingByAccountId?.[account.id]}
