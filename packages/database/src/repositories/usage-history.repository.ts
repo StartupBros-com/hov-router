@@ -161,7 +161,7 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 		toMs: number,
 		clusterToleranceMs: number,
 	): Promise<number[]> {
-		const rows = await this.queryMain<{ utilization: number }>(
+		const rows = await this.queryOffThread<{ utilization: number }>(
 			`SELECT utilization FROM usage_snapshots
 			 WHERE account_id = ? AND window_key = ?
 			   AND COALESCE(active, 1) = 1
@@ -170,6 +170,7 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 			   AND timestamp >= ? AND timestamp <= ?
 			 ORDER BY timestamp ASC, append_order ASC`,
 			[accountId, windowKey, resetsAt, clusterToleranceMs, fromMs, toMs],
+			"bulk",
 		);
 		return rows.map((row) => Number(row.utilization));
 	}
@@ -183,10 +184,11 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 		accountId: string,
 		windowKey: string,
 	): Promise<number | null> {
-		const row = await this.getMain<{ oldest: number | null }>(
+		const row = await this.getOffThread<{ oldest: number | null }>(
 			`SELECT MIN(timestamp) AS oldest FROM usage_snapshots
 			 WHERE account_id = ? AND window_key = ?`,
 			[accountId, windowKey],
+			"bulk",
 		);
 		return row?.oldest == null ? null : Number(row.oldest);
 	}
