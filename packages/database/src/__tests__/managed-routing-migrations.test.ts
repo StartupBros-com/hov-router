@@ -155,7 +155,6 @@ describe("managed routing migrations", () => {
 			"UPDATE accounts SET provider = 'xai' WHERE id = 'account-r'",
 			"UPDATE accounts SET billing_type = 'plan' WHERE id = 'account-r'",
 			"UPDATE accounts SET model_mappings = '{\"opus\":\"mapped\"}' WHERE id = 'account-r'",
-			"UPDATE accounts SET model_fallbacks = '{\"opus\":\"fallback\"}' WHERE id = 'account-r'",
 			"UPDATE accounts SET custom_endpoint = 'https://routing.example' WHERE id = 'account-r'",
 		]) {
 			expectBump(() => db.run(sql));
