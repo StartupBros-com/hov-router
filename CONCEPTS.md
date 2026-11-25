@@ -800,6 +800,18 @@ good. Once the worker has received a write, a fault leaves that write's outcome 
 caller gets the failure and the write is never re-run, because running it again could apply
 it twice.
 
+## API surface
+
+### Removed endpoint
+
+An API path the router once served and no longer does, which still answers every method with
+410 Gone, naming the release that removed it and its replacement when there is one.
+
+The answer is not a courtesy. An API path the router does not match is not refused: it is
+passed to the inference proxy, which can forward it upstream on a real account. A route that
+moved is a removed endpoint at its old path. A removed response field has no such answer and
+simply leaves the response.
+
 ## Flagged ambiguities
 
 - *Idle timeout* names several unrelated clocks: the client's own stream watchdog, the guard's
