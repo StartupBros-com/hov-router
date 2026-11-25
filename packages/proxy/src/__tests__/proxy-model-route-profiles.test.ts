@@ -18,6 +18,7 @@ import { SessionAffinityStrategy } from "@better-ccflare/load-balancer";
 import { handleResponsesRequest } from "@better-ccflare/openai-responses-adapter";
 import {
 	clearDerivedProviderModelDefaults,
+	CodexProvider,
 	usageCache,
 } from "@better-ccflare/providers";
 import type { Account, Agent } from "@better-ccflare/types";
@@ -365,7 +366,9 @@ function makeRegistry(
 	);
 }
 
-function makeCapabilityRegistry() {
+function makeCapabilityRegistry(
+	profileOverrides: Record<string, unknown> = {},
+) {
 	return new ModelRouteSessionRegistry(
 		parseModelRouteProfiles(
 			JSON.stringify([
@@ -377,6 +380,7 @@ function makeCapabilityRegistry() {
 					defaultEffort: "xhigh",
 					expectedProvider: "test-provider",
 					expectedPhysicalModel: "gpt-5.6-sol",
+					...profileOverrides,
 				},
 			]),
 		),
@@ -3629,6 +3633,78 @@ describe("catalog-role Codex route profiles", () => {
 			}),
 		);
 	}
+
+	it.each([
+		{ label: "explicit max", reasoning: { effort: "max" }, expected: "max" },
+		{ label: "no effort", reasoning: undefined, expected: "xhigh" },
+		{ label: "summary only", reasoning: { summary: "auto" }, expected: "xhigh" },
+		{ label: "invalid effort", reasoning: { effort: "extreme" }, expected: null },
+	])("uses $label from a Responses request on a Codex pool with a default", async ({
+		reasoning,
+		expected,
+	}) => {
+		const account = makeRoleAccount("responses-effort-codex");
+		account.model_mappings = JSON.stringify({ opus: "gpt-5.6-sol" });
+		const registry = makeCapabilityRegistry({ expectedProvider: "codex" });
+		const harness = makeRoleContext([account], registry);
+		const upstream = installCodexRoleUpstream(["gpt-5.6-sol"]);
+		await publish(upstream, account, harness.ctx, ["gpt-5.6-sol"]);
+		const request = new Request("https://proxy.local/v1/responses", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				model: CAPABILITY_PROFILE_MODEL,
+				input: "hello",
+				reasoning,
+			}),
+		});
+		const transform = CodexProvider.prototype.transformRequestBody;
+		const failures: unknown[] = [];
+		// The routing envelope may omit the resolver's specific validation error.
+		const transformSpy =
+			expected === null
+				? spyOn(CodexProvider.prototype, "transformRequestBody").mockImplementation(
+						async function (this: CodexProvider, ...args) {
+							try {
+								return await transform.apply(this, args);
+							} catch (error) {
+								failures.push(error);
+								throw error;
+							}
+						},
+					)
+				: undefined;
+		try {
+			const response = await handleResponsesRequest(
+				request,
+				new URL(request.url),
+				(syntheticRequest, url) =>
+					handleProxy(syntheticRequest, url, harness.ctx, "key-1"),
+				harness.ctx,
+				"key-1",
+			);
+			const responseText = await response.text();
+			if (expected === null) {
+				expect(response.ok, responseText).toBe(false);
+				expect(upstream.responses).toHaveLength(0);
+				expect(failures).toContainEqual(
+					expect.objectContaining({
+						code: "VALIDATION_ERROR",
+						field: "reasoning.effort",
+						message: expect.stringContaining("reasoning.effort must be one of"),
+					}),
+				);
+				return;
+			}
+			expect(response.status, responseText).toBe(200);
+			expect(await upstreamModels(upstream.responses)).toEqual(["gpt-5.6-sol"]);
+			expect(await fetchedJson(upstream.responses[0])).toMatchObject({
+				reasoning: { effort: expected },
+			});
+		} finally {
+			transformSpy?.mockRestore();
+		}
+	});
 
 	describe("plain Codex admission without a route profile", () => {
 		it("resolves a cold account's live catalog frontier for a family request on the first request", async () => {
