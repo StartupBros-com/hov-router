@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
 import type { Account } from "../../api";
 import {
+	ACCOUNT_SORTS,
 	accountListView,
-	accountSortWindow,
+	accountNextReset,
 	needsAccountAttention,
 } from "./account-list-view";
 
@@ -17,18 +18,23 @@ const account = (id: string, patch: Partial<Account> = {}) =>
 		...patch,
 	}) as Account;
 
+test("the list offers routing order and next reset, nothing else", () => {
+	expect(ACCOUNT_SORTS.map(([value]) => value)).toEqual([
+		"priority",
+		"next-reset",
+	]);
+});
+
 test("provider epoch windows share display normalization and generic resets include daily/monthly", () => {
 	const now = Date.now();
 	const reset = now + 3600000;
-	const cases: [string, unknown, string | null, string | null][] = [
+	const cases: [string, unknown][] = [
 		[
 			"minimax",
 			{
 				five_hour: { utilization: 20, resetAt: reset + 1 },
 				seven_day: { utilization: 30, resetAt: reset },
 			},
-			"Weekly",
-			"5-hour",
 		],
 		[
 			"zai",
@@ -37,8 +43,6 @@ test("provider epoch windows share display normalization and generic resets incl
 				tokens_limit_weekly: { percentage: 30, resetAt: reset },
 				time_limit: { percentage: 90, resetAt: reset + 2 },
 			},
-			"Weekly",
-			"5-hour",
 		],
 		[
 			"alibaba-coding-plan",
@@ -47,8 +51,6 @@ test("provider epoch windows share display normalization and generic resets incl
 				weekly: { percentUsed: 30, resetAt: reset },
 				monthly: { percentUsed: 40, resetAt: reset + 2 },
 			},
-			"Weekly",
-			"5-hour",
 		],
 		[
 			"nanogpt",
@@ -57,36 +59,26 @@ test("provider epoch windows share display normalization and generic resets incl
 				daily: { percentUsed: 0.2, resetAt: reset },
 				monthly: { percentUsed: 0.4, resetAt: reset + 2 },
 			},
-			null,
-			null,
 		],
 		[
 			"xai",
 			{
 				credits: { utilization: 30, resets_at: new Date(reset).toISOString() },
 			},
-			null,
-			null,
 		],
 	];
-	for (const [provider, usageData, weekly, five] of cases) {
+	for (const [provider, usageData] of cases) {
 		const a = account(provider, {
 			provider,
 			usageData: usageData as Account["usageData"],
 		});
-		expect(accountSortWindow(a, "next-reset", now)?.resetTime).toBe(
+		expect(accountNextReset(a, now)?.resetTime).toBe(
 			new Date(reset).toISOString(),
 		);
-		if (weekly === null)
-			expect(accountSortWindow(a, "weekly-reset", now)).toBeNull();
-		else expect(accountSortWindow(a, "weekly-reset", now)?.label).toBe(weekly);
-		if (five === null)
-			expect(accountSortWindow(a, "five-hour-reset", now)).toBeNull();
-		else expect(accountSortWindow(a, "five-hour-reset", now)?.label).toBe(five);
 	}
 });
 
-test("limits primary keeps scoped and code-review reset evidence out of account-wide weekly sorts", () => {
+test("the next reset names scoped weekly and code-review windows by their own labels", () => {
 	const now = Date.now();
 	const iso = (delta: number) => new Date(now + delta).toISOString();
 	const a = account("a", {
@@ -106,9 +98,7 @@ test("limits primary keeps scoped and code-review reset evidence out of account-
 			],
 		} as unknown as Account["usageData"],
 	});
-	expect(accountSortWindow(a, "next-reset", now)?.label).toBe("Fable (Weekly)");
-	expect(accountSortWindow(a, "weekly-reset", now)?.resetTime).toBe(iso(3000));
-	expect(accountSortWindow(a, "weekly-remaining", now)?.value).toBe(60);
+	expect(accountNextReset(a, now)?.label).toBe("Fable (Weekly)");
 	const codex = account("codex", {
 		usageData: {
 			...a.usageData,
@@ -116,36 +106,36 @@ test("limits primary keeps scoped and code-review reset evidence out of account-
 			code_review_resets_at: iso(500),
 		} as unknown as Account["usageData"],
 	});
-	expect(accountSortWindow(codex, "next-reset", now)?.label).toBe(
-		"Code Review",
-	);
-	expect(accountSortWindow(codex, "five-hour-remaining", now)).toBeNull();
+	expect(accountNextReset(codex, now)?.label).toBe("Code Review");
 });
 
-test("missing, partial and nonfinite utilization never become inferred remaining capacity", () => {
+test("a window with unknown utilization still sorts by its reset, and a retry time alone is no reset", () => {
 	const now = Date.now();
 	const reset = new Date(now + 3600000).toISOString();
-	for (const utilization of [null, undefined, NaN, Infinity]) {
+	for (const utilization of [null, undefined, NaN, Infinity, -1]) {
 		const a = account("a", {
 			provider: "anthropic",
 			usageData: {
 				seven_day: { utilization, resets_at: reset },
 			} as unknown as Account["usageData"],
 		});
-		expect(accountSortWindow(a, "weekly-reset", now)?.resetTime).toBe(reset);
-		expect(accountSortWindow(a, "weekly-remaining", now)).toBeNull();
+		expect(accountNextReset(a, now)?.resetTime).toBe(reset);
 	}
-	const a = account("a", { provider: "anthropic", rateLimitReset: reset });
-	expect(accountSortWindow(a, "five-hour-remaining", now)).toBeNull();
+	expect(
+		accountNextReset(
+			account("retry-only", { provider: "anthropic", rateLimitReset: reset }),
+			now,
+		),
+	).toBeNull();
 	const equal = [
 		account("first", { name: "Same" }),
 		account("second", { name: "same" }),
 	];
-	expect(accountListView(equal, { sort: "name" }).accounts[0]).toBe(equal[0]);
-	expect(accountListView(equal, { sort: "weekly-reset" }).accounts[1]).toBe(
-		equal[1],
+	expect(accountListView(equal, { sort: "next-reset" }).accounts).toEqual(
+		equal,
 	);
 });
+
 test("search trims and matches name/provider without mutating the input", () => {
 	const accounts = [
 		account("Beta"),
@@ -161,44 +151,46 @@ test("search trims and matches name/provider without mutating the input", () => 
 	).toEqual(["alpha"]);
 	expect(accounts.map((a) => a.id)).toEqual(["Beta", "alpha", "Other"]);
 });
-test("filters intersect, counts always cover all accounts", () => {
+
+test("search and the attention view intersect, and counts always cover all accounts", () => {
 	const accounts = [
 		account("paused", { paused: true }),
 		account("auth", { requiresReauth: true }),
+		account("auth-other", { requiresReauth: true, provider: "anthropic" }),
 		account("other", { provider: "anthropic" }),
 	];
 	const view = accountListView(accounts, {
-		provider: "codex",
-		status: "attention",
-		search: "auth",
+		attentionOnly: true,
+		search: "codex",
 	});
 	expect(view.accounts.map((a) => a.id)).toEqual(["auth"]);
-	expect(view.counts).toEqual({ all: 3, attention: 1, paused: 1 });
+	expect(view.attentionOnly).toBe(true);
+	expect(view.counts).toEqual({ all: 4, attention: 2 });
 	expect(accountListView(accounts, { search: "missing" }).accounts).toEqual([]);
 });
-test("reviewing attention restores the global set and paused includes reauth pauses", () => {
+
+test("the attention view lists only accounts that need the operator, in routing order", () => {
 	const accounts = [
 		account("auth", { paused: true, requiresReauth: true }),
 		account("lock", { provider: "anthropic", rateLimitStatus: "blocked" }),
+		account("refused", { provider: "anthropic", usageOrgRefusedAt: 50 }),
 		account("manual", { paused: true }),
 	];
-	const filtered = accountListView(accounts, {
-		search: "missing",
-		provider: "zai",
-	});
-	expect(filtered.counts).toEqual({ all: 3, attention: 2, paused: 2 });
 	expect(
-		accountListView(accounts, {
-			search: "",
-			provider: "",
-			status: "attention",
-		}).accounts.map((a) => a.id),
+		accountListView(accounts, { attentionOnly: true }, {}, 100).accounts.map(
+			(a) => a.id,
+		),
 		// Routing order lists the active account before the paused one.
-	).toEqual(["lock", "auth"]);
-	expect(
-		accountListView(accounts, { status: "paused" }).accounts.map((a) => a.id),
-	).toEqual(["auth", "manual"]);
+	).toEqual(["refused", "auth"]);
 });
+
+test("an attention view with nothing left to attend to lists every account", () => {
+	const accounts = [account("a"), account("b", { rateLimitedUntil: 200 })];
+	const view = accountListView(accounts, { attentionOnly: true }, {}, 100);
+	expect(view.attentionOnly).toBe(false);
+	expect(view.accounts.map((a) => a.id)).toEqual(["a", "b"]);
+});
+
 test("attention reasons count each account once and ignore view filters", () => {
 	const view = accountListView(
 		[
@@ -207,6 +199,7 @@ test("attention reasons count each account once and ignore view filters", () => 
 				pauseReason: "oauth_invalid_grant",
 				paused: true,
 			}),
+			account("refused", { provider: "anthropic", usageOrgRefusedAt: 50 }),
 			account("throttle", { usageThrottledUntil: 101 }),
 			account("family-spent"),
 			account("routing"),
@@ -215,110 +208,92 @@ test("attention reasons count each account once and ignore view filters", () => 
 		{ search: "missing" },
 		{
 			// A spent family is a limit, which the row names on its at-limit line;
-			// only a decision for Combos counts as a routing notice.
+			// only a decision for Combos counts.
 			"family-spent": [{ availability: "model_exhausted" } as never],
 			routing: [{ reason: "ambiguous" } as never],
 		},
 		100,
 	);
 	expect(view.accounts).toEqual([]);
-	expect(view.counts.attention).toBe(5);
+	expect(view.counts.attention).toBe(4);
 	expect(view.attentionReasons).toEqual({
 		reconnect: 2,
-		limited: 2,
-		refresh: 0,
+		refused: 1,
 		routing: 1,
 	});
 });
 
-test("attention respects real locks, throttling, auth and routing notices", () => {
-	for (const patch of [
+test("attention means operator action: a limit that clears on its own never counts", () => {
+	const now = 100;
+	const operatorAction: Partial<Account>[] = [
+		{ requiresReauth: true },
 		{ pauseReason: "oauth_invalid_grant" },
-		{ rateLimitStatus: "rate_limited" },
-		{ rateLimitedUntil: 101 },
-		{ usageRateLimitedUntil: 101 },
-		{ usageThrottledUntil: 101 },
-	])
-		expect(needsAccountAttention(account("a", patch), [], 100)).toBe(true);
-	for (const patch of [
+		{ provider: "anthropic", usageOrgRefusedAt: 50 },
+		{
+			provider: "anthropic",
+			rateLimitedUntil: 101,
+			rateLimitedReason: "org_permission_denied",
+		},
+	];
+	for (const patch of operatorAction)
+		expect(needsAccountAttention(account("a", patch), [], now)).toBe(true);
+	const clearsOnItsOwn: Partial<Account>[] = [
 		{},
 		{ priority: 0 },
-		{ rateLimitStatus: "allowed_warning" },
-		{ rateLimitedUntil: 99 },
 		{ paused: true },
-	])
-		expect(needsAccountAttention(account("a", patch), [], 100)).toBe(false);
+		{ paused: true, provider: "anthropic", usageOrgRefusedAt: 50 },
+		// Usage limits, router cooldowns and pacing all clear by themselves.
+		{ rateLimitStatus: "rate_limited" },
+		{ rateLimitStatus: "blocked" },
+		{ rateLimitStatus: "usage_exhausted (20m)" },
+		{ rateLimitStatus: "allowed_warning" },
+		{ rateLimitStatus: "queueing_soft" },
+		{ rateLimitStatus: "unknown future" },
+		{ rateLimitedUntil: 101 },
+		{ rateLimitedUntil: 99 },
+		{ usageThrottledUntil: 101 },
+		// A delayed usage poll is the router's to retry.
+		{ usageRateLimitedUntil: 101 },
+		// A 402 bench is timed and the router retries it. The row shows it only as
+		// "Cooling down", so counting it would point at a line that is not there.
+		{
+			rateLimitedUntil: 101,
+			rateLimitedReason: "upstream_402_payment_required",
+		},
+	];
+	for (const patch of clearsOnItsOwn)
+		expect(needsAccountAttention(account("a", patch), [], now)).toBe(false);
 	for (const state of [
 		{ reason: "ambiguous" },
 		{ reason: "new_billing_class" },
 		{ managedRouteAvailable: true },
-		{ availability: "model_exhausted" },
 	])
-		expect(needsAccountAttention(account("a"), [state as never], 100)).toBe(
+		expect(needsAccountAttention(account("a"), [state as never], now)).toBe(
 			true,
 		);
-	expect(
-		needsAccountAttention(account("a"), [{ availability: null } as never], 100),
-	).toBe(false);
-});
-
-test("a weekly fallback never masquerades as a missing five-hour window", () => {
-	const now = Date.now();
-	const reset = new Date(now + 3600000).toISOString();
-	const weeklyOnly = account("weekly-only", {
-		provider: "anthropic",
-		usageWindow: "seven_day",
-		usageUtilization: 40,
-		rateLimitReset: reset,
-		usageData: {
-			seven_day: { utilization: 40, resets_at: reset },
-		} as Account["usageData"],
-	});
-	expect(accountSortWindow(weeklyOnly, "five-hour-reset", now)).toBeNull();
-	expect(accountSortWindow(weeklyOnly, "five-hour-remaining", now)).toBeNull();
-	expect(accountSortWindow(weeklyOnly, "weekly-reset", now)?.resetTime).toBe(
-		reset,
-	);
-	expect(
-		accountSortWindow(
-			account("retry-only", { provider: "anthropic", rateLimitReset: reset }),
-			"next-reset",
-			now,
-		),
-	).toBeNull();
-});
-
-test("negative quota percentages do not imply spare capacity", () => {
-	const now = Date.now();
-	const reset = new Date(now + 3600000).toISOString();
-	const invalid = account("invalid", {
-		provider: "anthropic",
-		usageData: {
-			five_hour: { utilization: -1, resets_at: reset },
-			seven_day: { utilization: -1, resets_at: reset },
-		},
-	});
-	expect(accountSortWindow(invalid, "weekly-remaining", now)).toBeNull();
-	expect(accountSortWindow(invalid, "five-hour-remaining", now)).toBeNull();
+	for (const state of [
+		{ availability: "model_exhausted" },
+		{ availability: "rate_limited" },
+		{ availability: null },
+	])
+		expect(needsAccountAttention(account("a"), [state as never], now)).toBe(
+			false,
+		);
 });
 
 test("view sorts are stable, filtered, immutable and default to routing order", () => {
 	const input = [account("Zulu"), account("alpha"), account("Alpha")];
-	expect(
-		accountListView(input, { sort: "name" }).accounts.map((a) => a.id),
-	).toEqual(["alpha", "Alpha", "Zulu"]);
 	// Equal priorities fall back to the name, not to the API's request-count order.
 	expect(accountListView(input).accounts.map((a) => a.id)).toEqual([
 		"alpha",
 		"Alpha",
 		"Zulu",
 	]);
-	expect(
-		accountListView(input, { sort: "name", search: "alpha" }).counts.all,
-	).toBe(3);
+	expect(accountListView(input, { search: "alpha" }).counts.all).toBe(3);
 	expect(input.map((a) => a.id)).toEqual(["Zulu", "alpha", "Alpha"]);
 });
-test("reset and remaining sorts reject stale and invalid data and exclude scoped weekly", () => {
+
+test("the next-reset sort puts stale and invalid resets last", () => {
 	const now = Date.now();
 	const make = (id: string, reset: string, utilization: number) =>
 		account(id, {
@@ -334,32 +309,13 @@ test("reset and remaining sorts reject stale and invalid data and exclude scoped
 		make("soon", new Date(now + 3600000).toISOString(), 80),
 		make("invalid", "bad", NaN),
 	];
-	for (const sort of ["next-reset", "weekly-reset", "five-hour-reset"] as const)
-		expect(
-			accountListView(input, { sort }, {}, now).accounts.map((a) => a.id),
-		).toEqual(["soon", "later", "expired", "invalid"]);
-	for (const sort of ["weekly-remaining", "five-hour-remaining"] as const)
-		expect(
-			accountListView(input, { sort }, {}, now).accounts.map((a) => a.id),
-		).toEqual(["later", "soon", "expired", "invalid"]);
+	expect(
+		accountListView(input, { sort: "next-reset" }, {}, now).accounts.map(
+			(a) => a.id,
+		),
+	).toEqual(["soon", "later", "expired", "invalid"]);
 });
 
-test("attention separates exhausted capacity from usage refresh and expires locally", () => {
-	const now = 100000;
-	const exhausted = account("exhausted", {
-		rateLimitStatus: "usage_exhausted (20m)",
-	});
-	const refresh = account("refresh", { usageRateLimitedUntil: now + 1 });
-	expect(needsAccountAttention(exhausted, [], now)).toBe(true);
-	expect(
-		accountListView([refresh], {}, {}, now).attentionReasons,
-	).toMatchObject({ refresh: 1, limited: 0 });
-	expect(needsAccountAttention(refresh, [], now + 1)).toBe(false);
-	for (const rateLimitStatus of ["queueing_soft", "unknown future"])
-		expect(
-			needsAccountAttention(account("soft", { rateLimitStatus }), [], now),
-		).toBe(false);
-});
 test("routing priority lists active accounts first, then lower priority numbers, then names", () => {
 	// Primary and request counts change with every poll; ordering never reads them.
 	const input = [
@@ -382,7 +338,4 @@ test("routing priority lists active accounts first, then lower priority numbers,
 	expect(
 		accountListView(input, { sort: "priority" }).accounts.map((a) => a.id),
 	).toEqual(expected);
-	expect(
-		accountListView(input, { sort: "name" }).accounts.map((a) => a.id),
-	).toEqual(["Alpha", "beta", "gateway", "grok", "paused-high", "paused-low"]);
 });

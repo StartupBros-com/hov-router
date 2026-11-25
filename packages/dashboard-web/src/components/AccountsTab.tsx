@@ -1,4 +1,5 @@
 import type { AccountRoutingOverview } from "@better-ccflare/types";
+import { formatClockTime } from "@better-ccflare/ui-common";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { type Account, api } from "../api";
@@ -308,7 +309,9 @@ export function AccountsTab() {
 	const { formatError } = useApiError();
 	const {
 		data: accounts,
+		dataUpdatedAt: accountsLoadedAt,
 		isLoading: loading,
+		isFetching: accountsFetching,
 		error,
 		refetch: loadAccounts,
 	} = useAccounts();
@@ -835,11 +838,21 @@ export function AccountsTab() {
 					</>
 				}
 			/>
-			{error ? (
+			{error && accounts ? (
+				// A failed background refresh keeps the last accounts on screen.
+				<ErrorState
+					size="inline"
+					title="Couldn't refresh accounts"
+					message={`${formatError(error)} Showing accounts from ${formatClockTime(accountsLoadedAt, Date.now())}.`}
+					onRetry={() => void loadAccounts()}
+					retryDisabled={accountsFetching}
+				/>
+			) : error ? (
 				<ErrorState
 					title="Accounts could not load"
 					message={formatError(error)}
 					onRetry={() => void loadAccounts()}
+					retryDisabled={accountsFetching}
 				/>
 			) : (
 				actionError && (
@@ -885,31 +898,33 @@ export function AccountsTab() {
 						/>
 					)}
 
-					<AccountList
-						settingsErrors={settingsErrors}
-						onClearSettingsError={clearSettingsError}
-						accounts={accounts}
-						routingByAccountId={routingByAccountId}
-						onPauseToggle={handlePauseToggle}
-						onForceResetRateLimit={handleForceResetRateLimit}
-						onRefreshUsage={handleRefreshUsage}
-						onRemove={handleRemoveAccount}
-						onRename={handleRename}
-						onPriorityChange={handlePriorityChange}
-						onAutoFallbackToggle={handleAutoFallbackToggle}
-						onBillingTypeToggle={handleBillingTypeToggle}
-						onAutoPauseOnOverageToggle={handleAutoPauseOnOverageToggle}
-						onCodexCreditDrainToggle={handleCodexCreditDrainToggle}
-						onPublicValueToggle={handlePublicValueToggle}
-						onPublicValueEditLabel={handlePublicValueEditLabel}
-						onPeakHoursPauseToggle={handlePeakHoursPauseToggle}
-						onCustomEndpointChange={handleCustomEndpointChange}
-						onModelMappingsChange={handleModelMappingsChange}
-						onReauth={handleReauth}
-						onAnthropicReauth={handleAnthropicReauth}
-						onCodexReauth={handleCodexReauth}
-						onUseReset={setUseResetAccount}
-					/>
+					{(accounts || !error) && (
+						<AccountList
+							settingsErrors={settingsErrors}
+							onClearSettingsError={clearSettingsError}
+							accounts={accounts}
+							routingByAccountId={routingByAccountId}
+							onPauseToggle={handlePauseToggle}
+							onForceResetRateLimit={handleForceResetRateLimit}
+							onRefreshUsage={handleRefreshUsage}
+							onRemove={handleRemoveAccount}
+							onRename={handleRename}
+							onPriorityChange={handlePriorityChange}
+							onAutoFallbackToggle={handleAutoFallbackToggle}
+							onBillingTypeToggle={handleBillingTypeToggle}
+							onAutoPauseOnOverageToggle={handleAutoPauseOnOverageToggle}
+							onCodexCreditDrainToggle={handleCodexCreditDrainToggle}
+							onPublicValueToggle={handlePublicValueToggle}
+							onPublicValueEditLabel={handlePublicValueEditLabel}
+							onPeakHoursPauseToggle={handlePeakHoursPauseToggle}
+							onCustomEndpointChange={handleCustomEndpointChange}
+							onModelMappingsChange={handleModelMappingsChange}
+							onReauth={handleReauth}
+							onAnthropicReauth={handleAnthropicReauth}
+							onCodexReauth={handleCodexReauth}
+							onUseReset={setUseResetAccount}
+						/>
+					)}
 				</CardContent>
 			</Card>
 

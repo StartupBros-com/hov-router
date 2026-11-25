@@ -3,6 +3,7 @@ import type {
 	AccountRoutingOverview,
 	EffectiveComboRoutingView,
 } from "@better-ccflare/types";
+import { formatClockTime } from "@better-ccflare/ui-common";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Account } from "../api";
@@ -429,11 +430,45 @@ describe("AccountsTab production routing prop", () => {
 			</QueryClientProvider>,
 		);
 		expect(html).toContain('role="alert"');
+		expect(html).toContain("Accounts could not load");
 		expect(html).toContain(
 			"Network error. Please check your connection and try again.",
 		);
-		expect(html).toContain("Account data unavailable");
+		// The error says it once; no second "unavailable" line under it.
+		expect(html).not.toContain("Account data unavailable");
 		expect(html).not.toContain("No accounts yet");
+	});
+	it("keeps the last accounts on screen when a background refresh fails", () => {
+		const queryClient = new QueryClient({
+			defaultOptions: { queries: { retry: false, retryOnMount: false } },
+		});
+		const account = makeAccount();
+		const loadedAt = Date.now() - 120_000;
+		queryClient.setQueryData(queryKeys.accounts(), [account], {
+			updatedAt: loadedAt,
+		});
+		queryClient
+			.getQueryCache()
+			.find({ queryKey: queryKeys.accounts() })
+			?.setState({
+				error: new Error("Accounts fetch failed"),
+				errorUpdatedAt: Date.now(),
+				fetchStatus: "idle",
+			});
+		const html = renderToStaticMarkup(
+			<QueryClientProvider client={queryClient}>
+				<AccountsTab />
+			</QueryClientProvider>,
+		);
+		const visible = html.replace(/<[^>]*>/g, " ").replaceAll("&#x27;", "'");
+		expect(html).toContain('role="alert"');
+		expect(visible).toContain("Couldn't refresh accounts");
+		expect(visible).toContain(
+			`Showing accounts from ${formatClockTime(loadedAt, Date.now())}`,
+		);
+		expect(visible).toContain("Retry");
+		expect(visible).not.toContain("Accounts could not load");
+		expect(html).toContain(account.name);
 	});
 	it("renders AccountList family routing from the overview cache", () => {
 		const queryClient = new QueryClient({

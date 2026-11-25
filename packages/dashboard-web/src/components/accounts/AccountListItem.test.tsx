@@ -18,7 +18,11 @@ import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup as renderMarkup } from "react-dom/server";
 import type { Account } from "../../api";
 import { StatusPill } from "../ui/status-pill";
-import { AccountList, accountListItems } from "./AccountList";
+import {
+	AccountAttentionSummary,
+	AccountList,
+	accountListItems,
+} from "./AccountList";
 import {
 	AccountListItem,
 	CodexCreditDrainControl,
@@ -375,28 +379,33 @@ describe("account scan layout", () => {
 			renderToStaticMarkup(<AccountList accounts={[]} {...requiredHandlers} />),
 		).toContain("No accounts yet");
 	});
-	it("renders labeled scan controls and result count", () => {
+	it("renders a search box and one sort with two orders, and no other filters", () => {
 		const html = renderToStaticMarkup(
 			<AccountList accounts={[makeAccount()]} {...requiredHandlers} />,
 		);
 		for (const text of [
 			"Search accounts",
-			"All providers",
-			"Needs attention",
-			"Paused",
-			"Showing 1 of 1 accounts",
 			"Sort",
+			"Routing priority",
 			"Next reset (soonest)",
-			"Weekly reset (soonest)",
-			"5-hour reset (soonest)",
-			"Weekly used (lowest first)",
-			"5-hour used (lowest first)",
 			"Usage and resets",
-			'aria-pressed="true"',
+			'role="status"',
 		])
 			expect(html).toContain(text);
-		// The view-order explanation appears only after choosing a non-default sort.
-		expect(html).not.toContain("View order only");
+		for (const text of [
+			"All providers",
+			"Filter by account status",
+			"aria-pressed",
+			"Name A–Z",
+			"Weekly reset (soonest)",
+			"5-hour used (lowest first)",
+			// The result count shows only while something is filtered out.
+			"Showing 1 of 1 accounts",
+			"Clear filters",
+			// The view-order explanation appears only after choosing the other order.
+			"not routing priority",
+		])
+			expect(html).not.toContain(text);
 	});
 	it("collapses routine settings and family details while keeping recovery visible", () => {
 		const html = renderToStaticMarkup(
@@ -2492,10 +2501,59 @@ describe("compact hybrid list", () => {
 		);
 		expect(html).toContain('aria-label="Attention across all accounts"');
 		expect(html).toContain("1 needs attention");
+		expect(html).toContain("1 to reconnect");
 		expect(html).toContain("Review accounts");
 		expect(html).toContain("Router status");
 		expect(html).toContain("Usage and resets");
 		expect(withoutDetailsContent(html)).toContain("Usage unavailable");
+	});
+	it("shows no attention banner for accounts that are only at a limit", () => {
+		const now = Date.now();
+		const html = renderToStaticMarkup(
+			<AccountList
+				accounts={[
+					makeAccount({ id: "cooling", rateLimitedUntil: now + 600_000 }),
+					makeAccount({
+						id: "spent",
+						rateLimitStatus: "usage_exhausted (20m)",
+					}),
+					makeAccount({ id: "polling", usageRateLimitedUntil: now + 60_000 }),
+				]}
+				{...requiredHandlers}
+			/>,
+		);
+		expect(html).not.toContain("Attention across all accounts");
+		expect(html).not.toContain("attention");
+	});
+	it("names each kind of operator action and switches between the attention view and all accounts", () => {
+		const reasons = { reconnect: 1, refused: 2, routing: 1 };
+		const off = renderToStaticMarkup(
+			<AccountAttentionSummary
+				count={4}
+				reasons={reasons}
+				showingOnlyAttention={false}
+				onToggle={noop}
+			/>,
+		);
+		const visible = off.replace(/<[^>]*>/g, " ");
+		expect(visible).toContain("4 need attention");
+		expect(visible).toContain("1 to reconnect");
+		expect(visible).toContain("2 refused by Anthropic");
+		expect(visible).toContain("1 routing decision in Combos");
+		expect(off).toContain("Review accounts");
+		const on = renderToStaticMarkup(
+			<AccountAttentionSummary
+				count={1}
+				reasons={{ reconnect: 0, refused: 0, routing: 1 }}
+				showingOnlyAttention
+				onToggle={noop}
+			/>,
+		);
+		expect(on).toContain("Show all accounts");
+		expect(on).not.toContain("Review accounts");
+		// The summary keeps naming what to do while the list shows only those accounts.
+		expect(on).toContain("1 routing decision in Combos");
+		expect(on).not.toContain("to reconnect");
 	});
 	it("starts collapsed with a button controlling an inline account region", () => {
 		const html = renderClosedMarkup(
