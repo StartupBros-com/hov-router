@@ -275,6 +275,81 @@ describe("navigation identity", () => {
 	});
 });
 
+describe("navigation alert badge", () => {
+	const NOW = 1_800_000_000_000;
+	const HOUR = 60 * 60 * 1000;
+	const alert = (
+		id: string,
+		severity: "info" | "warning" | "critical",
+		ageHours: number,
+		acknowledged = false,
+	) => ({
+		id,
+		timestamp: NOW - ageHours * HOUR,
+		type: "auth_failure",
+		severity,
+		title: `Alert ${id}`,
+		message: "Made up for a badge check.",
+		value: null,
+		threshold: null,
+		account: null,
+		model: null,
+		project: null,
+		requestId: null,
+		acknowledged,
+	});
+	/** The Alerts nav item's badge text, or null when it shows no badge. */
+	const alertsBadge = (alerts: unknown[], unacknowledgedCount: number) => {
+		const queryClient = new QueryClient();
+		queryClient.setQueryData(
+			queryKeys.insightsAlerts(),
+			{ alerts, unacknowledgedCount },
+			{ updatedAt: NOW },
+		);
+		const theme = spyOn(themeContext, "useTheme").mockReturnValue({
+			theme: "light",
+			setTheme: () => {},
+		});
+		try {
+			const sidebar = renderToStaticMarkup(
+				<QueryClientProvider client={queryClient}>
+					<MemoryRouter>
+						<Navigation />
+					</MemoryRouter>
+				</QueryClientProvider>,
+			).split("<aside")[1];
+			const link = sidebar.match(/<a\b[^>]*href="\/alerts"[^>]*>(.*?)<\/a>/);
+			expect(link).not.toBeNull();
+			const badge = (link?.[1] ?? "").match(
+				/<span class="ml-auto rounded-full[^"]*">([^<]*)<\/span>/,
+			);
+			return badge ? badge[1] : null;
+		} finally {
+			theme.mockRestore();
+			queryClient.clear();
+		}
+	};
+
+	it("counts recent unacknowledged warning and critical alerts", () => {
+		expect(
+			alertsBadge([alert("a", "critical", 1), alert("b", "warning", 2)], 2),
+		).toBe("2");
+	});
+
+	it("shows no badge for info, acknowledged or day-old alerts, whatever the stored total", () => {
+		expect(
+			alertsBadge(
+				[
+					alert("info", "info", 1),
+					alert("acked", "critical", 1, true),
+					alert("old", "critical", 25),
+				],
+				2428,
+			),
+		).toBeNull();
+	});
+});
+
 describe("navigation", () => {
 	it("keeps navigation items in the dynamic feature-flagged list only", () => {
 		const source = readFileSync(

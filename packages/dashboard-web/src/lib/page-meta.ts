@@ -21,10 +21,11 @@ export const PAGE_META = {
 		title: "Analytics",
 		description: "Usage patterns and trends over time",
 	},
-	insights: {
-		path: "/insights",
-		title: "Insights",
-		description: "Cache efficiency and estimated cost savings",
+	alerts: {
+		path: "/alerts",
+		title: "Alerts",
+		description:
+			"Alerts on usage windows, cache health, account auth and routing",
 	},
 	requests: {
 		path: "/requests",

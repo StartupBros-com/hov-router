@@ -10,9 +10,7 @@ import type {
 	AgentUpdatePayload,
 	AgentWorkspace,
 	AnalyticsResponse,
-	AnomalyInsightsResponse,
 	BankedResetsSummary,
-	CacheInsightsResponse,
 	CleanupResponse,
 	Combo,
 	ComboExhaustionPolicy,
@@ -25,7 +23,6 @@ import type {
 	ComboSlotCreateInput,
 	ComboSlotUpdateInput,
 	ComboWithSlots,
-	ContextInsightsResponse,
 	DeviceSetupJobView,
 	DeviceSetupRoutingSelection,
 	DeviceSetupStartResult,
@@ -1153,43 +1150,6 @@ class API extends HttpClient {
 		}
 	}
 
-	async getCacheInsights(
-		range = "24h",
-		threshold?: number,
-	): Promise<CacheInsightsResponse> {
-		const params = new URLSearchParams({ range });
-
-		if (threshold !== undefined) {
-			params.append("threshold", String(threshold));
-		}
-
-		return this.get<CacheInsightsResponse>(
-			`/api/insights/cache?${params.toString()}`,
-		);
-	}
-
-	async getAnomalyInsights(
-		range = "24h",
-		options?: {
-			zScoreThreshold?: number;
-			maxEventsPerDetector?: number;
-		},
-	): Promise<AnomalyInsightsResponse> {
-		const params = new URLSearchParams({ range });
-		if (options?.zScoreThreshold !== undefined) {
-			params.append("zScoreThreshold", String(options.zScoreThreshold));
-		}
-		if (options?.maxEventsPerDetector !== undefined) {
-			params.append(
-				"maxEventsPerDetector",
-				String(options.maxEventsPerDetector),
-			);
-		}
-		return this.get<AnomalyInsightsResponse>(
-			`/api/insights/anomalies?${params.toString()}`,
-		);
-	}
-
 	async getUsageHistory(
 		account: string,
 		range = "24h",
@@ -1224,14 +1184,6 @@ class API extends HttpClient {
 
 		return this.get<UsageWindowsResponse>(
 			`/api/usage-windows?${params.toString()}`,
-		);
-	}
-
-	async getContextInsights(range = "24h"): Promise<ContextInsightsResponse> {
-		const params = new URLSearchParams({ range });
-
-		return this.get<ContextInsightsResponse>(
-			`/api/insights/context?${params.toString()}`,
 		);
 	}
 

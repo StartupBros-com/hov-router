@@ -1,14 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import type {
-	CacheInsightsResponse,
-	ContextInsightsResponse,
-	UsageHistoryWindowSeries,
-} from "@better-ccflare/types";
+import type { UsageHistoryWindowSeries } from "@better-ccflare/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ModelAnalytics, ModelDetailTiles } from "./analytics/ModelAnalytics";
 import { TokenSpeedAnalytics } from "./analytics/TokenSpeedAnalytics";
-import { CacheEfficiencyView } from "./insights/CacheEfficiencyView";
-import { ContextCompositionView } from "./insights/ContextCompositionView";
 import { UsageInsightCards } from "./UsageInsightCards";
 
 // StatTile's own markup: the label paragraph and the tabular value.
@@ -124,98 +118,7 @@ describe("Analytics tiles on StatTile", () => {
 	});
 });
 
-function cacheData(savingsUsd: number): CacheInsightsResponse {
-	return {
-		totals: {
-			savingsUsd,
-			cacheHitRate: 0.42,
-			requests: 12,
-			actualCacheCostUsd: 1.5,
-			counterfactualCostUsd: 9,
-			uncachedInputTokens: 0,
-			cacheReadInputTokens: 0,
-			cacheCreationInputTokens: 0,
-			unknownPricingModels: [],
-		},
-		byModel: [],
-		byAccount: [],
-		byProject: [],
-		timeSeries: [],
-	} as unknown as CacheInsightsResponse;
-}
-
-describe("Insights tiles on StatTile", () => {
-	it("draws the four cache tiles as StatTiles", () => {
-		const html = renderToStaticMarkup(
-			<CacheEfficiencyView data={cacheData(5)} timeRange="24h" />,
-		);
-		expectTiles(html, [
-			"Cache Savings",
-			"Cache Hit Rate",
-			"Total Requests",
-			"Cache Token Cost",
-		]);
-		expect(html).toContain("Estimated vs. running uncached in the last 24h");
-		expect(html).toContain("Cache reads as share of input tokens");
-		expect(html).toContain("Requests analyzed in the last 24h");
-		expect(html).toContain("Cache read/write tokens only, vs");
-	});
-
-	it("shows positive savings in the success tone and negative in destructive", () => {
-		const saved = renderToStaticMarkup(
-			<CacheEfficiencyView data={cacheData(5)} timeRange="24h" />,
-		);
-		expect(saved).toContain("text-success");
-		expect(saved).not.toContain("green");
-		const lost = renderToStaticMarkup(
-			<CacheEfficiencyView data={cacheData(-5)} timeRange="24h" />,
-		);
-		expect(lost).toContain("text-destructive");
-		expect(lost).toContain("-$5.00");
-	});
-
-	it("draws the four context tiles as StatTiles", () => {
-		const data = {
-			meta: {
-				parsedPayloads: 3,
-				scannedPayloads: 4,
-				truncated: true,
-				payloadCoverage: { requestsInRange: 9, requestsWithPayload: 4 },
-			},
-			composition: {
-				totals: {
-					systemChars: 400,
-					toolsChars: 800,
-					messagesChars: 3600,
-					estimatedTokens: {
-						total: 1200,
-						system: 100,
-						tools: 200,
-						messages: 900,
-					},
-					percentages: { system: 8.3, tools: 16.7, messages: 75 },
-				},
-				tokenTotals: {},
-				perRequest: [],
-			},
-			topContributors: [],
-			growthCurve: { sessions: [] },
-		} as unknown as ContextInsightsResponse;
-		const html = renderToStaticMarkup(
-			<ContextCompositionView data={data} timeRange="24h" />,
-		);
-		expectTiles(html, [
-			"Requests Analyzed",
-			"Est. Context Size",
-			"Stored Payloads",
-			"Growth Sessions",
-		]);
-		expect(html).toContain("of 9");
-		expect(html).toContain("Requests with a parsed payload in the last 24h");
-		expect(html).toContain("(scan limit reached)");
-		expect(html).toContain("Request runs grouped by project and time gap");
-	});
-
+describe("Usage insight cards on StatTile", () => {
 	it("draws each usage insight card as a StatTile", () => {
 		const windows: UsageHistoryWindowSeries[] = [
 			{
