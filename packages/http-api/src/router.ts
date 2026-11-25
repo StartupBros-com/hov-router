@@ -553,23 +553,19 @@ export class APIRouter {
 		this.handlers.set("GET:/api/public/subscription-value", () =>
 			publicSubscriptionValueHandler(),
 		);
-		this.handlers.set("GET:/api/insights/cache-parity", () =>
-			cacheParityHandler(),
-		);
+		// The cache-parity and alert routes lived under /api/insights until
+		// 7.0.0; the old paths answer 410 (removed-endpoints.ts).
+		this.handlers.set("GET:/api/cache-parity", () => cacheParityHandler());
 		// Alert routes
-		this.handlers.set("GET:/api/insights/alerts", (_req, url) =>
+		this.handlers.set("GET:/api/alerts", (_req, url) =>
 			alertsHistoryHandler(url.searchParams),
 		);
-		this.handlers.set("POST:/api/insights/alerts", (req) =>
-			alertsConfigSetHandler(req),
-		);
-		this.handlers.set("GET:/api/insights/alerts/config", () =>
-			alertsConfigGetHandler(),
-		);
-		this.handlers.set("POST:/api/insights/alerts/acknowledge-all", () =>
+		this.handlers.set("POST:/api/alerts", (req) => alertsConfigSetHandler(req));
+		this.handlers.set("GET:/api/alerts/config", () => alertsConfigGetHandler());
+		this.handlers.set("POST:/api/alerts/acknowledge-all", () =>
 			alertsAckAllHandler(),
 		);
-		this.handlers.set("GET:/api/insights/alerts/stream", (req) =>
+		this.handlers.set("GET:/api/alerts/stream", (req) =>
 			alertsStreamHandler(req),
 		);
 		this.handlers.set("GET:/api/agents", () => agentsHandler());
@@ -727,7 +723,7 @@ export class APIRouter {
 			method === "POST" &&
 			(path === "/api/logs/stream/token" ||
 				path === "/api/requests/stream/token" ||
-				path === "/api/insights/alerts/stream/token")
+				path === "/api/alerts/stream/token")
 		) {
 			return await this.wrapHandler(() => {
 				const token = this.authService.mintStreamToken(
@@ -1143,11 +1139,12 @@ export class APIRouter {
 
 		// Alert acknowledge by ID (guard against the static acknowledge-all path)
 		if (
-			path.startsWith("/api/insights/alerts/") &&
+			path.startsWith("/api/alerts/") &&
 			method === "POST" &&
 			!path.endsWith("/acknowledge-all")
 		) {
-			const alertId = decodeURIComponent(path.split("/")[4] ?? "");
+			// ["", "api", "alerts", "<id>"]
+			const alertId = decodeURIComponent(path.split("/")[3] ?? "");
 			if (alertId) {
 				const alertAckHandler = createAlertAcknowledgeHandler(this.context);
 				return await this.wrapHandler(() => alertAckHandler(alertId))(req, url);

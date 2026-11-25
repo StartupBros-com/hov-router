@@ -187,7 +187,7 @@ function readCacheParityPolicy(context: APIContext): CacheParityPolicy {
 	};
 }
 
-/** GET /api/insights/cache-parity — sustained cache parity and live policy. */
+/** GET /api/cache-parity — sustained cache parity and live policy. */
 export function createCacheParityHandler(context: APIContext) {
 	return async (): Promise<Response> => {
 		const db = context.dbOps.getAdapter();

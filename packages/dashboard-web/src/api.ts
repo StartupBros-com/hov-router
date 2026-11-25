@@ -996,7 +996,7 @@ class API extends HttpClient {
 		let url = {
 			logs: "/api/logs/stream",
 			requests: "/api/requests/stream",
-			alerts: "/api/insights/alerts/stream",
+			alerts: "/api/alerts/stream",
 		}[audience];
 		if (apiKey) {
 			const { token } = await this.post<{ token: string }>(`${url}/token`);
@@ -2680,16 +2680,16 @@ class API extends HttpClient {
 		const res = await this.get<{
 			alerts: import("@better-ccflare/types").AlertEvent[];
 			unacknowledgedCount: number;
-		}>(`/api/insights/alerts?limit=${Math.min(Math.max(1, limit), 500)}`);
+		}>(`/api/alerts?limit=${Math.min(Math.max(1, limit), 500)}`);
 		return res;
 	}
 
 	async acknowledgeAlert(id: string): Promise<void> {
-		await this.post(`/api/insights/alerts/${encodeURIComponent(id)}`);
+		await this.post(`/api/alerts/${encodeURIComponent(id)}`);
 	}
 
 	async acknowledgeAllAlerts(): Promise<void> {
-		await this.post("/api/insights/alerts/acknowledge-all");
+		await this.post("/api/alerts/acknowledge-all");
 	}
 }
 

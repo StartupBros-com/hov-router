@@ -1379,7 +1379,7 @@ export const useReorderComboSlots = () => {
 
 export const useAlerts = () => {
 	return useQuery({
-		queryKey: queryKeys.insightsAlerts(),
+		queryKey: queryKeys.alerts(),
 		queryFn: () => api.getAlerts(ALERTS_LIST_LIMIT),
 		staleTime: 15_000,
 		refetchInterval: 30_000,
@@ -1392,7 +1392,7 @@ export const useAcknowledgeAlert = () => {
 	return useMutation({
 		mutationFn: (id: string) => api.acknowledgeAlert(id),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.insightsAlerts() });
+			queryClient.invalidateQueries({ queryKey: queryKeys.alerts() });
 		},
 	});
 };
@@ -1402,7 +1402,7 @@ export const useAcknowledgeAllAlerts = () => {
 	return useMutation({
 		mutationFn: () => api.acknowledgeAllAlerts(),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.insightsAlerts() });
+			queryClient.invalidateQueries({ queryKey: queryKeys.alerts() });
 		},
 	});
 };

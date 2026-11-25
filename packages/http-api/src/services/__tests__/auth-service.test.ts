@@ -166,7 +166,7 @@ describe("device setup authentication", () => {
 	});
 
 	test("keeps cache parity inside the authenticated dashboard boundary", async () => {
-		const path = "/api/insights/cache-parity";
+		const path = "/api/cache-parity";
 		const protectedAuth = authWithActiveKeyCount(1);
 		expect(await protectedAuth.isPathExempt(path, "GET")).toBe(false);
 		expect(

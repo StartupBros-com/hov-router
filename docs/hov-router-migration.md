@@ -74,7 +74,7 @@ There is no PostgreSQL-to-SQLite migration tool, so option 2 starts with an empt
 | `GET /api/workspaces` | `GET /api/agents`, whose `workspaces` field lists the same workspaces. For a per-workspace agent count, count its `workspaceAgents` entries by `workspace`. |
 | `POST /api/debug/cache-diagnosis` | Nothing. It ran only when `CCFLARE_CACHE_DIAG` was set. |
 
-**Fields.** Account API responses no longer include `autoRefreshEnabled`. `GET /api/config` no longer includes `default_agent_model`. Until the next major release, `GET /api/insights/cache-parity` still reports the removed Codex levers, at fixed values: session keys, prefix sharding, settle window, pacing bypass, explicit breakpoints, turn state and WebSocket, with continuity fixed on. `GET /api/debug/cache-pacing` reports `codex_settle_ms` as `0`.
+**Fields.** Account API responses no longer include `autoRefreshEnabled`. `GET /api/config` no longer includes `default_agent_model`. Until the next major release, `GET /api/cache-parity` (`/api/insights/cache-parity` before 7.0.0) still reports the removed Codex levers, at fixed values: session keys, prefix sharding, settle window, pacing bypass, explicit breakpoints, turn state and WebSocket, with continuity fixed on. `GET /api/debug/cache-pacing` reports `codex_settle_ms` as `0`.
 
 **Commands.** `--get-model` and `--set-model` are gone and now exit with status 1 as unknown arguments. `--show-config` still reads the configuration file without writing it.
 
@@ -111,7 +111,7 @@ Release 5.0.0 logs one startup warning naming each Codex variable that is still 
 
 **What changed.** Release 7.0.0 removes the dashboard's Insights page and its cache efficiency, context composition and anomalies sections. The alert list it held moved to a new Alerts page at `/alerts`, and an old `/insights` link opens Alerts. The sidebar badge on Alerts counts unacknowledged warning and critical alerts from the last 24 hours. It used to count every unacknowledged alert ever stored, including info notices. Older alerts are still listed on the page.
 
-**Endpoints.** These answer `410 Gone` from the router itself, for every method, with `removedIn: "7.0.0"`:
+**Endpoints.** Nothing is served under `/api/insights` any more. Every path under it answers `410 Gone` from the router itself, for every method, with `removedIn: "7.0.0"` and the replacement, if any. These were removed:
 
 | Removed | Use instead |
 |---|---|
@@ -119,9 +119,23 @@ Release 5.0.0 logs one startup warning naming each Codex variable that is still 
 | `GET /api/insights/context` | Nothing. A request's stored payload is still shown in its details on the Requests page. |
 | `GET /api/insights/anomalies` | Nothing. The Requests and Analytics pages show per-request tokens and cost. |
 
-**Anomaly alerts.** Release 7.0.0 also removes the anomaly alert sweep. It was off by default and raised `anomaly_token_outlier`, `anomaly_output_blowup`, `anomaly_runaway_loop` and `anomaly_model_misrouting` alerts. Its settings are ignored and left where they are: `ALERT_ANOMALY_ENABLED`, `ALERT_ANOMALY_INTERVAL_MINUTES`, `ALERT_ANOMALY_BASELINE_WINDOW_MINUTES`, `ALERT_ANOMALY_LOOP_MIN_REQUESTS` and the matching `alert_anomaly_*` config-file keys. If the sweep was turned on, startup logs one warning until you delete them. The alert settings that `GET /api/insights/alerts/config` and `POST /api/insights/alerts` return no longer include `anomalyEnabled`, `anomalyIntervalMinutes`, `anomalyBaselineWindowMinutes` or `loopMinRequests`. A `POST` that still sends them succeeds and ignores them. The four `anomaly_*` type names are still accepted in `ALERT_WEBHOOK_TYPES` and `alert_webhook_types`, so a saved allowlist loads and saves as before; nothing raises those types any more.
+**Moved.** The alert and cache-parity routes moved out from under `/api/insights`. Point any script or proxy rule at the new path; the old one answers `410 Gone` naming it. Requests and responses are unchanged apart from the alert settings fields listed under Anomaly alerts below.
 
-**Kept.** The alert routes keep their paths, and their responses change only as described above: `GET` and `POST /api/insights/alerts`, `GET /api/insights/alerts/config`, `POST /api/insights/alerts/acknowledge-all`, `POST /api/insights/alerts/<id>` (acknowledge one alert) and `GET /api/insights/alerts/stream`. So does `GET /api/insights/cache-parity`. Stored alerts are untouched, including any `anomaly_*` alerts.
+| Old path | New path |
+|---|---|
+| `GET /api/insights/alerts` (list alerts) | `GET /api/alerts` |
+| `POST /api/insights/alerts` (save alert settings) | `POST /api/alerts` |
+| `GET /api/insights/alerts/config` | `GET /api/alerts/config` |
+| `POST /api/insights/alerts/acknowledge-all` | `POST /api/alerts/acknowledge-all` |
+| `POST /api/insights/alerts/<id>` (acknowledge one alert) | `POST /api/alerts/<id>` |
+| `GET /api/insights/alerts/stream` and `POST /api/insights/alerts/stream/token` | `GET /api/alerts/stream` and `POST /api/alerts/stream/token` |
+| `GET /api/insights/cache-parity` | `GET /api/cache-parity` |
+
+A dashboard tab left open across the upgrade keeps calling the old paths, so its alert list and badge fail until the tab is reloaded. An nginx config copied from an older [deployment guide](deployment.md) matches `insights/alerts` in its event-stream location; change it to `alerts` or the alert stream is buffered again.
+
+**Anomaly alerts.** Release 7.0.0 also removes the anomaly alert sweep. It was off by default and raised `anomaly_token_outlier`, `anomaly_output_blowup`, `anomaly_runaway_loop` and `anomaly_model_misrouting` alerts. Its settings are ignored and left where they are: `ALERT_ANOMALY_ENABLED`, `ALERT_ANOMALY_INTERVAL_MINUTES`, `ALERT_ANOMALY_BASELINE_WINDOW_MINUTES`, `ALERT_ANOMALY_LOOP_MIN_REQUESTS` and the matching `alert_anomaly_*` config-file keys. If the sweep was turned on, startup logs one warning until you delete them. The alert settings that `GET /api/alerts/config` and `POST /api/alerts` return no longer include `anomalyEnabled`, `anomalyIntervalMinutes`, `anomalyBaselineWindowMinutes` or `loopMinRequests`. A `POST` that still sends them succeeds and ignores them. The four `anomaly_*` type names are still accepted in `ALERT_WEBHOOK_TYPES` and `alert_webhook_types`, so a saved allowlist loads and saves as before; nothing raises those types any more.
+
+**Kept.** Stored alerts are untouched, including any `anomaly_*` alerts.
 
 ## Manual source updates
 

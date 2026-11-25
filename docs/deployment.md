@@ -335,7 +335,7 @@ server {
     # Dashboard live updates use Server-Sent Events. Without this block nginx
     # buffers them, so events and the 20-second keepalives arrive late.
     # The $ anchor leaves the /stream/token POSTs under location /.
-    location ~ ^/api/(requests|logs|insights/alerts)/stream$ {
+    location ~ ^/api/(requests|logs|alerts)/stream$ {
         proxy_pass http://better-ccflare_backend;
         proxy_buffering off;
         proxy_cache off;
