@@ -567,7 +567,7 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 
 		this.sqliteDb = new Database(resolvedPath, { create: true });
 		// Time statements on the handle itself, before anything else runs on
-		// it: the adapter and every direct getDatabase() caller share it, and
+		// it: the adapter and its direct SQLite callers share it, and
 		// each of its calls blocks the event loop (#606).
 		const sqlTimingLog = new Logger("SqlTiming");
 		this.sqlTiming = new SqliteStatementTimer({
@@ -736,21 +736,10 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 
 	/**
 	 * Get the underlying BunSqlAdapter for direct queries.
-	 * Use this instead of getDatabase() for cross-backend compatible raw queries.
+	 * Use this for direct SQL queries.
 	 */
 	getAdapter(): BunSqlAdapter {
 		return this.adapter;
-	}
-
-	/**
-	 * Get the underlying bun:sqlite Database.
-	 * @deprecated Use getAdapter().
-	 */
-	getDatabase(): Database {
-		if (!this.sqliteDb) {
-			throw new Error("getDatabase() called before the database was opened.");
-		}
-		return this.sqliteDb;
 	}
 
 	/**
@@ -1814,19 +1803,6 @@ OAuth tokens will need to be re-authenticated.
 			"UPDATE accounts SET peak_hours_pause_enabled = ? WHERE id = ?",
 			[enabled ? 1 : 0, accountId],
 		);
-	}
-
-	/**
-	 * Unconditionally set (or clear) an account's requires_reauth flag. Unlike
-	 * flagAccountRequiresReauthIfTokenMatches, this does not gate on the
-	 * refresh token matching — callers that need that CAS protection should
-	 * use that method instead. This exposes the repository's existing
-	 * unconditional setter (already covered directly by
-	 * account-cas-writes.test.ts) on the facade for callers that manage the
-	 * flag out of band, e.g. account maintenance and test harnesses.
-	 */
-	async setRequiresReauth(accountId: string, value: boolean): Promise<void> {
-		await this.accounts.setRequiresReauth(accountId, value);
 	}
 
 	async hasAccountsForProvider(provider: string): Promise<boolean> {

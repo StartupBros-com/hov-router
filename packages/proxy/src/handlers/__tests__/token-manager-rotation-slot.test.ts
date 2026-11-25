@@ -97,7 +97,6 @@ function makeContext(stored: Account, provider?: unknown) {
 		updateAccountTokensIfRefreshTokenAbsent: mock(async () => true),
 		flagRequiresReauthIfTokenMatches: mock(async () => true),
 		pauseAccountIfActive: mock(async () => true),
-		setRequiresReauth: mock(async () => {}),
 	};
 	return {
 		ctx: {
@@ -202,7 +201,6 @@ describe("a refresh that would rotate the refresh token", () => {
 		expect(getRefreshTokenUsedForFailure(refusal)).toBeUndefined();
 		expect(dbOps.flagRequiresReauthIfTokenMatches).not.toHaveBeenCalled();
 		expect(dbOps.pauseAccountIfActive).not.toHaveBeenCalled();
-		expect(dbOps.setRequiresReauth).not.toHaveBeenCalled();
 		expect(ctx.refreshInFlight.size).toBe(0);
 		expect(account.refresh_token).toBe("rt-old");
 		expect(account.access_token).toBe("at-old");
@@ -916,6 +914,5 @@ describe("a rotated refresh token whose database write fails", () => {
 			failing.dbOps.flagRequiresReauthIfTokenMatches,
 		).not.toHaveBeenCalled();
 		expect(failing.dbOps.pauseAccountIfActive).not.toHaveBeenCalled();
-		expect(failing.dbOps.setRequiresReauth).not.toHaveBeenCalled();
 	});
 });

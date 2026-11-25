@@ -58,10 +58,6 @@ function noRetry(reason) {
 	};
 }
 
-function bodyConfirmsPoolExhausted(body) {
-	return !!body && typeof body === "object" && body.error?.type === "pool_exhausted";
-}
-
 /**
  * Collect finite future recovery-delay candidates from whatever signals are
  * present, independent of whether the body's error type matches. Retry-After
@@ -131,8 +127,7 @@ function collectDelayCandidates(headers, body, nowMs) {
  * - "denied": a 503 whose header is present but says something else (e.g.
  *   "available"). Never retryable, regardless of body.
  * - "absent": a 503 with no pool-status header at all, e.g. from an older,
- *   not-yet-redeployed proxy. Retry authority falls to the caller's
- *   rolling-upgrade policy (see allowLegacyBody on evaluateGuardRetry).
+ *   not-yet-redeployed proxy. Never retryable.
  * - "not_applicable": any non-503 status. Never retryable.
  */
 export function recoveryHeaderStatus({ status, headers }) {
@@ -166,16 +161,7 @@ export function poolHeaderStatus(input) {
  * The guard consumes the proxy's stable recovery marker and scope as the
  * primary, sufficient finite-recovery signal, evaluated at header time via
  * recoveryHeaderStatus before any body I/O.
- * Bounded structured-body detection (already capped by the caller's 64 KiB
- * inspection limit) is only a TEMPORARY rolling-upgrade escape hatch for
- * when that header is absent, e.g. against an older proxy that has not yet
- * been redeployed. It is OFF by default (allowLegacyBody = false): any
- * upstream 503 body can be shaped like a pool_exhausted error, and trusting
- * it without the header would let a spoofed or coincidentally-shaped body
- * authorize replays of a possibly non-idempotent request. Operators who
- * need the fallback during a rolling upgrade must opt in explicitly (e.g.
- * via GUARD_ALLOW_LEGACY_POOL_BODY=1) and should disable it again once all
- * proxies are current.
+ * Responses without the recovery header never authorize replay.
  *
  * Once a response is classified retryable, an unparseable, absent, or
  * non-finite recovery body degrades the wait, not the decision: delay
@@ -189,7 +175,6 @@ export function evaluateGuardRetry({
 	headers,
 	bodyText,
 	nowMs = Date.now(),
-	allowLegacyBody = false,
 }) {
 	if (status !== 503) return noRetry("status_not_retryable");
 
@@ -203,11 +188,7 @@ export function evaluateGuardRetry({
 	}
 
 	if (!headerConfirmed) {
-		if (!headerAbsent) return noRetry("recovery_not_authorized");
-		if (!allowLegacyBody) return noRetry("header_absent_legacy_body_disabled");
-		if (!bodyConfirmsPoolExhausted(body)) {
-			return noRetry(body == null ? "malformed_body" : "not_pool_exhausted_terminal");
-		}
+		return noRetry(headerAbsent ? "header_absent_legacy_body_disabled" : "recovery_not_authorized");
 	}
 
 	const candidates = collectDelayCandidates(headers, body, nowMs);
@@ -217,7 +198,7 @@ export function evaluateGuardRetry({
 			reason: "trusted_finite_recovery",
 			delayMs: 0,
 			recoverySource: null,
-			recoveryScope: headerConfirmed ? headerDecision.scope : "legacy",
+			recoveryScope: headerDecision.scope,
 		};
 	}
 	const retryAfter = candidates.find(
@@ -238,6 +219,6 @@ export function evaluateGuardRetry({
 		reason: "trusted_finite_recovery",
 		delayMs: recovery.delayMs,
 		recoverySource: recovery.source,
-		recoveryScope: headerConfirmed ? headerDecision.scope : "legacy",
+		recoveryScope: headerDecision.scope,
 	};
 }

@@ -1634,97 +1634,6 @@ describe("effective systemd policy validation", () => {
 		}
 	});
 
-	test("allows a legacy restart policy only for rollback compatibility", () => {
-		const dir = tempDir();
-		const { binDir, log } = writeSystemctlMock(dir);
-		const base = [
-			`export PATH=${shellQuote(shellPath(binDir))}:$PATH`,
-			`export CCFLARE_TEST_SYSTEMCTL_LOG=${shellQuote(shellPath(log))}`,
-			"export CCFLARE_TEST_KILL_MODE=mixed",
-			"export CCFLARE_TEST_TIMEOUT=12min",
-			"export CCFLARE_TEST_RESTART=always",
-			"export CCFLARE_TEST_RESTART_SEC=10s",
-			"export CCFLARE_TEST_RESTART_PREVENT_EXIT_STATUS=''",
-			"export CCFLARE_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_SLEEP_MS=120000 GUARD_MAX_RECOVERY_WAITS=12 GUARD_SHUTDOWN_GRACE_MS=600000'",
-			`source ${shellQuote(helperScriptForShell)}`,
-		];
-		const strict = bash(
-			[...base, "validate_effective_systemd_policy ccflare-stack.service"].join(
-				"\n",
-			),
-		);
-		expect(strict.exitCode).not.toBe(0);
-		const rollback = bash(
-			[
-				...base,
-				"validate_effective_systemd_policy ccflare-stack.service 1",
-			].join("\n"),
-		);
-		expect(rollback.exitCode).toBe(0);
-	});
-	test("restores and accepts a safe pre-headroom pin without restarting", () => {
-		const dir = tempDir();
-		const { binDir, log } = writeSystemctlMock(dir);
-		const sudo = join(binDir, "sudo");
-		writeFileSync(
-			sudo,
-			[
-				"#!/usr/bin/env bash",
-				'printf \'sudo:%s\\n\' "$*" >>"$CCFLARE_TEST_SYSTEMCTL_LOG"',
-				'exec "$@"',
-				"",
-			].join("\n"),
-		);
-		chmodSync(sudo, 0o755);
-		const pin = join(dir, "pin.conf");
-		const backup = join(dir, "pin.conf.bak");
-		writeFileSync(pin, "new pin\n");
-		writeFileSync(backup, "old pin\n");
-		const result = bash(
-			[
-				`export PATH=${shellQuote(shellPath(binDir))}:$PATH`,
-				`export CCFLARE_TEST_SYSTEMCTL_LOG=${shellQuote(shellPath(log))}`,
-				"export CCFLARE_TEST_KILL_MODE=control-group",
-				"export CCFLARE_TEST_TIMEOUT=12min",
-				"export CCFLARE_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_SLEEP_MS=120000 GUARD_SHUTDOWN_GRACE_MS=600000'",
-				"export CCFLARE_TEST_RESTORED_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=600000 GUARD_SHUTDOWN_GRACE_MS=600000'",
-				`export CCFLARE_TEST_SAFE_POLICY_PIN=${shellQuote(shellPath(pin))}`,
-				`export CCFLARE_TEST_SAFE_POLICY_BACKUP=${shellQuote(shellPath(backup))}`,
-				`source ${shellQuote(helperScriptForShell)}`,
-				`reload_validate_or_restore_systemd_policy ${shellQuote(shellPath(pin))} ${shellQuote(shellPath(backup))} ccflare-stack.service`,
-			].join("\n"),
-		);
-		expect(result.exitCode).toBe(1);
-		expect(readFileSync(pin, "utf8")).toBe("old pin\n");
-		const events = readFileSync(log, "utf8").trim().split("\n");
-		expect(events[0]).toBe("sudo:systemctl daemon-reload");
-		const effectiveCheck = events.findIndex((event) =>
-			event.includes("--property=KillMode"),
-		);
-		const restoreCopy = events.findIndex((event) =>
-			event.startsWith("sudo:cp --preserve=all"),
-		);
-		const restoreMove = events.findIndex((event) =>
-			event.startsWith("sudo:mv -f"),
-		);
-		expect(effectiveCheck).toBeGreaterThan(0);
-		expect(restoreCopy).toBeGreaterThan(effectiveCheck);
-		expect(restoreMove).toBeGreaterThan(restoreCopy);
-		const restoreReload = events.findIndex(
-			(event, index) =>
-				index > restoreMove && event === "systemctl:daemon-reload",
-		);
-		const restoredEffectiveCheck = events.findIndex(
-			(event, index) =>
-				index > restoreReload && event.includes("--property=KillMode"),
-		);
-		expect(restoreReload).toBeGreaterThan(restoreMove);
-		expect(restoredEffectiveCheck).toBeGreaterThan(restoreReload);
-		expect(events.some((event) => event.includes("systemctl restart"))).toBe(
-			false,
-		);
-	});
-
 	test("hard-fails when a later operator drop-in remains unsafe after pin restoration", () => {
 		const dir = tempDir();
 		const { binDir, log } = writeSystemctlMock(dir);
@@ -2110,12 +2019,13 @@ describe("validate_bun_runtime_version", () => {
 });
 
 describe("rollback identity proof", () => {
-	test("accepts a legacy rollback identity without aggregate body-policy fields and rejects missing identity", () => {
+	test("accepts complete rollback identity and rejects missing identity", () => {
 		const proxy = '{"git_sha":"old"}';
 		const completeGuard = JSON.stringify({
 			sourceId: "old-source",
 			policyId: "old-policy",
 			maxRequestBodyBytes: 4_194_304,
+			maxBufferedRequestBodyBytes: 268_435_456,
 			runtime: {
 				artifacts: {
 					binary: { path: "/b", sha256: "b" },
@@ -2129,6 +2039,7 @@ describe("rollback identity proof", () => {
 					jitterMs: 2_000,
 					maxInspectionBytes: 65_536,
 					maxRequestBodyBytes: 4_194_304,
+					maxBufferedRequestBodyBytes: 268_435_456,
 				},
 			},
 		});

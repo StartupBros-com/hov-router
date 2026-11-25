@@ -91,7 +91,9 @@ describe("PostgreSQL DATABASE_URL refusal", () => {
 			const ops = new DatabaseOperations(dbPath);
 			try {
 				expect(existsSync(dbPath)).toBe(true);
-				expect(ops.getDatabase().query("SELECT 1 AS one").get()).toEqual({
+				expect(
+					ops.getAdapter().getSQLiteDb().query("SELECT 1 AS one").get(),
+				).toEqual({
 					one: 1,
 				});
 			} finally {

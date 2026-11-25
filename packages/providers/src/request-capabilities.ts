@@ -231,14 +231,6 @@ export interface ModelContextCapability {
 	defaultContextWindow: number;
 	/** Catalog maximum window (`max_context_window`): the operational client capacity. */
 	maxContextWindow: number;
-	/**
-	 * Compatibility projection of {@link maxContextWindow}. Historically this
-	 * held a single number that conflated catalog default with capacity; it now
-	 * always equals the max, because every operational consumer (admission,
-	 * response context-window telemetry, trace utilization) needs capacity, not
-	 * the recommendation.
-	 */
-	rawContextWindow: number;
 	effectiveContextWindow: number;
 	effectiveContextPercent: number;
 	match: "exact" | "prefix";
@@ -501,7 +493,6 @@ export function resolveModelContextCapability(
 		family,
 		defaultContextWindow: metadata.defaultContextWindow,
 		maxContextWindow: metadata.maxContextWindow,
-		rawContextWindow: metadata.maxContextWindow,
 		effectiveContextWindow: Math.floor(
 			(metadata.maxContextWindow * metadata.effectiveContextPercent) / 100,
 		),

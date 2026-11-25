@@ -492,7 +492,6 @@ describe("resolveModelContextCapability", () => {
 			family: "gpt-5.6-sol",
 			defaultContextWindow: 272_000,
 			maxContextWindow: 872_000,
-			rawContextWindow: 872_000,
 			effectiveContextWindow: 828_400,
 			effectiveContextPercent: 95,
 			match: "exact",
@@ -510,7 +509,6 @@ describe("resolveModelContextCapability", () => {
 		expect(resolveModelContextCapability("codex", "gpt-5.4")).toMatchObject({
 			defaultContextWindow: 272_000,
 			maxContextWindow: 1_000_000,
-			rawContextWindow: 1_000_000,
 		});
 	});
 
@@ -520,7 +518,6 @@ describe("resolveModelContextCapability", () => {
 		).toMatchObject({
 			defaultContextWindow: 272_000,
 			maxContextWindow: 272_000,
-			rawContextWindow: 272_000,
 		});
 	});
 
@@ -539,7 +536,6 @@ describe("resolveModelContextCapability", () => {
 			family: "gpt-5.6-sol",
 			defaultContextWindow: 272_000,
 			maxContextWindow: 872_000,
-			rawContextWindow: 872_000,
 			effectiveContextWindow: 828_400,
 			match: "prefix",
 		});

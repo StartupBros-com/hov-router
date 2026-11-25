@@ -102,7 +102,6 @@ describe("native quota client and guard contract", () => {
 			headers: response.headers,
 			bodyText: await response.text(),
 			nowMs: NOW,
-			allowLegacyBody: true,
 		});
 		expect(decision.retry).toBe(false);
 		expect(decision.delayMs).toBe(0);

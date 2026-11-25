@@ -33,7 +33,8 @@ afterEach(async () => {
 
 function pragma(name: string): unknown {
 	const row = DatabaseFactory.getInstance()
-		.getDatabase()
+		.getAdapter()
+		.getSQLiteDb()
 		.query(`PRAGMA ${name}`)
 		.get() as Record<string, unknown>;
 	return Object.values(row)[0];

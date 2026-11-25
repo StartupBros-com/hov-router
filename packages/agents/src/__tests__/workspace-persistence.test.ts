@@ -15,14 +15,12 @@ import { WorkspacePersistence } from "../workspace-persistence";
 describe("WorkspacePersistence — injected path isolation", () => {
 	let tmpDir: string;
 	let workspacesFile: string;
-	let legacyWorkspacesFile: string;
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(
 			path.join(os.tmpdir(), "bcf-workspace-persistence-test-"),
 		);
 		workspacesFile = path.join(tmpDir, "workspaces.json");
-		legacyWorkspacesFile = path.join(tmpDir, "legacy-workspaces.json");
 	});
 
 	afterEach(() => {
@@ -75,7 +73,6 @@ describe("WorkspacePersistence — injected path isolation", () => {
 
 		const persistence = new WorkspacePersistence({
 			workspacesFile,
-			legacyWorkspacesFile,
 		});
 		await persistence.saveWorkspaces([
 			{ path: "/tmp/isolated", name: "isolated", lastSeen: 1 },
@@ -87,27 +84,5 @@ describe("WorkspacePersistence — injected path isolation", () => {
 		} else {
 			expect(fs.existsSync(realHome)).toBe(false);
 		}
-	});
-
-	it("migrates from an injected legacy path, not the real legacy path", async () => {
-		fs.writeFileSync(
-			legacyWorkspacesFile,
-			JSON.stringify({
-				version: 1,
-				workspaces: [{ path: "/tmp/legacy", name: "legacy", lastSeen: 7 }],
-			}),
-		);
-
-		const persistence = new WorkspacePersistence({
-			workspacesFile,
-			legacyWorkspacesFile,
-		});
-		const workspaces = await persistence.loadWorkspaces();
-
-		expect(workspaces).toEqual([
-			{ path: "/tmp/legacy", name: "legacy", lastSeen: 7 },
-		]);
-		// Migration should have copied the legacy file to the new path.
-		expect(fs.existsSync(workspacesFile)).toBe(true);
 	});
 });

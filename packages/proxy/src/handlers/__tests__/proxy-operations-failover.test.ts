@@ -3778,7 +3778,6 @@ describe("proxyWithAccount — 401 failover", () => {
 		ctx.provider = provider;
 		const pauseAccountIfActive = mock(async () => true);
 		const flagRequiresReauthIfTokenMatches = mock(async () => true);
-		const setRequiresReauth = mock(async () => {});
 		const updateAccountTokensIfRefreshTokenMatches = mock(async () => true);
 		const account = makeAccount({
 			id: "full-disk-stale-token-account",
@@ -3792,7 +3791,6 @@ describe("proxyWithAccount — 401 failover", () => {
 			getAccount: mock(async () => account),
 			pauseAccountIfActive,
 			flagRequiresReauthIfTokenMatches,
-			setRequiresReauth,
 			updateAccountTokensIfRefreshTokenMatches,
 		});
 		const reserve = mock(async (_accountId: string) => {
@@ -3863,7 +3861,6 @@ describe("proxyWithAccount — 401 failover", () => {
 		// The account is untouched: no pause, no re-login flag, same credentials.
 		expect(pauseAccountIfActive).not.toHaveBeenCalled();
 		expect(flagRequiresReauthIfTokenMatches).not.toHaveBeenCalled();
-		expect(setRequiresReauth).not.toHaveBeenCalled();
 		expect(ctx.dbOps.markAccountRateLimited).not.toHaveBeenCalled();
 		expect(ledger.hasAuthFailures).toBe(false);
 		expect(ledger.authFailureCount).toBe(0);
@@ -3888,7 +3885,6 @@ describe("proxyWithAccount — 401 failover", () => {
 		ctx.provider = provider;
 		const pauseAccountIfActive = mock(async () => true);
 		const flagRequiresReauthIfTokenMatches = mock(async () => true);
-		const setRequiresReauth = mock(async () => {});
 		const updateAccountTokensIfRefreshTokenMatches = mock(async () => true);
 		const expiredAt = Date.now() - 60 * 1000;
 		const account = makeAccount({
@@ -3903,7 +3899,6 @@ describe("proxyWithAccount — 401 failover", () => {
 			getAccount: mock(async () => account),
 			pauseAccountIfActive,
 			flagRequiresReauthIfTokenMatches,
-			setRequiresReauth,
 			updateAccountTokensIfRefreshTokenMatches,
 		});
 		const reserve = mock(async (_accountId: string) => {
@@ -3963,7 +3958,6 @@ describe("proxyWithAccount — 401 failover", () => {
 		// The account is untouched: no pause, no re-login flag, same credentials.
 		expect(pauseAccountIfActive).not.toHaveBeenCalled();
 		expect(flagRequiresReauthIfTokenMatches).not.toHaveBeenCalled();
-		expect(setRequiresReauth).not.toHaveBeenCalled();
 		expect(ctx.dbOps.markAccountRateLimited).not.toHaveBeenCalled();
 		expect(ledger.hasAuthFailures).toBe(false);
 		expect(ledger.authFailureCount).toBe(0);
