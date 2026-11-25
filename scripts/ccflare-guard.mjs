@@ -3284,9 +3284,7 @@ export function createGuard(options = {}) {
 				// before any body I/O, and settles retry authority on its own.
 				// An oversized, stalled, or malformed body must never cost a
 				// header-confirmed retry its authorization (ordering), and a
-				// header-absent body must never silently grant one unless the
-				// operator has explicitly opted into the legacy fallback
-				// (spoofing).
+				// header-absent body never grants one (spoofing).
 				const headerDecision = recoveryHeaderStatus({
 					status: upstreamResponse.status,
 					headers: upstreamResponse.headers,

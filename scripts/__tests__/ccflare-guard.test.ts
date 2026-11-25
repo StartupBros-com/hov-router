@@ -4447,11 +4447,9 @@ describe("source-controlled guard", () => {
 		expect(guard.state.counters.retried).toBe(0);
 	});
 
-	test.each([
-		{ name: "trusted header", headers: true },
-	])(
-		"preserves a body-only recovery hint above the request-wide silence ceiling on the $name path",
-		async ({ headers }) => {
+	test(
+		"preserves a body-only recovery hint above the request-wide silence ceiling on the trusted header path",
+		async () => {
 		const events: Array<Record<string, unknown>> = [];
 		let attempts = 0;
 		const body = JSON.stringify({
@@ -4466,9 +4464,7 @@ describe("source-controlled guard", () => {
 				if (attempts === 1) {
 					res.writeHead(503, {
 						"content-type": "application/json",
-							...(headers
-								? { "x-better-ccflare-pool-status": "exhausted" }
-								: {}),
+						"x-better-ccflare-pool-status": "exhausted",
 					});
 					res.end(body);
 					return;

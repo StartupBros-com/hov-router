@@ -114,13 +114,6 @@ const mockDbOps = {
 	createOAuthSession: () => {},
 	getOAuthSession: () => null,
 	deleteOAuthSession: () => {},
-	getDatabase: () => ({
-		prepare: () => ({
-			run: () => {},
-			get: () => null,
-			all: () => [],
-		}),
-	}),
 } as unknown as DatabaseOperations;
 
 describe("Token Health HTTP API Integration", () => {

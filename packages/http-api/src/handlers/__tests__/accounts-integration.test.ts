@@ -111,7 +111,6 @@ const mockCliCommands = {
 	resumeAccount: () => ({ success: true, message: "Account resumed" }),
 };
 const mockDbOps = {
-	getDatabase: () => mockDatabase,
 	updateAccountPriority: () => {},
 	renameAccount: () => {},
 	setAutoFallbackEnabled: () => {},
