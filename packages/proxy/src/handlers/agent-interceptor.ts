@@ -211,9 +211,10 @@ export async function interceptAndModifyRequest(
 			if (!sessionHeaderId) return null;
 
 			// Session-id fallback: claude-cli emits x-claude-code-session-id on
-			// every request. We surface it as `agentUsed` so the anomaly
-			// detector can key on per-session identity (issue #367 — distinct
-			// workers sharing one account+model+project no longer collapse).
+			// every request. We surface it as `agentUsed` with source
+			// `session_header` so the Requests list and request details can
+			// show which Claude Code session sent a request; the dashboard's
+			// lib/attribution.ts renders it as a session, not an agent.
 			// A session id is NOT an agent id, so model-preference lookup and
 			// model rewrite are deliberately skipped here; the body passes
 			// through unchanged.
