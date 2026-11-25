@@ -24,6 +24,7 @@ tags:
   - say-once
   - row-height
   - layout-measurement
+  - tap-targets
 ---
 
 # The collapsed Accounts row says each fact once
@@ -76,6 +77,16 @@ Suppression rules between two homes multiply, and each needs its own tests. A fa
 
 Not yet seen live as of PR #897: a Ready row's "at limit" family names (no live Ready row had a spent family), and the bordered Clear cooldown button (issue #890 stays open until a cooldown row shows it).
 
+### How a remedy button looks
+
+A remedy on the row uses one of the button component's own sizes (`button.tsx`), never a one-off height. Re-authenticate is the default `touch-sm` button (44px). Clear cooldown is the outline `sm` button (32px), placed after the retry time. Each has a 44px tap area. Clear cooldown's comes from an `::after` overlay that reaches 6px past each edge of the box.
+
+32px is the smallest box for which that 6px reach fits inside the status column's 6px line gap. So when Re-authenticate sits right above the retry line, the two tap areas meet without overlapping, and no row needs an extra margin or a stacking order. Until 2026-11-25, Clear cooldown was a 20px outline box. It read as a text field, and it needed both: a top margin on rows with Re-authenticate, plus `z-10` and `z-20` to settle the overlap.
+
+A filled grey (`secondary`) button is not an option: on this dashboard that look is a `Badge`, so it would read as a label.
+
+The 32px box makes a row that shows Clear cooldown taller than the 20px box did, by 0 to 12px depending on the row and width (synthetic page, 1440 to 320px). Rows without the button do not change. The operator's 2026-11-18 amendment to #890 allows a cooling row to be taller than its twin by its retry line.
+
 ## When to Apply
 
 - Adding any status, limit, hold, notice or control to the collapsed row in `AccountListItem.tsx`, including the priority editing that #898 proposes.
@@ -121,12 +132,13 @@ Before writing a height or a position into a PR description:
 - Render main and the branch from the same synthetic data. The repo has no fixture page for this. The synthetic pages behind #896 and #897 were made-up accounts served by scratch scripts kept outside the repo, so production data never reached a PR.
 - Measure each row shape at every width the claim covers: at least 1440, 1280, 1024, 768, 390 and 320 px, plus a sweep across the widths where the layout changes its columns.
 - Write the per-width numbers, each labelled synthetic or live, rather than a range. "Same height from 720px up" covered widths nobody had measured.
+- To claim two tap areas do not overlap, hit-test the page. Call `document.elementFromPoint` across each control's whole 44px area and check that every point lands on that control. Then rerun with one overlay made too tall: that run must report misses, or the test cannot fail. Two traps report misses that are not real. A point below the viewport returns null, so use a viewport taller than the list. And a point on the box's outermost pixel can land on the parent, so sample from 3px inside the edges.
 
 A related rule for production rates is [Verify fix ancestry before writing a measured production rate into permanent rationale](../workflow-issues/verify-fix-ancestry-before-citing-a-measured-rate.md).
 
 ## Related
 
 - PRs #879, #883, #887, #892, #896 and #897.
-- Issue #890: Accounts row actions, open as of this writing until a cooldown row is seen live with the bordered Clear cooldown button.
+- Issue #890: Accounts row actions, closed 2026-11-18 with the operator's amendment that a cooling row may be taller than its twin by its retry line.
 - Issue #898: drag rows to set routing priority, open and not started.
 - `docs/combos.md` defines the Combos routing reasons that the notice line reports.
