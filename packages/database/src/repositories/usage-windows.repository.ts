@@ -440,7 +440,7 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 	 * integrity checks are reported in `unreadable`, not thrown.
 	 */
 	async listClosedWindowsMissingLimitCycles(): Promise<StaleClosedWindows> {
-		const rows = await this.queryMain<UsageWindowRow>(
+		const rows = await this.queryOffThread<UsageWindowRow>(
 			`SELECT ${WINDOW_COLUMNS} FROM usage_windows
 			 WHERE closed_at IS NOT NULL
 			   AND points_used IS NULL
@@ -450,6 +450,8 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 					  AND s.window_key = usage_windows.window_key
 			   )
 			 ORDER BY resets_at ASC`,
+			[],
+			"bulk",
 		);
 		const listing: StaleClosedWindows = { windows: [], unreadable: [] };
 		for (const row of rows) {
@@ -474,13 +476,14 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 		projectionVersion: string,
 	): Promise<StaleClosedWindows> {
 		requireNonEmpty(projectionVersion, "projectionVersion");
-		const rows = await this.queryMain<UsageWindowRow>(
+		const rows = await this.queryOffThread<UsageWindowRow>(
 			`SELECT ${WINDOW_COLUMNS} FROM usage_windows
 			 WHERE closed_at IS NOT NULL
 			   AND model_breakdown IS NOT NULL
 			   AND projection_version IS DISTINCT FROM ?
 			 ORDER BY resets_at ASC`,
 			[projectionVersion],
+			"bulk",
 		);
 		const listing: StaleClosedWindows = { windows: [], unreadable: [] };
 		for (const row of rows) {
