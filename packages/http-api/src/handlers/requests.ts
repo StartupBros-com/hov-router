@@ -45,7 +45,9 @@ function truncateBase64(body: unknown): {
  */
 export function createRequestsSummaryHandler(db: BunSqlAdapter) {
 	return async (limit: number = 50): Promise<Response> => {
-		const requests = await db.query<{
+		// On the interactive reader: under disk pressure this page read took up to
+		// 5.7 s on the main thread, stalling every stream for that long (#1013).
+		const requests = await db.queryOffThread<{
 			id: string;
 			timestamp: number;
 			method: string;
@@ -97,6 +99,7 @@ export function createRequestsSummaryHandler(db: BunSqlAdapter) {
 			LIMIT ?
 		`,
 			[limit],
+			"interactive",
 		);
 
 		const response: RequestResponse[] = requests.map((request) => ({

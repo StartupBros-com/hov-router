@@ -17,6 +17,11 @@ import { DatabaseOperations } from "@better-ccflare/database";
 import { usageCache } from "@better-ccflare/providers";
 import type { AccountResponse } from "@better-ccflare/types";
 import { OffThreadReader } from "../../../../database/src/off-thread-reader";
+import {
+	CACHE_TEST_TIME,
+	cacheTestState,
+	seedCacheAccount,
+} from "../../../../database/src/repositories/__tests__/cache-health-contract";
 import { CacheHealthRepository } from "../../../../database/src/repositories/cache-health.repository";
 import { ExternalUsageRepository } from "../../../../database/src/repositories/external-usage.repository";
 import { createCacheParityConfigStub } from "../../__tests__/support/cache-parity-config-stub";
@@ -25,6 +30,7 @@ import type { APIContext } from "../../types";
 import { createAccountsListHandler } from "../accounts";
 import { createAnalyticsHandler } from "../analytics";
 import { createCacheParityHandler } from "../cache-parity";
+import { createRequestsSummaryHandler } from "../requests";
 import { createStatsHandler } from "../stats";
 
 const DAY = 86400000;
@@ -603,6 +609,76 @@ describe("heavy read result equivalence", () => {
 		} finally {
 			service.stop();
 		}
+	});
+	it("runs the requests list and the usage-window list on the interactive reader", async () => {
+		const adapter = db.getAdapter();
+		for (const accountId of ["a1", "a2"])
+			await db.openUsageWindow({
+				accountId,
+				windowKey: "seven_day",
+				startedAt: NOW - DAY,
+				resetsAt: NOW + 6 * DAY,
+				grantType: "natural",
+			});
+		const summary = createRequestsSummaryHandler(adapter);
+		const readAll = async () => ({
+			requests: await (await summary(20)).json(),
+			windows: await db.listUsageWindows({ windowKey: "seven_day" }),
+		});
+		const main = await readAll();
+		expect(main.requests).toHaveLength(20);
+		expect(main.windows).toHaveLength(2);
+		// Only the interactive lane has a reader, so a read left on the bulk
+		// lane would fall back to the main thread and show up on adapter.query.
+		adapter.setOffThreadReader(reader, "interactive");
+		const mainQuery = spyOn(adapter, "query");
+		const readerAll = spyOn(reader, "all");
+		expect(JSON.stringify(await readAll())).toBe(JSON.stringify(main));
+		for (const moved of [
+			/FROM requests r\s+LEFT JOIN accounts a/,
+			/FROM usage_windows/,
+		]) {
+			const matches = ([sql]: unknown[]) => moved.test(String(sql));
+			expect(mainQuery.mock.calls.filter(matches)).toEqual([]);
+			expect(readerAll.mock.calls.filter(matches)).toHaveLength(1);
+		}
+	});
+	it("loads and prunes cache-health state on the bulk reader, never the interactive one", async () => {
+		const adapter = db.getAdapter();
+		await seedCacheAccount(adapter);
+		const repo = new CacheHealthRepository(adapter);
+		const unclassified = cacheTestState();
+		unclassified.scope.provider = "openai-compatible";
+		unclassified.enrolled = false;
+		unclassified.reuse = {
+			sequence: 0,
+			incident: null,
+			bad: null,
+			recovery: null,
+		};
+		expect(await repo.commit(0, cacheTestState(), [])).toBe(true);
+		expect(await repo.commit(0, unclassified, [])).toBe(true);
+		const stateReads = ([sql]: unknown[]) =>
+			/^\s*SELECT[\s\S]*FROM cache_health_state/.test(String(sql));
+		// The alert scanner's state reads share the bulk lane with its bucket
+		// aggregate; an interactive-only reader takes none of them.
+		adapter.setOffThreadReader(reader, "interactive");
+		const mainQuery = spyOn(adapter, "query");
+		const readerAll = spyOn(reader, "all");
+		expect(await repo.loadStates(CACHE_TEST_TIME)).toHaveLength(2);
+		expect(readerAll.mock.calls.filter(stateReads)).toEqual([]);
+		expect(mainQuery.mock.calls.filter(stateReads)).toHaveLength(2);
+		adapter.setOffThreadReader(undefined, "interactive");
+		adapter.setOffThreadReader(reader);
+		mainQuery.mockClear();
+		readerAll.mockClear();
+		// Two days on, the prune's select and the load both run on the reader and
+		// see the prune's own committed delete: only the enrolled state is left.
+		expect(await repo.loadStates(CACHE_TEST_TIME + 2 * DAY)).toEqual([
+			cacheTestState(),
+		]);
+		expect(mainQuery.mock.calls.filter(stateReads)).toEqual([]);
+		expect(readerAll.mock.calls.filter(stateReads)).toHaveLength(2);
 	});
 	it("wires file-backed databases by default and honors every opt-out spelling", async () => {
 		const wired = new DatabaseOperations(join(dir, "test.db"));

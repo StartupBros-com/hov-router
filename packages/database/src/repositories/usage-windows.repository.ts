@@ -651,11 +651,16 @@ export class UsageWindowsRepository extends BaseRepository<UsageWindow> {
 			params.push(options.sinceMs);
 		}
 		const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
-		const rows = await this.query<UsageWindowRow>(
+		// On the interactive reader, not the bulk one: the usage-window page and
+		// the public value feed list windows here, and the bulk lane carries the
+		// ledger's long token aggregates. Under disk pressure this read took up to
+		// 2.6 s on the main thread (#1013).
+		const rows = await this.queryOffThread<UsageWindowRow>(
 			`SELECT ${WINDOW_COLUMNS} FROM usage_windows
 			 ${where}
 			 ORDER BY resets_at DESC${options.limit == null ? "" : " LIMIT ?"}`,
 			options.limit == null ? params : [...params, options.limit],
+			"interactive",
 		);
 		return rows.map(toUsageWindow);
 	}

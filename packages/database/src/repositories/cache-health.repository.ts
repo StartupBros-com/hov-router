@@ -191,7 +191,9 @@ export class CacheHealthRepository extends BaseRepository<CacheHealthState> {
 		await this.pruneStates(nowMs);
 		// Retained snapshots must be visible with their existing revision: an
 		// idle non-native route cannot relearn capability from zero cache hits.
-		const rows = await this.query<StateRow>(
+		// Both state reads run on the bulk reader beside fetchBuckets; each write
+		// before them is awaited, so the reader sees it committed (#1013).
+		const rows = await this.queryOffThread<StateRow>(
 			`SELECT scope_key, revision, last_bucket_end, snapshot FROM cache_health_state
 			WHERE ${LIVE_GENERATION}`,
 		);
@@ -203,7 +205,7 @@ export class CacheHealthRepository extends BaseRepository<CacheHealthState> {
 		let deleted = await this.runWithChanges(
 			`DELETE FROM cache_health_state WHERE NOT ${LIVE_GENERATION}`,
 		);
-		const rows = await this.query<StateRow>(
+		const rows = await this.queryOffThread<StateRow>(
 			`SELECT scope_key, revision, last_bucket_end, snapshot FROM cache_health_state
 			WHERE last_bucket_end < ? AND ${LIVE_GENERATION}`,
 			[nowMs - DAY_MS],
