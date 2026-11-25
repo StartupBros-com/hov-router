@@ -69,10 +69,6 @@ function makeConfig(
 		getAlertTokensPerHour: () => 0,
 		getAlertRequestTokens: () => 0,
 		getAlertUsageWindowThresholdPercent: () => 0,
-		getAlertAnomalyEnabled: () => false,
-		getAlertAnomalyIntervalMinutes: () => 15,
-		getAlertAnomalyBaselineWindowMinutes: () => 1440,
-		getAlertAnomalyLoopMinRequests: () => 25,
 		getAlertCooldownMinutes: () => COOLDOWN_MINUTES,
 		getAlertWebhookUrl: () =>
 			overrides.webhookUrl ?? "http://127.0.0.1:9/codex-alert-webhook",

@@ -206,10 +206,6 @@ function makeConfig(): Config {
 		getAlertTokensPerHour: () => 0,
 		getAlertRequestTokens: () => 0,
 		getAlertUsageWindowThresholdPercent: () => 90,
-		getAlertAnomalyEnabled: () => false,
-		getAlertAnomalyIntervalMinutes: () => 15,
-		getAlertAnomalyBaselineWindowMinutes: () => 60,
-		getAlertAnomalyLoopMinRequests: () => 25,
 		getAlertCooldownMinutes: () => 60,
 		getAlertWebhookUrl: () => "",
 		get: (_key: string, defaultValue?: string | number | boolean) =>

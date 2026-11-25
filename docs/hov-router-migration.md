@@ -119,7 +119,9 @@ Release 5.0.0 logs one startup warning naming each Codex variable that is still 
 | `GET /api/insights/context` | Nothing. A request's stored payload is still shown in its details on the Requests page. |
 | `GET /api/insights/anomalies` | Nothing. The Requests and Analytics pages show per-request tokens and cost. |
 
-**Kept.** The alert routes keep their paths and responses: `GET` and `POST /api/insights/alerts`, `GET /api/insights/alerts/config`, `POST /api/insights/alerts/acknowledge-all`, `POST /api/insights/alerts/<id>` (acknowledge one alert) and `GET /api/insights/alerts/stream`. So does `GET /api/insights/cache-parity`. Stored alerts are untouched.
+**Anomaly alerts.** Release 7.0.0 also removes the anomaly alert sweep. It was off by default and raised `anomaly_token_outlier`, `anomaly_output_blowup`, `anomaly_runaway_loop` and `anomaly_model_misrouting` alerts. Its settings are ignored and left where they are: `ALERT_ANOMALY_ENABLED`, `ALERT_ANOMALY_INTERVAL_MINUTES`, `ALERT_ANOMALY_BASELINE_WINDOW_MINUTES`, `ALERT_ANOMALY_LOOP_MIN_REQUESTS` and the matching `alert_anomaly_*` config-file keys. If the sweep was turned on, startup logs one warning until you delete them. The alert settings that `GET /api/insights/alerts/config` and `POST /api/insights/alerts` return no longer include `anomalyEnabled`, `anomalyIntervalMinutes`, `anomalyBaselineWindowMinutes` or `loopMinRequests`. A `POST` that still sends them succeeds and ignores them. The four `anomaly_*` type names are still accepted in `ALERT_WEBHOOK_TYPES` and `alert_webhook_types`, so a saved allowlist loads and saves as before; nothing raises those types any more.
+
+**Kept.** The alert routes keep their paths, and their responses change only as described above: `GET` and `POST /api/insights/alerts`, `GET /api/insights/alerts/config`, `POST /api/insights/alerts/acknowledge-all`, `POST /api/insights/alerts/<id>` (acknowledge one alert) and `GET /api/insights/alerts/stream`. So does `GET /api/insights/cache-parity`. Stored alerts are untouched, including any `anomaly_*` alerts.
 
 ## Manual source updates
 

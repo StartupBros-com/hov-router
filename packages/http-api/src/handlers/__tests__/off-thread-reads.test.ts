@@ -41,10 +41,6 @@ function alertConfig(): Config {
 		getAlertTokensPerHour: () => 0,
 		getAlertRequestTokens: () => 0,
 		getAlertUsageWindowThresholdPercent: () => 90,
-		getAlertAnomalyEnabled: () => false,
-		getAlertAnomalyIntervalMinutes: () => 15,
-		getAlertAnomalyBaselineWindowMinutes: () => 60,
-		getAlertAnomalyLoopMinRequests: () => 25,
 		getAlertCooldownMinutes: () => 60,
 		getAlertWebhookUrl: () => "",
 		get: (key: string, fallback?: unknown) =>

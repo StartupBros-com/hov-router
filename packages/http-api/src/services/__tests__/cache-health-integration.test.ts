@@ -918,10 +918,6 @@ describe("cache health persisted alert pipeline", () => {
 			getAlertTokensPerHour: () => 0,
 			getAlertRequestTokens: () => 0,
 			getAlertUsageWindowThresholdPercent: () => 90,
-			getAlertAnomalyEnabled: () => false,
-			getAlertAnomalyIntervalMinutes: () => 15,
-			getAlertAnomalyBaselineWindowMinutes: () => 1440,
-			getAlertAnomalyLoopMinRequests: () => 25,
 			getAlertCooldownMinutes: () => 60,
 			getAlertWebhookUrl: () => "",
 		}) as unknown as Config;

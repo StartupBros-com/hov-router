@@ -46,10 +46,6 @@ function makeConfig(
 		getAlertRequestTokens: () => 0,
 		getAlertUsageWindowThresholdPercent: () =>
 			overrides.usageWindowThresholdPercent ?? 90,
-		getAlertAnomalyEnabled: () => false,
-		getAlertAnomalyIntervalMinutes: () => 15,
-		getAlertAnomalyBaselineWindowMinutes: () => 60,
-		getAlertAnomalyLoopMinRequests: () => 25,
 		getAlertCooldownMinutes: () => overrides.cooldownMinutes ?? 60,
 		getAlertWebhookUrl: () => "",
 		get: (
