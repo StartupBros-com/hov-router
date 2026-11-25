@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Logger } from "@better-ccflare/logger";
 import { Config } from "./index";
 
 const ENV_KEYS = [
@@ -9,10 +10,6 @@ const ENV_KEYS = [
 	"ALERT_TOKENS_PER_HOUR",
 	"ALERT_REQUEST_TOKENS",
 	"ALERT_USAGE_WINDOW_THRESHOLD_PERCENT",
-	"ALERT_ANOMALY_ENABLED",
-	"ALERT_ANOMALY_INTERVAL_MINUTES",
-	"ALERT_ANOMALY_BASELINE_WINDOW_MINUTES",
-	"ALERT_ANOMALY_LOOP_MIN_REQUESTS",
 	"ALERT_COOLDOWN_MINUTES",
 	"ALERT_WEBHOOK_URL",
 	"ALERT_WEBHOOK_TYPES",
@@ -56,10 +53,6 @@ describe("alert config settings", () => {
 			expect(config.getAlertTokensPerHour()).toBe(0);
 			expect(config.getAlertRequestTokens()).toBe(0);
 			expect(config.getAlertUsageWindowThresholdPercent()).toBe(90);
-			expect(config.getAlertAnomalyEnabled()).toBe(false);
-			expect(config.getAlertAnomalyIntervalMinutes()).toBe(15);
-			expect(config.getAlertAnomalyBaselineWindowMinutes()).toBe(1440);
-			expect(config.getAlertAnomalyLoopMinRequests()).toBe(25);
 			expect(config.getAlertCooldownMinutes()).toBe(60);
 			expect(config.getAlertWebhookUrl()).toBe("");
 			expect(config.getAlertWebhookTypes()).toEqual([]);
@@ -73,10 +66,6 @@ describe("alert config settings", () => {
 		process.env.ALERT_TOKENS_PER_HOUR = "500000";
 		process.env.ALERT_REQUEST_TOKENS = "200000";
 		process.env.ALERT_USAGE_WINDOW_THRESHOLD_PERCENT = "75";
-		process.env.ALERT_ANOMALY_ENABLED = "true";
-		process.env.ALERT_ANOMALY_INTERVAL_MINUTES = "30";
-		process.env.ALERT_ANOMALY_BASELINE_WINDOW_MINUTES = "720";
-		process.env.ALERT_ANOMALY_LOOP_MIN_REQUESTS = "40";
 		process.env.ALERT_COOLDOWN_MINUTES = "120";
 		process.env.ALERT_WEBHOOK_URL = "https://example.com/hook";
 		process.env.ALERT_WEBHOOK_TYPES = "auth_failure, model_routing_drift";
@@ -87,10 +76,6 @@ describe("alert config settings", () => {
 			expect(config.getAlertTokensPerHour()).toBe(500000);
 			expect(config.getAlertRequestTokens()).toBe(200000);
 			expect(config.getAlertUsageWindowThresholdPercent()).toBe(75);
-			expect(config.getAlertAnomalyEnabled()).toBe(true);
-			expect(config.getAlertAnomalyIntervalMinutes()).toBe(30);
-			expect(config.getAlertAnomalyBaselineWindowMinutes()).toBe(720);
-			expect(config.getAlertAnomalyLoopMinRequests()).toBe(40);
 			expect(config.getAlertCooldownMinutes()).toBe(120);
 			expect(config.getAlertWebhookUrl()).toBe("https://example.com/hook");
 			expect(config.getAlertWebhookTypes()).toEqual([
@@ -102,25 +87,11 @@ describe("alert config settings", () => {
 		}
 	});
 
-	it("treats non-true anomaly env values as disabled", () => {
-		process.env.ALERT_ANOMALY_ENABLED = "disabled";
-		const { config, cleanup } = makeConfig();
-
-		try {
-			expect(config.getAlertAnomalyEnabled()).toBe(false);
-		} finally {
-			cleanup();
-		}
-	});
-
 	it("clamps out-of-range environment values", () => {
 		process.env.ALERT_DAILY_SPEND_USD = "-5";
 		process.env.ALERT_TOKENS_PER_HOUR = "9999999999";
 		process.env.ALERT_REQUEST_TOKENS = "-100";
 		process.env.ALERT_USAGE_WINDOW_THRESHOLD_PERCENT = "150";
-		process.env.ALERT_ANOMALY_INTERVAL_MINUTES = "2";
-		process.env.ALERT_ANOMALY_BASELINE_WINDOW_MINUTES = "10";
-		process.env.ALERT_ANOMALY_LOOP_MIN_REQUESTS = "9999";
 		process.env.ALERT_COOLDOWN_MINUTES = "0";
 		const { config, cleanup } = makeConfig();
 
@@ -129,9 +100,6 @@ describe("alert config settings", () => {
 			expect(config.getAlertTokensPerHour()).toBe(1_000_000_000);
 			expect(config.getAlertRequestTokens()).toBe(0);
 			expect(config.getAlertUsageWindowThresholdPercent()).toBe(100);
-			expect(config.getAlertAnomalyIntervalMinutes()).toBe(5);
-			expect(config.getAlertAnomalyBaselineWindowMinutes()).toBe(60);
-			expect(config.getAlertAnomalyLoopMinRequests()).toBe(1000);
 			expect(config.getAlertCooldownMinutes()).toBe(1);
 		} finally {
 			cleanup();
@@ -154,24 +122,6 @@ describe("alert config settings", () => {
 			config.setAlertUsageWindowThresholdPercent(-10);
 			expect(config.getAlertUsageWindowThresholdPercent()).toBe(0);
 
-			config.setAlertAnomalyIntervalMinutes(3);
-			expect(config.getAlertAnomalyIntervalMinutes()).toBe(5);
-
-			config.setAlertAnomalyIntervalMinutes(99999);
-			expect(config.getAlertAnomalyIntervalMinutes()).toBe(1440);
-
-			config.setAlertAnomalyBaselineWindowMinutes(1);
-			expect(config.getAlertAnomalyBaselineWindowMinutes()).toBe(60);
-
-			config.setAlertAnomalyBaselineWindowMinutes(999999);
-			expect(config.getAlertAnomalyBaselineWindowMinutes()).toBe(43200);
-
-			config.setAlertAnomalyLoopMinRequests(1);
-			expect(config.getAlertAnomalyLoopMinRequests()).toBe(5);
-
-			config.setAlertAnomalyLoopMinRequests(99999);
-			expect(config.getAlertAnomalyLoopMinRequests()).toBe(1000);
-
 			config.setAlertCooldownMinutes(0);
 			expect(config.getAlertCooldownMinutes()).toBe(1);
 		} finally {
@@ -190,7 +140,6 @@ describe("alert config settings", () => {
 			config.setAlertTokensPerHour(1_000_000);
 			config.setAlertRequestTokens(300_000);
 			config.setAlertUsageWindowThresholdPercent(80);
-			config.setAlertAnomalyEnabled(true);
 			config.setAlertCooldownMinutes(45);
 			config.setAlertWebhookUrl("https://hooks.example.com/alert");
 
@@ -198,7 +147,6 @@ describe("alert config settings", () => {
 			expect(config.getAlertTokensPerHour()).toBe(1_000_000);
 			expect(config.getAlertRequestTokens()).toBe(300_000);
 			expect(config.getAlertUsageWindowThresholdPercent()).toBe(80);
-			expect(config.getAlertAnomalyEnabled()).toBe(true);
 			expect(config.getAlertCooldownMinutes()).toBe(45);
 			expect(config.getAlertWebhookUrl()).toBe(
 				"https://hooks.example.com/alert",
@@ -240,10 +188,10 @@ describe("alert config settings", () => {
 			expect(settings.alert_tokens_per_hour).toBe(0);
 			expect(settings.alert_request_tokens).toBe(0);
 			expect(settings.alert_usage_window_threshold_percent).toBe(90);
-			expect(settings.alert_anomaly_enabled).toBe(false);
-			expect(settings.alert_anomaly_interval_minutes).toBe(15);
-			expect(settings.alert_anomaly_baseline_window_minutes).toBe(1440);
-			expect(settings.alert_anomaly_loop_min_requests).toBe(25);
+			// Retired in 7.0.0 (#1012): the anomaly sweep settings are not listed.
+			expect(
+				Object.keys(settings).filter((key) => key.startsWith("alert_anomaly_")),
+			).toEqual([]);
 			expect(settings.alert_cooldown_minutes).toBe(60);
 			expect(settings.alert_webhook_url).toBe("");
 			expect(settings.alert_webhook_types).toBe("");
@@ -311,6 +259,48 @@ describe("alert webhook type allowlist", () => {
 			expect(config.getAlertWebhookTypes()).toEqual([]);
 		} finally {
 			cleanup();
+		}
+	});
+
+	it("reads and saves again a list that names the retired anomaly types, without a warning", () => {
+		for (const key of ENV_KEYS) {
+			delete process.env[key];
+		}
+		// The shape an install saved before 7.0.0: every type it could name,
+		// including the four the removed anomaly sweep raised.
+		const saved = [
+			"daily_spend",
+			"tokens_per_hour",
+			"request_tokens",
+			"anomaly_token_outlier",
+			"anomaly_output_blowup",
+			"anomaly_runaway_loop",
+			"anomaly_model_misrouting",
+			"auth_failure",
+			"model_routing_drift",
+			"usage_window_value_drop",
+			"cache_efficiency_low",
+			"cache_efficiency_critical",
+			"cache_telemetry_gap",
+			"cache_efficiency_recovered",
+			"org_permission_denied",
+		];
+		const dir = mkdtempSync(join(tmpdir(), "better-ccflare-config-"));
+		const path = join(dir, "config.json");
+		writeFileSync(
+			path,
+			JSON.stringify({ alert_webhook_types: saved.join(",") }),
+		);
+		const warn = spyOn(Logger.prototype, "warn").mockImplementation(() => {});
+		try {
+			const config = new Config(path);
+			expect(config.getAlertWebhookTypes()).toEqual(saved);
+			expect(() => config.setAlertWebhookTypes(saved.join(","))).not.toThrow();
+			expect(config.getAlertWebhookTypes()).toEqual(saved);
+			expect(warn).not.toHaveBeenCalled();
+		} finally {
+			warn.mockRestore();
+			rmSync(dir, { recursive: true, force: true });
 		}
 	});
 

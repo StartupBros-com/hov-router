@@ -1,6 +1,6 @@
 /**
- * Types for the alerting system (issue #250): threshold rules,
- * anomaly-driven alerts, alert history, and alert configuration.
+ * Types for the alerting system (issue #250): threshold rules, alert
+ * history, and alert configuration.
  *
  * Pure data shapes shared between the HTTP API, the alert engine,
  * and the dashboard.
@@ -9,11 +9,16 @@
 /** Severity level attached to an alert event. */
 export type AlertSeverity = "info" | "warning" | "critical";
 
-/** Discriminates which rule or anomaly detector produced an alert. */
+/** Discriminates which rule produced an alert. */
 export type AlertType =
 	| "daily_spend"
 	| "tokens_per_hour"
 	| "request_tokens"
+	// The four anomaly_* types are retired: the anomaly sweep that raised them
+	// was removed in 7.0.0 and nothing raises them any more. They stay valid
+	// so stored alerts keep their type, and so a webhook allowlist naming them
+	// still reads and saves. Dropping them would turn an allowlist naming only
+	// these types into an empty list, which delivers every type.
 	| "anomaly_token_outlier"
 	| "anomaly_output_blowup"
 	| "anomaly_runaway_loop"
@@ -84,6 +89,7 @@ export const ALERT_TYPES: readonly AlertType[] = [
 	"daily_spend",
 	"tokens_per_hour",
 	"request_tokens",
+	// Retired in 7.0.0; see AlertType.
 	"anomaly_token_outlier",
 	"anomaly_output_blowup",
 	"anomaly_runaway_loop",
@@ -188,7 +194,7 @@ export interface AlertEvent {
 	message: string;
 	/** Observed value that triggered the alert. */
 	value: number | null;
-	/** Configured threshold (null for anomaly alerts). */
+	/** Configured threshold (null for an alert raised without one). */
 	threshold: number | null;
 	account: string | null;
 	model: string | null;
@@ -237,21 +243,6 @@ export interface AlertsConfigPayload {
 	cacheHealthMinRequests?: number;
 	cacheHealthMinInputTokens?: number;
 	cacheHealthReminderMinutes?: number;
-	anomalyEnabled: boolean;
-	anomalyIntervalMinutes: number;
-	/**
-	 * Minutes of trailing history used to build token baselines (median/MAD),
-	 * decoupled from anomalyIntervalMinutes (which only controls how often new
-	 * rows are scored). Must be a stable window distinct from the rows being
-	 * scored so a request is never scored against a baseline it is a member of.
-	 */
-	anomalyBaselineWindowMinutes: number;
-	/**
-	 * Minimum requests inside one (account, model, agent) window to qualify
-	 * as a runaway loop. Default 25 — well above one agent's normal
-	 * per-window traffic but still catches true repeated-request loops.
-	 */
-	loopMinRequests: number;
 	cooldownMinutes: number;
 	/** Webhook target URL; "" = disabled. */
 	webhookUrl: string;
