@@ -2878,4 +2878,4 @@ export class Config extends EventEmitter {
 // Re-export types
 export type { StrategyName } from "@better-ccflare/core";
 export { resolveConfigPath } from "./paths";
-export { getLegacyConfigDir, getPlatformConfigDir } from "./paths-common";
+export { getPlatformConfigDir } from "./paths-common";

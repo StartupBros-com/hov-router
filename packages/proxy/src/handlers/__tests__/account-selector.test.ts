@@ -1030,11 +1030,10 @@ describe("selectAccountsForRequest — x-better-ccflare-account-id header", () =
 		expect(ctx.strategy.select).not.toHaveBeenCalled();
 	});
 
-	// Nothing lifts a failure-threshold pause on its own since auto-refresh was
+	// Nothing lifts a manual pause on its own since auto-refresh was
 	// removed, so retrying a forced route to it cannot succeed until an
 	// operator resumes the account.
 	for (const [pauseReason, retryable] of [
-		["failure_threshold", false],
 		["manual", false],
 		[null, true],
 		["overage", true],
@@ -6367,7 +6366,7 @@ describe("selectAccountsForRequest — server-tool capability-first routing", ()
 		}
 	});
 
-	for (const pauseReason of ["manual", "failure_threshold"] as const) {
+	for (const pauseReason of ["manual"] as const) {
 		it(`keeps a proven ${pauseReason} pause unavailable without attempting resume`, async () => {
 			const previous = installCapabilityProvider({
 				name: "anthropic",

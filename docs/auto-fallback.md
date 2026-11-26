@@ -266,7 +266,6 @@ watch -n 30 'curl -s http://localhost:8080/api/accounts | jq ".[] | select(.auto
 Auto-fallback now considers *why* an account was paused before reactivating it:
 
 - `manual` pause: never auto-unpaused
-- `failure_threshold` pause: never auto-unpaused
 - `overage` pause: eligible for auto-unpause after window reset
 - `rate_limit_window` pause: reserved for window-reset-based reactivation
 - `null` (legacy rows): treated as eligible for auto-unpause for backward compatibility

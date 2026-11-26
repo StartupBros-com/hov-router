@@ -138,7 +138,7 @@ bun run cli --add-account <name> --mode <claude-oauth|console|zai|minimax|deepse
   - `codex`: Codex (OpenAI OAuth) provider
   - `xai`: xAI/Grok provider (imports local Grok CLI OAuth credentials)
   - `ollama`: Ollama local provider (no API key required)
-  - `meta`: Meta Model API provider (API key). `meta` is canonical; `muse-spark` remains server-side HTTP ingress compatibility only.
+  - `meta`: Meta Model API provider (API key).
 - `--priority`: Account priority (optional, defaults to 0)
   - Range: 0-100
   - Lower numbers indicate higher priority in load balancing

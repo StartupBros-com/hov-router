@@ -373,11 +373,6 @@ export class APIRouter {
 		this.handlers.set("POST:/api/accounts/anthropic-compatible", (req) =>
 			anthropicCompatibleAccountAddHandler(req),
 		);
-		// Keep the legacy route as an ingress alias only; both paths persist the
-		// canonical `meta` provider identity through the same handler.
-		this.handlers.set("POST:/api/accounts/muse-spark", (req) =>
-			metaAccountAddHandler(req),
-		);
 		this.handlers.set("POST:/api/accounts/ollama", (req) =>
 			ollamaAccountAddHandler(req),
 		);

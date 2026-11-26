@@ -4281,7 +4281,8 @@ describe("source-controlled guard", () => {
 		expect(guard.state.active).toBe(0);
 		expect(guard.state.queued).toBe(0);
 		expect(guard.state.counters.retried).toBe(0);
-		expect(guard.state.counters.recoverySleepCapExceeded).toBe(1);
+		expect(guard.state.counters).not.toHaveProperty("recoverySleepCapExceeded");
+		expect(guard.state.counters.recoverySilenceBudgetExceeded).toBe(1);
 		expect(guard.state.counters.recoveryBeyondDeadline).toBe(0);
 		expect(
 			events.find((event) => event.event === "proxy_final_error"),
@@ -4337,7 +4338,8 @@ describe("source-controlled guard", () => {
 		expect(await response.text()).toBe("recovered");
 		expect(attempts).toBe(2);
 		expect(guard.state.counters.retried).toBe(1);
-		expect(guard.state.counters.recoverySleepCapExceeded).toBe(0);
+		expect(guard.state.counters).not.toHaveProperty("recoverySleepCapExceeded");
+		expect(guard.state.counters.recoverySilenceBudgetExceeded).toBe(0);
 		expect(guard.state.active).toBe(0);
 		expect(
 			events.find((event) => event.event === "proxy_retry_wait"),
