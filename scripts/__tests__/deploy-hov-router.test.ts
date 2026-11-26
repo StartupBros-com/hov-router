@@ -2996,6 +2996,7 @@ describe("deploy --check report", () => {
 		fixture: HandoffFixture,
 		health: unknown,
 		headSha = "a".repeat(40),
+		host: { legacyUnitFile?: string; pin?: string } = {},
 	) {
 		const healthFile = join(fixture.root, "health.json");
 		writeFileSync(
@@ -3019,6 +3020,8 @@ describe("deploy --check report", () => {
 				`REPO_ROOT=${shellQuote(fixture.source)}`,
 				`HANDOFF_DIR=${shellQuote(fixture.handoffDir)}`,
 				`HEALTH_URL=${shellQuote(`file://${healthFile}`)}`,
+				`LEGACY_UNIT_FILE=${shellQuote(host.legacyUnitFile ?? join(fixture.root, "absent", "ccflare-stack.service"))}`,
+				`PIN=${shellQuote(host.pin ?? join(fixture.root, "absent", "50-pinned-build.conf"))}`,
 				"report_deploy_plan",
 			].join("\n"),
 		);
@@ -3072,6 +3075,90 @@ describe("deploy --check report", () => {
 		expect(runReport(runtimeIsDirectory, {})).toContain(
 			`restart: unknown: ${runtimeIsDirectory.runtime} is not a regular file`,
 		);
+	});
+
+	test("names a host still on the 7.x unit, and stays quiet once it has moved", () => {
+		const fixture = createHandoffFixture();
+		const legacyUnitFile = join(fixture.root, "ccflare-stack.service");
+		// The handoff fixture writes its own pin at the root; this host's is not there yet.
+		mkdirSync(join(fixture.root, "hov-router.service.d"));
+		const pin = join(fixture.root, "hov-router.service.d", "50-pinned-build.conf");
+		writeFileSync(legacyUnitFile, "[Service]\n");
+		const host = { legacyUnitFile, pin };
+
+		expect(runReport(fixture, { git_sha: "e784510d" }, undefined, host)).toContain(
+			`host:    a deploy refuses: ccflare-stack.service is installed and ${pin} does not exist yet; move this host once with scripts/hov-router-cutover.sh`,
+		);
+		// After the cutover the old unit stays for its revert, beside the new pin.
+		writeFileSync(pin, "# BEGIN hov-router managed deployment\n");
+		expect(runReport(fixture, { git_sha: "e784510d" }, undefined, host)).not.toContain(
+			"host:",
+		);
+	});
+});
+
+describe("legacy unit refusal", () => {
+	function reason(legacyExists: boolean, pinExists: boolean, state: string) {
+		const dir = tempDir();
+		const legacy = join(dir, "ccflare-stack.service");
+		const pin = join(dir, "50-pinned-build.conf");
+		if (legacyExists) writeFileSync(legacy, "[Service]\n");
+		if (pinExists) writeFileSync(pin, "\n");
+		return bash(
+			[
+				`source ${shellQuote(helperScriptForShell)}`,
+				`legacy_unit_host_reason ${shellQuote(legacy)} ${shellQuote(pin)} ${shellQuote(state)}`,
+			].join("\n"),
+		);
+	}
+
+	test("refuses while the old unit runs, even beside a new pin", () => {
+		for (const state of ["active", "activating", "reloading", "deactivating"]) {
+			const result = reason(true, true, state);
+			expect(result.exitCode).toBe(0);
+			expect(capturedOutput(result.stdout, "stdout")).toBe(
+				`ccflare-stack.service is ${state}`,
+			);
+		}
+	});
+
+	test("refuses an installed old unit with no new pin", () => {
+		const result = reason(true, false, "inactive");
+		expect(result.exitCode).toBe(0);
+		expect(capturedOutput(result.stdout, "stdout")).toContain(
+			"ccflare-stack.service is installed and",
+		);
+	});
+
+	test("lets a moved or never-legacy host deploy", () => {
+		for (const [legacy, pin, state] of [
+			[true, true, "inactive"],
+			[true, true, "failed"],
+			[false, true, ""],
+			[false, false, "inactive"],
+		] as const) {
+			const result = reason(legacy, pin, state);
+			expect(result.exitCode).toBe(1);
+			expect(capturedOutput(result.stdout, "stdout")).toBe("");
+		}
+	});
+
+	test("the deploy asks before the pin validation, the build and any mutation", () => {
+		const source = readFileSync(deployScript, "utf8");
+		const lockWarning = source.indexOf(
+			"could not record this deploy as the lock holder",
+		);
+		const refusal = source.indexOf(
+			'legacy_unit_host_reason "$LEGACY_UNIT_FILE" "$PIN" "$LEGACY_UNIT_STATE"',
+		);
+		const preflight = source.indexOf(
+			'validate_deploy_owned_systemd_pin "$PIN"',
+			lockWarning,
+		);
+		expect(lockWarning).toBeGreaterThan(0);
+		expect(refusal).toBeGreaterThan(lockWarning);
+		expect(preflight).toBeGreaterThan(refusal);
+		expect(source.slice(refusal, preflight)).toContain("exit 1");
 	});
 });
 

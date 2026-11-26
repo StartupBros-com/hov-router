@@ -170,6 +170,31 @@ describe_deploy_lock_holder() {
 	fi
 }
 
+# Release 8.0.0 renamed the unit 7.x used, ccflare-stack.service, to
+# hov-router.service. A host still on the old unit moves once with
+# scripts/hov-router-cutover.sh. A deploy over it would fail on a pin that does
+# not exist yet, or start a second router beside the one still serving. Prints
+# the reason and succeeds when the host is in that state. The state argument is
+# `systemctl is-active` output, or empty where systemd is not consulted.
+legacy_unit_host_reason() {
+	if [[ "$#" -ne 3 ]]; then
+		echo "legacy_unit_host_reason requires: legacy-unit-file pin legacy-unit-state" >&2
+		return 2
+	fi
+	local legacy_unit_file="$1" pin="$2" legacy_state="$3"
+	case "$legacy_state" in
+		active | activating | reloading | refreshing | deactivating)
+			printf '%s is %s' "${legacy_unit_file##*/}" "$legacy_state"
+			return 0
+			;;
+	esac
+	if [[ -e "$legacy_unit_file" && ! -e "$pin" ]]; then
+		printf '%s is installed and %s does not exist yet' "${legacy_unit_file##*/}" "$pin"
+		return 0
+	fi
+	return 1
+}
+
 validate_deploy_owned_systemd_pin() {
 	if [[ "$#" -ne 1 || ! -f "$1" ]]; then
 		echo "validate_deploy_owned_systemd_pin requires an existing systemd drop-in" >&2

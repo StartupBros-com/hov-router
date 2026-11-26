@@ -75,6 +75,7 @@ source "$REPO_ROOT/scripts/deploy-hov-router-lib.sh"
 
 DEST="/home/will/.config/hov-router"
 PIN="/etc/systemd/system/hov-router.service.d/50-pinned-build.conf"
+LEGACY_UNIT_FILE="/etc/systemd/system/ccflare-stack.service"
 HEALTH_URL="http://127.0.0.1:8788/health"
 GUARD_HEALTH_URL="http://127.0.0.1:8788/_guard/health"
 HEALTH_WAIT_SECS=60
@@ -161,6 +162,10 @@ report_deploy_plan() {
 		echo "live:    $live_sha (already the target; a deploy would rebuild and re-verify it)"
 	else
 		echo "live:    $live_sha"
+	fi
+	local legacy_reason
+	if legacy_reason="$(legacy_unit_host_reason "$LEGACY_UNIT_FILE" "$PIN" "")"; then
+		echo "host:    a deploy refuses: $legacy_reason; move this host once with scripts/hov-router-cutover.sh"
 	fi
 	if ! schema="$(deploy_schema_digest "$REPO_ROOT")"; then
 		echo "restart: unknown: could not compute the target's schema digest"
@@ -465,6 +470,12 @@ fi
 write_deploy_lock_holder "$DEPLOY_LOCK_HOLDER" "$HEAD_SHA" \
 	"${HOV_ROUTER_DEPLOY_CALLER_REF:-unknown}" "${HOV_ROUTER_DEPLOY_CALLER_DIR:-unknown}" \
 	|| echo "WARNING: could not record this deploy as the lock holder in $DEPLOY_LOCK_HOLDER" >&2
+
+LEGACY_UNIT_STATE="$(systemctl is-active "${LEGACY_UNIT_FILE##*/}" 2>/dev/null || true)"
+if LEGACY_UNIT_REASON="$(legacy_unit_host_reason "$LEGACY_UNIT_FILE" "$PIN" "$LEGACY_UNIT_STATE")"; then
+	echo "refusing to deploy: $LEGACY_UNIT_REASON. Release 8.0.0 renamed the unit to hov-router.service; move this host once with scripts/hov-router-cutover.sh --check, then --apply." >&2
+	exit 1
+fi
 
 # Validate ownership before an expensive build or any host artifact/systemd
 # mutation. render_systemd_pin repeats this validation against the exact backup

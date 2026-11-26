@@ -24,7 +24,7 @@ These keep the old name on purpose:
 - Published release bytes, assets and attestations, and the provenance tokens in them: `v1:startupbros-wstack-router-*` (v3.6.2 through v3.7.1), `v1:startupbros-hov-router-*`, and the `v1:tombii-*` tokens that recognize upstream builds. Releases before 8.0.0 keep the asset name `better-ccflare-linux-amd64`.
 - Two key-derivation labels, in `packages/providers/src/server-tools/replay-envelope.ts` and `packages/proxy/src/handlers/pending-rotation-slots.ts`: data already sealed under them would stop being counted or readable.
 - Upstream's own names: its repositories, npm package, image and issue numbers.
-- The refusal itself (`packages/config/src/retired-names.ts`, `scripts/run-hov-router.sh`) and its tests.
+- The refusal itself (`packages/config/src/retired-names.ts`, `scripts/run-hov-router.sh`), the deploy script's refusal of a host still on `ccflare-stack.service`, the one-time host move (`scripts/hov-router-cutover.sh`), and their tests.
 - LICENSE, `docs/acknowledgements.md`, the upstream links in `UPSTREAM.md`, CHANGELOG, and dated plans, reports and ideation pages.
 
 ## ⚠️ CRITICAL: Generated files
