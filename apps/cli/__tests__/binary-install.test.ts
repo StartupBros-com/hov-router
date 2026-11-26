@@ -34,6 +34,11 @@ const releaseDigest =
 const releaseUrl =
 	"https://github.com/StartupBros-com/hov-router/releases/download/v7.0.0/better-ccflare-linux-amd64";
 const sourceSha = "385efd9d8ad4465bea60dfe59e82f0466c8ac48e";
+/** 8.0.0 renamed the release asset; a published bundle keeps its signed name. */
+function releaseAssetName(tag: string): string {
+	const major = Number(tag.slice(1).split(".")[0]);
+	return major >= 8 ? "hov-router-linux-amd64" : "better-ccflare-linux-amd64";
+}
 const release640Sha = "94500eef95863210467676080581e3781f9eed11";
 const release621Sha = "786722ba026b7095e31aef91ca62f34bda79d490";
 const historicalDigest =
@@ -1010,7 +1015,7 @@ describe("documented provenance from committed bundles (synthetic policy fixture
 				expect(statement.predicateType).toBe("https://slsa.dev/provenance/v1");
 				expect(statement.subject).toEqual([
 					{
-						name: "better-ccflare-linux-amd64",
+						name: releaseAssetName(release.tag),
 						digest: { sha256: release.digest },
 					},
 					{
@@ -1220,7 +1225,7 @@ function describeTable(table: {
 					expect(sha256(bytes)).toBe(row.bundleSha);
 					const statement = statementOf(row.tag);
 					expect(statement.subject[0]).toEqual({
-						name: "better-ccflare-linux-amd64",
+						name: releaseAssetName(row.tag),
 						digest: { sha256: row.digest },
 					});
 					const build = statement.predicate.buildDefinition;
@@ -1287,7 +1292,7 @@ describeTable({
 			expect(pending.length).toBeLessThanOrEqual(1);
 			for (const tag of pending) {
 				const statement = statementOf(tag);
-				expect(statement.subject[0].name).toBe("better-ccflare-linux-amd64");
+				expect(statement.subject[0].name).toBe(releaseAssetName(tag));
 				expect(
 					statement.predicate.buildDefinition.externalParameters.workflow,
 				).toEqual({

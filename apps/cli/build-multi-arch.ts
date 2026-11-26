@@ -24,27 +24,27 @@ const projectRoot = join(import.meta.dir, "../..");
 const platforms: Platform[] = [
 	{
 		target: "bun-linux-amd64",
-		outfile: "better-ccflare-linux-amd64",
+		outfile: "hov-router-linux-amd64",
 		description: "Linux x86_64",
 	},
 	{
 		target: "bun-linux-arm64",
-		outfile: "better-ccflare-linux-arm64",
+		outfile: "hov-router-linux-arm64",
 		description: "Linux ARM64",
 	},
 	{
 		target: "bun-darwin-x64",
-		outfile: "better-ccflare-macos-x86_64",
+		outfile: "hov-router-macos-x86_64",
 		description: "macOS Intel",
 	},
 	{
 		target: "bun-darwin-arm64",
-		outfile: "better-ccflare-macos-arm64",
+		outfile: "hov-router-macos-arm64",
 		description: "macOS Apple Silicon",
 	},
 	{
 		target: "bun-windows-x64",
-		outfile: "better-ccflare-windows-x64.exe",
+		outfile: "hov-router-windows-x64.exe",
 		description: "Windows x86_64",
 	},
 ];

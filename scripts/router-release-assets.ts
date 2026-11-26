@@ -23,10 +23,10 @@ import {
 
 export const ASSET_NAMES = [
 	"SHA256SUMS",
-	"better-ccflare-linux-amd64",
+	"hov-router-linux-amd64",
 	"release-manifest.json",
 ].sort();
-const ATTESTED = ["better-ccflare-linux-amd64", "release-manifest.json"];
+const ATTESTED = ["hov-router-linux-amd64", "release-manifest.json"];
 const FOUNDATION = {
 	name: "Managed Routing Foundation Gate",
 	path: ".github/workflows/managed-routing-postgres.yml",

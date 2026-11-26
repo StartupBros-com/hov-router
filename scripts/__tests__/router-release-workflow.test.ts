@@ -354,7 +354,7 @@ test.each([
 		mkdirSync(assets);
 		const names = [
 			"SHA256SUMS",
-			"better-ccflare-linux-amd64",
+			"hov-router-linux-amd64",
 			"release-manifest.json",
 		];
 		for (const name of names) writeFileSync(join(assets, name), name);
@@ -547,7 +547,7 @@ test("production smoke launcher keeps runtime HOME out of downloaded inventory",
 	try {
 		const names = [
 			"SHA256SUMS",
-			"better-ccflare-linux-amd64",
+			"hov-router-linux-amd64",
 			"release-manifest.json",
 		];
 		// Run the real launcher and verifier, not a replacement bun executable.
@@ -588,7 +588,7 @@ smokeDownloadedAssets(new Map(${JSON.stringify(names)}.map(name => [name, new Te
 // These are transport/state-machine tests, not live GitHub upload or attestation proof.
 function fixture() {
 	const files = new Map([
-		["better-ccflare-linux-amd64", new Uint8Array([1, 2, 3])],
+		["hov-router-linux-amd64", new Uint8Array([1, 2, 3])],
 		["SHA256SUMS", new Uint8Array([4])],
 		["release-manifest.json", new Uint8Array([5])],
 	]);
@@ -672,7 +672,7 @@ for (const failure of [
 	test(`assets refuse ${failure}; never execute unauthenticated bytes`, async () => {
 		const f = fixture();
 		if (failure === "conflict")
-			f.remote.set("better-ccflare-linux-amd64", new Uint8Array([99]));
+			f.remote.set("hov-router-linux-amd64", new Uint8Array([99]));
 		if (failure === "published") f.invalidate();
 		if (failure === "extra") f.remote.set("bundle.json", new Uint8Array([1]));
 		if (failure === "missing-local") f.files.delete("SHA256SUMS");

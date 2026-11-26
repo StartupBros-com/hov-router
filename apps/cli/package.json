@@ -1,5 +1,5 @@
 {
-	"name": "hov-router",
+	"name": "@hov-router/cli",
 	"version": "7.0.0",
 	"description": "HoV Router - a load balancer proxy for Claude Code across multiple account providers",
 	"license": "MIT",
@@ -12,7 +12,6 @@
 		"url": "https://github.com/StartupBros-com/hov-router/issues"
 	},
 	"bin": {
-		"hov-router": "dist/hov-router",
 		"hov-router": "dist/hov-router"
 	},
 	"type": "module",

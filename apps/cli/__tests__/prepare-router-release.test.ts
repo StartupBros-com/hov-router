@@ -28,7 +28,7 @@ const expected = {
 	ref: "refs/tags/v1.2.3",
 	sha: "a".repeat(40),
 };
-const filename = "better-ccflare-linux-amd64";
+const filename = "hov-router-linux-amd64";
 const bunPin = readFileSync(
 	resolve(import.meta.dir, "../../../.bun-version"),
 	"utf8",
@@ -61,7 +61,7 @@ function schemaExample(
 		sha,
 		bun: bunPin,
 		target: "bun-linux-amd64",
-		executable: { filename: "better-ccflare-linux-amd64", size, sha256 },
+		executable: { filename: "hov-router-linux-amd64", size, sha256 },
 		provenance: {
 			raw: tokenFor(identity.version),
 			schemaVersion: "v1",

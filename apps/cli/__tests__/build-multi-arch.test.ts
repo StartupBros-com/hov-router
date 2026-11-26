@@ -571,10 +571,10 @@ describe("release binary provenance", () => {
 		expect(platformsForBuild("bun-windows-x64", "")).toEqual([
 			expect.objectContaining({
 				target: "bun-windows-x64",
-				outfile: "better-ccflare-windows-x64.exe",
+				outfile: "hov-router-windows-x64.exe",
 			}),
 		]);
-		expect(platformsForBuild("better-ccflare-linux-amd64", "")).toEqual([
+		expect(platformsForBuild("hov-router-linux-amd64", "")).toEqual([
 			expect.objectContaining({ target: "bun-linux-amd64" }),
 		]);
 		expect(() => platformsForBuild("unknown-platform", "")).toThrow(
