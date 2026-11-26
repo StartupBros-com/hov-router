@@ -317,6 +317,29 @@ loaded_env_files() {
 	done | sort -u
 }
 
+# The .env files the router reads at startup (apps/cli/src/startup-env.ts): in
+# its working directory, two levels above it, and beside its binary, which the
+# deploy installs in the config directory.
+startup_dotenv_files() {
+	local workdir file
+	# The last setting wins, and drop-ins apply in name order after the unit.
+	workdir="$(
+		for file in "$OLD_UNIT_FILE" "$OLD_DROPINS"/*.conf; do
+			if [[ -f "$file" ]]; then sed -n -E 's/^[[:space:]]*WorkingDirectory=-?//p' "$file"; fi
+		done | tail -n 1
+	)"
+	[[ "$workdir" != "~" ]] || workdir="$HOME_DIR"
+	[[ -n "$workdir" ]] || workdir=/
+	printf '%s\n' "${workdir%/}/.env" "$(realpath -m "$workdir/../..")/.env" "$OLD_CFG/.env" | sort -u
+}
+
+# What the old pin starts: its binary, guard and runner.
+old_pin_targets() {
+	local pin="$OLD_DROPINS/$PIN_NAME"
+	sed -n -E 's/^Environment=(CCFLARE_BIN|GUARD_SCRIPT)=//p' "$pin"
+	sed -n -E 's/^ExecStart=[-@:+!]*([^[:space:]]+).*$/\1/p' "$pin" | tail -n 1
+}
+
 health_git_sha() {
 	local body
 	body="$(curl -fsS --max-time 5 "$HEALTH_URL" 2>/dev/null)" || return 1
@@ -379,6 +402,13 @@ preflight() {
 		grep -v -E '^(key|rename|comment|leftover) ' "$report" >&2 || true
 		refuse "renaming the unit's files failed"
 	fi
+	local keys
+	while IFS= read -r file; do
+		[[ -f "$file" ]] || continue
+		keys="$(sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?((BETTER_CCFLARE_|CCFLARE_|ccflare_)[A-Za-z0-9_]*)=.*$/\2/p' "$file" | sort -u | paste -sd' ' -)" \
+			|| refuse "could not read $file"
+		[[ -z "$keys" ]] || refuse "$file sets $keys; the router reads that file at startup and stops on an old name, so rename them there first"
+	done < <(startup_dotenv_files)
 	if grep -q -x -E 'key (HOV_ROUTER_DB_PATH|HOV_ROUTER_CONFIG_PATH|XDG_CONFIG_HOME)' "$report"; then
 		refuse "the unit sets a database, config or XDG_CONFIG_HOME path, so its storage may live outside $OLD_CFG; move it by hand"
 	fi
@@ -488,7 +518,7 @@ install_like() {
 }
 
 run_apply() {
-	local stage="$STATE_DIR/stage" file name target wanted_sha
+	local stage="$STATE_DIR/stage" file name target prior served deadline
 	mkdir -p "$STATE_DIR"
 	chmod 0700 "$STATE_DIR"
 	exec 8>"$STATE_DIR/lock"
@@ -559,14 +589,27 @@ run_apply() {
 	log "running $DEPLOY"
 	(cd "$REPO_ROOT" && bash "$DEPLOY")
 
+	# The deploy checked /health against the commit it built, which is origin/main
+	# as the deploy fetched it; another checkout may fetch a newer main since. So
+	# this asks only that the new unit runs and serves a build other than 7.x's.
 	CURRENT_STEP="checking /health"
-	wanted_sha="$(git -C "$REPO_ROOT" rev-parse refs/remotes/origin/main)"
-	wait_for_health "$wanted_sha" || {
-		log "/health did not report $wanted_sha within ${HEALTH_TIMEOUT_S}s (last: $(health_git_sha || echo unavailable))"
+	prior="$(cat "$PRIOR_SHA_FILE")"
+	deadline=$((SECONDS + HEALTH_TIMEOUT_S))
+	served=""
+	while ((SECONDS < deadline)); do
+		if served="$(health_git_sha)" && [[ -n "$served" ]] && ! sha_matches "$served" "$prior"; then break; fi
+		served=""
+		sleep 1
+	done
+	if [[ -z "$served" ]]; then
+		log "/health did not report a build other than ${prior:-the old one} within ${HEALTH_TIMEOUT_S}s"
 		false
-	}
-	[[ "$(systemctl is-active "$NEW_UNIT" 2>/dev/null || true)" == active ]]
-	write_result "ok: $NEW_UNIT serves origin/main $wanted_sha"
+	fi
+	if [[ "$(systemctl is-active "$NEW_UNIT" 2>/dev/null || true)" != active ]]; then
+		log "$NEW_UNIT is not active"
+		false
+	fi
+	write_result "ok: $NEW_UNIT serves $served"
 }
 
 # Moves $1 to $2, first setting aside anything at $2 that appeared after the
@@ -640,6 +683,12 @@ revert_host() {
 	move_back "$NEW_DOT" "$OLD_DOT" || return 1
 
 	sudo -n systemctl daemon-reload || return 1
+	local target
+	while IFS= read -r target; do
+		[[ -z "$target" || -e "$target" ]] && continue
+		log "$OLD_UNIT cannot start: its pin names $target, which does not exist"
+		return 1
+	done < <(old_pin_targets)
 	sudo -n systemctl enable "$OLD_UNIT" || return 1
 	sudo -n systemctl start "$OLD_UNIT" || return 1
 	prior="$(cat "$PRIOR_SHA_FILE" 2>/dev/null || true)"

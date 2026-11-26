@@ -108,6 +108,13 @@ case "$command" in
 		;;
 	start | restart)
 		[[ -f "$units/$1" ]] || { echo "Unit $1 not found." >&2; exit 5; }
+		if [[ "$1" == ccflare-stack.service ]]; then
+			# The old unit runs only if what its pin names is where the pin says.
+			pin="$units/ccflare-stack.service.d/50-pinned-build.conf"
+			for target in $(sed -n -E 's/^Environment=(CCFLARE_BIN|GUARD_SCRIPT)=//p; s/^ExecStart=(.+)$/\\1/p' "$pin"); do
+				[[ -e "$target" ]] || { echo "stub systemctl: $target is missing" >&2; exit 1; }
+			done
+		fi
 		touch "$state/active-$1"
 		;;
 	stop) rm -f "$state/active-$1" ;;
@@ -153,7 +160,15 @@ case "\${STUB_DEPLOY:-ok}" in
 		echo stray >"$HOV_ROUTER_CUTOVER_HOME/.config/better-ccflare/stray.txt"
 		exit 1
 		;;
-	wrong) printf 0badc0de >"$state/health-hov-router.service" ;;
+	# A deploy that removed the 7.x binary, which the old pin still names.
+	prune)
+		rm -f "$HOV_ROUTER_CUTOVER_HOME/.config/hov-router/better-ccflare-v7.0.0-abc"
+		exit 1
+		;;
+	# The deploy verified and exited 0, but the unit is not running.
+	silent) exit 0 ;;
+	# origin/main moved after the cutover read it; the deploy shipped the newer tip.
+	newer) printf 0badc0de >"$state/health-hov-router.service" ;;
 	*) printf '%s' "$STUB_TARGET_SHORT" >"$state/health-hov-router.service" ;;
 esac
 mkdir -p "$HOV_ROUTER_CUTOVER_HOME/.config/hov-router/handoff"
@@ -206,7 +221,7 @@ function createHost(options: { originHasCutover?: boolean } = {}) {
 		join(units, "ccflare-stack.service"),
 		[
 			"[Unit]",
-			"Description=Guarded better-ccflare Claude Code gateway",
+			"Description=better-ccflare gateway",
 			"After=network-online.target",
 			"",
 			"[Service]",
@@ -222,8 +237,8 @@ function createHost(options: { originHasCutover?: boolean } = {}) {
 		].join("\n"),
 	);
 	write(
-		join(dropins, "10-ai-gateway-tunnel.conf"),
-		"# Points ccflare's upstream at the tunnel.\n[Service]\nEnvironment=AI_GATEWAY_URL=http://127.0.0.1:9000\n",
+		join(dropins, "10-upstream.conf"),
+		"# Points ccflare's upstream elsewhere.\n[Service]\nEnvironment=FIXTURE_UPSTREAM_URL=http://127.0.0.1:9000\n",
 	);
 	write(
 		join(dropins, "50-pinned-build.conf"),
@@ -232,6 +247,7 @@ function createHost(options: { originHasCutover?: boolean } = {}) {
 			"[Service]",
 			`Environment=CCFLARE_BIN=${home}/.config/better-ccflare/better-ccflare-v7.0.0-abc`,
 			"Environment=GUARD_ACCEPTED_CAP_MS=1234567",
+			`Environment=GUARD_SCRIPT=${home}/.config/better-ccflare/guards/abc/ccflare-guard.mjs`,
 			`Environment=CCFLARE_FIXTURE_EXTRA=keep "CCFLARE_PIN_PATH=${dropins}/50-pinned-build.conf"`,
 			"RuntimeDirectory=ccflare-stack",
 			"ExecStart=",
@@ -242,57 +258,58 @@ function createHost(options: { originHasCutover?: boolean } = {}) {
 	);
 	write(join(dropins, "50-pinned-build.conf.bak-20261125"), "Environment=CCFLARE_STALE=1\n");
 	write(
-		join(dropins, "55-trace-hmac.conf"),
-		`[Service]\nEnvironmentFile=${etc}/better-ccflare/trace-hmac.env\n`,
+		join(dropins, "55-secrets.conf"),
+		`[Service]\nEnvironmentFile=${etc}/better-ccflare/secrets.env\n`,
 	);
 	write(
-		join(dropins, "70-local-dogfood.conf"),
-		`[Service]\nEnvironment="CCFLARE_CODEX_TRACE_DIR=${home}/.config/better-ccflare/codex-traces" CCFLARE_CACHE_PACING_MS=5\n`,
+		join(dropins, "70-paths.conf"),
+		`[Service]\nEnvironment="CCFLARE_CODEX_TRACE_DIR=${home}/.config/better-ccflare/traces" CCFLARE_CACHE_PACING_MS=5\n`,
 	);
 	write(
-		join(dropins, "85-route-suppression.conf"),
+		join(dropins, "85-commented.conf"),
 		"# Read by ccflare-stack.service at start.\n[Service]\nEnvironment=CCFLARE_ANTHROPIC_ROUTE_SUPPRESSION_MS=60000\n",
 	);
 	write(
-		join(dropins, "91-private-ai-tracing.conf"),
-		`[Service]\nEnvironment='PRIVATE_AI_TRACE_ROUTES_JSON={"route": "a b", "account": "00000000-0000-4000-8000-000000000001"}'\n`,
+		join(dropins, "91-quoted-json.conf"),
+		`[Service]\nEnvironment='FIXTURE_ROUTES_JSON={"route": "a b", "account": "00000000-0000-4000-8000-000000000001"}'\n`,
 	);
 	write(
-		join(dropins, "94-member-notice.conf"),
-		`[Service]\nEnvironmentFile=-${etc}/better-ccflare/member-notice.env\n`,
+		join(dropins, "94-optional-env.conf"),
+		`[Service]\nEnvironmentFile=-${etc}/better-ccflare/optional.env\n`,
 	);
 	write(
-		join(dropins, "97-public-subscriptions.conf"),
-		"[Service]\nEnvironment=BETTER_CCFLARE_PUBLIC_SUBSCRIPTIONS=1 BETTER_CCFLARE_GIT_SHA=abc1234\n",
+		join(dropins, "97-flags.conf"),
+		"[Service]\nEnvironment=BETTER_CCFLARE_FIXTURE_FLAG=1 BETTER_CCFLARE_GIT_SHA=abc1234\n",
 	);
 	write(
-		join(etc, "systemd", "system.control", "ccflare-stack.service.d", "50-MemoryLow.conf"),
-		"# This is a drop-in unit file extension, created via \"systemctl set-property\"\n[Service]\nMemoryLow=1G\n",
+		join(etc, "systemd", "system.control", "ccflare-stack.service.d", "50-CPUWeight.conf"),
+		"# This is a drop-in unit file extension, created via \"systemctl set-property\"\n[Service]\nCPUWeight=50\n",
 	);
 
 	const oldEtc = join(etc, "better-ccflare");
-	write(join(oldEtc, "trace-hmac.env"), "CCFLARE_CODEX_TRACE_HMAC_KEY=fixture-hmac-secret-value\n", 0o600);
+	write(join(oldEtc, "secrets.env"), "CCFLARE_FIXTURE_SECRET=fixture-secret-value\n", 0o600);
 	write(
-		join(oldEtc, "member-notice.env"),
-		"# member notices\nMEMBER_NOTICE_WEBHOOK_URL=https://hooks.example.invalid/fixture-webhook-secret\nexport MEMBER_NOTICE_SIGNING_SECRET=fixture-signing-secret\n",
+		join(oldEtc, "optional.env"),
+		"# optional settings\nFIXTURE_WEBHOOK_URL=https://hooks.example.invalid/fixture-webhook-secret\nexport FIXTURE_SIGNING_SECRET=fixture-signing-secret\n",
 		0o600,
 	);
-	write(join(oldEtc, "model-route-profiles.env"), "CCFLARE_MODEL_ROUTE_PROFILES_JSON={}\n", 0o600);
-	write(join(oldEtc, "model-route-profiles.json"), '{"note": "see better-ccflare#370."}\n', 0o640);
-	write(join(oldEtc, "dropin-backups", "2026", "70.conf"), "Environment=CCFLARE_OLD=1\n");
-	chmodSync(join(oldEtc, "dropin-backups", "2026"), 0o700);
+	write(join(oldEtc, "unloaded.env"), "CCFLARE_FIXTURE_UNLOADED={}\n", 0o600);
+	write(join(oldEtc, "notes.json"), '{"note": "see better-ccflare#370."}\n', 0o640);
+	write(join(oldEtc, "backups", "2026", "70.conf"), "Environment=CCFLARE_OLD=1\n");
+	chmodSync(join(oldEtc, "backups", "2026"), 0o700);
 
 	const oldConfig = join(home, ".config", "better-ccflare");
 	write(join(oldConfig, "better-ccflare.db"), "db\n", 0o600);
 	write(join(oldConfig, "better-ccflare.db-wal"), "wal\n", 0o600);
 	write(join(oldConfig, "better-ccflare.json"), "{}\n", 0o600);
-	write(join(oldConfig, "better-ccflare.json.pre-org-refusal"), "{}\n", 0o600);
+	write(join(oldConfig, "better-ccflare.json.backup-1"), "{}\n", 0o600);
 	write(join(oldConfig, "better-ccflare-v7.0.0-abc"), "binary\n", 0o755);
 	write(join(oldConfig, "handoff", "runtime.json"), "{}\n", 0o600);
 	chmodSync(join(oldConfig, "handoff"), 0o700);
-	write(join(oldConfig, "codex-traces", "trace.json"), "{}\n");
+	write(join(oldConfig, "traces", "trace.json"), "{}\n");
 	write(join(oldConfig, "guards", "abc", "ccflare-guard.mjs"), "// guard\n");
-	write(join(oldConfig, "model-route-profiles.last-good.json"), "{}\n");
+	write(join(oldConfig, "runners", "abc", "run-ccflare-stack.sh"), "#!/bin/sh\n", 0o755);
+	write(join(oldConfig, "state.json"), "{}\n");
 	write(join(home, ".better-ccflare", "workspaces.json"), "[]\n");
 
 	for (const [name, text] of Object.entries(STUBS)) {
@@ -383,7 +400,7 @@ function result(host: Host): string {
 }
 
 const SECRETS = [
-	"fixture-hmac-secret-value",
+	"fixture-secret-value",
 	"fixture-webhook-secret",
 	"fixture-signing-secret",
 	"00000000-0000-4000-8000-000000000001",
@@ -404,9 +421,9 @@ describe("cutover --check", () => {
 			"(4 better-ccflare.* files renamed hov-router.*; handoff/ set aside)",
 			"keys renamed in the 2 environment files the unit loads",
 			"8 drop-ins and a seed pin",
-			"  CCFLARE_CODEX_TRACE_HMAC_KEY -> HOV_ROUTER_CODEX_TRACE_HMAC_KEY",
+			"  CCFLARE_FIXTURE_SECRET -> HOV_ROUTER_FIXTURE_SECRET",
 			"  BETTER_CCFLARE_GIT_SHA -> HOV_ROUTER_HEALTH_GIT_SHA",
-			"  BETTER_CCFLARE_PUBLIC_SUBSCRIPTIONS -> HOV_ROUTER_PUBLIC_SUBSCRIPTIONS",
+			"  BETTER_CCFLARE_FIXTURE_FLAG -> HOV_ROUTER_FIXTURE_FLAG",
 			"notes:   2 comment lines still say ccflare",
 			"OK: --apply would proceed.",
 		]) {
@@ -453,6 +470,20 @@ describe("cutover --check", () => {
 		expect(check.stderr).toContain(`outside ${outside} sets a retired key`);
 	});
 
+	test("refuses a .env the router reads at startup that sets a retired key", () => {
+		for (const dir of ["", ".config/better-ccflare"]) {
+			const host = createHost();
+			const dotenv = join(host.home, dir, ".env");
+			write(dotenv, "OTHER=1\nexport CCFLARE_DOTENV_KEY=fixture-dotenv-secret\n", 0o600);
+			const before = tree(host);
+			const check = run(host, ["--check"]);
+			expect(check.exitCode).toBe(1);
+			expect(check.stderr).toContain(`${dotenv} sets CCFLARE_DOTENV_KEY; the router reads that file at startup`);
+			expect(check.stdout + check.stderr).not.toContain("fixture-dotenv-secret");
+			expect(tree(host)).toEqual(before);
+		}
+	});
+
 	test("refuses when a renamed path already exists", () => {
 		const host = createHost();
 		mkdirSync(join(host.home, ".config", "hov-router"));
@@ -491,7 +522,7 @@ describe("cutover --apply", () => {
 		const before = tree(host);
 		const apply = run(host, ["--apply", "--foreground"]);
 		expect(apply.exitCode).toBe(0);
-		expect(result(host)).toBe(`ok: hov-router.service serves origin/main ${host.targetSha}`);
+		expect(result(host)).toBe(`ok: hov-router.service serves ${host.targetShort}`);
 		expect(units(host)).toEqual({ oldActive: false, oldEnabled: false, newActive: true, newEnabled: true });
 
 		// The prebuild ran in a snapshot of origin/main that is gone again.
@@ -509,7 +540,7 @@ describe("cutover --apply", () => {
 		expect(after[`${config}/hov-router.db`]).toBe("file 600 db\n");
 		expect(after[`${config}/hov-router.db-wal`]).toBe("file 600 wal\n");
 		expect(after[`${config}/hov-router.json`]).toBe("file 600 {}\n");
-		expect(after[`${config}/hov-router.json.pre-org-refusal`]).toBe("file 600 {}\n");
+		expect(after[`${config}/hov-router.json.backup-1`]).toBe("file 600 {}\n");
 		expect(after[`${config}/better-ccflare-v7.0.0-abc`]).toBe("file 755 binary\n");
 		expect(after[`${config}/handoff.pre-8.0.0`]).toBe("dir 700");
 		expect(after[`${config}/handoff.pre-8.0.0/runtime.json`]).toBe("file 600 {}\n");
@@ -518,29 +549,29 @@ describe("cutover --apply", () => {
 			expect(after[gone]).toBeUndefined();
 		}
 
-		expect(after["etc/hov-router/trace-hmac.env"]).toBe(
-			"file 600 HOV_ROUTER_CODEX_TRACE_HMAC_KEY=fixture-hmac-secret-value\n",
+		expect(after["etc/hov-router/secrets.env"]).toBe(
+			"file 600 HOV_ROUTER_FIXTURE_SECRET=fixture-secret-value\n",
 		);
-		expect(after["etc/hov-router/trace-hmac.env.pre-8.0.0"]).toBe(
-			before["etc/better-ccflare/trace-hmac.env"],
+		expect(after["etc/hov-router/secrets.env.pre-8.0.0"]).toBe(
+			before["etc/better-ccflare/secrets.env"],
 		);
-		expect(after["etc/hov-router/member-notice.env"]).toBe(before["etc/better-ccflare/member-notice.env"]);
+		expect(after["etc/hov-router/optional.env"]).toBe(before["etc/better-ccflare/optional.env"]);
 		// Nothing loads this one, so it moves unchanged and gets no backup.
-		expect(after["etc/hov-router/model-route-profiles.env"]).toBe(
-			before["etc/better-ccflare/model-route-profiles.env"],
+		expect(after["etc/hov-router/unloaded.env"]).toBe(
+			before["etc/better-ccflare/unloaded.env"],
 		);
-		expect(after["etc/hov-router/model-route-profiles.env.pre-8.0.0"]).toBeUndefined();
-		expect(after["etc/hov-router/model-route-profiles.json"]).toBe(
-			before["etc/better-ccflare/model-route-profiles.json"],
+		expect(after["etc/hov-router/unloaded.env.pre-8.0.0"]).toBeUndefined();
+		expect(after["etc/hov-router/notes.json"]).toBe(
+			before["etc/better-ccflare/notes.json"],
 		);
-		expect(after["etc/hov-router/dropin-backups/2026"]).toBe("dir 700");
+		expect(after["etc/hov-router/backups/2026"]).toBe("dir 700");
 
 		const unit = "etc/systemd/system/hov-router.service";
 		const dropins = `${unit}.d`;
 		expect(after[unit]).toBe(
 			`file 644 ${[
 				"[Unit]",
-				"Description=Guarded HoV Router Claude Code gateway",
+				"Description=HoV Router gateway",
 				"After=network-online.target",
 				"",
 				"[Service]",
@@ -560,39 +591,39 @@ describe("cutover --apply", () => {
 				.filter((key) => key.startsWith(`${dropins}/`))
 				.map((key) => key.slice(dropins.length + 1)),
 		).toEqual([
-			"10-ai-gateway-tunnel.conf",
+			"10-upstream.conf",
 			"50-pinned-build.conf",
-			"55-trace-hmac.conf",
-			"70-local-dogfood.conf",
-			"85-route-suppression.conf",
-			"91-private-ai-tracing.conf",
-			"94-member-notice.conf",
-			"97-public-subscriptions.conf",
+			"55-secrets.conf",
+			"70-paths.conf",
+			"85-commented.conf",
+			"91-quoted-json.conf",
+			"94-optional-env.conf",
+			"97-flags.conf",
 		]);
 		const dropin = (name: string) => after[`${dropins}/${name}`]?.replace(/^file 644 /, "");
-		expect(dropin("10-ai-gateway-tunnel.conf")).toBe(
-			readFileSync(join(host.dropins, "10-ai-gateway-tunnel.conf"), "utf8"),
+		expect(dropin("10-upstream.conf")).toBe(
+			readFileSync(join(host.dropins, "10-upstream.conf"), "utf8"),
 		);
-		expect(dropin("55-trace-hmac.conf")).toBe(
-			`[Service]\nEnvironmentFile=${host.etc}/hov-router/trace-hmac.env\n`,
+		expect(dropin("55-secrets.conf")).toBe(
+			`[Service]\nEnvironmentFile=${host.etc}/hov-router/secrets.env\n`,
 		);
-		expect(dropin("70-local-dogfood.conf")).toBe(
-			`[Service]\nEnvironment="HOV_ROUTER_CODEX_TRACE_DIR=${host.home}/.config/hov-router/codex-traces" HOV_ROUTER_CACHE_PACING_MS=5\n`,
+		expect(dropin("70-paths.conf")).toBe(
+			`[Service]\nEnvironment="HOV_ROUTER_CODEX_TRACE_DIR=${host.home}/.config/hov-router/traces" HOV_ROUTER_CACHE_PACING_MS=5\n`,
 		);
-		expect(dropin("85-route-suppression.conf")).toBe(
+		expect(dropin("85-commented.conf")).toBe(
 			"# Read by ccflare-stack.service at start.\n[Service]\nEnvironment=HOV_ROUTER_ANTHROPIC_ROUTE_SUPPRESSION_MS=60000\n",
 		);
-		expect(dropin("91-private-ai-tracing.conf")).toBe(
-			readFileSync(join(host.dropins, "91-private-ai-tracing.conf"), "utf8"),
+		expect(dropin("91-quoted-json.conf")).toBe(
+			readFileSync(join(host.dropins, "91-quoted-json.conf"), "utf8"),
 		);
-		expect(dropin("94-member-notice.conf")).toBe(
-			`[Service]\nEnvironmentFile=-${host.etc}/hov-router/member-notice.env\n`,
+		expect(dropin("94-optional-env.conf")).toBe(
+			`[Service]\nEnvironmentFile=-${host.etc}/hov-router/optional.env\n`,
 		);
-		expect(dropin("97-public-subscriptions.conf")).toBe(
-			"[Service]\nEnvironment=HOV_ROUTER_PUBLIC_SUBSCRIPTIONS=1 HOV_ROUTER_HEALTH_GIT_SHA=abc1234\n",
+		expect(dropin("97-flags.conf")).toBe(
+			"[Service]\nEnvironment=HOV_ROUTER_FIXTURE_FLAG=1 HOV_ROUTER_HEALTH_GIT_SHA=abc1234\n",
 		);
-		expect(after["etc/systemd/system.control/hov-router.service.d/50-MemoryLow.conf"]).toBe(
-			before["etc/systemd/system.control/ccflare-stack.service.d/50-MemoryLow.conf"],
+		expect(after["etc/systemd/system.control/hov-router.service.d/50-CPUWeight.conf"]).toBe(
+			before["etc/systemd/system.control/ccflare-stack.service.d/50-CPUWeight.conf"],
 		);
 
 		// The old unit and its files stay as they were, for --revert.
@@ -630,6 +661,8 @@ describe("cutover --apply", () => {
 					`source ${shellQuote(libSource)}`,
 					`validate_deploy_owned_systemd_pin ${shellQuote(seed)}`,
 					`render_systemd_pin ${shellQuote(seed)} ${shellQuote(rendered)} /new/bin ${shellQuote(join(work, "runner.sh"))} ${shellQuote(join(work, "guard.mjs"))} abc123 policy-v1 ${shellQuote(join(work, "policy.mjs"))}`,
+					// The deploy's next check of the rendered pin, before it swaps the pin in.
+					`validate_deployment_timing ${shellQuote(rendered)} >/dev/null`,
 				].join("\n"),
 			],
 			{ cwd: repoRoot, stdout: "pipe", stderr: "pipe" },
@@ -653,12 +686,7 @@ describe("cutover --apply", () => {
 		{ name: "an environment file rewrite", step: "renaming the keys in", env: { STUB_FAIL_SUDO: "tee " } },
 		{ name: "enabling the new unit", step: "writing hov-router.service", env: { STUB_FAIL_SYSTEMCTL: "enable hov-router.service" } },
 		{ name: "the deploy", step: "deploying origin/main", env: { STUB_DEPLOY: "fail" } },
-		{
-			name: "a wrong build on /health",
-			step: "checking /health",
-			env: { STUB_DEPLOY: "wrong" },
-			aside: "home/.config/better-ccflare/handoff.8.0.0-reverted-",
-		},
+		{ name: "a deploy that left the unit stopped", step: "checking /health", env: { STUB_DEPLOY: "silent" } },
 		{
 			name: "a deploy that recreated an old path",
 			step: "deploying origin/main",
@@ -687,6 +715,26 @@ describe("cutover --apply", () => {
 		});
 	}
 
+	test("accepts the build the deploy shipped when origin/main moved during the deploy", () => {
+		const host = createHost();
+		const apply = run(host, ["--apply", "--foreground", "--no-prebuild"], { STUB_DEPLOY: "newer" });
+		expect(apply.exitCode).toBe(0);
+		expect(result(host)).toBe("ok: hov-router.service serves 0badc0de");
+		expect(units(host)).toEqual({ oldActive: false, oldEnabled: false, newActive: true, newEnabled: true });
+	});
+
+	test("does not start the old unit when a file its pin names is gone", () => {
+		const host = createHost();
+		const apply = run(host, ["--apply", "--foreground", "--no-prebuild"], { STUB_DEPLOY: "prune" });
+		expect(apply.exitCode).not.toBe(0);
+		expect(result(host)).toStartWith("revert-failed: the cutover failed while deploying origin/main");
+		expect(apply.stdout + apply.stderr).toContain(
+			`its pin names ${join(host.home, ".config", "better-ccflare", "better-ccflare-v7.0.0-abc")}, which does not exist`,
+		);
+		expect(log(host, "systemctl.log")).not.toContain("start ccflare-stack.service");
+		expect(units(host).oldActive).toBe(false);
+	});
+
 	test("a failed prebuild stops before anything changes", () => {
 		const host = createHost();
 		const before = tree(host);
@@ -710,7 +758,7 @@ describe("cutover --apply", () => {
 		for (let waited = 0; waited < 30_000 && !existsSync(resultFile); waited += 100) {
 			await Bun.sleep(100);
 		}
-		expect(result(host)).toBe(`ok: hov-router.service serves origin/main ${host.targetSha}`);
+		expect(result(host)).toBe(`ok: hov-router.service serves ${host.targetShort}`);
 		const detachedLog = readFileSync(join(host.state, "cutover.log"), "utf8");
 		expect(detachedLog).toContain("stopping ccflare-stack.service");
 		for (const secret of SECRETS) {
@@ -758,7 +806,7 @@ describe("cutover --revert", () => {
 			"50-pinned-build.conf",
 		);
 		expect(readdirSync(join(backup, "system.control", "hov-router.service.d"))).toEqual([
-			"50-MemoryLow.conf",
+			"50-CPUWeight.conf",
 		]);
 
 		const again = tree(host);
