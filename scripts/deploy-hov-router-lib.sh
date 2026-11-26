@@ -449,7 +449,7 @@ render_systemd_pin() {
 	if [[ ! "$accepted_cap_ms" =~ ^[1-9][0-9]{0,6}$ ]] || ((accepted_cap_ms > 1470000)); then echo "invalid accepted request cap" >&2; return 2; fi
 	local deadline_ms=600000 retry_attempt_headroom_ms=30000 max_recovery_sleep_ms=120000 shutdown_grace_ms=600000 max_recovery_waits=12
 	local kill_mode=mixed stop_timeout=720s
-	local restart=on-failure restart_sec=5s restart_prevent_exit_status=143
+	local restart=on-failure restart_sec=5s restart_prevent_exit_status="143 78"
 	local start_limit_interval=300s start_limit_burst=5
 	local runtime_directory=hov-router runtime_directory_mode=0700
 	local managed_begin="# BEGIN hov-router managed deployment"
@@ -1227,8 +1227,10 @@ validate_effective_systemd_policy() {
 		echo "unsafe effective RestartUSec=${restart_sec}; expected at least ${minimum_restart_sec_usec}us" >&2
 		return 1
 	fi
-	if [[ ! " $restart_prevent_exit_status " == *" 143 "* ]]; then
-		echo "effective RestartPreventExitStatus=${restart_prevent_exit_status}; expected status 143" >&2
+	# 143 is an intentional stop; 78 is a retired name the runner or backend
+	# refused, which a restart would only repeat.
+	if [[ ! " $restart_prevent_exit_status " == *" 143 "* || ! " $restart_prevent_exit_status " == *" 78 "* ]]; then
+		echo "effective RestartPreventExitStatus=${restart_prevent_exit_status}; expected statuses 143 and 78" >&2
 		return 1
 	fi
 	start_limit_interval_usec="$(systemd_duration_to_microseconds "$start_limit_interval")" || {

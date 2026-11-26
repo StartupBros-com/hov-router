@@ -212,7 +212,7 @@ WorkingDirectory=/opt/hov-router
 ExecStart=/opt/hov-router/hov-router --serve
 Restart=on-failure
 RestartSec=5
-RestartPreventExitStatus=143
+RestartPreventExitStatus=143 78
 
 # Environment
 Environment="PORT=8080"

@@ -40,7 +40,7 @@ ExecStart=/usr/bin/hov-router --smol --serve --port 8889
 # --- Restart policy ---
 Restart=on-failure
 RestartSec=5
-RestartPreventExitStatus=143
+RestartPreventExitStatus=143 78
 
 # --- Security hardening ---
 NoNewPrivileges=true
@@ -204,7 +204,7 @@ Adjust based on your expected request volume. For most single-proxy deployments,
 ```ini
 Restart=on-failure
 RestartSec=5
-RestartPreventExitStatus=143
+RestartPreventExitStatus=143 78
 StartLimitIntervalSec=300
 StartLimitBurst=5
 ```
@@ -213,6 +213,9 @@ This means:
 
 - systemd restarts the process on failures, including crashes and bounded
   circuit-open exits, but does not restart an intentional SIGTERM exit (143)
+  or a start that refused a name retired in 8.0.0 (78), which a restart
+  would only repeat. The journal lists each old name with its new one; see
+  [Renamed in 8.0.0](hov-router-migration.md#renamed-in-800)
 - It waits 5 seconds between restart attempts
 - If the process fails 5 times within 300 seconds, systemd stops trying and marks the unit as failed
 - After a `StartLimitBurst` failure, manual intervention is required: `systemctl reset-failed hov-router && systemctl start hov-router`

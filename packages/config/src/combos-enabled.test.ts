@@ -13,20 +13,6 @@ function makeConfig(): { config: Config; cleanup: () => void } {
 }
 
 describe("combos and combo session fallback settings", () => {
-	const originalDisable = process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
-
-	beforeEach(() => {
-		delete process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
-	});
-
-	afterEach(() => {
-		if (originalDisable === undefined) {
-			delete process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
-		} else {
-			process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = originalDisable;
-		}
-	});
-
 	it("starts with combos off and the fallback blocked", () => {
 		const { config, cleanup } = makeConfig();
 		try {
@@ -40,7 +26,6 @@ describe("combos and combo session fallback settings", () => {
 	});
 
 	it("keeps both settings owned by the config file", () => {
-		process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "true";
 		const { config, cleanup } = makeConfig();
 		try {
 			config.setCombosEnabled(false);
@@ -55,54 +40,6 @@ describe("combos and combo session fallback settings", () => {
 	});
 
 	describe("adoptLegacyRoutingSettings", () => {
-		it("inverts the old disable-fallback variable into the positive setting", () => {
-			process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "true";
-			const { config, cleanup } = makeConfig();
-			try {
-				config.adoptLegacyRoutingSettings(false);
-				expect(config.getComboSessionFallback()).toBe(false);
-				expect(config.getComboSessionFallbackSource()).toBe("file");
-			} finally {
-				cleanup();
-			}
-		});
-
-		it("keeps the permissive spellings the old variable accepted", () => {
-			for (const raw of ["1", "yes", "on", "TRUE"]) {
-				process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = raw;
-				const { config, cleanup } = makeConfig();
-				try {
-					config.adoptLegacyRoutingSettings(false);
-					expect(config.getComboSessionFallback()).toBe(false);
-				} finally {
-					cleanup();
-				}
-			}
-		});
-
-		it("reads an unrecognised value as not disabling, and still records it", () => {
-			process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "maybe";
-			const { config, cleanup } = makeConfig();
-			try {
-				config.adoptLegacyRoutingSettings(false);
-				expect(config.getComboSessionFallback()).toBe(true);
-				expect(config.getComboSessionFallbackSource()).toBe("file");
-			} finally {
-				cleanup();
-			}
-		});
-
-		it("ignores an empty variable, which is not an opinion", () => {
-			process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "";
-			const { config, cleanup } = makeConfig();
-			try {
-				config.adoptLegacyRoutingSettings(false);
-				expect(config.getComboSessionFallbackSource()).toBe("default");
-			} finally {
-				cleanup();
-			}
-		});
-
 		it("preserves both historical routing behaviours for an install with combos", () => {
 			const { config, cleanup } = makeConfig();
 			try {

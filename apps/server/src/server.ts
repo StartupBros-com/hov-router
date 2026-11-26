@@ -10,6 +10,11 @@ import {
 	resolveConfigPath,
 } from "@hov-router/config";
 import {
+	findRetiredHeaders,
+	refuseRetiredNames,
+	retiredHeaderResponse,
+} from "@hov-router/config/retired-names";
+import {
 	CACHE,
 	DEFAULT_STRATEGY,
 	getVersion,
@@ -2656,6 +2661,13 @@ export default async function startServer(options?: {
 					const url = parseRequestUrl(req.url);
 					if (!url) return malformedRequestUrlResponse();
 
+					// A header renamed in 8.0.0 would otherwise be ignored: an old
+					// account-id header would send the request into the pool.
+					const retiredHeaders = findRetiredHeaders(req.headers);
+					if (retiredHeaders.length > 0) {
+						return retiredHeaderResponse(retiredHeaders);
+					}
+
 					// Serve the dashboard SPA + static assets BEFORE the
 					// authentication-gated API router. The dashboard shell is
 					// public content and the initial browser navigation cannot
@@ -3736,6 +3748,7 @@ process.on("SIGTERM", () => {
 
 // Run server if this is the main entry point
 if (import.meta.main) {
+	refuseRetiredNames();
 	// Parse command line arguments
 	const args = process.argv.slice(2);
 	let port: number | undefined;

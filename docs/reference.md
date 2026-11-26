@@ -1,6 +1,6 @@
 # Technical reference
 
-Manual installation, client configuration, and operating details for HoV Router. For agent-assisted setup, start with the [agent setup guide](agent-setup.md). Use `hov-router`; older command names such as `better-ccflare` remain compatible.
+Manual installation, client configuration, and operating details for HoV Router. For agent-assisted setup, start with the [agent setup guide](agent-setup.md). The command is `hov-router`.
 
 - [Linux x86_64 release](#install-the-linux-x86_64-release) or [source build](#install-from-source)
 - [Local server and account setup](#start-the-local-server)
@@ -63,7 +63,7 @@ This project builds upon the foundation of [snipeship/ccflare](https://github.co
 
 [Release 7.0.0](https://github.com/StartupBros-com/hov-router/releases/tag/v7.0.0) contains one standalone Linux x86_64 binary; Node.js and Bun are not required to run it. For other platforms or a local build, use [Install from source](#install-from-source).
 
-The public home is `StartupBros-com/hov-router`, repository ID `1278801682` ([repository move](hov-router-migration.md#repository-move)). Use the current download and clone URLs below. Release 7.0.0 prints `HoV Router v7.0.0` through every command name it is installed under. The earlier 3.6.2 release keeps its historical bytes and signing identity and still prints its original product name. If you installed an earlier release with this guide, install 7.0.0 below, then [upgrade the earlier install](#upgrade-an-earlier-binary-install). 7.0.0 runs on SQLite only, sends no auto-refresh messages, has no Auto quality lane, and answers `410 Gone` for removed API endpoints: if your install used PostgreSQL, had auto-refresh on, requests a `claude-bccf-quality-*` model, or runs scripts against the router's API, read [PostgreSQL support removed](hov-router-migration.md#postgresql-support-removed), [Auto-refresh removed](hov-router-migration.md#auto-refresh-removed), [Removed in 5.0.0](hov-router-migration.md#removed-in-500) and [Auto quality lane removed](hov-router-migration.md#auto-quality-lane-removed) first. Coming from 6.x, also read [Upgrade leftovers removed](hov-router-migration.md#upgrade-leftovers-removed), [Insights page removed](hov-router-migration.md#insights-page-removed) and [Old model mapping formats removed](hov-router-migration.md#old-model-mapping-formats-removed): 7.0.0 no longer reads pending token rotations saved before 6.0.0, moves the alert routes off `/api/insights`, and rewrites old model-mapping data on its first start. Its [release notes](https://github.com/StartupBros-com/hov-router/releases/tag/v7.0.0) list the other breaking changes, such as the public value feed now served at schema version 2 only.
+The public home is `StartupBros-com/hov-router`, repository ID `1278801682` ([repository move](hov-router-migration.md#repository-move)). Use the current download and clone URLs below. Release 7.0.0 prints `HoV Router v7.0.0`. It still reads the configuration directory, environment variables and request headers by their names before the [8.0.0 rename](hov-router-migration.md#renamed-in-800): set `BETTER_CCFLARE_HOST`, not `HOV_ROUTER_HOST`, when you run it. The earlier 3.6.2 release keeps its historical bytes and signing identity and still prints its original product name. If you installed an earlier release with this guide, install 7.0.0 below, then [upgrade the earlier install](#upgrade-an-earlier-binary-install). 7.0.0 runs on SQLite only, sends no auto-refresh messages, has no Auto quality lane, and answers `410 Gone` for removed API endpoints: if your install used PostgreSQL, had auto-refresh on, requests a `claude-bccf-quality-*` model, or runs scripts against the router's API, read [PostgreSQL support removed](hov-router-migration.md#postgresql-support-removed), [Auto-refresh removed](hov-router-migration.md#auto-refresh-removed), [Removed in 5.0.0](hov-router-migration.md#removed-in-500) and [Auto quality lane removed](hov-router-migration.md#auto-quality-lane-removed) first. Coming from 6.x, also read [Upgrade leftovers removed](hov-router-migration.md#upgrade-leftovers-removed), [Insights page removed](hov-router-migration.md#insights-page-removed) and [Old model mapping formats removed](hov-router-migration.md#old-model-mapping-formats-removed): 7.0.0 no longer reads pending token rotations saved before 6.0.0, moves the alert routes off `/api/insights`, and rewrites old model-mapping data on its first start. Its [release notes](https://github.com/StartupBros-com/hov-router/releases/tag/v7.0.0) list the other breaking changes, such as the public value feed now served at schema version 2 only.
 
 Requires Bash on Linux x86_64, `curl`, and GNU coreutils (`sha256sum`, `mkdir`, `chmod`). No GitHub CLI, Node.js, or Bun is needed.
 
@@ -103,7 +103,7 @@ Continue at [Start the local server](#start-the-local-server), or add the option
 
 #### Optional: add commands to PATH
 
-After verification succeeds, create `hov-router` and `better-ccflare` in `$HOME/.local/bin`, both pointing to the same verified binary. This checks both names before creating either and refuses existing files, directories, or symlinks, including broken ones.
+After verification succeeds, create `hov-router` in `$HOME/.local/bin`, pointing to the verified binary. This refuses an existing file, directory, or symlink, including a broken one.
 
 <!-- router-release-path -->
 ```bash
@@ -113,24 +113,20 @@ After verification succeeds, create `hov-router` and `better-ccflare` in `$HOME/
   bin_dir="$HOME/.local/bin"
   test -x "$binary"
   mkdir -p "$bin_dir"
-  for name in hov-router better-ccflare; do
-    if [ -e "$bin_dir/$name" ] || [ -L "$bin_dir/$name" ]; then
-      printf 'Refusing existing command: %s\n' "$bin_dir/$name" >&2
-      exit 1
-    fi
-  done
-  for name in hov-router better-ccflare; do
-    ln -sT "$binary" "$bin_dir/$name"
-  done
+  if [ -e "$bin_dir/hov-router" ] || [ -L "$bin_dir/hov-router" ]; then
+    printf 'Refusing existing command: %s\n' "$bin_dir/hov-router" >&2
+    exit 1
+  fi
+  ln -sT "$binary" "$bin_dir/hov-router"
 )
 ```
 <!-- /router-release-path -->
 
-After success, use `export PATH="$HOME/.local/bin:$PATH"` in each terminal where you want the short commands. Check `command -v hov-router` and `command -v better-ccflare`; both should resolve there. Earlier versions of this guide also created `wstack-router`; this block leaves that name alone, and the upgrade block below keeps an existing one pointed at the new release. To keep this PATH setting, add it to your shell configuration yourself. Nothing here edits shell profiles or uses `sudo`. Existing commands elsewhere remain untouched; PATH order determines which runs. If alias creation fails, inspect the error and any link already created rather than forcing replacement.
+After success, use `export PATH="$HOME/.local/bin:$PATH"` in each terminal where you want the short commands. Check that `command -v hov-router` resolves there. Earlier versions of this guide also created `wstack-router` and `better-ccflare`; this block leaves those names alone, and the upgrade block below keeps an existing one pointed at the new release. To keep this PATH setting, add it to your shell configuration yourself. Nothing here edits shell profiles or uses `sudo`. Existing commands elsewhere remain untouched; PATH order determines which runs. If alias creation fails, inspect the error and any link already created rather than forcing replacement.
 
 #### Upgrade an earlier binary install
 
-Each release installs into its own version directory, so step 1 leaves an earlier release in place for rollback. If you created PATH aliases for an earlier release, the PATH block above refuses them; run this block instead, after step 1 succeeds. It points `hov-router` and `better-ccflare` at the new binary, plus `wstack-router` if an earlier guide created it. It accepts only a missing alias or a symlink to a binary this guide installed (3.6.2 under `wstack-router`, or a release under `hov-router`). It checks every name before changing any, and replaces each symlink with a single rename.
+Each release installs into its own version directory, so step 1 leaves an earlier release in place for rollback. If you created PATH aliases for an earlier release, the PATH block above refuses them; run this block instead, after step 1 succeeds. It points `hov-router` at the new binary, plus `wstack-router` and `better-ccflare` where an earlier guide created them. It accepts only a missing alias or a symlink to a binary this guide installed (3.6.2 under `wstack-router`, or a release under `hov-router`). It checks every name before changing any, and replaces each symlink with a single rename.
 
 <!-- router-release-upgrade -->
 ```bash
@@ -140,10 +136,12 @@ Each release installs into its own version directory, so step 1 leaves an earlie
   bin_dir="$HOME/.local/bin"
   test -x "$binary"
   mkdir -p "$bin_dir"
-  names="hov-router better-ccflare"
-  if [ -e "$bin_dir/wstack-router" ] || [ -L "$bin_dir/wstack-router" ]; then
-    names="$names wstack-router"
-  fi
+  names="hov-router"
+  for earlier in wstack-router better-ccflare; do
+    if [ -e "$bin_dir/$earlier" ] || [ -L "$bin_dir/$earlier" ]; then
+      names="$names $earlier"
+    fi
+  done
   for name in $names; do
     link="$bin_dir/$name"
     if [ -L "$link" ]; then
@@ -181,33 +179,30 @@ bun install --frozen-lockfile
 bun run build
 ```
 
-The build produces `apps/cli/dist/better-ccflare`. It does not install a command on your PATH. From the checkout root, copy that same artifact under both names into a fresh user-owned directory. Each name runs the same version with the same provenance and configuration. The build filename, `better-ccflare` configuration/database paths, and environment variables retain their existing names. This deliberately leaves any previous installation untouched.
+The build produces `apps/cli/dist/hov-router`. It does not install a command on your PATH. From the checkout root, copy that artifact into a fresh user-owned directory. This deliberately leaves any previous installation untouched.
 
 <!-- source-install-local -->
 ```bash
 mkdir -p "$HOME/.local"
 install_dir=$(mktemp -d "$HOME/.local/hov-router.XXXXXX")
-for name in hov-router better-ccflare; do
-  install -m 755 apps/cli/dist/better-ccflare "$install_dir/$name"
-done
+install -m 755 apps/cli/dist/hov-router "$install_dir/hov-router"
 export PATH="$install_dir:$PATH"
 hov-router --version
-better-ccflare --version
 hov-router --help
 printf 'Installed commands in %s\n' "$install_dir"
 ```
 <!-- /source-install-local -->
 
-The PATH change applies to this shell only. To keep it, add the printed directory (its literal path, not `$install_dir`) to your shell's PATH configuration, ahead of older installations. Use `command -v hov-router` and `command -v better-ccflare` to confirm which commands will run. Keep the prior executable and its location for rollback; do not overwrite a global install or change an existing service as part of this quickstart.
+The PATH change applies to this shell only. To keep it, add the printed directory (its literal path, not `$install_dir`) to your shell's PATH configuration, ahead of older installations. Use `command -v hov-router` to confirm which command will run. Keep the prior executable and its location for rollback; do not overwrite a global install or change an existing service as part of this quickstart.
 
 ### Start the local server
 
-The commands below assume you completed the optional [PATH setup](#optional-add-commands-to-path) or the source install. If you skipped PATH setup, replace `hov-router` (or the `better-ccflare` compatibility command) in these examples with `"$HOME/.local/lib/hov-router/7.0.0/hov-router"`.
+The commands below assume you completed the optional [PATH setup](#optional-add-commands-to-path) or the source install. If you skipped PATH setup, replace `hov-router` in these examples with `"$HOME/.local/lib/hov-router/7.0.0/hov-router"`.
 
 For a new local setup, start the server and dashboard with:
 
 ```bash
-BETTER_CCFLARE_HOST=127.0.0.1 hov-router --serve --port 8080
+HOV_ROUTER_HOST=127.0.0.1 hov-router --serve --port 8080
 ```
 
 Leave the server running, then:
@@ -314,19 +309,19 @@ HoV Router supports several environment variables for configuration. The most co
 ```bash
 # Server Configuration
 PORT=8080                              # Server port (default: 8080)
-BETTER_CCFLARE_HOST=0.0.0.0           # Server binding host (default: 0.0.0.0, use 127.0.0.1 for localhost-only)
+HOV_ROUTER_HOST=0.0.0.0           # Server binding host (default: 0.0.0.0, use 127.0.0.1 for localhost-only)
 CLIENT_ID=your-client-id              # OAuth client ID
-BETTER_CCFLARE_CONFIG_PATH=/path/to/config.json  # Custom config location
-BETTER_CCFLARE_DB_PATH=/path/to/database.db  # Custom database path (default: ~/.config/better-ccflare/better-ccflare.db)
+HOV_ROUTER_CONFIG_PATH=/path/to/config.json  # Custom config location
+HOV_ROUTER_DB_PATH=/path/to/database.db  # Custom database path (default: ~/.config/hov-router/hov-router.db)
                                        # Use this for development/testing with a separate database
 
-BETTER_CCFLARE_DB_READER_WORKER=0       # Set 0, false, or off to disable the off-thread readers (one for heavy reads, one for the accounts page); their reads run on the main thread as before. With the readers on, a read that waits 120 s for its reader fails with an "off-thread reader busy" warning instead of running.
-BETTER_CCFLARE_DB_WRITER_WORKER=0       # Set 0, false, or off to keep server writes on the main thread. By default `--serve` commits SQLite writes on a worker thread, so a slow fsync or a held write lock no longer freezes request handling.
+HOV_ROUTER_DB_READER_WORKER=0       # Set 0, false, or off to disable the off-thread readers (one for heavy reads, one for the accounts page); their reads run on the main thread as before. With the readers on, a read that waits 120 s for its reader fails with an "off-thread reader busy" warning instead of running.
+HOV_ROUTER_DB_WRITER_WORKER=0       # Set 0, false, or off to keep server writes on the main thread. By default `--serve` commits SQLite writes on a worker thread, so a slow fsync or a held write lock no longer freezes request handling.
 
 # Logging and Debugging
 LOG_LEVEL=INFO                         # Log level (ERROR, WARN, INFO, DEBUG)
 LOG_FORMAT=json                        # Log format (json or text)
-BETTER_CCFLARE_DEBUG=0                  # Enable debug mode (1 for enabled)
+HOV_ROUTER_DEBUG=0                  # Enable debug mode (1 for enabled)
 
 # SSL/TLS Configuration
 SSL_KEY_PATH=/path/to/key.pem          # SSL private key path (for HTTPS)
@@ -347,7 +342,7 @@ STORE_PAYLOADS=false                   # Disable storing request/response bodies
 ```
 
 **Security Notes**:
-- Use `BETTER_CCFLARE_HOST=127.0.0.1` to bind only to localhost for better security
+- Use `HOV_ROUTER_HOST=127.0.0.1` to bind only to localhost for better security
 - Never commit `.env` files containing sensitive values to version control
 - Use environment-specific configuration for production deployments
 
@@ -381,7 +376,7 @@ redirect to another origin.
 #### Optional public subscription value feed
 
 `GET /api/public/subscription-value` is disabled (`404`) unless the server's
-`BETTER_CCFLARE_PUBLIC_SUBSCRIPTIONS` environment variable explicitly enrolls
+`HOV_ROUTER_PUBLIC_SUBSCRIPTIONS` environment variable explicitly enrolls
 accounts. Its value is a JSON array of at most 16 mappings (16 KiB maximum):
 
 ```json
@@ -401,12 +396,12 @@ these four fields; duplicate JSON keys are rejected:
 Read account creation timestamps from the default SQLite database:
 
 ```bash
-sqlite3 ~/.config/better-ccflare/better-ccflare.db 'SELECT id, created_at FROM accounts;'
+sqlite3 ~/.config/hov-router/hov-router.db 'SELECT id, created_at FROM accounts;'
 ```
 
 ##### Dashboard-managed roster
 
-Instead of a JSON array, set `BETTER_CCFLARE_PUBLIC_SUBSCRIPTIONS=accounts`
+Instead of a JSON array, set `HOV_ROUTER_PUBLIC_SUBSCRIPTIONS=accounts`
 once (exactly that string). That environment change needs a server restart.
 After it, manage the roster from the dashboard Accounts page with no further
 restarts: switch **Public value** on for an account, enter its public label,
@@ -534,7 +529,7 @@ All responses carry `Cache-Control: no-store`; forward them unchanged.
 #### Claude Code background merge policy
 
 This server-owned policy is **off by default**. An operator can enable it with
-`CCFLARE_CLAUDE_CODE_BACKGROUND_MERGE_POLICY=true` (or `1`), or the boolean
+`HOV_ROUTER_CLAUDE_CODE_BACKGROUND_MERGE_POLICY=true` (or `1`), or the boolean
 `"claude_code_background_merge_policy_enabled": true` in the existing server
 configuration file. A present environment value takes precedence; every value
 other than exactly `true` or `1` disables it. Request headers, message content,
@@ -599,7 +594,7 @@ establish general model compliance or coverage for traffic bypassing the gateway
 
 #### Server-tool admission and replay key file (Linux operators)
 
-Hosted web-search requests are always classified and admitted through exact typed capability proofs; there is no activation flag or permissive passthrough mode. Invalid requirements, incapable providers, and unavailable request-private replay fail locally before provider I/O. Requests without server tools retain the ordinary routing path and do not access replay storage. `CCFLARE_SERVER_TOOL_REPLAY_KEYS_FILE` prepares the replay codec required by capable server-tool candidates; it does **not** broaden provider capability. On Linux, set it to a normalized absolute path whose components are not symlinks. The loader pins each path component by descriptor, while the target must be a regular, single-link file owned by the service process UID with mode `0400` or `0600`; group/world-readable files fail closed. Ancestor ownership is not used as an authorization signal, so use an administrator-controlled directory even though the final-inode checks remain the enforcement boundary. Put only the path in the environment, never key material.
+Hosted web-search requests are always classified and admitted through exact typed capability proofs; there is no activation flag or permissive passthrough mode. Invalid requirements, incapable providers, and unavailable request-private replay fail locally before provider I/O. Requests without server tools retain the ordinary routing path and do not access replay storage. `HOV_ROUTER_SERVER_TOOL_REPLAY_KEYS_FILE` prepares the replay codec required by capable server-tool candidates; it does **not** broaden provider capability. On Linux, set it to a normalized absolute path whose components are not symlinks. The loader pins each path component by descriptor, while the target must be a regular, single-link file owned by the service process UID with mode `0400` or `0600`; group/world-readable files fail closed. Ancestor ownership is not used as an authorization signal, so use an administrator-controlled directory even though the final-inode checks remain the enforcement boundary. Put only the path in the environment, never key material.
 
 The file is versioned JSON with exactly one `active` record matching `activeKeyId`. `retained` records remain decrypt-only readers during normal rotation, while a `revoked` record names a deliberately unusable key and omits its material. Usable keys are exactly 32 bytes encoded as canonical, unpadded base64url (43 characters). IDs must be stable, unique, and match `[A-Za-z0-9][A-Za-z0-9_-]{0,63}`; decoded key material must also be unique across usable records. Array order never selects the writer because `activeKeyId` does. Duplicate JSON member names fail closed. This template contains fake placeholders and will be rejected until they are replaced with independently generated keys:
 
@@ -626,9 +621,9 @@ The file is versioned JSON with exactly one `active` record matching `activeKeyI
 Protect the live file and make a protected backup without printing either file. Restore the backup to a separate regular file, then inspect every path component and verify ownership, mode, link count, and byte equality:
 
 ```bash
-replay_file=/etc/better-ccflare/server-tool-replay-keys.json
+replay_file=/etc/hov-router/server-tool-replay-keys.json
 backup_file=/secure/offline-backups/server-tool-replay-keys.v1.json
-restore_file=/etc/better-ccflare/server-tool-replay-keys.restore-test.json
+restore_file=/etc/hov-router/server-tool-replay-keys.restore-test.json
 
 sudo chown <service-user>:<service-group> "$replay_file"
 sudo chmod 0600 "$replay_file"
@@ -774,7 +769,7 @@ hov-router --add-account myaccount --mode claude-oauth --priority 0
 hov-router --generate-api-key "Server owner"
 
 # Start privately; remote binding/exposure is a separate owner-approved step
-BETTER_CCFLARE_HOST=127.0.0.1 hov-router --serve
+HOV_ROUTER_HOST=127.0.0.1 hov-router --serve
 ```
 
 **On the client/VPS:** first apply Option 2's authentication-conflict and secret-handling precautions. Preserve any existing login until the human chooses the change. Replace the sample origin with the owner's confirmed origin and supply the inference key privately; do not run account or server commands here.
@@ -870,14 +865,14 @@ For self-signed certificates, you need to add the certificate to your system's t
 - **Linux (Ubuntu/Debian):**
   ```bash
   # Copy cert.pem from the Router host to your client machine
-  sudo cp cert.pem /usr/local/share/ca-certificates/better-ccflare.crt
+  sudo cp cert.pem /usr/local/share/ca-certificates/hov-router.crt
   sudo update-ca-certificates
   ```
 
 - **Linux (Arch/Manjaro):**
   ```bash
   # Copy cert.pem from the Router host to your client machine
-  sudo cp cert.pem /etc/ca-certificates/trust-source/anchors/better-ccflare.crt
+  sudo cp cert.pem /etc/ca-certificates/trust-source/anchors/hov-router.crt
   sudo trust extract-compat
   ```
 
@@ -948,24 +943,24 @@ services:
       - ./letsencrypt:/letsencrypt
     restart: unless-stopped
 
-  better-ccflare:
+  hov-router:
     build: .
     image: hov-router:local
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ccflare.rule=Host(`your-domain.com`)"
-      - "traefik.http.routers.ccflare.entrypoints=websecure"
-      - "traefik.http.routers.ccflare.tls.certresolver=myresolver"
-      - "traefik.http.services.ccflare.loadbalancer.server.port=8080"
+      - "traefik.http.routers.hov-router.rule=Host(`your-domain.com`)"
+      - "traefik.http.routers.hov-router.entrypoints=websecure"
+      - "traefik.http.routers.hov-router.tls.certresolver=myresolver"
+      - "traefik.http.services.hov-router.loadbalancer.server.port=8080"
     environment:
       # Traefik reaches the router over the compose network, not loopback.
-      - BETTER_CCFLARE_HOST=0.0.0.0
+      - HOV_ROUTER_HOST=0.0.0.0
     volumes:
-      - better-ccflare-data:/data
+      - hov-router-data:/data
     restart: unless-stopped
 
 volumes:
-  better-ccflare-data:
+  hov-router-data:
 ```
 
 **Benefits:**
@@ -1004,7 +999,7 @@ No `NODE_OPTIONS` needed - Traefik provides trusted certificates automatically!
 3. Verify the certificate is in the system store:
    ```bash
    # Linux
-   ls -la /etc/ssl/certs/ | grep better-ccflare
+   ls -la /etc/ssl/certs/ | grep hov-router
 
    # macOS
    security find-certificate -a -c yourhostname -p /Library/Keychains/System.keychain
@@ -1122,7 +1117,7 @@ hov-router routing apply <family> --preview-id <id> --proposal-id <id> --managed
 hov-router routing manual <family> --yes [--api-url <loopback-url>] [--json]
 ```
 
-Interactive apply can preview, show exact deltas, require an explicit proposal selection, and confirm before writing. Unattended or JSON apply requires the complete displayed tuple plus `--yes`; Manual rollback requires `--yes`. The admin key is accepted only through `BETTER_CCFLARE_ADMIN_API_KEY`. Interactive account creation reviews routing by the persisted immutable account ID, then freshly previews, displays, confirms, and applies each selected family in sequence. Missing or materially changed proposals fail closed, and any already-applied family results are reported as partial rather than hidden or rolled back. `--add-account --json` is rejected before creation; non-TTY text creation prints the immutable ID and follow-up commands without previewing or changing routing. Routing commands continue to support `--json`.
+Interactive apply can preview, show exact deltas, require an explicit proposal selection, and confirm before writing. Unattended or JSON apply requires the complete displayed tuple plus `--yes`; Manual rollback requires `--yes`. The admin key is accepted only through `HOV_ROUTER_ADMIN_API_KEY`. Interactive account creation reviews routing by the persisted immutable account ID, then freshly previews, displays, confirms, and applies each selected family in sequence. Missing or materially changed proposals fail closed, and any already-applied family results are reported as partial rather than hidden or rolled back. `--add-account --json` is rejected before creation; non-TTY text creation prints the immutable ID and follow-up commands without previewing or changing routing. Routing commands continue to support `--json`.
 
 ### Real-Time Analytics
 - Token usage tracking per request with optimized batch processing
@@ -1157,7 +1152,7 @@ See [Service-Lifetime Cohort Seal configuration and operator guidance](configura
 - Configurable retry logic
 - Custom endpoint support for enterprise deployments
 - Enhanced performance with request batching and caching
-- Outbound forward proxy support (`BETTER_CCFLARE_OUTBOUND_PROXY`) for enterprise TLS-intercepting egress gateways, with loopback destinations always exempt
+- Outbound forward proxy support (`HOV_ROUTER_OUTBOUND_PROXY`) for enterprise TLS-intercepting egress gateways, with loopback destinations always exempt
 
 ### Multi-Provider Support
 - **Claude OAuth** - Anthropic OAuth accounts with 5-hour usage windows and session tracking (rate limit window based)
@@ -1184,8 +1179,8 @@ See [Service-Lifetime Cohort Seal configuration and operator guidance](configura
 
 ### Codex Messages-Lane Continuation (Opt-In, Off by Default)
 Lets the Codex provider retain server-owned Responses continuation (`previous_response_id`) while serving Anthropic `/v1/messages` clients, instead of replaying the full translated conversation history on every turn.
-- **Off by default** — set `CCFLARE_CODEX_MESSAGES_CONTINUATION=1` to enable. Unset, behavior is unchanged from full-history replay.
-- **Optional model allowlist** — `CCFLARE_CODEX_MESSAGES_CONTINUATION_MODELS` restricts the bridge to an exact, comma-separated list of resolved model names; unset enables all models (when the switch above is on), an empty string enables none.
+- **Off by default** — set `HOV_ROUTER_CODEX_MESSAGES_CONTINUATION=1` to enable. Unset, behavior is unchanged from full-history replay.
+- **Optional model allowlist** — `HOV_ROUTER_CODEX_MESSAGES_CONTINUATION_MODELS` restricts the bridge to an exact, comma-separated list of resolved model names; unset enables all models (when the switch above is on), an empty string enables none.
 - **Gated on real continuity evidence** — only admitted when the request carries an authenticated API key, a selected account, and a nonempty prompt cache key; state is partitioned by account, model, authenticated caller, session, and protocol, so a Messages-lane checkpoint can never leak into native `/v1/responses` traffic (or vice versa) even for an identical account/model/caller/session.
 - **Fails safe, not silent** — an ambiguous, failed, expired, or cancelled turn never creates or reuses a checkpoint; a suspended chain (30-minute TTL) or a rejected `previous_response_id` (upstream `previous_response_not_found` / `invalid_previous_response_id`) triggers a one-time repair that drains the rejected response, retires the checkpoint, and resends full history on the same account and model rather than looping.
 - **Never changes routing** — the switch only affects whether Codex replays full history or extends a continuation chain; it never changes model selection, fallback policy, or `store:false` semantics.
@@ -1280,7 +1275,7 @@ The following commands run from the repository root.
 ### Project Structure
 
 ```
-better-ccflare/
+hov-router/
 ├── apps/               # Application packages
 │   ├── server/        # Main proxy server
 │   └── cli/           # CLI application

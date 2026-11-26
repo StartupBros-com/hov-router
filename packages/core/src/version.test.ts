@@ -431,7 +431,6 @@ describe("readDockerBuildProvenance", () => {
 		expect(
 			readDockerBuildProvenance({
 				HOV_ROUTER_VERSION: "9.9.9-hov-router",
-				HOV_ROUTER_VERSION: "8.8.8-better",
 				npm_package_version: "7.7.7-npm",
 				HOV_ROUTER_GIT_SHA: "abcdef1234567890abcdef1234567890abcdef12",
 				HOV_ROUTER_GIT_REF: "deploy/test",

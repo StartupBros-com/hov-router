@@ -95,7 +95,6 @@ function provenanceVersion(env: Env): string {
 	}
 	return (
 		env.HOV_ROUTER_VERSION ??
-		env.HOV_ROUTER_VERSION ??
 		env.npm_package_version ??
 		"unknown"
 	);

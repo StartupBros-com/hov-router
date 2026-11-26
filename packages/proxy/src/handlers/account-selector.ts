@@ -4616,7 +4616,7 @@ async function selectAccountsForRequestInternal(
 						setComboSlotInfo(meta, { comboName: combo.name, slots: [] });
 						meta.comboName = combo.name;
 						log.warn(
-							`All ${resolution.members.length} combo candidates unavailable for ${combo.name}, session fallback disabled by HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK`,
+							`All ${resolution.members.length} combo candidates unavailable for ${combo.name}, combo session fallback is off`,
 						);
 						if (meta.serverToolRequirements) {
 							throwServerToolCapabilityPoolError(meta);

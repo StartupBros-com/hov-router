@@ -4771,7 +4771,7 @@ async function handleProxyCoreImpl(
 			);
 		}
 		log.warn(
-			`All combo slots and queued model routes failed for combo "${disabledComboSessionFallbackName}", session fallback disabled by HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK`,
+			`All combo slots and queued model routes failed for combo "${disabledComboSessionFallbackName}", combo session fallback is off`,
 		);
 		return finishPacing(
 			pacingSlot,

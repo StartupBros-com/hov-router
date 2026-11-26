@@ -75,7 +75,7 @@ export class Logger {
 		this.prefix = prefix;
 		this.level = this.getLogLevelFromEnv() ?? level;
 		this.format = this.getFormatFromEnv();
-		// Only show console output in debug mode or if HOV_ROUTER_DEBUG or legacy HOV_ROUTER_DEBUG is set
+		// Only show console output in debug mode or if HOV_ROUTER_DEBUG is set
 		this.silentConsole = !(
 			this.isDebugEnabled() || this.level === LogLevel.DEBUG
 		);
@@ -106,10 +106,7 @@ export class Logger {
 		if (typeof process === "undefined" || !process.env) {
 			return false;
 		}
-		return (
-			process.env.HOV_ROUTER_DEBUG === "1" ||
-			process.env.HOV_ROUTER_DEBUG === "1"
-		);
+		return process.env.HOV_ROUTER_DEBUG === "1";
 	}
 
 	// biome-ignore lint/suspicious/noExplicitAny: Logger needs to accept any data type

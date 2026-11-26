@@ -5,6 +5,33 @@ export HOME=${HOME:-/home/will}
 export USER=${USER:-will}
 export PATH=/home/will/.local/share/mise/shims:/home/will/.local/share/mise/installs/node/24.13.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
+# 8.0.0 renamed the variables inherited from better-ccflare, and nothing reads
+# the old names: a drop-in that still sets one would leave its setting at the
+# default. Refuse before starting anything, with the status the unit's
+# RestartPreventExitStatus keeps systemd from restarting (EX_CONFIG). The
+# backend refuses the same names, and its storage, with the same status.
+RETIRED_NAME_EXIT_STATUS=78
+refuse_retired_names() {
+	local name
+	local -a found=()
+	while IFS= read -r name; do
+		case "$name" in
+			BETTER_CCFLARE_GIT_SHA) found+=("$name -> HOV_ROUTER_HEALTH_GIT_SHA") ;;
+			BETTER_CCFLARE_*) found+=("$name -> HOV_ROUTER_${name#BETTER_CCFLARE_}") ;;
+			CCFLARE_*) found+=("$name -> HOV_ROUTER_${name#CCFLARE_}") ;;
+			ccflare_*) found+=("$name -> HOV_ROUTER_${name#ccflare_}") ;;
+		esac
+	done < <(compgen -e | LC_ALL=C sort)
+	((${#found[@]} == 0)) && return 0
+	{
+		printf '%s\n' "HoV Router 8.0.0 renamed the names it inherited from better-ccflare and reads only the new ones."
+		printf '%s\n' 'Rename these, then start it again (see "Renamed in 8.0.0" in docs/hov-router-migration.md):'
+		printf '  %s\n' "${found[@]}"
+	} >&2
+	exit "$RETIRED_NAME_EXIT_STATUS"
+}
+refuse_retired_names
+
 : "${HOV_ROUTER_BIN:?HOV_ROUTER_BIN must name the pinned hov-router binary}"
 : "${GUARD_SCRIPT:?GUARD_SCRIPT must name the pinned guard script}"
 NODE_BIN=${NODE_BIN:-/home/will/.local/share/mise/shims/node}
@@ -1443,6 +1470,14 @@ while :; do
 			log "restarting stack after memory recycle; recycle_count=${rss_recycle_count}; no_failure_backoff=true"
 			continue
 		fi
+	fi
+	if [[ "$child_exit_name" == "hov-router upstream" ]] && ((child_exit_status == RETIRED_NAME_EXIT_STATUS)); then
+		# The backend found a retired name. A restart reads the same names, so
+		# stop for the operator instead of spending the restart circuit.
+		log "hov-router upstream refused a retired name; exiting for the operator; status=${RETIRED_NAME_EXIT_STATUS}"
+		stop_stack_children "$RUNNER_FAILURE_STOP_BUDGET_MS"
+		close_reaped_owner
+		exit "$RETIRED_NAME_EXIT_STATUS"
 	fi
 	if ((pending_replacement)) && [[ -n "$guard_pid" ]] && kill -0 "$guard_pid" 2>/dev/null; then
 		stop_child "failed replacement upstream" "$upstream_pid" "$RUNNER_FAILURE_STOP_BUDGET_MS"

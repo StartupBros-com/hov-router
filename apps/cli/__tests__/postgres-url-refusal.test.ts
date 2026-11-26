@@ -53,7 +53,6 @@ function runCli(
 	};
 	delete env.DATABASE_URL;
 	delete env.HOV_ROUTER_DB_PATH;
-	delete env.HOV_ROUTER_DB_PATH;
 	if (options.databaseUrl !== undefined) env.DATABASE_URL = options.databaseUrl;
 
 	return new Promise((resolve) => {

@@ -380,9 +380,6 @@ describe("routing observations", () => {
 
 describe("combo fallback disabled terminal persistence", () => {
 	it("sanitizes request headers when no combo slot is available", async () => {
-		const previousFallbackSetting =
-			process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
-		process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "true";
 		const handleStart = installUsageCollector();
 		const unavailable = makeAccount("unavailable-combo-account");
 		unavailable.rate_limited_until = Date.now() + 60_000;
@@ -421,19 +418,10 @@ describe("combo fallback disabled terminal persistence", () => {
 			expect(upstreamFetch).not.toHaveBeenCalled();
 			expectSanitizedComboTerminalHeaders(handleStart);
 		} finally {
-			if (previousFallbackSetting === undefined) {
-				delete process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
-			} else {
-				process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK =
-					previousFallbackSetting;
-			}
 		}
 	});
 
 	it("sanitizes request headers after every combo slot fails", async () => {
-		const previousFallbackSetting =
-			process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
-		process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "true";
 		const handleStart = installUsageCollector();
 		const account = makeAccount("failed-combo-account");
 		const combo: ComboWithSlots = {
@@ -475,12 +463,6 @@ describe("combo fallback disabled terminal persistence", () => {
 			expect(fetchCount).toBe(1);
 			expectSanitizedComboTerminalHeaders(handleStart);
 		} finally {
-			if (previousFallbackSetting === undefined) {
-				delete process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
-			} else {
-				process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK =
-					previousFallbackSetting;
-			}
 		}
 	});
 });

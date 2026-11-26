@@ -40,13 +40,9 @@ describe("public product identity", () => {
 		expect(cliPackage.description).toBe(rootPackage.description);
 	});
 
-	it("separates display and preferred command names from the legacy alias", () => {
+	it("names the product and its one command", () => {
 		expect(identity.PRODUCT_NAME).toBe("HoV Router");
 		expect(identity.COMMAND_NAME).toBe("hov-router");
-		expect(identity.LEGACY_COMMAND_NAME).toBe("hov-router");
-	});
-
-	it("lists the preferred command and the compatibility alias exactly once", () => {
-		expect(identity.COMMAND_NAMES).toEqual(["hov-router", "hov-router"]);
+		expect(identity.COMMAND_NAMES).toEqual(["hov-router"]);
 	});
 });

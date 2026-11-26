@@ -345,12 +345,10 @@ describe("CLI Integration Tests", () => {
 			expect(result.exitCode).toBe(0);
 			expect(result.stdout).toContain("HoV Router");
 			expect(result.stdout).toContain("Usage: hov-router [options]");
-			expect(result.stdout).toContain(
-				"Earlier command names, such as hov-router, remain supported aliases",
-			);
+			expect(result.stdout).not.toContain("Earlier command names");
 			expect(result.stdout).toContain("hov-router --serve");
 			expect(result.stdout).not.toContain("  wstack-router ");
-			expect(result.stdout).not.toContain("  hov-router ");
+			expect(result.stdout).not.toContain("  better-ccflare ");
 			expect(result.stdout).toContain("Usage:");
 			expect(result.stdout).toContain("Options:");
 			expect(result.stdout).toContain("--serve");
@@ -1026,5 +1024,19 @@ describe("CLI Security Tests", () => {
 		const _output = result.stdout + result.stderr;
 		// Should show error but not leak full paths unnecessarily
 		expect(result.exitCode).toBeGreaterThan(0);
+	});
+});
+
+describe("CLI retired names", () => {
+	it("exits 78 for an old environment name and prints names, not values", async () => {
+		const result = await runCLI(["--version"], {
+			BETTER_CCFLARE_ADMIN_API_KEY: "retired-value-must-not-print",
+		});
+		expect(result.exitCode).toBe(78);
+		expect(result.stderr).toContain(
+			"BETTER_CCFLARE_ADMIN_API_KEY -> HOV_ROUTER_ADMIN_API_KEY",
+		);
+		expect(result.stderr).not.toContain("retired-value-must-not-print");
+		expect(result.stdout).toBe("");
 	});
 });

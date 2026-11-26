@@ -1,10 +1,12 @@
 #!/usr/bin/env bun
+import { refuseRetiredNames } from "@hov-router/config/retired-names";
 import { loadCliDotenv } from "./startup-env";
 import { unknownArgumentLines } from "./unknown-argument";
 
 // Source runs retain the script-directory fallback. Compiled startup has already
 // loaded the same fallbacks using its physical executable, before app imports.
 loadCliDotenv(process.argv[1]);
+refuseRetiredNames();
 
 import type { CreatedAccountIdentity } from "@hov-router/cli-commands";
 import { getManagedRoutingHelpText } from "@hov-router/cli-commands/help";
@@ -29,7 +31,6 @@ import {
 } from "@hov-router/core";
 import {
 	COMMAND_NAME,
-	LEGACY_COMMAND_NAME,
 	PRODUCT_NAME,
 } from "@hov-router/core/product-identity";
 import { container, SERVICE_KEYS } from "@hov-router/core-di";
@@ -136,7 +137,6 @@ export function renderHelpText(version: string): string {
 🎯 ${PRODUCT_NAME} v${version} - Load Balancer for Claude
 
 Usage: ${COMMAND_NAME} [options]
-Earlier command names, such as ${LEGACY_COMMAND_NAME}, remain supported aliases.
 
 Options:
   --version, -v       Show version number
@@ -1641,9 +1641,7 @@ async function main() {
 				let apiKey =
 					process.env[
 						`HOV_ROUTER_API_KEY_${parsed.addAccount.toUpperCase()}`
-					] ||
-					process.env[`API_KEY_${parsed.addAccount.toUpperCase()}`] ||
-					"";
+					] || "";
 
 				if (!apiKey) {
 					// Prompt for API key if not in environment

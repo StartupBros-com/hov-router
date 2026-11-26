@@ -1214,7 +1214,6 @@ describe("health build-time provenance", () => {
 		"HOV_ROUTER_UPDATE_CHANNEL",
 		"HOV_ROUTER_SOURCE_SHA",
 		"HOV_ROUTER_SOURCE_REF",
-		"HOV_ROUTER_VERSION",
 		"npm_package_version",
 	] as const;
 

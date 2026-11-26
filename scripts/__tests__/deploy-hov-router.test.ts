@@ -585,7 +585,7 @@ describe("render_systemd_pin", () => {
 				"TimeoutStopSec=720s",
 				"Restart=on-failure",
 				"RestartSec=5s",
-				"RestartPreventExitStatus=143",
+				"RestartPreventExitStatus=143 78",
 				"RuntimeDirectory=hov-router",
 				"RuntimeDirectoryMode=0700",
 				"ExecStart=",
@@ -1376,7 +1376,7 @@ describe("effective systemd policy validation", () => {
 				'if [[ "$*" == *"--property=StartLimitIntervalUSec"* ]]; then printf \'%s\\n\' "${HOV_ROUTER_TEST_START_LIMIT_INTERVAL_SEC:-300s}"; exit 0; fi',
 				'if [[ "$*" == *"--property=StartLimitBurst"* ]]; then printf \'%s\\n\' "${HOV_ROUTER_TEST_START_LIMIT_BURST:-5}"; exit 0; fi',
 				'if [[ "$*" == *"--property=RestartUSec"* ]]; then printf \'%s\\n\' "${HOV_ROUTER_TEST_RESTART_SEC:-5s}"; exit 0; fi',
-				'if [[ "$*" == *"--property=RestartPreventExitStatus"* ]]; then printf \'%s\\n\' "${HOV_ROUTER_TEST_RESTART_PREVENT_EXIT_STATUS:-143}"; exit 0; fi',
+				'if [[ "$*" == *"--property=RestartPreventExitStatus"* ]]; then printf \'%s\\n\' "${HOV_ROUTER_TEST_RESTART_PREVENT_EXIT_STATUS:-143 78}"; exit 0; fi',
 				'if [[ "$*" == *"--property=Restart"* ]]; then printf \'%s\\n\' "${HOV_ROUTER_TEST_RESTART:-on-failure}"; exit 0; fi',
 				'if [[ "$*" == *"--property=Environment"* ]]; then',
 				'  environment="$HOV_ROUTER_TEST_ENVIRONMENT"',
@@ -1621,6 +1621,36 @@ describe("effective systemd policy validation", () => {
 			);
 			expect(invalid.exitCode).not.toBe(0);
 		}
+	});
+
+	test("requires systemd to leave both terminal exit statuses alone", () => {
+		// 143 is an intentional stop and 78 a retired name the backend refused.
+		// A restart after either repeats it, so the unit must not restart on one.
+		const dir = tempDir();
+		const { binDir, log } = writeSystemctlMock(dir);
+		const environment =
+			"GUARD_MAX_REQUEST_BODY_BYTES=33554432 GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500 GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_SLEEP_MS=120000 GUARD_MAX_RECOVERY_WAITS=12 GUARD_SHUTDOWN_GRACE_MS=600000 RUNNER_RSS_THRESHOLD_BYTES=4294967296 RUNNER_RSS_POLL_INTERVAL_MS=60000 RUNNER_RSS_MIN_UPTIME_MS=1800000 RUNNER_RSS_CONSECUTIVE_SAMPLES=5 RUNNER_RSS_RECYCLE_COOLDOWN_MS=3600000 RUNNER_RSS_MAX_RECYCLES=8 RUNNER_RSS_RECYCLE_WINDOW_MS=86400000";
+		const validate = (statuses: string) =>
+			bash(
+				[
+					`export PATH=${shellQuote(shellPath(binDir))}:$PATH`,
+					`export HOV_ROUTER_TEST_SYSTEMCTL_LOG=${shellQuote(shellPath(log))}`,
+					"export HOV_ROUTER_TEST_KILL_MODE=mixed",
+					"export HOV_ROUTER_TEST_TIMEOUT=12min",
+					`export HOV_ROUTER_TEST_ENVIRONMENT='${environment}'`,
+					`export HOV_ROUTER_TEST_RESTART_PREVENT_EXIT_STATUS='${statuses}'`,
+					`source ${shellQuote(helperScriptForShell)}`,
+					"validate_effective_systemd_policy hov-router.service",
+				].join("\n"),
+			);
+		expect(validate("143 78").exitCode).toBe(0);
+		expect(validate("78 143").exitCode).toBe(0);
+		const without78 = validate("143");
+		expect(without78.exitCode).not.toBe(0);
+		expect(capturedOutput(without78.stderr, "stderr")).toContain(
+			"expected statuses 143 and 78",
+		);
+		expect(validate("78").exitCode).not.toBe(0);
 	});
 
 	test("hard-fails when a later operator drop-in remains unsafe after pin restoration", () => {

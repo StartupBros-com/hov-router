@@ -2057,9 +2057,8 @@ export class Config extends EventEmitter {
 	}
 
 	/**
-	 * Migrate one-time boot inputs from the retired combo environment settings.
-	 * Persisted values always win so dashboard choices cannot be overwritten by a
-	 * later restart with stale environment state.
+	 * Keep the routing an install with combos was already doing when these
+	 * settings were introduced. Persisted values always win.
 	 */
 	adoptLegacyRoutingSettings(hasCombos: boolean): string[] {
 		const notes: string[] = [];
@@ -2070,16 +2069,11 @@ export class Config extends EventEmitter {
 			);
 		}
 
-		if (this.getComboSessionFallbackSource() === "default") {
-			const legacyValue = process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
-			if (legacyValue !== undefined && legacyValue !== "") {
-				this.setComboSessionFallback(!/^(1|true|yes|on)$/i.test(legacyValue));
-			} else if (hasCombos) {
-				this.setComboSessionFallback(true);
-				notes.push(
-					"combo session fallback enabled: existing combos retain their historical SessionStrategy fallback. Turn it off in the dashboard Combos tab",
-				);
-			}
+		if (hasCombos && this.getComboSessionFallbackSource() === "default") {
+			this.setComboSessionFallback(true);
+			notes.push(
+				"combo session fallback enabled: existing combos retain their historical SessionStrategy fallback. Turn it off in the dashboard Combos tab",
+			);
 		}
 		return notes;
 	}
@@ -2878,4 +2872,8 @@ export class Config extends EventEmitter {
 // Re-export types
 export type { StrategyName } from "@hov-router/core";
 export { resolveConfigPath } from "./paths";
-export { getPlatformConfigDir } from "./paths-common";
+export {
+	CONFIG_FILENAME,
+	DB_FILENAME,
+	getPlatformConfigDir,
+} from "./paths-common";

@@ -74,10 +74,6 @@ const { filterRequestCompatibleAccounts } = await import("../routing-terminal");
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-afterEach(() => {
-	delete process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
-});
-
 function makeAccount(overrides: Partial<Account> = {}): Account {
 	return {
 		id: "acc-1",

@@ -29,13 +29,13 @@ describe("bun test preload", () => {
 		expect(join(tmpdir(), "x").startsWith(root)).toBe(true);
 	});
 
+	test("spawned children get a home directory under the per-process dir", () => {
+		expect(process.env.HOME?.startsWith(tmpdir() + sep)).toBe(true);
+	});
+
 	test("the default config directory and database resolve under the per-process dir", () => {
 		const root = tmpdir() + sep;
-		const saved = {
-			HOV_ROUTER_DB_PATH: process.env.HOV_ROUTER_DB_PATH,
-			HOV_ROUTER_DB_PATH: process.env.HOV_ROUTER_DB_PATH,
-		};
-		delete process.env.HOV_ROUTER_DB_PATH;
+		const saved = { HOV_ROUTER_DB_PATH: process.env.HOV_ROUTER_DB_PATH };
 		delete process.env.HOV_ROUTER_DB_PATH;
 		try {
 			expect(process.env.XDG_CONFIG_HOME?.startsWith(root)).toBe(true);

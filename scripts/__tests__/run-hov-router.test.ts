@@ -1043,6 +1043,49 @@ describe("run-hov-router guard correlation credential", () => {
 	}, 20_000);
 });
 
+describe("run-hov-router retired names", () => {
+	// 8.0.0 renamed the variables inherited from better-ccflare. An old name the
+	// runner no longer reads would leave its setting at the default, so the
+	// runner refuses before it starts anything, and systemd must not restart it.
+	test("refuses an old environment name before starting a child", async () => {
+		const programs = writeFixturePrograms(tempDir("hov-router-retired-env-"));
+		const runner = await spawnRunner(programs, {
+			BETTER_CCFLARE_DB_PATH: "retired-value-must-not-print",
+		});
+		const { code } = await waitForExit(runner.child);
+		const { stderr } = runner.getOutput();
+		expect(code).toBe(78);
+		expect(stderr).toContain("BETTER_CCFLARE_DB_PATH -> HOV_ROUTER_DB_PATH");
+		expect(stderr).not.toContain("retired-value-must-not-print");
+		expect(existsSync(join(runner.captureDir, "lifecycle.log"))).toBe(false);
+	});
+
+	test("stops without a restart when the backend refuses an old name", async () => {
+		const dir = tempDir("hov-router-retired-backend-");
+		const programs = writeFixturePrograms(dir);
+		writeFileSync(
+			programs.upstream,
+			[
+				"#!/usr/bin/env node",
+				'import { appendFileSync } from "node:fs";',
+				"appendFileSync(`${process.env.CAPTURE_DIR}/lifecycle.log`, `upstream-start ${process.pid}\\n`);",
+				"process.exit(78);",
+			].join("\n"),
+		);
+		chmodSync(programs.upstream, 0o755);
+		const runner = await spawnRunner(programs, {
+			RUNNER_RESTART_BACKOFF_BASE_MS: "0",
+			RUNNER_RESTART_BACKOFF_MAX_MS: "0",
+		});
+		const { code } = await waitForExit(runner.child, 10_000);
+		expect(code).toBe(78);
+		const starts = readFileSync(join(runner.captureDir, "lifecycle.log"), "utf8")
+			.split("\n")
+			.filter((line) => line.startsWith("upstream-start"));
+		expect(starts).toHaveLength(1);
+	});
+});
+
 describe("run-hov-router supervisor lifecycle", () => {
 	test("classifies an unexpected child failure and opens a bounded restart circuit", async () => {
 		const fixtureDir = tempDir("hov-router-failure-fixture-");
