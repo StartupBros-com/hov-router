@@ -29,7 +29,7 @@ Still live under the old names:
 
 Never renamed, because they are history or required credit:
 - Published release bytes, assets and attestations, and the provenance tokens embedded in them: `v1:startupbros-wstack-router-*` (v3.6.2 through v3.7.1), `v1:startupbros-hov-router-*`, and the `v1:tombii-*` tokens that recognize upstream builds.
-- LICENSE, `docs/acknowledgements.md`, the upstream links in `UPSTREAM.md`, CHANGELOG, and dated plans, reports and solution narratives.
+- LICENSE, `docs/acknowledgements.md`, the upstream links in `UPSTREAM.md`, CHANGELOG, and dated plans and reports. `docs/solutions/` is current guidance, so rename the names in it.
 
 Display text uses `PRODUCT_NAME` / `COMMAND_NAME` from `@hov-router/core/product-identity`. Import that subpath directly, not the core barrel, which the dashboard cannot load.
 
