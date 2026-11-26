@@ -1176,7 +1176,7 @@ function migrateLegacyAccountModelMappings(db: Database): void {
 			`SELECT id, name, provider, model_mappings, custom_endpoint,
 			        ${hasFallbackColumn ? "model_fallbacks" : "NULL AS model_fallbacks"}
 			 FROM accounts
-			 WHERE custom_endpoint LIKE '%modelMappings%'
+			 WHERE custom_endpoint IS NOT NULL
 			 ${hasFallbackColumn ? "OR length(trim(COALESCE(model_fallbacks, ''))) > 0" : ""}`,
 		)
 		.all();
@@ -1209,6 +1209,9 @@ function migrateLegacyAccountModelMappings(db: Database): void {
 		"UPDATE accounts SET model_mappings = ?1, custom_endpoint = ?2 WHERE id = ?3",
 	);
 
+	// Every endpoint is selected because the old reader decoded the JSON, so a
+	// key written as `modelMappings` counted; a text match would miss it.
+	// The fold leaves a row with no legacy key unchanged, and it is not written.
 	let folded = 0;
 	for (const row of rows) {
 		const result = foldLegacyModelMappings(row);
@@ -1224,8 +1227,8 @@ function migrateLegacyAccountModelMappings(db: Database): void {
 				);
 		if (collides) {
 			// Removing the key alone would give this row another account's tuple.
-			// Its id keeps it distinct, and the key no longer matches the selector
-			// above, so a later start does not fold it again over edits.
+			// Its id keeps it distinct, and with modelMappings gone a later start
+			// does not fold it again over edits.
 			customEndpoint = JSON.stringify({
 				...JSON.parse(customEndpoint ?? "{}"),
 				foldedLegacyMappingsFor: markerId.get(duplicateKey(row)) ?? row.id,

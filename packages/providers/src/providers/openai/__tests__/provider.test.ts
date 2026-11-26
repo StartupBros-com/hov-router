@@ -539,37 +539,6 @@ describe("OpenAICompatibleProvider", () => {
 
 			expect(body.messages[0].content).toBe("Helloworld!");
 		});
-
-		it("should apply custom model mappings from JSON endpoint configuration", async () => {
-			const accountWithMappings = {
-				...mockAccount,
-				custom_endpoint: JSON.stringify({
-					endpoint: "https://api.customprovider.com/v1",
-					modelMappings: {
-						haiku: "custom/haiku-model",
-					},
-				}),
-			};
-
-			const anthropicRequest = {
-				model: "claude-3-haiku-20240307",
-				messages: [{ role: "user", content: "Hello" }],
-			};
-
-			const request = new Request("https://example.com/v1/messages", {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify(anthropicRequest),
-			});
-
-			const transformed = await provider.transformRequestBody(
-				request,
-				accountWithMappings,
-			);
-			const body = await transformed.json();
-
-			expect(body.model).toBe("custom/haiku-model");
-		});
 	});
 
 	describe("skill elision", () => {

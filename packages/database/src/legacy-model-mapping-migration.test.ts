@@ -199,6 +199,44 @@ describe("legacy model mapping migration", () => {
 		}
 	});
 
+	it("folds a modelMappings key written with a JSON escape", () => {
+		const db = new Database(":memory:");
+		try {
+			runMigrations(db);
+			db.run("ALTER TABLE accounts ADD COLUMN model_fallbacks TEXT");
+			db.run("DROP TRIGGER trg_routing_revision_accounts_update");
+			db.run(TRIGGER_6_4_0);
+			const insert = db.prepare(
+				"INSERT INTO accounts (id, name, provider, created_at, custom_endpoint, model_fallbacks) VALUES (?, ?, 'openai-compatible', 1, ?, NULL)",
+			);
+			// The old reader decoded the JSON, so `M` read as `M`.
+			insert.run(
+				"escaped",
+				"escaped",
+				'{"endpoint":"https://e.example","model\\u004dappings":{"opus":"old-pin"}}',
+			);
+			insert.run("plain", "plain", "https://plain.example/v1");
+			expect(legacyEndpointRows(db)).toBe(0);
+
+			runMigrations(db);
+			runMigrations(db);
+
+			expect(account(db, "escaped")).toEqual({
+				model_mappings: '{"opus":"old-pin"}',
+				custom_endpoint: '{"endpoint":"https://e.example"}',
+				rate_limited_reason: null,
+			});
+			expect(account(db, "plain")).toEqual({
+				model_mappings: null,
+				custom_endpoint: "https://plain.example/v1",
+				rate_limited_reason: null,
+			});
+			expectRetiredShape(db);
+		} finally {
+			db.close();
+		}
+	});
+
 	it("folds before the nullable refresh_token rebuild", () => {
 		const db = new Database(":memory:");
 		try {
