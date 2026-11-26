@@ -68,7 +68,7 @@ interface PublicRow {
 async function row(id: string): Promise<PublicRow> {
 	return (await db
 		.getAdapter()
-		.get<PublicRow>(
+		.getMain<PublicRow>(
 			"SELECT public_value_enabled, public_value_label, public_value_id FROM accounts WHERE id = ?",
 			[id],
 		)) as PublicRow;
@@ -77,7 +77,7 @@ async function snapshot(): Promise<string> {
 	return JSON.stringify(
 		await db
 			.getAdapter()
-			.query(
+			.queryMain(
 				"SELECT id, public_value_enabled, public_value_label, public_value_id FROM accounts ORDER BY id",
 			),
 	);
@@ -571,7 +571,7 @@ describe("renaming a published account", () => {
 		expect(await snapshot()).toBe(before);
 		const name = await db
 			.getAdapter()
-			.get<{ name: string }>("SELECT name FROM accounts WHERE id = ?", [
+			.getMain<{ name: string }>("SELECT name FROM accounts WHERE id = ?", [
 				"rn-1",
 			]);
 		expect(name?.name).toBe("work");
@@ -1201,7 +1201,7 @@ describe("public-value plan", () => {
 	async function stored(id: string) {
 		return (await db
 			.getAdapter()
-			.get(
+			.getMain(
 				"SELECT public_value_enabled, public_value_label, public_value_id, public_value_plan FROM accounts WHERE id = ?",
 				[id],
 			)) as {
@@ -1215,7 +1215,7 @@ describe("public-value plan", () => {
 		return JSON.stringify(
 			await db
 				.getAdapter()
-				.query(
+				.queryMain(
 					"SELECT id, public_value_enabled, public_value_label, public_value_id, public_value_plan FROM accounts ORDER BY id",
 				),
 		);

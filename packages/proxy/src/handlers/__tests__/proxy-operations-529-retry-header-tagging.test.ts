@@ -47,7 +47,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: "https://upstream.local/v1",
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -95,7 +94,7 @@ function makeProxyContext(seen: SeenHeaders[]): ProxyContext {
 			updateAccountUsage: mock(() => Promise.resolve()),
 			getAdapter: mock(() => ({
 				run: mock(() => Promise.resolve()),
-				get: mock(() => Promise.resolve(null)),
+				getMain: mock(() => Promise.resolve(null)),
 			})),
 		} as never,
 		runtime: { port: 8080, clientId: "test" } as never,

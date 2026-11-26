@@ -269,7 +269,6 @@ function codexOAuthAccount(overrides: Partial<Account> = {}): Account {
 		model_mappings: null,
 		cross_region_mode: "geographic",
 		billing_type: null,
-		model_fallbacks: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
 		consecutive_rate_limits: 0,
@@ -1625,7 +1624,7 @@ describe("Codex exact hosted-search attempt plan", () => {
 				account.id,
 				passedSnapshot,
 			);
-			expect(capacityAtResponseTime?.rawContextWindow).toBe(200_000);
+			expect(capacityAtResponseTime?.maxContextWindow).toBe(200_000);
 
 			const capacityIfRepublicationHadLeaked = resolveModelContextCapability(
 				"codex",
@@ -1633,7 +1632,7 @@ describe("Codex exact hosted-search attempt plan", () => {
 				account.id,
 				captureCodexModelContextSnapshot(account.id),
 			);
-			expect(capacityIfRepublicationHadLeaked?.rawContextWindow).toBe(999_000);
+			expect(capacityIfRepublicationHadLeaked?.maxContextWindow).toBe(999_000);
 		} finally {
 			clearCodexAccountModelContextMetadata(account.id);
 		}

@@ -96,8 +96,8 @@ describe("incremental-vacuum worker: synchronous request field", () => {
 			const worker = spawnWorker();
 			try {
 				const result = await roundTrip<VacuumResult>(worker, {
-					kind: "vacuum",
 					dbPath,
+					kind: "vacuum",
 					pages: 16,
 					synchronous: mode,
 				});
@@ -122,8 +122,8 @@ describe("incremental-vacuum worker: synchronous request field", () => {
 		const worker = spawnWorker();
 		try {
 			const result = await roundTrip<VacuumResult>(worker, {
-				kind: "vacuum",
 				dbPath,
+				kind: "vacuum",
 				pages: 16,
 			});
 			expect(result.ok).toBe(true);
@@ -140,8 +140,8 @@ describe("incremental-vacuum worker: synchronous request field", () => {
 		const worker = spawnWorker();
 		try {
 			const result = await roundTrip<VacuumResult>(worker, {
-				kind: "vacuum",
 				dbPath,
+				kind: "vacuum",
 				pages: 16,
 				synchronous: "NORMAL; DROP TABLE requests",
 			});

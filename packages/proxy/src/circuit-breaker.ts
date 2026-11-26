@@ -244,7 +244,6 @@ export function shouldCountAsCircuitFailure(kind: FailureKind): boolean {
 		case "windowless_429":
 			return false;
 		case "upstream_429_with_reset":
-		case "upstream_429_no_reset_default_5h":
 		case "upstream_429_no_reset_probe_cooldown":
 		case "all_models_exhausted_429":
 		case "upstream_529_overloaded_with_reset":

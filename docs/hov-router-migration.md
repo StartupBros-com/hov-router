@@ -55,7 +55,7 @@ There is no PostgreSQL-to-SQLite migration tool, so option 2 starts with an empt
 
 1. **Window-opening messages.** Nothing is sent on an account's behalf. A usage window opens when real traffic first uses it.
 2. **Background OAuth token refresh.** Tokens are still refreshed when a request needs one: an expired or nearly expired token is refreshed before the request is sent, and a `401` on an Anthropic OAuth, Codex or xAI account triggers one refresh and retry. An account left idle until its refresh token lapses needs a re-login when it is next used (see [Re-authenticating an account](oauth-reauthentication.md)).
-3. **Resuming paused accounts after a successful message.** An account paused after repeated failures (`failure_threshold`) now stays paused until you resume it from the dashboard or with `POST /api/accounts/<id>/resume`. An overage pause still clears on its own once its usage window resets, but only on Anthropic, Codex and Z.ai accounts with auto-fallback on.
+3. **Resuming paused accounts after a successful message.** An account paused after repeated failures (`failure_threshold`) now stays paused until you resume it from the dashboard or with `POST /api/accounts/<id>/resume`. Release 7.0.0 relabels those pauses as manual; see [Failure-threshold pauses relabelled](#failure-threshold-pauses-relabelled). An overage pause still clears on its own once its usage window resets, but only on Anthropic, Codex and Z.ai accounts with auto-fallback on.
 
 **Who is affected.** Only accounts that had auto-refresh turned on. Release 4.0.0 logs one startup warning naming each of them and what they no longer get. Release 5.0.0 drops that warning, because the stored value has no effect. The Z.ai peak-hours pause, which ran on the same timer, is unchanged and now runs as its own job (see [Z.ai Peak-Hours Pause](providers.md#zai-peak-hours-pause)).
 
@@ -101,7 +101,7 @@ Release 5.0.0 logs one startup warning naming each Codex variable that is still 
 
 **Commands.** Any `--quality-routing-*` flag exits with status 2 and a message saying the commands were removed, without opening the database.
 
-**Settings now ignored.** A leftover `quality_routing_policy` in the config file, or `CCFLARE_QUALITY_ROUTING_POLICY_JSON` in the environment, is ignored and left in place, with one startup warning naming where it was found. It is no longer validated, so a policy that an older release refused no longer stops startup.
+**Settings now ignored.** A leftover `quality_routing_policy` in the config file, or `CCFLARE_QUALITY_ROUTING_POLICY_JSON` in the environment, is ignored and left in place, with one startup warning naming where it was found. Release 7.0.0 drops that warning, because the setting has no effect. It is no longer validated, so a policy that an older release refused no longer stops startup.
 
 **History.** Requests the lane served keep their stored quality decision in request history. Its database tables are kept, with no migration.
 
@@ -133,7 +133,7 @@ Release 5.0.0 logs one startup warning naming each Codex variable that is still 
 
 A dashboard tab left open across the upgrade keeps calling the old paths, so its alert list and badge fail until the tab is reloaded. An nginx config copied from an older [deployment guide](deployment.md) matches `insights/alerts` in its event-stream location; change it to `alerts` or the alert stream is buffered again.
 
-**Anomaly alerts.** Release 7.0.0 also removes the anomaly alert sweep. It was off by default and raised `anomaly_token_outlier`, `anomaly_output_blowup`, `anomaly_runaway_loop` and `anomaly_model_misrouting` alerts. Its settings are ignored and left where they are: `ALERT_ANOMALY_ENABLED`, `ALERT_ANOMALY_INTERVAL_MINUTES`, `ALERT_ANOMALY_BASELINE_WINDOW_MINUTES`, `ALERT_ANOMALY_LOOP_MIN_REQUESTS` and the matching `alert_anomaly_*` config-file keys. If the sweep was turned on, startup logs one warning until you delete them. The alert settings that `GET /api/alerts/config` and `POST /api/alerts` return no longer include `anomalyEnabled`, `anomalyIntervalMinutes`, `anomalyBaselineWindowMinutes` or `loopMinRequests`. A `POST` that still sends them succeeds and ignores them. The four `anomaly_*` type names are still accepted in `ALERT_WEBHOOK_TYPES` and `alert_webhook_types`, so a saved allowlist loads and saves as before; nothing raises those types any more.
+**Anomaly alerts.** Release 7.0.0 also removes the anomaly alert sweep. It was off by default and raised `anomaly_token_outlier`, `anomaly_output_blowup`, `anomaly_runaway_loop` and `anomaly_model_misrouting` alerts. Its settings are ignored and left where they are: `ALERT_ANOMALY_ENABLED`, `ALERT_ANOMALY_INTERVAL_MINUTES`, `ALERT_ANOMALY_BASELINE_WINDOW_MINUTES`, `ALERT_ANOMALY_LOOP_MIN_REQUESTS` and the matching `alert_anomaly_*` config-file keys. The alert settings that `GET /api/alerts/config` and `POST /api/alerts` return no longer include `anomalyEnabled`, `anomalyIntervalMinutes`, `anomalyBaselineWindowMinutes` or `loopMinRequests`. A `POST` that still sends them succeeds and ignores them. The four `anomaly_*` type names are still accepted in `ALERT_WEBHOOK_TYPES` and `alert_webhook_types`, so a saved allowlist loads and saves as before; nothing raises those types any more.
 
 **Kept.** Stored alerts are untouched, including any `anomaly_*` alerts.
 
@@ -145,6 +145,91 @@ A dashboard tab left open across the upgrade keeps calling the old paths, so its
 - `GET /api/debug/cache-pacing` no longer includes `codex_settle_ms`, which was always `0`.
 
 **Kept.** `policy` still reports `promptCacheKeyEnabled`, `cacheKeyMode`, `pacingMs`, `globalKeepaliveTtlMinutes` and `xaiCacheKeepaliveTtlMinutes`, and the verdict, windows and `backendCapability.endpoint` are unchanged. The removed levers' environment variables stay ignored, as listed under [Removed in 5.0.0](#removed-in-500).
+
+## Upgrade leftovers removed
+
+Release 7.0.0 no longer copies `~/.ccflare/workspaces.json`. Only the original
+ccflare before v1.2.28 wrote that path. Move it to
+`~/.better-ccflare/workspaces.json` by hand if you still need those workspaces.
+
+The guard no longer reads `GUARD_ALLOW_LEGACY_POOL_BODY`. Responses without the
+proxy recovery header are forwarded without retrying. Rollback validation now
+requires the guard body limits and systemd policies introduced in 3.6.0.
+
+A first start with no `better-ccflare.db` no longer copies the pre-fork
+`~/.config/ccflare/ccflare.db` into place. If you are moving from ccflare, stop
+it, then copy the database with SQLite's backup command before the first start.
+A plain file copy can miss changes still held in the `-wal` file beside it.
+
+```bash
+mkdir -p ~/.config/better-ccflare
+sqlite3 ~/.config/ccflare/ccflare.db ".backup '$HOME/.config/better-ccflare/better-ccflare.db'"
+sqlite3 ~/.config/better-ccflare/better-ccflare.db "PRAGMA integrity_check;"   # prints ok
+```
+
+`ccflare_DB_PATH` is still read.
+
+Pending token rotations saved by releases before 6.0.0 as `.wal` files are no
+longer read; 6.0.0 and later save them as `.slot` files. Before upgrading, run
+`ls ~/.config/better-ccflare/pending-rotations/*.wal`. If it lists a file, keep
+6.x running until that account next refreshes its token, which removes the
+file. If you upgrade first and the account then asks you to sign in, log in to
+it again.
+
+The guard's `/_guard/health` counters no longer include
+`recoverySleepCapExceeded`. Read `recoverySilenceBudgetExceeded`, which always
+held the same count.
+
+## Old model mapping formats removed
+
+On first start, 7.0.0 moves mappings stored in `custom_endpoint` JSON
+(`modelMappings`) and in `model_fallbacks` into `model_mappings`, in the order
+the router applied them. The endpoint mapping overrides a family, and a fallback
+is appended as the next candidate. It then drops the `model_fallbacks` column.
+Values the router could not parse were never used and are dropped with a warning
+in the log. When removing `modelMappings` would leave an account with the same
+name, provider and endpoint as another account, the key is replaced with
+`foldedLegacyMappingsFor`, holding an account ID, so the two stay distinct.
+Nothing reads that key.
+
+The API and CLI no longer accept `modelFallbacks`, a `modelMappings` key inside
+`customEndpoint`, or a `model_mappings` value wrapped as
+`{"modelMappings": {...}}`. Send ordered candidates as `modelMappings` arrays.
+The API returns HTTP 400 for these retired inputs.
+
+One case changes routing: a fallback for a family that had no account mapping
+but did have one from `OPENAI_COMPATIBLE_MODEL_MAPPINGS` used to be tried after
+the environment mapping. It is now the account's mapping for that family and
+replaces the environment one. Add the family's full candidate list to the
+account to keep the old order.
+
+## Legacy headers and routes removed
+
+- The `x-anthropic-agent-id` request header no longer names the agent. Send
+  `x-better-ccflare-agent-id`.
+- The `x-project` request header no longer names the project. Send
+  `x-better-ccflare-project`.
+- `POST /api/accounts/muse-spark` answers `410 Gone`. Add Meta accounts with
+  `POST /api/accounts/meta`. Stored `muse-spark` accounts were already renamed
+  to `meta`, and model IDs such as `muse-spark-1.2` keep their names.
+
+## Failure-threshold pauses relabelled
+
+Only releases before 4.0.0 paused an account with the reason
+`failure_threshold`. On first start, 7.0.0 changes that reason to `manual`.
+Those accounts stay paused until you resume them, as before. The dashboard no
+longer marks them "Auto-paused: repeated failures".
+
+## max account mode removed
+
+Use `--mode claude-oauth` in the CLI or `mode: "claude-oauth"` in the API.
+The removed mode is rejected as an unknown mode.
+
+## Retired 5h rate-limit reason renamed
+
+Accounts stored with `upstream_429_no_reset_default_5h`, written only by ccflare
+3.5.x and earlier, are renamed to `upstream_429_no_reset_probe_cooldown`, which
+the router treats the same way.
 
 ## Manual source updates
 

@@ -24,6 +24,15 @@ interface RemovedEndpoint {
 
 const EXACT = new Map<string, RemovedEndpoint>([
 	[
+		"/api/accounts/muse-spark",
+		{
+			endpoint: "/api/accounts/muse-spark",
+			removedIn: "7.0.0",
+			replacement: "POST /api/accounts/meta",
+			advice: "Use POST /api/accounts/meta to add a Meta account.",
+		},
+	],
+	[
 		"/api/config/model",
 		{
 			endpoint: "/api/config/model",

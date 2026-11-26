@@ -36,7 +36,6 @@ function makeAccount(): Account {
 		custom_endpoint: null,
 		model_mappings: JSON.stringify({ opus: "gemini-2.5-pro" }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 	};
 }
 

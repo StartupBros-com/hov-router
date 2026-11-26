@@ -10,13 +10,13 @@ test("retirement clears only its heartbeat and is idempotent", async () => {
 			"INSERT INTO instance_heartbeats SELECT 'peer', hostname, pid, started_at, last_heartbeat, node_version, db_dialect FROM instance_heartbeats LIMIT 1",
 		);
 		expect(
-			(await adapter.query("SELECT * FROM instance_heartbeats")).length,
+			(await adapter.queryMain("SELECT * FROM instance_heartbeats")).length,
 		).toBe(2);
 		await db.retireInstanceHeartbeat();
 		await db.retireInstanceHeartbeat();
 		expect(
 			(
-				await adapter.query<{ instance_id: string }>(
+				await adapter.queryMain<{ instance_id: string }>(
 					"SELECT instance_id FROM instance_heartbeats",
 				)
 			).map((r) => r.instance_id),

@@ -2,7 +2,7 @@
  * Tests for the auto-fallback unpause logic in SessionStrategy with pause_reason (issue #139).
  *
  * The core fix: when a rate-limit window resets, the strategy must NOT
- * auto-unpause accounts whose pause_reason is 'manual' or 'failure_threshold'.
+ * auto-unpause accounts whose pause_reason is 'manual'.
  * Only accounts with pause_reason='overage', 'rate_limit_window', or null may
  * be auto-unpaused.
  *
@@ -58,7 +58,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		...overrides,
@@ -115,74 +114,6 @@ describe("SessionStrategy — pause_reason auto-unpause logic", () => {
 			method: "POST",
 			timestamp: now,
 		};
-	});
-
-	// -------------------------------------------------------------------------
-	// pause_reason='failure_threshold' — must NOT be auto-unpaused
-	// -------------------------------------------------------------------------
-
-	describe("pause_reason='failure_threshold'", () => {
-		it("does not call resumeAccount and keeps paused=true", async () => {
-			const hotmail = makeAccount({
-				id: "hotmail",
-				name: "hotmail",
-				paused: true,
-				pause_reason: "failure_threshold",
-				auto_fallback_enabled: true,
-				rate_limit_reset: expiredReset,
-				priority: 0,
-			});
-
-			await strategy.select([hotmail], meta);
-
-			expect(mockStore.hasResumeCall("hotmail")).toBe(false);
-			expect(hotmail.paused).toBe(true);
-		});
-
-		it("issue #139: does not auto-unpause a failure_threshold account even when the rate limit window resets", async () => {
-			const hotmail = makeAccount({
-				id: "hotmail",
-				name: "hotmail",
-				paused: true,
-				pause_reason: "failure_threshold",
-				auto_fallback_enabled: true,
-				rate_limit_reset: expiredReset,
-				priority: 0,
-			});
-
-			const gmail = makeAccount({
-				id: "gmail",
-				name: "gmail",
-				paused: false,
-				pause_reason: null,
-				auto_fallback_enabled: false,
-				rate_limit_reset: null,
-				priority: 1,
-			});
-
-			await strategy.select([hotmail, gmail], meta);
-
-			// HOTMAIL must remain paused — resumeAccount must NOT have been called
-			expect(hotmail.paused).toBe(true);
-			expect(mockStore.hasResumeCall("hotmail")).toBe(false);
-		});
-
-		it("leaves the failure_threshold account paused regardless of rate_limit_reset", async () => {
-			const hotmail = makeAccount({
-				id: "hotmail",
-				name: "hotmail",
-				paused: true,
-				pause_reason: "failure_threshold",
-				auto_fallback_enabled: true,
-				rate_limit_reset: expiredReset,
-				priority: 0,
-			});
-
-			await strategy.select([hotmail], meta);
-
-			// The account is found as an auto-fallback candidate but must NOT be unpaused
-			expect(hotmail.paused).toBe(true);
-		});
 	});
 
 	// -------------------------------------------------------------------------
@@ -324,22 +255,12 @@ describe("SessionStrategy — pause_reason auto-unpause logic", () => {
 
 	// -------------------------------------------------------------------------
 	// Mixed scenario: multiple paused accounts, each with different pause_reason.
-	// The first eligible auto-fallback candidate (by priority) is the overage account
-	// (priority=2). The failure and manual accounts are lower priority (0, 1) but
-	// cannot be unpaused, so they stay paused.
+	// The manual account has the best priority but cannot be unpaused, so it
+	// stays paused and the overage account behind it is never reached.
 	// -------------------------------------------------------------------------
 
 	describe("mixed pause_reason values", () => {
-		it("only unpauses the eligible (overage) account, leaves failure/manual paused", async () => {
-			const failureAcc = makeAccount({
-				id: "failure",
-				name: "failure",
-				paused: true,
-				pause_reason: "failure_threshold",
-				auto_fallback_enabled: true,
-				rate_limit_reset: expiredReset,
-				priority: 0,
-			});
+		it("leaves a higher-priority manual account paused", async () => {
 			const manualAcc = makeAccount({
 				id: "manual",
 				name: "manual",
@@ -347,7 +268,7 @@ describe("SessionStrategy — pause_reason auto-unpause logic", () => {
 				pause_reason: "manual",
 				auto_fallback_enabled: true,
 				rate_limit_reset: expiredReset,
-				priority: 1,
+				priority: 0,
 			});
 			const overageAcc = makeAccount({
 				id: "overage",
@@ -359,16 +280,9 @@ describe("SessionStrategy — pause_reason auto-unpause logic", () => {
 				priority: 2,
 			});
 
-			// The strategy picks the FIRST candidate by priority (lowest number first).
-			// Priority 0 = failure_threshold → cannot unpause, stays paused.
-			// So the candidate chosen is failure, and failure stays paused.
-			// Overage (priority 2) never gets to be a candidate in this call.
-			await strategy.select([failureAcc, manualAcc, overageAcc], meta);
+			await strategy.select([manualAcc, overageAcc], meta);
 
-			// failure_threshold and manual must never be unpaused
-			expect(mockStore.hasResumeCall("failure")).toBe(false);
 			expect(mockStore.hasResumeCall("manual")).toBe(false);
-			expect(failureAcc.paused).toBe(true);
 			expect(manualAcc.paused).toBe(true);
 		});
 
@@ -384,25 +298,24 @@ describe("SessionStrategy — pause_reason auto-unpause logic", () => {
 				rate_limit_reset: expiredReset,
 				priority: 0,
 			});
-			const failureAcc = makeAccount({
-				id: "failure",
-				name: "failure",
+			const manualAcc = makeAccount({
+				id: "manual",
+				name: "manual",
 				paused: true,
-				pause_reason: "failure_threshold",
+				pause_reason: "manual",
 				auto_fallback_enabled: true,
 				rate_limit_reset: expiredReset,
 				priority: 1,
 			});
 
-			const result = await strategy.select([failureAcc, overageAcc], meta);
+			const result = await strategy.select([manualAcc, overageAcc], meta);
 
 			expect(mockStore.hasResumeCall("overage")).toBe(true);
 			expect(overageAcc.paused).toBe(false);
 			expect(result[0]).toBe(overageAcc);
 
-			// failure_threshold account must not be unpaused
-			expect(mockStore.hasResumeCall("failure")).toBe(false);
-			expect(failureAcc.paused).toBe(true);
+			expect(mockStore.hasResumeCall("manual")).toBe(false);
+			expect(manualAcc.paused).toBe(true);
 		});
 	});
 
@@ -566,18 +479,18 @@ for (const [strategyName, createStrategy] of AUTO_UNPAUSING_STRATEGIES) {
 			strategy.initialize(store);
 		});
 
-		it("keeps a failure_threshold pause even with auto-fallback on and an elapsed reset window", async () => {
+		it("keeps a manual pause even with auto-fallback on and an elapsed reset window", async () => {
 			const account = makeAccount({
-				id: "failure-threshold",
+				id: "manual",
 				paused: true,
-				pause_reason: "failure_threshold",
+				pause_reason: "manual",
 				auto_fallback_enabled: true,
 				rate_limit_reset: expiredReset,
 			});
 
 			await strategy.select([account], meta);
 
-			expect(store.hasResumeCall("failure-threshold")).toBe(false);
+			expect(store.hasResumeCall("manual")).toBe(false);
 			expect(account.paused).toBe(true);
 		});
 

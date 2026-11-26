@@ -45,7 +45,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: "https://openrouter.ai/api/v1",
 		model_mappings: JSON.stringify({ sonnet: "qwen/qwen3.6-plus:free" }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -86,7 +85,7 @@ function makeProxyContext(overrides: Partial<ProxyContext> = {}): ProxyContext {
 			updateAccountUsage: mock(() => Promise.resolve()),
 			getAdapter: mock(() => ({
 				run: mock(() => Promise.resolve()),
-				get: mock(() => Promise.resolve(null)),
+				getMain: mock(() => Promise.resolve(null)),
 			})),
 		} as never,
 		runtime: { port: 8080, clientId: "test" } as never,
@@ -270,7 +269,7 @@ describe("proxyWithAccount — cancels abandoned upstream body on failover", () 
 		const result = await proxyWithAccount(
 			req,
 			new URL("https://proxy.local/v1/messages"),
-			makeAccount(), // no model_fallbacks
+			makeAccount(), // single candidate
 			makeRequestMeta(),
 			bodyBuffer,
 			() => undefined,
@@ -363,8 +362,11 @@ describe("proxyWithAccount — cancels abandoned upstream body on failover", () 
 				req,
 				new URL("https://proxy.local/v1/messages"),
 				makeAccount({
-					model_fallbacks: JSON.stringify({
-						sonnet: "bytedance-seed/dola-seed-2.0-pro:free",
+					model_mappings: JSON.stringify({
+						sonnet: [
+							"qwen/qwen3.6-plus:free",
+							"bytedance-seed/dola-seed-2.0-pro:free",
+						],
 					}),
 				}),
 				makeRequestMeta(),

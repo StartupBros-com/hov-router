@@ -38,7 +38,6 @@ function makeAccount(id: string, name = "test-account"): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -48,7 +47,6 @@ function makeAccount(id: string, name = "test-account"): Account {
 
 function makeContext(refreshError: Error, currentAccount: Account) {
 	const queuedJobs: Array<() => Promise<void>> = [];
-	const setRequiresReauth = mock(async () => {});
 	return {
 		ctx: {
 			provider: {
@@ -61,7 +59,6 @@ function makeContext(refreshError: Error, currentAccount: Account) {
 				getAccount: mock(async (accountId: string) =>
 					accountId === currentAccount.id ? currentAccount : null,
 				),
-				setRequiresReauth,
 				updateAccountTokensIfRefreshTokenMatches: mock(async () => true),
 				flagRequiresReauthIfTokenMatches: mock(async () => true),
 			},
@@ -72,7 +69,6 @@ function makeContext(refreshError: Error, currentAccount: Account) {
 			},
 		},
 		queuedJobs,
-		setRequiresReauth,
 	};
 }
 
@@ -125,7 +121,7 @@ describe("refreshAccessTokenSafe requires_reauth detection", () => {
 
 	it("does not flag network or upstream failures", async () => {
 		const account = makeAccount("network-error");
-		const { ctx, queuedJobs, setRequiresReauth } = makeContext(
+		const { ctx, queuedJobs } = makeContext(
 			new Error(
 				"Failed to refresh token for account test-account: upstream 503 timeout",
 			),
@@ -137,7 +133,6 @@ describe("refreshAccessTokenSafe requires_reauth detection", () => {
 		);
 
 		expect(queuedJobs).toHaveLength(0);
-		expect(setRequiresReauth).not.toHaveBeenCalled();
 		expect(ctx.dbOps.flagRequiresReauthIfTokenMatches).not.toHaveBeenCalled();
 	});
 
@@ -162,7 +157,7 @@ describe("refreshAccessTokenSafe requires_reauth detection", () => {
 
 	it("ignores invalid_grant in the account name when the provider error is harmless", async () => {
 		const account = makeAccount("name-false-positive", "test_invalid_grant");
-		const { ctx, queuedJobs, setRequiresReauth } = makeContext(
+		const { ctx, queuedJobs } = makeContext(
 			new Error(
 				"Failed to refresh token for account test_invalid_grant: temporary upstream failure",
 			),
@@ -174,7 +169,6 @@ describe("refreshAccessTokenSafe requires_reauth detection", () => {
 		);
 
 		expect(queuedJobs).toHaveLength(0);
-		expect(setRequiresReauth).not.toHaveBeenCalled();
 		expect(ctx.dbOps.flagRequiresReauthIfTokenMatches).not.toHaveBeenCalled();
 	});
 });

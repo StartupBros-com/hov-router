@@ -5,8 +5,7 @@ import { openExistingDatabase } from "./open-existing-database";
  * Dedicated worker for `PRAGMA incremental_vacuum(N)` and the periodic
  * `PRAGMA optimize` + `PRAGMA wal_checkpoint(TRUNCATE)` maintenance tick.
  *
- * Two kinds (discriminated by `kind`, defaulting to "vacuum" for backward
- * compatibility with kind-less messages):
+ * Two maintenance kinds, explicitly discriminated by `kind`:
  *   - "vacuum"   - the original incremental_vacuum behavior (below).
  *   - "optimize" - runs `PRAGMA optimize` + `PRAGMA wal_checkpoint(TRUNCATE)`
  *     with `busy_timeout = 0`. This is the ONLY WAL reclaimer: the main
@@ -110,7 +109,7 @@ const SYNCHRONOUS_MODES: ReadonlySet<unknown> = new Set<SynchronousMode>([
 
 export type IncrementalVacuumRequest = (
 	| {
-			kind?: "vacuum";
+			kind: "vacuum";
 			dbPath: string;
 			pages: number;
 			synchronous?: SynchronousMode;
@@ -230,13 +229,12 @@ self.onmessage = (event: MessageEvent<IncrementalVacuumRequest>) => {
 	if (retired || !retirementSafe) return;
 	// Synchronous functions complete their finally-close before the result receipt.
 	const result =
-		request.kind === "optimize"
-			? runOptimize(request.dbPath)
-			: runIncrementalVacuum(
-					request.dbPath,
-					request.pages,
-					request.synchronous,
-				);
+		request.kind === "vacuum"
+			? runIncrementalVacuum(request.dbPath, request.pages, request.synchronous)
+			: request.kind === "optimize"
+				? runOptimize(request.dbPath)
+				: undefined;
+	if (!result) return;
 	self.postMessage({
 		...result,
 		generation: request.generation,

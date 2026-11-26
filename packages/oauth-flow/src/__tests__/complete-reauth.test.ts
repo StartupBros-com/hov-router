@@ -17,7 +17,7 @@ import { OAuthFlow } from "../index";
 function makeAdapter(runSpy: ReturnType<typeof mock>) {
 	return {
 		run: runSpy,
-		get: mock(async () => null),
+		getMain: mock(async () => null),
 		all: mock(async () => []),
 		close: mock(async () => {}),
 	};
@@ -300,7 +300,7 @@ describe("OAuthFlow.complete duplicate account (real SQLite UNIQUE error)", () =
 
 			const rows = await realDb
 				.getAdapter()
-				.query<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
+				.queryMain<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
 					"dup-acct",
 				]);
 			expect(rows).toHaveLength(1);

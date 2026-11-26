@@ -69,7 +69,7 @@ function declinesForcedToolChoiceRewrite(
  * Detects agent usage and modifies the request body to use the preferred model
  * @param requestBodyBuffer - The buffered request body
  * @param dbOps - Database operations instance
- * @param requestHeaders - Incoming request headers (used for x-anthropic-agent-id)
+ * @param requestHeaders - Incoming request headers (used for x-better-ccflare-agent-id)
  * @param options.frontmatterModelFallback - When true, fall back to the
  *   agent's frontmatter `model` if no explicit DB preference is configured.
  *   Defaults to false (see `Config.getAgentFrontmatterModelFallback`).
@@ -130,9 +130,6 @@ export async function interceptAndModifyRequest(
 		// a multi-agent orchestrator, a router, an SDK wrapper — declare which agent
 		// issued the request, so downstream observability tools can attribute usage
 		// per agent. Takes precedence over system-prompt matching; absent = unchanged.
-		// The namespaced `x-better-ccflare-agent-id` header is preferred; the legacy
-		// `x-anthropic-agent-id` header is honored for backward compatibility when
-		// the namespaced header is absent.
 		//
 		// When neither agent header nor a prompt-detected agent is present, fall
 		// back to the Claude Code session id (`x-claude-code-session-id`).
@@ -143,12 +140,8 @@ export async function interceptAndModifyRequest(
 		// workers by session and prevents runaway-loop false positives.
 		// `agentAttributionSource` distinguishes the two header paths so the
 		// attribution remains auditable downstream.
-		const namespacedAgentId = requestHeaders
+		const explicitAgentId = requestHeaders
 			?.get("x-better-ccflare-agent-id")
-			?.trim()
-			?.slice(0, 256);
-		const legacyAgentId = requestHeaders
-			?.get("x-anthropic-agent-id")
 			?.trim()
 			?.slice(0, 256);
 		const sessionHeaderId = requestHeaders
@@ -156,7 +149,6 @@ export async function interceptAndModifyRequest(
 			?.trim()
 			?.slice(0, 256);
 
-		const explicitAgentId = namespacedAgentId || legacyAgentId;
 		if (explicitAgentId) {
 			log.debug(`Agent attributed via explicit header: ${explicitAgentId}`);
 			// Both the header path and the system-prompt path below rewrite the

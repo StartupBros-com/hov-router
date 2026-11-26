@@ -73,8 +73,6 @@ const ROUTER_CODES = [
 	"server_tool_forced_structurally_incapable",
 	"server_tool_advisor_declaration_unavailable",
 	"server_tool_advisor_history_unavailable",
-	// Written only by the retired Auto quality lane; old rows still carry it.
-	"quality_route_unavailable",
 	// Forwarded provider failures, as stored in production.
 	"upstream_http_403 type=api_error",
 	"upstream_http_503",

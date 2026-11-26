@@ -1,20 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { getHelpText } from "../help";
+import { getManagedRoutingHelpText } from "../help";
 
-describe("legacy CLI managed-routing help", () => {
-	it("identifies the product, prefers hov-router, and documents both compatibility aliases", () => {
-		const help = getHelpText();
-		expect(help).toContain("HoV Router");
-		expect(help).toContain("Usage: hov-router <command> [options]");
-		expect(help).toContain(
-			"Earlier command names, such as better-ccflare, remain supported aliases",
-		);
-		expect(help).toContain("hov-router add myaccount");
-		expect(help).not.toContain("  wstack-router ");
-		expect(help).not.toContain("  better-ccflare ");
-	});
+describe("managed-routing help", () => {
 	it("matches the shipped command syntax and never advertises a credential flag", () => {
-		const help = getHelpText();
+		const help = getManagedRoutingHelpText();
 
 		expect(help).toContain("routing list");
 		expect(help).toContain("routing detail <account-id>");

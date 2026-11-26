@@ -48,7 +48,7 @@ describe("SQLite lifetime account aggregation", () => {
 		request("null", null);
 		request("legacy", "no_account", 0);
 		request("orphan", "missing", 0);
-		const query = spyOn(adapter, "query");
+		const query = spyOn(adapter, "queryMain");
 		expect(await stats.getAccountStats()).toEqual([
 			{
 				name: "no_account",
@@ -164,7 +164,7 @@ describe("SQLite lifetime account aggregation", () => {
 				"INSERT INTO requests (id, timestamp, method, path, success) VALUES ('old', 1, 'POST', '/v1/messages', TRUE)",
 			);
 			const indexedAdapter = new BunSqlAdapter(indexed);
-			const query = spyOn(indexedAdapter, "query");
+			const query = spyOn(indexedAdapter, "queryMain");
 			expect(
 				(await new StatsRepository(indexedAdapter).getAccountStats())[0]
 					?.requestCount,

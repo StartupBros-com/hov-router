@@ -204,24 +204,12 @@ export function getAlertsConfig(config: Config): AlertsConfigPayload {
 		usageWindowValueDropThreshold: getUsageWindowValueDropThreshold(config),
 		cooldownMinutes: config.getAlertCooldownMinutes(),
 		webhookUrl: config.getAlertWebhookUrl(),
-		// Legacy Config doubles implement only the older alert getters.
-		cacheHealthEnabled: config.getAlertCacheHealthEnabled?.() ?? true,
-		cacheHealthThresholdPercent:
-			config.getAlertCacheHealthThresholdPercent?.() ??
-			CACHE_HEALTH_DEFAULT_POLICY.warningPercent,
-		cacheHealthDurationMinutes:
-			config.getAlertCacheHealthDurationMinutes?.() ??
-			(CACHE_HEALTH_DEFAULT_POLICY.warningBuckets * CACHE_HEALTH_BUCKET_MS) /
-				60_000,
-		cacheHealthMinRequests:
-			config.getAlertCacheHealthMinRequests?.() ??
-			CACHE_HEALTH_DEFAULT_POLICY.minimumRequests,
-		cacheHealthMinInputTokens:
-			config.getAlertCacheHealthMinInputTokens?.() ??
-			CACHE_HEALTH_DEFAULT_POLICY.minimumInputTokens,
-		cacheHealthReminderMinutes:
-			config.getAlertCacheHealthReminderMinutes?.() ??
-			CACHE_HEALTH_DEFAULT_POLICY.reminderMs / 60_000,
+		cacheHealthEnabled: config.getAlertCacheHealthEnabled(),
+		cacheHealthThresholdPercent: config.getAlertCacheHealthThresholdPercent(),
+		cacheHealthDurationMinutes: config.getAlertCacheHealthDurationMinutes(),
+		cacheHealthMinRequests: config.getAlertCacheHealthMinRequests(),
+		cacheHealthMinInputTokens: config.getAlertCacheHealthMinInputTokens(),
+		cacheHealthReminderMinutes: config.getAlertCacheHealthReminderMinutes(),
 		memberNotices: { state: getMemberNoticeDestination(config).state },
 	};
 }
@@ -884,8 +872,6 @@ export function buildUnpricedWindowAlert(
 /** Where a pinned Codex family's model came from, in operator words. */
 const CODEX_PIN_SOURCE_LABEL: Record<CodexAccountFamilySource, string> = {
 	account_mapping_pin: "account model mapping",
-	custom_endpoint_mapping: "custom endpoint model mapping",
-	model_fallbacks: "legacy model fallback",
 	environment_mapping: "environment model mapping",
 	global_provider_override: "provider-wide default override",
 	account_catalog: "account catalog",
@@ -903,7 +889,6 @@ export interface CodexPinAccountRow {
 	provider: string;
 	model_mappings: string | null;
 	custom_endpoint: string | null;
-	model_fallbacks: string | null;
 	created_at: number;
 }
 
@@ -1183,8 +1168,7 @@ export type MemberNoticeDestination =
 export function getMemberNoticeDestination(
 	config: Config,
 ): MemberNoticeDestination {
-	// Legacy Config doubles implement only the older alert getters.
-	const address = (config.getMemberNoticeWebhookUrl?.() ?? "").trim();
+	const address = config.getMemberNoticeWebhookUrl().trim();
 	if (address === "") return { state: "off", url: null, secret: null };
 	let url: URL;
 	try {
@@ -1197,7 +1181,7 @@ export function getMemberNoticeDestination(
 	}
 	// BroBot verifies with its secret exactly as set, so this one is used
 	// exactly as set too; only an empty or blank value counts as unset.
-	const secret = config.getMemberNoticeSigningSecret?.() ?? "";
+	const secret = config.getMemberNoticeSigningSecret();
 	if (secret.trim() === "") {
 		return { state: "missing_secret", url: null, secret: null };
 	}
@@ -1956,9 +1940,7 @@ export class AlertService {
 
 	private restartCacheHealthTimer(): void {
 		this.invalidateCacheHealth();
-		// Older Config test doubles deliberately have no cache accessors. They
-		// keep their original timer/query behavior; real Config defaults on.
-		if (!this.started || !this.config.getAlertCacheHealthEnabled?.()) return;
+		if (!this.started || !this.config.getAlertCacheHealthEnabled()) return;
 		this.cacheHealthTimer = setInterval(() => {
 			void this.evaluateCacheHealth();
 		}, CACHE_HEALTH_INTERVAL_MS);
@@ -1971,7 +1953,7 @@ export class AlertService {
 			settings.cacheHealthThresholdPercent ??
 			CACHE_HEALTH_DEFAULT_POLICY.warningPercent;
 		return {
-			enabled: this.config.getAlertCacheHealthEnabled?.() ?? false,
+			enabled: this.config.getAlertCacheHealthEnabled(),
 			policy: {
 				...CACHE_HEALTH_DEFAULT_POLICY,
 				warningPercent,
@@ -2022,7 +2004,7 @@ export class AlertService {
 	}
 
 	private async scanCacheHealth(nowMs: number, epoch: number): Promise<void> {
-		if (!this.config.getAlertCacheHealthEnabled?.()) return;
+		if (!this.config.getAlertCacheHealthEnabled()) return;
 		const configuration = this.cacheHealthConfig();
 		if (!configuration.enabled) return;
 		const signature = JSON.stringify(configuration);
@@ -2035,7 +2017,7 @@ export class AlertService {
 		const loaded = await repository.loadStates(nowMs); // includes repository cleanup
 		if (!current()) return;
 		// Labels only: never select a credential-bearing Account row.
-		const labels = await this.db.query<CacheHealthAccountLabel>(
+		const labels = await this.db.queryMain<CacheHealthAccountLabel>(
 			"SELECT id, name, created_at FROM accounts",
 		);
 		if (!current()) return;
@@ -2201,7 +2183,7 @@ export class AlertService {
 			open.usageRefused = true;
 			return;
 		}
-		const row = await this.db.get<{ name: string; paused: number | null }>(
+		const row = await this.db.getMain<{ name: string; paused: number | null }>(
 			"SELECT name, paused FROM accounts WHERE id = ?",
 			[event.accountId],
 		);
@@ -2394,8 +2376,8 @@ export class AlertService {
 			case "own_catalog_published": {
 				// Credential-free columns only, read fresh so attribution sees the
 				// account's current pins; a deleted account has nothing to report.
-				const row = await this.db.get<CodexPinAccountRow>(
-					`SELECT id, name, provider, model_mappings, custom_endpoint, model_fallbacks, created_at
+				const row = await this.db.getMain<CodexPinAccountRow>(
+					`SELECT id, name, provider, model_mappings, custom_endpoint, created_at
 					 FROM accounts WHERE id = ?`,
 					[event.accountId],
 				);
@@ -2427,7 +2409,7 @@ export class AlertService {
 			case "route_role_unavailable": {
 				const accountName = event.accountId
 					? ((
-							await this.db.get<{ name: string }>(
+							await this.db.getMain<{ name: string }>(
 								"SELECT name FROM accounts WHERE id = ?",
 								[event.accountId],
 							)
@@ -2459,7 +2441,7 @@ export class AlertService {
 
 	private async lookupAccountName(accountId: string): Promise<string | null> {
 		try {
-			const row = await this.db.get<{ name: string }>(
+			const row = await this.db.getMain<{ name: string }>(
 				"SELECT name FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -2713,6 +2695,7 @@ export class AlertService {
 			 GROUP BY timestamp / 300000
 			 ORDER BY MAX(timestamp) ASC`,
 			[accountId, windowKey, windowStartMs, timestamp],
+			"bulk",
 		);
 		const points: PredictionPoint[] = rows.map((row) => ({
 			t: Number(row.timestamp),
@@ -2781,7 +2764,7 @@ export class AlertService {
 		const threshold =
 			config.usageWindowValueDropThreshold ??
 			DEFAULT_USAGE_WINDOW_VALUE_DROP_THRESHOLD;
-		const priorRows = await this.db.query<{ value_usd: number }>(
+		const priorRows = await this.db.queryMain<{ value_usd: number }>(
 			`SELECT value_usd FROM usage_windows
 			 WHERE account_id = ? AND window_key = ? AND id != ?
 			   AND closed_at IS NOT NULL AND value_usd IS NOT NULL
@@ -2840,19 +2823,20 @@ export class AlertService {
 		const rows = await this.db.queryOffThread<AlertRow>(
 			`SELECT * FROM alerts ORDER BY timestamp DESC LIMIT ?`,
 			[Math.max(1, Math.min(500, Math.round(limit)))],
+			"bulk",
 		);
 		return rows.map(toAlertEvent);
 	}
 
 	async getUnacknowledgedCount(): Promise<number> {
-		const row = await this.db.get<{ count: number }>(
+		const row = await this.db.getMain<{ count: number }>(
 			`SELECT COUNT(*) as count FROM alerts WHERE acknowledged = 0`,
 		);
 		return Number(row?.count) || 0;
 	}
 
 	async acknowledgeAlert(id: string): Promise<boolean> {
-		const row = await this.db.get<{ cnt: number }>(
+		const row = await this.db.getMain<{ cnt: number }>(
 			`SELECT COUNT(*) as cnt FROM alerts WHERE id = ?`,
 			[id],
 		);
@@ -2878,7 +2862,7 @@ export class AlertService {
 		const dayStart = new Date(timestamp);
 		dayStart.setHours(0, 0, 0, 0);
 		if (config.dailySpendUsd > 0) {
-			const row = await this.db.get<DailySpendRow>(
+			const row = await this.db.getMain<DailySpendRow>(
 				`SELECT SUM(COALESCE(cost_usd, 0)) as total FROM requests WHERE timestamp >= ?`,
 				[dayStart.getTime()],
 			);
@@ -2907,7 +2891,7 @@ export class AlertService {
 			}
 		}
 		if (config.tokensPerHour > 0) {
-			const row = await this.db.get<TokensPerHourRow>(
+			const row = await this.db.getMain<TokensPerHourRow>(
 				`SELECT SUM(COALESCE(total_tokens, 0)) as total FROM requests WHERE timestamp >= ?`,
 				[timestamp - HOUR_MS],
 			);

@@ -14,7 +14,6 @@ mock.module("../../utils/browser", () => ({
 }));
 
 mock.module("../../prompts/index", () => ({
-	promptAccountRemovalConfirmation: async () => true,
 	stdPromptAdapter: {
 		select: async () => "claude-oauth",
 		input: async () => "authorization-code#state",
@@ -54,7 +53,7 @@ describe("CLI Anthropic account re-authentication", () => {
 	beforeEach(() => {
 		resumeCalls = 0;
 		const adapter = {
-			get: async (_sql: string, params: unknown[]) => {
+			getMain: async (_sql: string, params: unknown[]) => {
 				if (params[0] !== account.name) return null;
 				return account;
 			},

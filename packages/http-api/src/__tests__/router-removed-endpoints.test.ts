@@ -63,6 +63,12 @@ const REMOVED: Array<{
 	replacement: string | null;
 }> = [
 	{
+		method: "POST",
+		path: "/api/accounts/muse-spark",
+		endpoint: "/api/accounts/muse-spark",
+		replacement: "POST /api/accounts/meta",
+	},
+	{
 		method: "GET",
 		path: "/api/config/model",
 		endpoint: "/api/config/model",
@@ -85,7 +91,7 @@ const REMOVED: Array<{
 	{
 		method: "POST",
 		path: "/api/accounts/acct-1/model-fallbacks",
-		body: { modelFallbacks: { sonnet: ["model-b"] } },
+		body: { modelMappings: { sonnet: ["model-b"] } },
 		endpoint: "/api/accounts/:id/model-fallbacks",
 		replacement: "POST /api/accounts/:id/model-mappings",
 	},
@@ -110,7 +116,7 @@ const REMOVED: Array<{
 	},
 ];
 
-describe("endpoints removed in 5.0.0", () => {
+describe("removed endpoints", () => {
 	for (const removed of REMOVED) {
 		it(`${removed.method} ${removed.path} answers 410 locally`, async () => {
 			const response = await send(removed.method, removed.path, removed.body);
@@ -126,10 +132,12 @@ describe("endpoints removed in 5.0.0", () => {
 			};
 			expect(body.error).toBe("Gone");
 			expect(body.endpoint).toBe(removed.endpoint);
-			expect(body.removedIn).toBe("5.0.0");
+			const version =
+				removed.path === "/api/accounts/muse-spark" ? "7.0.0" : "5.0.0";
+			expect(body.removedIn).toBe(version);
 			expect(body.replacement).toBe(removed.replacement);
 			expect(body.message).toContain("removed in");
-			expect(body.message).toContain("5.0.0");
+			expect(body.message).toContain(version);
 			if (removed.replacement) {
 				expect(body.message).toContain(removed.replacement);
 			}

@@ -189,7 +189,7 @@ export function createQwenReauthHandler(dbOps: DatabaseOperations) {
 			}
 
 			// Look up the account
-			const account = await dbOps.getAdapter().get<{
+			const account = await dbOps.getAdapter().getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -367,7 +367,7 @@ export function createCodexReauthHandler(dbOps: DatabaseOperations) {
 			}
 
 			// Look up the account
-			const account = await dbOps.getAdapter().get<{
+			const account = await dbOps.getAdapter().getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -531,7 +531,7 @@ export function createAnthropicReauthInitHandler(
 			}
 
 			// Look up the account
-			const account = await dbOps.getAdapter().get<{
+			const account = await dbOps.getAdapter().getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -639,7 +639,9 @@ export function createAnthropicReauthCallbackHandler(
 			// Look up the account by name to get its id for the UPDATE
 			const account = await dbOps
 				.getAdapter()
-				.get<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [name]);
+				.getMain<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
+					name,
+				]);
 			if (!account) {
 				return errorResponse(
 					BadRequest(`Account '${name}' not found. It may have been deleted.`),
@@ -732,18 +734,9 @@ export function createOAuthInitHandler(dbOps: DatabaseOperations) {
 				return errorResponse(BadRequest("Valid account name is required"));
 			}
 
-			// Validate mode (with backward compatibility for deprecated "max" mode)
-			let mode = (validateString(body.mode, "mode", {
-				allowedValues: ["claude-oauth", "console", "max"] as const,
-			}) || "claude-oauth") as "claude-oauth" | "console" | "max";
-
-			// Handle deprecated "max" mode with warning
-			if (mode === "max") {
-				log.warn(
-					'Deprecated mode "max" detected, treating as "claude-oauth". Please update to use "claude-oauth" instead.',
-				);
-				mode = "claude-oauth";
-			}
+			const mode = (validateString(body.mode, "mode", {
+				allowedValues: ["claude-oauth", "console"] as const,
+			}) || "claude-oauth") as "claude-oauth" | "console";
 
 			// Validate custom endpoint
 			const customEndpoint = validateString(

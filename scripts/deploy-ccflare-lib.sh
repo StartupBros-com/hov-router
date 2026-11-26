@@ -1086,11 +1086,11 @@ NODE
 }
 
 validate_effective_systemd_policy() {
-	if [[ "$#" -lt 1 || "$#" -gt 2 ]]; then
-		echo "validate_effective_systemd_policy requires: service [allow-missing-new-guard-limits]" >&2
+	if [[ "$#" -ne 1 ]]; then
+		echo "validate_effective_systemd_policy requires: service" >&2
 		return 2
 	fi
-	local service="$1" allow_missing_new_guard_limits=0
+	local service="$1"
 	local kill_mode stop_timeout restart restart_sec restart_prevent_exit_status
 	local start_limit_interval start_limit_burst effective_environment effective_deadline_ms
 	local effective_retry_attempt_headroom_ms effective_max_recovery_sleep_ms effective_shutdown_grace_ms effective_max_recovery_waits effective_failure_stop_budget_ms
@@ -1099,23 +1099,15 @@ validate_effective_systemd_policy() {
 	local minimum_stop_timeout_usec
 	local minimum_start_limit_interval_usec=300000000 minimum_restart_sec_usec=5000000
 	local rss_threshold rss_poll rss_min_uptime rss_samples rss_cooldown rss_max_recycles rss_window rss_present=0
-	if [[ "$#" -eq 2 ]]; then
-		allow_missing_new_guard_limits="$2"
-	fi
-	if [[ "$allow_missing_new_guard_limits" != "0" && "$allow_missing_new_guard_limits" != "1" ]]; then
-		echo "allow-missing-new-guard-limits must be 0 or 1" >&2
-		return 2
-	fi
 
 	kill_mode="$(systemctl show "$service" --property=KillMode --value)" || return 1
 	stop_timeout="$(systemctl show "$service" --property=TimeoutStopUSec --value)" || return 1
-	if [[ "$allow_missing_new_guard_limits" == "0" ]]; then
-		restart="$(systemctl show "$service" --property=Restart --value)" || return 1
-		restart_sec="$(systemctl show "$service" --property=RestartUSec --value)" || return 1
-		restart_prevent_exit_status="$(systemctl show "$service" --property=RestartPreventExitStatus --value)" || return 1
-		start_limit_interval="$(systemctl show "$service" --property=StartLimitIntervalUSec --value)" || return 1
-		start_limit_burst="$(systemctl show "$service" --property=StartLimitBurst --value)" || return 1
-	fi
+	restart="$(systemctl show "$service" --property=Restart --value)" || return 1
+	restart_sec="$(systemctl show "$service" --property=RestartUSec --value)" || return 1
+	restart_prevent_exit_status="$(systemctl show "$service" --property=RestartPreventExitStatus --value)" || return 1
+	start_limit_interval="$(systemctl show "$service" --property=StartLimitIntervalUSec --value)" || return 1
+	start_limit_burst="$(systemctl show "$service" --property=StartLimitBurst --value)" || return 1
+
 	effective_environment="$(systemctl show "$service" --property=Environment --value)" || return 1
 	for rss_entry in \
 		"rss_threshold:RUNNER_RSS_THRESHOLD_BYTES" \
@@ -1130,9 +1122,7 @@ validate_effective_systemd_policy() {
 			printf -v "$local_name" '%s' "$value"; ((rss_present += 1))
 		fi
 	done
-	if ((rss_present == 0)) && [[ "$allow_missing_new_guard_limits" == "1" ]]; then
-		: # Old-pin rollback compatibility: the entire newer tuple may be absent.
-	elif ((rss_present != 7)); then
+	if ((rss_present != 7)); then
 		echo "effective systemd environment has a partial runner RSS recycle tuple" >&2
 		return 1
 	else
@@ -1148,12 +1138,7 @@ validate_effective_systemd_policy() {
 	)"; then
 		effective_body_admission_queue_limit=""
 	fi
-	if [[ -z "$effective_body_admission_budget_bytes" && -z "$effective_body_admission_queue_limit" \
-		&& "$allow_missing_new_guard_limits" == "1" ]]; then
-		# A pre-admission pin is valid only on the legacy rollback path.
-		effective_body_admission_budget_bytes=268435456
-		effective_body_admission_queue_limit=500
-	elif [[ -z "$effective_body_admission_budget_bytes" || -z "$effective_body_admission_queue_limit" ]]; then
+	if [[ -z "$effective_body_admission_budget_bytes" || -z "$effective_body_admission_queue_limit" ]]; then
 		echo "effective systemd environment is missing a CCFLARE body-admission setting" >&2
 		return 1
 	else
@@ -1172,12 +1157,7 @@ validate_effective_systemd_policy() {
 	)"; then
 		effective_max_buffered_request_body_bytes=""
 	fi
-	if [[ -z "$effective_max_request_body_bytes" && -z "$effective_max_buffered_request_body_bytes" \
-		&& "$allow_missing_new_guard_limits" == "1" ]]; then
-		# A fully pre-body-policy pin can be restored during rollback. A partially
-		# present pair is never legacy: it is an unsafe or interrupted current policy.
-		:
-	elif [[ -z "$effective_max_request_body_bytes" ]]; then
+	if [[ -z "$effective_max_request_body_bytes" ]]; then
 		echo "effective systemd environment is missing GUARD_MAX_REQUEST_BODY_BYTES" >&2
 		return 1
 	elif [[ -z "$effective_max_buffered_request_body_bytes" ]]; then
@@ -1198,40 +1178,20 @@ validate_effective_systemd_policy() {
 	if ! effective_retry_attempt_headroom_ms="$(
 		systemd_environment_text_value "$effective_environment" GUARD_RETRY_ATTEMPT_HEADROOM_MS
 	)"; then
-		if [[ "$allow_missing_new_guard_limits" == "1" ]]; then
-			# Rollback compatibility: a pin installed before retry headroom existed
-			# cannot publish this environment key. Use the new guard's safe default
-			# only to validate the restored timing tuple; strict pre-restart
-			# validation of the newly rendered pin still requires the explicit key.
-			effective_retry_attempt_headroom_ms=30000
-		else
-			echo "effective systemd environment is missing GUARD_RETRY_ATTEMPT_HEADROOM_MS" >&2
-			return 1
-		fi
+		echo "effective systemd environment is missing GUARD_RETRY_ATTEMPT_HEADROOM_MS" >&2
+		return 1
 	fi
 	if ! effective_max_recovery_sleep_ms="$(
 		systemd_environment_text_value "$effective_environment" GUARD_MAX_RECOVERY_SLEEP_MS
 	)"; then
-		if [[ "$allow_missing_new_guard_limits" == "1" ]]; then
-			# Rollback compatibility for pins installed before the sleep cap was
-			# explicit. Strict validation of a newly rendered pin still requires it.
-			effective_max_recovery_sleep_ms=120000
-		else
-			echo "effective systemd environment is missing GUARD_MAX_RECOVERY_SLEEP_MS" >&2
-			return 1
-		fi
+		echo "effective systemd environment is missing GUARD_MAX_RECOVERY_SLEEP_MS" >&2
+		return 1
 	fi
 	if ! effective_max_recovery_waits="$(
 		systemd_environment_text_value "$effective_environment" GUARD_MAX_RECOVERY_WAITS
 	)"; then
-		if [[ "$allow_missing_new_guard_limits" == "1" ]]; then
-			# Rollback compatibility for pins installed before bounded recovery
-			# admission was explicit. New rendered pins always require this key.
-			effective_max_recovery_waits=12
-		else
-			echo "effective systemd environment is missing GUARD_MAX_RECOVERY_WAITS" >&2
-			return 1
-		fi
+		echo "effective systemd environment is missing GUARD_MAX_RECOVERY_WAITS" >&2
+		return 1
 	fi
 	effective_shutdown_grace_ms="$(
 		systemd_environment_text_value "$effective_environment" GUARD_SHUTDOWN_GRACE_MS
@@ -1242,14 +1202,8 @@ validate_effective_systemd_policy() {
 	if ! effective_failure_stop_budget_ms="$(
 		systemd_environment_text_value "$effective_environment" RUNNER_FAILURE_STOP_BUDGET_MS
 	)"; then
-		if [[ "$allow_missing_new_guard_limits" == "1" ]]; then
-			# Pins created before the failure-cleanup budget was deploy-owned may be
-			# restored during rollback; validate them against the safe default.
-			effective_failure_stop_budget_ms=30000
-		else
-			echo "effective systemd environment is missing RUNNER_FAILURE_STOP_BUDGET_MS" >&2
-			return 1
-		fi
+		echo "effective systemd environment is missing RUNNER_FAILURE_STOP_BUDGET_MS" >&2
+		return 1
 	fi
 	if [[ ! "$effective_failure_stop_budget_ms" =~ ^[1-9][0-9]{0,5}$ ]] \
 		|| ((effective_failure_stop_budget_ms > 120000)); then
@@ -1261,36 +1215,35 @@ validate_effective_systemd_policy() {
 		echo "effective KillMode=${kill_mode}; expected mixed" >&2
 		return 1
 	fi
-	if [[ "$allow_missing_new_guard_limits" == "0" ]]; then
-		if [[ "$restart" != "on-failure" ]]; then
-			echo "effective Restart=${restart}; expected on-failure" >&2
-			return 1
-		fi
-		restart_sec_usec="$(systemd_duration_to_microseconds "$restart_sec")" || {
-			echo "unsupported effective RestartUSec=${restart_sec}" >&2
-			return 1
-		}
-		if ((restart_sec_usec < minimum_restart_sec_usec)); then
-			echo "unsafe effective RestartUSec=${restart_sec}; expected at least ${minimum_restart_sec_usec}us" >&2
-			return 1
-		fi
-		if [[ ! " $restart_prevent_exit_status " == *" 143 "* ]]; then
-			echo "effective RestartPreventExitStatus=${restart_prevent_exit_status}; expected status 143" >&2
-			return 1
-		fi
-		start_limit_interval_usec="$(systemd_duration_to_microseconds "$start_limit_interval")" || {
-			echo "unsupported effective StartLimitIntervalUSec=${start_limit_interval}" >&2
-			return 1
-		}
-		if ((start_limit_interval_usec < minimum_start_limit_interval_usec)); then
-			echo "unsafe effective StartLimitIntervalUSec=${start_limit_interval}; expected at least ${minimum_start_limit_interval_usec}us" >&2
-			return 1
-		fi
-		if [[ ! "$start_limit_burst" =~ ^[1-9][0-9]*$ ]] || ((start_limit_burst > 5)); then
-			echo "unsafe effective StartLimitBurst=${start_limit_burst}; expected 1..5" >&2
-			return 1
-		fi
+	if [[ "$restart" != "on-failure" ]]; then
+		echo "effective Restart=${restart}; expected on-failure" >&2
+		return 1
 	fi
+	restart_sec_usec="$(systemd_duration_to_microseconds "$restart_sec")" || {
+		echo "unsupported effective RestartUSec=${restart_sec}" >&2
+		return 1
+	}
+	if ((restart_sec_usec < minimum_restart_sec_usec)); then
+		echo "unsafe effective RestartUSec=${restart_sec}; expected at least ${minimum_restart_sec_usec}us" >&2
+		return 1
+	fi
+	if [[ ! " $restart_prevent_exit_status " == *" 143 "* ]]; then
+		echo "effective RestartPreventExitStatus=${restart_prevent_exit_status}; expected status 143" >&2
+		return 1
+	fi
+	start_limit_interval_usec="$(systemd_duration_to_microseconds "$start_limit_interval")" || {
+		echo "unsupported effective StartLimitIntervalUSec=${start_limit_interval}" >&2
+		return 1
+	}
+	if ((start_limit_interval_usec < minimum_start_limit_interval_usec)); then
+		echo "unsafe effective StartLimitIntervalUSec=${start_limit_interval}; expected at least ${minimum_start_limit_interval_usec}us" >&2
+		return 1
+	fi
+	if [[ ! "$start_limit_burst" =~ ^[1-9][0-9]*$ ]] || ((start_limit_burst > 5)); then
+		echo "unsafe effective StartLimitBurst=${start_limit_burst}; expected 1..5" >&2
+		return 1
+	fi
+
 	validate_guard_timing_values \
 		"$effective_deadline_ms" \
 		"$effective_retry_attempt_headroom_ms" \
@@ -1350,7 +1303,7 @@ reload_validate_or_restore_systemd_policy() {
 		sudo rm -f "$rollback_stage" 2>/dev/null || true
 		return 70
 	fi
-	if ! validate_effective_systemd_policy "$service" 1 >/dev/null; then
+	if ! validate_effective_systemd_policy "$service" >/dev/null; then
 		echo "HARD FAILURE: operator drop-ins still produce an unsafe effective systemd policy after restoring the prior deploy pin" >&2
 		echo "Correct the later operator drop-ins (for example /etc/systemd/system/ccflare-stack.service.d/90-operator-policy.conf) before restarting the service." >&2
 		return 70
@@ -1496,12 +1449,6 @@ try {
 const bodyPolicyProof = (guard) => {
 	const root = guard ?? {};
 	const limits = root.runtime?.limits ?? {};
-	// Older snapshots published only maxRequestBodyBytes. Aggregate reservation
-	// fields identify the current schema and therefore require complete proof.
-	const hasCurrentBodyFormat =
-		Object.hasOwn(root, "maxBufferedRequestBodyBytes") ||
-		Object.hasOwn(limits, "maxBufferedRequestBodyBytes");
-	if (!hasCurrentBodyFormat) return { legacy: true };
 	const rootRequest = root.maxRequestBodyBytes;
 	const rootAggregate = root.maxBufferedRequestBodyBytes;
 	const runtimeRequest = limits.maxRequestBodyBytes;

@@ -27,19 +27,16 @@ function evaluate({
 		type: "error",
 		error: { type: "pool_exhausted" },
 	},
-	allowLegacyBody = false,
 }: {
 	status?: number;
 	headers?: Record<string, string>;
 	body?: unknown;
-	allowLegacyBody?: boolean;
 }) {
 	return evaluateGuardRetry({
 		status,
 		headers: new Headers(headers),
 		bodyText: typeof body === "string" ? body : JSON.stringify(body),
 		nowMs: NOW,
-		allowLegacyBody,
 	});
 }
 
@@ -287,9 +284,8 @@ describe("evaluateGuardRetry", () => {
 	});
 
 	// R17: the guard's stable x-better-ccflare-pool-status: exhausted header is
-	// the primary, sufficient signal. Bounded structured-body detection is only
-	// a rolling-upgrade fallback for when that header is absent from an older
-	// proxy. Header confirmation alone is authoritative: the guard no longer
+	// the primary, sufficient signal. Header confirmation alone is authoritative:
+	// the guard no longer
 	// requires a parseable, type-matching body once the header confirms.
 	test("a confirmed header retries even with a malformed body", () => {
 		const decision = evaluate({
@@ -334,21 +330,6 @@ describe("evaluateGuardRetry", () => {
 		});
 	});
 
-	test("the rolling-upgrade fallback retries a legacy pool_exhausted body when the header is absent AND explicitly enabled", () => {
-		const decision = evaluate({
-			headers: { "retry-after": "5" },
-			body: { type: "error", error: { type: "pool_exhausted" } },
-			allowLegacyBody: true,
-		});
-		expect(decision).toMatchObject({
-			retry: true,
-			reason: "trusted_finite_recovery",
-			recoveryScope: "legacy",
-			delayMs: 5_000,
-			recoverySource: "retry-after",
-		});
-	});
-
 	test("never retries a physical-attempt budget terminal even if recovery-shaped metadata is present", () => {
 		const decision = evaluate({
 			headers: {
@@ -363,7 +344,6 @@ describe("evaluateGuardRetry", () => {
 					code: "physical_attempt_budget_exhausted",
 				},
 			},
-			allowLegacyBody: true,
 		});
 
 		expect(decision).toEqual({
@@ -377,11 +357,9 @@ describe("evaluateGuardRetry", () => {
 
 	// P1 spoofing (guard side): any upstream 503 body can be shaped like
 	// pool_exhausted, which would otherwise authorize up to maxAttempts
-	// replays of a possibly non-idempotent request. The legacy body-only
-	// fallback is OFF by default; only the header may authorize a retry
-	// unless an operator has explicitly opted into the rolling-upgrade
-	// escape hatch.
-	test("a legacy pool_exhausted body with the header absent never retries by default", () => {
+	// replays of a possibly non-idempotent request. Only the header may
+	// authorize a retry.
+	test("a legacy pool_exhausted body with the header absent never retries", () => {
 		const decision = evaluate({
 			headers: { "retry-after": "5" },
 			body: { type: "error", error: { type: "pool_exhausted" } },

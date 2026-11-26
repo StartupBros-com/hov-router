@@ -214,7 +214,7 @@ describe("ServerToolReplayIssuanceRepository", () => {
 
 	it("rejects non-canonical portable integer output", async () => {
 		const corruptAdapter = {
-			get: async () => ({
+			getMain: async () => ({
 				counter_identity: COUNTER_IDENTITY,
 				issuance_count_text: "1e3",
 			}),

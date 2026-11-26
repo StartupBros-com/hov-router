@@ -1233,7 +1233,7 @@ describe("UsageWindowLedger.revalueStaleClosedWindows", () => {
 		});
 		expect(summary.valueDeltaUsd).toBeCloseTo(TERRA_CURRENT - 9.99, 9);
 		const adapter = dbOps.getAdapter();
-		const raw = await adapter.get<{
+		const raw = await adapter.getMain<{
 			model_breakdown: string;
 			projection_version: string;
 		}>(
@@ -1322,7 +1322,7 @@ describe("UsageWindowLedger.revalueStaleClosedWindows", () => {
 	}
 
 	async function countStaleClosed(): Promise<number> {
-		const row = await dbOps.getAdapter().get<{ n: number }>(
+		const row = await dbOps.getAdapter().getMain<{ n: number }>(
 			`SELECT COUNT(*) AS n FROM usage_windows
 			 WHERE closed_at IS NOT NULL AND projection_version IS DISTINCT FROM ?`,
 			[VALUE_PRICING_VERSION],
@@ -1891,6 +1891,53 @@ describe("UsageWindowLedger limit cycles", () => {
 		} finally {
 			flaky.mockRestore();
 		}
+	});
+
+	it("skips both startup passes when the bulk reader fails, without reading on the main connection (#1042)", async () => {
+		await record(T0, 10, RESETS_A);
+		await record(T0 + 3000, 30, RESETS_A);
+		const pending = await seedClosedWithoutCycles(T0, RESETS_A, T0 + 6000);
+		const adapter = dbOps.getAdapter();
+		const unavailable = new Error("off-thread bulk reader closed");
+		adapter.setOffThreadReader(
+			{
+				all: async () => {
+					throw unavailable;
+				},
+				get: async () => {
+					throw unavailable;
+				},
+			},
+			"bulk",
+		);
+		const queryMain = spyOn(adapter, "queryMain");
+		const getMain = spyOn(adapter, "getMain");
+		const ledger = new UsageWindowLedger(dbOps);
+		try {
+			// server.ts logs the rejection; the pass runs again at the next start.
+			await expect(ledger.measureClosedWindowLimitCycles()).rejects.toBe(
+				unavailable,
+			);
+			await expect(ledger.revalueStaleClosedWindows()).rejects.toBe(
+				unavailable,
+			);
+			expect(queryMain).not.toHaveBeenCalled();
+			expect(getMain).not.toHaveBeenCalled();
+		} finally {
+			adapter.setOffThreadReader(undefined, "bulk");
+			queryMain.mockRestore();
+			getMain.mockRestore();
+		}
+		let all = await dbOps.listUsageWindows({ accountId: ACCOUNT_ID });
+		expect(all.find((w) => w.id === pending.id)?.pointsUsed).toBeNull();
+
+		expect(await ledger.measureClosedWindowLimitCycles()).toEqual({
+			measured: 1,
+			empty: 0,
+			failed: 0,
+		});
+		all = await dbOps.listUsageWindows({ accountId: ACCOUNT_ID });
+		expect(all.find((w) => w.id === pending.id)?.pointsUsed).toBe(30);
 	});
 
 	it("skips windows that began before the oldest retained snapshot", async () => {

@@ -1,13 +1,11 @@
 import { Logger } from "@better-ccflare/logger";
 import type { Account, ComboFamily } from "@better-ccflare/types";
-import { ValidationError } from "./errors";
 import { isForceAccountModelEnabled } from "./force-account-model";
 import {
 	LATEST_MODEL_BY_FAMILY,
 	LATEST_ROUTE_ONLY_MODEL_BY_FAMILY,
 } from "./models";
 import {
-	MAX_MODEL_MAPPING_CANDIDATES,
 	safeJsonParse,
 	validateEndpointUrl,
 	validateModelMappings,
@@ -184,86 +182,23 @@ export function getAllowedModelsMessage(): string {
 	return "Model must contain one of: fable, opus, sonnet, haiku (e.g., claude-fable-5, claude-opus-4-6, claude-sonnet-4-5-20250929)";
 }
 
-/**
- * Parse custom endpoint data with candidate arrays for internal routing.
- */
-function parseCustomEndpointDataWithCandidates(customEndpoint: string | null): {
-	endpoint?: string;
-	modelMappings?: Record<string, string | string[]>;
-} | null {
-	if (!customEndpoint) {
-		return null;
-	}
-
-	const trimmed = customEndpoint.trim();
-	if (!trimmed.startsWith("{")) {
-		// Return plain string as endpoint
-		return { endpoint: trimmed };
-	}
-
-	let parsed: {
-		endpoint?: string;
-		modelMappings?: unknown;
-	};
-	try {
-		parsed = safeJsonParse<{
-			endpoint?: string;
-			modelMappings?: unknown;
-		}>(trimmed, "custom_endpoint");
-	} catch (error) {
-		log.warn(
-			`Failed to parse custom_endpoint JSON, treating as plain string: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		return { endpoint: trimmed };
-	}
-
-	if (parsed.modelMappings === undefined) {
-		return { endpoint: parsed.endpoint };
-	}
-
-	try {
-		return {
-			endpoint: parsed.endpoint,
-			modelMappings: validateModelMappings(
-				parsed.modelMappings,
-				"custom_endpoint.modelMappings",
-			),
-		};
-	} catch (error) {
-		log.warn(
-			`Ignoring invalid custom_endpoint model mappings: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		return { endpoint: parsed.endpoint };
-	}
-}
-
-/**
- * Parse custom endpoint data from an account's custom_endpoint field.
- *
- * The public contract predates candidate arrays and intentionally remains
- * string-only. Internal routing callers that understand ordered candidates use
- * parseCustomEndpointDataWithCandidates instead.
- */
+/** Read the endpoint from a URL or endpoint JSON. */
 export function parseCustomEndpointData(
 	customEndpoint: string | null,
-): { endpoint?: string; modelMappings?: Record<string, string> } | null {
-	const parsed = parseCustomEndpointDataWithCandidates(customEndpoint);
-	if (!parsed) {
-		return null;
-	}
-	if (!parsed.modelMappings) {
+): { endpoint?: string } | null {
+	if (!customEndpoint) return null;
+	const trimmed = customEndpoint.trim();
+	if (!trimmed.startsWith("{")) return { endpoint: trimmed };
+	try {
+		const parsed = safeJsonParse<{ endpoint?: string }>(
+			trimmed,
+			"custom_endpoint",
+		);
 		return { endpoint: parsed.endpoint };
+	} catch (error) {
+		log.warn("Failed to parse custom_endpoint JSON:", error);
+		return { endpoint: trimmed };
 	}
-
-	const modelMappings: Record<string, string> = {};
-	for (const [key, value] of Object.entries(parsed.modelMappings)) {
-		modelMappings[key] = Array.isArray(value) ? value[0] : value;
-	}
-
-	return {
-		endpoint: parsed.endpoint,
-		modelMappings,
-	};
 }
 
 function parseRuntimeModelMappings(
@@ -307,8 +242,7 @@ export interface ConfiguredModelMapping {
 }
 
 /**
- * Get effective model mappings for an account, merging model_fallbacks into
- * the arrays so that model_fallbacks becomes the second+ entry for each family.
+ * Get effective account mappings over shared environment mappings.
  */
 export function getModelMappings(
 	account: Account,
@@ -338,8 +272,8 @@ export function getModelMappings(
 }
 
 /**
- * Read only configuration stored on this account, including legacy endpoint
- * mappings and fallbacks. Shared environment mappings are not capability proof.
+ * Read only mappings stored on this account.
+ * Shared environment mappings are not capability proof.
  */
 export function getAccountOwnedModelMappings(
 	account: Account,
@@ -355,43 +289,6 @@ function mergeAccountModelMappings(
 	const accountMappings = parseModelMappings(account.model_mappings);
 	if (accountMappings) {
 		Object.assign(mappings, accountMappings);
-	}
-
-	// Check for legacy mappings in custom_endpoint JSON payload (fallback)
-	const customEndpointData = parseCustomEndpointDataWithCandidates(
-		account.custom_endpoint,
-	);
-	if (customEndpointData?.modelMappings) {
-		log.warn(
-			`Found model mappings in custom_endpoint for account ${account.name} - this is deprecated. Use model_mappings field instead.`,
-		);
-		Object.assign(mappings, customEndpointData.modelMappings);
-	}
-
-	// Merge model_fallbacks into the arrays so they become the next models to try
-	// after the primary mapping is exhausted. model_fallbacks is now deprecated as
-	// a separate concept — the array in model_mappings supersedes it.
-	if (account.model_fallbacks) {
-		const fallbacks = parseModelFallbacks(account.model_fallbacks);
-		if (fallbacks) {
-			for (const [family, fallbackModel] of Object.entries(fallbacks)) {
-				const existing = mappings[family];
-				if (existing !== undefined) {
-					const arr = toArray(existing);
-					if (!arr.includes(fallbackModel)) {
-						if (arr.length >= MAX_MODEL_MAPPING_CANDIDATES) {
-							log.warn(
-								`Ignoring deprecated model_fallbacks value for '${family}' because the mapping already has ${MAX_MODEL_MAPPING_CANDIDATES} candidates`,
-							);
-						} else {
-							mappings[family] = [...arr, fallbackModel];
-						}
-					}
-				} else {
-					mappings[family] = fallbackModel;
-				}
-			}
-		}
 	}
 
 	return mappings;
@@ -425,13 +322,6 @@ export function getConfiguredModelMapping(
  */
 function hasAccountModelMappings(account: Account): boolean {
 	if (account.model_mappings) return true;
-	if (account.model_fallbacks) return true;
-
-	const customEndpointData = parseCustomEndpointDataWithCandidates(
-		account.custom_endpoint,
-	);
-	if (customEndpointData?.modelMappings) return true;
-
 	// Check env override
 	if (
 		typeof process !== "undefined" &&
@@ -602,83 +492,6 @@ export function resolveCompatibleEndpoint(
 		return { ok: true, endpoint: validated };
 	} catch {
 		return { ok: false };
-	}
-}
-
-/**
- * Create custom endpoint data with endpoint and model mappings
- */
-export function createCustomEndpointData(
-	endpoint: string,
-	modelMappings?: Record<string, string>,
-): string {
-	const data: { endpoint?: string; modelMappings?: Record<string, string> } = {
-		endpoint,
-	};
-
-	if (modelMappings && Object.keys(modelMappings).length > 0) {
-		data.modelMappings = modelMappings;
-	}
-
-	return JSON.stringify(data);
-}
-
-/**
- * Parse model fallbacks from account's model_fallbacks field.
- * Model fallbacks map model family names (fable/opus/sonnet/haiku) to fallback model names.
- */
-export function parseModelFallbacks(
-	modelFallbacks: string | null,
-): Record<string, string> | null {
-	if (!modelFallbacks) {
-		return null;
-	}
-
-	try {
-		const parsed = safeJsonParse<unknown>(modelFallbacks, "model_fallbacks");
-		const validated = validateModelMappings(parsed, "model_fallbacks");
-		for (const [key, value] of Object.entries(
-			parsed as Record<string, unknown>,
-		)) {
-			if (Array.isArray(value)) {
-				throw new ValidationError(
-					`model_fallbacks value for key '${key}' must be a non-empty string`,
-					`model_fallbacks.${key}`,
-					value,
-				);
-			}
-		}
-		return validated as Record<string, string>;
-	} catch (error) {
-		log.warn(
-			`Failed to parse model_fallbacks JSON: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		return null;
-	}
-}
-
-/**
- * Validate model fallbacks for storage.
- * @deprecated Prefer storing fallbacks as arrays in model_mappings instead.
- */
-export function validateAndSanitizeModelFallbacks(
-	fallbacks: unknown,
-): Record<string, string> | null {
-	if (!fallbacks) {
-		return null;
-	}
-
-	try {
-		const result = validateModelMappings(fallbacks, "modelFallbacks");
-		// model_fallbacks only ever stored single strings — cast back
-		return Object.fromEntries(
-			Object.entries(result).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]),
-		);
-	} catch (error) {
-		log.warn(
-			`Invalid model fallbacks: ${error instanceof Error ? error.message : String(error)}`,
-		);
-		return null;
 	}
 }
 

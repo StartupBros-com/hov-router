@@ -65,7 +65,6 @@ function makeCodexAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: JSON.stringify({ sonnet: "gpt-5.4" }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -84,7 +83,7 @@ function makeProxyContext(): ProxyContext {
 			updateAccountUsage: mock(() => Promise.resolve()),
 			getAdapter: mock(() => ({
 				run: mock(() => Promise.resolve()),
-				get: mock(() => Promise.resolve(null)),
+				getMain: mock(() => Promise.resolve(null)),
 			})),
 		} as never,
 		runtime: { port: 8080, clientId: "test" } as never,
@@ -729,7 +728,9 @@ describe("proxyWithAccount: Codex attempt dispatch boundary", () => {
 				{ routeCandidateId: "codex-model-fallback-route" },
 				"codex-model-fallback-attempt-stamp",
 				makeCodexAccount({
-					model_fallbacks: JSON.stringify({ sonnet: "gpt-5.4-codex" }),
+					model_mappings: JSON.stringify({
+						sonnet: ["gpt-5.4", "gpt-5.4-codex"],
+					}),
 				}),
 			);
 		} catch (error) {

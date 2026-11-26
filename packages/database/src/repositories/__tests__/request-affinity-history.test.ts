@@ -135,7 +135,7 @@ test("SQLite performs one off-thread read of limit + 1 rows using idx_requests_t
 		const [sql, params] = read.mock.calls[0];
 		expect(params).toContain(1000);
 		expect(params?.at(-1)).toBe(3);
-		const plan = await adapter.query<{ detail: string }>(
+		const plan = await adapter.queryMain<{ detail: string }>(
 			`EXPLAIN QUERY PLAN ${sql}`,
 			params,
 		);

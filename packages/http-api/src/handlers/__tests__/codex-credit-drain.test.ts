@@ -72,7 +72,7 @@ async function insertAccount(id: string, provider: string) {
 async function readFlag(id: string): Promise<number> {
 	const row = await dbOps
 		.getAdapter()
-		.get<{ v: number }>(
+		.getMain<{ v: number }>(
 			"SELECT codex_credit_drain_enabled as v FROM accounts WHERE id = ?",
 			[id],
 		);

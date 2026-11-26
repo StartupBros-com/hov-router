@@ -168,7 +168,7 @@ These environment variables are not stored in the configuration file and must be
 | `CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES` | Bun proxy process-local weighted body-admission budget. Valid values are 256 MiB–1 GiB; it is independent of the front guard's encoded-buffer budget. The managed production pin is 1 GiB (`1073741824`) | `268435456` (256 MiB) | `CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=536870912` |
 | `CCFLARE_MAX_BODY_ADMISSION_QUEUE` | Maximum FIFO waiters for Bun proxy body admission. Valid values are 0–5000; `0` rejects immediately when the weighted budget is full | `500` | `CCFLARE_MAX_BODY_ADMISSION_QUEUE=100` |
 | `GUARD_REQUEST_DRAIN_TIMEOUT_MS` | Maximum time the guard spends draining a rejected or oversized upload before it destroys the request socket. Prevents stalled clients from pinning file descriptors | `10000` (10s; range 1s-60s) | `GUARD_REQUEST_DRAIN_TIMEOUT_MS=5000` |
-| `CCFLARE_ENABLE_HEADING_PROJECT_ATTRIBUTION` | When project attribution finds no `x-better-ccflare-project`/`x-project` header and no workspace path in the system prompt, it can fall back to the first eligible H1 heading (`# Heading`) in the system prompt. This heading is usually client boilerplate rather than a real project identifier, so this fallback is off by default | `false` | `CCFLARE_ENABLE_HEADING_PROJECT_ATTRIBUTION=true` |
+| `CCFLARE_ENABLE_HEADING_PROJECT_ATTRIBUTION` | When project attribution finds no `x-better-ccflare-project` header and no workspace path in the system prompt, it can fall back to the first eligible H1 heading (`# Heading`) in the system prompt. This heading is usually client boilerplate rather than a real project identifier, so this fallback is off by default | `false` | `CCFLARE_ENABLE_HEADING_PROJECT_ATTRIBUTION=true` |
 | `BETTER_CCFLARE_DISCOVER_PLUGIN_AGENTS` | Discover agents distributed by Claude Code plugins (reads `~/.claude/plugins/installed_plugins.json`) | `false` | `BETTER_CCFLARE_DISCOVER_PLUGIN_AGENTS=true` |
 | `STORE_PAYLOADS` | Set to `false` to stop storing request/response bodies (token counts, cost, model, status, and timing are still recorded) | `true` | `STORE_PAYLOADS=false` |
 | `PAYLOAD_ENCRYPTION_KEY` | AES-256-GCM key encrypting `request_payloads` at rest. 64-char hex (32 bytes), generate with `openssl rand -hex 32`. Unset = plaintext storage. Losing the key makes encrypted rows unreadable; read once at process start (and per Bun worker), so rotation needs a re-encrypt migration (not yet built) | - (plaintext) | `PAYLOAD_ENCRYPTION_KEY=$(openssl rand -hex 32)` |
@@ -516,8 +516,7 @@ CCFLARE_MODEL_ROUTE_PROFILES_JSON='[
   background, so they qualify only after ordinary traffic has read their own
   listing.
 - **Every model the route could send must be the role target.** The check
-  covers the account's `model_mappings` (including fallback arrays and legacy
-  `model_fallbacks`), `OPENAI_COMPATIBLE_MODEL_MAPPINGS`, and the global
+  covers the account's `model_mappings` (including fallback arrays), `OPENAI_COMPATIBLE_MODEL_MAPPINGS`, and the global
   provider default override. A pin that differs keeps that account out. A pin
   that happens to equal the target is admitted, and a pin for another family
   does not matter.
@@ -905,7 +904,7 @@ In addition to threshold alerts, an `auth_failure` alert (severity `critical`) f
 
 An `org_permission_denied` alert fires once when Anthropic starts refusing an account's organization (a 403 `permission_error`, such as `oauth_not_allowed_for_organization`). A failed subscription payment causes this, as does an admin turning off OAuth or Claude Code access. That first alert is `critical`. The router keeps benching the account and retrying it while the refusal lasts, and those later refusals send nothing. Anthropic's usage check counts too: a usage check refused with `oauth_not_allowed_for_organization` raises the same alert for an account no request has reached, unless the account is paused. When the account next serves a successful request that started after its latest refusal, a second `org_permission_denied` alert (severity `info`) says it is accepted again. A usage check that returns usage and started after the latest refusal sends it too, without waiting for traffic, but only if a usage check was refused during that refusal; a request refusal alone is closed only by a served request. While the latest usage check is refused, the account card shows **Anthropic refused** unless a cooldown for another cause is live, and a Refresh usage whose own check is refused says so; the next usage check that returns usage clears it. The phase is the second segment of the alert id (`org_permission_denied:refused:…` or `org_permission_denied:recovered:…`). The episode is not tied to the cooldown bucket, so a refusal that returns after a recovery alerts again within the same hour. Episodes are held in memory: a restart during a refusal alerts once more on the next refusal, and a restart before the recovery sends no recovered alert. With a nonempty `ALERT_WEBHOOK_TYPES` allowlist, add `org_permission_denied` to it for the webhook to receive these.
 
-The anomaly alert sweep was removed in 7.0.0. `ALERT_ANOMALY_ENABLED`, `ALERT_ANOMALY_INTERVAL_MINUTES`, `ALERT_ANOMALY_BASELINE_WINDOW_MINUTES`, `ALERT_ANOMALY_LOOP_MIN_REQUESTS` and the matching `alert_anomaly_*` config-file keys are ignored, and startup logs one warning if the sweep was turned on. The four `anomaly_*` type names (`anomaly_token_outlier`, `anomaly_output_blowup`, `anomaly_runaway_loop`, `anomaly_model_misrouting`) are still accepted in `ALERT_WEBHOOK_TYPES`, so a saved allowlist loads and saves as before, but nothing raises them. See [Insights page removed](hov-router-migration.md#insights-page-removed).
+The anomaly alert sweep was removed in 7.0.0. `ALERT_ANOMALY_ENABLED`, `ALERT_ANOMALY_INTERVAL_MINUTES`, `ALERT_ANOMALY_BASELINE_WINDOW_MINUTES`, `ALERT_ANOMALY_LOOP_MIN_REQUESTS` and the matching `alert_anomaly_*` config-file keys are ignored. The four `anomaly_*` type names (`anomaly_token_outlier`, `anomaly_output_blowup`, `anomaly_runaway_loop`, `anomaly_model_misrouting`) are still accepted in `ALERT_WEBHOOK_TYPES`, so a saved allowlist loads and saves as before, but nothing raises them. See [Insights page removed](hov-router-migration.md#insights-page-removed).
 
 Alerts are listed on the dashboard and via the API; unacknowledged counts surface in `/health`. Persistence uses `INSERT OR IGNORE`, so a repeated alert id is stored once.
 
@@ -1274,11 +1273,11 @@ Configuration for optimizing account usage with automatic fallback to higher pri
 # Setup accounts with auto-fallback for optimal usage
 
 # Add primary account with highest priority and auto-fallback enabled
-better-ccflare --add-account primary-account --mode max --priority 0
+better-ccflare --add-account primary-account --mode claude-oauth --priority 0
 
 # Add secondary accounts with lower priorities
-better-ccflare --add-account secondary-1 --mode max --priority 10
-better-ccflare --add-account secondary-2 --mode max --priority 20
+better-ccflare --add-account secondary-1 --mode claude-oauth --priority 10
+better-ccflare --add-account secondary-2 --mode claude-oauth --priority 20
 
 # Add backup account with lowest priority
 better-ccflare --add-account backup --mode console --priority 50
@@ -1406,7 +1405,7 @@ If issues occur after configuration changes:
 
 ## Auto quality routing (removed)
 
-The opt-in Auto quality lane was removed. [Auto quality lane removed](hov-router-migration.md#auto-quality-lane-removed) says what a client that still requests it now gets. A leftover `quality_routing_policy` in the config file, or a `CCFLARE_QUALITY_ROUTING_POLICY_JSON` environment variable, configures nothing. It is not validated any more, so a policy that an older release refused no longer stops startup. Startup logs one warning naming where it was found, and the value stays in the config file when other settings are saved. Delete it whenever convenient.
+The opt-in Auto quality lane was removed. [Auto quality lane removed](hov-router-migration.md#auto-quality-lane-removed) says what a client that still requests it now gets. A leftover `quality_routing_policy` in the config file, or a `CCFLARE_QUALITY_ROUTING_POLICY_JSON` environment variable, configures nothing. It is not validated any more, so a policy that an older release refused no longer stops startup. The value stays in the config file when other settings are saved. Delete it whenever convenient.
 
 ## Troubleshooting
 

@@ -38,7 +38,6 @@ function mkAccount(partial: Partial<AccountResponse>): AccountResponse {
 		usageThrottledWindows: [],
 		hasRefreshToken: true,
 		crossRegionMode: null,
-		modelFallbacks: null,
 		billingType: null,
 		sessionStats: null,
 		isPrimary: false,

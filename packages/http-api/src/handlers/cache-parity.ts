@@ -176,12 +176,16 @@ export function createCacheParityHandler(context: APIContext) {
 		const generatedAt = Date.now();
 		try {
 			const [rows24h, rows7d] = await Promise.all([
-				db.queryOffThread<CacheParitySqlRow>(CACHE_PARITY_WINDOW_SQL, [
-					generatedAt - 24 * 60 * 60 * 1000,
-				]),
-				db.queryOffThread<CacheParitySqlRow>(CACHE_PARITY_WINDOW_SQL, [
-					generatedAt - 7 * 24 * 60 * 60 * 1000,
-				]),
+				db.queryOffThread<CacheParitySqlRow>(
+					CACHE_PARITY_WINDOW_SQL,
+					[generatedAt - 24 * 60 * 60 * 1000],
+					"bulk",
+				),
+				db.queryOffThread<CacheParitySqlRow>(
+					CACHE_PARITY_WINDOW_SQL,
+					[generatedAt - 7 * 24 * 60 * 60 * 1000],
+					"bulk",
+				),
 			]);
 			return jsonResponse(
 				buildCacheParityResponse({

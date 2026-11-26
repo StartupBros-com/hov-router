@@ -46,7 +46,6 @@ describe("AnthropicProvider", () => {
 			auto_pause_on_overage_enabled: false,
 			model_mappings: null,
 			cross_region_mode: null,
-			model_fallbacks: null,
 			billing_type: null,
 		};
 	});

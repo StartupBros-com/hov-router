@@ -5,7 +5,7 @@
 ### Currently Supported Providers
 - **Anthropic** - Single provider with two modes:
   - **console mode**: Standard Claude API (console.anthropic.com)
-  - **max mode**: Claude Code (claude.ai)
+  - **claude-oauth mode**: Claude Code (claude.ai)
 - **Vertex AI** - Google Cloud's Claude on Vertex AI:
   - Uses Google Cloud authentication (gcloud or service accounts)
   - Supports all Claude models via Vertex AI
@@ -44,7 +44,7 @@
   - Model mapping required (e.g., `claude-sonnet-4-6` → `deepseek-v4-flash:cloud`)
   - Bearer token authentication via API key
 - **Meta** (`meta`) - Meta Model API at `https://api.meta.ai`:
-  - `meta` is the canonical provider identifier; legacy `muse-spark` is accepted only for server-side HTTP ingress compatibility
+  - `meta` is the provider identifier; `POST /api/accounts/muse-spark` answers `410 Gone` from 7.0.0, so add accounts with `POST /api/accounts/meta`
   - Anthropic-compatible Messages endpoint (`/v1/messages`, `/v1/messages/count_tokens`)
   - Models `muse-spark-1.2` (default), `muse-spark-1.1`, `muse-spark-1.2-contributor`
   - Bearer token authentication via API key
@@ -88,7 +88,7 @@ The HoV Router providers system is a modular architecture designed to support mu
 
 1. **Anthropic Provider** - Provides access to:
    - **Claude API** (console mode) - Standard API access via console.anthropic.com
-   - **Claude Code** (max mode) - Enhanced access via claude.ai
+   - **Claude Code** (claude-oauth mode) - Enhanced access via claude.ai
    - OAuth authentication with PKCE security
    - Token health monitoring with automatic refresh (30-minute buffer)
 
@@ -150,7 +150,7 @@ The HoV Router providers system is a modular architecture designed to support mu
 
 11. **Meta Provider** (`meta`) - Provides access to:
     - **Meta Model API** at `https://api.meta.ai` via its Anthropic-compatible Messages endpoint
-    - `meta` is the canonical provider identifier. Legacy `muse-spark` is server-side HTTP ingress compatibility only; it is not the provider identifier to configure.
+    - `meta` is the provider identifier. The old `POST /api/accounts/muse-spark` route answers `410 Gone` from 7.0.0; use `POST /api/accounts/meta`.
     - Models `muse-spark-1.2` (default), `muse-spark-1.1`, and `muse-spark-1.2-contributor`
     - 1,048,576-token context window; 131,072-token maximum output
     - Bearer token authentication (`Authorization: Bearer`), not `x-api-key`
@@ -294,7 +294,7 @@ getOAuthConfig(mode: "console" | "claude-oauth" = "console"): OAuthConfig {
 
 **Mode Differences:**
 - **console mode**: Uses the standard Claude API via console.anthropic.com
-- **max mode**: Uses Claude Code via claude.ai for enhanced capabilities
+- **claude-oauth mode**: Uses Claude Code via claude.ai for enhanced capabilities
 - Both modes use the same API endpoint (api.anthropic.com) for actual requests
 
 **Client ID Configuration:**
@@ -361,7 +361,7 @@ The `DeepSeekProvider` (`deepseek`) extends `BaseAnthropicCompatibleProvider` an
 
 ## MetaProvider Implementation
 
-The MetaProvider (`meta`) extends `BaseAnthropicCompatibleProvider` and serves Meta models through the Meta Model API. The legacy `muse-spark` name is retained only as server-side HTTP ingress compatibility; model IDs such as `muse-spark-1.2` are unchanged.
+The MetaProvider (`meta`) extends `BaseAnthropicCompatibleProvider` and serves Meta models through the Meta Model API. Model IDs such as `muse-spark-1.2` keep their names.
 
 ### Key Features
 
@@ -898,7 +898,7 @@ buildUrl(path: string, query: string): string {
 }
 ```
 
-**Important**: Both console and max modes use the same API endpoint. The mode only affects:
+**Important**: Both console and claude-oauth modes use the same API endpoint. The mode only affects:
 - OAuth authorization flow (which frontend to use)
 - Account priority configuration
 - Rate limits based on subscription type
@@ -987,9 +987,9 @@ HoV Router uses an account priority system to control request routing order:
 Accounts are selected based on their priority value (lower numbers = higher priority). The priority system works with the session-based load balancing strategy:
 
 ```bash
-better-ccflare --add-account primary-account --mode max --priority 0
-better-ccflare --add-account secondary-account --mode max --priority 10
-better-ccflare --add-account backup-account --mode max --priority 50
+better-ccflare --add-account primary-account --mode claude-oauth --priority 0
+better-ccflare --add-account secondary-account --mode claude-oauth --priority 10
+better-ccflare --add-account backup-account --mode claude-oauth --priority 50
 ```
 
 ### Priority-Based Load Balancing
@@ -1060,7 +1060,7 @@ When rate limited, accounts are temporarily blocked:
 The system supports two authentication methods:
 
 1. **OAuth Authentication** (Recommended)
-   - Used for both console and max modes
+   - Used for both console and claude-oauth modes
    - Provides automatic token refresh
    - Better security with short-lived access tokens
    - Supports PKCE for enhanced security

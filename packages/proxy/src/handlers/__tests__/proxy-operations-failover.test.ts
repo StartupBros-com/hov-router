@@ -142,7 +142,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: "https://openrouter.ai/api/v1",
 		model_mappings: JSON.stringify({ sonnet: "qwen/qwen3.6-plus:free" }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -208,7 +207,7 @@ function makeProxyContext(): ProxyContext {
 			updateAccountUsage: mock(() => Promise.resolve()),
 			getAdapter: mock(() => ({
 				run: mock(() => Promise.resolve()),
-				get: mock(() => Promise.resolve(null)),
+				getMain: mock(() => Promise.resolve(null)),
 			})),
 		} as never,
 		runtime: { port: 8080, clientId: "test" } as never,
@@ -1953,7 +1952,7 @@ describe("proxyWithAccount — 429 failover", () => {
 		const result = await proxyWithAccount(
 			req,
 			new URL("https://proxy.local/v1/messages"),
-			makeAccount(), // no model_fallbacks
+			makeAccount(), // single candidate
 			makeRequestMeta(),
 			bodyBuffer,
 			() => undefined,
@@ -2012,8 +2011,11 @@ describe("proxyWithAccount — 429 failover", () => {
 				req,
 				new URL("https://proxy.local/v1/messages"),
 				makeAccount({
-					model_fallbacks: JSON.stringify({
-						sonnet: "bytedance-seed/dola-seed-2.0-pro:free",
+					model_mappings: JSON.stringify({
+						sonnet: [
+							"qwen/qwen3.6-plus:free",
+							"bytedance-seed/dola-seed-2.0-pro:free",
+						],
 					}),
 				}),
 				makeRequestMeta(),
@@ -2054,8 +2056,11 @@ describe("proxyWithAccount — 429 failover", () => {
 			req,
 			new URL("https://proxy.local/v1/messages"),
 			makeAccount({
-				model_fallbacks: JSON.stringify({
-					sonnet: "bytedance-seed/dola-seed-2.0-pro:free",
+				model_mappings: JSON.stringify({
+					sonnet: [
+						"qwen/qwen3.6-plus:free",
+						"bytedance-seed/dola-seed-2.0-pro:free",
+					],
 				}),
 			}),
 			makeRequestMeta(),
@@ -2287,7 +2292,7 @@ describe("proxyWithAccount — rate limit audit trail (issue #178)", () => {
 		await proxyWithAccount(
 			req,
 			new URL("https://proxy.local/v1/messages"),
-			makeAccount(), // no model_fallbacks
+			makeAccount(), // single candidate
 			makeRequestMeta(),
 			bodyBuffer,
 			() => undefined,
@@ -2546,22 +2551,7 @@ describe("proxyWithAccount — in-memory cooldown mutation (issue #178 fix)", ()
 	});
 });
 
-describe("getModelList — model_fallbacks merge", () => {
-	it("merges model_fallbacks into the model list", async () => {
-		const { getModelList } = await import("@better-ccflare/core");
-		const account = makeAccount({
-			model_mappings: JSON.stringify({ sonnet: "qwen/qwen3.6-plus:free" }),
-			model_fallbacks: JSON.stringify({
-				sonnet: "bytedance-seed/dola-seed-2.0-pro:free",
-			}),
-		});
-		const list = getModelList("claude-sonnet-4-5", account);
-		expect(list).toEqual([
-			"qwen/qwen3.6-plus:free",
-			"bytedance-seed/dola-seed-2.0-pro:free",
-		]);
-	});
-
+describe("getModelList ordered candidates", () => {
 	it("returns single-element list when no fallbacks", async () => {
 		const { getModelList } = await import("@better-ccflare/core");
 		const list = getModelList("claude-sonnet-4-5", makeAccount());
@@ -3778,7 +3768,6 @@ describe("proxyWithAccount — 401 failover", () => {
 		ctx.provider = provider;
 		const pauseAccountIfActive = mock(async () => true);
 		const flagRequiresReauthIfTokenMatches = mock(async () => true);
-		const setRequiresReauth = mock(async () => {});
 		const updateAccountTokensIfRefreshTokenMatches = mock(async () => true);
 		const account = makeAccount({
 			id: "full-disk-stale-token-account",
@@ -3792,7 +3781,6 @@ describe("proxyWithAccount — 401 failover", () => {
 			getAccount: mock(async () => account),
 			pauseAccountIfActive,
 			flagRequiresReauthIfTokenMatches,
-			setRequiresReauth,
 			updateAccountTokensIfRefreshTokenMatches,
 		});
 		const reserve = mock(async (_accountId: string) => {
@@ -3863,7 +3851,6 @@ describe("proxyWithAccount — 401 failover", () => {
 		// The account is untouched: no pause, no re-login flag, same credentials.
 		expect(pauseAccountIfActive).not.toHaveBeenCalled();
 		expect(flagRequiresReauthIfTokenMatches).not.toHaveBeenCalled();
-		expect(setRequiresReauth).not.toHaveBeenCalled();
 		expect(ctx.dbOps.markAccountRateLimited).not.toHaveBeenCalled();
 		expect(ledger.hasAuthFailures).toBe(false);
 		expect(ledger.authFailureCount).toBe(0);
@@ -3888,7 +3875,6 @@ describe("proxyWithAccount — 401 failover", () => {
 		ctx.provider = provider;
 		const pauseAccountIfActive = mock(async () => true);
 		const flagRequiresReauthIfTokenMatches = mock(async () => true);
-		const setRequiresReauth = mock(async () => {});
 		const updateAccountTokensIfRefreshTokenMatches = mock(async () => true);
 		const expiredAt = Date.now() - 60 * 1000;
 		const account = makeAccount({
@@ -3903,7 +3889,6 @@ describe("proxyWithAccount — 401 failover", () => {
 			getAccount: mock(async () => account),
 			pauseAccountIfActive,
 			flagRequiresReauthIfTokenMatches,
-			setRequiresReauth,
 			updateAccountTokensIfRefreshTokenMatches,
 		});
 		const reserve = mock(async (_accountId: string) => {
@@ -3963,7 +3948,6 @@ describe("proxyWithAccount — 401 failover", () => {
 		// The account is untouched: no pause, no re-login flag, same credentials.
 		expect(pauseAccountIfActive).not.toHaveBeenCalled();
 		expect(flagRequiresReauthIfTokenMatches).not.toHaveBeenCalled();
-		expect(setRequiresReauth).not.toHaveBeenCalled();
 		expect(ctx.dbOps.markAccountRateLimited).not.toHaveBeenCalled();
 		expect(ledger.hasAuthFailures).toBe(false);
 		expect(ledger.authFailureCount).toBe(0);

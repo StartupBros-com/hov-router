@@ -83,7 +83,7 @@ export class CodexResetRedemptionsRepository extends BaseRepository<never> {
 	async findByRequestId(
 		requestId: string,
 	): Promise<CodexResetRedemptionRow | null> {
-		const row = await this.get<Raw>(
+		const row = await this.getMain<Raw>(
 			`SELECT * FROM codex_reset_redemptions WHERE request_id = ?`,
 			[requestId],
 		);
@@ -93,7 +93,7 @@ export class CodexResetRedemptionsRepository extends BaseRepository<never> {
 	async findOpenForAccount(
 		accountId: string,
 	): Promise<CodexResetRedemptionRow | null> {
-		const row = await this.get<Raw>(
+		const row = await this.getMain<Raw>(
 			`SELECT * FROM codex_reset_redemptions
 			 WHERE account_id = ? AND state IN ${OPEN_STATES_SQL}`,
 			[accountId],
@@ -222,7 +222,7 @@ export class CodexResetRedemptionsRepository extends BaseRepository<never> {
 	 * may have reached OpenAI.
 	 */
 	async hasAttemptSince(accountId: string, since: number): Promise<boolean> {
-		const row = await this.get<Raw>(
+		const row = await this.getMain<Raw>(
 			`SELECT 1 AS found FROM codex_reset_redemptions
 			 WHERE account_id = ? AND state <> 'refused' AND attempted_at >= ?
 			 LIMIT 1`,
@@ -238,7 +238,7 @@ export class CodexResetRedemptionsRepository extends BaseRepository<never> {
 	): Promise<string[]> {
 		if (creditIds.length === 0) return [];
 		const placeholders = creditIds.map(() => "?").join(", ");
-		const rows = await this.query<Raw>(
+		const rows = await this.queryMain<Raw>(
 			`SELECT DISTINCT credit_id FROM codex_reset_redemptions
 			 WHERE account_id = ? AND state = 'done'
 			   AND code IN ('reset', 'already_redeemed')

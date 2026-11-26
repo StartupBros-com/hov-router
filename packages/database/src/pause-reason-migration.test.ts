@@ -39,7 +39,6 @@ function makePreMigrationDb(): Database {
 			custom_endpoint TEXT,
 			model_mappings TEXT,
 			cross_region_mode TEXT,
-			model_fallbacks TEXT,
 			billing_type TEXT
 		)
 	`);

@@ -46,6 +46,14 @@ function makeConfig(
 		getAlertRequestTokens: () => 0,
 		getAlertUsageWindowThresholdPercent: () =>
 			overrides.usageWindowThresholdPercent ?? 90,
+		getAlertCacheHealthEnabled: () => false,
+		getAlertCacheHealthThresholdPercent: () => 80,
+		getAlertCacheHealthDurationMinutes: () => 15,
+		getAlertCacheHealthMinRequests: () => 5,
+		getAlertCacheHealthMinInputTokens: () => 10000,
+		getAlertCacheHealthReminderMinutes: () => 60,
+		getMemberNoticeWebhookUrl: () => "",
+		getMemberNoticeSigningSecret: () => "",
 		getAlertCooldownMinutes: () => overrides.cooldownMinutes ?? 60,
 		getAlertWebhookUrl: () => "",
 		get: (
@@ -739,8 +747,8 @@ describe("AlertService usage-window alerts", () => {
 		});
 		let replaced = false;
 		class ReplaceAfterHistoryQueryAdapter extends BunSqlAdapter {
-			async query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-				const rows = await super.query<T>(sql, params);
+			async queryMain<T>(sql: string, params: unknown[] = []): Promise<T[]> {
+				const rows = await super.queryMain<T>(sql, params);
 				if (!replaced && sql.includes("FROM usage_snapshots")) {
 					replaced = true;
 					sqlite.run("DELETE FROM accounts WHERE id = ?", [accountId]);

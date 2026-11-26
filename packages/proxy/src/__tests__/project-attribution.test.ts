@@ -8,8 +8,8 @@
  * pass (green) without modification.
  *
  * Covers the plan's U2 scenarios (docs/plans/2026-07-08-001-feature-attribution-source-tags-plan.md):
- *  - namespaced header precedence over legacy header
- *  - legacy `x-project` header still works
+ *  - namespaced header attribution
+ *  - legacy `x-project` header is ignored
  *  - control-char stripping + length cap (64) preserved
  *  - workspace path inference (/home, /Users) -> path_project
  *  - H1 heading inference -> heading_project
@@ -55,11 +55,11 @@ describe("extractProjectAttributionFromRequest", () => {
 		expect(result.projectAttributionSource).toBe("header_project");
 	});
 
-	it("falls back to x-project when the namespaced header is absent", () => {
+	it("ignores x-project when the namespaced header is absent", () => {
 		const headers = new Headers({ "x-project": "legacy-only" });
 		const result = extractProjectAttributionFromRequest(headers, null);
-		expect(result.project).toBe("legacy-only");
-		expect(result.projectAttributionSource).toBe("header_project");
+		expect(result.project).toBeNull();
+		expect(result.projectAttributionSource).toBe("none");
 	});
 
 	it("strips control characters from a valid header-derived project name", () => {
@@ -67,7 +67,7 @@ describe("extractProjectAttributionFromRequest", () => {
 		// within the 64-char slug grammar bound so it passes validation.
 		const slug = `${"x".repeat(15)}-`.repeat(4);
 		const raw = `\x01\x02${slug}\n`;
-		const headers = new Headers({ "x-project": raw });
+		const headers = new Headers({ "x-better-ccflare-project": raw });
 		const result = extractProjectAttributionFromRequest(headers, null);
 		expect(result.project).not.toBeNull();
 		expect(result.project?.length).toBeLessThanOrEqual(64);
@@ -80,7 +80,7 @@ describe("extractProjectAttributionFromRequest", () => {
 		// Round-2 P1 hardening for the H1 path made >64-char values reject
 		// wholesale rather than truncate-and-keep; the header path must match.
 		const raw = "x".repeat(80);
-		const headers = new Headers({ "x-project": raw });
+		const headers = new Headers({ "x-better-ccflare-project": raw });
 		const result = extractProjectAttributionFromRequest(headers, null);
 		expect(result.project).toBeNull();
 		expect(result.projectAttributionSource).toBe("none");
@@ -111,21 +111,21 @@ describe("extractProjectAttributionFromRequest", () => {
 			// it through. Header path must validate the FULL value too.
 			const cleanPrefix = `${"x".repeat(15)}-`.repeat(4);
 			const headers = new Headers({
-				"x-project": `${cleanPrefix}${"Z".repeat(25)}`,
+				"x-better-ccflare-project": `${cleanPrefix}${"Z".repeat(25)}`,
 			});
 			const result = extractProjectAttributionFromRequest(headers, null);
 			expect(result.project).toBeNull();
 			expect(result.projectAttributionSource).toBe("none");
 		});
 
-		it("falls through to the legacy header when the namespaced header is rejected", () => {
+		it("ignores the legacy header when the namespaced header is rejected", () => {
 			const headers = new Headers({
 				"x-better-ccflare-project": "# leaked system prompt heading",
 				"x-project": "legacy-project",
 			});
 			const result = extractProjectAttributionFromRequest(headers, null);
-			expect(result.project).toBe("legacy-project");
-			expect(result.projectAttributionSource).toBe("header_project");
+			expect(result.project).toBeNull();
+			expect(result.projectAttributionSource).toBe("none");
 		});
 
 		it("still accepts ordinary slug-shaped header values", () => {
@@ -709,6 +709,14 @@ describe("extractSystemPromptFromBase64", () => {
 });
 
 describe("extractProjectAttributionFromParts (usage-collector base64 fallback)", () => {
+	it("ignores x-project in usage collector Record headers", () => {
+		const result = extractProjectAttributionFromParts(
+			{ "X-Project": "legacy-only" },
+			null,
+		);
+		expect(result.project).toBeNull();
+		expect(result.projectAttributionSource).toBe("none");
+	});
 	it("returns header_project from a lowercased Record<string,string> header map", () => {
 		const result = extractProjectAttributionFromParts(
 			{ "X-Better-Ccflare-Project": "MyProj" },

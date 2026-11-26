@@ -911,13 +911,21 @@ describe("cache health persisted alert pipeline", () => {
 		}
 	});
 
-	it("keeps legacy Config doubles and generic-webhook bodies compatible", async () => {
+	it("skips cache scans when disabled and preserves generic-webhook bodies", async () => {
 		const legacy = Object.assign(new EventEmitter(), {
 			get: (_key: string, fallback: unknown) => fallback,
 			getAlertDailySpendUsd: () => 0,
 			getAlertTokensPerHour: () => 0,
 			getAlertRequestTokens: () => 0,
 			getAlertUsageWindowThresholdPercent: () => 90,
+			getAlertCacheHealthEnabled: () => false,
+			getAlertCacheHealthThresholdPercent: () => 80,
+			getAlertCacheHealthDurationMinutes: () => 15,
+			getAlertCacheHealthMinRequests: () => 5,
+			getAlertCacheHealthMinInputTokens: () => 10000,
+			getAlertCacheHealthReminderMinutes: () => 60,
+			getMemberNoticeWebhookUrl: () => "",
+			getMemberNoticeSigningSecret: () => "",
 			getAlertCooldownMinutes: () => 60,
 			getAlertWebhookUrl: () => "",
 		}) as unknown as Config;

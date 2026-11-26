@@ -216,16 +216,6 @@ describe("OAuth Token Health Monitoring Features", () => {
 			global.fetch = originalFetch;
 		});
 	});
-
-	describe("6. Backward Compatibility", () => {
-		it("should handle deprecated 'max' mode gracefully", () => {
-			// Test that the old 'max' mode still works (should be treated as 'claude-oauth')
-			const config = oauthProvider.getOAuthConfig("max");
-
-			// Should be treated as claude-oauth
-			expect(config.authorizeUrl).toBe("https://claude.ai/oauth/authorize");
-		});
-	});
 });
 
 describe("CLI Command Integration", () => {

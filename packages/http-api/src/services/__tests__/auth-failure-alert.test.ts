@@ -39,6 +39,14 @@ function makeConfig(
 		getAlertTokensPerHour: () => overrides.tokensPerHour ?? 0,
 		getAlertRequestTokens: () => overrides.requestTokens ?? 0,
 		getAlertUsageWindowThresholdPercent: () => 0,
+		getAlertCacheHealthEnabled: () => false,
+		getAlertCacheHealthThresholdPercent: () => 80,
+		getAlertCacheHealthDurationMinutes: () => 15,
+		getAlertCacheHealthMinRequests: () => 5,
+		getAlertCacheHealthMinInputTokens: () => 10000,
+		getAlertCacheHealthReminderMinutes: () => 60,
+		getMemberNoticeWebhookUrl: () => "",
+		getMemberNoticeSigningSecret: () => "",
 		getAlertCooldownMinutes: () => 60,
 		getAlertWebhookUrl: () =>
 			overrides.webhookUrl ?? "http://127.0.0.1:9999/webhook",
@@ -67,8 +75,11 @@ class SynchronizedDuplicateReadSqliteAdapter extends BunSqlAdapter {
 		this.releaseDuplicateReads = resolve;
 	});
 
-	override async get<T>(sql: string, params?: unknown[]): Promise<T | null> {
-		const result = await super.get<T>(sql, params);
+	override async getMain<T>(
+		sql: string,
+		params?: unknown[],
+	): Promise<T | null> {
+		const result = await super.getMain<T>(sql, params);
 		if (/SELECT id FROM alerts WHERE id = \?/i.test(sql)) {
 			this.duplicateReads++;
 			if (this.duplicateReads === 2) this.releaseDuplicateReads();
@@ -193,10 +204,10 @@ describe("AlertService auth_failure events", () => {
 class RecordingPgAdapter implements BunSqlAdapterType {
 	readonly runStatements: string[] = [];
 
-	async get<T>(_sql: string, _params?: unknown[]): Promise<T | null> {
+	async getMain<T>(_sql: string, _params?: unknown[]): Promise<T | null> {
 		return null;
 	}
-	async query<T>(_sql: string, _params?: unknown[]): Promise<T[]> {
+	async queryMain<T>(_sql: string, _params?: unknown[]): Promise<T[]> {
 		return [];
 	}
 	async run(sql: string, _params?: unknown[]): Promise<void> {
@@ -332,7 +343,7 @@ class RecoveringPgAdapter implements BunSqlAdapterType {
 	getCalls = 0;
 	writeAttempts = 0;
 
-	async get<T>(_sql: string, _params?: unknown[]): Promise<T | null> {
+	async getMain<T>(_sql: string, _params?: unknown[]): Promise<T | null> {
 		this.getCalls++;
 		if (this.failAggregate) {
 			throw new Error("PG query timeout after 8000ms: SELECT SUM(...)");
@@ -340,7 +351,7 @@ class RecoveringPgAdapter implements BunSqlAdapterType {
 		return null;
 	}
 
-	async query<T>(_sql: string, _params?: unknown[]): Promise<T[]> {
+	async queryMain<T>(_sql: string, _params?: unknown[]): Promise<T[]> {
 		return [];
 	}
 

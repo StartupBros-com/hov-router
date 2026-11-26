@@ -54,7 +54,6 @@ describe("AccountRepository — compare-and-set token/requires_reauth writes (ro
 				custom_endpoint TEXT,
 				model_mappings TEXT,
 				cross_region_mode TEXT,
-				model_fallbacks TEXT,
 				billing_type TEXT,
 				pause_reason TEXT,
 				refresh_token_issued_at INTEGER,
@@ -82,7 +81,9 @@ describe("AccountRepository — compare-and-set token/requires_reauth writes (ro
 
 	describe("updateTokensIfRefreshTokenMatches", () => {
 		it("applies the write and returns true when expectedRefreshToken matches, resetting requires_reauth and rotating the refresh token when one is passed", async () => {
-			await repository.setRequiresReauth("account-1", true);
+			db.run("UPDATE accounts SET requires_reauth = 1 WHERE id = ?", [
+				"account-1",
+			]);
 
 			const result = await repository.updateTokensIfRefreshTokenMatches(
 				"account-1",
@@ -102,7 +103,9 @@ describe("AccountRepository — compare-and-set token/requires_reauth writes (ro
 		});
 
 		it("updates access_token/expires_at and resets requires_reauth without touching refresh_token when no new refresh token is passed", async () => {
-			await repository.setRequiresReauth("account-1", true);
+			db.run("UPDATE accounts SET requires_reauth = 1 WHERE id = ?", [
+				"account-1",
+			]);
 
 			const result = await repository.updateTokensIfRefreshTokenMatches(
 				"account-1",
@@ -137,7 +140,9 @@ describe("AccountRepository — compare-and-set token/requires_reauth writes (ro
 		});
 
 		it("returns false when a same-token account ID was replaced with a newer generation", async () => {
-			await repository.setRequiresReauth("account-1", true);
+			db.run("UPDATE accounts SET requires_reauth = 1 WHERE id = ?", [
+				"account-1",
+			]);
 			db.run("UPDATE accounts SET created_at = ? WHERE id = ?", [
 				2,
 				"account-1",

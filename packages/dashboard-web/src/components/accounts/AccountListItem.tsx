@@ -88,8 +88,6 @@ function formatPauseReason(reason: string | null): string | null {
 	// Keep internal/future pause reasons private and safely renderable. Only
 	// automatic pauses name their cause; a manual pause reads as plain "Paused".
 	switch (reason) {
-		case "failure_threshold":
-			return "repeated failures";
 		case "overage":
 			return "overage";
 		default:

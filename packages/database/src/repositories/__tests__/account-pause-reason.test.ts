@@ -3,7 +3,6 @@
  *
  * Verifies that:
  *  - pause(id)                     sets paused=1, pause_reason='manual'
- *  - pause(id, 'failure_threshold') sets paused=1, pause_reason='failure_threshold'
  *  - pause(id, 'overage')           sets paused=1, pause_reason='overage'
  *  - resume(id)                    sets paused=0, pause_reason=NULL
  */
@@ -51,7 +50,6 @@ function makeDb(): { db: Database; repo: AccountRepository } {
 			custom_endpoint TEXT,
 			model_mappings TEXT,
 			cross_region_mode TEXT,
-			model_fallbacks TEXT,
 			billing_type TEXT,
 			pause_reason TEXT
 		)
@@ -122,18 +120,6 @@ describe("AccountRepository — pause / resume with pause_reason", () => {
 		});
 	});
 
-	describe("pause(id, 'failure_threshold')", () => {
-		it("sets paused=1 and pause_reason='failure_threshold'", async () => {
-			insertAccount(db, "acc-3");
-
-			await repo.pause("acc-3", "failure_threshold");
-
-			const row = getAccount(db, "acc-3");
-			expect(row.paused).toBe(1);
-			expect(row.pause_reason).toBe("failure_threshold");
-		});
-	});
-
 	describe("pause(id, 'overage')", () => {
 		it("sets paused=1 and pause_reason='overage'", async () => {
 			insertAccount(db, "acc-4");
@@ -169,11 +155,9 @@ describe("AccountRepository — pause / resume with pause_reason", () => {
 			expect(row.pause_reason).toBeNull();
 		});
 
-		it("clears pause_reason=NULL for a failure_threshold-paused account", async () => {
+		it("clears pause_reason=NULL for a manual-paused account", async () => {
 			insertAccount(db, "acc-7", 1);
-			db.run(
-				"UPDATE accounts SET pause_reason = 'failure_threshold' WHERE id = 'acc-7'",
-			);
+			db.run("UPDATE accounts SET pause_reason = 'manual' WHERE id = 'acc-7'");
 
 			await repo.resume("acc-7");
 

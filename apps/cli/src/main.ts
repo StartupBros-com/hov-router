@@ -602,7 +602,7 @@ function parseArgs(args: string[]): ParsedArgs {
 	const parsed: ParsedArgs = {
 		version: false,
 		help: false,
-		serve: false, // Keep for backwards compatibility but treat as no-op
+		serve: false, // Start the HTTP server when --serve is supplied
 		port: null,
 		sslKey: null,
 		sslCert: null,
@@ -710,15 +710,7 @@ function parseArgs(args: string[]): ParsedArgs {
 					console.error("❌ --mode requires a value");
 					fastExit(1);
 				}
-				let modeValue = args[++i] as AccountMode | "max";
-
-				// Handle deprecated "max" mode with warning
-				if (modeValue === "max") {
-					console.warn(
-						'⚠️  Mode "max" is deprecated. Please use "claude-oauth" instead.',
-					);
-					modeValue = "claude-oauth";
-				}
+				const modeValue = args[++i] as AccountMode;
 
 				if (!ACCOUNT_MODES.includes(modeValue)) {
 					console.error(`❌ Invalid mode: ${modeValue}`);
@@ -1319,8 +1311,8 @@ async function main() {
 		);
 		try {
 			const config = new Config();
-			DatabaseFactory.initialize(undefined, undefined, false);
-			const dbOps = await DatabaseFactory.getInstanceAsync(false);
+			DatabaseFactory.initialize();
+			const dbOps = await DatabaseFactory.getInstanceAsync();
 			const options = parsed.cacheFlightRecorderReport
 				? {
 						action: "report" as const,
@@ -1507,8 +1499,8 @@ async function main() {
 
 	// Initialize database factory with minimal configuration for CLI commands
 	// CLI commands don't need expensive integrity checks
-	DatabaseFactory.initialize(undefined, undefined, false);
-	const dbOps = DatabaseFactory.getInstance(false);
+	DatabaseFactory.initialize();
+	const dbOps = DatabaseFactory.getInstance();
 	container.registerInstance(SERVICE_KEYS.Database, dbOps);
 
 	// Handle non-interactive commands

@@ -116,7 +116,6 @@ function makeAccount(id: string): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -157,7 +156,7 @@ function makeContext(
 			updateAccountUsage: mock(async () => undefined),
 			getAdapter: mock(() => ({
 				run: mock(async () => undefined),
-				get: mock(async () => null),
+				getMain: mock(async () => null),
 			})),
 		} as never,
 		runtime: { port: 8080, clientId: "test" } as never,

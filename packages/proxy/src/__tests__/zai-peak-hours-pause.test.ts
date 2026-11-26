@@ -181,7 +181,7 @@ describe("startZaiPeakHoursPause", () => {
 		spies.push(register);
 		const queries: string[] = [];
 		const db = {
-			query: async (sql: string) => {
+			queryMain: async (sql: string) => {
 				queries.push(sql);
 				return [];
 			},

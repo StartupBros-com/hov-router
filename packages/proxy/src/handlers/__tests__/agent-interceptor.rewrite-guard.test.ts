@@ -176,10 +176,21 @@ describe("interceptAndModifyRequest - rewrite guard integration", () => {
 	test("preference targets a model absent from a live catalog => no rewrite, agentUsed set (header path)", async () => {
 		await dbOps.setAgentPreference("guard-header-agent", "claude-opus-model");
 		const buffer = toArrayBuffer(createMockRequestBody());
-		const result = await interceptAndModifyRequest(
+		const ignored = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
 			new Headers({ "x-anthropic-agent-id": "guard-header-agent" }),
+			{
+				getModelCatalog: async () =>
+					liveCatalog(["claude-3-5-sonnet-20241022", "claude-opus-model"]),
+			},
+		);
+		expect(ignored.agentUsed).toBeNull();
+		expect(ignored.modifiedBody).toBe(buffer);
+		const result = await interceptAndModifyRequest(
+			buffer,
+			dbOps,
+			new Headers({ "x-better-ccflare-agent-id": "guard-header-agent" }),
 			{
 				getModelCatalog: async () =>
 					liveCatalog(["claude-3-5-sonnet-20241022"]),
@@ -200,7 +211,7 @@ describe("interceptAndModifyRequest - rewrite guard integration", () => {
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-anthropic-agent-id": "guard-header-agent-ok" }),
+			new Headers({ "x-better-ccflare-agent-id": "guard-header-agent-ok" }),
 			{
 				getModelCatalog: async () =>
 					liveCatalog(["claude-3-5-sonnet-20241022", "claude-opus-model"]),
@@ -284,7 +295,7 @@ describe("interceptAndModifyRequest - rewrite guard integration", () => {
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-anthropic-agent-id": "force-header-agent" }),
+			new Headers({ "x-better-ccflare-agent-id": "force-header-agent" }),
 			{
 				// A catalog that *would* allow the rewrite, so the only thing
 				// stopping it is the setting under test.
@@ -305,7 +316,7 @@ describe("interceptAndModifyRequest - rewrite guard integration", () => {
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-anthropic-agent-id": "force-header-agent" }),
+			new Headers({ "x-better-ccflare-agent-id": "force-header-agent" }),
 			{
 				getModelCatalog: async () =>
 					liveCatalog(["claude-3-5-sonnet-20241022", "claude-opus-model"]),
@@ -444,7 +455,7 @@ describe("interceptAndModifyRequest - forced tool_choice guard", () => {
 			const result = await interceptAndModifyRequest(
 				buffer,
 				dbOps,
-				new Headers({ "x-anthropic-agent-id": agentId }),
+				new Headers({ "x-better-ccflare-agent-id": agentId }),
 				{ getModelCatalog: catalog },
 			);
 			expect(result.agentUsed).toBe(agentId);
@@ -461,7 +472,7 @@ describe("interceptAndModifyRequest - forced tool_choice guard", () => {
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-anthropic-agent-id": "forced-header-auto" }),
+			new Headers({ "x-better-ccflare-agent-id": "forced-header-auto" }),
 			{ getModelCatalog: catalog },
 		);
 		expect(result.appliedModel).toBe(REJECTING);
@@ -474,7 +485,7 @@ describe("interceptAndModifyRequest - forced tool_choice guard", () => {
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-anthropic-agent-id": "forced-header-none" }),
+			new Headers({ "x-better-ccflare-agent-id": "forced-header-none" }),
 			{ getModelCatalog: catalog },
 		);
 		expect(result.appliedModel).toBe(REJECTING);
@@ -487,7 +498,7 @@ describe("interceptAndModifyRequest - forced tool_choice guard", () => {
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-anthropic-agent-id": "forced-header-accepting" }),
+			new Headers({ "x-better-ccflare-agent-id": "forced-header-accepting" }),
 			{ getModelCatalog: catalog },
 		);
 		expect(result.appliedModel).toBe(ACCEPTING);

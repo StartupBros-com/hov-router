@@ -702,7 +702,7 @@ The CLI functionality provides explicit commands for all operations. Use `bun ru
 # or build and run with: bun run better-ccflare
 
 # Add a new account
-bun run cli --add-account <name> --mode <max|console|zai|openai-compatible> --priority <number>
+bun run cli --add-account <name> --mode <claude-oauth|console|zai|openai-compatible> --priority <number>
 
 # List all accounts
 bun run cli --list

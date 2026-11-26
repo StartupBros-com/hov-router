@@ -102,7 +102,7 @@ describe("API-key account creation leaves the next start nothing to write", () =
 			// A static key never expires; the list endpoint already reports null.
 			expect(payload.account.tokenExpiresAt).toBeNull();
 
-			const row = await dbOps.getAdapter().get<{
+			const row = await dbOps.getAdapter().getMain<{
 				api_key: string | null;
 				refresh_token: string | null;
 				access_token: string | null;

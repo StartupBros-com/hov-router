@@ -46,9 +46,7 @@ mock.module("@better-ccflare/database", () => ({
 	DatabaseFactory: {
 		initialize: mock(() => {}),
 		reset: mock(() => {}),
-		getInstance: mock(() => ({
-			getDatabase: mock(() => ({})),
-		})),
+		getInstance: mock(() => ({})),
 	},
 	ModelTranslationRepository: mock(() => ({
 		findSimilar: mock(() => []),
@@ -98,7 +96,6 @@ function account(modelId: string): Account {
 		custom_endpoint: "bedrock:default:us-east-1",
 		model_mappings: JSON.stringify({ custom: modelId }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

@@ -75,7 +75,8 @@ describe("CLI xAI account import", () => {
 		const after = Date.now();
 
 		const account = dbOps
-			.getDatabase()
+			.getAdapter()
+			.getSQLiteDb()
 			.query<
 				{ access_token: string; refresh_token: string; expires_at: number },
 				[string]
@@ -125,7 +126,8 @@ describe("CLI xAI account import", () => {
 
 		expect(result.success).toBe(true);
 		const account = dbOps
-			.getDatabase()
+			.getAdapter()
+			.getSQLiteDb()
 			.query<
 				{
 					access_token: string;
@@ -188,7 +190,8 @@ describe("CLI xAI account import", () => {
 		expect(result.success).toBe(true);
 
 		const account = dbOps
-			.getDatabase()
+			.getAdapter()
+			.getSQLiteDb()
 			.query<{ paused: number; pause_reason: string | null }, [string]>(
 				"SELECT paused, pause_reason FROM accounts WHERE name = ?",
 			)
