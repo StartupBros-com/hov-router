@@ -381,7 +381,7 @@ function applyExplicitModelRoute(
 		// until provider conversion. A profile default must not conflict with it.
 		const codexReasoning = trustCodexResponsesEffort
 			? (
-					body.__better_ccflare_codex_passthrough as
+					body.__hov_router_codex_passthrough as
 						| { reasoning?: { effort?: unknown } | null }
 						| null
 						| undefined
