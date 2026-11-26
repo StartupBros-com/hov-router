@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { BUFFER_SIZES } from "@better-ccflare/core";
-import { logBus } from "@better-ccflare/logger";
+import { BUFFER_SIZES } from "@hov-router/core";
+import { logBus } from "@hov-router/logger";
 import { translateAnthropicStreamToResponses } from "../stream-translator";
 
 async function collectSseEvents(
@@ -698,7 +698,7 @@ describe("translateAnthropicStreamToResponses SSE frame bounds", () => {
 		// No terminating "\n\n" anywhere in this chunk or after it: this
 		// exercises the unterminated-tail cap rather than the per-frame cap.
 		// Sized against the new 4MiB transport tail cap
-		// (SSE_TRANSPORT_TAIL_MAX_BYTES), not the old 4MiB SSE_BUFFER_MAX_BYTES
+		// (SSE_TRANSPORT_TAIL_MAX_BYTES), rather than the historical 4MiB buffer cap
 		// alias (same value today, but this test should track the policy
 		// constant a stalled tail is actually checked against).
 		const unterminated = "x".repeat(

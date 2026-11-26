@@ -1,12 +1,12 @@
-import { intervalManager } from "@better-ccflare/core";
-import type { BunSqlAdapter } from "@better-ccflare/database";
-import { Logger } from "@better-ccflare/logger";
+import { intervalManager } from "@hov-router/core";
+import type { BunSqlAdapter } from "@hov-router/database";
+import { Logger } from "@hov-router/logger";
 
 const log = new Logger("ZaiPeakHoursPause");
 
 const ZAI_PEAK_HOURS_PAUSE_INTERVAL_MS = 60_000;
 
-type PeakHoursPauseDb = Pick<BunSqlAdapter, "query" | "run">;
+type PeakHoursPauseDb = Pick<BunSqlAdapter, "queryMain" | "run">;
 
 /**
  * Z.ai peak is Monday to Friday 14:00-18:00 Singapore time (UTC+8); weekends
@@ -32,7 +32,7 @@ export async function runZaiPeakHoursPauseOnce(
 ): Promise<void> {
 	const inPeak = isZaiPeakHour(now);
 
-	const zaiAccounts = await db.query<{
+	const zaiAccounts = await db.queryMain<{
 		id: string;
 		name: string;
 		paused: number;

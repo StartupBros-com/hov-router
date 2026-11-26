@@ -3,7 +3,7 @@ import {
 	diagnoseTimeline,
 	type Timeline,
 	type TurnEvidence,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 
 const baseTurn: TurnEvidence = {
 	sequence: 1,

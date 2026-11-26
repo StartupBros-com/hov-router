@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import "@better-ccflare/core";
+import "@hov-router/core";
 import { ensureSchema, runMigrations } from "../migrations";
 import {
 	isRouteProvenanceColumn,

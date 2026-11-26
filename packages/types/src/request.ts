@@ -15,11 +15,11 @@ export type { QualityDecisionRecord } from "./quality-routing";
 export { sanitizeQualityDecision } from "./quality-routing";
 /**
  * This module is deliberately import-free and is re-exported unchanged through
- * the package barrel. `@better-ccflare/types` has a documented runtime cycle
+ * the package barrel. `@hov-router/types` has a documented runtime cycle
  * (`types/agent.ts` → core → `core/strategy.ts` → types, which evaluates
  * `Object.values(StrategyName)` at module scope), so evaluating the barrel
  * first crashes. Runtime consumers of the narrowing helpers below therefore
- * import them via the cycle-free `@better-ccflare/types/request` subpath
+ * import them via the cycle-free `@hov-router/types/request` subpath
  * rather than the barrel.
  */
 

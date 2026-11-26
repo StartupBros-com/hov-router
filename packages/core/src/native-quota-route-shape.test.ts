@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Account, EffectiveComboMember } from "@better-ccflare/types";
+import type { Account, EffectiveComboMember } from "@hov-router/types";
 import { validateNativeQuotaRouteShape } from "./native-quota-route-shape";
 
 const account = (id: string, overrides: Partial<Account> = {}) =>
@@ -12,7 +12,6 @@ const account = (id: string, overrides: Partial<Account> = {}) =>
 		billing_type: "plan",
 		custom_endpoint: null,
 		model_mappings: null,
-		model_fallbacks: null,
 		paused: false,
 		...overrides,
 	}) as Account;
@@ -89,11 +88,7 @@ describe("native quota route shape", () => {
 			[member("a", "claude-fable-5")],
 			[account("a", { model_mappings: "{broken" })],
 		],
-		[
-			"malformed embedded mappings",
-			[member("a", "claude-fable-5")],
-			[account("a", { custom_endpoint: '{"modelMappings":{"fable":[]}}' })],
-		],
+
 		[
 			"api billing",
 			[member("a", "claude-fable-5")],
@@ -108,7 +103,6 @@ describe("native quota route shape", () => {
 	});
 	it.each([
 		"model_mappings",
-		"custom_endpoint",
 	] as const)("matches the physical parser's 16-candidate limit for %s", (field) => {
 		for (const [length, expectedValid] of [
 			[16, true],
@@ -133,19 +127,7 @@ describe("native quota route shape", () => {
 			).toBe(expectedValid);
 		}
 	});
-	it("rejects legacy fallback arrays that the physical parser ignores", () => {
-		expect(
-			validateNativeQuotaRouteShape({
-				family: "fable",
-				accounts: [
-					account("a", {
-						model_fallbacks: JSON.stringify({ fable: ["claude-fable-5-1"] }),
-					}),
-				],
-				members: [member("a", "claude-fable-5")],
-			}).valid,
-		).toBe(false);
-	});
+
 	it("other supported families cannot use cross-family backups", () => {
 		expect(
 			validateNativeQuotaRouteShape({

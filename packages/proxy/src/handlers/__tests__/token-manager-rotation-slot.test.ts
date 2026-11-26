@@ -24,8 +24,8 @@ import { randomBytes } from "node:crypto";
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Logger } from "@better-ccflare/logger";
-import type { Account } from "@better-ccflare/types";
+import { Logger } from "@hov-router/logger";
+import type { Account } from "@hov-router/types";
 import { TOKEN_REFRESH_BACKOFF_MS } from "../../constants";
 import {
 	clearAllPendingRotationsForTests,
@@ -76,7 +76,6 @@ function makeAccount(id: string, provider: string): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -97,7 +96,6 @@ function makeContext(stored: Account, provider?: unknown) {
 		updateAccountTokensIfRefreshTokenAbsent: mock(async () => true),
 		flagRequiresReauthIfTokenMatches: mock(async () => true),
 		pauseAccountIfActive: mock(async () => true),
-		setRequiresReauth: mock(async () => {}),
 	};
 	return {
 		ctx: {
@@ -202,7 +200,6 @@ describe("a refresh that would rotate the refresh token", () => {
 		expect(getRefreshTokenUsedForFailure(refusal)).toBeUndefined();
 		expect(dbOps.flagRequiresReauthIfTokenMatches).not.toHaveBeenCalled();
 		expect(dbOps.pauseAccountIfActive).not.toHaveBeenCalled();
-		expect(dbOps.setRequiresReauth).not.toHaveBeenCalled();
 		expect(ctx.refreshInFlight.size).toBe(0);
 		expect(account.refresh_token).toBe("rt-old");
 		expect(account.access_token).toBe("at-old");
@@ -916,6 +913,5 @@ describe("a rotated refresh token whose database write fails", () => {
 			failing.dbOps.flagRequiresReauthIfTokenMatches,
 		).not.toHaveBeenCalled();
 		expect(failing.dbOps.pauseAccountIfActive).not.toHaveBeenCalled();
-		expect(failing.dbOps.setRequiresReauth).not.toHaveBeenCalled();
 	});
 });

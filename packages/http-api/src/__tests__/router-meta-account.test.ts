@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
 import { APIRouter } from "../router";
 import type { APIContext } from "../types";
 
@@ -33,7 +33,29 @@ describe("APIRouter — Meta account ingress aliases", () => {
 		await dbOps.close();
 	});
 
-	for (const path of ["/api/accounts/meta", "/api/accounts/muse-spark"]) {
+	it("returns 410 for the retired muse-spark ingress without creating an account", async () => {
+		const url = new URL("http://localhost/api/accounts/muse-spark");
+		const response = await router.handleRequest(
+			url,
+			new Request(url, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ name: "retired", apiKey: "meta-key-abcdef" }),
+			}),
+		);
+		expect(response?.status).toBe(410);
+		expect(await response?.json()).toMatchObject({
+			replacement: "POST /api/accounts/meta",
+			removedIn: "7.0.0",
+		});
+		expect(
+			await dbOps
+				.getAdapter()
+				.getMain("SELECT id FROM accounts WHERE name = ?", ["retired"]),
+		).toBeNull();
+	});
+
+	for (const path of ["/api/accounts/meta"]) {
 		it(`persists canonical provider=meta through POST ${path}`, async () => {
 			const name = path.endsWith("muse-spark")
 				? "legacy-meta"
@@ -58,7 +80,7 @@ describe("APIRouter — Meta account ingress aliases", () => {
 			};
 			expect(payload.account.provider).toBe("meta");
 
-			const row = await dbOps.getAdapter().get<{
+			const row = await dbOps.getAdapter().getMain<{
 				provider: string;
 				api_key: string | null;
 				refresh_token: string | null;

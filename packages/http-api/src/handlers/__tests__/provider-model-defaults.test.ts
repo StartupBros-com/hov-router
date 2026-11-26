@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { PROVIDER_MODEL_DEFAULTS_ENV_VAR } from "@better-ccflare/config";
+import { PROVIDER_MODEL_DEFAULTS_ENV_VAR } from "@hov-router/config";
 import {
 	clearDerivedProviderModelDefaults,
 	resolveProviderModelDefault,
 	setDerivedAccountModelDefaults,
 	setDerivedProviderModelDefaults,
 	setProviderModelDefaultOverrides,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import { createConfigHandlers } from "../config";
 
 function makeConfig(initial: Record<string, Record<string, string>> = {}) {
@@ -29,7 +29,7 @@ function makeConfig(initial: Record<string, Record<string, string>> = {}) {
 			}
 			return ["codex"];
 		},
-	} as unknown as import("@better-ccflare/config").Config;
+	} as unknown as import("@hov-router/config").Config;
 }
 
 function request(overrides: unknown): Request {

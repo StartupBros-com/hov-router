@@ -1,6 +1,6 @@
 import { describe, expect, it, mock, spyOn } from "bun:test";
-import { MAX_REQUEST_BODY_BYTES } from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+import { MAX_REQUEST_BODY_BYTES } from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import { handleProxy } from "../proxy";
 import * as usageCollectorModule from "../usage-collector";
@@ -48,7 +48,6 @@ function makeAccount(): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

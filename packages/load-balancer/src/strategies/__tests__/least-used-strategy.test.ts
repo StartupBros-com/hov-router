@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { LeastUsedStrategy } from "@better-ccflare/load-balancer";
-import type {
-	Account,
-	RequestMeta,
-	StrategyStore,
-} from "@better-ccflare/types";
+import { LeastUsedStrategy } from "@hov-router/load-balancer";
+import type { Account, RequestMeta, StrategyStore } from "@hov-router/types";
 
 function makeAccount(overrides: Partial<Account> = {}): Account {
 	return {
@@ -36,7 +32,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

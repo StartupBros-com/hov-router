@@ -1,4 +1,4 @@
-import { reauthInstruction } from "@better-ccflare/core/reauth-instructions";
+import { reauthInstruction } from "@hov-router/core/reauth-instructions";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, RefreshCw, XCircle } from "lucide-react";
 import { getAccountTokenHealthQueryOptions } from "../hooks/queries";

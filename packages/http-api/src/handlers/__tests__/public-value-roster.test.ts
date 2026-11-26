@@ -10,15 +10,15 @@ import {
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 import type { APIContext } from "../../types";
 
 const scratch = mkdtempSync(join(tmpdir(), "ccflare-public-roster-"));
 process.env.BETTER_CCFLARE_DB_PATH = join(scratch, "isolated.db");
 process.env.BETTER_CCFLARE_CONFIG_PATH = join(scratch, "isolated-config.json");
 process.env.DATABASE_URL = "";
-const { VALUE_PRICING_VERSION } = await import("@better-ccflare/core");
-const { DatabaseOperations } = await import("@better-ccflare/database");
+const { VALUE_PRICING_VERSION } = await import("@hov-router/core");
+const { DatabaseOperations } = await import("@hov-router/database");
 const { createPublicSubscriptionValueHandler } = await import(
 	"../public-subscription-value"
 );
@@ -68,7 +68,7 @@ interface PublicRow {
 async function row(id: string): Promise<PublicRow> {
 	return (await db
 		.getAdapter()
-		.get<PublicRow>(
+		.getMain<PublicRow>(
 			"SELECT public_value_enabled, public_value_label, public_value_id FROM accounts WHERE id = ?",
 			[id],
 		)) as PublicRow;
@@ -77,7 +77,7 @@ async function snapshot(): Promise<string> {
 	return JSON.stringify(
 		await db
 			.getAdapter()
-			.query(
+			.queryMain(
 				"SELECT id, public_value_enabled, public_value_label, public_value_id FROM accounts ORDER BY id",
 			),
 	);
@@ -571,7 +571,7 @@ describe("renaming a published account", () => {
 		expect(await snapshot()).toBe(before);
 		const name = await db
 			.getAdapter()
-			.get<{ name: string }>("SELECT name FROM accounts WHERE id = ?", [
+			.getMain<{ name: string }>("SELECT name FROM accounts WHERE id = ?", [
 				"rn-1",
 			]);
 		expect(name?.name).toBe("work");
@@ -707,6 +707,7 @@ describe("cross-process roster revalidation", () => {
 
 describe("rebuild ahead of expiry", () => {
 	const {
+		MAX_AGE_MS,
 		REBUILD_LEAD_MS,
 		REBUILD_MIN_DELAY_MS,
 		REBUILD_RETRY_MS,
@@ -816,8 +817,10 @@ describe("rebuild ahead of expiry", () => {
 		try {
 			const rebuilding = timers.fire();
 			clock.t = 71_000;
+			// The first body is still servable, so the request answers from it at
+			// once and joins the timer's running build instead of starting another.
 			const [served] = await Promise.all([generatedAt(handler), rebuilding]);
-			expect(served).toBe(55_000);
+			expect(served).toBe(10_000);
 			expect(aggregate).toHaveBeenCalledTimes(1);
 		} finally {
 			aggregate.mockRestore();
@@ -877,9 +880,9 @@ describe("rebuild ahead of expiry", () => {
 		// Still inside the first body's lifetime: served as before.
 		clock.t = 60_000;
 		expect(await generatedAt(handler)).toBe(10_000);
-		// After expiry with no successful rebuild, the request rebuilds as before.
-		clock.t = 70_000;
-		expect(await generatedAt(handler)).toBe(70_000);
+		// At MAX_AGE_MS it is never served, and the request rebuilds.
+		clock.t = 10_000 + MAX_AGE_MS;
+		expect(await generatedAt(handler)).toBe(10_000 + MAX_AGE_MS);
 		expect(timers.live().length).toBe(1);
 	});
 
@@ -935,8 +938,9 @@ describe("rebuild ahead of expiry", () => {
 			const scheduled = timeouts.mock.results
 				.slice(before)
 				.map((result) => result.value as ReturnType<typeof setTimeout>);
-			expect(scheduled.length).toBe(1);
-			expect(scheduled[0].hasRef()).toBe(false);
+			// The request deadline and the rebuild timer.
+			expect(scheduled.length).toBe(2);
+			for (const timer of scheduled) expect(timer.hasRef()).toBe(false);
 			for (const timer of scheduled) clearTimeout(timer);
 		} finally {
 			timeouts.mockRestore();
@@ -1074,7 +1078,7 @@ describe("public-value plan", () => {
 	async function stored(id: string) {
 		return (await db
 			.getAdapter()
-			.get(
+			.getMain(
 				"SELECT public_value_enabled, public_value_label, public_value_id, public_value_plan FROM accounts WHERE id = ?",
 				[id],
 			)) as {
@@ -1088,7 +1092,7 @@ describe("public-value plan", () => {
 		return JSON.stringify(
 			await db
 				.getAdapter()
-				.query(
+				.queryMain(
 					"SELECT id, public_value_enabled, public_value_label, public_value_id, public_value_plan FROM accounts ORDER BY id",
 				),
 		);

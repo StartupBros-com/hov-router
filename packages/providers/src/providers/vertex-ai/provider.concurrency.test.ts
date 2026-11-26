@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import { materializeProviderAttemptPlan } from "../../provider-attempt-plan";
 import type { ProviderAttemptPlanContext } from "../../types";
 import { VertexAIProvider } from "./provider";
@@ -38,7 +38,6 @@ function accountFixture(): Account {
 		}),
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { usageCache } from "@better-ccflare/providers";
-import type { Account, CanonicalUsageWindow } from "@better-ccflare/types";
+import type { DatabaseOperations } from "@hov-router/database";
+import { usageCache } from "@hov-router/providers";
+import type { Account, CanonicalUsageWindow } from "@hov-router/types";
 import {
 	recordCodexUsageSnapshot,
 	resetCodexUsageHistoryThrottle,
@@ -217,7 +217,6 @@ function makeCodexAccount(): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		consecutive_rate_limits: 0,
 	} as Account;
 }
@@ -246,7 +245,7 @@ function makeCodexCtx() {
 			updateAccountUsage: () => {},
 			updateAccountRateLimitMeta: () => {},
 			getAdapter: () => ({
-				get: async () => ({ rate_limited_until: null }),
+				getMain: async () => ({ rate_limited_until: null }),
 				run: async () => {},
 			}),
 			resetAccountSession: async () => {},

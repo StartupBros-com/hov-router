@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { BankedResets } from "@better-ccflare/types";
+import type { BankedResets } from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { StatusPill } from "../ui/status-pill";
 import { BankedResetsStatus, bankedResetsRowState } from "./BankedResetsStatus";

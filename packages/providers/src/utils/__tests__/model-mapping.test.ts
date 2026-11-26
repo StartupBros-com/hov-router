@@ -1,5 +1,5 @@
 import { describe, expect, it, spyOn } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import {
 	getModelName,
 	transformRequestBodyModel,
@@ -7,22 +7,6 @@ import {
 } from "../model-mapping";
 
 describe("getModelName", () => {
-	it("shares legacy and fallback mapping precedence with core", () => {
-		const account = {
-			id: "test-id",
-			name: "test-account",
-			provider: "openai-compatible",
-			model_mappings: JSON.stringify({ opus: "account-opus" }),
-			custom_endpoint: JSON.stringify({
-				modelMappings: { opus: "legacy-opus" },
-			}),
-			model_fallbacks: JSON.stringify({ fable: "fallback-fable" }),
-		} as Account;
-
-		expect(getModelName("claude-opus-4-8", account)).toBe("legacy-opus");
-		expect(getModelName("claude-fable-5", account)).toBe("fallback-fable");
-	});
-
 	it("returns original model when no account mappings", () => {
 		const result = getModelName("claude-sonnet-4-5-20250929", undefined);
 		expect(result).toBe("claude-sonnet-4-5-20250929");
@@ -270,7 +254,7 @@ describe("transformRequestBodyModel", () => {
 		const requestBody = {
 			model: "claude-sonnet-4-5-20250929",
 			messages: [{ role: "user", content: "test" }],
-			__better_ccflare_codex_passthrough: { store: true },
+			__hov_router_codex_passthrough: { store: true },
 		};
 
 		const request = new Request("http://test.com", {
@@ -282,7 +266,7 @@ describe("transformRequestBodyModel", () => {
 		const result = await transformRequestBodyModel(request, undefined);
 		const resultBody = await result.json();
 
-		expect(resultBody).not.toHaveProperty("__better_ccflare_codex_passthrough");
+		expect(resultBody).not.toHaveProperty("__hov_router_codex_passthrough");
 		expect(resultBody.model).toBe("claude-sonnet-4-5-20250929");
 	});
 });

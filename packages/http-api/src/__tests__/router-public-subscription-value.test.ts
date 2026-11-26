@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ApiKey } from "@better-ccflare/types/api-key";
+import type { ApiKey } from "@hov-router/types/api-key";
 import type { APIContext } from "../types";
 
 // Set isolation before importing modules that can initialize database singletons.

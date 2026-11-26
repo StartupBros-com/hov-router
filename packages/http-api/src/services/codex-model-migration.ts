@@ -1,18 +1,16 @@
 import {
 	getModelFamily,
 	isForceAccountModelEnabled,
-	parseCustomEndpointData,
-	parseModelFallbacks,
 	parseModelMappings,
 	validateModelMappings,
-} from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { getProviderModelDefaultOverrides } from "@better-ccflare/providers";
+} from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
+import { getProviderModelDefaultOverrides } from "@hov-router/providers";
 import {
 	getCodexCatalogRoleTarget,
 	type ModelRouteProfile,
-} from "@better-ccflare/proxy";
-import type { Account, GuardedModelMappingsWrite } from "@better-ccflare/types";
+} from "@hov-router/proxy";
+import type { Account, GuardedModelMappingsWrite } from "@hov-router/types";
 import { Conflict, NotFound } from "../utils/http-error";
 import {
 	type CodexAccountCatalogInfo,
@@ -55,9 +53,7 @@ export const CODEX_MIGRATION_SELECTION_NOT_APPLICABLE =
 export type CodexMigrationBlocker =
 	| "no_account_pin"
 	| "force_account_model_mode"
-	| "custom_endpoint_mapping"
 	| "environment_mapping"
-	| "model_fallbacks"
 	| "global_provider_override"
 	| "no_own_catalog"
 	| "inherited_target_mismatch";
@@ -260,18 +256,8 @@ function describeFamily(
 	const blockers: CodexMigrationBlocker[] = [];
 	if (accountPin === null) blockers.push("no_account_pin");
 	if (context.forceMode) blockers.push("force_account_model_mode");
-	if (
-		parseCustomEndpointData(account.custom_endpoint)?.modelMappings?.[
-			family
-		] !== undefined
-	) {
-		blockers.push("custom_endpoint_mapping");
-	}
 	if (context.envMappings?.[family] !== undefined) {
 		blockers.push("environment_mapping");
-	}
-	if (parseModelFallbacks(account.model_fallbacks)?.[family] !== undefined) {
-		blockers.push("model_fallbacks");
 	}
 	if (context.globalOverrides?.[family] !== undefined) {
 		blockers.push("global_provider_override");
@@ -307,7 +293,7 @@ function staleConflict(details: Record<string, unknown>) {
 
 /**
  * All accounts plus the routing-policy revision they were read at. Every
- * `model_mappings`, `model_fallbacks`, `custom_endpoint`, provider or
+ * `model_mappings`, `custom_endpoint`, provider or
  * account-set change advances that revision, so an unchanged revision around
  * the read proves the rows belong to it.
  */

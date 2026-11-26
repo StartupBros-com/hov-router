@@ -1,13 +1,10 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import {
 	type DatabaseOperations,
 	DatabaseOperations as RealDatabaseOperations,
-} from "@better-ccflare/database";
-import type {
-	OAuthProviderConfig,
-	OAuthTokens,
-} from "@better-ccflare/providers";
+} from "@hov-router/database";
+import type { OAuthProviderConfig, OAuthTokens } from "@hov-router/providers";
 import { OAuthFlow } from "../index";
 
 // ---------------------------------------------------------------------------
@@ -17,7 +14,7 @@ import { OAuthFlow } from "../index";
 function makeAdapter(runSpy: ReturnType<typeof mock>) {
 	return {
 		run: runSpy,
-		get: mock(async () => null),
+		getMain: mock(async () => null),
 		all: mock(async () => []),
 		close: mock(async () => {}),
 	};
@@ -57,7 +54,7 @@ const testFlowData = {
 };
 
 // ---------------------------------------------------------------------------
-// Mock @better-ccflare/providers so no real OAuth calls go out.
+// Mock @hov-router/providers so no real OAuth calls go out.
 // The mock must be registered before the module under test is imported.
 // ---------------------------------------------------------------------------
 
@@ -76,12 +73,12 @@ const mockExchangeCode = mock(
 // mock.module replaces the WHOLE module globally and across file boundaries
 // in Bun (no per-file isolation without --isolate), so spread the real
 // module's exports and only override getOAuthProvider — otherwise other test
-// files importing @better-ccflare/providers later in the same process (e.g.
+// files importing @hov-router/providers later in the same process (e.g.
 // request-handler.test.ts, model-catalog.test.ts) would lose every other
 // export this file doesn't otherwise need to touch.
-const actualProviders = await import("@better-ccflare/providers");
+const actualProviders = await import("@hov-router/providers");
 
-mock.module("@better-ccflare/providers", () => ({
+mock.module("@hov-router/providers", () => ({
 	...actualProviders,
 	getOAuthProvider: (_name: string) => ({
 		exchangeCode: mockExchangeCode,
@@ -91,10 +88,10 @@ mock.module("@better-ccflare/providers", () => ({
 }));
 
 // Restore the real module once this file's tests finish so later test files
-// in the same process resolve the real @better-ccflare/providers exports
+// in the same process resolve the real @hov-router/providers exports
 // again.
 afterAll(() => {
-	mock.module("@better-ccflare/providers", () => actualProviders);
+	mock.module("@hov-router/providers", () => actualProviders);
 });
 
 // ---------------------------------------------------------------------------
@@ -300,7 +297,7 @@ describe("OAuthFlow.complete duplicate account (real SQLite UNIQUE error)", () =
 
 			const rows = await realDb
 				.getAdapter()
-				.query<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
+				.queryMain<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
 					"dup-acct",
 				]);
 			expect(rows).toHaveLength(1);

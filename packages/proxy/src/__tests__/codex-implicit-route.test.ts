@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { PAUSE_REASON_NEEDS_REAUTH } from "@better-ccflare/core";
+import { PAUSE_REASON_NEEDS_REAUTH } from "@hov-router/core";
 import {
 	clearDerivedProviderModelDefaults,
 	setDerivedProviderModelDefaults,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import {
 	accountServesPhysicalModel,
 	getCodexPassthroughPhysicalModel,
@@ -32,7 +32,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		expires_at: Date.now() + 3_600_000,
 		custom_endpoint: null,
 		model_mappings: null,
-		model_fallbacks: null,
 		...overrides,
 	} as Account;
 }
@@ -81,7 +80,7 @@ afterEach(() => {
 });
 
 const carrier = (model: unknown) => ({
-	__better_ccflare_codex_passthrough: { model },
+	__hov_router_codex_passthrough: { model },
 });
 
 describe("accountServesPhysicalModel evidence", () => {
@@ -134,16 +133,10 @@ describe("accountServesPhysicalModel evidence", () => {
 		}
 	});
 
-	it("recognizes exact Claude ids and legacy static mapping storage", async () => {
+	it("recognizes exact Claude id mappings", async () => {
 		for (const mapping of [
 			{ model_mappings: JSON.stringify({ "claude-sonnet-5": PHYSICAL_MODEL }) },
 			{ model_mappings: JSON.stringify({ "claude-opus-4-6": PHYSICAL_MODEL }) },
-			{ model_fallbacks: JSON.stringify({ haiku: PHYSICAL_MODEL }) },
-			{
-				custom_endpoint: JSON.stringify({
-					modelMappings: { opus: PHYSICAL_MODEL },
-				}),
-			},
 		]) {
 			expect(
 				await accountServesPhysicalModel(makeAccount(mapping), PHYSICAL_MODEL),
@@ -573,8 +566,8 @@ describe("getCodexPassthroughPhysicalModel", () => {
 			"gpt-6-codex",
 			{},
 			{ model: "gpt-6-codex" },
-			{ __better_ccflare_codex_passthrough: null },
-			{ __better_ccflare_codex_passthrough: "gpt-6-codex" },
+			{ __hov_router_codex_passthrough: null },
+			{ __hov_router_codex_passthrough: "gpt-6-codex" },
 			carrier(undefined),
 			carrier(42),
 			carrier(""),

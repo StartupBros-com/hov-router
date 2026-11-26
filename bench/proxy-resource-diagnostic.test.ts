@@ -16,7 +16,7 @@ describe("bounded resource phase receipts", () => {
 			r.record("idle", { bodyBytes: 2, source: "private" } as never);
 			const line = JSON.parse(readFileSync(path, "utf8").trim());
 			expect(line).toMatchObject({
-				schema: "ccflare.resource_phase.v1",
+				schema: "hov-router.resource_phase.v1",
 				phase: "idle",
 				complete: true,
 				workload: { bodyBytes: 2 },

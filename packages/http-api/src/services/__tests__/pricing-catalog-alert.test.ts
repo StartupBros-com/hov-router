@@ -10,7 +10,7 @@ import { EventEmitter } from "node:events";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import {
 	CLAUDE_MODEL_IDS,
 	LIST_PRICE_ERAS,
@@ -18,10 +18,10 @@ import {
 	resetNanoGPTPricingCacheForTest,
 	VALUE_PRICING_VERSION,
 	warmPricingCatalog,
-} from "@better-ccflare/core";
-import { BunSqlAdapter, ensureSchema } from "@better-ccflare/database";
-import { getSupportedLineIdentities } from "@better-ccflare/providers";
-import type { AlertEvent } from "@better-ccflare/types";
+} from "@hov-router/core";
+import { BunSqlAdapter, ensureSchema } from "@hov-router/database";
+import { getSupportedLineIdentities } from "@hov-router/providers";
+import type { AlertEvent } from "@hov-router/types";
 import {
 	AlertService,
 	buildDiscordAlertContent,
@@ -41,10 +41,14 @@ function makeConfig(): Config {
 		getAlertTokensPerHour: () => 0,
 		getAlertRequestTokens: () => 0,
 		getAlertUsageWindowThresholdPercent: () => 0,
-		getAlertAnomalyEnabled: () => false,
-		getAlertAnomalyIntervalMinutes: () => 15,
-		getAlertAnomalyBaselineWindowMinutes: () => 1440,
-		getAlertAnomalyLoopMinRequests: () => 10,
+		getAlertCacheHealthEnabled: () => false,
+		getAlertCacheHealthThresholdPercent: () => 80,
+		getAlertCacheHealthDurationMinutes: () => 15,
+		getAlertCacheHealthMinRequests: () => 5,
+		getAlertCacheHealthMinInputTokens: () => 10000,
+		getAlertCacheHealthReminderMinutes: () => 60,
+		getMemberNoticeWebhookUrl: () => "",
+		getMemberNoticeSigningSecret: () => "",
 		getAlertCooldownMinutes: () => 60,
 		getAlertWebhookUrl: () => "",
 		get: (key: string, defaultValue?: string | number | boolean) => {

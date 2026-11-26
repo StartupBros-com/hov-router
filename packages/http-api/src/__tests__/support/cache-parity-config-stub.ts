@@ -1,8 +1,8 @@
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 
 /**
- * The exact slice of `Config` that `readCacheParityPolicy` (insights.ts)
- * reads directly off `context.config` for GET /api/insights/cache-parity.
+ * The exact slice of `Config` that `readCacheParityPolicy` (cache-parity.ts)
+ * reads directly off `context.config` for GET /api/cache-parity.
  *
  * Kept as its own type (rather than `Pick<Config, ...>` inlined at each call
  * site) so a new accessor added to that function shows up here as a type
@@ -17,7 +17,7 @@ export type CacheParityConfigStub = Pick<
  * Builds the `Config` stub `createCacheParityHandler` needs.
  *
  * WHY THIS EXISTS: the cache-parity handler's R18 fail-closed guard reads
- * `getXaiCacheKeepaliveTtlMinutes()` directly (see insights.ts) specifically
+ * `getXaiCacheKeepaliveTtlMinutes()` directly (see cache-parity.ts) specifically
  * so a missing/renamed accessor throws instead of silently resolving to 0.
  * That guard is only as good as every hand-rolled test config stub staying
  * in sync with it — and twice already, one fixture (SQLite) got a new

@@ -3,7 +3,7 @@
  * anthropic-ratelimit-unified-* headers on the request row, bounded.
  */
 import { expect, test } from "bun:test";
-import { AsyncDbWriter, DatabaseOperations } from "@better-ccflare/database";
+import { AsyncDbWriter, DatabaseOperations } from "@hov-router/database";
 import { UsageCollector } from "../usage-collector";
 import type { EndMessage, StartMessage } from "../worker-messages";
 
@@ -96,7 +96,7 @@ async function capture(
 		await collector.drain();
 		const row = (await db
 			.getAdapter()
-			.get(
+			.getMain(
 				"SELECT unified_ratelimit_headers FROM requests WHERE id = 'r1'",
 			)) as {
 			unified_ratelimit_headers: string | null;

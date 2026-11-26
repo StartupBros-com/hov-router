@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import type { LogEvent } from "@better-ccflare/types";
+import type { LogEvent } from "@hov-router/types";
 import { logFileWriter } from "./file-writer";
 
 export enum LogLevel {

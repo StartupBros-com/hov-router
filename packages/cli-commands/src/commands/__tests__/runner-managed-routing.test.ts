@@ -4,12 +4,11 @@ import type {
 	AccountRoutingOverview,
 	ComboFamily,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type { PromptAdapter } from "../../prompts/adapter";
 import {
 	executeManagedRoutingCliCommand,
 	ManagedRoutingCliUsageError,
-	parseLegacyCliArguments,
 	parseManagedRoutingCliCommand,
 	preflightPostCreateManagedRouting,
 } from "../../runner";
@@ -170,16 +169,7 @@ describe("shared managed-routing CLI parser", () => {
 		).toThrow(ManagedRoutingCliUsageError);
 	});
 
-	it("parses the legacy hyphenated API URL and preflights environment URLs", () => {
-		const parsed = parseLegacyCliArguments([
-			"add",
-			"new-account",
-			"--api-url",
-			"http://127.0.0.1:9191",
-		]);
-		expect(parsed.positionals).toEqual(["add", "new-account"]);
-		expect(parsed.values["api-url"]).toBe("http://127.0.0.1:9191");
-
+	it("preflights environment URLs", () => {
 		expect(() =>
 			preflightPostCreateManagedRouting({
 				interactive: true,

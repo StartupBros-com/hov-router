@@ -33,7 +33,7 @@ import { join } from "node:path";
 import {
 	createPendingRotationStore,
 	type PendingRotationStore,
-} from "@better-ccflare/proxy/pending-rotation-store";
+} from "@hov-router/proxy/pending-rotation-store";
 import {
 	assertDedicatedSmallMount,
 	blockCounts,

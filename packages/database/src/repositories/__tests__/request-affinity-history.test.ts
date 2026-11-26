@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, spyOn, test } from "bun:test";
-import "@better-ccflare/core";
+import "@hov-router/core";
 import { attemptRequest } from "../../__tests__/route-provenance.fixture";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { DatabaseOperations } from "../../database-operations";
@@ -135,7 +135,7 @@ test("SQLite performs one off-thread read of limit + 1 rows using idx_requests_t
 		const [sql, params] = read.mock.calls[0];
 		expect(params).toContain(1000);
 		expect(params?.at(-1)).toBe(3);
-		const plan = await adapter.query<{ detail: string }>(
+		const plan = await adapter.queryMain<{ detail: string }>(
 			`EXPLAIN QUERY PLAN ${sql}`,
 			params,
 		);

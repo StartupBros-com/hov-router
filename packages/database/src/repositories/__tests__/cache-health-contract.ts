@@ -3,7 +3,7 @@ import {
 	type AlertEvent,
 	type CacheHealthState,
 	cacheHealthScopeKey,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { CacheHealthRepository } from "../cache-health.repository";
 
@@ -204,7 +204,8 @@ export async function cacheHealthRepositoryContract(adapter: BunSqlAdapter) {
 	).not.toBeNull();
 	expect(
 		Number(
-			(await adapter.get<{ n: number }>("SELECT COUNT(*) AS n FROM alerts"))?.n,
+			(await adapter.getMain<{ n: number }>("SELECT COUNT(*) AS n FROM alerts"))
+				?.n,
 		),
 	).toBe(1);
 	const next = {
@@ -419,7 +420,7 @@ export async function cacheHealthRetentionContract(adapter: BunSqlAdapter) {
 				recovery: null,
 			},
 		});
-		const stored = await adapter.get<{ snapshot: string }>(
+		const stored = await adapter.getMain<{ snapshot: string }>(
 			"SELECT snapshot FROM cache_health_state WHERE scope_key = ?",
 			[cacheHealthScopeKey(original.scope)],
 		);
@@ -472,7 +473,7 @@ export async function cacheHealthRetentionContract(adapter: BunSqlAdapter) {
 		),
 	).toBe(false);
 	expect(
-		await adapter.get("SELECT id FROM alerts WHERE id = ?", [
+		await adapter.getMain("SELECT id FROM alerts WHERE id = ?", [
 			"retained-stale-generation",
 		]),
 	).toBeNull();

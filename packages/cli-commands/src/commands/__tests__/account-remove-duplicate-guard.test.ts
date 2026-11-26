@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { DatabaseFactory } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
+import { DatabaseFactory } from "@hov-router/database";
 import { removeAccount, removeAccountById } from "../account";
 
 // Conventional test pattern (mirrors kilo.test.ts) — uses DatabaseFactory
@@ -86,7 +86,7 @@ describe("removeAccountById / removeAccount duplicate-name safety", () => {
 
 		const remaining = await dbOps
 			.getAdapter()
-			.query<{ id: string }>(
+			.queryMain<{ id: string }>(
 				"SELECT id FROM accounts WHERE name = ? ORDER BY id",
 				["alpha"],
 			);
@@ -113,7 +113,7 @@ describe("removeAccountById / removeAccount duplicate-name safety", () => {
 		// No row was deleted.
 		const stillThere = await dbOps
 			.getAdapter()
-			.query<{ id: string }>(
+			.queryMain<{ id: string }>(
 				"SELECT id FROM accounts WHERE name = ? ORDER BY id",
 				["shared"],
 			);
@@ -128,7 +128,7 @@ describe("removeAccountById / removeAccount duplicate-name safety", () => {
 
 		const remaining = await dbOps
 			.getAdapter()
-			.query<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
+			.queryMain<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
 				"unique",
 			]);
 		expect(remaining).toHaveLength(0);

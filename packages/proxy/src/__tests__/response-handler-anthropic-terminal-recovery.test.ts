@@ -7,9 +7,9 @@ import type { ProxyContext } from "../handlers";
 // through UsageCollector's getUsageCollector() fallback, which these tests
 // never initialize: every ProxyContext below passes hand-rolled dbOps: {} /
 // asyncWriter: {} fakes, and getUsageCollector itself is spied/replaced
-// per-test. So @better-ccflare/database's real
+// per-test. So @hov-router/database's real
 // exports are never touched here — do NOT add a
-// mock.module("@better-ccflare/database", ...) stub for
+// mock.module("@hov-router/database", ...) stub for
 // DatabaseOperations/AsyncDbWriter/DatabaseFactory: it isn't needed, and
 // mock.module replaces the WHOLE module globally with no per-file isolation
 // (no --isolate in this bun version) and is pre-evaluated for every test file

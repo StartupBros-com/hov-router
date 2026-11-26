@@ -7,9 +7,9 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@better-ccflare/config";
-import { CodexProvider, XaiProvider } from "@better-ccflare/providers";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@hov-router/config";
+import { CodexProvider, XaiProvider } from "@hov-router/providers";
+import type { Account, RequestMeta } from "@hov-router/types";
 import { AnthropicDegradedModeCoordinator } from "../../anthropic-degraded-mode";
 import { DegradedModeObservability } from "../../anthropic-degraded-observability";
 import { DegradedOwnerOverlay } from "../../degraded-owner-overlay";
@@ -59,7 +59,6 @@ function makeXaiAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -99,7 +98,6 @@ function makeCodexAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -146,7 +144,7 @@ function makeProxyContext(provider: XaiProvider | CodexProvider): ProxyContext {
 			updateAccountUsage: mock(() => Promise.resolve()),
 			getAdapter: mock(() => ({
 				run: mock(() => Promise.resolve()),
-				get: mock(() => Promise.resolve(null)),
+				getMain: mock(() => Promise.resolve(null)),
 			})),
 		} as never,
 		runtime: { port: 8080, clientId: "test" } as never,

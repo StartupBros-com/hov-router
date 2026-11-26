@@ -1,6 +1,6 @@
-import { getEndpointUrl } from "@better-ccflare/core";
-import type { OpenAIRequest } from "@better-ccflare/openai-formats";
-import type { Account } from "@better-ccflare/types";
+import { getEndpointUrl } from "@hov-router/core";
+import type { OpenAIRequest } from "@hov-router/openai-formats";
+import type { Account } from "@hov-router/types";
 import { OpenAICompatibleProvider } from "../providers/openai/provider";
 
 describe("OpenAICompatibleProvider Alibaba Features", () => {

@@ -163,7 +163,7 @@ export class ServerToolReplayIssuanceRepository extends BaseRepository<never> {
 		counterIdentity: string,
 	): Promise<ServerToolReplayIssuance | null> {
 		requireOpaqueText(counterIdentity, "counterIdentity", 512);
-		const row = await this.get<ReplayIssuanceRow>(
+		const row = await this.getMain<ReplayIssuanceRow>(
 			`SELECT ${REPLAY_ISSUANCE_COLUMNS}
 			 FROM server_tool_replay_issuance WHERE counter_identity = ?`,
 			[counterIdentity],

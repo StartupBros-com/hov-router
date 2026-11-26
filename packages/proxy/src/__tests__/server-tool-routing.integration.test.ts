@@ -11,7 +11,7 @@ import type {
 	Provider,
 	ProviderServerToolCapabilityContext,
 	ProviderServerToolCapabilityEndpointContract,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import type {
 	Account,
 	ComboFamily,
@@ -19,7 +19,7 @@ import type {
 	RequestMeta,
 	ServerToolCapabilityProof,
 	ServerToolCapabilityTuple,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import officialSearchStream from "../../../providers/src/providers/codex/__fixtures__/server-tools/official-search-stream.sanitized.json";
 import type { ProxyContext } from "../handlers";
 import {
@@ -28,9 +28,9 @@ import {
 } from "../model-route-profiles";
 
 // Focused proxy tests must not load ignored embedded worker artifacts.
-const { supportsForcedToolChoice } = await import("@better-ccflare/core");
+const { supportsForcedToolChoice } = await import("@hov-router/core");
 const { buildServerToolCapabilityProofKey, getProvider, usageCache } =
-	await import("@better-ccflare/providers");
+	await import("@hov-router/providers");
 const { selectAccountsForRequest } = await import(
 	"../handlers/account-selector"
 );
@@ -87,7 +87,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: "https://capability.invalid/v1/responses",
 		model_mappings: JSON.stringify({ sonnet: MODEL }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

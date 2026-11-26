@@ -427,7 +427,7 @@ BUNDLED_PRICING.deepseek = {
 };
 
 /**
- * Matches `@better-ccflare/logger`'s `Logger`, which server.ts passes in: a
+ * Matches `@hov-router/logger`'s `Logger`, which server.ts passes in: a
  * message printed verbatim plus at most one data value. It fills in no printf
  * placeholders and drops any further argument, so put values in the message.
  */

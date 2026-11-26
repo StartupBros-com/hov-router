@@ -19,18 +19,18 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import "@better-ccflare/core";
-import { AsyncDbWriter, DatabaseOperations } from "@better-ccflare/database";
+import "@hov-router/core";
+import { AsyncDbWriter, DatabaseOperations } from "@hov-router/database";
 import type { StartMessage } from "../worker-messages";
 
 // Isolate the pricing catalogue: these fixtures must never fetch models.dev.
-const actualCore = await import("@better-ccflare/core");
-mock.module("@better-ccflare/core", () => ({
+const actualCore = await import("@hov-router/core");
+mock.module("@hov-router/core", () => ({
 	...actualCore,
 	isModelPriced: async () => false,
 	estimateCostUSD: async () => 0,
 }));
-afterAll(() => mock.module("@better-ccflare/core", () => actualCore));
+afterAll(() => mock.module("@hov-router/core", () => actualCore));
 const { UsageCollector } = await import("../usage-collector");
 
 const ACCOUNT_ID = "acct-claude";
@@ -146,7 +146,7 @@ async function record(
 	if (!readLabel) return null;
 	const row = await db
 		.getAdapter()
-		.get<{ billing_type: string | null }>(
+		.getMain<{ billing_type: string | null }>(
 			"SELECT billing_type FROM requests WHERE id = ?",
 			[requestId],
 		);

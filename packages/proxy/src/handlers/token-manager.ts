@@ -8,16 +8,16 @@ import {
 	registerDisposable,
 	ServiceUnavailableError,
 	TokenRefreshError,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import {
 	type CodexResetConsumeRequest,
 	type CodexResetConsumeResult,
 	chatGptAccountHashOf,
 	getProvider,
 	type TokenRefreshResult,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import { TOKEN_REFRESH_BACKOFF_MS, TOKEN_SAFETY_WINDOW_MS } from "../constants";
 import { isBackendRetiring } from "./backend-retirement";
 import {

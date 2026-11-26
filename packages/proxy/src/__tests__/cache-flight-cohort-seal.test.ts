@@ -1,20 +1,20 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, it } from "bun:test";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import {
 	type CacheFlightCohortSealReceipt,
 	type CacheFlightKeepalivePolicySnapshot,
 	PARTITION_DIMENSION_ORDER as CORE_PARTITION_DIMENSION_ORDER,
 	SERVICE_DIMENSION_ORDER as CORE_SERVICE_DIMENSION_ORDER,
 	type TurnEvidence,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	BunSqlAdapter,
 	CacheFlightRecorderRepository,
 	ensureSchema,
 	runMigrations,
-} from "@better-ccflare/database";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/database";
+import type { Account } from "@hov-router/types";
 import {
 	COHORT_SEAL_CONTRACT_VERSION,
 	COHORT_SEAL_PROFILE_CONFIG_KEYS,
@@ -66,7 +66,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		peak_hours_pause_enabled: false,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -539,7 +538,7 @@ describe("CohortSealService", () => {
 // to build that receipt). These tests do not consolidate that duplication;
 // they exist to catch the two implementations silently drifting apart.
 
-describe("dimension order matches @better-ccflare/core's canonical order", () => {
+describe("dimension order matches @hov-router/core's canonical order", () => {
 	it("declares partition-unavailable dimensions in core's canonical PARTITION_DIMENSION_ORDER", () => {
 		// If this package's private PARTITION_DIMENSION_ORDER (in
 		// ../cache-flight-cohort-seal.ts) is ever reordered independently of

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import type { ApiKey } from "@better-ccflare/types/api-key";
+import type { DatabaseOperations } from "@hov-router/database";
+import type { ApiKey } from "@hov-router/types/api-key";
 import { AuthService } from "../auth-service";
 
 function makeDbOps(activeKeys: number): DatabaseOperations {

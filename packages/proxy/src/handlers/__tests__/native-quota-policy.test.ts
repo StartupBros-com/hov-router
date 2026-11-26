@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import type { UsageSnapshot } from "@better-ccflare/providers";
+import type { UsageSnapshot } from "@hov-router/providers";
 import type {
 	Account,
 	ComboRoutingPolicySnapshot,
 	EffectiveComboMember,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	createNativeQuotaContext,
 	evaluateNativeQuotaPolicy,
@@ -25,7 +25,6 @@ const account = (id: string, overrides: Partial<Account> = {}) =>
 		paused: false,
 		custom_endpoint: null,
 		model_mappings: null,
-		model_fallbacks: null,
 		...overrides,
 	}) as Account;
 const member = (id: string, model: string, tier = 0) =>

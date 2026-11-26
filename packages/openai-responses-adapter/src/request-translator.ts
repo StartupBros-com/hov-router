@@ -4,8 +4,8 @@ import {
 	LATEST_OPUS_MODEL,
 	LATEST_SONNET_MODEL,
 	supportsForcedToolChoice,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import { flattenToolHistory, parseBase64DataUrl } from "./inbound-compat";
 import type {
 	AnthropicContent,
@@ -267,6 +267,38 @@ function translateContentItem(c: {
 	}
 
 	return { ok: false, reason: `unknown content type "${c.type}"` };
+}
+
+// A tool output arrives as a string or as content parts. Parts are joined into
+// one string, which is the form every downstream path keeps: copied as parts,
+// an `input_text` part is not an Anthropic block, so the Codex provider and
+// flattenToolHistory both dropped it, the model never saw the result, and
+// Codex CLI's Lite tool loop called the same tool until it was killed (#324).
+// An image part keeps a placeholder, as translateContentItem does for a
+// file_id image; a part of an unknown type is named, never sent as-is.
+function translateToolOutput(output: unknown): string {
+	if (typeof output === "string") return output;
+	if (!Array.isArray(output)) return "";
+	const texts: string[] = [];
+	for (const part of output) {
+		if (part === null || typeof part !== "object" || Array.isArray(part)) {
+			continue;
+		}
+		const p = part as { type?: unknown; text?: unknown };
+		if (
+			(p.type === "input_text" || p.type === "output_text") &&
+			typeof p.text === "string"
+		) {
+			if (p.text !== "") texts.push(p.text);
+		} else if (p.type === "input_image") {
+			texts.push("[image content omitted]");
+		} else {
+			texts.push(
+				`[${typeof p.type === "string" ? p.type : "unknown"} content omitted]`,
+			);
+		}
+	}
+	return texts.join("\n");
 }
 
 function translateInstructionContent(
@@ -553,7 +585,7 @@ export function translateRequestToAnthropic(
 					{
 						type: "tool_result",
 						tool_use_id: mapToolId(toolUseId),
-						content: item.output,
+						content: translateToolOutput(item.output),
 					},
 				],
 			});

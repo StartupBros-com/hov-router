@@ -8,14 +8,14 @@ component: frontend
 severity: medium
 applies_when:
   - Adding a status, limit, hold, notice or control to the collapsed Accounts row
-  - Changing what the Accounts header counts as a routing notice or a limit
+  - Changing what the Accounts header counts as needing attention
   - Writing row heights or other layout measurements into a dashboard PR description
 root_cause: incorrect_assumption
 resolution_type: code_fix
 related_components:
   - account status classifier
   - combo routing states
-  - Accounts header filters
+  - Accounts attention summary
 tags:
   - dashboard
   - accounts-page
@@ -24,6 +24,7 @@ tags:
   - say-once
   - row-height
   - layout-measurement
+  - tap-targets
 ---
 
 # The collapsed Accounts row says each fact once
@@ -66,7 +67,7 @@ Before adding anything to the row, ask these in order and stop at the first yes:
 Two signs that a fact has two homes:
 
 - **A rule that hides one line when another is present.** #887's "drop the at-limit line when a plain notice exists" needed three exceptions, and #897 replaced it within hours. Remove one home instead of adding a suppression rule.
-- **A header count that a line exists to satisfy.** `accountAttentionReason` in `account-list-view.ts` counts a row as "routing" when `routingNeedsReview` holds, and as "limited" when any family's availability is neither available nor paused. When a line moves or goes, change its count in the same PR, so no count points at a line the row no longer shows. #887 kept the notices only because the count pointed at them.
+- **A header count that a line exists to satisfy.** `accountAttentionReason` in `account-list-view.ts` counts only what the operator must do: "reconnect" (the Reconnect required pill), "refused" (the Anthropic refused pill and its hint), "payment" (the Payment required pill and its hint, for an `upstream_402_payment_required` bench) and "routing" (`routingNeedsReview`, the notice line). A limit, cooldown, pacing or delayed usage poll clears on its own and is not counted; the pill, bars and at-limit line already show it. A 402 bench is timed like a cooldown, but each retry fails until billing or credits are fixed, so #1025 gave it its own pill first and then counted it. The expiry sweep lifts that bench after about a minute but keeps the reason and `rate_limited_at`, so the pill stays until a request served more than 5 minutes after the 402 clears `rate_limited_at`, Clear cooldown clears both, or a later bench replaces the reason; a live-only check would read Ready again within a minute, the #941 shape. When a line moves or goes, change its count in the same PR, so no count points at a line the row no longer shows. #887 kept the notices only because the count pointed at them.
 
 ## Why This Matters
 
@@ -76,10 +77,20 @@ Suppression rules between two homes multiply, and each needs its own tests. A fa
 
 Not yet seen live as of PR #897: a Ready row's "at limit" family names (no live Ready row had a spent family), and the bordered Clear cooldown button (issue #890 stays open until a cooldown row shows it).
 
+### How a remedy button looks
+
+A remedy on the row uses one of the button component's own sizes (`button.tsx`), never a one-off height. Re-authenticate is the default `touch-sm` button (44px). Clear cooldown is the outline `sm` button (32px), placed after the retry time. Each has a 44px tap area. Clear cooldown's comes from an `::after` overlay that reaches 6px past each edge of the box.
+
+32px is the smallest box for which that 6px reach fits inside the status column's 6px line gap. So when Re-authenticate sits right above the retry line, the two tap areas meet without overlapping, and no row needs an extra margin or a stacking order. Until 2026-11-25, Clear cooldown was a 20px outline box. It read as a text field, and it needed both: a top margin on rows with Re-authenticate, plus `z-10` and `z-20` to settle the overlap.
+
+A filled grey (`secondary`) button is not an option: on this dashboard that look is a `Badge`, so it would read as a label.
+
+The 32px box makes a row that shows Clear cooldown taller than the 20px box did, by 0 to 12px depending on the row and width (synthetic page, 1440 to 320px). Rows without the button do not change. The operator's 2026-11-18 amendment to #890 allows a cooling row to be taller than its twin by its retry line.
+
 ## When to Apply
 
 - Adding any status, limit, hold, notice or control to the collapsed row in `AccountListItem.tsx`, including the priority editing that #898 proposes.
-- Changing the header filters or their counts in `account-list-view.ts`.
+- Changing the attention summary, its count or the list's search and sort in `account-list-view.ts`.
 - Adding a routing reason or availability value in `account-routing.ts`: decide whether it is a Combos decision (a notice) or a limit (the at-limit line) before rendering it.
 
 ## Examples
@@ -121,12 +132,13 @@ Before writing a height or a position into a PR description:
 - Render main and the branch from the same synthetic data. The repo has no fixture page for this. The synthetic pages behind #896 and #897 were made-up accounts served by scratch scripts kept outside the repo, so production data never reached a PR.
 - Measure each row shape at every width the claim covers: at least 1440, 1280, 1024, 768, 390 and 320 px, plus a sweep across the widths where the layout changes its columns.
 - Write the per-width numbers, each labelled synthetic or live, rather than a range. "Same height from 720px up" covered widths nobody had measured.
+- To claim two tap areas do not overlap, hit-test the page. Call `document.elementFromPoint` across each control's whole 44px area and check that every point lands on that control. Then rerun with one overlay made too tall: that run must report misses, or the test cannot fail. Two traps report misses that are not real. A point below the viewport returns null, so use a viewport taller than the list. And a point on the box's outermost pixel can land on the parent, so sample from 3px inside the edges.
 
 A related rule for production rates is [Verify fix ancestry before writing a measured production rate into permanent rationale](../workflow-issues/verify-fix-ancestry-before-citing-a-measured-rate.md).
 
 ## Related
 
 - PRs #879, #883, #887, #892, #896 and #897.
-- Issue #890: Accounts row actions, open as of this writing until a cooldown row is seen live with the bordered Clear cooldown button.
+- Issue #890: Accounts row actions, closed 2026-11-18 with the operator's amendment that a cooling row may be taller than its twin by its retry line.
 - Issue #898: drag rows to set routing priority, open and not started.
 - `docs/combos.md` defines the Combos routing reasons that the notice line reports.

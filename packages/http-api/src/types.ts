@@ -4,8 +4,6 @@ export type {
 	AccountResponse,
 	AnalyticsResponse,
 	APIContext,
-	CacheInsightsResponse,
-	CacheInsightsRow,
 	CleanupResponse,
 	ConfigResponse,
 	FullDiskStatus,
@@ -22,4 +20,4 @@ export type {
 	StrategyUpdateRequest,
 	TimePoint,
 	TokenBreakdown,
-} from "@better-ccflare/types";
+} from "@hov-router/types";

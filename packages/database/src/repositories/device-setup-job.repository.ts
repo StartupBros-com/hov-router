@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ComboFamily } from "@better-ccflare/types";
+import type { ComboFamily } from "@hov-router/types";
 import { BaseRepository } from "./base.repository";
 
 export const DEVICE_SETUP_JOB_STATUSES = [
@@ -456,7 +456,7 @@ export class DeviceSetupJobRepository extends BaseRepository<DeviceSetupJob> {
 	}
 
 	async findById(id: string): Promise<DeviceSetupJob | null> {
-		const row = await this.get<DeviceSetupJobRow>(
+		const row = await this.getMain<DeviceSetupJobRow>(
 			`SELECT ${JOB_COLUMNS} FROM device_setup_jobs WHERE id = ?`,
 			[id],
 		);
@@ -466,7 +466,7 @@ export class DeviceSetupJobRepository extends BaseRepository<DeviceSetupJob> {
 	async findByIdempotencyKey(
 		idempotencyKey: string,
 	): Promise<DeviceSetupJob | null> {
-		const row = await this.get<DeviceSetupJobRow>(
+		const row = await this.getMain<DeviceSetupJobRow>(
 			`SELECT ${JOB_COLUMNS}
 			 FROM device_setup_jobs WHERE idempotency_key = ?`,
 			[idempotencyKey],
@@ -479,7 +479,7 @@ export class DeviceSetupJobRepository extends BaseRepository<DeviceSetupJob> {
 		if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_000) {
 			throw new TypeError("limit must be an integer between 1 and 1000");
 		}
-		const rows = await this.query<DeviceSetupJobRow>(
+		const rows = await this.queryMain<DeviceSetupJobRow>(
 			`SELECT ${JOB_COLUMNS}
 			 FROM device_setup_jobs
 			 WHERE status IN ${CLAIMABLE_STATUS_SQL}
@@ -499,7 +499,7 @@ export class DeviceSetupJobRepository extends BaseRepository<DeviceSetupJob> {
 		if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_000) {
 			throw new TypeError("limit must be an integer between 1 and 1000");
 		}
-		const rows = await this.query<DeviceSetupJobRow>(
+		const rows = await this.queryMain<DeviceSetupJobRow>(
 			`SELECT ${JOB_COLUMNS}
 			 FROM device_setup_jobs
 			 WHERE status IN ${CLAIMABLE_STATUS_SQL}

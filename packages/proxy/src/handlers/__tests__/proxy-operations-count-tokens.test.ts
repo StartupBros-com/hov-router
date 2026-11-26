@@ -7,9 +7,9 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import { CODEX_LOGICAL_MODEL_FAMILY_HEADER } from "@better-ccflare/http-common";
-import { logBus } from "@better-ccflare/logger";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import { CODEX_LOGICAL_MODEL_FAMILY_HEADER } from "@hov-router/http-common";
+import { logBus } from "@hov-router/logger";
+import type { Account, RequestMeta } from "@hov-router/types";
 import {
 	isBoundedModelRouteProfile,
 	parseModelRouteProfiles,
@@ -23,7 +23,7 @@ const {
 	getProvider,
 	setCodexAccountModelContextMetadata,
 	clearCodexAccountModelContextMetadata,
-} = await import("@better-ccflare/providers");
+} = await import("@hov-router/providers");
 const usageCollectorModule = await import("../../usage-collector");
 const {
 	admitBoundedModelRouteProfileRequest,
@@ -66,7 +66,6 @@ function makeCodexAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -98,7 +97,7 @@ function makeProxyContext(
 			updateAccountUsage: mock(() => Promise.resolve()),
 			getAdapter: mock(() => ({
 				run: mock(() => Promise.resolve()),
-				get: mock(() => Promise.resolve(null)),
+				getMain: mock(() => Promise.resolve(null)),
 			})),
 		} as never,
 		runtime: { port: 8080, clientId: "test" } as never,

@@ -9,9 +9,9 @@ import { describe, expect, it, spyOn } from "bun:test";
 import {
 	MAX_OAUTH_ERROR_INPUT_LENGTH,
 	OAuthRefreshTokenError,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
+import type { Account } from "@hov-router/types";
 import { AnthropicProvider } from "../provider";
 
 function mockFetchOnce(response: {
@@ -69,7 +69,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

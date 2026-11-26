@@ -19,9 +19,9 @@ import {
 	AsyncDbWriter,
 	DatabaseFactory,
 	type DatabaseOperations,
-} from "@better-ccflare/database";
-import { SessionAffinityStrategy } from "@better-ccflare/load-balancer";
-import type { RequestMeta, RequestResponse } from "@better-ccflare/types";
+} from "@hov-router/database";
+import { SessionAffinityStrategy } from "@hov-router/load-balancer";
+import type { RequestMeta, RequestResponse } from "@hov-router/types";
 import { RoutingAttemptLedger } from "../handlers/routing-attempt-ledger";
 import { getRequestLifecycleCoordinator } from "../routing-terminal-recorder";
 import { UsageCollector } from "../usage-collector";
@@ -144,7 +144,7 @@ describe("UsageCollector - stream terminal state in the live summary", () => {
 		await collector.drain();
 		const row = await dbOps
 			.getAdapter()
-			.get<{ routing_attempt_summary: string }>(
+			.getMain<{ routing_attempt_summary: string }>(
 				"SELECT routing_attempt_summary FROM requests WHERE id = ?",
 				[requestId],
 			);
@@ -258,7 +258,7 @@ describe("UsageCollector - stream terminal state in the live summary", () => {
 		await collector.drain();
 		const row = await dbOps
 			.getAdapter()
-			.get<{ routing_attempt_summary: string }>(
+			.getMain<{ routing_attempt_summary: string }>(
 				"SELECT routing_attempt_summary FROM requests WHERE id=?",
 				[requestId],
 			);

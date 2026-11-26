@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { setForceAccountModel } from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+import { setForceAccountModel } from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import { getModelName } from "./model-mapping";
 
 // getModelName is a sibling of core's mapModelName, reached only by the
@@ -36,7 +36,6 @@ function makeAccount(): Account {
 		custom_endpoint: null,
 		model_mappings: JSON.stringify({ opus: "gemini-2.5-pro" }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 	};
 }
 

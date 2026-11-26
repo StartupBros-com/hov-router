@@ -1,9 +1,9 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-// Force @better-ccflare/core to initialise before @better-ccflare/types resolves its
+// Force @hov-router/core to initialise before @hov-router/types resolves its
 // circular dependency (types/agent.ts → core → core/strategy.ts → types/StrategyName).
 // Without this the enum is undefined when strategy.ts runs. Same pattern as stats-session-cost.test.ts.
-import "@better-ccflare/core";
+import "@hov-router/core";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { AccountRepository } from "../account.repository";
 
@@ -41,7 +41,6 @@ function makeDb(): { db: Database; repo: AccountRepository } {
 			custom_endpoint TEXT,
 			model_mappings TEXT,
 			cross_region_mode TEXT,
-			model_fallbacks TEXT,
 			billing_type TEXT,
 			pause_reason TEXT,
 			consecutive_rate_limits INTEGER DEFAULT 0
@@ -106,20 +105,6 @@ describe("AccountRepository — setRateLimited with reason audit (issue #178)", 
 
 			const row = getAudit(db, "acc-2");
 			expect(row.rate_limited_reason).toBe("upstream_429_with_reset");
-		});
-
-		it("stores rate_limited_reason when reason='upstream_429_no_reset_default_5h'", async () => {
-			insertAccount(db, "acc-3");
-			const until = Date.now() + 5 * 60 * 60 * 1000;
-
-			await repo.setRateLimited(
-				"acc-3",
-				until,
-				"upstream_429_no_reset_default_5h",
-			);
-
-			const row = getAudit(db, "acc-3");
-			expect(row.rate_limited_reason).toBe("upstream_429_no_reset_default_5h");
 		});
 
 		it("stores rate_limited_reason when reason='model_fallback_429'", async () => {

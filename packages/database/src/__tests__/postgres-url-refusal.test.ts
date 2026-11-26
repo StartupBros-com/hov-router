@@ -91,7 +91,9 @@ describe("PostgreSQL DATABASE_URL refusal", () => {
 			const ops = new DatabaseOperations(dbPath);
 			try {
 				expect(existsSync(dbPath)).toBe(true);
-				expect(ops.getDatabase().query("SELECT 1 AS one").get()).toEqual({
+				expect(
+					ops.getAdapter().getSQLiteDb().query("SELECT 1 AS one").get(),
+				).toEqual({
 					one: 1,
 				});
 			} finally {
@@ -131,9 +133,7 @@ describe("PostgreSQL DATABASE_URL refusal", () => {
 		return configHome;
 	}
 
-	// Declared before the control below: the factory checks for a legacy copy
-	// once per process, and this case must reach that check.
-	it("the factory refuses before copying a legacy ccflare.db", () => {
+	it("the factory refuses before opening SQLite even with an old ccflare.db present", () => {
 		if (process.platform === "win32") return;
 		const configHome = seedLegacyCcflareDb();
 		setDatabaseUrl(POSTGRES_URLS[0]);
@@ -145,13 +145,20 @@ describe("PostgreSQL DATABASE_URL refusal", () => {
 		expect(dbFilesUnder(configHome)).toEqual([]);
 	});
 
-	it("control: without the URL the same seed is copied, so the case above reaches the copy", () => {
+	it("without the URL the factory creates a fresh database and ignores the old ccflare.db", () => {
 		if (process.platform === "win32") return;
 		const configHome = seedLegacyCcflareDb();
 		setDatabaseUrl(undefined);
 
 		DatabaseFactory.initialize();
-		DatabaseFactory.getInstance();
+		const ops = DatabaseFactory.getInstance();
+		expect(
+			ops
+				.getAdapter()
+				.getSQLiteDb()
+				.query("SELECT name FROM sqlite_master WHERE name = 'legacy_marker'")
+				.all(),
+		).toEqual([]);
 		expect(dbFilesUnder(configHome)).toContain(
 			join("better-ccflare", "better-ccflare.db"),
 		);

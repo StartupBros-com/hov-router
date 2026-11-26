@@ -1,7 +1,4 @@
-import {
-	formatEventTime,
-	formatEventTimeFull,
-} from "@better-ccflare/ui-common";
+import { formatEventTime, formatEventTimeFull } from "@hov-router/ui-common";
 
 /**
  * When an event happened: "1:42:05 PM", or "Nov 14, 1:42:05 PM" when it was not

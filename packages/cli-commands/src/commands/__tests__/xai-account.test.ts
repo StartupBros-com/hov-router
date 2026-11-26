@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Config } from "@better-ccflare/config";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { DatabaseFactory } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import type { DatabaseOperations } from "@hov-router/database";
+import { DatabaseFactory } from "@hov-router/database";
 import type { PromptAdapter } from "../../prompts";
 import { addAccount, reauthenticateAccount } from "../account";
 
@@ -75,7 +75,8 @@ describe("CLI xAI account import", () => {
 		const after = Date.now();
 
 		const account = dbOps
-			.getDatabase()
+			.getAdapter()
+			.getSQLiteDb()
 			.query<
 				{ access_token: string; refresh_token: string; expires_at: number },
 				[string]
@@ -125,7 +126,8 @@ describe("CLI xAI account import", () => {
 
 		expect(result.success).toBe(true);
 		const account = dbOps
-			.getDatabase()
+			.getAdapter()
+			.getSQLiteDb()
 			.query<
 				{
 					access_token: string;
@@ -188,7 +190,8 @@ describe("CLI xAI account import", () => {
 		expect(result.success).toBe(true);
 
 		const account = dbOps
-			.getDatabase()
+			.getAdapter()
+			.getSQLiteDb()
 			.query<{ paused: number; pause_reason: string | null }, [string]>(
 				"SELECT paused, pause_reason FROM accounts WHERE name = ?",
 			)

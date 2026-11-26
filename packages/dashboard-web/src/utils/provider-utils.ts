@@ -6,7 +6,7 @@ import {
 	isKnownProvider,
 	PROVIDER_NAMES,
 	supportsUsageTracking,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 export function providerPlanTitle(provider: string): string {
 	switch (provider) {

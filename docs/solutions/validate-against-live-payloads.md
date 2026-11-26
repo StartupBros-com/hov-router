@@ -15,7 +15,7 @@ Anthropic does not send. Pull a real payload before trusting a fixture:
 curl -s localhost:8789/api/accounts | python3 -m json.tool | less
 ```
 
-Read-only, no upstream traffic, no scripted requests to Anthropic accounts (see AGENTS.md).
+This query is read-only and sends no upstream traffic. For a separate live route check, see [request verification](../agent-setup.md#5-connect-claude-code-and-prove-the-route).
 
 ## The two things fixtures got wrong
 

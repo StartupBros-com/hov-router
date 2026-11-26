@@ -1,4 +1,4 @@
-import "@better-ccflare/core";
+import "@hov-router/core";
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
@@ -52,7 +52,6 @@ describe("AccountRepository requires_reauth", () => {
 				custom_endpoint TEXT,
 				model_mappings TEXT,
 				cross_region_mode TEXT,
-				model_fallbacks TEXT,
 				billing_type TEXT,
 				pause_reason TEXT,
 				refresh_token_issued_at INTEGER,

@@ -19,14 +19,14 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { EventEmitter } from "node:events";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import {
 	CLAUDE_MODEL_IDS,
 	LATEST_MODEL_BY_FAMILY,
 	requestEvents,
-} from "@better-ccflare/core";
-import { BunSqlAdapter, ensureSchema } from "@better-ccflare/database";
-import type { AlertEvent, RequestResponse } from "@better-ccflare/types";
+} from "@hov-router/core";
+import { BunSqlAdapter, ensureSchema } from "@hov-router/database";
+import type { AlertEvent, RequestResponse } from "@hov-router/types";
 import { AlertService } from "../alerts";
 
 function makeConfig(
@@ -43,10 +43,14 @@ function makeConfig(
 		getAlertTokensPerHour: () => 0,
 		getAlertRequestTokens: () => 0,
 		getAlertUsageWindowThresholdPercent: () => 0,
-		getAlertAnomalyEnabled: () => false,
-		getAlertAnomalyIntervalMinutes: () => 15,
-		getAlertAnomalyBaselineWindowMinutes: () => 1440,
-		getAlertAnomalyLoopMinRequests: () => 10,
+		getAlertCacheHealthEnabled: () => false,
+		getAlertCacheHealthThresholdPercent: () => 80,
+		getAlertCacheHealthDurationMinutes: () => 15,
+		getAlertCacheHealthMinRequests: () => 5,
+		getAlertCacheHealthMinInputTokens: () => 10000,
+		getAlertCacheHealthReminderMinutes: () => 60,
+		getMemberNoticeWebhookUrl: () => "",
+		getMemberNoticeSigningSecret: () => "",
 		getAlertCooldownMinutes: () => overrides.cooldownMinutes ?? 60,
 		getAlertWebhookUrl: () => "",
 		get: (

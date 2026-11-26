@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import {
 	MAX_OAUTH_ERROR_INPUT_LENGTH,
 	OAuthRefreshTokenError,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import { XAI_CACHE_NATIVE_ENV, XAI_CONV_ID_HEADER } from "./cache-native";
 import {
 	XAI_DEFAULT_ENDPOINT,
@@ -41,7 +41,6 @@ const account = (overrides: Partial<Account> = {}): Account => ({
 	custom_endpoint: null,
 	model_mappings: null,
 	cross_region_mode: null,
-	model_fallbacks: null,
 	billing_type: null,
 	pause_reason: null,
 	refresh_token_issued_at: null,

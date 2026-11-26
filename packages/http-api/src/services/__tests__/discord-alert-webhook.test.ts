@@ -19,11 +19,11 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { EventEmitter } from "node:events";
-import type { Config } from "@better-ccflare/config";
-import { alertEvents, authFailureEvents } from "@better-ccflare/core";
-import { BunSqlAdapter, ensureSchema } from "@better-ccflare/database";
-import { logBus } from "@better-ccflare/logger";
-import type { AlertEvent, AlertType, LogEvent } from "@better-ccflare/types";
+import type { Config } from "@hov-router/config";
+import { alertEvents, authFailureEvents } from "@hov-router/core";
+import { BunSqlAdapter, ensureSchema } from "@hov-router/database";
+import { logBus } from "@hov-router/logger";
+import type { AlertEvent, AlertType, LogEvent } from "@hov-router/types";
 import {
 	AlertService,
 	buildDiscordAlertContent,
@@ -487,10 +487,14 @@ describe("AlertService webhook wiring (end-to-end)", () => {
 			getAlertTokensPerHour: () => 0,
 			getAlertRequestTokens: () => 0,
 			getAlertUsageWindowThresholdPercent: () => 0,
-			getAlertAnomalyEnabled: () => false,
-			getAlertAnomalyIntervalMinutes: () => 15,
-			getAlertAnomalyBaselineWindowMinutes: () => 1440,
-			getAlertAnomalyLoopMinRequests: () => 25,
+			getAlertCacheHealthEnabled: () => false,
+			getAlertCacheHealthThresholdPercent: () => 80,
+			getAlertCacheHealthDurationMinutes: () => 15,
+			getAlertCacheHealthMinRequests: () => 5,
+			getAlertCacheHealthMinInputTokens: () => 10000,
+			getAlertCacheHealthReminderMinutes: () => 60,
+			getMemberNoticeWebhookUrl: () => "",
+			getMemberNoticeSigningSecret: () => "",
 			getAlertCooldownMinutes: () => 60,
 			getAlertWebhookUrl: () =>
 				overrides.webhookUrl ?? "https://discord.com/api/webhooks/1/tok",

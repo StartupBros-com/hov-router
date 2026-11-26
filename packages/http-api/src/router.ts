@@ -1,15 +1,15 @@
-import { validateNumber } from "@better-ccflare/core";
+import { validateNumber } from "@hov-router/core";
 import {
 	BadRequest,
 	NotFound,
 	ServiceUnavailable,
 	Unauthorized,
-} from "@better-ccflare/errors";
+} from "@hov-router/errors";
 import {
 	getCachePacingRouteStats,
 	getCachePacingStats,
 	readCachePacingMs,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import { createAccountPublicValueHandler } from "./handlers/account-public-value";
 import {
 	createAccountAddHandler,
@@ -71,6 +71,7 @@ import {
 	createApiKeyUpdateRoleHandler,
 } from "./handlers/api-keys";
 import { createBankedResetsSummaryHandler } from "./handlers/banked-resets";
+import { createCacheParityHandler } from "./handlers/cache-parity";
 import {
 	createCodexModelMigrationApplyHandler,
 	createCodexModelMigrationPreviewHandler,
@@ -103,12 +104,6 @@ import {
 	createRssHandler,
 } from "./handlers/debug";
 import { createHealthHandler } from "./handlers/health";
-import {
-	createAnomalyInsightsHandler,
-	createCacheInsightsHandler,
-	createCacheParityHandler,
-	createContextInsightsHandler,
-} from "./handlers/insights";
 import { createLogsStreamHandler } from "./handlers/logs";
 import { createLogsHistoryHandler } from "./handlers/logs-history";
 import { createCleanupHandler } from "./handlers/maintenance";
@@ -291,10 +286,7 @@ export class APIRouter {
 		const publicSubscriptionValueHandler = createPublicSubscriptionValueHandler(
 			this.context,
 		);
-		const cacheInsightsHandler = createCacheInsightsHandler(this.context);
 		const cacheParityHandler = createCacheParityHandler(this.context);
-		const anomalyInsightsHandler = createAnomalyInsightsHandler(this.context);
-		const contextInsightsHandler = createContextInsightsHandler(this.context);
 		const alertsHistoryHandler = createAlertsHistoryHandler(this.context);
 		const alertsConfigGetHandler = createAlertsConfigGetHandler(this.context);
 		const alertsConfigSetHandler = createAlertsConfigSetHandler(this.context);
@@ -380,11 +372,6 @@ export class APIRouter {
 		);
 		this.handlers.set("POST:/api/accounts/anthropic-compatible", (req) =>
 			anthropicCompatibleAccountAddHandler(req),
-		);
-		// Keep the legacy route as an ingress alias only; both paths persist the
-		// canonical `meta` provider identity through the same handler.
-		this.handlers.set("POST:/api/accounts/muse-spark", (req) =>
-			metaAccountAddHandler(req),
 		);
 		this.handlers.set("POST:/api/accounts/ollama", (req) =>
 			ollamaAccountAddHandler(req),
@@ -561,32 +548,19 @@ export class APIRouter {
 		this.handlers.set("GET:/api/public/subscription-value", () =>
 			publicSubscriptionValueHandler(),
 		);
-		this.handlers.set("GET:/api/insights/cache", (_req, url) =>
-			cacheInsightsHandler(url.searchParams),
-		);
-		this.handlers.set("GET:/api/insights/cache-parity", () =>
-			cacheParityHandler(),
-		);
-		this.handlers.set("GET:/api/insights/anomalies", (_req, url) =>
-			anomalyInsightsHandler(url.searchParams),
-		);
-		this.handlers.set("GET:/api/insights/context", (_req, url) =>
-			contextInsightsHandler(url.searchParams),
-		);
+		// The cache-parity and alert routes lived under /api/insights until
+		// 7.0.0; the old paths answer 410 (removed-endpoints.ts).
+		this.handlers.set("GET:/api/cache-parity", () => cacheParityHandler());
 		// Alert routes
-		this.handlers.set("GET:/api/insights/alerts", (_req, url) =>
+		this.handlers.set("GET:/api/alerts", (_req, url) =>
 			alertsHistoryHandler(url.searchParams),
 		);
-		this.handlers.set("POST:/api/insights/alerts", (req) =>
-			alertsConfigSetHandler(req),
-		);
-		this.handlers.set("GET:/api/insights/alerts/config", () =>
-			alertsConfigGetHandler(),
-		);
-		this.handlers.set("POST:/api/insights/alerts/acknowledge-all", () =>
+		this.handlers.set("POST:/api/alerts", (req) => alertsConfigSetHandler(req));
+		this.handlers.set("GET:/api/alerts/config", () => alertsConfigGetHandler());
+		this.handlers.set("POST:/api/alerts/acknowledge-all", () =>
 			alertsAckAllHandler(),
 		);
-		this.handlers.set("GET:/api/insights/alerts/stream", (req) =>
+		this.handlers.set("GET:/api/alerts/stream", (req) =>
 			alertsStreamHandler(req),
 		);
 		this.handlers.set("GET:/api/agents", () => agentsHandler());
@@ -605,8 +579,6 @@ export class APIRouter {
 		this.handlers.set("GET:/api/debug/cache-pacing", () =>
 			Response.json({
 				pacing_ms: readCachePacingMs(),
-				// The Codex settle window was removed; kept at 0 for one release.
-				codex_settle_ms: 0,
 				families: getCachePacingStats(),
 				routes: getCachePacingRouteStats(),
 			}),
@@ -744,7 +716,7 @@ export class APIRouter {
 			method === "POST" &&
 			(path === "/api/logs/stream/token" ||
 				path === "/api/requests/stream/token" ||
-				path === "/api/insights/alerts/stream/token")
+				path === "/api/alerts/stream/token")
 		) {
 			return await this.wrapHandler(() => {
 				const token = this.authService.mintStreamToken(
@@ -1160,11 +1132,12 @@ export class APIRouter {
 
 		// Alert acknowledge by ID (guard against the static acknowledge-all path)
 		if (
-			path.startsWith("/api/insights/alerts/") &&
+			path.startsWith("/api/alerts/") &&
 			method === "POST" &&
 			!path.endsWith("/acknowledge-all")
 		) {
-			const alertId = decodeURIComponent(path.split("/")[4] ?? "");
+			// ["", "api", "alerts", "<id>"]
+			const alertId = decodeURIComponent(path.split("/")[3] ?? "");
 			if (alertId) {
 				const alertAckHandler = createAlertAcknowledgeHandler(this.context);
 				return await this.wrapHandler(() => alertAckHandler(alertId))(req, url);

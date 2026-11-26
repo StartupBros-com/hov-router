@@ -1,5 +1,5 @@
-import { Logger } from "@better-ccflare/logger";
-import type { ProjectAttributionSource } from "@better-ccflare/types";
+import { Logger } from "@hov-router/logger";
+import type { ProjectAttributionSource } from "@hov-router/types";
 import type { RequestJsonBody } from "./request-body-context";
 
 const log = new Logger("ProjectAttribution");
@@ -334,7 +334,7 @@ function isHeadingProjectAttributionEnabled(): boolean {
  * `Record<string, string>` header map.
  *
  * Precedence:
- *  1. `x-better-ccflare-project` header, then legacy `x-project` header.
+ *  1. `x-better-ccflare-project` header.
  *  2. Workspace path embedded in the system prompt.
  *  3. First eligible non-Claude, low-risk-slug H1 heading in the system
  *     prompt — only when `CCFLARE_ENABLE_HEADING_PROJECT_ATTRIBUTION` is set
@@ -357,17 +357,6 @@ export function extractProjectAttribution(
 		if (namespacedHeader) {
 			return {
 				project: namespacedHeader,
-				projectAttributionSource: "header_project",
-			};
-		}
-	}
-
-	const rawLegacy = getHeader("x-project");
-	if (rawLegacy && isLowRiskProjectSlug(rawLegacy)) {
-		const legacyHeader = sanitizeProjectName(rawLegacy);
-		if (legacyHeader) {
-			return {
-				project: legacyHeader,
 				projectAttributionSource: "header_project",
 			};
 		}

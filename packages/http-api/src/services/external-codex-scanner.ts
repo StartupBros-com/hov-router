@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
-import type { ExternalCodexCloudRoot } from "@better-ccflare/config";
+import type { ExternalCodexCloudRoot } from "@hov-router/config";
 import type {
 	ExternalUsageAffected,
 	ExternalUsageEvent,
 	ExternalUsageRepository,
 	ExternalUsageSource,
-} from "@better-ccflare/database";
-import { Logger } from "@better-ccflare/logger";
-import { MODEL_ROUTE_PROFILE_MODEL_PREFIX } from "@better-ccflare/proxy";
+} from "@hov-router/database";
+import { Logger } from "@hov-router/logger";
+import { MODEL_ROUTE_PROFILE_MODEL_PREFIX } from "@hov-router/proxy";
 import { discoverCodexFiles, streamCodexLines } from "./external-codex-files";
 import {
 	type ParsedCodexSession,

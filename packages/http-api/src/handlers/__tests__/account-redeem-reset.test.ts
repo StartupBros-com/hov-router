@@ -1,22 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
 import {
 	consumeCodexResetCredit,
 	hashChatGptAccountId,
 	usageCache,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import {
 	codexTokenNamesAccount,
 	registerCodexResetRedeemer,
 	registerCodexUsageRefresher,
 	unregisterCodexResetRedeemer,
 	unregisterCodexUsageRefresher,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import type {
 	RedeemResetErrorBody,
 	RedeemResetResponse,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { APIRouter } from "../../router";
 import type { APIContext } from "../../types";
 
@@ -132,7 +132,7 @@ async function coolDown(id: string, observedAt: number, until: number) {
 async function cooldownUntil(id: string): Promise<number | null> {
 	const row = await dbOps
 		.getAdapter()
-		.get<{ rate_limited_until: number | null }>(
+		.getMain<{ rate_limited_until: number | null }>(
 			`SELECT rate_limited_until FROM accounts WHERE id = ?`,
 			[id],
 		);

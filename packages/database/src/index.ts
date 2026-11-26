@@ -1,7 +1,7 @@
 // Re-export the DatabaseOperations class
 import { DatabaseOperations } from "./database-operations";
 
-export type { RuntimeConfig } from "@better-ccflare/config";
+export type { RuntimeConfig } from "@hov-router/config";
 export { BunSqlAdapter } from "./adapters/bun-sql-adapter";
 // Re-export other utilities
 export { AsyncDbWriter } from "./async-writer";
@@ -13,7 +13,6 @@ export type {
 export { DatabaseFactory } from "./factory";
 export type { IntegrityCheckKind } from "./integrity-check-runner";
 export { runIntegrityCheckInWorker } from "./integrity-check-runner";
-export { migrateFromCcflare } from "./migrate-from-ccflare";
 export { ensureSchema, runMigrations } from "./migrations";
 export type {
 	HeartbeatRecord,
@@ -37,7 +36,7 @@ export {
 	startHeartbeatLoop,
 	writeHeartbeat,
 } from "./multi-instance-guard";
-export { getLegacyDbPath, resolveDbPath } from "./paths";
+export { resolveDbPath } from "./paths";
 // Public encryption API — only init/status helpers are exported.
 // `encryptPayload`/`decryptPayload` are internal to the database package.
 export {

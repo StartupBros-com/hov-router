@@ -1,8 +1,5 @@
-import {
-	getAllowedModelsMessage,
-	isValidClaudeModel,
-} from "@better-ccflare/core";
-import type { APIContext } from "@better-ccflare/types";
+import { getAllowedModelsMessage, isValidClaudeModel } from "@hov-router/core";
+import type { APIContext } from "@hov-router/types";
 
 /**
  * Shared model acceptance check for all agent/config model write endpoints.

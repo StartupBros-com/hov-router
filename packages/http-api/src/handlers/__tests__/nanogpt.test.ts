@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { DatabaseFactory } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
+import { DatabaseFactory } from "@hov-router/database";
 import { createNanoGPTAccountAddHandler } from "../accounts";
 
 // Test database path
@@ -85,7 +85,7 @@ describe("NanoGPT Handler", () => {
 			expect(data.account.provider).toBe("nanogpt");
 
 			// Verify the account was stored with custom endpoint
-			const db = dbOps.getDatabase();
+			const db = dbOps.getAdapter().getSQLiteDb();
 			const storedAccount = db
 				.query<{ custom_endpoint: string }, [string]>(
 					"SELECT custom_endpoint FROM accounts WHERE name = ?",
@@ -122,7 +122,7 @@ describe("NanoGPT Handler", () => {
 			expect(data.account.name).toBe("test-nanogpt-mappings");
 
 			// Verify the account was stored with model mappings
-			const db = dbOps.getDatabase();
+			const db = dbOps.getAdapter().getSQLiteDb();
 			const storedAccount = db
 				.query<{ model_mappings: string }, [string]>(
 					"SELECT model_mappings FROM accounts WHERE name = ?",
@@ -238,7 +238,7 @@ describe("NanoGPT Handler", () => {
 			expect(data.account.name).toBe("test-nanogpt-empty-mappings");
 
 			// Verify empty model mappings are handled
-			const db = dbOps.getDatabase();
+			const db = dbOps.getAdapter().getSQLiteDb();
 			const storedAccount = db
 				.query<{ model_mappings: string | null }, [string]>(
 					"SELECT model_mappings FROM accounts WHERE name = ?",

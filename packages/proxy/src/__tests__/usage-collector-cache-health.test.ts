@@ -1,23 +1,23 @@
 import { afterAll, expect, it, mock, spyOn } from "bun:test";
-import "@better-ccflare/core";
+import "@hov-router/core";
 import {
 	AsyncDbWriter,
 	CacheHealthRepository,
 	DatabaseOperations,
-} from "@better-ccflare/database";
-import type { Account, RequestResponse } from "@better-ccflare/types";
+} from "@hov-router/database";
+import type { Account, RequestResponse } from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import type { StartMessage } from "../worker-messages";
 
 // Isolate the pricing catalogue, not the protocol/accounting path: these
 // fixtures must never fetch models.dev or contact an inference provider.
-const actualCore = await import("@better-ccflare/core");
-mock.module("@better-ccflare/core", () => ({
+const actualCore = await import("@hov-router/core");
+mock.module("@hov-router/core", () => ({
 	...actualCore,
 	isModelPriced: async () => false,
 	estimateCostUSD: async () => 0,
 }));
-afterAll(() => mock.module("@better-ccflare/core", () => actualCore));
+afterAll(() => mock.module("@hov-router/core", () => actualCore));
 const usageCollectorModule = await import("../usage-collector");
 const { UsageCollector } = usageCollectorModule;
 const { forwardToClient } = await import("../response-handler");
@@ -247,7 +247,7 @@ async function forwardAccountingFixture(options: {
 		}
 		const summary = await summarized;
 		await collector.drain();
-		const row = await adapter.get<PersistedAccounting>(
+		const row = await adapter.getMain<PersistedAccounting>(
 			"SELECT model, routed_model, success, stream_terminal_state, input_tokens, prompt_tokens, cache_read_input_tokens, output_tokens FROM requests WHERE id = 'cache-forwarded'",
 		);
 		expect(row).not.toBeNull();

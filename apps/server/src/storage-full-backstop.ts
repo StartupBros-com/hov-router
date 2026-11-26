@@ -1,4 +1,4 @@
-import { errorKind, isStorageFullError } from "@better-ccflare/core";
+import { errorKind, isStorageFullError } from "@hov-router/core";
 
 /** Uncaught storage-full errors this process has survived (#827). */
 export interface StorageFullBackstopStatus {

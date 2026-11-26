@@ -2,17 +2,17 @@ import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BunSqlAdapter } from "@better-ccflare/database";
-import { RoutingTransitionRecorder } from "@better-ccflare/load-balancer";
-import { Logger, logBus } from "@better-ccflare/logger";
-import { CODEX_DEFAULT_ENDPOINT } from "@better-ccflare/providers";
+import { BunSqlAdapter } from "@hov-router/database";
+import { RoutingTransitionRecorder } from "@hov-router/load-balancer";
+import { Logger, logBus } from "@hov-router/logger";
+import { CODEX_DEFAULT_ENDPOINT } from "@hov-router/providers";
 import type {
 	Account,
 	LogEvent,
 	RequestMeta,
 	StrategyStore,
-} from "@better-ccflare/types";
-import { StrategyName } from "@better-ccflare/types";
+} from "@hov-router/types";
+import { StrategyName } from "@hov-router/types";
 import {
 	accountSupportsRefreshBackedUsagePolling,
 	bootstrapMinimaxUsagePolling,
@@ -39,7 +39,7 @@ describe("persistForwardOnlyCodexRateLimitReset", () => {
 		await persistForwardOnlyCodexRateLimitReset(db, "acct-forward", 2_000);
 		expect(
 			(
-				await db.get<{ rate_limit_reset: number }>(
+				await db.getMain<{ rate_limit_reset: number }>(
 					"SELECT rate_limit_reset FROM accounts WHERE id = ?",
 					["acct-forward"],
 				)
@@ -53,7 +53,7 @@ describe("persistForwardOnlyCodexRateLimitReset", () => {
 		await persistForwardOnlyCodexRateLimitReset(db, "acct-forward", 3_000);
 		expect(
 			(
-				await db.get<{ rate_limit_reset: number }>(
+				await db.getMain<{ rate_limit_reset: number }>(
 					"SELECT rate_limit_reset FROM accounts WHERE id = ?",
 					["acct-forward"],
 				)
@@ -63,7 +63,7 @@ describe("persistForwardOnlyCodexRateLimitReset", () => {
 		await persistForwardOnlyCodexRateLimitReset(db, "acct-forward", 6_000);
 		expect(
 			(
-				await db.get<{ rate_limit_reset: number }>(
+				await db.getMain<{ rate_limit_reset: number }>(
 					"SELECT rate_limit_reset FROM accounts WHERE id = ?",
 					["acct-forward"],
 				)
@@ -1351,7 +1351,6 @@ describe("buildStrategy() routing recorder sharing (#197)", () => {
 			custom_endpoint: null,
 			model_mappings: null,
 			cross_region_mode: null,
-			model_fallbacks: null,
 			billing_type: null,
 			pause_reason: null,
 			refresh_token_issued_at: null,

@@ -1,9 +1,9 @@
-import { deriveServerToolRequirement } from "@better-ccflare/providers/server-tool-capabilities";
-import type { RequestMeta } from "@better-ccflare/types";
+import { deriveServerToolRequirement } from "@hov-router/providers/server-tool-capabilities";
+import type { RequestMeta } from "@hov-router/types";
 import {
 	sanitizeWebSearchHelperRoutingSummary,
 	type WebSearchHelperRoutingSummary,
-} from "@better-ccflare/types/request";
+} from "@hov-router/types/request";
 import {
 	ANTHROPIC_SUBSCRIPTION_HELPER_POOL,
 	type ModelRouteProfile,

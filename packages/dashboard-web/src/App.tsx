@@ -1,4 +1,4 @@
-import { HttpError } from "@better-ccflare/http-common";
+import { HttpError } from "@hov-router/http-common";
 import {
 	MutationCache,
 	QueryCache,
@@ -13,6 +13,7 @@ import { AgentsTab } from "./components/AgentsTab";
 import { ApiKeyAuthDialog } from "./components/ApiKeyAuthDialog";
 import { ApiKeysTab } from "./components/ApiKeysTab";
 import { DeviceSetupJobCoordinator } from "./components/accounts/DeviceSetupJobCoordinator";
+import { AlertsTab } from "./components/alerts/AlertsTab";
 import { CombosTab } from "./components/combos/CombosTab";
 import { DebugPanel } from "./components/DebugPanel";
 import { LogsTab } from "./components/LogsTab";
@@ -52,11 +53,6 @@ const LazyAnalyticsTab = lazy(() =>
 		default: module.LazyAnalytics,
 	})),
 );
-const LazyInsightsTab = lazy(() =>
-	import("./components/InsightsTab").then((module) => ({
-		default: module.InsightsTab,
-	})),
-);
 const LazyUsageHistoryTab = lazy(() =>
 	import("./components/usage-history/UsageHistoryTab").then((m) => ({
 		default: m.UsageHistoryTab,
@@ -79,14 +75,7 @@ const ROUTES = [
 			</LazyPage>
 		),
 	},
-	{
-		path: PAGE_META.insights.path,
-		element: (
-			<LazyPage page="insights">
-				<LazyInsightsTab />
-			</LazyPage>
-		),
-	},
+	{ path: PAGE_META.alerts.path, element: <AlertsTab /> },
 	{ path: PAGE_META.requests.path, element: <RequestsTab /> },
 	{ path: PAGE_META.accounts.path, element: <AccountsTab /> },
 	{
@@ -347,6 +336,11 @@ export function App() {
 										<Route
 											path="/api-keys"
 											element={<Navigate to="/keys" replace />}
+										/>
+										{/* The Insights page was removed in 7.0.0; its alert list lives on Alerts. */}
+										<Route
+											path="/insights"
+											element={<Navigate to={PAGE_META.alerts.path} replace />}
 										/>
 										<Route path="*" element={<Navigate to="/" replace />} />
 									</Routes>

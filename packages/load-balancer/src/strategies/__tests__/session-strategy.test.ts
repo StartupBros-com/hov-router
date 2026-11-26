@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import { SessionStrategy } from "@better-ccflare/load-balancer";
-import type {
-	Account,
-	RequestMeta,
-	StrategyStore,
-} from "@better-ccflare/types";
+import { SessionStrategy } from "@hov-router/load-balancer";
+import type { Account, RequestMeta, StrategyStore } from "@hov-router/types";
 
 // ---------------------------------------------------------------------------
 // Shared Account factory — keeps every test focused on the fields that
@@ -37,7 +33,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		...overrides,
 	};
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { UsageSnapshot } from "@better-ccflare/providers";
-import type { Account, EffectiveComboMember } from "@better-ccflare/types";
+import type { UsageSnapshot } from "@hov-router/providers";
+import type { Account, EffectiveComboMember } from "@hov-router/types";
 import {
 	createNativeQuotaContext,
 	evaluateNativeQuotaPolicy,
@@ -22,7 +22,6 @@ const account = {
 	billing_type: "plan",
 	custom_endpoint: null,
 	model_mappings: null,
-	model_fallbacks: null,
 } as Account;
 const members = [
 	{ id: "primary", account_id: "a", logical_model: "claude-fable-5", tier: 0 },

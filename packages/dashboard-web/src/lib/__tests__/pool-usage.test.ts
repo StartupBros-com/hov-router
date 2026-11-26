@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AccountResponse } from "@better-ccflare/types";
+import type { AccountResponse } from "@hov-router/types";
 import type { RoutingObservation } from "../../api";
 import {
 	computePoolUsage,
@@ -51,7 +51,6 @@ function mkAccount(partial: Partial<AccountResponse>): AccountResponse {
 		usageThrottledWindows: [],
 		hasRefreshToken: true,
 		crossRegionMode: null,
-		modelFallbacks: null,
 		billingType: null,
 		sessionStats: null,
 		isPrimary: false,

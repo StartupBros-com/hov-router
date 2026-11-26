@@ -2,9 +2,9 @@ import {
 	errorResponse,
 	InternalServerError,
 	jsonResponse,
-} from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
-import { NO_ACCOUNT_ID } from "@better-ccflare/types";
+} from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
+import { NO_ACCOUNT_ID } from "@hov-router/types";
 import type { AnalyticsResponse, APIContext } from "../types";
 import { buildRequestFilters, getRangeConfig } from "../utils/query-filters";
 
@@ -92,6 +92,7 @@ export function createAnalyticsHandler(context: APIContext) {
 					(SELECT SUM(COALESCE(output_tokens, 0)) FROM filtered_requests) as output_tokens
 			`,
 				[...queryParams, NO_ACCOUNT_ID],
+				"bulk",
 			);
 
 			// Fixed-window burn-rate aggregates. Independent of the user's range
@@ -123,6 +124,7 @@ export function createAnalyticsHandler(context: APIContext) {
 				WHERE timestamp > ?
 			`,
 				[sevenDayStart, sevenDayStart, thirtyDayStart],
+				"bulk",
 			);
 			const planCost7d = Number(burnRateResult?.plan_cost_7d) || 0;
 			const apiCost7d = Number(burnRateResult?.api_cost_7d) || 0;
@@ -186,6 +188,7 @@ export function createAnalyticsHandler(context: APIContext) {
 				ORDER BY ts${includeModelBreakdown ? ", model" : ""}
 			`,
 				[bucket.bucketMs, bucket.bucketMs, ...queryParams],
+				"bulk",
 			);
 
 			// Get additional data (model distribution, account performance, cost by model, api key performance, account model usage)
@@ -336,6 +339,7 @@ export function createAnalyticsHandler(context: APIContext) {
 					...queryParams,
 					...queryParams,
 				],
+				"bulk",
 			);
 
 			// Parse the combined results
@@ -443,6 +447,7 @@ export function createAnalyticsHandler(context: APIContext) {
 				LIMIT 10
 			`,
 				queryParams,
+				"bulk",
 			);
 
 			const modelPerformance = modelPerfData.map((modelData) => ({

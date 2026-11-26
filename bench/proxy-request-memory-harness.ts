@@ -25,7 +25,7 @@
  * not enforce allocator or RSS thresholds.
  */
 import { heapStats, heapSize, memoryUsage as jscMemoryUsage } from "bun:jsc";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import {
 	BodyAdmissionController,
 	withBodyAdmission,
@@ -880,7 +880,6 @@ function makeMemoryAccount(): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

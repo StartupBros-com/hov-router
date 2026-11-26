@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { RedeemResetResponse } from "@better-ccflare/types";
+import type { RedeemResetResponse } from "@hov-router/types";
 import {
 	mintRedeemRequestId,
 	parseRedeemResetAnswer,

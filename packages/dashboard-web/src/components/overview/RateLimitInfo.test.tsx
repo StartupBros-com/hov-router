@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AccountResponse } from "@better-ccflare/types";
+import type { AccountResponse } from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { RateLimitInfo } from "./RateLimitInfo";
 
@@ -38,7 +38,6 @@ function mkAccount(partial: Partial<AccountResponse>): AccountResponse {
 		usageThrottledWindows: [],
 		hasRefreshToken: true,
 		crossRegionMode: null,
-		modelFallbacks: null,
 		billingType: null,
 		sessionStats: null,
 		isPrimary: false,
@@ -94,6 +93,55 @@ describe("RateLimitInfo", () => {
 		expect(html).toContain("See usage windows for reset times");
 		expect(html).not.toContain("44h 47m");
 		expect(html).not.toContain("usage_exhausted");
+	});
+
+	it("names a 402 as payment required, with a retry time only while the bench is live (#1025)", () => {
+		const html = renderToStaticMarkup(
+			<RateLimitInfo
+				accounts={[
+					mkAccount({
+						id: "live",
+						name: "live-402",
+						rateLimitStatus: "Rate limited (5m)",
+						rateLimitedUntil: Date.now() + 5 * 60_000 - 1_000,
+						rateLimitedReason: "upstream_402_payment_required",
+						rateLimitedAt: Date.now(),
+					}),
+				]}
+			/>,
+		);
+		expect(html).toContain("Payment required");
+		expect(html).toContain("Router retry 5m");
+		expect(html).not.toContain("Cooling down");
+		const lapsed = renderToStaticMarkup(
+			<RateLimitInfo
+				accounts={[
+					mkAccount({
+						id: "lapsed",
+						name: "lapsed-402",
+						rateLimitedUntil: null,
+						rateLimitedReason: "upstream_402_payment_required",
+						rateLimitedAt: Date.now() - 3 * 60_000,
+					}),
+					// A paused account's old 402 stays off the card.
+					mkAccount({
+						id: "paused",
+						name: "paused-402",
+						paused: true,
+						rateLimitedUntil: null,
+						rateLimitedReason: "upstream_402_payment_required",
+						rateLimitedAt: Date.now() - 3 * 60_000,
+					}),
+				]}
+			/>,
+		);
+		expect(lapsed).toContain("lapsed-402");
+		expect(lapsed).toContain("Payment required");
+		expect(lapsed).not.toContain("paused-402");
+		// No bench left, so no time: neither a retry nor a reset.
+		expect(lapsed).not.toContain("Router retry");
+		expect(lapsed).not.toContain("Resets in");
+		expect(lapsed).not.toContain("(local)");
 	});
 
 	it("renders nothing when no account is limited", () => {

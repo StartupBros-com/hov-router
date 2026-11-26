@@ -11,18 +11,26 @@ import { EventEmitter } from "node:events";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Config } from "@better-ccflare/config";
-import { normalizeProviderUsageWindows } from "@better-ccflare/core";
-import { DatabaseOperations } from "@better-ccflare/database";
-import { usageCache } from "@better-ccflare/providers";
-import type { AccountResponse } from "@better-ccflare/types";
+import type { Config } from "@hov-router/config";
+import { normalizeProviderUsageWindows } from "@hov-router/core";
+import { DatabaseOperations } from "@hov-router/database";
+import { usageCache } from "@hov-router/providers";
+import type { AccountResponse } from "@hov-router/types";
 import { OffThreadReader } from "../../../../database/src/off-thread-reader";
+import {
+	CACHE_TEST_TIME,
+	cacheTestState,
+	seedCacheAccount,
+} from "../../../../database/src/repositories/__tests__/cache-health-contract";
 import { CacheHealthRepository } from "../../../../database/src/repositories/cache-health.repository";
 import { ExternalUsageRepository } from "../../../../database/src/repositories/external-usage.repository";
+import { createCacheParityConfigStub } from "../../__tests__/support/cache-parity-config-stub";
 import { AlertService } from "../../services/alerts";
 import type { APIContext } from "../../types";
 import { createAccountsListHandler } from "../accounts";
 import { createAnalyticsHandler } from "../analytics";
+import { createCacheParityHandler } from "../cache-parity";
+import { createRequestsSummaryHandler } from "../requests";
 import { createStatsHandler } from "../stats";
 
 const DAY = 86400000;
@@ -39,10 +47,14 @@ function alertConfig(): Config {
 		getAlertTokensPerHour: () => 0,
 		getAlertRequestTokens: () => 0,
 		getAlertUsageWindowThresholdPercent: () => 90,
-		getAlertAnomalyEnabled: () => false,
-		getAlertAnomalyIntervalMinutes: () => 15,
-		getAlertAnomalyBaselineWindowMinutes: () => 60,
-		getAlertAnomalyLoopMinRequests: () => 25,
+		getAlertCacheHealthEnabled: () => false,
+		getAlertCacheHealthThresholdPercent: () => 80,
+		getAlertCacheHealthDurationMinutes: () => 15,
+		getAlertCacheHealthMinRequests: () => 5,
+		getAlertCacheHealthMinInputTokens: () => 10000,
+		getAlertCacheHealthReminderMinutes: () => 60,
+		getMemberNoticeWebhookUrl: () => "",
+		getMemberNoticeSigningSecret: () => "",
 		getAlertCooldownMinutes: () => 60,
 		getAlertWebhookUrl: () => "",
 		get: (key: string, fallback?: unknown) =>
@@ -175,6 +187,45 @@ describe("heavy read result equivalence", () => {
 		expect(await worker.text()).toBe(await main.text());
 		expect(reader.readsServed - before).toBe(4);
 	});
+	it("returns an identical cache-parity report through the reader and scans no requests on the main thread", async () => {
+		// No models.dev fetch: both passes price from the same local catalogue.
+		const offline = process.env.CF_PRICING_OFFLINE;
+		process.env.CF_PRICING_OFFLINE = "1";
+		try {
+			const context = {
+				dbOps: db,
+				config: createCacheParityConfigStub(),
+			} as unknown as APIContext;
+			const reports: Array<[string, () => Promise<Response>]> = [
+				["cache-parity", () => createCacheParityHandler(context)()],
+			];
+			const adapter = db.getAdapter();
+			for (const [name, report] of reports) {
+				adapter.setOffThreadReader(undefined);
+				const main = await report();
+				expect([name, main.status]).toEqual([name, 200]);
+				const mainBody = await main.text();
+
+				adapter.setOffThreadReader(reader);
+				const mainQuery = spyOn(adapter, "queryMain");
+				const before = reader.readsServed;
+				const worker = await report();
+				expect([name, worker.status]).toEqual([name, 200]);
+				expect(await worker.text()).toBe(mainBody);
+				expect(reader.readsServed - before).toBeGreaterThan(0);
+				const scansRequests = ([sql]: unknown[]) =>
+					/FROM requests/.test(String(sql));
+				expect([name, mainQuery.mock.calls.filter(scansRequests)]).toEqual([
+					name,
+					[],
+				]);
+				mainQuery.mockRestore();
+			}
+		} finally {
+			if (offline === undefined) delete process.env.CF_PRICING_OFFLINE;
+			else process.env.CF_PRICING_OFFLINE = offline;
+		}
+	});
 	it("returns identical accounts-page session stats through the reader", async () => {
 		const sessions = [
 			{ id: "a1", session_start: NOW - 3 * DAY },
@@ -246,7 +297,7 @@ describe("heavy read result equivalence", () => {
 		});
 		const external = new ExternalUsageRepository(adapter);
 		adapter.setOffThreadReader(reader);
-		const mainQuery = spyOn(adapter, "query");
+		const mainQuery = spyOn(adapter, "queryMain");
 		await external.ingest([event("a-direct", 100), event("vote-1", null)]);
 		const before = reader.readsServed;
 		// The pending read must see the NULL row this pass inserts, and the evidence
@@ -266,7 +317,7 @@ describe("heavy read result equivalence", () => {
 			),
 		).toEqual([]);
 		expect(
-			await adapter.query(
+			await adapter.queryMain(
 				"SELECT timestamp,account_id,attribution_basis FROM external_usage_events WHERE source_kind='rollout' ORDER BY timestamp",
 			),
 		).toEqual([
@@ -305,14 +356,15 @@ describe("heavy read result equivalence", () => {
 				[id, json, NOW - 60_000],
 			);
 		const ids = ["a1", "a2", "a3"];
-		const handler = createAccountsListHandler(db, {
-			getUsageThrottlingFiveHourEnabled: () => false,
-			getUsageThrottlingWeeklyEnabled: () => false,
-		} as unknown as Config);
 		const usage = async () => {
 			// After a restart the cache is empty, which is what sends the handler to
-			// the stored payloads.
+			// the stored payloads. A new handler per pass: one handler reuses its
+			// payload recovery for a minute (#1013), so a second pass would not read.
 			for (const id of ids) usageCache.delete(id);
+			const handler = createAccountsListHandler(db, {
+				getUsageThrottlingFiveHourEnabled: () => false,
+				getUsageThrottlingWeeklyEnabled: () => false,
+			} as unknown as Config);
 			const accounts = (await (await handler()).json()) as AccountResponse[];
 			return ids.map(
 				(id) => accounts.find((account) => account.id === id)?.usageData,
@@ -327,7 +379,7 @@ describe("heavy read result equivalence", () => {
 			expect(main[1]).toMatchObject({ seven_day: { utilization: 56 } });
 			expect(main[2]).toBeNull();
 			adapter.setOffThreadReader(reader);
-			const mainQuery = spyOn(adapter, "query");
+			const mainQuery = spyOn(adapter, "queryMain");
 			const readerAll = spyOn(reader, "all");
 			const worker = await usage();
 			expect(JSON.stringify(worker)).toBe(JSON.stringify(main));
@@ -441,7 +493,7 @@ describe("heavy read result equivalence", () => {
 			getUsageThrottlingFiveHourEnabled: () => false,
 			getUsageThrottlingWeeklyEnabled: () => false,
 		} as unknown as Config);
-		const mainQuery = spyOn(adapter, "query");
+		const mainQuery = spyOn(adapter, "queryMain");
 		const readerAll = spyOn(reader, "all");
 		try {
 			for (const id of ids) usageCache.delete(id);
@@ -550,7 +602,7 @@ describe("heavy read result equivalence", () => {
 			expect(main.sources).toHaveLength(2);
 			expect(main.buckets.length).toBeGreaterThan(0);
 			adapter.setOffThreadReader(reader);
-			const mainQuery = spyOn(adapter, "query");
+			const mainQuery = spyOn(adapter, "queryMain");
 			const readerAll = spyOn(reader, "all");
 			expect(JSON.stringify(await readAll())).toBe(JSON.stringify(main));
 			for (const moved of [
@@ -566,13 +618,83 @@ describe("heavy read result equivalence", () => {
 			service.stop();
 		}
 	});
+	it("runs the requests list and the usage-window list on the interactive reader", async () => {
+		const adapter = db.getAdapter();
+		for (const accountId of ["a1", "a2"])
+			await db.openUsageWindow({
+				accountId,
+				windowKey: "seven_day",
+				startedAt: NOW - DAY,
+				resetsAt: NOW + 6 * DAY,
+				grantType: "natural",
+			});
+		const summary = createRequestsSummaryHandler(adapter);
+		const readAll = async () => ({
+			requests: await (await summary(20)).json(),
+			windows: await db.listUsageWindows({ windowKey: "seven_day" }),
+		});
+		const main = await readAll();
+		expect(main.requests).toHaveLength(20);
+		expect(main.windows).toHaveLength(2);
+		// Only the interactive lane has a reader, so a read left on the bulk
+		// lane would fall back to the main thread and show up on adapter.query.
+		adapter.setOffThreadReader(reader, "interactive");
+		const mainQuery = spyOn(adapter, "queryMain");
+		const readerAll = spyOn(reader, "all");
+		expect(JSON.stringify(await readAll())).toBe(JSON.stringify(main));
+		for (const moved of [
+			/FROM requests r\s+LEFT JOIN accounts a/,
+			/FROM usage_windows/,
+		]) {
+			const matches = ([sql]: unknown[]) => moved.test(String(sql));
+			expect(mainQuery.mock.calls.filter(matches)).toEqual([]);
+			expect(readerAll.mock.calls.filter(matches)).toHaveLength(1);
+		}
+	});
+	it("loads and prunes cache-health state on the bulk reader, never the interactive one", async () => {
+		const adapter = db.getAdapter();
+		await seedCacheAccount(adapter);
+		const repo = new CacheHealthRepository(adapter);
+		const unclassified = cacheTestState();
+		unclassified.scope.provider = "openai-compatible";
+		unclassified.enrolled = false;
+		unclassified.reuse = {
+			sequence: 0,
+			incident: null,
+			bad: null,
+			recovery: null,
+		};
+		expect(await repo.commit(0, cacheTestState(), [])).toBe(true);
+		expect(await repo.commit(0, unclassified, [])).toBe(true);
+		const stateReads = ([sql]: unknown[]) =>
+			/^\s*SELECT[\s\S]*FROM cache_health_state/.test(String(sql));
+		// The alert scanner's state reads share the bulk lane with its bucket
+		// aggregate; an interactive-only reader takes none of them.
+		adapter.setOffThreadReader(reader, "interactive");
+		const mainQuery = spyOn(adapter, "queryMain");
+		const readerAll = spyOn(reader, "all");
+		expect(await repo.loadStates(CACHE_TEST_TIME)).toHaveLength(2);
+		expect(readerAll.mock.calls.filter(stateReads)).toEqual([]);
+		expect(mainQuery.mock.calls.filter(stateReads)).toHaveLength(2);
+		adapter.setOffThreadReader(undefined, "interactive");
+		adapter.setOffThreadReader(reader);
+		mainQuery.mockClear();
+		readerAll.mockClear();
+		// Two days on, the prune's select and the load both run on the reader and
+		// see the prune's own committed delete: only the enrolled state is left.
+		expect(await repo.loadStates(CACHE_TEST_TIME + 2 * DAY)).toEqual([
+			cacheTestState(),
+		]);
+		expect(mainQuery.mock.calls.filter(stateReads)).toEqual([]);
+		expect(readerAll.mock.calls.filter(stateReads)).toHaveLength(2);
+	});
 	it("wires file-backed databases by default and honors every opt-out spelling", async () => {
 		const wired = new DatabaseOperations(join(dir, "test.db"));
 		others.push(wired);
-		const mainQuery = spyOn(wired.getAdapter(), "query");
-		expect(await wired.getAdapter().queryOffThread("SELECT 7 AS n")).toEqual([
-			{ n: 7 },
-		]);
+		const mainQuery = spyOn(wired.getAdapter(), "queryMain");
+		expect(
+			await wired.getAdapter().queryOffThread("SELECT 7 AS n", [], "bulk"),
+		).toEqual([{ n: 7 }]);
 		expect(
 			await wired
 				.getAdapter()
@@ -585,9 +707,11 @@ describe("heavy read result equivalence", () => {
 				process.env.BETTER_CCFLARE_DB_READER_WORKER = value;
 				const disabled = new DatabaseOperations(join(dir, "test.db"));
 				others.push(disabled);
-				const query = spyOn(disabled.getAdapter(), "query");
+				const query = spyOn(disabled.getAdapter(), "queryMain");
 				expect(
-					await disabled.getAdapter().queryOffThread("SELECT 8 AS n"),
+					await disabled
+						.getAdapter()
+						.queryOffThread("SELECT 8 AS n", [], "bulk"),
 				).toEqual([{ n: 8 }]);
 				expect(
 					await disabled
@@ -607,13 +731,14 @@ describe("heavy read result equivalence", () => {
 		others.push(wired);
 		const adapter = wired.getAdapter();
 		// Warm both workers so spawn time is not part of the race.
-		await adapter.queryOffThread("SELECT 1");
+		await adapter.queryOffThread("SELECT 1", [], "bulk");
 		await adapter.queryOffThread("SELECT 1", [], "interactive");
 		const order: string[] = [];
 		const scan = adapter
 			.queryOffThread(
 				"WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c WHERE x < ?) SELECT count(*) AS n FROM c",
 				[3_000_000],
+				"bulk",
 			)
 			.then(() => order.push("bulk"));
 		const quick = adapter

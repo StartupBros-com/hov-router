@@ -1,25 +1,22 @@
 import { Database } from "bun:sqlite";
 import { stat } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { RuntimeConfig } from "@better-ccflare/config";
+import type { RuntimeConfig } from "@hov-router/config";
 import type {
 	CacheFlightCohortSealReceipt,
 	Disposable,
 	TurnEvidence,
 	WindowTokenAggregate,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	deriveExtraUsageHolds,
 	PAUSE_REASON_NEEDS_REAUTH,
 	sameExtraUsageHolds,
 	shouldNarrowBilledHold,
 	TIME_CONSTANTS,
-} from "@better-ccflare/core";
-import {
-	COMMAND_NAME,
-	PRODUCT_NAME,
-} from "@better-ccflare/core/product-identity";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { COMMAND_NAME, PRODUCT_NAME } from "@hov-router/core/product-identity";
+import { Logger } from "@hov-router/logger";
 import type {
 	Account,
 	AgentAttributionSource,
@@ -48,7 +45,7 @@ import type {
 	RateLimitReason,
 	RouteProvenance,
 	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { BunSqlAdapter } from "./adapters/bun-sql-adapter";
 import type { CleanupPacer } from "./cleanup-pacing";
 import { ensurePrivateDir, restrictDbFiles } from "./file-modes";
@@ -567,7 +564,7 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 
 		this.sqliteDb = new Database(resolvedPath, { create: true });
 		// Time statements on the handle itself, before anything else runs on
-		// it: the adapter and every direct getDatabase() caller share it, and
+		// it: the adapter and its direct SQLite callers share it, and
 		// each of its calls blocks the event loop (#606).
 		const sqlTimingLog = new Logger("SqlTiming");
 		this.sqlTiming = new SqliteStatementTimer({
@@ -736,21 +733,10 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 
 	/**
 	 * Get the underlying BunSqlAdapter for direct queries.
-	 * Use this instead of getDatabase() for cross-backend compatible raw queries.
+	 * Use this for direct SQL queries.
 	 */
 	getAdapter(): BunSqlAdapter {
 		return this.adapter;
-	}
-
-	/**
-	 * Get the underlying bun:sqlite Database.
-	 * @deprecated Use getAdapter().
-	 */
-	getDatabase(): Database {
-		if (!this.sqliteDb) {
-			throw new Error("getDatabase() called before the database was opened.");
-		}
-		return this.sqliteDb;
 	}
 
 	/**
@@ -1016,7 +1002,7 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 
 		// Null account rows (requests with account_used IS NULL in last 24h)
 		const cutoff = Date.now() - TIME_CONSTANTS.DAY;
-		const nullAccountRow = await this.adapter.get<{ count: number }>(
+		const nullAccountRow = await this.adapter.getMain<{ count: number }>(
 			"SELECT COUNT(*) AS count FROM requests WHERE account_used IS NULL AND timestamp >= ?",
 			[cutoff],
 		);
@@ -1320,7 +1306,7 @@ OAuth tokens will need to be re-authenticated.
 	 */
 	async recordUsageSnapshot(
 		accountId: string,
-		usage: import("@better-ccflare/types").CanonicalUsageWindow[],
+		usage: import("@hov-router/types").CanonicalUsageWindow[],
 		now: number,
 		expectedCreatedAt?: number,
 	): Promise<void> {
@@ -1356,7 +1342,7 @@ OAuth tokens will need to be re-authenticated.
 	 */
 	private async applyReadingToExtraUsageHolds(
 		accountId: string,
-		windows: import("@better-ccflare/types").CanonicalUsageWindow[],
+		windows: import("@hov-router/types").CanonicalUsageWindow[],
 		readingAt: number,
 		expectedCreatedAt?: number,
 	): Promise<void> {
@@ -1816,19 +1802,6 @@ OAuth tokens will need to be re-authenticated.
 		);
 	}
 
-	/**
-	 * Unconditionally set (or clear) an account's requires_reauth flag. Unlike
-	 * flagAccountRequiresReauthIfTokenMatches, this does not gate on the
-	 * refresh token matching — callers that need that CAS protection should
-	 * use that method instead. This exposes the repository's existing
-	 * unconditional setter (already covered directly by
-	 * account-cas-writes.test.ts) on the facade for callers that manage the
-	 * flag out of band, e.g. account maintenance and test harnesses.
-	 */
-	async setRequiresReauth(accountId: string, value: boolean): Promise<void> {
-		await this.accounts.setRequiresReauth(accountId, value);
-	}
-
 	async hasAccountsForProvider(provider: string): Promise<boolean> {
 		return this.accounts.hasAccountsForProvider(provider);
 	}
@@ -2058,7 +2031,7 @@ OAuth tokens will need to be re-authenticated.
 
 	/** Global retention boundary. */
 	async getOldestRequestTimestamp(): Promise<number | null> {
-		const row = await this.adapter.get<{ oldest: number | string | null }>(
+		const row = await this.adapter.getMain<{ oldest: number | string | null }>(
 			"SELECT MIN(timestamp) AS oldest FROM requests",
 		);
 		return row?.oldest == null ? null : Number(row.oldest);
@@ -2161,18 +2134,18 @@ OAuth tokens will need to be re-authenticated.
 	private async scanTableRowCounts(): Promise<
 		Array<{ name: string; rowCount: number; dataBytes?: number }>
 	> {
-		const tables = await this.adapter.query<{ name: string }>(
+		const tables = await this.adapter.queryMain<{ name: string }>(
 			"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
 		);
 		const rows = await Promise.all(
 			tables.map(async ({ name }) => {
-				const countRow = await this.adapter.get<{ rowCount: number }>(
+				const countRow = await this.adapter.getMain<{ rowCount: number }>(
 					`SELECT COUNT(*) AS rowCount FROM "${name}"`,
 				);
 				const rowCount = countRow?.rowCount ?? 0;
 				// Measure actual data bytes for tables with known large text/blob columns
 				if (name === "request_payloads") {
-					const sizeRow = await this.adapter.get<{ dataBytes: number }>(
+					const sizeRow = await this.adapter.getMain<{ dataBytes: number }>(
 						`SELECT SUM(LENGTH(json)) AS dataBytes FROM "${name}"`,
 					);
 					return { name, rowCount, dataBytes: sizeRow?.dataBytes ?? 0 };

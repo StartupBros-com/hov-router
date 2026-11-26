@@ -1,6 +1,6 @@
 import { describe, expect, it, spyOn } from "bun:test";
-import { type TokenRefreshResult, usageCache } from "@better-ccflare/providers";
-import type { Account, RateLimitReason } from "@better-ccflare/types";
+import { type TokenRefreshResult, usageCache } from "@hov-router/providers";
+import type { Account, RateLimitReason } from "@hov-router/types";
 import {
 	refreshPollingAccessToken,
 	startUsagePollingWithRefresh,
@@ -68,7 +68,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: "oauth_invalid_grant",
 		refresh_token_issued_at: null,

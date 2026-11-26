@@ -3,7 +3,7 @@ import type {
 	Provider,
 	UpstreamObservation,
 	UpstreamObservationContext,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import { forwardObservedUpstream } from "../handlers/observed-upstream";
 
 function makeContext(

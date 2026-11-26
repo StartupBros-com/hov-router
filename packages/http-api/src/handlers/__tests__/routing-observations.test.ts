@@ -8,13 +8,13 @@
  * The handler takes its reader as an injected dependency, so these tests pass
  * a fake directly instead of mocking the proxy module. That matters: Bun's
  * mock.module applies PROCESS-WIDE across file boundaries, so mocking
- * "@better-ccflare/proxy" here also replaced the module that the proxy
+ * "@hov-router/proxy" here also replaced the module that the proxy
  * package's own routing-observations tests import, failing 6 of them whenever
  * both files ran in one `bun test` invocation (order-independent, reproduced
  * 2026-08-22). Injection keeps the two suites independent.
  */
 import { describe, expect, it, mock } from "bun:test";
-import type { RoutingObservation } from "@better-ccflare/proxy";
+import type { RoutingObservation } from "@hov-router/proxy";
 import { createRoutingObservationsHandler } from "../routing-observations";
 
 describe("createRoutingObservationsHandler", () => {

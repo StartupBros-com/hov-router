@@ -3,6 +3,7 @@ import { describe, expect, it, spyOn } from "bun:test";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { DatabaseOperations } from "../../database-operations";
 import { ensureSchema, runMigrations } from "../../migrations";
+import { OffThreadReaderUnavailableError } from "../../off-thread-reader";
 import { UsageHistoryRepository } from "../usage-history.repository";
 import { UsageWindowsRepository } from "../usage-windows.repository";
 
@@ -940,6 +941,131 @@ describe("usage window limit cycles", () => {
 		).toEqual([10, 20, 21, 30, 40]);
 		db.close();
 	});
+
+	describe("startup-scan reads (#1042)", () => {
+		// The two startup passes and the close-time measurement read these. On
+		// the main connection they stall every live stream when the disk is
+		// slow, so they read on the bulk reader, and a failed bulk read is
+		// never re-run on the main connection.
+		async function seedMeasurable() {
+			const db = makeDb();
+			const adapter = new BunSqlAdapter(db);
+			const repo = new UsageWindowsRepository(adapter);
+			const history = new UsageHistoryRepository(adapter);
+			await snapshot(db, "acc1", 5000, 10, 20_000);
+			await snapshot(db, "acc1", 6000, 40, 20_000);
+			const window = await open(repo, 5000, 20_000);
+			await repo.closeWindow(window.id, {
+				...baseClose,
+				closedAt: 8000,
+				modelBreakdown: { m: { requestCount: 1 } },
+				pointsUsed: null,
+				counterResets: null,
+			});
+			return { db, adapter, repo, history, window };
+		}
+
+		function attachReaders(adapter: BunSqlAdapter, db: Database, fail?: Error) {
+			const bulk: string[] = [];
+			adapter.setOffThreadReader(
+				{
+					all: async <R>(sql: string, params: unknown[] = []) => {
+						bulk.push(sql);
+						if (fail) throw fail;
+						return db.query(sql).all(...(params as never[])) as R[];
+					},
+					get: async <R>(sql: string, params: unknown[] = []) => {
+						bulk.push(sql);
+						if (fail) throw fail;
+						return (db.query(sql).get(...(params as never[])) ??
+							null) as R | null;
+					},
+				},
+				"bulk",
+			);
+			adapter.setOffThreadReader(
+				{
+					all: async () => {
+						throw new Error("interactive reader used");
+					},
+					get: async () => {
+						throw new Error("interactive reader used");
+					},
+				},
+				"interactive",
+			);
+			return {
+				bulk,
+				queryMain: spyOn(adapter, "queryMain"),
+				getMain: spyOn(adapter, "getMain"),
+			};
+		}
+
+		const reads = (
+			repo: UsageWindowsRepository,
+			history: UsageHistoryRepository,
+		) => [
+			() => repo.listClosedWindowsMissingLimitCycles(),
+			() => repo.listClosedWindowsNotAtProjectionVersion("v2"),
+			() => history.getOldestSnapshotTimestamp("acc1", "seven_day"),
+			() =>
+				history.getWindowReadings(
+					"acc1",
+					"seven_day",
+					20_000,
+					5000,
+					8000,
+					TOLERANCE,
+				),
+		];
+
+		it("read on the bulk reader, not the main connection", async () => {
+			const { db, adapter, repo, history, window } = await seedMeasurable();
+			const { bulk, queryMain, getMain } = attachReaders(adapter, db);
+			try {
+				const [missing, stale, oldest, readings] = await Promise.all(
+					reads(repo, history).map((read) => read()),
+				);
+				expect(missing).toEqual({
+					windows: [expect.objectContaining({ id: window.id })],
+					unreadable: [],
+				});
+				expect(stale).toEqual({
+					windows: [expect.objectContaining({ id: window.id })],
+					unreadable: [],
+				});
+				expect(oldest).toBe(5000);
+				expect(readings).toEqual([10, 40]);
+				expect(bulk).toHaveLength(4);
+				expect(queryMain).not.toHaveBeenCalled();
+				expect(getMain).not.toHaveBeenCalled();
+			} finally {
+				db.close();
+			}
+		});
+
+		it("fail with the bulk reader's error instead of reading on the main connection", async () => {
+			const { db, adapter, repo, history } = await seedMeasurable();
+			const unavailable = new OffThreadReaderUnavailableError(
+				"off-thread bulk reader closed",
+			);
+			const { bulk, queryMain, getMain } = attachReaders(
+				adapter,
+				db,
+				unavailable,
+			);
+			try {
+				for (const read of reads(repo, history)) {
+					await expect(read()).rejects.toBe(unavailable);
+				}
+				expect(bulk).toHaveLength(4);
+				expect(queryMain).not.toHaveBeenCalled();
+				expect(getMain).not.toHaveBeenCalled();
+			} finally {
+				db.close();
+			}
+		});
+	});
 });
 
 describe("usage_windows limit-cycle migration", () => {
@@ -1015,7 +1141,7 @@ describe("listEarlyResetCandidates", () => {
 			},
 			"interactive",
 		);
-		const query = spyOn(adapter, "query");
+		const query = spyOn(adapter, "queryMain");
 		try {
 			expect(await repo.listEarlyResetCandidates(0)).toEqual([
 				{

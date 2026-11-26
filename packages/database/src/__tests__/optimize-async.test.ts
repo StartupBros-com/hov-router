@@ -204,25 +204,6 @@ describe("incremental-vacuum worker protocol: kind discriminator", () => {
 		});
 	}
 
-	it("kind-less messages still run the vacuum path (backward compat)", async () => {
-		// ensureSchema (via the DatabaseOperations constructor) creates the DB
-		// in auto_vacuum=INCREMENTAL mode, which the vacuum path requires.
-		const dbOps = new DatabaseOperations(dbPath);
-		await dbOps.close();
-
-		const worker = spawnWorker();
-		try {
-			const result = await roundTrip<{ ok: boolean; mode?: number }>(worker, {
-				dbPath,
-				pages: 1,
-			});
-			expect(result.ok).toBe(true);
-			expect(result.mode).toBe(2);
-		} finally {
-			worker.terminate();
-		}
-	});
-
 	it('kind "optimize" succeeds on an idle DB without requiring auto_vacuum=2', async () => {
 		// optimize/checkpoint has no auto_vacuum precondition -- verify the
 		// worker doesn't apply the vacuum path's mode gate to it. Plain DB,

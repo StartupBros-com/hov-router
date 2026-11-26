@@ -1,6 +1,6 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import type { Logger } from "@better-ccflare/logger";
+import type { DatabaseOperations } from "@hov-router/database";
+import type { Logger } from "@hov-router/logger";
 import {
 	describeRetentionSweepStop,
 	RETENTION_PAUSE_MAX_MS,

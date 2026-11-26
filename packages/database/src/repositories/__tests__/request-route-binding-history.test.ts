@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, spyOn, test } from "bun:test";
-import "@better-ccflare/core";
+import "@hov-router/core";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { DatabaseOperations } from "../../database-operations";
 import { ensureSchema, runMigrations } from "../../migrations";
@@ -262,7 +262,7 @@ test("route binding history is one off-thread read of limit + 1 rows over a time
 		expect(read).toHaveBeenCalledTimes(1);
 		const [sql, params] = read.mock.calls[0];
 		expect(params).toEqual([1_000, 3]);
-		const plan = await adapter.query<{ detail: string }>(
+		const plan = await adapter.queryMain<{ detail: string }>(
 			`EXPLAIN QUERY PLAN ${sql}`,
 			params,
 		);

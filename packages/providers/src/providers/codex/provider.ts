@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { getCodexReasoningRetention } from "@better-ccflare/config";
+import { getCodexReasoningRetention } from "@hov-router/config";
 import {
 	BUFFER_SIZES,
 	getExactOAuthErrorCode,
@@ -17,30 +17,30 @@ import {
 	StreamResourceLimitError,
 	ValidationError,
 	validateEndpointUrl,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	CODEX_LOGICAL_MODEL_FAMILY_HEADER,
 	sanitizeProxyHeaders,
-} from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
 import {
 	type AnthropicReasoningEffortSource,
 	type ReasoningEffort,
 	resolveAnthropicReasoningEffort,
 	sanitizeSchemaForOpenAI,
-} from "@better-ccflare/openai-formats";
+} from "@hov-router/openai-formats";
 import type {
 	Account,
 	LogicalModelCapability,
 	ServerToolCapabilityDecision,
 	ServerToolCapabilityTuple,
 	ServerToolRequirements,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	RECOVERY_STATUS_EXHAUSTED,
 	RECOVERY_STATUS_HEADER,
-} from "@better-ccflare/types";
-import type { RoutingProviderTerminal } from "@better-ccflare/types/request";
+} from "@hov-router/types";
+import type { RoutingProviderTerminal } from "@hov-router/types/request";
 import { BaseProvider } from "../../base";
 import {
 	attachGenerationStartReader,
@@ -200,6 +200,15 @@ const CODEX_SYNTHETIC_RESPONSE_URL =
 export const CODEX_PROMPT_CACHE_KEY_ENV = "CCFLARE_CODEX_PROMPT_CACHE_KEY";
 // The Codex CLI's turn-state header must never be forwarded to the subscription backend.
 const CODEX_CLIENT_TURN_STATE_HEADER = "x-codex-turn-state";
+/**
+ * Codex CLI sends this header with the Responses Lite request shape (catalog
+ * models with `use_responses_lite`). It asks the backend to validate the body
+ * as Lite. The provider always rebuilds the body in the classic shape (top-level
+ * `instructions`, `reasoning` reduced to `effort`), so forwarding the header
+ * makes the backend reject every such request with 400 `unsupported_value`
+ * (#324). Lite's `additional_tools` input items still work without it.
+ */
+const CODEX_RESPONSES_LITE_HEADER = "x-openai-internal-codex-responses-lite";
 /** "conversation" (default) or "session"; see derivePromptCacheKey. */
 export const CODEX_CACHE_KEY_MODE_ENV = "CCFLARE_CODEX_CACHE_KEY_MODE";
 /**
@@ -986,7 +995,7 @@ function writeCodexStreamTerminalTrace(
 			state.model,
 			state.accountId,
 			state.modelContextSnapshot,
-		)?.rawContextWindow,
+		)?.maxContextWindow,
 		responseId: state.traceResponseId,
 		summary: summarizeCodexResponse(
 			state.traceNewToolCalls,
@@ -2511,6 +2520,7 @@ export class CodexProvider extends BaseProvider {
 		newHeaders.delete("x-api-key");
 		newHeaders.delete("host");
 		newHeaders.delete(CODEX_CLIENT_TURN_STATE_HEADER);
+		newHeaders.delete(CODEX_RESPONSES_LITE_HEADER);
 
 		// Remove internal proxy headers.
 		for (const key of [...newHeaders.keys()]) {
@@ -2684,12 +2694,12 @@ export class CodexProvider extends BaseProvider {
 			this.sweepRequestStreamById();
 			this.sweepRequestToolSchemasById();
 			const rawBody = (await request.json()) as AnthropicRequest;
-			const passthrough = rawBody.__better_ccflare_codex_passthrough as
+			const passthrough = rawBody.__hov_router_codex_passthrough as
 				| Record<string, unknown>
 				| undefined;
 			// This carrier is private proxy metadata, never part of the upstream
 			// Responses schema. Consume it before serializing the Codex request.
-			delete rawBody.__better_ccflare_codex_passthrough;
+			delete rawBody.__hov_router_codex_passthrough;
 			const body = applySkillElision(
 				this.name,
 				rawBody,
@@ -3849,7 +3859,7 @@ export class CodexProvider extends BaseProvider {
 		const contextWindowSize =
 			process.env[CODEX_EFFECTIVE_CONTEXT_ENV] === "1"
 				? capability.effectiveContextWindow
-				: capability.rawContextWindow;
+				: capability.maxContextWindow;
 
 		const inputTokens = usage?.input_tokens;
 		if (

@@ -3,7 +3,7 @@ import type {
 	Account,
 	AccountDisplay,
 	AccountResponse,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { classifyAccountStatus } from "./account-status";
 import { AccountPresenter } from "./presenters";
 
@@ -244,6 +244,90 @@ test("only a live org-refusal bench reads as refused", () => {
 		expect(expired.hint).toBeNull();
 	}
 });
+test("a live 402 bench names payment required, its retry and Clear cooldown (#1025)", () => {
+	const until = now + 60_000;
+	for (const rateLimitStatus of [
+		"Rate limited (1m)",
+		"payment_required (1m)",
+		undefined,
+	]) {
+		const payment = classifyAccountStatus(
+			{
+				rateLimitStatus,
+				rateLimitedUntil: until,
+				rateLimitedReason: "upstream_402_payment_required",
+			},
+			now,
+		);
+		expect(payment.reason).toBe("payment");
+		expect(payment.label).toBe("Payment required");
+		expect(payment.tone).toBe("bad");
+		expect(payment.routerRetryAt).toBe(until);
+		// Once billing is fixed, clearing the bench retries at once.
+		expect(payment.clearCooldown).toBe(true);
+		expect(payment.capacityAttention).toBe(true);
+		expect(payment.overview).toBe(true);
+		expect(payment.hint).toContain("billing or credits");
+	}
+	const benched = {
+		rateLimitedUntil: until,
+		rateLimitedReason: "upstream_402_payment_required",
+	};
+	expect(classifyAccountStatus({ ...benched, paused: true }, now).reason).toBe(
+		"paused",
+	);
+	expect(
+		classifyAccountStatus({ ...benched, requiresReauth: true }, now).reason,
+	).toBe("reauth");
+	// The expiry sweep lifts the bench after about a minute but keeps the
+	// reason and rate_limited_at, and nothing has served since: still unpaid.
+	for (const rateLimitedUntil of [now, now - 1, null]) {
+		const lapsed = classifyAccountStatus(
+			{ ...benched, rateLimitedUntil, rateLimitedAt: now - 120_000 },
+			now,
+		);
+		expect(lapsed.reason).toBe("payment");
+		expect(lapsed.label).toBe("Payment required");
+		expect(lapsed.tone).toBe("bad");
+		expect(lapsed.hint).toContain("billing or credits");
+		expect(lapsed.routerRetryAt).toBeNull();
+		// Clear cooldown is how the operator dismisses it once billing is fixed.
+		expect(lapsed.clearCooldown).toBe(true);
+		expect(lapsed.capacityAttention).toBe(true);
+		expect(lapsed.overview).toBe(true);
+		expect(
+			classifyAccountStatus(
+				{ ...benched, rateLimitedUntil, rateLimitedAt: now, paused: true },
+				now,
+			).capacityAttention,
+		).toBe(false);
+	}
+	// A request served more than 5 minutes after the 402 clears
+	// rate_limited_at, and with it the claim; the stored reason stays behind.
+	for (const rateLimitedAt of [null, undefined, Number.NaN]) {
+		const recovered = classifyAccountStatus(
+			{ ...benched, rateLimitedUntil: null, rateLimitedAt },
+			now,
+		);
+		expect(recovered.reason).toBe("normal");
+		expect(recovered.label).toBe("Ready");
+		expect(recovered.hint).toBeNull();
+		expect(recovered.clearCooldown).toBe(false);
+	}
+	// xAI's 402 is a capacity signal, not billing, and stays a cooldown.
+	for (const rateLimitedReason of [
+		"xai_capacity_402",
+		"upstream_429_with_reset",
+	]) {
+		const other = classifyAccountStatus(
+			{ rateLimitedUntil: until, rateLimitedReason },
+			now,
+		);
+		expect(other.reason).toBe("cooldown");
+		expect(other.label).toBe("Cooling down");
+		expect(other.hint).toBeNull();
+	}
+});
 test("a refused usage check reads as refused after the router's bench lapses (#941)", () => {
 	// max-quaternary-spgm on 2026-11-21: the 30 s bench was long over, but
 	// every usage check was still refused, and the card said Ready.
@@ -316,6 +400,23 @@ test("presenter carries the raw rate-limit reason into the status", () => {
 	expect(
 		new AccountPresenter(raw as unknown as Account, now).status.reason,
 	).toBe("refused");
+	// A lapsed 402 bench needs rate_limited_at carried through too (#1025).
+	const lapsed402 = {
+		paused: false,
+		rate_limited_until: null,
+		rate_limited_reason: "upstream_402_payment_required",
+		rate_limited_at: now - 120_000,
+		pause_reason: null,
+	};
+	expect(
+		new AccountPresenter(lapsed402 as unknown as Account, now).status.reason,
+	).toBe("payment");
+	expect(
+		new AccountPresenter(
+			{ ...lapsed402, rate_limited_at: null } as unknown as Account,
+			now,
+		).status.reason,
+	).toBe("normal");
 });
 test("presenter supports raw, response and display inputs without rewriting raw strings", () => {
 	for (const account of [

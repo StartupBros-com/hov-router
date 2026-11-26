@@ -7,20 +7,20 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import { agentRegistry } from "@better-ccflare/agents";
+import { agentRegistry } from "@hov-router/agents";
 import {
 	type CodexCatalogEvt,
 	codexCatalogEvents,
 	LATEST_MYTHOS_MODEL,
 	LATEST_OPUS_MODEL,
-} from "@better-ccflare/core";
-import { SessionAffinityStrategy } from "@better-ccflare/load-balancer";
-import { handleResponsesRequest } from "@better-ccflare/openai-responses-adapter";
+} from "@hov-router/core";
+import { SessionAffinityStrategy } from "@hov-router/load-balancer";
+import { handleResponsesRequest } from "@hov-router/openai-responses-adapter";
 import {
 	clearDerivedProviderModelDefaults,
 	usageCache,
-} from "@better-ccflare/providers";
-import type { Account, Agent } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account, Agent } from "@hov-router/types";
 import { AnthropicDegradedModeCoordinator } from "../anthropic-degraded-mode";
 import {
 	clearCodexModelCacheForTests,
@@ -324,7 +324,6 @@ function makeAccount(id = ROUTE_ACCOUNT_ID): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -508,7 +507,7 @@ function apiRequest(
 		headers: {
 			"content-type": "application/json",
 			// Carrier fixtures represent the adapter's synthetic requests by default.
-			...(body.__better_ccflare_codex_passthrough
+			...(body.__hov_router_codex_passthrough
 				? { [ADAPTER_SECRET_HEADER]: ADAPTER_SECRET }
 				: {}),
 			...headers,
@@ -594,7 +593,7 @@ describe("Claude Code gateway model route profiles", () => {
 			"claude-sonnet-5",
 			{},
 			{
-				__better_ccflare_codex_passthrough: { model: "gpt-6-astra" },
+				__hov_router_codex_passthrough: { model: "gpt-6-astra" },
 			},
 		);
 		if (marker === undefined) request.headers.delete(ADAPTER_SECRET_HEADER);
@@ -723,7 +722,7 @@ describe("Claude Code gateway model route profiles", () => {
 				"claude-sonnet-5",
 				{},
 				{
-					__better_ccflare_codex_passthrough: { model: "gpt-6-astra" },
+					__hov_router_codex_passthrough: { model: "gpt-6-astra" },
 				},
 			);
 
@@ -775,7 +774,7 @@ describe("Claude Code gateway model route profiles", () => {
 				"claude-sonnet-5",
 				{},
 				{
-					__better_ccflare_codex_passthrough: { model: "gpt-6-astra" },
+					__hov_router_codex_passthrough: { model: "gpt-6-astra" },
 				},
 			);
 
@@ -807,7 +806,7 @@ describe("Claude Code gateway model route profiles", () => {
 				"x-claude-code-agent-id": "implicit-child",
 			},
 			{
-				__better_ccflare_codex_passthrough: { model: "gpt-6-astra" },
+				__hov_router_codex_passthrough: { model: "gpt-6-astra" },
 			},
 		);
 
@@ -838,7 +837,7 @@ describe("Claude Code gateway model route profiles", () => {
 			PROFILE_MODEL,
 			{},
 			{
-				__better_ccflare_codex_passthrough: { model: "gpt-6-astra" },
+				__hov_router_codex_passthrough: { model: "gpt-6-astra" },
 			},
 		);
 
@@ -891,7 +890,7 @@ describe("Claude Code gateway model route profiles", () => {
 			"claude-sonnet-5",
 			{},
 			{
-				__better_ccflare_codex_passthrough: { model: "gpt-unknown-physical" },
+				__hov_router_codex_passthrough: { model: "gpt-unknown-physical" },
 			},
 		);
 
@@ -1033,6 +1032,68 @@ describe("Claude Code gateway model route profiles", () => {
 		);
 		expect(harness.providerCanHandle).toHaveBeenCalledWith("/v1/models");
 		expect(harness.strategySelect).toHaveBeenCalledTimes(1);
+	});
+
+	it("serves the Codex CLI its own catalog from memory ahead of route discovery", async () => {
+		const codex = makeAccount("catalog-codex-account");
+		codex.provider = "codex";
+		codex.api_key = null;
+		codex.access_token = "codex-test-token";
+		codex.expires_at = Date.now() + 3_600_000;
+		const upstreamBody = JSON.stringify({
+			models: [
+				{ slug: "gpt-6.2-sol", visibility: "list", priority: 1 },
+				{ slug: "codex-auto-review", visibility: "hide", priority: 40 },
+			],
+		});
+		globalThis.fetch = (async () =>
+			new Response(upstreamBody, {
+				status: 200,
+				headers: { "content-type": "application/json", etag: '"cat-1"' },
+			})) as unknown as typeof fetch;
+		// The instance handleProxy imports, as the other catalog seeds here use.
+		const listing = await codexModelCatalogModule.getCodexModels(codex.id, {
+			dbOps: { getAccount: async () => codex },
+			refreshInFlight: new Map(),
+		} as unknown as ProxyContext);
+		expect(listing?.source).toBe("live");
+
+		const harness = makeContext(makeRegistry(), { accounts: [codex] });
+		const { fetchMock } = installJsonUpstream();
+		const request = new Request(
+			"https://proxy.local/v1/models?client_version=0.172.0",
+		);
+		const response = await handleProxy(
+			request,
+			new URL(request.url),
+			harness.ctx,
+			"key-1",
+		);
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("etag")).toBe('"cat-1"');
+		expect(await response.text()).toBe(upstreamBody);
+		expect(fetchMock).toHaveBeenCalledTimes(0);
+		expect(harness.getAllAccounts).toHaveBeenCalledTimes(0);
+		expect(harness.strategySelect).toHaveBeenCalledTimes(0);
+	});
+
+	it("answers the Codex CLI 404 without an upstream call before any catalog is read", async () => {
+		const harness = makeContext(undefined);
+		const { fetchMock } = installJsonUpstream();
+		const request = new Request(
+			"https://proxy.local/v1/models?client_version=0.172.0",
+		);
+		const response = await handleProxy(
+			request,
+			new URL(request.url),
+			harness.ctx,
+			"key-1",
+		);
+
+		expect(response.status).toBe(404);
+		expect(fetchMock).toHaveBeenCalledTimes(0);
+		expect(harness.strategySelect).toHaveBeenCalledTimes(0);
 	});
 
 	it("routes legacy and hinted Sol picker ids through the same profile", async () => {
@@ -2767,8 +2828,6 @@ describe("Claude Code gateway model route profiles", () => {
 		["manual", "manual", "false"],
 		["needs-reauthentication", "oauth_invalid_grant", "false"],
 		["overage", "overage", null],
-		// Waits for an operator since the auto-refresh scheduler was removed (Refs #718).
-		["failure-threshold", "failure_threshold", "false"],
 		["peak-hours", "peak_hours", null],
 	] as const)("tells the client whether a %s pause on an exact route is worth retrying", async (_label, pauseReason, shouldRetry) => {
 		const routed = makeAccount();

@@ -13,16 +13,16 @@
  */
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import "@better-ccflare/core";
-import type { Config } from "@better-ccflare/config";
+import "@hov-router/core";
+import type { Config } from "@hov-router/config";
 import {
 	BunSqlAdapter,
 	type DatabaseOperations,
 	ensureSchema,
 	runMigrations,
-} from "@better-ccflare/database";
-import { clearSession, recordServedAccount } from "@better-ccflare/proxy";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/database";
+import { clearSession, recordServedAccount } from "@hov-router/proxy";
+import type { Account } from "@hov-router/types";
 import { APIRouter } from "../router";
 import type { APIContext } from "../types";
 
@@ -47,7 +47,7 @@ describe("APIRouter — GET /api/sessions/:sessionId/account (#318)", () => {
 			countActiveApiKeys: async () => 0,
 			getActiveApiKeys: async () => [],
 			getAllAccounts: async () =>
-				adapter.query<Account>("SELECT * FROM accounts"),
+				adapter.queryMain<Account>("SELECT * FROM accounts"),
 			// createAccountsListHandler (called via the session-account route)
 			// also reads session-window token stats — none in these fixtures.
 			getStatsRepository: () => ({

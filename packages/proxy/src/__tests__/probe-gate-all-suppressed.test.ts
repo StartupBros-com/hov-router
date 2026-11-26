@@ -11,7 +11,7 @@
  * no other account to prefer.
  */
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import type { Account, ComboWithSlots } from "@better-ccflare/types";
+import type { Account, ComboWithSlots } from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import {
 	getRateLimitProbeAdmission,
@@ -68,7 +68,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

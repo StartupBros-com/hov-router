@@ -10,13 +10,13 @@ export type RequestStartEvt = {
 	statusCode: number;
 	agentUsed: string | null;
 	agentAttributionSource?:
-		| import("@better-ccflare/types").AgentAttributionSource
+		| import("@hov-router/types").AgentAttributionSource
 		| null;
 };
 
 export type RequestSummaryEvt = {
 	type: "summary";
-	payload: import("@better-ccflare/types").RequestResponse;
+	payload: import("@hov-router/types").RequestResponse;
 };
 
 export type RequestEvt = RequestStartEvt | RequestSummaryEvt;

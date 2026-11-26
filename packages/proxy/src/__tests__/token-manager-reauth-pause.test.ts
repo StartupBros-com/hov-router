@@ -1,12 +1,9 @@
 /** Tests for upstream auth quarantine and terminal refresh handling. */
 
 import { describe, expect, it, mock } from "bun:test";
-import {
-	OAuthRefreshTokenError,
-	TokenRefreshError,
-} from "@better-ccflare/core";
-import { registerProvider } from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+import { OAuthRefreshTokenError, TokenRefreshError } from "@hov-router/core";
+import { registerProvider } from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import {
 	canAttemptStaleTokenRefresh,
 	clearAccountRefreshCache,
@@ -50,7 +47,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

@@ -16,14 +16,14 @@ import {
 	it,
 } from "bun:test";
 import { EventEmitter } from "node:events";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import {
 	LIST_PRICE_ERAS,
 	resetNanoGPTPricingCacheForTest,
 	VALUE_PRICING_VERSION,
-} from "@better-ccflare/core";
-import type { UsageWindow } from "@better-ccflare/database";
-import { BunSqlAdapter, ensureSchema } from "@better-ccflare/database";
+} from "@hov-router/core";
+import type { UsageWindow } from "@hov-router/database";
+import { BunSqlAdapter, ensureSchema } from "@hov-router/database";
 import {
 	AlertService,
 	buildDiscordAlertContent,
@@ -206,10 +206,14 @@ function makeConfig(): Config {
 		getAlertTokensPerHour: () => 0,
 		getAlertRequestTokens: () => 0,
 		getAlertUsageWindowThresholdPercent: () => 90,
-		getAlertAnomalyEnabled: () => false,
-		getAlertAnomalyIntervalMinutes: () => 15,
-		getAlertAnomalyBaselineWindowMinutes: () => 60,
-		getAlertAnomalyLoopMinRequests: () => 25,
+		getAlertCacheHealthEnabled: () => false,
+		getAlertCacheHealthThresholdPercent: () => 80,
+		getAlertCacheHealthDurationMinutes: () => 15,
+		getAlertCacheHealthMinRequests: () => 5,
+		getAlertCacheHealthMinInputTokens: () => 10000,
+		getAlertCacheHealthReminderMinutes: () => 60,
+		getMemberNoticeWebhookUrl: () => "",
+		getMemberNoticeSigningSecret: () => "",
 		getAlertCooldownMinutes: () => 60,
 		getAlertWebhookUrl: () => "",
 		get: (_key: string, defaultValue?: string | number | boolean) =>

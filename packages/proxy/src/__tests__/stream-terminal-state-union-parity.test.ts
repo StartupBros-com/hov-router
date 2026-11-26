@@ -1,5 +1,5 @@
 /**
- * Pins the API-side state set (`@better-ccflare/types`) to the producer-side
+ * Pins the API-side state set (`@hov-router/types`) to the producer-side
  * set (`../anthropic-terminal-recovery`).
  *
  * The two cannot share one declaration: types is the base package and must not
@@ -17,7 +17,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	STREAM_TERMINAL_STATES,
 	toStreamTerminalState,
-} from "@better-ccflare/types/request";
+} from "@hov-router/types/request";
 import { ANTHROPIC_TERMINAL_STATES } from "../anthropic-terminal-recovery";
 
 describe("stream terminal state — parity with the producer", () => {

@@ -52,7 +52,8 @@ describe("database factory server start", () => {
 		expect(db).toBe(DatabaseFactory.getInstance());
 		// initializeAsync ran: this instance has a heartbeat row.
 		const heartbeats = db
-			.getDatabase()
+			.getAdapter()
+			.getSQLiteDb()
 			.query("SELECT COUNT(*) AS n FROM instance_heartbeats")
 			.get() as { n: number };
 		expect(heartbeats.n).toBe(1);

@@ -2,7 +2,7 @@ import {
 	HttpClient,
 	HttpError,
 	type RequestOptions,
-} from "@better-ccflare/http-common";
+} from "@hov-router/http-common";
 import type {
 	AccountResponse,
 	AccountRoutingOverview,
@@ -10,9 +10,7 @@ import type {
 	AgentUpdatePayload,
 	AgentWorkspace,
 	AnalyticsResponse,
-	AnomalyInsightsResponse,
 	BankedResetsSummary,
-	CacheInsightsResponse,
 	CleanupResponse,
 	Combo,
 	ComboExhaustionPolicy,
@@ -25,7 +23,6 @@ import type {
 	ComboSlotCreateInput,
 	ComboSlotUpdateInput,
 	ComboWithSlots,
-	ContextInsightsResponse,
 	DeviceSetupJobView,
 	DeviceSetupRoutingSelection,
 	DeviceSetupStartResult,
@@ -40,16 +37,13 @@ import type {
 	RoutingAttemptSummaryResponse,
 	RoutingAttemptSummaryWindow,
 	UsageHistoryResponse,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { API_LIMITS, API_TIMEOUT } from "./constants";
 import { type HealthVerdict, parseHealthVerdict } from "./lib/health-verdict";
 import { type RedeemResetAnswer, sendRedeemReset } from "./lib/redeem-reset";
 
 // Re-export types with dashboard-specific aliases for backward compatibility
-export type Account = AccountResponse & {
-	/** @deprecated Fallbacks are now merged into modelMappings as arrays */
-	modelFallbacks?: { [key: string]: string } | null;
-};
+export type Account = AccountResponse;
 export type LogEntry = LogEvent;
 export type RequestSummary = RequestResponse;
 
@@ -152,7 +146,7 @@ export type {
 	RequestResponse,
 	RoutingAttemptSummaryResponse,
 	RoutingAttemptSummaryWindow,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 // Agent response interface
 export interface AgentsResponse {
@@ -259,7 +253,7 @@ export interface OpenAICompatibleModelPreviewResponse {
 }
 
 class API extends HttpClient {
-	private static readonly API_KEY_STORAGE_KEY = "better-ccflare-api-key";
+	private static readonly API_KEY_STORAGE_KEY = "hov-router-api-key";
 
 	private logger = {
 		info: (message: string, ...args: unknown[]) => {
@@ -999,7 +993,7 @@ class API extends HttpClient {
 		let url = {
 			logs: "/api/logs/stream",
 			requests: "/api/requests/stream",
-			alerts: "/api/insights/alerts/stream",
+			alerts: "/api/alerts/stream",
 		}[audience];
 		if (apiKey) {
 			const { token } = await this.post<{ token: string }>(`${url}/token`);
@@ -1153,43 +1147,6 @@ class API extends HttpClient {
 		}
 	}
 
-	async getCacheInsights(
-		range = "24h",
-		threshold?: number,
-	): Promise<CacheInsightsResponse> {
-		const params = new URLSearchParams({ range });
-
-		if (threshold !== undefined) {
-			params.append("threshold", String(threshold));
-		}
-
-		return this.get<CacheInsightsResponse>(
-			`/api/insights/cache?${params.toString()}`,
-		);
-	}
-
-	async getAnomalyInsights(
-		range = "24h",
-		options?: {
-			zScoreThreshold?: number;
-			maxEventsPerDetector?: number;
-		},
-	): Promise<AnomalyInsightsResponse> {
-		const params = new URLSearchParams({ range });
-		if (options?.zScoreThreshold !== undefined) {
-			params.append("zScoreThreshold", String(options.zScoreThreshold));
-		}
-		if (options?.maxEventsPerDetector !== undefined) {
-			params.append(
-				"maxEventsPerDetector",
-				String(options.maxEventsPerDetector),
-			);
-		}
-		return this.get<AnomalyInsightsResponse>(
-			`/api/insights/anomalies?${params.toString()}`,
-		);
-	}
-
 	async getUsageHistory(
 		account: string,
 		range = "24h",
@@ -1224,14 +1181,6 @@ class API extends HttpClient {
 
 		return this.get<UsageWindowsResponse>(
 			`/api/usage-windows?${params.toString()}`,
-		);
-	}
-
-	async getContextInsights(range = "24h"): Promise<ContextInsightsResponse> {
-		const params = new URLSearchParams({ range });
-
-		return this.get<ContextInsightsResponse>(
-			`/api/insights/context?${params.toString()}`,
 		);
 	}
 
@@ -2722,22 +2671,22 @@ class API extends HttpClient {
 	}
 
 	async getAlerts(limit = 100): Promise<{
-		alerts: import("@better-ccflare/types").AlertEvent[];
+		alerts: import("@hov-router/types").AlertEvent[];
 		unacknowledgedCount: number;
 	}> {
 		const res = await this.get<{
-			alerts: import("@better-ccflare/types").AlertEvent[];
+			alerts: import("@hov-router/types").AlertEvent[];
 			unacknowledgedCount: number;
-		}>(`/api/insights/alerts?limit=${Math.min(Math.max(1, limit), 500)}`);
+		}>(`/api/alerts?limit=${Math.min(Math.max(1, limit), 500)}`);
 		return res;
 	}
 
 	async acknowledgeAlert(id: string): Promise<void> {
-		await this.post(`/api/insights/alerts/${encodeURIComponent(id)}`);
+		await this.post(`/api/alerts/${encodeURIComponent(id)}`);
 	}
 
 	async acknowledgeAllAlerts(): Promise<void> {
-		await this.post("/api/insights/alerts/acknowledge-all");
+		await this.post("/api/alerts/acknowledge-all");
 	}
 }
 

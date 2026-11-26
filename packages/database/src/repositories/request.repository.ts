@@ -2,20 +2,20 @@ import {
 	LONG_CONTEXT_PROMPT_TOKENS,
 	type LongContextTokenSubset,
 	type WindowTokenAggregate,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import type {
 	AgentAttributionSource,
 	ProjectAttributionSource,
 	RequestAccountingContext,
 	RouteProvenance,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	type QualityDecisionRecord,
 	type RequestRoutingAttemptSummary,
 	sanitizeQualityDecision,
 	sanitizeRequestRoutingAttemptSummary,
-} from "@better-ccflare/types/request";
+} from "@hov-router/types/request";
 import { getCleanupBatchSize } from "../adapters/bun-sql-adapter";
 import { type CleanupPacer, deleteInBatches } from "../cleanup-pacing";
 import { decryptPayload, encryptPayload } from "../payload-encryption";
@@ -264,6 +264,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 			   AND REPLACE(routing_attempt_summary, '"affinityLane"', '') <> routing_attempt_summary
 			 ORDER BY timestamp DESC LIMIT ?`,
 			[sinceMs, limit + 1],
+			"bulk",
 		);
 		return {
 			summaries: rows.slice(0, limit).map((row) => row.routing_attempt_summary),
@@ -324,6 +325,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 			WHERE route_profile_id IS NOT NULL AND route_profile_id <> ''
 			ORDER BY last_started DESC LIMIT ?`,
 			[sinceMs, limit + 1],
+			"bulk",
 		);
 		return {
 			sessions: rows.slice(0, limit).map((row) => ({
@@ -517,7 +519,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 	}
 
 	async getPayload(id: string): Promise<unknown | null> {
-		const row = await this.get<{ json: string }>(
+		const row = await this.getMain<{ json: string }>(
 			`SELECT json FROM request_payloads WHERE id = ?`,
 			[id],
 		);
@@ -545,7 +547,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 			quality_decision: string | null;
 		}>
 	> {
-		const rows = await this.query<{
+		const rows = await this.queryMain<{
 			id: string;
 			json: string | null;
 			timestamp: number;
@@ -586,7 +588,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 			response_time_ms: number | null;
 		}>
 	> {
-		const rows = await this.query<{
+		const rows = await this.queryMain<{
 			id: string;
 			timestamp: number;
 			method: string;
@@ -614,7 +616,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 	 * Per-model token/request totals for `accountId` in `[fromMs, toMs)`,
 	 * scoped to plan-billed Messages traffic — the input to the Window Value
 	 * Ledger's valuation step (see `valueWindowAggregates` in
-	 * @better-ccflare/core). `path = '/v1/messages'` is an EXACT match,
+	 * @hov-router/core). `path = '/v1/messages'` is an EXACT match,
 	 * deliberately excluding `/v1/messages/count_tokens` (a distinct,
 	 * non-billed endpoint that happens to share the prefix). Only
 	 * `billing_type = 'plan'` rows count toward a window's value — pay-as-you-go
@@ -680,6 +682,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 			GROUP BY model
 		`,
 			[accountId, fromMs, toMs, accountId, fromMs, toMs],
+			"bulk",
 		);
 		// Advisor iterations (R14): advisor_usage holds per-model token totals
 		// as JSON. Each entry joins its own model's line and adds no request
@@ -700,6 +703,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 			  AND advisor_usage IS NOT NULL
 		`,
 			[accountId, fromMs, toMs],
+			"bulk",
 		);
 		const aggregates: LedgerAggregate[] = this.mapTokenAggregateRows(rows);
 		const malformedAdvisorIds: string[] = [];

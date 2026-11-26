@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 
 const log = new Logger("PerformanceIndexes");
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import "@better-ccflare/core";
-import { type ApiKey, NodeCryptoUtils } from "@better-ccflare/types/api-key";
+import "@hov-router/core";
+import { type ApiKey, NodeCryptoUtils } from "@hov-router/types/api-key";
 import { APIRouter } from "../router";
 import type { APIContext } from "../types";
 
@@ -9,7 +9,7 @@ const API_ONLY = "test-stream-api-only";
 const streamPaths = {
 	logs: "/api/logs/stream",
 	requests: "/api/requests/stream",
-	alerts: "/api/insights/alerts/stream",
+	alerts: "/api/alerts/stream",
 } as const;
 type Audience = keyof typeof streamPaths;
 let keys: ApiKey[];

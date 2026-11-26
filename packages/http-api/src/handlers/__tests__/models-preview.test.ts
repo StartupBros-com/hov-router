@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { generateApiKey } from "@better-ccflare/cli-commands";
-import type { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
+import { generateApiKey } from "@hov-router/cli-commands";
+import type { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
 import { APIRouter } from "../../router";
 import type { APIContext } from "../../types";
 import { createModelsPreviewHandler } from "../models";
@@ -82,7 +82,7 @@ describe("POST /api/models/preview", () => {
 		expect(
 			await dbOps
 				.getAdapter()
-				.get<{ count: number }>("SELECT COUNT(*) AS count FROM accounts"),
+				.getMain<{ count: number }>("SELECT COUNT(*) AS count FROM accounts"),
 		).toEqual({ count: 0 });
 	});
 

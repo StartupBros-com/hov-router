@@ -1,5 +1,5 @@
 // packages/dashboard-web/src/components/usage-history/chart-data.ts
-import type { UsageHistoryWindowSeries } from "@better-ccflare/types";
+import type { UsageHistoryWindowSeries } from "@hov-router/types";
 
 export interface ChartRow {
 	t: number;

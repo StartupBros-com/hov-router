@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import {
 	clearDerivedProviderModelDefaults,
 	setDerivedAccountModelDefaults,
@@ -38,7 +38,6 @@ const routingAccount = (overrides: Partial<Account> = {}): Account =>
 		billing_type: null,
 		priority: 0,
 		model_mappings: null,
-		model_fallbacks: null,
 		custom_endpoint: null,
 		...overrides,
 	}) as Account;
@@ -492,7 +491,6 @@ describe("resolveModelContextCapability", () => {
 			family: "gpt-5.6-sol",
 			defaultContextWindow: 272_000,
 			maxContextWindow: 872_000,
-			rawContextWindow: 872_000,
 			effectiveContextWindow: 828_400,
 			effectiveContextPercent: 95,
 			match: "exact",
@@ -510,7 +508,6 @@ describe("resolveModelContextCapability", () => {
 		expect(resolveModelContextCapability("codex", "gpt-5.4")).toMatchObject({
 			defaultContextWindow: 272_000,
 			maxContextWindow: 1_000_000,
-			rawContextWindow: 1_000_000,
 		});
 	});
 
@@ -520,7 +517,6 @@ describe("resolveModelContextCapability", () => {
 		).toMatchObject({
 			defaultContextWindow: 272_000,
 			maxContextWindow: 272_000,
-			rawContextWindow: 272_000,
 		});
 	});
 
@@ -539,7 +535,6 @@ describe("resolveModelContextCapability", () => {
 			family: "gpt-5.6-sol",
 			defaultContextWindow: 272_000,
 			maxContextWindow: 872_000,
-			rawContextWindow: 872_000,
 			effectiveContextWindow: 828_400,
 			match: "prefix",
 		});

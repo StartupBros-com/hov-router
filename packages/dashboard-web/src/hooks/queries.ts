@@ -1,4 +1,4 @@
-import { getModelDisplayName } from "@better-ccflare/core";
+import { getModelDisplayName } from "@hov-router/core";
 import type {
 	AgentUpdatePayload,
 	ComboExhaustionPolicy,
@@ -9,8 +9,8 @@ import type {
 	DeviceSetupJobStatus,
 	DeviceSetupJobView,
 	RoutingAttemptSummaryWindow,
-} from "@better-ccflare/types";
-import { COMMON_MODELS } from "@better-ccflare/types";
+} from "@hov-router/types";
+import { COMMON_MODELS } from "@hov-router/types";
 import {
 	type QueryClient,
 	replaceEqualDeep,
@@ -25,6 +25,7 @@ import {
 	type RequestSummary,
 	type TokenHealthResponse,
 } from "../api";
+import { ALERTS_LIST_LIMIT } from "../lib/alert-attention";
 import { queryKeys } from "../lib/query-keys";
 import {
 	fetchRouteLanes,
@@ -717,18 +718,6 @@ export const useAnalytics = (
 	});
 };
 
-export const useCacheInsights = (timeRange: string, threshold?: number) => {
-	return useQuery({
-		queryKey: queryKeys.insightsCache(timeRange, threshold),
-		queryFn: () => api.getCacheInsights(timeRange, threshold),
-		staleTime: 45000,
-		refetchInterval: 60000,
-		refetchIntervalInBackground: false,
-		gcTime: 15 * 60 * 1000,
-		enabled: !!timeRange,
-	});
-};
-
 export const useUsageHistory = (account: string, range: string) => {
 	return useQuery({
 		queryKey: queryKeys.usageHistory(account, range),
@@ -767,30 +756,6 @@ export const useFleetUsageHistory = (range: string, enabled = true) => {
 		refetchIntervalInBackground: false,
 		gcTime: 15 * 60 * 1000,
 		enabled,
-	});
-};
-
-export const useContextInsights = (timeRange: string) => {
-	return useQuery({
-		queryKey: queryKeys.insightsContext(timeRange),
-		queryFn: () => api.getContextInsights(timeRange),
-		staleTime: 45000,
-		refetchInterval: 60000,
-		refetchIntervalInBackground: false,
-		gcTime: 15 * 60 * 1000,
-		enabled: !!timeRange,
-	});
-};
-
-export const useAnomalyInsights = (timeRange: string) => {
-	return useQuery({
-		queryKey: queryKeys.insightsAnomalies(timeRange),
-		queryFn: () => api.getAnomalyInsights(timeRange),
-		staleTime: 45000,
-		refetchInterval: 60000,
-		refetchIntervalInBackground: false,
-		gcTime: 15 * 60 * 1000,
-		enabled: !!timeRange,
 	});
 };
 
@@ -969,11 +934,7 @@ export const getUpdateAccountCustomEndpointMutationOptions = (
 		accountId: string;
 		customEndpoint: string | null;
 	}) => api.updateAccountCustomEndpoint(accountId, customEndpoint),
-	// A custom endpoint's embedded `modelMappings` is the
-	// `custom_endpoint_mapping` pin source, so saving it can change the
-	// Automatic/Pinned status AccountModelMappingsDialog reads via
-	// `useCodexAccountEffectiveDefaults` (queryKeys.providerModelDefaults()).
-	// The endpoint also decides which models the server lists for the account.
+	// The endpoint decides which models the server lists for the account.
 	onSuccess: () =>
 		invalidateManagedRouting(queryClient, {
 			...FULL_MANAGED_ROUTING_INVALIDATION,
@@ -1414,11 +1375,8 @@ export const useReorderComboSlots = () => {
 
 export const useAlerts = () => {
 	return useQuery({
-		queryKey: queryKeys.insightsAlerts(),
-		queryFn: async () => {
-			const res = await api.getAlerts(200);
-			return res;
-		},
+		queryKey: queryKeys.alerts(),
+		queryFn: () => api.getAlerts(ALERTS_LIST_LIMIT),
 		staleTime: 15_000,
 		refetchInterval: 30_000,
 		refetchIntervalInBackground: false,
@@ -1430,7 +1388,7 @@ export const useAcknowledgeAlert = () => {
 	return useMutation({
 		mutationFn: (id: string) => api.acknowledgeAlert(id),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.insightsAlerts() });
+			queryClient.invalidateQueries({ queryKey: queryKeys.alerts() });
 		},
 	});
 };
@@ -1440,7 +1398,7 @@ export const useAcknowledgeAllAlerts = () => {
 	return useMutation({
 		mutationFn: () => api.acknowledgeAllAlerts(),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: queryKeys.insightsAlerts() });
+			queryClient.invalidateQueries({ queryKey: queryKeys.alerts() });
 		},
 	});
 };

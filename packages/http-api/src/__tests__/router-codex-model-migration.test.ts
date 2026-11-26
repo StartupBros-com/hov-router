@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
-import { parseModelRouteProfiles } from "@better-ccflare/proxy";
+import type { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
+import { parseModelRouteProfiles } from "@hov-router/proxy";
 import { APIRouter } from "../router";
 import type { APIContext } from "../types";
 
@@ -99,7 +99,7 @@ describe("APIRouter — Codex model migration routes", () => {
 			(
 				await dbOps
 					.getAdapter()
-					.get<{ model_mappings: string | null }>(
+					.getMain<{ model_mappings: string | null }>(
 						"SELECT model_mappings FROM accounts WHERE id = ?",
 						["codex-alpha"],
 					)

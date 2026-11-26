@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import {
 	type CacheUsageObservation,
 	summarizeCacheReadObservations,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import { classifyCodexModelFamily } from "./model-family";
 
 interface ToolCall {

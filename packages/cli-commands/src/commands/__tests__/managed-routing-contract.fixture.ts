@@ -3,7 +3,7 @@ import type {
 	AccountRoutingOverview,
 	ComboFamily,
 	ComboRoutingAvailabilityReason,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 type EffectiveView = AccountRoutingOverview["effective"][number];
 type EffectiveMember = EffectiveView["resolution"]["members"][number];

@@ -1,9 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import type {
-	Account,
-	ComboWithSlots,
-	RequestMeta,
-} from "@better-ccflare/types";
+import type { Account, ComboWithSlots, RequestMeta } from "@hov-router/types";
 import {
 	getComboSlotInfo,
 	selectAccountsForRequest,
@@ -40,7 +36,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		...overrides,
 	};
 }

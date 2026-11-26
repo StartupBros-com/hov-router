@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	DatabaseFactory,
 	DatabaseOperations as DirectDbOps,
-} from "@better-ccflare/database";
+} from "@hov-router/database";
 import {
 	createAnthropicReauthCallbackHandler,
 	createAnthropicReauthInitHandler,
@@ -27,19 +27,19 @@ const TEST_DB_PATH = `${process.env.TMPDIR || "/tmp"}/test-oauth-handler.db`;
 // clearAccountRefreshCache, getUsageThrottleStatus, refreshCodexUsageForAccount,
 // restartUsagePollingForAccount) still see the real functions, then restore the
 // real module in afterAll so later test files in this process resolve the real
-// @better-ccflare/proxy exports again.
-const actualProxy = await import("@better-ccflare/proxy");
+// @hov-router/proxy exports again.
+const actualProxy = await import("@hov-router/proxy");
 const mockClearAccountRefreshCache = mock((_accountId: string) => {});
 
-mock.module("@better-ccflare/proxy", () => ({
+mock.module("@hov-router/proxy", () => ({
 	...actualProxy,
 	clearAccountRefreshCache: mockClearAccountRefreshCache,
 }));
 
 afterAll(() => {
-	mock.module("@better-ccflare/proxy", () => actualProxy);
-	mock.module("@better-ccflare/providers/codex", () => actualCodex);
-	mock.module("@better-ccflare/providers/qwen", () => actualQwen);
+	mock.module("@hov-router/proxy", () => actualProxy);
+	mock.module("@hov-router/providers/codex", () => actualCodex);
+	mock.module("@hov-router/providers/qwen", () => actualQwen);
 });
 
 /** Poll a device-flow status handler until the session reaches a terminal state. */
@@ -94,8 +94,8 @@ describe("OAuth Handler - Backward Compatibility", () => {
 		}
 	});
 
-	describe('Deprecated "max" mode handling', () => {
-		it('should accept "max" mode and convert to "claude-oauth"', async () => {
+	describe("Account mode validation", () => {
+		it('should reject removed "max" mode', async () => {
 			const request = new Request("http://localhost/api/oauth/init", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -109,14 +109,9 @@ describe("OAuth Handler - Backward Compatibility", () => {
 			const response = await handler(request);
 			const data = await response.json();
 
-			// Should succeed (creates OAuth session)
-			expect(response.status).toBe(200);
-			expect(data.success).toBe(true);
-			expect(data.authUrl).toBeDefined();
-			expect(data.sessionId).toBeDefined();
-
-			// Note: We can't easily verify the warning was logged without mocking the logger,
-			// but the fact that it succeeded proves the mode was converted
+			expect(response.status).toBe(400);
+			expect(JSON.stringify(data)).toContain("claude-oauth");
+			expect(data.authUrl).toBeUndefined();
 		});
 
 		it('should accept "claude-oauth" mode normally', async () => {
@@ -265,12 +260,12 @@ const mockInitiateCodexDeviceFlow = mock(async () => ({
 	interval: 5,
 }));
 
-// Capture the real @better-ccflare/providers/codex module first so other
+// Capture the real @hov-router/providers/codex module first so other
 // exports stay intact for downstream consumers (mock.module replaces the
-// WHOLE module globally — see the @better-ccflare/proxy mock comment above).
-const actualCodex = await import("@better-ccflare/providers/codex");
+// WHOLE module globally — see the @hov-router/proxy mock comment above).
+const actualCodex = await import("@hov-router/providers/codex");
 
-mock.module("@better-ccflare/providers/codex", () => ({
+mock.module("@hov-router/providers/codex", () => ({
 	...actualCodex,
 	initiateCodexDeviceFlow: mockInitiateCodexDeviceFlow,
 	pollCodexForToken: mock(async () => ({
@@ -290,12 +285,12 @@ const mockInitiateQwenDeviceFlow = mock(async () => ({
 	pkce: { verifier: "test-verifier", challenge: "test-challenge" },
 }));
 
-// Capture the real @better-ccflare/providers/qwen module first so other
+// Capture the real @hov-router/providers/qwen module first so other
 // exports stay intact for downstream consumers (mock.module replaces the
-// WHOLE module globally — see the @better-ccflare/proxy mock comment above).
-const actualQwen = await import("@better-ccflare/providers/qwen");
+// WHOLE module globally — see the @hov-router/proxy mock comment above).
+const actualQwen = await import("@hov-router/providers/qwen");
 
-mock.module("@better-ccflare/providers/qwen", () => ({
+mock.module("@hov-router/providers/qwen", () => ({
 	...actualQwen,
 	initiateDeviceFlow: mockInitiateQwenDeviceFlow,
 	pollForToken: mock(async () => ({
@@ -372,8 +367,8 @@ describe("createCodexReauthHandler", () => {
 		await dbOps.getAdapter().run(
 			`INSERT INTO accounts (id, name, provider, api_key, refresh_token, access_token,
 			expires_at, created_at, request_count, total_requests, priority,
-			custom_endpoint, model_mappings, model_fallbacks)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL, NULL)`,
+			custom_endpoint, model_mappings)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL)`,
 			[
 				accountId,
 				"anthropic-account",
@@ -405,8 +400,8 @@ describe("createCodexReauthHandler", () => {
 		await dbOps.getAdapter().run(
 			`INSERT INTO accounts (id, name, provider, api_key, refresh_token, access_token,
 			expires_at, created_at, request_count, total_requests, priority,
-			custom_endpoint, model_mappings, model_fallbacks)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL, NULL)`,
+			custom_endpoint, model_mappings)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL)`,
 			[
 				accountId,
 				"codex-account",
@@ -442,8 +437,8 @@ describe("createCodexReauthHandler", () => {
 		await dbOps.getAdapter().run(
 			`INSERT INTO accounts (id, name, provider, api_key, refresh_token, access_token,
 			expires_at, created_at, request_count, total_requests, priority,
-			custom_endpoint, model_mappings, model_fallbacks)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL, NULL)`,
+			custom_endpoint, model_mappings)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL)`,
 			[
 				accountId,
 				"codex-account-clear-cache",
@@ -517,8 +512,8 @@ describe("createQwenReauthHandler", () => {
 		await dbOps.getAdapter().run(
 			`INSERT INTO accounts (id, name, provider, api_key, refresh_token, access_token,
 			expires_at, created_at, request_count, total_requests, priority,
-			custom_endpoint, model_mappings, model_fallbacks)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL, NULL)`,
+			custom_endpoint, model_mappings)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL)`,
 			[
 				accountId,
 				"qwen-account-clear-cache",
@@ -547,7 +542,7 @@ describe("createQwenReauthHandler", () => {
 		const status = await waitForSessionComplete(statusHandler, data.sessionId);
 		expect(status).toBe("complete");
 
-		const account = await dbOps.getAdapter().get<{
+		const account = await dbOps.getAdapter().getMain<{
 			refresh_token: string;
 			refresh_token_issued_at: number | null;
 		}>(
@@ -572,7 +567,7 @@ describe("createAnthropicReauthInitHandler", () => {
 	// Config is required by this handler — use a minimal stub
 	const stubConfig = {
 		getRuntime: () => ({ clientId: "test-client-id" }),
-	} as unknown as import("@better-ccflare/config").Config;
+	} as unknown as import("@hov-router/config").Config;
 
 	let handler: (req: Request) => Promise<Response>;
 
@@ -634,8 +629,8 @@ describe("createAnthropicReauthInitHandler", () => {
 		await dbOps.getAdapter().run(
 			`INSERT INTO accounts (id, name, provider, api_key, refresh_token, access_token,
 			expires_at, created_at, request_count, total_requests, priority,
-			custom_endpoint, model_mappings, model_fallbacks)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL, NULL)`,
+			custom_endpoint, model_mappings)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL)`,
 			[
 				accountId,
 				"codex-account-for-anthropic-test",
@@ -671,7 +666,7 @@ describe("createAnthropicReauthCallbackHandler", () => {
 	let dbOps: DatabaseOperations;
 	const stubConfig = {
 		getRuntime: () => ({ clientId: "test-client-id" }),
-	} as unknown as import("@better-ccflare/config").Config;
+	} as unknown as import("@hov-router/config").Config;
 
 	let handler: (req: Request) => Promise<Response>;
 

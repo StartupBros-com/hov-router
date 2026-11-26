@@ -3,8 +3,8 @@ import {
 	clearDerivedProviderModelDefaults,
 	resolveProviderModelDefault,
 	setProviderModelDefaultOverrides,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../handlers/proxy-types";
 import {
 	clearOpenAICompatibleModelCacheForAccount,

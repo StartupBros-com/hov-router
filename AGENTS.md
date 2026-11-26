@@ -2,25 +2,36 @@
 
 Instructions for any agent working on **HoV Router** (`hov-router`): a load balancer and gateway that routes Claude Code and other clients across multiple provider accounts, with a dashboard for usage, cost and errors. It is a House of Vibe project at [StartupBros-com/hov-router](https://github.com/StartupBros-com/hov-router), a product fork of [tombii/better-ccflare](https://github.com/tombii/better-ccflare) (MIT). `CLAUDE.md` only imports this file, so edit this one.
 
-## ⚠️ CRITICAL: Testing Restrictions
+## ⚠️ CRITICAL: Anthropic accounts take Claude Code traffic only
 
-**Anthropic-backed accounts, including the `claude` account, must only be used through a real interactive Claude Code CLI session, except for the managed gateway-routed headless Claude Code CLI sessions covered by the operator-approved exception below.** Interactive sessions remain permitted. The operator-approved exception (2026-10-07) also permits managed gateway-routed headless Claude Code sessions, including bounded tiny tool-free CLI acceptance checks. This exception does not authorize paid overages or a switch to Codex CLI.
+Anthropic-backed accounts, including the `claude` account, are Claude subscription logins. Traffic from the unmodified Claude Code binary is normal use: interactive sessions, headless `claude -p`, and programs or containers that run the binary through Router. Anthropic documents `claude -p` for scripts and CI ([headless](https://code.claude.com/docs/en/headless)). Router goes further than Anthropic's gateway docs: the [LLM gateway](https://code.claude.com/docs/en/llm-gateway) page describes a gateway that forwards the user's own login, while Router pools several subscription logins and replaces the client's credential with one of them. That pooling is a risk the operator accepts, not a pattern Anthropic documents.
 
-**Raw scripted Anthropic inference remains prohibited** — directly and through the proxy: no curl, test harness, or diagnostic-script probes, whether or not you would call them "testing". Real Anthropic accounts can get banned for automated/scripted usage. For scripted API requests, use a non-Anthropic account (ollama, litellm, omniroute, etc.) and force-route with `x-better-ccflare-account-id`.
+**Never send an Anthropic-backed account a request that does not come from Claude Code**, directly or through Router: no curl, test harness, SDK script, diagnostic probe or third-party agent harness, whether or not you would call it "testing". Anthropic limits subscription logins to "ordinary use of Claude Code and other native Anthropic applications" and can enforce that without notice ([legal and compliance](https://code.claude.com/docs/en/legal-and-compliance)), so such a request puts the account at risk. For scripted API requests, use a non-Anthropic account (ollama, litellm, omniroute, etc.) and force-route with `x-better-ccflare-account-id`.
 
-## ⚠️ CRITICAL: Names that must NOT be renamed
+Nothing here authorizes paid overage.
 
-The product is HoV Router, but these operational names predate it and existing installs depend on them. A "consistency" rename breaks configuration, credentials, clients or deployments. Change them only in a separately approved migration.
+## ⚠️ CRITICAL: ccflare names are being renamed in #1056
 
-- **Commands:** `hov-router` is preferred; `better-ccflare` must keep working (`COMMAND_NAMES` in `packages/core/src/product-identity.ts`). New installs no longer create `wstack-router`, but existing `wstack-router` links run the same binary and the upgrade block in `docs/reference.md` keeps them current.
-- **Storage:** config directory `~/.config/better-ccflare` (or `$XDG_CONFIG_HOME/better-ccflare`; Windows `better-ccflare` under `LOCALAPPDATA`/`APPDATA`), `better-ccflare.json`, `better-ccflare.db`.
-- **Environment variables:** `BETTER_CCFLARE_*`, `CCFLARE_*`, and the legacy `ccflare_*` fallbacks. **Headers:** `x-better-ccflare-*`.
-- **Packages and artifacts:** npm package name `better-ccflare`, internal `@better-ccflare/*` workspaces, `apps/cli/dist/better-ccflare`, release asset `better-ccflare-linux-amd64`.
-- **Ports and services:** default `8080`; production guard `:8788` → binary `:8789`; `ccflare-stack.service`.
-- **Release identity:** the `v1:startupbros-wstack-router-*` provenance tokens embedded in published v3.6.2 through v3.7.1 (later builds embed `v1:startupbros-hov-router-*`; the verifier and runtime catalogue recognize both), and published v3.6.2 bytes and signer identity (historical; never rewrite).
-- **Upstream recognition and credit:** `tombii` distribution contexts in build provenance and the version checker exist to classify upstream builds; LICENSE, `docs/acknowledgements.md`, `UPSTREAM.md` and historical citations stay.
+HoV Router still carries operational names from the ccflare fork. [#1056](https://github.com/StartupBros-com/hov-router/issues/1056) renames them to HoV Router names. Names that never leave the binary are already renamed: the `@hov-router/*` workspaces, build defines and dashboard storage keys. A single PR renames the rest, and they change together in one full-restart deploy.
 
-Display text uses the constants instead of hard-coded names: `PRODUCT_NAME` / `COMMAND_NAME` from `@better-ccflare/core/product-identity`. Import that subpath directly, not the core barrel, which the dashboard cannot load. Reference: [docs/hov-router-migration.md](docs/hov-router-migration.md#what-stays-the-same).
+Until that deploy, production reads only the old names below, so use them when you talk to it. Rename them only in that PR, never one at a time on the side. A missed reader silently falls back:
+- An ignored `BETTER_CCFLARE_DB_PATH` opens the default database.
+- An ignored `x-better-ccflare-account-id` sends the request into the pool.
+
+Add no new `ccflare` names. New code uses `hov-router`, `HOV_ROUTER_*`, `x-hov-router-*` and `@hov-router/*`.
+
+Still live under the old names:
+- **Commands:** `hov-router` is preferred, and `better-ccflare` still works (`COMMAND_NAMES` in `packages/core/src/product-identity.ts`). Existing `wstack-router` links run the same binary.
+- **Storage:** the config directory `~/.config/better-ccflare` (or `$XDG_CONFIG_HOME/better-ccflare`; on Windows, `better-ccflare` under `LOCALAPPDATA`/`APPDATA`), plus `better-ccflare.json` and `better-ccflare.db`.
+- **Environment variables:** `BETTER_CCFLARE_*`, `CCFLARE_*`, `ccflare_*`. **Headers:** `x-better-ccflare-*`.
+- **Artifacts:** `apps/cli/dist/better-ccflare`, the `better-ccflare` package name in `apps/cli`, and the release asset `better-ccflare-linux-amd64`.
+- **Service:** `ccflare-stack.service` (guard `:8788` → binary `:8789`; default port `8080`). The port numbers stay after the rename.
+
+Never renamed, because they are history or required credit:
+- Published release bytes, assets and attestations, and the provenance tokens embedded in them: `v1:startupbros-wstack-router-*` (v3.6.2 through v3.7.1), `v1:startupbros-hov-router-*`, and the `v1:tombii-*` tokens that recognize upstream builds.
+- LICENSE, `docs/acknowledgements.md`, the upstream links in `UPSTREAM.md`, CHANGELOG, and dated plans and reports. `docs/solutions/` is current guidance, so rename the names in it.
+
+Display text uses `PRODUCT_NAME` / `COMMAND_NAME` from `@hov-router/core/product-identity`. Import that subpath directly, not the core barrel, which the dashboard cannot load.
 
 ## ⚠️ CRITICAL: Generated files
 
@@ -158,44 +169,12 @@ Run affected suites one file at a time (`bun test <file>`). A full `bun test` ba
 - Production: guard on `:8788` forwards to the binary on `:8789`. Test local changes on port 8081.
 
 ### Account Management
-- Add: `bun run cli --add-account <name> --mode <mode> --priority <number>`
-- Accepted modes: `ACCOUNT_MODES` in `apps/cli/src/main.ts` is authoritative, and `--help` prints the same list. Read it rather than trusting a list in docs. `vertex-ai`, `openrouter`, `ollama-cloud` and `qwen` accounts are not in it; add those from the dashboard, or through the HTTP API (`POST /api/accounts/<type>`; for `qwen`, the device flow at `POST /api/oauth/qwen/init`).
-- List: `bun run cli --list`
-- Remove: `bun run cli --remove <name>` (deletes at once; see [Database](#database))
-- Reauth: `bun run cli --reauthenticate <name>` (preserves metadata, auto-notifies servers)
-- Priority: `bun run cli --set-priority <name> <priority>` (lower = higher priority, 0 = first)
-- Provider behavior: OAuth (5hr windows, session-based), API keys (pay-as-you-go, no sessions)
+Use the [CLI reference](docs/cli.md#command-reference) for account and maintenance commands, and the [HTTP API reference](docs/api-http.md) for live-server operations. Before destructive commands, read the [database warning](#database).
 
-### Maintenance
-- `bun run cli --reset-stats|--clear-history|--stats|--analyze` (`--reset-stats` and `--clear-history` write with no prompt; see [Database](#database))
-
-### API Endpoints
-- `POST /api/accounts/:id/reload|pause|resume`
+`ACCOUNT_MODES` in `apps/cli/src/main.ts` is authoritative; `--help` prints it. Other supported providers use the dashboard or provider-specific HTTP flow. Credential syntax does not determine billing or session tracking: consult [provider configuration](packages/types/src/provider-config.ts), not an OAuth/API-key rule of thumb.
 
 ### Testing OpenRouter
-Use a **currently free** model, and look one up rather than trusting a slug written
-here — OpenRouter rotates which models carry the `:free` tier, so any pinned slug
-rots. (`z-ai/glm-4.5-air:free` was named here until 2026-08-16, when it started
-returning HTTP 404 `This model is unavailable for free. The paid version is
-available now`. A pinned paid slug silently spends real money instead.)
-
-Pick one:
-```bash
-curl -s https://openrouter.ai/api/v1/models | \
-  python3 -c "import json,sys; print('\n'.join(m['id'] for m in json.load(sys.stdin)['data'] if m['id'].endswith(':free')))"
-```
-
-Then send it, force-routing to the openrouter account so the request cannot land
-on an Anthropic-backed one (see the testing restriction at the top of this file):
-```bash
-curl -X POST http://localhost:8081/v1/messages \
-  -H "Content-Type: application/json" -H "Authorization: Bearer test" \
-  -H "x-better-ccflare-account-id: $(sqlite3 ~/.config/better-ccflare/better-ccflare.db "SELECT id FROM accounts WHERE provider='openrouter' LIMIT 1;")" \
-  -d '{"model":"<free-slug>","messages":[{"role":"user","content":"test"}],"max_tokens":10}'
-```
-
-Add `"stream":true` to exercise the SSE translation path; a healthy stream ends
-with a `message_stop` event.
+Before an OpenRouter inference check, read [Testing OpenRouter](docs/troubleshooting.md#testing-openrouter). Select a currently free model from the live catalog and verify a nonempty OpenRouter account ID on the **same test instance** before force-routing. Do not derive that ID from the default production database or send without the force-route header.
 
 ## Qwen Provider
 - When working on the Qwen provider or streaming transform, **always mirror the qwen-code implementation**: compare against `QwenLM/qwen-code`, either a local checkout or the upstream source at a named commit or tag. In the final response, state the checkout path or source URL and the commit or tag compared; if the comparison was not performed, explicitly say so and explain why.

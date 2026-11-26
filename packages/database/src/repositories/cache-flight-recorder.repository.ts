@@ -8,7 +8,7 @@ import type {
 	Completeness,
 	Timeline,
 	TurnEvidence,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	BatchExpectedChangesError,
 	type BatchStatement,
@@ -315,7 +315,7 @@ export class CacheFlightRecorderRepository extends BaseRepository<Timeline> {
 	async loadTimeline(
 		recorderConversationId: string,
 	): Promise<CacheFlightRecorderTimeline | null> {
-		const conversation = await this.get<{
+		const conversation = await this.getMain<{
 			recorder_conversation_id: string;
 			created_at: number;
 			updated_at: number;
@@ -329,7 +329,7 @@ export class CacheFlightRecorderRepository extends BaseRepository<Timeline> {
 		);
 		if (!conversation) return null;
 
-		const rows = await this.query<StoredTurn>(
+		const rows = await this.queryMain<StoredTurn>(
 			`SELECT ${STORED_TURN_COLUMNS}
 			 ${STORED_TURN_FROM}
 			 WHERE t.recorder_conversation_id = ?
@@ -352,7 +352,7 @@ export class CacheFlightRecorderRepository extends BaseRepository<Timeline> {
 		this.assertPrivacySafeRecorderId(recorderConversationId);
 		const timeline = await this.loadTimeline(recorderConversationId);
 		if (timeline) return { status: "found", timeline };
-		const tombstone = await this.get<{ found: number }>(
+		const tombstone = await this.getMain<{ found: number }>(
 			`SELECT 1 AS found FROM cache_flight_recorder_tombstones
 			 WHERE recorder_conversation_id = ?`,
 			[recorderConversationId],
@@ -387,14 +387,14 @@ export class CacheFlightRecorderRepository extends BaseRepository<Timeline> {
 	}
 
 	async countRetained(): Promise<number> {
-		const row = await this.get<{ count: number }>(
+		const row = await this.getMain<{ count: number }>(
 			"SELECT COUNT(*) AS count FROM cache_flight_recorder_conversations",
 		);
 		return Number(row?.count ?? 0);
 	}
 
 	async countDroppedIncomplete(): Promise<CacheFlightRecorderCounts> {
-		const row = await this.get<{
+		const row = await this.getMain<{
 			dropped: number | null;
 			incomplete: number | null;
 		}>(
@@ -402,7 +402,7 @@ export class CacheFlightRecorderRepository extends BaseRepository<Timeline> {
 				COALESCE(SUM(CASE WHEN incomplete = 1 THEN 1 ELSE 0 END), 0) AS incomplete
 			 FROM cache_flight_recorder_conversations`,
 		);
-		const storedTurns = await this.query<StoredTurn>(
+		const storedTurns = await this.queryMain<StoredTurn>(
 			`SELECT ${STORED_TURN_COLUMNS}
 			 ${STORED_TURN_FROM}`,
 		);

@@ -7,9 +7,9 @@
  * the removed toggle endpoint is covered in router-removed-endpoints.test.ts.
  */
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
-import { toAccountResponse } from "@better-ccflare/types";
+import type { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
+import { toAccountResponse } from "@hov-router/types";
 import { createAccountsListHandler } from "../accounts";
 
 const config = {

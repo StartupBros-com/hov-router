@@ -2,8 +2,8 @@ import {
 	type CatalogModelSummary,
 	getCatalogModelSummaries,
 	onPricingCatalogLoaded,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import { setDerivedProviderWideModelDefaults } from "../../provider-model-defaults";
 
 const log = new Logger("XaiCatalogDefaults");

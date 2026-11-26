@@ -1,8 +1,8 @@
-import { getSessionAffinityAntiThrashWindowMs } from "@better-ccflare/core";
+import { getSessionAffinityAntiThrashWindowMs } from "@hov-router/core";
 import type {
 	AffinityOwnerDirective,
 	AffinityOwnerSnapshot,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type {
 	AnthropicDegradedCohortKey,
 	AnthropicDegradedProtectionState,

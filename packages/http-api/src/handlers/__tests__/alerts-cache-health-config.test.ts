@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Config } from "@better-ccflare/config";
+import { Config } from "@hov-router/config";
 import {
 	getAlertsConfig,
 	getMemberNoticeDestination,
@@ -37,7 +37,7 @@ describe("cache health alert config API", () => {
 	});
 	const update = (body: unknown) =>
 		createAlertsConfigSetHandler(context)(
-			new Request("http://fixture/api/insights/alerts/config", {
+			new Request("http://fixture/api/alerts", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
@@ -101,6 +101,35 @@ describe("cache health alert config API", () => {
 		delete payload.cacheHealthReminderMinutes;
 		setAlertsConfig(config, payload);
 		expect(config.getAlertCacheHealthDurationMinutes()).toBe(80);
+	});
+
+	it("ignores the retired anomaly fields instead of rejecting them", async () => {
+		// An older client still sends the four fields the anomaly sweep used,
+		// removed in 7.0.0 (#1012). The save succeeds and writes none of them.
+		const response = await update({
+			anomalyEnabled: true,
+			anomalyIntervalMinutes: 30,
+			anomalyBaselineWindowMinutes: 720,
+			loopMinRequests: 40,
+			cooldownMinutes: 45,
+		});
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as Record<string, unknown>;
+		expect(body.cooldownMinutes).toBe(45);
+		for (const field of [
+			"anomalyEnabled",
+			"anomalyIntervalMinutes",
+			"anomalyBaselineWindowMinutes",
+			"loopMinRequests",
+		])
+			expect(field in body).toBe(false);
+		const saved = JSON.parse(
+			readFileSync(join(directory, "config.json"), "utf8"),
+		) as Record<string, unknown>;
+		expect(saved.alert_cooldown_minutes).toBe(45);
+		expect(
+			Object.keys(saved).filter((key) => key.startsWith("alert_anomaly_")),
+		).toEqual([]);
 	});
 
 	it("normalizes numeric API inputs without poisoning policy with NaN", async () => {
@@ -228,7 +257,7 @@ describe("member notice destination state", () => {
 
 	it("cannot be set through the alerts config API", async () => {
 		const response = await createAlertsConfigSetHandler(context)(
-			new Request("http://fixture/api/insights/alerts/config", {
+			new Request("http://fixture/api/alerts", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({

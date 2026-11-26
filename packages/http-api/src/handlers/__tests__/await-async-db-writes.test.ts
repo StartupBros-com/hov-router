@@ -5,9 +5,9 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
-import type { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
-import type { APIContext } from "@better-ccflare/types";
+import type { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
+import type { APIContext } from "@hov-router/types";
 import {
 	createAccountAutoFallbackHandler,
 	createAccountAutoPauseOnOverageHandler,
@@ -43,8 +43,8 @@ describe("handlers await async database writes", () => {
 		await dbOps.getAdapter().run(
 			`INSERT INTO accounts (id, name, provider, api_key, refresh_token, access_token,
 				expires_at, created_at, request_count, total_requests, priority,
-				custom_endpoint, model_mappings, model_fallbacks)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL, NULL)`,
+				custom_endpoint, model_mappings)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL)`,
 			[
 				accountId,
 				"await-writes-account",

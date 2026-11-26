@@ -2,8 +2,8 @@ import {
 	BedrockClient,
 	ListFoundationModelsCommand,
 } from "@aws-sdk/client-bedrock";
-import { Logger } from "@better-ccflare/logger";
-import type { Account } from "@better-ccflare/types";
+import { Logger } from "@hov-router/logger";
+import type { Account } from "@hov-router/types";
 import { createBedrockCredentialChain, parseBedrockConfig } from "./index";
 
 const log = new Logger("BedrockModelDiscovery");

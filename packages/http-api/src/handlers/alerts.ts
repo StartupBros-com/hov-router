@@ -1,11 +1,11 @@
-import { type AlertEvt, alertEvents } from "@better-ccflare/core";
+import { type AlertEvt, alertEvents } from "@hov-router/core";
 import {
 	errorResponse,
 	InternalServerError,
 	jsonResponse,
-} from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
-import type { AlertsConfigPayload } from "@better-ccflare/types";
+} from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
+import type { AlertsConfigPayload } from "@hov-router/types";
 import { getAlertsConfig, setAlertsConfig } from "../services/alerts";
 import type { APIContext } from "../types";
 import { createEventStreamHandler } from "./event-stream";
@@ -54,20 +54,9 @@ export function createAlertsConfigSetHandler(context: APIContext) {
 					body.usageWindowThresholdPercent ??
 						current.usageWindowThresholdPercent,
 				),
-				anomalyEnabled:
-					body.anomalyEnabled === undefined
-						? current.anomalyEnabled
-						: parseBoolean(body.anomalyEnabled),
-				anomalyIntervalMinutes: Number(
-					body.anomalyIntervalMinutes ?? current.anomalyIntervalMinutes,
-				),
-				anomalyBaselineWindowMinutes: Number(
-					body.anomalyBaselineWindowMinutes ??
-						current.anomalyBaselineWindowMinutes,
-				),
-				loopMinRequests: Number(
-					body.loopMinRequests ?? current.loopMinRequests,
-				),
+				// The retired anomaly fields (anomalyEnabled, anomalyIntervalMinutes,
+				// anomalyBaselineWindowMinutes, loopMinRequests) are ignored, not
+				// rejected, so an older client can still save its settings.
 				cooldownMinutes: Number(
 					body.cooldownMinutes ?? current.cooldownMinutes,
 				),

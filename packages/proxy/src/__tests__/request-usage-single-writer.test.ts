@@ -8,17 +8,17 @@
  * Refs #801.
  */
 import { afterAll, expect, it, mock, spyOn } from "bun:test";
-import "@better-ccflare/core";
-import { AsyncDbWriter, DatabaseOperations } from "@better-ccflare/database";
+import "@hov-router/core";
+import { AsyncDbWriter, DatabaseOperations } from "@hov-router/database";
 import {
 	AnthropicProvider,
 	OpenAICompatibleProvider,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import {
 	BedrockProvider,
 	transformNonStreamingResponse,
-} from "@better-ccflare/providers/bedrock";
-import type { Account, RequestResponse } from "@better-ccflare/types";
+} from "@hov-router/providers/bedrock";
+import type { Account, RequestResponse } from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import type { StartMessage } from "../worker-messages";
 
@@ -26,13 +26,13 @@ import type { StartMessage } from "../worker-messages";
 // Every priced reply estimates to this amount, so a stored cost shows
 // whether the billed-cost header replaced the estimate.
 const CATALOGUE_ESTIMATE_USD = 0.01;
-const actualCore = await import("@better-ccflare/core");
-mock.module("@better-ccflare/core", () => ({
+const actualCore = await import("@hov-router/core");
+mock.module("@hov-router/core", () => ({
 	...actualCore,
 	isModelPriced: async () => false,
 	estimateCostUSD: async () => CATALOGUE_ESTIMATE_USD,
 }));
-afterAll(() => mock.module("@better-ccflare/core", () => actualCore));
+afterAll(() => mock.module("@hov-router/core", () => actualCore));
 const usageCollectorModule = await import("../usage-collector");
 const { UsageCollector } = usageCollectorModule;
 const { updateAccountMetadata } = await import(
@@ -180,7 +180,9 @@ async function storeThroughEveryWriter(
 
 		const row = await db
 			.getAdapter()
-			.get<UsageRow>(`SELECT ${USAGE_COLUMNS} FROM requests WHERE id = 'r1'`);
+			.getMain<UsageRow>(
+				`SELECT ${USAGE_COLUMNS} FROM requests WHERE id = 'r1'`,
+			);
 		expect(row).not.toBeNull();
 		return row as UsageRow;
 	} finally {
@@ -292,7 +294,7 @@ async function collectedRow(
 		return (
 			(await db
 				.getAdapter()
-				.get<UsageRow>(
+				.getMain<UsageRow>(
 					`SELECT ${USAGE_COLUMNS} FROM requests WHERE id = 'r1'`,
 				)) ?? null
 		);
@@ -568,7 +570,7 @@ it("stores a converted OpenAI-format reply's usage through the real client-forwa
 		await summarized;
 		await collector.drain();
 
-		const row = await adapter.get<UsageRow>(
+		const row = await adapter.getMain<UsageRow>(
 			`SELECT ${USAGE_COLUMNS} FROM requests WHERE id = 'r1'`,
 		);
 		expect(row?.model).toBe("chat");

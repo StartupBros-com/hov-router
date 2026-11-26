@@ -10,21 +10,21 @@ import {
 import { existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Config } from "@better-ccflare/config";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { DatabaseFactory } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import type { DatabaseOperations } from "@hov-router/database";
+import { DatabaseFactory } from "@hov-router/database";
 
 mock.module("../../utils/browser", () => ({
 	openBrowser: async () => true,
 }));
 
-// Capture the real @better-ccflare/providers/qwen module first so other
+// Capture the real @hov-router/providers/qwen module first so other
 // exports stay intact for downstream consumers (mock.module replaces the
 // WHOLE module globally — see packages/http-api/handlers/__tests__/oauth.test.ts
 // for the full rationale).
-const actualQwen = await import("@better-ccflare/providers/qwen");
+const actualQwen = await import("@hov-router/providers/qwen");
 
-mock.module("@better-ccflare/providers/qwen", () => ({
+mock.module("@hov-router/providers/qwen", () => ({
 	...actualQwen,
 	initiateDeviceFlow: async () => ({
 		deviceCode: "device-code",
@@ -42,11 +42,11 @@ mock.module("@better-ccflare/providers/qwen", () => ({
 	}),
 }));
 
-// Restore the real @better-ccflare/providers/qwen module once this file's
+// Restore the real @hov-router/providers/qwen module once this file's
 // tests finish so later test files in the same process (mock.module has no
 // per-file isolation without --isolate) resolve the real exports again.
 afterAll(() => {
-	mock.module("@better-ccflare/providers/qwen", () => actualQwen);
+	mock.module("@hov-router/providers/qwen", () => actualQwen);
 });
 
 const { reauthenticateAccount } = await import("../account");
@@ -108,7 +108,8 @@ describe("CLI Qwen account re-authentication", () => {
 		expect(result.success).toBe(true);
 
 		const account = dbOps
-			.getDatabase()
+			.getAdapter()
+			.getSQLiteDb()
 			.query<
 				{
 					access_token: string;
@@ -165,7 +166,8 @@ describe("CLI Qwen account re-authentication", () => {
 		expect(result.success).toBe(true);
 
 		const account = dbOps
-			.getDatabase()
+			.getAdapter()
+			.getSQLiteDb()
 			.query<{ paused: number; pause_reason: string | null }, [string]>(
 				"SELECT paused, pause_reason FROM accounts WHERE name = ?",
 			)

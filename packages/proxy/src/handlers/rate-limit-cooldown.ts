@@ -7,9 +7,9 @@ import {
 	logError,
 	RateLimitError,
 	resolveCooldownUntil,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
-import type { Account, RateLimitReason } from "@better-ccflare/types";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
+import type { Account, RateLimitReason } from "@hov-router/types";
 import {
 	type CircuitBreaker,
 	getDefaultCircuitBreaker,

@@ -1,4 +1,4 @@
-import { levenshteinDistance } from "@better-ccflare/core";
+import { levenshteinDistance } from "@hov-router/core";
 
 /**
  * The largest edit distance at which a near miss is still suggested.

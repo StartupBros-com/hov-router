@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AuthError } from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+import { AuthError } from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import { OpenAICompatibleProvider } from "../provider";
 
 const SKILL_MARKER = "Base directory for this skill: ";
@@ -538,37 +538,6 @@ describe("OpenAICompatibleProvider", () => {
 			const body = await transformed.json();
 
 			expect(body.messages[0].content).toBe("Helloworld!");
-		});
-
-		it("should apply custom model mappings from JSON endpoint configuration", async () => {
-			const accountWithMappings = {
-				...mockAccount,
-				custom_endpoint: JSON.stringify({
-					endpoint: "https://api.customprovider.com/v1",
-					modelMappings: {
-						haiku: "custom/haiku-model",
-					},
-				}),
-			};
-
-			const anthropicRequest = {
-				model: "claude-3-haiku-20240307",
-				messages: [{ role: "user", content: "Hello" }],
-			};
-
-			const request = new Request("https://example.com/v1/messages", {
-				method: "POST",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify(anthropicRequest),
-			});
-
-			const transformed = await provider.transformRequestBody(
-				request,
-				accountWithMappings,
-			);
-			const body = await transformed.json();
-
-			expect(body.model).toBe("custom/haiku-model");
 		});
 	});
 

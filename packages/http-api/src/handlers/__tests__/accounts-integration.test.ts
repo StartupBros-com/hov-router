@@ -10,18 +10,18 @@ import {
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
 import {
 	clearDerivedProviderModelDefaults,
 	resolveProviderModelDefault,
 	setDerivedAccountModelDefaults,
-} from "@better-ccflare/providers";
-import { deriveComboRouteClass } from "@better-ccflare/providers/request-capabilities";
+} from "@hov-router/providers";
+import { deriveComboRouteClass } from "@hov-router/providers/request-capabilities";
 import {
 	clearOpenAICompatibleModelCacheForAccount,
 	getOpenAICompatibleModels,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import {
 	createAccountCustomEndpointUpdateHandler,
 	createAccountPauseHandler,
@@ -111,7 +111,6 @@ const mockCliCommands = {
 	resumeAccount: () => ({ success: true, message: "Account resumed" }),
 };
 const mockDbOps = {
-	getDatabase: () => mockDatabase,
 	updateAccountPriority: () => {},
 	renameAccount: () => {},
 	setAutoFallbackEnabled: () => {},
@@ -1244,7 +1243,7 @@ describe("Accounts Handler - OAuth control-plane hotfix (U8)", () => {
 	): Promise<{ paused: number; pause_reason: string | null }> {
 		const row = await dbOps
 			.getAdapter()
-			.get<{ paused: number; pause_reason: string | null }>(
+			.getMain<{ paused: number; pause_reason: string | null }>(
 				"SELECT paused, pause_reason FROM accounts WHERE id = ?",
 				[id],
 			);
@@ -1557,7 +1556,7 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 	async function fetchCredentialRow(id: string): Promise<CredentialRow> {
 		const row = await dbOps
 			.getAdapter()
-			.get<CredentialRow>(
+			.getMain<CredentialRow>(
 				"SELECT api_key, refresh_token, access_token, expires_at FROM accounts WHERE id = ?",
 				[id],
 			);
@@ -1605,8 +1604,8 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 		await dbOps.getAdapter().run(
 			`INSERT INTO accounts (
 				id, name, provider, api_key, refresh_token, access_token,
-				expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings, model_fallbacks
-			) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, 0, 0, ?, ?, NULL, NULL)`,
+				expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings
+			) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, 0, 0, ?, ?, NULL)`,
 			[
 				cliId,
 				"cli-equivalent",
@@ -1670,7 +1669,7 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 			],
 		);
 
-		const mirroredRow = await dbOps.getAdapter().get<{
+		const mirroredRow = await dbOps.getAdapter().getMain<{
 			provider: string;
 			billing_type: string | null;
 			api_key: string | null;
@@ -1698,7 +1697,7 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 				"https://legacy.example.com/v1",
 			],
 		);
-		const canonicalRow = await dbOps.getAdapter().get<{
+		const canonicalRow = await dbOps.getAdapter().getMain<{
 			provider: string;
 			billing_type: string | null;
 			api_key: string | null;
@@ -1765,7 +1764,7 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 
 		const row = await dbOps
 			.getAdapter()
-			.get<{ paused: number; pause_reason: string | null }>(
+			.getMain<{ paused: number; pause_reason: string | null }>(
 				"SELECT paused, pause_reason FROM accounts WHERE id = ?",
 				[payload.account.id],
 			);
@@ -1791,7 +1790,7 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 
 		const row = await dbOps
 			.getAdapter()
-			.get<{ paused: number; pause_reason: string | null }>(
+			.getMain<{ paused: number; pause_reason: string | null }>(
 				"SELECT paused, pause_reason FROM accounts WHERE id = ?",
 				[payload.account.id],
 			);
@@ -1857,7 +1856,7 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 		};
 		expect(payload.accountId).toBe(payload.account.id);
 		expect(payload.account.provider).toBe("deepseek");
-		const row = await dbOps.getAdapter().get<{
+		const row = await dbOps.getAdapter().getMain<{
 			custom_endpoint: string | null;
 			model_mappings: string | null;
 		}>("SELECT custom_endpoint, model_mappings FROM accounts WHERE id = ?", [

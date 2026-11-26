@@ -7,9 +7,9 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@better-ccflare/config";
-import { logBus } from "@better-ccflare/logger";
-import type { Account } from "@better-ccflare/types";
+import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@hov-router/config";
+import { logBus } from "@hov-router/logger";
+import type { Account } from "@hov-router/types";
 import { AnthropicDegradedModeCoordinator } from "../anthropic-degraded-mode";
 import { DegradedModeObservability } from "../anthropic-degraded-observability";
 import {
@@ -21,7 +21,7 @@ import type { ProxyContext } from "../handlers";
 
 // Loading proxy.ts in a focused unit test must not require ignored embedded
 // worker artifacts from the CLI build.
-const { usageCache } = await import("@better-ccflare/providers");
+const { usageCache } = await import("@hov-router/providers");
 const usageCollectorModule = await import("../usage-collector");
 const { handleProxy } = await import("../proxy");
 
@@ -116,7 +116,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

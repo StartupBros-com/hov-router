@@ -10,8 +10,8 @@ import {
 import {
 	computeRateLimitBackoffMs,
 	isAccountAvailable,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import { applyRateLimitCooldown } from "../handlers/rate-limit-cooldown";
 import { handleProxy } from "../proxy";
@@ -60,7 +60,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

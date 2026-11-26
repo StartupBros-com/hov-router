@@ -1,4 +1,4 @@
-import type { ComboFamily, ComboSlot } from "@better-ccflare/types";
+import type { ComboFamily, ComboSlot } from "@hov-router/types";
 import { Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";

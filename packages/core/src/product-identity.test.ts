@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import * as identity from "@better-ccflare/core/product-identity";
+import * as identity from "@hov-router/core/product-identity";
 import cliPackage from "../../../apps/cli/package.json";
 import rootPackage from "../../../package.json";
 
 describe("public product identity", () => {
 	it("preserves distribution package names and version agreement", () => {
-		expect(rootPackage.name).toBe("better-ccflare");
+		expect(rootPackage.name).toBe("hov-router");
 		expect(cliPackage.name).toBe("better-ccflare");
 		expect(cliPackage.version).toBe(rootPackage.version);
 		expect(cliPackage.license).toBe("MIT");

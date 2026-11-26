@@ -19,8 +19,8 @@ import {
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseOperations } from "@better-ccflare/database";
-import type { Account } from "@better-ccflare/types";
+import { DatabaseOperations } from "@hov-router/database";
+import type { Account } from "@hov-router/types";
 import {
 	clearAllPendingRotationsForTests,
 	configurePendingRotationPersistence,

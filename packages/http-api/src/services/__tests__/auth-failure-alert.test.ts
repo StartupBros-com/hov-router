@@ -1,16 +1,16 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { EventEmitter } from "node:events";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import {
 	alertEvents,
 	authFailureEvents,
 	requestEvents,
-} from "@better-ccflare/core";
-import type { BunSqlAdapter as BunSqlAdapterType } from "@better-ccflare/database";
-import { BunSqlAdapter, ensureSchema } from "@better-ccflare/database";
-import { logBus } from "@better-ccflare/logger";
-import type { LogEvent, RequestResponse } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { BunSqlAdapter as BunSqlAdapterType } from "@hov-router/database";
+import { BunSqlAdapter, ensureSchema } from "@hov-router/database";
+import { logBus } from "@hov-router/logger";
+import type { LogEvent, RequestResponse } from "@hov-router/types";
 import { AlertService } from "../alerts";
 
 async function waitFor(predicate: () => boolean): Promise<void> {
@@ -25,8 +25,6 @@ function makeConfig(
 	overrides: Partial<{
 		requestTokens: number;
 		tokensPerHour: number;
-		anomalyEnabled: boolean;
-		anomalyIntervalMinutes: number;
 		webhookUrl: string;
 	}> = {},
 ): Config {
@@ -41,11 +39,14 @@ function makeConfig(
 		getAlertTokensPerHour: () => overrides.tokensPerHour ?? 0,
 		getAlertRequestTokens: () => overrides.requestTokens ?? 0,
 		getAlertUsageWindowThresholdPercent: () => 0,
-		getAlertAnomalyEnabled: () => overrides.anomalyEnabled ?? false,
-		getAlertAnomalyIntervalMinutes: () =>
-			overrides.anomalyIntervalMinutes ?? 15,
-		getAlertAnomalyBaselineWindowMinutes: () => 1440,
-		getAlertAnomalyLoopMinRequests: () => 25,
+		getAlertCacheHealthEnabled: () => false,
+		getAlertCacheHealthThresholdPercent: () => 80,
+		getAlertCacheHealthDurationMinutes: () => 15,
+		getAlertCacheHealthMinRequests: () => 5,
+		getAlertCacheHealthMinInputTokens: () => 10000,
+		getAlertCacheHealthReminderMinutes: () => 60,
+		getMemberNoticeWebhookUrl: () => "",
+		getMemberNoticeSigningSecret: () => "",
 		getAlertCooldownMinutes: () => 60,
 		getAlertWebhookUrl: () =>
 			overrides.webhookUrl ?? "http://127.0.0.1:9999/webhook",
@@ -74,8 +75,11 @@ class SynchronizedDuplicateReadSqliteAdapter extends BunSqlAdapter {
 		this.releaseDuplicateReads = resolve;
 	});
 
-	override async get<T>(sql: string, params?: unknown[]): Promise<T | null> {
-		const result = await super.get<T>(sql, params);
+	override async getMain<T>(
+		sql: string,
+		params?: unknown[],
+	): Promise<T | null> {
+		const result = await super.getMain<T>(sql, params);
 		if (/SELECT id FROM alerts WHERE id = \?/i.test(sql)) {
 			this.duplicateReads++;
 			if (this.duplicateReads === 2) this.releaseDuplicateReads();
@@ -200,10 +204,10 @@ describe("AlertService auth_failure events", () => {
 class RecordingPgAdapter implements BunSqlAdapterType {
 	readonly runStatements: string[] = [];
 
-	async get<T>(_sql: string, _params?: unknown[]): Promise<T | null> {
+	async getMain<T>(_sql: string, _params?: unknown[]): Promise<T | null> {
 		return null;
 	}
-	async query<T>(_sql: string, _params?: unknown[]): Promise<T[]> {
+	async queryMain<T>(_sql: string, _params?: unknown[]): Promise<T[]> {
 		return [];
 	}
 	async run(sql: string, _params?: unknown[]): Promise<void> {
@@ -336,12 +340,10 @@ describe("AlertService persistAndEmit (issue #326)", () => {
 
 class RecoveringPgAdapter implements BunSqlAdapterType {
 	failAggregate = true;
-	failAnomaly = true;
 	getCalls = 0;
-	queryCalls = 0;
 	writeAttempts = 0;
 
-	async get<T>(_sql: string, _params?: unknown[]): Promise<T | null> {
+	async getMain<T>(_sql: string, _params?: unknown[]): Promise<T | null> {
 		this.getCalls++;
 		if (this.failAggregate) {
 			throw new Error("PG query timeout after 8000ms: SELECT SUM(...)");
@@ -349,11 +351,7 @@ class RecoveringPgAdapter implements BunSqlAdapterType {
 		return null;
 	}
 
-	async query<T>(_sql: string, _params?: unknown[]): Promise<T[]> {
-		this.queryCalls++;
-		if (this.failAnomaly) {
-			throw new Error("PG query timeout after 8000ms: SELECT requests");
-		}
+	async queryMain<T>(_sql: string, _params?: unknown[]): Promise<T[]> {
 		return [];
 	}
 
@@ -447,31 +445,23 @@ describe("AlertService fire-and-forget failures", () => {
 		}
 	});
 
-	it("catches the real registered anomaly timer callback and restarts cleanly", async () => {
+	it("starts no sweep timer and restores every listener across stop and start", async () => {
 		const adapter = new RecoveringPgAdapter();
 		const originalSetInterval = globalThis.setInterval;
-		const originalClearInterval = globalThis.clearInterval;
-		const callbacks: Array<() => void> = [];
-		const handles: object[] = [];
-		const cleared: unknown[] = [];
+		const intervals: unknown[] = [];
 		globalThis.setInterval = ((callback: () => void) => {
-			callbacks.push(callback);
-			const handle = {};
-			handles.push(handle);
-			return handle;
+			intervals.push(callback);
+			return {};
 		}) as unknown as typeof setInterval;
-		globalThis.clearInterval = ((handle: unknown) => {
-			cleared.push(handle);
-		}) as unknown as typeof clearInterval;
 		const requestListenersBefore = requestEvents.listenerCount("event");
 		const authListenersBefore = authFailureEvents.listenerCount("event");
-		const service = new AlertService(
-			adapter,
-			makeConfig({ anomalyEnabled: true, webhookUrl: "" }),
-		);
+		const service = new AlertService(adapter, makeConfig({ webhookUrl: "" }));
 		try {
 			service.start();
-			expect(callbacks).toHaveLength(1);
+			// This Config double has no cache-health accessors, so nothing starts a
+			// timer. The anomaly sweep timer that also started here was removed in
+			// 7.0.0 (#1012).
+			expect(intervals).toHaveLength(0);
 			expect(requestEvents.listenerCount("event")).toBe(
 				requestListenersBefore + 1,
 			);
@@ -479,43 +469,20 @@ describe("AlertService fire-and-forget failures", () => {
 				authListenersBefore + 1,
 			);
 
-			callbacks[0]?.();
-			await waitFor(() => unhandled.length > 0 || logs.length > 0);
-			expect(unhandled).toHaveLength(0);
-			expect(
-				logs.some(
-					(event) =>
-						event.level === "ERROR" &&
-						event.msg.includes("Anomaly evaluation failed") &&
-						event.msg.includes("PG query timeout"),
-				),
-			).toBe(true);
-
-			adapter.failAnomaly = false;
-			callbacks[0]?.();
-			await waitFor(() => adapter.queryCalls === 2);
-
-			service.stop();
-			expect(cleared).toEqual([handles[0]]);
+			await service.stop();
 			expect(requestEvents.listenerCount("event")).toBe(requestListenersBefore);
 			expect(authFailureEvents.listenerCount("event")).toBe(
 				authListenersBefore,
 			);
 
 			service.start();
-			expect(callbacks).toHaveLength(2);
 			expect(requestEvents.listenerCount("event")).toBe(
 				requestListenersBefore + 1,
 			);
-			expect(authFailureEvents.listenerCount("event")).toBe(
-				authListenersBefore + 1,
-			);
-			callbacks[1]?.();
-			await waitFor(() => adapter.queryCalls === 3);
+			expect(intervals).toHaveLength(0);
 		} finally {
-			service.stop();
+			await service.stop();
 			globalThis.setInterval = originalSetInterval;
-			globalThis.clearInterval = originalClearInterval;
 		}
 	});
 

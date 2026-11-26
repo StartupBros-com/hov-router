@@ -1,8 +1,5 @@
-import type {
-	BunSqlAdapter,
-	DatabaseOperations,
-} from "@better-ccflare/database";
-import { jsonResponse } from "@better-ccflare/http-common";
+import type { BunSqlAdapter, DatabaseOperations } from "@hov-router/database";
+import { jsonResponse } from "@hov-router/http-common";
 // Subpath, not the package barrel: these are RUNTIME imports, and evaluating
 // the barrel first trips the documented types↔core cycle (see the header of
 // packages/types/src/request.ts). `types/request` imports nothing.
@@ -12,7 +9,7 @@ import {
 	toProjectAttributionSource,
 	toRouteProvenance,
 	toStreamTerminalState,
-} from "@better-ccflare/types/request";
+} from "@hov-router/types/request";
 import type { RequestResponse } from "../types";
 
 const MAX_BODY_PREVIEW_BYTES = 256 * 1024; // 256KB - match response body cap to preserve full conversation history
@@ -45,7 +42,9 @@ function truncateBase64(body: unknown): {
  */
 export function createRequestsSummaryHandler(db: BunSqlAdapter) {
 	return async (limit: number = 50): Promise<Response> => {
-		const requests = await db.query<{
+		// On the interactive reader: under disk pressure this page read took up to
+		// 5.7 s on the main thread, stalling every stream for that long (#1013).
+		const requests = await db.queryOffThread<{
 			id: string;
 			timestamp: number;
 			method: string;
@@ -97,6 +96,7 @@ export function createRequestsSummaryHandler(db: BunSqlAdapter) {
 			LIMIT ?
 		`,
 			[limit],
+			"interactive",
 		);
 
 		const response: RequestResponse[] = requests.map((request) => ({
@@ -259,7 +259,7 @@ export function createRequestPayloadHandler(dbOps: DatabaseOperations) {
 		if (typeof payload === "object" && !Array.isArray(payload)) {
 			const row = await dbOps
 				.getAdapter()
-				.get<{ quality_decision: string | null }>(
+				.getMain<{ quality_decision: string | null }>(
 					"SELECT quality_decision FROM requests WHERE id = ?",
 					[requestId],
 				);

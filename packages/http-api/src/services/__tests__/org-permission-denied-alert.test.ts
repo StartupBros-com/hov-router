@@ -9,14 +9,14 @@ import {
 	spyOn,
 } from "bun:test";
 import { EventEmitter } from "node:events";
-import type { Config } from "@better-ccflare/config";
-import { orgPermissionDeniedEvents, requestEvents } from "@better-ccflare/core";
+import type { Config } from "@hov-router/config";
+import { orgPermissionDeniedEvents, requestEvents } from "@hov-router/core";
 import {
 	BunSqlAdapter,
 	ensureSchema,
 	runMigrations,
-} from "@better-ccflare/database";
-import type { AlertEvent, RequestResponse } from "@better-ccflare/types";
+} from "@hov-router/database";
+import type { AlertEvent, RequestResponse } from "@hov-router/types";
 import { AlertService, buildDiscordAlertContent } from "../alerts";
 
 // Issue #877: on 2026-11-16 Anthropic refused max-primary-bros for over two
@@ -45,10 +45,14 @@ function makeConfig(): Config {
 		getAlertTokensPerHour: () => 0,
 		getAlertRequestTokens: () => 0,
 		getAlertUsageWindowThresholdPercent: () => 0,
-		getAlertAnomalyEnabled: () => false,
-		getAlertAnomalyIntervalMinutes: () => 15,
-		getAlertAnomalyBaselineWindowMinutes: () => 1440,
-		getAlertAnomalyLoopMinRequests: () => 25,
+		getAlertCacheHealthEnabled: () => false,
+		getAlertCacheHealthThresholdPercent: () => 80,
+		getAlertCacheHealthDurationMinutes: () => 15,
+		getAlertCacheHealthMinRequests: () => 5,
+		getAlertCacheHealthMinInputTokens: () => 10000,
+		getAlertCacheHealthReminderMinutes: () => 60,
+		getMemberNoticeWebhookUrl: () => "",
+		getMemberNoticeSigningSecret: () => "",
 		getAlertCooldownMinutes: () => 60,
 		getAlertWebhookUrl: () => "http://127.0.0.1:9999/webhook",
 		getAlertWebhookTypes: () => [],

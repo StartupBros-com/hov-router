@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
-import type { Config } from "@better-ccflare/config";
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
+import type { DatabaseOperations } from "@hov-router/database";
 
 /**
  * Reset all account statistics

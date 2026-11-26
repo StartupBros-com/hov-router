@@ -1,11 +1,11 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-// Force @better-ccflare/core to initialise before @better-ccflare/types resolves its
+// Force @hov-router/core to initialise before @hov-router/types resolves its
 // circular dependency (types/agent.ts → core → core/strategy.ts → types/StrategyName).
 // Without this the enum is undefined when strategy.ts runs. Same pattern as
 // account-rate-limit-audit.test.ts.
-import "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { AccountRepository } from "../account.repository";
 
@@ -44,7 +44,6 @@ function makeDb(): { db: Database; repo: AccountRepository } {
 			custom_endpoint TEXT,
 			model_mappings TEXT,
 			cross_region_mode TEXT,
-			model_fallbacks TEXT,
 			billing_type TEXT,
 			pause_reason TEXT
 		)

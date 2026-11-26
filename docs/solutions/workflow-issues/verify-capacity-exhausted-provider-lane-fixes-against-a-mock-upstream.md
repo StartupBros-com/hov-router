@@ -10,7 +10,7 @@ applies_when:
   - Verifying a provider-lane proxy fix when every account on that provider is at capacity and force-routed requests fail closed before the lane runs
   - Comparing a newly deployed binary's behavior against the previous production build for the same code path
   - Needing production-shaped evidence (trace records, the upstream request body, a scratch database row) without spending any account's real quota
-  - AGENTS.md forbids scripted traffic to Anthropic-backed accounts, so verification must run against a mock upstream or a non-Anthropic account
+  - Reproducing provider exhaustion and failure responses without sending raw probes to a live subscription account
   - A provider's custom_endpoint field accepts any http host, making a local mock upstream substitutable for the real backend
 symptoms:
   - force_route_account_capacity_exhausted returned for every Codex-pinned request while every Codex Pro account sat at 100% of its seven-day window
@@ -169,7 +169,7 @@ All six `requests` rows carry `agent_attribution_source = session_header` regard
 
 - `docs/solutions/integration-issues/codex-lane-session-attribution-fallback-mistaken-for-agent-evidence.md`: the bug this practice verified on the deployed binary.
 - `docs/solutions/workflow-issues/verify-fix-ancestry-before-citing-a-measured-rate.md`: the same rule of binding a claim to the runtime's `git_sha`, applied to measured rates.
-- `docs/solutions/workflow-issues/never-poll-an-unknown-path-against-a-local-ccflare.md`: keeping scripted verification traffic off real accounts when a local ccflare is involved.
+- `docs/solutions/workflow-issues/never-poll-an-unknown-path-against-a-local-ccflare.md`: preventing local readiness probes from falling through to real accounts. For a separate live CLI route check, see [request verification](../../agent-setup.md#5-connect-claude-code-and-prove-the-route).
 - `docs/solutions/validate-against-live-payloads.md`: verification is only as good as the fidelity of what you feed in and read back.
 - `docs/solutions/observability/codex-trace-input-tokens-are-cache-inclusive.md`: trace-field semantics to respect when reading the same JSONL.
 - Issue #380 (measurement week tracker) and PR #381 (the fix).

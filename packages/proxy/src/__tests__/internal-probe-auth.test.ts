@@ -10,8 +10,8 @@ import {
 import {
 	type CacheReplayModelStrategy,
 	usageCache,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import { cacheBodyStore } from "../cache-body-store";
 import {
 	CACHE_PACING_MS_ENV,
@@ -59,7 +59,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: "overage",
 		refresh_token_issued_at: null,

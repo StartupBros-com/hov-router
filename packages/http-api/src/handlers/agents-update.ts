@@ -1,5 +1,5 @@
-import { agentRegistry } from "@better-ccflare/agents";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import { agentRegistry } from "@hov-router/agents";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	BadRequest,
 	errorResponse,
@@ -7,13 +7,9 @@ import {
 	InternalServerError,
 	jsonResponse,
 	NotFound,
-} from "@better-ccflare/http-common";
-import type {
-	AgentTool,
-	AllowedModel,
-	APIContext,
-} from "@better-ccflare/types";
-import { TOOL_PRESETS } from "@better-ccflare/types";
+} from "@hov-router/http-common";
+import type { AgentTool, AllowedModel, APIContext } from "@hov-router/types";
+import { TOOL_PRESETS } from "@hov-router/types";
 import {
 	allowedModelErrorMessage,
 	isAllowedModel,

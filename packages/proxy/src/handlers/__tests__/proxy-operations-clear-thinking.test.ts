@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import type { Provider } from "@better-ccflare/providers";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import type { Provider } from "@hov-router/providers";
+import type { Account, RequestMeta } from "@hov-router/types";
 import { CACHE_REPLAY_MODEL_HEADER } from "../../cache-transport-staging";
 import type { ProxyContext } from "../proxy-types";
 import {
@@ -81,7 +81,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -115,7 +114,7 @@ function makeProxyContext(
 			updateAccountUsage: mock(() => Promise.resolve()),
 			getAdapter: mock(() => ({
 				run: mock(() => Promise.resolve()),
-				get: mock(() => Promise.resolve(null)),
+				getMain: mock(() => Promise.resolve(null)),
 			})),
 		} as never,
 		runtime: { port: 8080, clientId: "test" } as never,

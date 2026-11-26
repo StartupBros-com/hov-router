@@ -1,5 +1,5 @@
-import { isStorageFullError } from "@better-ccflare/core";
-import { StartOutOfSpaceError } from "@better-ccflare/database";
+import { isStorageFullError } from "@hov-router/core";
+import { StartOutOfSpaceError } from "@hov-router/database";
 
 /**
  * What a start that failed for lack of disk space exits with: the errno of

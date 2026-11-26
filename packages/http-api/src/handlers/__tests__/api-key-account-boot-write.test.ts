@@ -1,12 +1,12 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	DatabaseFactory,
 	ensureSchema,
 	runMigrations,
-} from "@better-ccflare/database";
+} from "@hov-router/database";
 import {
 	createAnthropicCompatibleAccountAddHandler,
 	createMinimaxAccountAddHandler,
@@ -102,7 +102,7 @@ describe("API-key account creation leaves the next start nothing to write", () =
 			// A static key never expires; the list endpoint already reports null.
 			expect(payload.account.tokenExpiresAt).toBeNull();
 
-			const row = await dbOps.getAdapter().get<{
+			const row = await dbOps.getAdapter().getMain<{
 				api_key: string | null;
 				refresh_token: string | null;
 				access_token: string | null;

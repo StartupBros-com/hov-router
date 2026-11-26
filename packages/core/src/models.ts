@@ -2,7 +2,7 @@
  * Centralized model definitions and constants
  * All Claude model IDs and metadata should be defined here
  */
-import type { ComboFamily } from "@better-ccflare/types";
+import type { ComboFamily } from "@hov-router/types";
 
 // Full model IDs as used by the Anthropic API
 export const CLAUDE_MODEL_IDS = {

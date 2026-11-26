@@ -996,8 +996,8 @@ describe("Database Migrations — non-destructive account dedup", () => {
 		// Discarded row is the ONLY holder of these values.
 		db.prepare(
 			`INSERT INTO accounts (id, name, provider, refresh_token, access_token, created_at, last_used, refresh_token_issued_at, custom_endpoint,
-			   model_mappings, model_fallbacks, cross_region_mode, billing_type, pause_reason, rate_limited_reason, rate_limit_status)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			   model_mappings, cross_region_mode, billing_type, pause_reason, rate_limited_reason, rate_limit_status)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		).run(
 			"cfg-2",
 			"cfg",
@@ -1009,7 +1009,6 @@ describe("Database Migrations — non-destructive account dedup", () => {
 			now - 9000,
 			null,
 			'{"opus":"sonnet"}',
-			'["fallback-model"]',
 			"geographic",
 			"subscription",
 			"overage",
@@ -1021,13 +1020,12 @@ describe("Database Migrations — non-destructive account dedup", () => {
 
 		const survivor = db
 			.prepare(
-				`SELECT model_mappings, model_fallbacks, cross_region_mode, billing_type,
+				`SELECT model_mappings, cross_region_mode, billing_type,
 				        pause_reason, rate_limited_reason, rate_limit_status
 				 FROM accounts WHERE name = 'cfg'`,
 			)
 			.get() as Record<string, string | null>;
 		expect(survivor.model_mappings).toBe('{"opus":"sonnet"}');
-		expect(survivor.model_fallbacks).toBe('["fallback-model"]');
 		expect(survivor.cross_region_mode).toBe("geographic");
 		expect(survivor.billing_type).toBe("subscription");
 		expect(survivor.pause_reason).toBe("overage");

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
-import * as cliCommands from "@better-ccflare/cli-commands";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { DatabaseFactory } from "@better-ccflare/database";
+import * as cliCommands from "@hov-router/cli-commands";
+import type { DatabaseOperations } from "@hov-router/database";
+import { DatabaseFactory } from "@hov-router/database";
 import { createAccountRemoveHandler } from "../accounts";
 
 // Conventional test pattern (mirrors kilo.test.ts). Requires the
@@ -79,7 +79,7 @@ describe("createAccountRemoveHandler — id-scoped delete", () => {
 		// uuid-1 is deleted earlier in this same test.)
 		const remaining = await dbOps
 			.getAdapter()
-			.query<{ id: string }>("SELECT id FROM accounts", []);
+			.queryMain<{ id: string }>("SELECT id FROM accounts", []);
 		expect(remaining.map((r) => r.id)).toEqual([]);
 	});
 
@@ -96,7 +96,7 @@ describe("createAccountRemoveHandler — id-scoped delete", () => {
 		// Row must still exist.
 		const remaining = await dbOps
 			.getAdapter()
-			.query<{ id: string }>("SELECT id FROM accounts WHERE id = ?", [
+			.queryMain<{ id: string }>("SELECT id FROM accounts WHERE id = ?", [
 				"uuid-3",
 			]);
 		expect(remaining).toHaveLength(1);
@@ -117,7 +117,7 @@ describe("createAccountRemoveHandler — id-scoped delete", () => {
 
 		const remaining = await dbOps
 			.getAdapter()
-			.query<{ id: string }>(
+			.queryMain<{ id: string }>(
 				"SELECT id FROM accounts WHERE name = ? ORDER BY id",
 				["shared"],
 			);

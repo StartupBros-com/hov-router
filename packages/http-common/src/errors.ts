@@ -12,4 +12,4 @@ export {
 	TooManyRequests,
 	Unauthorized,
 	UnprocessableEntity,
-} from "@better-ccflare/errors";
+} from "@hov-router/errors";

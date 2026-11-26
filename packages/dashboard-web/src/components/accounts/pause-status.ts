@@ -9,7 +9,7 @@
  * "Paused" copy: this function must never throw or return something
  * misleading for a reason it doesn't specifically recognize.
  */
-import { PAUSE_REASON_NEEDS_REAUTH } from "@better-ccflare/core";
+import { PAUSE_REASON_NEEDS_REAUTH } from "@hov-router/core";
 
 export interface PauseStatusDisplay {
 	/** Copy to render next to/instead of the generic "Paused" badge. */

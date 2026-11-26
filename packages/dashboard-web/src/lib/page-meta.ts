@@ -1,4 +1,4 @@
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
 
 export interface PageMeta {
 	path: string;
@@ -21,10 +21,11 @@ export const PAGE_META = {
 		title: "Analytics",
 		description: "Usage patterns and trends over time",
 	},
-	insights: {
-		path: "/insights",
-		title: "Insights",
-		description: "Cache efficiency and estimated cost savings",
+	alerts: {
+		path: "/alerts",
+		title: "Alerts",
+		description:
+			"Alerts on usage windows, cache health, account auth and routing",
 	},
 	requests: {
 		path: "/requests",

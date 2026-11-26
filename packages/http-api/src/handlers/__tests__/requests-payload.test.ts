@@ -12,7 +12,7 @@ import { createRequestPayloadHandler } from "../requests";
 function dbWithPayload(payload: unknown) {
 	return {
 		getRequestPayload: async () => payload,
-		getAdapter: () => ({ get: async () => null }),
+		getAdapter: () => ({ getMain: async () => null }),
 	} as never;
 }
 

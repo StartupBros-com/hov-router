@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import {
-	computeRateLimitBackoffMs,
-	TIME_CONSTANTS,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+import { computeRateLimitBackoffMs, TIME_CONSTANTS } from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../proxy-types";
 import { applyRateLimitCooldown } from "../rate-limit-cooldown";
 
@@ -42,7 +39,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		consecutive_rate_limits: 0,
 		...overrides,
 	} as Account;

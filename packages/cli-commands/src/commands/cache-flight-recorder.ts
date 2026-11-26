@@ -9,11 +9,11 @@ import {
 	type DiagnosisEvidence,
 	diagnoseTimeline,
 	reconcileTurnTokens,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import type {
 	CacheFlightRecorderCounts,
 	CacheFlightRecorderTimeline,
-} from "@better-ccflare/database";
+} from "@hov-router/database";
 
 export type CacheFlightRecorderExitCode = 0 | 1 | 2;
 

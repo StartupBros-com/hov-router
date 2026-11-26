@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { BUFFER_SIZES } from "@better-ccflare/core";
+import { BUFFER_SIZES } from "@hov-router/core";
 import {
 	type AnthropicStreamOutcome,
 	AnthropicStreamOutcomeTracker,

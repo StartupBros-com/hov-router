@@ -14,7 +14,7 @@ import type {
 	ServerToolRequirements,
 	ServerToolResponseMode,
 	WebSearchServerToolDeclaration,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type {
 	Provider,
 	ProviderServerToolCapabilityAccountContext,
@@ -37,7 +37,7 @@ export type {
 	ServerToolRequirements,
 	ServerToolResponseMode,
 	WebSearchServerToolDeclaration,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 const EXACT_WEB_SEARCH_TYPE = "web_search_20250305" as const;
 const REQUIREMENT_REVISION = 2 as const;

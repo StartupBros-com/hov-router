@@ -4,7 +4,7 @@ import type {
 	RedeemResetOutcome,
 	RedeemResetResponse,
 	RedeemResetSpend,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 /**
  * What the dashboard learned from one redeem attempt. `no_answer` covers an

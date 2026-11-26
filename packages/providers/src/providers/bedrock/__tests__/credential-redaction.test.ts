@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it, mock } from "bun:test";
-import { Logger, logBus } from "@better-ccflare/logger";
-import type { Account } from "@better-ccflare/types";
+import { Logger, logBus } from "@hov-router/logger";
+import type { Account } from "@hov-router/types";
 
 // Synthetic SDK credential failure: never read real AWS profiles or send traffic.
 const privatePath = "/private/aws/token-file-credential-canary";

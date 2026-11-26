@@ -3,7 +3,7 @@
  * All magic numbers should be defined here to improve maintainability
  */
 
-import type { RateLimitReason } from "@better-ccflare/types";
+import type { RateLimitReason } from "@hov-router/types";
 
 // Time constants (all in milliseconds)
 export const TIME_CONSTANTS = {
@@ -349,20 +349,6 @@ export const BUFFER_SIZES = {
 
 	// Log file size
 	LOG_FILE_MAX_SIZE: 10 * 1024 * 1024, // 10MB
-
-	// SSE frame buffer caps (packages/core/src/sse-frame-buffer.ts).
-	// Deliberately reuse existing byte values instead of picking new
-	// arbitrary numbers: a single complete SSE frame is capped at the same
-	// size as the stream usage buffer, while an unterminated buffered tail
-	// (no delimiter seen yet) is allowed to grow up to the max request body
-	// size before it is treated as a runaway stream.
-	// Legacy values with no remaining production consumer: the last two
-	// call sites (the Codex provider and the OpenAI Responses adapter)
-	// migrated to the explicitly named policy constants below. Kept only
-	// as the historical defaults exercised by sse-frame-buffer.test.ts's
-	// base-behavior tests; new code must use the policy constants below.
-	SSE_FRAME_MAX_BYTES: 64 * 1024, // Matches STREAM_USAGE_BUFFER_BYTES
-	SSE_BUFFER_MAX_BYTES: 4 * 1024 * 1024, // Matches MAX_REQUEST_BODY_BYTES (usage-collector.ts / response-handler.ts)
 
 	// Stream resource policies. Each cap below bounds one distinct kind of
 	// resource growth (see StreamResourceLimitKind in sse-frame-buffer.ts)

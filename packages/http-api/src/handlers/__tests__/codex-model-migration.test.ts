@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import { parseModelMappings, setForceAccountModel } from "@better-ccflare/core";
-import { DatabaseOperations } from "@better-ccflare/database";
+import { parseModelMappings, setForceAccountModel } from "@hov-router/core";
+import { DatabaseOperations } from "@hov-router/database";
 import {
 	clearDerivedProviderModelDefaults,
 	setDerivedAccountModelDefaults,
 	setProviderModelDefaultOverrides,
-} from "@better-ccflare/providers";
-import { resolveCodexRequestModel } from "@better-ccflare/providers/codex";
+} from "@hov-router/providers";
+import { resolveCodexRequestModel } from "@hov-router/providers/codex";
 import {
 	clearCodexModelCacheForTests,
 	getCodexModels,
 	parseModelRouteProfiles,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import { createAccountModelMappingsUpdateHandler } from "../accounts";
 import {
 	createCodexModelMigrationApplyHandler,
@@ -100,13 +100,12 @@ async function insertAccount(
 		provider?: string;
 		modelMappings?: string | null;
 		customEndpoint?: string | null;
-		modelFallbacks?: string | null;
 	} = {},
 ): Promise<void> {
 	await dbOps
 		.getAdapter()
 		.run(
-			"INSERT INTO accounts (id, name, provider, refresh_token, access_token, expires_at, created_at, model_mappings, custom_endpoint, model_fallbacks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO accounts (id, name, provider, refresh_token, access_token, expires_at, created_at, model_mappings, custom_endpoint) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
 			[
 				id,
 				`name-${id}`,
@@ -117,7 +116,6 @@ async function insertAccount(
 				1,
 				fields.modelMappings ?? null,
 				fields.customEndpoint ?? null,
-				fields.modelFallbacks ?? null,
 			],
 		);
 }
@@ -125,7 +123,7 @@ async function insertAccount(
 async function rawMappings(id: string): Promise<string | null> {
 	const row = await dbOps
 		.getAdapter()
-		.get<{ model_mappings: string | null }>(
+		.getMain<{ model_mappings: string | null }>(
 			"SELECT model_mappings FROM accounts WHERE id = ?",
 			[id],
 		);
@@ -309,23 +307,6 @@ describe("POST /api/codex/model-migration/preview", () => {
 	describe("blocker matrix", () => {
 		const pinned = JSON.stringify({ opus: OLD_PINS.opus });
 
-		it("custom_endpoint_mapping: a legacy endpoint mapping still pins the family", async () => {
-			await insertAccount("codex-alpha", {
-				modelMappings: pinned,
-				customEndpoint: JSON.stringify({
-					endpoint: "https://codex.example.test",
-					modelMappings: { opus: "legacy-endpoint-opus" },
-				}),
-			});
-			await publishOwnCatalog("codex-alpha");
-			const opus = family(account(await previewData(), "codex-alpha"), "opus");
-			expect(opus.currentSource).toBe("custom_endpoint_mapping");
-			expect(opus.inheritedSource).toBe("custom_endpoint_mapping");
-			expect(opus.inheritedModel).toBe("legacy-endpoint-opus");
-			expect(opus.blockers).toEqual(["custom_endpoint_mapping"]);
-			expect(opus.applicable).toBe(false);
-		});
-
 		it("environment_mapping: the process-wide env mapping would take over", async () => {
 			await insertAccount("codex-alpha", { modelMappings: pinned });
 			await publishOwnCatalog("codex-alpha");
@@ -336,19 +317,6 @@ describe("POST /api/codex/model-migration/preview", () => {
 			expect(opus.inheritedSource).toBe("environment_mapping");
 			expect(opus.inheritedModel).toBe("env-opus");
 			expect(opus.blockers).toEqual(["environment_mapping"]);
-			expect(opus.applicable).toBe(false);
-		});
-
-		it("model_fallbacks: the deprecated fallback would take over", async () => {
-			await insertAccount("codex-alpha", {
-				modelMappings: pinned,
-				modelFallbacks: JSON.stringify({ opus: "fallback-opus" }),
-			});
-			await publishOwnCatalog("codex-alpha");
-			const opus = family(account(await previewData(), "codex-alpha"), "opus");
-			expect(opus.inheritedSource).toBe("model_fallbacks");
-			expect(opus.inheritedModel).toBe("fallback-opus");
-			expect(opus.blockers).toEqual(["model_fallbacks"]);
 			expect(opus.applicable).toBe(false);
 		});
 
@@ -428,7 +396,6 @@ describe("POST /api/codex/model-migration/preview", () => {
 		it("lists every blocker that applies, not only the highest-precedence one", async () => {
 			await insertAccount("codex-alpha", {
 				modelMappings: pinned,
-				modelFallbacks: JSON.stringify({ opus: "fallback-opus" }),
 			});
 			process.env.OPENAI_COMPATIBLE_MODEL_MAPPINGS = JSON.stringify({
 				opus: "env-opus",
@@ -439,7 +406,6 @@ describe("POST /api/codex/model-migration/preview", () => {
 				[
 					"environment_mapping",
 					"global_provider_override",
-					"model_fallbacks",
 					"no_own_catalog",
 				].sort(),
 			);

@@ -12,8 +12,8 @@ import {
 import {
 	clearDerivedProviderModelDefaults,
 	usageCache,
-} from "@better-ccflare/providers";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account, RequestMeta } from "@hov-router/types";
 import { AnthropicDegradedModeCoordinator } from "../anthropic-degraded-mode";
 import {
 	clearCodexModelCacheForTests,
@@ -73,7 +73,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -242,7 +241,7 @@ async function proxyModel(
 			messages: [{ role: "user", content: "hello" }],
 			max_tokens: 16,
 			...(physicalModel
-				? { __better_ccflare_codex_passthrough: { model: physicalModel } }
+				? { __hov_router_codex_passthrough: { model: physicalModel } }
 				: {}),
 		}),
 	});

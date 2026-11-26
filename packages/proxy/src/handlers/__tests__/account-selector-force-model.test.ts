@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import { CLAUDE_MODEL_IDS } from "@better-ccflare/core";
-import { clearDerivedProviderModelDefaults } from "@better-ccflare/providers";
-import type {
-	Account,
-	ComboWithSlots,
-	RequestMeta,
-} from "@better-ccflare/types";
+import { CLAUDE_MODEL_IDS } from "@hov-router/core";
+import { clearDerivedProviderModelDefaults } from "@hov-router/providers";
+import type { Account, ComboWithSlots, RequestMeta } from "@hov-router/types";
 import {
 	clearCodexModelCacheForTests,
 	getCodexModels,
@@ -50,7 +46,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		...overrides,
 	};
 }

@@ -379,7 +379,7 @@ test("resolution batches and bounds assignments and skips unchanged ticks", asyn
 	expect((await repo.ingest([])).reattributed).toBe(2000);
 	expect(batches.mock.calls.length).toBeLessThanOrEqual(Math.ceil(2000 / 256));
 	batches.mockRestore();
-	const query = spyOn(adapter, "query");
+	const query = spyOn(adapter, "queryMain");
 	await repo.replaceSources([]);
 	expect(
 		query.mock.calls.filter(([sql]) =>
@@ -584,7 +584,7 @@ test("ingest reads the Codex weekly windows on the bulk reader, off the main thr
 		get: async <R>(sql: string, params: unknown[] = []) =>
 			(db.query(sql).get(...(params as never[])) as R | null) ?? null,
 	});
-	const query = spyOn(adapter, "query");
+	const query = spyOn(adapter, "queryMain");
 	expect((await offThread.ingest([event()])).inserted).toBe(1);
 	expect(
 		db.query("SELECT account_id FROM external_usage_events").get(),

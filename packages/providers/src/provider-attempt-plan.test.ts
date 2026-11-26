@@ -2,7 +2,7 @@ import { describe, expect, setSystemTime, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Account, ServerToolReplayAtom } from "@better-ccflare/types";
+import type { Account, ServerToolReplayAtom } from "@hov-router/types";
 import { materializeProviderAttemptPlan } from "./provider-attempt-plan";
 import { CodexProvider } from "./providers/codex/provider";
 import type {
@@ -52,7 +52,6 @@ function accountFixture(): Account {
 		}),
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

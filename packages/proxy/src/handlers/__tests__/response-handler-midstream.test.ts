@@ -10,8 +10,8 @@
  * from being routed to the overloaded account until the cooldown expires.
  */
 import { describe, expect, it, mock, spyOn } from "bun:test";
-import { usageCache } from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+import { usageCache } from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import { forwardToClient } from "../../response-handler";
 import * as usageCollectorModule from "../../usage-collector";
 import type { ProxyContext } from "../proxy-types";
@@ -49,7 +49,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -94,7 +93,7 @@ function makeCtxWithReason() {
 			updateAccountUsage: () => {},
 			updateAccountRateLimitMeta: () => {},
 			getAdapter: () => ({
-				get: async () => ({ rate_limited_until: null }),
+				getMain: async () => ({ rate_limited_until: null }),
 				run: async () => {},
 			}),
 		},

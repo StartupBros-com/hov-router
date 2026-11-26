@@ -2,7 +2,7 @@ import type {
 	Account,
 	AccountDisplay,
 	AccountResponse,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { classifyAccountStatus } from "./account-status";
 import { formatTimestamp } from "./formatters";
 
@@ -37,6 +37,12 @@ export class AccountPresenter {
 						? a.rateLimitedReason
 						: "rate_limited_reason" in a
 							? a.rate_limited_reason
+							: null,
+				rateLimitedAt:
+					"rateLimitedAt" in a
+						? a.rateLimitedAt
+						: "rate_limited_at" in a
+							? a.rate_limited_at
 							: null,
 				rateLimitStatus: this.rateLimitStatus,
 			},

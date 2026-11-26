@@ -254,12 +254,15 @@ Key migrations include:
 
 #### BunSqlAdapter
 Thin wrapper around `bun:sqlite` that provides an async interface:
-- `query<R>(sql, params)` — SELECT returning multiple rows
-- `get<R>(sql, params)` — SELECT returning one row or `null`
-- `run(sql, params)` — INSERT/UPDATE/DELETE with no return value
-- `runWithChanges(sql, params)` — INSERT/UPDATE/DELETE returning affected-row count
-- `transaction(fn)` — transaction helper (async)
-- `unsafe(sql)` — raw DDL / PRAGMA execution
+- `queryOffThread<R>(sql, params, lane)` and `getOffThread<R>(sql, params, lane)`: SELECT on a reader thread, returning every row or one row (or `null`). `lane` is `"interactive"` for a read a page or request waits on and `"bulk"` for scans and background work. There is no default.
+- `queryMain<R>(sql, params)` and `getMain<R>(sql, params)`: SELECT on the main connection, whose thread also relays every live stream. `packages/database/src/__tests__/main-thread-reads.test.ts` fails on a call that `main-thread-reads.json` does not list (#1042).
+- `run(sql, params)`: INSERT/UPDATE/DELETE with no return value
+- `runWithChanges(sql, params)`: INSERT/UPDATE/DELETE returning the affected-row count
+- `runReturningOne<R>(sql, params)`: one DML statement with a `RETURNING` clause
+- `runBatchWithChanges(statements)`: a fixed DML batch, atomically. It is the only multi-statement write; there is no general transaction.
+- `unsafe(sql)`: raw DDL / PRAGMA execution
+
+Writes go through the off-thread writer when one is attached.
 
 #### DatabaseOperations
 The main database access layer that implements both `StrategyStore` and `Disposable` interfaces:
@@ -546,7 +549,7 @@ The database can be managed through CLI commands:
 ### Account Management
 ```bash
 # Add a new account
-bun cli add <name> [--mode <max|console>] [--priority <0-100>]
+bun cli add <name> [--mode <claude-oauth|console>] [--priority <0-100>]
 
 # List all accounts with status
 bun cli list

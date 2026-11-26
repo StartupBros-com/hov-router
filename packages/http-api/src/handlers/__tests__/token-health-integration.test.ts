@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	checkAllAccountsHealth,
 	getAccountsNeedingReauth,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import {
 	createAccountTokenHealthHandler,
 	createReauthNeededHandler,
@@ -39,7 +39,6 @@ const mockAccounts = [
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 	},
@@ -70,7 +69,6 @@ const mockAccounts = [
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 	},
@@ -101,7 +99,6 @@ const mockAccounts = [
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 	},
@@ -114,13 +111,6 @@ const mockDbOps = {
 	createOAuthSession: () => {},
 	getOAuthSession: () => null,
 	deleteOAuthSession: () => {},
-	getDatabase: () => ({
-		prepare: () => ({
-			run: () => {},
-			get: () => null,
-			all: () => [],
-		}),
-	}),
 } as unknown as DatabaseOperations;
 
 describe("Token Health HTTP API Integration", () => {
@@ -383,7 +373,6 @@ describe("Error Handling", () => {
 				custom_endpoint: null,
 				model_mappings: null,
 				cross_region_mode: null,
-				model_fallbacks: null,
 				billing_type: null,
 				pause_reason: null,
 			},

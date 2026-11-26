@@ -7,20 +7,17 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@better-ccflare/config";
-import { SessionAffinityStrategy } from "@better-ccflare/load-balancer";
-import { logBus } from "@better-ccflare/logger";
-import { transformStreamingResponse } from "@better-ccflare/openai-formats";
-import type {
-	Account,
-	ComboWithSlots,
-	RequestMeta,
-} from "@better-ccflare/types";
+import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@hov-router/config";
+import { SessionAffinityStrategy } from "@hov-router/load-balancer";
+import { logBus } from "@hov-router/logger";
+import { transformStreamingResponse } from "@hov-router/openai-formats";
+import type { Account, ComboWithSlots, RequestMeta } from "@hov-router/types";
 import {
 	AnthropicDegradedModeCoordinator,
 	buildAnthropicDegradedCohortKey,
 } from "../anthropic-degraded-mode";
 import {
+	ANTHROPIC_PRECOMMIT_COMMITMENT_TIMEOUT_ENV,
 	ANTHROPIC_PRECOMMIT_RESCUE_ACTIVATION_ENV,
 	ANTHROPIC_PRECOMMIT_RESCUE_ACTIVATION_MS,
 	ANTHROPIC_PRECOMMIT_RESCUE_COMMITMENT_DEADLINE_MS,
@@ -33,7 +30,6 @@ import {
 	getAnthropicPreCommitRescueConfig,
 } from "../anthropic-precommit-rescue";
 import {
-	ANTHROPIC_MEANINGFUL_PROGRESS_TIMEOUT_ENV,
 	ANTHROPIC_MEANINGFUL_PROGRESS_TIMEOUT_MS,
 	ANTHROPIC_POST_COMMIT_MEANINGFUL_PROGRESS_TIMEOUT_ENV,
 	ANTHROPIC_POST_COMMIT_MEANINGFUL_PROGRESS_TIMEOUT_MS,
@@ -110,7 +106,7 @@ const {
 	setDerivedProviderModelDefaults,
 	usageCache,
 	XaiProvider,
-} = await import("@better-ccflare/providers");
+} = await import("@hov-router/providers");
 const { clearCodexModelCacheForTests } = await import("../codex-model-catalog");
 const { alignRouteCandidateIds, handleProxy } = await import("../proxy");
 
@@ -120,7 +116,7 @@ const FABLE = "claude-fable-5";
 const AUTHORIZED_AGENT_ID = "semantic-failover-route-intent";
 const SESSION = "semantic-failover-session";
 const TIMEOUT_ENV = "CCFLARE_ANTHROPIC_PRECOMMIT_TIMEOUT_MS";
-const MEANINGFUL_PROGRESS_ENV = ANTHROPIC_MEANINGFUL_PROGRESS_TIMEOUT_ENV;
+const MEANINGFUL_PROGRESS_ENV = ANTHROPIC_PRECOMMIT_COMMITMENT_TIMEOUT_ENV;
 const POST_COMMIT_MEANINGFUL_PROGRESS_ENV =
 	ANTHROPIC_POST_COMMIT_MEANINGFUL_PROGRESS_TIMEOUT_ENV;
 const TERMINAL_GRACE_ENV = "CCFLARE_ANTHROPIC_TERMINAL_GRACE_MS";
@@ -521,7 +517,6 @@ function makeAccount(id: string): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

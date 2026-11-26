@@ -1,13 +1,13 @@
 import { randomBytes } from "node:crypto";
-import { getPublicValuePlan } from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import { getPublicValuePlan } from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	BadRequest,
 	errorResponse,
 	jsonResponse,
 	NotFound,
-} from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
 import {
 	bumpPublicRosterGeneration,
 	runExclusiveRosterWrite,

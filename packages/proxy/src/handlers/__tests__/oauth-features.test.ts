@@ -1,10 +1,7 @@
 import { beforeAll, describe, expect, it } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import {
-	AnthropicOAuthProvider,
-	generatePKCE,
-} from "@better-ccflare/providers";
+import type { Config } from "@hov-router/config";
+import type { DatabaseOperations } from "@hov-router/database";
+import { AnthropicOAuthProvider, generatePKCE } from "@hov-router/providers";
 
 // Mock database operations for testing
 const _mockDbOps = {
@@ -216,16 +213,6 @@ describe("OAuth Token Health Monitoring Features", () => {
 			global.fetch = originalFetch;
 		});
 	});
-
-	describe("6. Backward Compatibility", () => {
-		it("should handle deprecated 'max' mode gracefully", () => {
-			// Test that the old 'max' mode still works (should be treated as 'claude-oauth')
-			const config = oauthProvider.getOAuthConfig("max");
-
-			// Should be treated as claude-oauth
-			expect(config.authorizeUrl).toBe("https://claude.ai/oauth/authorize");
-		});
-	});
 });
 
 describe("CLI Command Integration", () => {
@@ -233,7 +220,7 @@ describe("CLI Command Integration", () => {
 		// This test verifies that the CLI command exports are available
 		expect(() => {
 			// Import should not throw if CLI commands exist
-			require("@better-ccflare/cli-commands");
+			require("@hov-router/cli-commands");
 		}).not.toThrow();
 	});
 });
@@ -406,7 +393,7 @@ describe("HTTP API Integration", () => {
 	it("should be importable", () => {
 		// Verify that the HTTP API module can be imported without errors
 		expect(() => {
-			require("@better-ccflare/http-api");
+			require("@hov-router/http-api");
 		}).not.toThrow();
 	});
 });

@@ -3,8 +3,8 @@ import {
 	type PublicValuePlanObject,
 	publicValuePlanObject,
 	VALUE_PRICING_VERSION,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import { getPublicRosterGeneration } from "../services/public-subscription-roster";
 import {
 	isValidPublicId,
@@ -60,15 +60,27 @@ const countOrNull = (value: number | null): boolean =>
 	value === null ||
 	(Number.isSafeInteger(value) && value >= 0 && value <= 10_000);
 
+/** A body older than this is rebuilt behind the request that finds it. */
 const CACHE_MS = 60_000;
 /**
- * A timer rebuilds each body this long before it expires, so a request finds a
- * built body instead of waiting for every published account's reads.
+ * The oldest body the feed will serve. The value page treats a feed body older
+ * than its 5-minute `STALE_MS` (pushbot `apps/startupbros-funnels/src/lib/value-index.ts`)
+ * as stale, so this must stay below that. It is also what lets a slow build
+ * land: a build is accepted whenever its body is still younger than this.
  */
+export const MAX_AGE_MS = 240_000;
+/**
+ * A request with no servable body waits this long for a build, then answers
+ * 503. The value page's feed fetch times out at 5 s, so this stays below it.
+ */
+export const REQUEST_WAIT_MS = 4_000;
+/** The timer rebuilds CACHE_MS minus this after a body is cached, while builds are fast. */
 export const REBUILD_LEAD_MS = 15_000;
+/** Cap on the doubling wait after consecutive failed rebuilds. */
+export const REBUILD_RETRY_MAX_MS = 300_000;
 /** Floor on the timer's delay, so a body that keeps expiring early cannot spin it. */
 export const REBUILD_MIN_DELAY_MS = 5_000;
-/** Wait before the timer retries a rebuild that failed. */
+/** Wait before the first retry of a failed rebuild; it doubles per failure up to the cap. */
 export const REBUILD_RETRY_MS = 15_000;
 /**
  * In roster ("accounts") mode a still-valid cached body is revalidated against
@@ -76,6 +88,13 @@ export const REBUILD_RETRY_MS = 15_000;
  * made by another process sharing the database is picked up within this bound.
  */
 export const ROSTER_RECHECK_MS = 5_000;
+/**
+ * A build that takes this long logs its landing or rejection as a warning, so
+ * production, which logs at warn, records the builds that open gaps: a gap
+ * opens when two consecutive builds plus the CACHE_MS - REBUILD_LEAD_MS wait
+ * pass MAX_AGE_MS. Faster builds stay at info.
+ */
+export const SLOW_BUILD_MS = 60_000;
 /** Source clocks may lead this server by at most five seconds. */
 const CLOCK_SKEW_MS = 5_000;
 const timestamp = (value: number): boolean =>
@@ -160,6 +179,34 @@ class FeedUnavailable extends Error {
 }
 const log = new Logger("PublicSubscriptionValueHandler");
 
+/**
+ * Runs one account's valuation and logs how long it took, so a slow build can be
+ * traced to the account whose reads were slow. Logs the public id and position
+ * only; never the account name.
+ */
+async function timedAccountValuation<T>(
+	publicId: string,
+	index: number,
+	accounts: number,
+	valuation: () => Promise<T>,
+): Promise<T> {
+	const startedAt = performance.now();
+	let outcome = "failed";
+	try {
+		const value = await valuation();
+		outcome = "ok";
+		return value;
+	} finally {
+		log.info("Public subscription value account valued", {
+			id: publicId,
+			index,
+			accounts,
+			outcome,
+			ms: Math.round(performance.now() - startedAt),
+		});
+	}
+}
+
 /** A read-only, explicitly enrolled projection. Public requests never select accounts or periods. */
 export function createPublicSubscriptionValueHandler(
 	context: APIContext,
@@ -188,6 +235,11 @@ export function createPublicSubscriptionValueHandler(
 	>();
 	const loggedPlans = new Map<string, number>();
 	let rosterRecheck: Promise<string> | undefined;
+	/** One running build per cache key; a request or the timer joins it. */
+	const flights = new Map<string | undefined, Promise<FeedCacheEntry>>();
+	let failures = 0;
+	/** While a failed rebuild backs off, a request does not start another. */
+	let retryNotBefore = 0;
 	let cache: FeedCacheEntry | undefined;
 
 	function logFailure(error: unknown) {
@@ -308,72 +360,86 @@ export function createPublicSubscriptionValueHandler(
 		const fromRoster = source === "accounts";
 		const mappings = fromRoster ? await readRoster() : source;
 		const signature = fromRoster ? rosterSignature(mappings) : undefined;
-		const subscriptions = await Promise.all(
-			mappings.map(async (mapping) => {
-				const [snapshot, open, closed] = await Promise.all([
-					context.dbOps.getLatestUsageSnapshot(mapping.accountId, "seven_day"),
-					context.dbOps.getOpenUsageWindow(mapping.accountId, "seven_day"),
-					context.dbOps.listUsageWindows({
-						accountId: mapping.accountId,
-						windowKey: "seven_day",
-						closedOnly: true,
-						limit: CLOSED_READ_LIMIT,
-						startedAtOrAfter: mapping.accountCreatedAt,
-					}),
-				]);
-				const current =
-					open &&
-					open.startedAt >= mapping.accountCreatedAt &&
-					open.startedAt <= at &&
-					at < open.resetsAt
-						? await valueOpenWindow(context.dbOps, open, at)
-						: null;
-				// Check generation after every read, including live valuation: replaced
-				// accounts must never publish rows belonging to their prior generation.
-				const account = await context.dbOps.getAccount(mapping.accountId);
-				if (!account || account.created_at !== mapping.accountCreatedAt)
-					throw new FeedUnavailable("generation_mismatch", mapping.id);
-				// Roster mode: the row must still be published exactly as read.
-				if (
-					fromRoster &&
-					(account.public_value_enabled !== true ||
-						account.public_value_label !== mapping.label ||
-						account.public_value_id !== mapping.id ||
-						(account.public_value_plan ?? null) !== (mapping.plan ?? null) ||
-						// A rename can make a stored label reveal the account name.
-						labelRevealsAccount(mapping.label, account))
-				)
-					throw new FeedUnavailable("roster_changed", mapping.id);
-				const observed = snapshot?.timestamp;
-				const provider =
-					account.provider === "codex" ? "openai" : account.provider;
-				if (!PROVIDER_PATTERN.test(provider))
-					throw new FeedUnavailable("bad_provider", mapping.id);
-				const plan = planFor(account.public_value_plan ?? null, at);
-				const currentWindow = current
-					? publicWindow(current, current.valueSoFarUsd, at)
-					: null;
-				const closedWindows = closed.map((window) =>
-					publicWindow(toUsageWindowRecord(window), window.valueUsd, at),
-				);
-				return {
-					id: mapping.id,
-					label: mapping.label,
-					provider,
-					plan,
-					sourceObservedAt:
-						observed !== undefined &&
-						timestamp(observed) &&
-						observed >= mapping.accountCreatedAt &&
-						observed <= at + CLOCK_SKEW_MS
-							? observed
-							: null,
-					current: currentWindow,
-					completed: selectCompleted(closedWindows, at),
-					periods: buildPeriods(closedWindows, currentWindow, at),
-				};
-			}),
-		);
+		// One account at a time: each open-window valuation is a heavy aggregate on
+		// the single-lane bulk reader, so they must never queue up together.
+		const subscriptions: PublicSubscriptionValue["subscriptions"] = [];
+		for (const [index, mapping] of mappings.entries()) {
+			subscriptions.push(
+				await timedAccountValuation(
+					mapping.id,
+					index,
+					mappings.length,
+					async () => {
+						const [snapshot, open, closed] = await Promise.all([
+							context.dbOps.getLatestUsageSnapshot(
+								mapping.accountId,
+								"seven_day",
+							),
+							context.dbOps.getOpenUsageWindow(mapping.accountId, "seven_day"),
+							context.dbOps.listUsageWindows({
+								accountId: mapping.accountId,
+								windowKey: "seven_day",
+								closedOnly: true,
+								limit: CLOSED_READ_LIMIT,
+								startedAtOrAfter: mapping.accountCreatedAt,
+							}),
+						]);
+						const current =
+							open &&
+							open.startedAt >= mapping.accountCreatedAt &&
+							open.startedAt <= at &&
+							at < open.resetsAt
+								? await valueOpenWindow(context.dbOps, open, at)
+								: null;
+						// Check generation after every read, including live valuation: replaced
+						// accounts must never publish rows belonging to their prior generation.
+						const account = await context.dbOps.getAccount(mapping.accountId);
+						if (!account || account.created_at !== mapping.accountCreatedAt)
+							throw new FeedUnavailable("generation_mismatch", mapping.id);
+						// Roster mode: the row must still be published exactly as read.
+						if (
+							fromRoster &&
+							(account.public_value_enabled !== true ||
+								account.public_value_label !== mapping.label ||
+								account.public_value_id !== mapping.id ||
+								(account.public_value_plan ?? null) !==
+									(mapping.plan ?? null) ||
+								// A rename can make a stored label reveal the account name.
+								labelRevealsAccount(mapping.label, account))
+						)
+							throw new FeedUnavailable("roster_changed", mapping.id);
+						const observed = snapshot?.timestamp;
+						const provider =
+							account.provider === "codex" ? "openai" : account.provider;
+						if (!PROVIDER_PATTERN.test(provider))
+							throw new FeedUnavailable("bad_provider", mapping.id);
+						const plan = planFor(account.public_value_plan ?? null, at);
+						const currentWindow = current
+							? publicWindow(current, current.valueSoFarUsd, at)
+							: null;
+						const closedWindows = closed.map((window) =>
+							publicWindow(toUsageWindowRecord(window), window.valueUsd, at),
+						);
+						return {
+							id: mapping.id,
+							label: mapping.label,
+							provider,
+							plan,
+							sourceObservedAt:
+								observed !== undefined &&
+								timestamp(observed) &&
+								observed >= mapping.accountCreatedAt &&
+								observed <= at + CLOCK_SKEW_MS
+									? observed
+									: null,
+							current: currentWindow,
+							completed: selectCompleted(closedWindows, at),
+							periods: buildPeriods(closedWindows, currentWindow, at),
+						};
+					},
+				),
+			);
+		}
 		const body: PublicSubscriptionValue = {
 			schemaVersion: 2,
 			valueBasis: "api_equivalent_usd",
@@ -432,7 +498,7 @@ export function createPublicSubscriptionValueHandler(
 			signature: built.signature,
 			rosterCheckedAt: body.generatedAt,
 			expiresAt: Math.min(
-				body.generatedAt + CACHE_MS,
+				body.generatedAt + MAX_AGE_MS,
 				...body.subscriptions.flatMap((subscription) =>
 					subscription.current ? [subscription.current.resetsAt] : [],
 				),
@@ -440,48 +506,133 @@ export function createPublicSubscriptionValueHandler(
 		};
 	}
 
-	function armRebuild(entry: FeedCacheEntry, delayMs: number) {
+	function armRebuild(delayMs: number) {
 		cancelRebuild?.();
-		const delay = Math.min(Math.max(delayMs, REBUILD_MIN_DELAY_MS), CACHE_MS);
 		cancelRebuild = schedule(() => {
 			cancelRebuild = undefined;
-			return rebuildAhead(entry);
-		}, delay);
+			return rebuildAhead();
+		}, delayMs);
 	}
 
 	function armAhead(entry: FeedCacheEntry, at: number) {
-		// An expiry clamped to an open window's reset does not move later when the
-		// body is rebuilt before the reset, so that body is rebuilt at its expiry.
-		const clamped = entry.expiresAt < entry.body.generatedAt + CACHE_MS;
+		// A body clamped to an open window's reset is rebuilt at that reset at the
+		// latest; rebuilding earlier cannot move it.
 		armRebuild(
-			entry,
-			(clamped ? entry.expiresAt : entry.expiresAt - REBUILD_LEAD_MS) - at,
+			Math.max(
+				Math.min(CACHE_MS - REBUILD_LEAD_MS, entry.expiresAt - at),
+				REBUILD_MIN_DELAY_MS,
+			),
 		);
 	}
 
-	/** Replaces `previous` before it expires, unless a request already replaced it. */
-	async function rebuildAhead(previous: FeedCacheEntry): Promise<void> {
-		if (cache !== previous) return;
+	/** Records a failed rebuild and returns how long to back off before the next. */
+	function noteFailure(error: unknown): number {
+		logFailure(error);
+		failures++;
+		const delay = Math.min(
+			REBUILD_RETRY_MS * 2 ** (failures - 1),
+			REBUILD_RETRY_MAX_MS,
+		);
+		try {
+			const at = now();
+			if (timestamp(at)) retryNotBefore = at + delay;
+		} catch {
+			/* the delay still applies to the timer */
+		}
+		return delay;
+	}
+
+	/**
+	 * Builds a body and, if it is still within MAX_AGE_MS when it lands, makes it
+	 * the cache and arms the timer, whether or not a request is waiting for it.
+	 */
+	async function runBuild(
+		target: ReturnType<typeof feedTarget>,
+	): Promise<FeedCacheEntry> {
+		const startedAt = performance.now();
+		let bodyAgeMs: number | undefined;
+		log.info("Public subscription value build started", {
+			mode: target.source === "accounts" ? "accounts" : "env",
+			consecutiveFailures: failures,
+		});
+		try {
+			const at = now();
+			if (!timestamp(at)) throw new FeedUnavailable("clock");
+			const entry = await build(target, at);
+			const landedAt = now();
+			if (!timestamp(landedAt)) throw new FeedUnavailable("clock");
+			bodyAgeMs = landedAt - entry.body.generatedAt;
+			if (landedAt < entry.body.generatedAt || landedAt >= entry.expiresAt)
+				throw new FeedUnavailable("expired");
+			const ms = Math.round(performance.now() - startedAt);
+			log[ms >= SLOW_BUILD_MS ? "warn" : "info"](
+				"Public subscription value build landed",
+				{ ms, bodyAgeMs, accounts: entry.body.subscriptions.length },
+			);
+			cache = entry;
+			failures = 0;
+			retryNotBefore = 0;
+			armAhead(entry, landedAt);
+			return entry;
+		} catch (error) {
+			const ms = Math.round(performance.now() - startedAt);
+			log[ms >= SLOW_BUILD_MS ? "warn" : "info"](
+				"Public subscription value build rejected",
+				{
+					outcome:
+						error instanceof FeedUnavailable ? error.reason : "unexpected",
+					ms,
+					...(bodyAgeMs === undefined ? {} : { bodyAgeMs }),
+				},
+			);
+			const delay = noteFailure(error);
+			// Keep the feed warm when no request arrives; the delay doubles per failure.
+			if (cache) armRebuild(delay);
+			throw error;
+		}
+	}
+
+	/** Starts a build for `target`, or joins the one running (single-flight). */
+	function startFlight(
+		target: ReturnType<typeof feedTarget>,
+	): Promise<FeedCacheEntry> {
+		let flight = flights.get(target.key);
+		if (!flight) {
+			const started: Promise<FeedCacheEntry> = runBuild(target).finally(() => {
+				if (flights.get(target.key) === started) flights.delete(target.key);
+			});
+			// A build nobody awaits (the timer's, or one a request gave up on) still settles.
+			started.catch(() => undefined);
+			flights.set(target.key, started);
+			flight = started;
+		}
+		return flight;
+	}
+
+	/** Rejects if `work` has not settled within REQUEST_WAIT_MS; `work` keeps running. */
+	function withDeadline<T>(work: Promise<T>): Promise<T> {
+		let cancel = () => {};
+		const timeout = new Promise<never>((_, reject) => {
+			cancel = schedule(async () => {
+				reject(new FeedUnavailable("request_deadline"));
+			}, REQUEST_WAIT_MS);
+		});
+		return Promise.race([work, timeout]).finally(cancel);
+	}
+
+	async function rebuildAhead(): Promise<void> {
+		let flight: Promise<FeedCacheEntry>;
 		try {
 			const raw = getConfig();
 			const config = parsePublicSubscriptionsConfig(raw);
 			if (config.status === "disabled" || config.status === "invalid") return;
-			const at = now();
-			if (!timestamp(at)) throw new FeedUnavailable("clock");
-			const entry = await build(feedTarget(raw, config), at);
-			if (cache !== previous) return;
-			const builtAt = now();
-			if (!timestamp(builtAt)) throw new FeedUnavailable("clock");
-			if (builtAt < entry.body.generatedAt || builtAt >= entry.expiresAt)
-				throw new FeedUnavailable("expired");
-			cache = entry;
-			armAhead(entry, builtAt);
+			flight = startFlight(feedTarget(raw, config));
 		} catch (error) {
-			logFailure(error);
-			// The request path still rebuilds an expired body; retrying here keeps the
-			// feed warm when no request arrives.
-			if (cache === previous) armRebuild(previous, REBUILD_RETRY_MS);
+			armRebuild(noteFailure(error));
+			return;
 		}
+		// A failed build was recorded and its retry armed by runBuild.
+		await flight.catch(() => undefined);
 	}
 
 	return async (): Promise<Response> => {
@@ -509,45 +660,53 @@ export function createPublicSubscriptionValueHandler(
 			const target = feedTarget(raw, config);
 			const at = now();
 			if (!timestamp(at)) throw new FeedUnavailable("clock");
-			let entry = cache;
-			let needsRefresh =
-				!entry ||
-				entry.raw !== target.key ||
-				at < entry.body.generatedAt ||
-				at >= entry.expiresAt;
+			const cached = cache;
+			let entry =
+				cached &&
+				cached.raw === target.key &&
+				at >= cached.body.generatedAt &&
+				at < cached.expiresAt
+					? cached
+					: undefined;
 			if (
-				!needsRefresh &&
 				entry &&
 				config.status === "accounts" &&
 				entry.signature !== undefined &&
 				at - entry.rosterCheckedAt >= ROSTER_RECHECK_MS
 			) {
-				// One shared, cheap roster query per interval. An error propagates
-				// to the generic 503 path; the cached body is never served stale.
+				// One shared, cheap roster query per interval. An error or a wait past
+				// the request deadline propagates to the generic 503 path; a body whose
+				// roster could not be confirmed is never served.
 				let pendingCheck = rosterRecheck;
 				if (!pendingCheck) {
-					pendingCheck = readRoster().then(rosterSignature);
-					rosterRecheck = pendingCheck;
+					const started = readRoster().then(rosterSignature);
+					pendingCheck = started;
+					rosterRecheck = started;
+					const clear = () => {
+						if (rosterRecheck === started) rosterRecheck = undefined;
+					};
+					started.then(clear, clear);
 				}
-				let signature: string;
-				try {
-					signature = await pendingCheck;
-				} finally {
-					if (rosterRecheck === pendingCheck) rosterRecheck = undefined;
-				}
+				const signature = await withDeadline(pendingCheck);
 				if (signature === entry.signature) entry.rosterCheckedAt = at;
-				else needsRefresh = true;
+				else entry = undefined;
 			}
-			if (needsRefresh) entry = await build(target, at);
-			if (!entry) throw new FeedUnavailable("expired");
+			if (entry) {
+				// An aging body answers now; the rebuild runs behind it.
+				// The timer runs it, after this response is sent.
+				if (
+					at - entry.body.generatedAt >= CACHE_MS &&
+					at >= retryNotBefore &&
+					!flights.has(target.key)
+				)
+					armRebuild(0);
+			} else {
+				entry = await withDeadline(startFlight(target));
+			}
 			const responseAt = now();
 			if (!timestamp(responseAt)) throw new FeedUnavailable("clock");
 			if (responseAt < entry.body.generatedAt || responseAt >= entry.expiresAt)
 				throw new FeedUnavailable("expired");
-			if (cache !== entry) {
-				cache = entry;
-				armAhead(entry, responseAt);
-			}
 			return response(entry.body);
 		} catch (error) {
 			logFailure(error);

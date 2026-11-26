@@ -1,15 +1,17 @@
 import { getGitSha, getVersionSync } from "./version";
 
 // Defined only in release/package builds. `typeof` keeps source execution safe.
-declare const __CCFLARE_BUILD_PROVENANCE_VERSION__: string | undefined;
-declare const __CCFLARE_BUILD_PROVENANCE_DISTRIBUTION__: string | undefined;
-declare const __CCFLARE_BUILD_PROVENANCE_PRODUCER__: string | undefined;
-declare const __CCFLARE_BUILD_PROVENANCE_ARTIFACT_MODE__: string | undefined;
-declare const __CCFLARE_BUILD_PROVENANCE_UPDATE_CHANNEL__: string | undefined;
-declare const __CCFLARE_BUILD_PROVENANCE_GIT_SHA__: string | undefined;
-declare const __CCFLARE_BUILD_PROVENANCE_GIT_REF__: string | undefined;
-declare const __CCFLARE_BUILD_PROVENANCE_SOURCE_SHA__: string | undefined;
-declare const __CCFLARE_BUILD_PROVENANCE_SOURCE_REF__: string | undefined;
+declare const __HOV_ROUTER_BUILD_PROVENANCE_VERSION__: string | undefined;
+declare const __HOV_ROUTER_BUILD_PROVENANCE_DISTRIBUTION__: string | undefined;
+declare const __HOV_ROUTER_BUILD_PROVENANCE_PRODUCER__: string | undefined;
+declare const __HOV_ROUTER_BUILD_PROVENANCE_ARTIFACT_MODE__: string | undefined;
+declare const __HOV_ROUTER_BUILD_PROVENANCE_UPDATE_CHANNEL__:
+	| string
+	| undefined;
+declare const __HOV_ROUTER_BUILD_PROVENANCE_GIT_SHA__: string | undefined;
+declare const __HOV_ROUTER_BUILD_PROVENANCE_GIT_REF__: string | undefined;
+declare const __HOV_ROUTER_BUILD_PROVENANCE_SOURCE_SHA__: string | undefined;
+declare const __HOV_ROUTER_BUILD_PROVENANCE_SOURCE_REF__: string | undefined;
 
 function embeddedString(value: string | undefined): string | undefined {
 	return typeof value === "string" ? value : undefined;
@@ -17,49 +19,49 @@ function embeddedString(value: string | undefined): string | undefined {
 
 const EMBEDDED_BUILD_PROVENANCE = Object.freeze({
 	CCFLARE_VERSION: embeddedString(
-		typeof __CCFLARE_BUILD_PROVENANCE_VERSION__ === "undefined"
+		typeof __HOV_ROUTER_BUILD_PROVENANCE_VERSION__ === "undefined"
 			? undefined
-			: __CCFLARE_BUILD_PROVENANCE_VERSION__,
+			: __HOV_ROUTER_BUILD_PROVENANCE_VERSION__,
 	),
 	CCFLARE_DISTRIBUTION: embeddedString(
-		typeof __CCFLARE_BUILD_PROVENANCE_DISTRIBUTION__ === "undefined"
+		typeof __HOV_ROUTER_BUILD_PROVENANCE_DISTRIBUTION__ === "undefined"
 			? undefined
-			: __CCFLARE_BUILD_PROVENANCE_DISTRIBUTION__,
+			: __HOV_ROUTER_BUILD_PROVENANCE_DISTRIBUTION__,
 	),
 	CCFLARE_PRODUCER: embeddedString(
-		typeof __CCFLARE_BUILD_PROVENANCE_PRODUCER__ === "undefined"
+		typeof __HOV_ROUTER_BUILD_PROVENANCE_PRODUCER__ === "undefined"
 			? undefined
-			: __CCFLARE_BUILD_PROVENANCE_PRODUCER__,
+			: __HOV_ROUTER_BUILD_PROVENANCE_PRODUCER__,
 	),
 	CCFLARE_ARTIFACT_MODE: embeddedString(
-		typeof __CCFLARE_BUILD_PROVENANCE_ARTIFACT_MODE__ === "undefined"
+		typeof __HOV_ROUTER_BUILD_PROVENANCE_ARTIFACT_MODE__ === "undefined"
 			? undefined
-			: __CCFLARE_BUILD_PROVENANCE_ARTIFACT_MODE__,
+			: __HOV_ROUTER_BUILD_PROVENANCE_ARTIFACT_MODE__,
 	),
 	CCFLARE_UPDATE_CHANNEL: embeddedString(
-		typeof __CCFLARE_BUILD_PROVENANCE_UPDATE_CHANNEL__ === "undefined"
+		typeof __HOV_ROUTER_BUILD_PROVENANCE_UPDATE_CHANNEL__ === "undefined"
 			? undefined
-			: __CCFLARE_BUILD_PROVENANCE_UPDATE_CHANNEL__,
+			: __HOV_ROUTER_BUILD_PROVENANCE_UPDATE_CHANNEL__,
 	),
 	CCFLARE_GIT_SHA: embeddedString(
-		typeof __CCFLARE_BUILD_PROVENANCE_GIT_SHA__ === "undefined"
+		typeof __HOV_ROUTER_BUILD_PROVENANCE_GIT_SHA__ === "undefined"
 			? undefined
-			: __CCFLARE_BUILD_PROVENANCE_GIT_SHA__,
+			: __HOV_ROUTER_BUILD_PROVENANCE_GIT_SHA__,
 	),
 	CCFLARE_GIT_REF: embeddedString(
-		typeof __CCFLARE_BUILD_PROVENANCE_GIT_REF__ === "undefined"
+		typeof __HOV_ROUTER_BUILD_PROVENANCE_GIT_REF__ === "undefined"
 			? undefined
-			: __CCFLARE_BUILD_PROVENANCE_GIT_REF__,
+			: __HOV_ROUTER_BUILD_PROVENANCE_GIT_REF__,
 	),
 	CCFLARE_SOURCE_SHA: embeddedString(
-		typeof __CCFLARE_BUILD_PROVENANCE_SOURCE_SHA__ === "undefined"
+		typeof __HOV_ROUTER_BUILD_PROVENANCE_SOURCE_SHA__ === "undefined"
 			? undefined
-			: __CCFLARE_BUILD_PROVENANCE_SOURCE_SHA__,
+			: __HOV_ROUTER_BUILD_PROVENANCE_SOURCE_SHA__,
 	),
 	CCFLARE_SOURCE_REF: embeddedString(
-		typeof __CCFLARE_BUILD_PROVENANCE_SOURCE_REF__ === "undefined"
+		typeof __HOV_ROUTER_BUILD_PROVENANCE_SOURCE_REF__ === "undefined"
 			? undefined
-			: __CCFLARE_BUILD_PROVENANCE_SOURCE_REF__,
+			: __HOV_ROUTER_BUILD_PROVENANCE_SOURCE_REF__,
 	),
 });
 

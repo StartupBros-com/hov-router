@@ -1,6 +1,6 @@
-import { reauthInstruction } from "@better-ccflare/core/reauth-instructions";
-import { Logger } from "@better-ccflare/logger";
-import type { Account } from "@better-ccflare/types";
+import { reauthInstruction } from "@hov-router/core/reauth-instructions";
+import { Logger } from "@hov-router/logger";
+import type { Account } from "@hov-router/types";
 import { REFRESH_TOKEN_MAX_AGE_MS } from "../constants";
 
 const log = new Logger("TokenHealthMonitor");

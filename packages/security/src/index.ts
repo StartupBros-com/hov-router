@@ -1,5 +1,5 @@
 /**
- * @better-ccflare/security
+ * @hov-router/security
  *
  * Centralized security utilities for path validation and sanitization.
  *

@@ -1,12 +1,12 @@
-import type { Config } from "@better-ccflare/config";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	generatePKCE,
 	getOAuthProvider,
 	type OAuthProviderConfig,
 	type OAuthTokens,
 	type PKCEChallenge,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 
 export interface BeginOptions {
 	name: string;

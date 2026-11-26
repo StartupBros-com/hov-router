@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import {
 	drainReaderWithDeadline,
 	getResponseDrainTransport,

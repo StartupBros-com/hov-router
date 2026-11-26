@@ -11,7 +11,7 @@ import type {
 	FullUsageData,
 	MinimaxUsageData,
 	XaiUsageData,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { RateLimitProgress } from "./RateLimitProgress";
 

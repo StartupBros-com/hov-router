@@ -6,14 +6,14 @@ import {
 	RequestBodyTooLargeError,
 	readBoundedRequestBody,
 	serializeBoundedJson,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import {
 	RECOVERY_SCOPE_HEADER,
 	RECOVERY_STATUS_EXHAUSTED,
 	RECOVERY_STATUS_HEADER,
 	recoveryScopeForCode,
-} from "@better-ccflare/types/routing-recovery";
+} from "@hov-router/types/routing-recovery";
 import { inheritManagedRequest } from "../../../scripts/ccflare-managed-timing.mjs";
 import {
 	MAX_RESPONSES_CONTENT_PARTS,
@@ -40,7 +40,7 @@ const RESPONSES_ADAPTER_SECRET_HEADER =
 // providers dependency. This is a client-facing opt-in only: the adapter
 // reads it and, if present with this exact value, carries a same-named
 // `continuation_strategy` flag inside the already-trust-gated
-// `__better_ccflare_codex_passthrough` carrier. The Codex provider treats
+// `__hov_router_codex_passthrough` carrier. The Codex provider treats
 // that flag as opt-in only -- it never trusts a client-supplied
 // `previous_response_id` value itself (see the request body handling below).
 const CODEX_CONTINUATION_HEADER = "x-better-ccflare-codex-continuation";
@@ -512,9 +512,9 @@ export async function handleResponsesRequest(
 	if (Object.keys(codexPassthrough).length > 0) {
 		(
 			anthropicBody as typeof anthropicBody & {
-				__better_ccflare_codex_passthrough?: Record<string, unknown>;
+				__hov_router_codex_passthrough?: Record<string, unknown>;
 			}
-		).__better_ccflare_codex_passthrough = codexPassthrough;
+		).__hov_router_codex_passthrough = codexPassthrough;
 	}
 
 	// 5. Keep translated request serialization within the same canonical budget.
@@ -624,36 +624,44 @@ export async function handleResponsesRequest(
 			};
 		};
 		let stableCode = "api_error";
-		const contentType = anthropicResp.headers.get("content-type") ?? "";
-		if (contentType.includes("application/json")) {
-			try {
-				const anthropicError = (await anthropicResp.json()) as {
+		// Read the error envelope whatever the content-type says. A Codex HTTP
+		// error reaches here without one (the provider passes the upstream
+		// response through), and gating on `application/json` turned every such
+		// rejection into "Unknown error", hiding the provider's reason (#324).
+		let anthropicError:
+			| {
 					type?: string;
 					error?: Record<string, unknown> & {
 						type?: string;
 						code?: string;
 						message?: string;
 					};
-				};
-				const errType = anthropicError?.error?.type ?? "api_error";
-				stableCode = anthropicError?.error?.code ?? errType;
-				errorBody = {
-					error: {
-						...anthropicError?.error,
-						message: anthropicError?.error?.message ?? "Unknown error",
-						type: errType,
-						code: stableCode,
-					},
-				};
-			} catch {
-				errorBody = {
-					error: {
-						message: "Unknown error",
-						type: "api_error",
-						code: "api_error",
-					},
-				};
+			  }
+			| undefined;
+		try {
+			const parsed: unknown = JSON.parse(await anthropicResp.text());
+			if (
+				typeof parsed === "object" &&
+				parsed !== null &&
+				typeof (parsed as { error?: unknown }).error === "object" &&
+				(parsed as { error?: unknown }).error !== null
+			) {
+				anthropicError = parsed as typeof anthropicError;
 			}
+		} catch {
+			anthropicError = undefined;
+		}
+		if (anthropicError) {
+			const errType = anthropicError.error?.type ?? "api_error";
+			stableCode = anthropicError.error?.code ?? errType;
+			errorBody = {
+				error: {
+					...anthropicError.error,
+					message: anthropicError.error?.message ?? "Unknown error",
+					type: errType,
+					code: stableCode,
+				},
+			};
 		} else {
 			errorBody = {
 				error: {

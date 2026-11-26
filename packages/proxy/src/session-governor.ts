@@ -24,8 +24,8 @@
  * would multiply the effective budget by the replica count; that setup needs
  * shared state (or affinity) and is out of scope here.
  */
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
-import { Logger } from "@better-ccflare/logger";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
+import { Logger } from "@hov-router/logger";
 
 const log = new Logger("SessionGovernor");
 

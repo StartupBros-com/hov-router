@@ -70,7 +70,7 @@ class Source extends EventTarget {
 const createEventSource = mock(
 	async (_audience: string): Promise<EventSource> =>
 		new Source(
-			"/api/insights/alerts/stream?stream_token=fresh",
+			"/api/alerts/stream?stream_token=fresh",
 		) as unknown as EventSource,
 );
 mock.module("../../api", () => ({ api: { createEventSource } }));
@@ -144,7 +144,7 @@ beforeEach(() => {
 	createEventSource.mockImplementation(
 		async () =>
 			new Source(
-				"/api/insights/alerts/stream?stream_token=fresh",
+				"/api/alerts/stream?stream_token=fresh",
 			) as unknown as EventSource,
 	);
 	Object.defineProperty(globalThis, "EventSource", {

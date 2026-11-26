@@ -1,4 +1,4 @@
-import type { RequestRoutingAttemptSummary } from "@better-ccflare/types";
+import type { RequestRoutingAttemptSummary } from "@hov-router/types";
 
 // Shared by the SQLite column test and the SQLite freeze tests, so they pin the same columns.
 export const ROUTE_PROVENANCE_COLUMNS = [

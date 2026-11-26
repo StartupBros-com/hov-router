@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import { CodexProvider } from "../../../providers/src/providers/codex/provider";
 import {
 	XAI_CACHE_NATIVE_ENV,

@@ -204,7 +204,7 @@ describe("handleResponsesRequest", () => {
 
 		expect(response.status).toBe(200);
 		expect(forwardedBody).toMatchObject({
-			__better_ccflare_codex_passthrough: {
+			__hov_router_codex_passthrough: {
 				additional_tools: [additionalTools],
 			},
 		});
@@ -250,7 +250,7 @@ describe("handleResponsesRequest", () => {
 		);
 		expect(
 			(
-				forwardedBody?.__better_ccflare_codex_passthrough as
+				forwardedBody?.__hov_router_codex_passthrough as
 					| Record<string, unknown>
 					| undefined
 			)?.continuation_strategy,
@@ -268,7 +268,7 @@ describe("handleResponsesRequest", () => {
 		);
 		expect(
 			(
-				forwardedBody?.__better_ccflare_codex_passthrough as
+				forwardedBody?.__hov_router_codex_passthrough as
 					| Record<string, unknown>
 					| undefined
 			)?.continuation_strategy,
@@ -284,7 +284,7 @@ describe("handleResponsesRequest", () => {
 		);
 		expect(
 			(
-				forwardedBody?.__better_ccflare_codex_passthrough as
+				forwardedBody?.__hov_router_codex_passthrough as
 					| Record<string, unknown>
 					| undefined
 			)?.continuation_strategy,
@@ -371,6 +371,62 @@ describe("handleResponsesRequest", () => {
 			{},
 		);
 		expect(resp.status).toBe(429);
+	});
+
+	describe("upstream rejection without a content-type (#324)", () => {
+		const post = (upstream: Response) => {
+			const req = new Request("http://localhost/v1/responses", {
+				method: "POST",
+				body: JSON.stringify({ model: "gpt-6-astra", input: "hello" }),
+				headers: { "Content-Type": "application/json" },
+			});
+			return handleResponsesRequest(
+				req,
+				new URL(req.url),
+				async () => upstream,
+				{},
+			);
+		};
+
+		test("relays the provider's message, type, code and param", async () => {
+			const upstream = new Response(
+				JSON.stringify({
+					error: {
+						message: "Unsupported value: 'instructions' is not supported.",
+						type: "invalid_request_error",
+						param: "instructions",
+						code: "unsupported_value",
+					},
+				}),
+				{ status: 400 },
+			);
+			upstream.headers.delete("content-type");
+			expect(upstream.headers.get("content-type")).toBeNull();
+
+			const resp = await post(upstream);
+
+			expect(resp.status).toBe(400);
+			const body = (await resp.json()) as { error: Record<string, unknown> };
+			expect(body.error).toEqual({
+				message: "Unsupported value: 'instructions' is not supported.",
+				type: "invalid_request_error",
+				param: "instructions",
+				code: "unsupported_value",
+			});
+		});
+
+		test("still answers Unknown error for a body that is not an error envelope", async () => {
+			for (const text of ["upstream down", '{"error":"flat"}', "[]"]) {
+				const resp = await post(new Response(text, { status: 502 }));
+				expect(resp.status).toBe(502);
+				const body = (await resp.json()) as { error: Record<string, unknown> };
+				expect(body.error).toEqual({
+					message: "Unknown error",
+					type: "api_error",
+					code: "api_error",
+				});
+			}
+		});
 	});
 
 	test("preserves stable routing error codes and only finite pool recovery headers", async () => {

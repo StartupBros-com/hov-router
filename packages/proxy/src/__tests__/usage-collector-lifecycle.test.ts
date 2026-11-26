@@ -7,9 +7,9 @@ import {
 	it,
 	mock,
 } from "bun:test";
-import type { CacheFlightCohortSealReceipt } from "@better-ccflare/core";
-import { logBus } from "@better-ccflare/logger";
-import type { LogEvent } from "@better-ccflare/types";
+import type { CacheFlightCohortSealReceipt } from "@hov-router/core";
+import { logBus } from "@hov-router/logger";
+import type { LogEvent } from "@hov-router/types";
 import { cacheBodyStore } from "../cache-body-store";
 import type { EndMessage, StartMessage } from "../worker-messages";
 
@@ -46,16 +46,16 @@ const isModelPriced = mock((model: string) => modelPricedImplementation(model));
 // modules imported later in the same test run. Only estimateCostUSD needs
 // interception here (routed through a controllable pricingImplementation per
 // test case).
-const actualCore = await import("@better-ccflare/core");
+const actualCore = await import("@hov-router/core");
 
-mock.module("@better-ccflare/core", () => ({
+mock.module("@hov-router/core", () => ({
 	...actualCore,
 	estimateCostUSD,
 	isModelPriced,
 }));
 
-// Unlike @better-ccflare/core above, this file never touches
-// @better-ccflare/database's real exports at runtime: every test constructs
+// Unlike @hov-router/core above, this file never touches
+// @hov-router/database's real exports at runtime: every test constructs
 // UsageCollector directly with hand-rolled fake dbOps/asyncWriter objects
 // (see makeHarness below), so getUsageCollector()'s internal
 // `new DatabaseOperations()` / `new AsyncDbWriter()` fallback is never
@@ -67,12 +67,12 @@ mock.module("@better-ccflare/core", () => ({
 // beforeAll runs first). Do not reintroduce this mock without also auditing
 // bun's cross-file mock.module ordering.
 
-// Restore @better-ccflare/core once this file's tests finish so later test
+// Restore @hov-router/core once this file's tests finish so later test
 // files in the same process (mock.module has no per-file isolation without
 // --isolate) resolve the real exports again instead of the stub registered
 // above.
 afterAll(() => {
-	mock.module("@better-ccflare/core", () => actualCore);
+	mock.module("@hov-router/core", () => actualCore);
 });
 
 const { UsageCollector } = await import("../usage-collector");
@@ -90,7 +90,7 @@ const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000;
 
 interface RecorderWrite {
 	recorderConversationId: string;
-	turn: import("@better-ccflare/core").TurnEvidence;
+	turn: import("@hov-router/core").TurnEvidence;
 	sealReceipt?: CacheFlightCohortSealReceipt | null;
 }
 
@@ -107,7 +107,7 @@ interface TestHarness {
 	}>;
 	summaryCosts: Map<string, number | undefined>;
 	summaries: string[];
-	summaryDetails: import("@better-ccflare/types").RequestResponse[];
+	summaryDetails: import("@hov-router/types").RequestResponse[];
 }
 
 interface HarnessOptions {
@@ -192,7 +192,7 @@ function createHarness(options: HarnessOptions | boolean = {}): TestHarness {
 	}> = [];
 	const summaryCosts = new Map<string, number | undefined>();
 	const summaries: string[] = [];
-	const summaryDetails: import("@better-ccflare/types").RequestResponse[] = [];
+	const summaryDetails: import("@hov-router/types").RequestResponse[] = [];
 	const pendingWrites = new Set<Promise<void>>();
 
 	const dbOps = {
@@ -212,7 +212,7 @@ function createHarness(options: HarnessOptions | boolean = {}): TestHarness {
 		},
 		async appendCacheFlightRecorderTurn(
 			recorderConversationId: string,
-			turn: import("@better-ccflare/core").TurnEvidence,
+			turn: import("@hov-router/core").TurnEvidence,
 			_recordedAt?: number,
 			sealReceipt?: CacheFlightCohortSealReceipt | null,
 		): Promise<void> {

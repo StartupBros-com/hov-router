@@ -4,7 +4,7 @@ import {
 	SseFrameBuffer,
 	SseLimitError,
 	StreamResourceLimitError,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 
 const encoder = new TextEncoder();
 
@@ -12,9 +12,8 @@ function makeBuffer(
 	overrides: Partial<{ maxFrameBytes: number; maxBufferBytes: number }> = {},
 ): SseFrameBuffer {
 	return new SseFrameBuffer({
-		maxFrameBytes: overrides.maxFrameBytes ?? BUFFER_SIZES.SSE_FRAME_MAX_BYTES,
-		maxBufferBytes:
-			overrides.maxBufferBytes ?? BUFFER_SIZES.SSE_BUFFER_MAX_BYTES,
+		maxFrameBytes: overrides.maxFrameBytes ?? 64 * 1024,
+		maxBufferBytes: overrides.maxBufferBytes ?? 4 * 1024 * 1024,
 	});
 }
 
@@ -118,8 +117,7 @@ describe("SseFrameBuffer", () => {
 		// No \r or \n anywhere, so no delimiter is ever found and every
 		// byte stays in the buffered, unterminated tail.
 		const chunk = encoder.encode("x".repeat(chunkSize));
-		const chunkCount =
-			Math.ceil(BUFFER_SIZES.SSE_BUFFER_MAX_BYTES / chunkSize) + 2;
+		const chunkCount = Math.ceil((4 * 1024 * 1024) / chunkSize) + 2;
 
 		const start = performance.now();
 		expect(() => {

@@ -2,7 +2,7 @@ import { existsSync, lstatSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
 import { platform } from "node:process";
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 
 const log = new Logger("PathValidator");
 

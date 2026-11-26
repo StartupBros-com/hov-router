@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { BankedResets, RedeemResetResponse } from "@better-ccflare/types";
+import type { BankedResets, RedeemResetResponse } from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Account } from "../../api";
 import type { RedeemResetAnswer } from "../../lib/redeem-reset";

@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, it } from "bun:test";
-import { normalizeProviderUsageWindows } from "@better-ccflare/core";
+import { normalizeProviderUsageWindows } from "@hov-router/core";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { DatabaseOperations } from "../../database-operations";
 import { ensureSchema, runMigrations } from "../../migrations";
@@ -617,7 +617,7 @@ describe("UsageHistoryRepository", () => {
 	it("uses append_order as the latest-snapshot append tie-break", async () => {
 		let latestSql = "";
 		const stubAdapter = {
-			query: async <R>(sql: string): Promise<R[]> => {
+			queryMain: async <R>(sql: string): Promise<R[]> => {
 				latestSql = sql;
 				return [
 					{

@@ -20,9 +20,28 @@ import {
 	writeSync,
 } from "node:fs";
 import { join } from "node:path";
-import { isStorageFullError } from "@better-ccflare/core";
+import { isStorageFullError } from "@hov-router/core";
 import type { PendingRotation } from "./pending-rotation-registry";
-import { assertPendingRotation } from "./pending-rotation-wal";
+
+function assertPendingRotation(value: unknown): PendingRotation {
+	if (!value || typeof value !== "object") {
+		throw new Error("invalid pending rotation slot payload");
+	}
+	const candidate = value as Record<string, unknown>;
+	if (
+		typeof candidate.accessToken !== "string" ||
+		typeof candidate.expiresAt !== "number" ||
+		(candidate.refreshToken !== undefined &&
+			typeof candidate.refreshToken !== "string") ||
+		typeof candidate.attemptedRefreshToken !== "string" ||
+		(candidate.createdAt !== undefined &&
+			typeof candidate.createdAt !== "number") ||
+		typeof candidate.recordedAt !== "number"
+	) {
+		throw new Error("invalid pending rotation slot payload");
+	}
+	return candidate as unknown as PendingRotation;
+}
 
 /*
  * Fixed-size pending-rotation slots.

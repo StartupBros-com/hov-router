@@ -1,11 +1,9 @@
-import { NO_ACCOUNT_ID } from "@better-ccflare/types";
+import { NO_ACCOUNT_ID } from "@hov-router/types";
 
 /**
- * Shared range + filter parsing for request-analytics style endpoints
- * (/api/analytics, /api/insights/cache).
- *
- * Extracted verbatim from the analytics handler so both endpoints interpret
- * `range`, `accounts`, `models`, `apiKeys` and `status` identically.
+ * Range and filter parsing for request-analytics style endpoints:
+ * /api/analytics reads `range`, `accounts`, `models`, `apiKeys` and `status`
+ * through it, and /api/usage-history reads `range`.
  */
 
 export interface BucketConfig {

@@ -1,4 +1,4 @@
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 
 interface RepairResult {
 	integrityOk: boolean;
@@ -28,7 +28,7 @@ export async function repairDatabase(
 
 	// 1. Check database integrity
 	try {
-		const integrityResult = await adapter.get<{
+		const integrityResult = await adapter.getMain<{
 			integrity_check: string;
 		}>("PRAGMA integrity_check");
 
@@ -62,7 +62,7 @@ export async function repairDatabase(
 			FROM accounts
 		`;
 
-		const nullStats = await adapter.get<{
+		const nullStats = await adapter.getMain<{
 			total: number;
 			null_request_count: number;
 			null_total_requests: number;
@@ -116,7 +116,7 @@ export async function repairDatabase(
 	// 3. Check foreign key constraints
 	console.log("Checking foreign key constraints...\n");
 	try {
-		const fkCheck = await adapter.query("PRAGMA foreign_key_check");
+		const fkCheck = await adapter.queryMain("PRAGMA foreign_key_check");
 		if (fkCheck.length === 0) {
 			console.log("Foreign key constraints: PASSED\n");
 		} else {

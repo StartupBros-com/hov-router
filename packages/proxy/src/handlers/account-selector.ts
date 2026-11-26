@@ -1,7 +1,7 @@
 import type {
 	ImplicitFallbackPolicyConfig,
 	ModelScopedCapacityRoutingMode,
-} from "@better-ccflare/config";
+} from "@hov-router/config";
 import {
 	coveringExtraUsageHolds,
 	extraUsageHoldWindowKind,
@@ -14,10 +14,10 @@ import {
 	PAUSE_REASON_NEEDS_REAUTH,
 	providerAcceptsClientModel,
 	resolveEffectiveComboMembership,
-} from "@better-ccflare/core";
-import { COMMAND_NAME } from "@better-ccflare/core/product-identity";
-import { Logger } from "@better-ccflare/logger";
-import type { Provider } from "@better-ccflare/providers";
+} from "@hov-router/core";
+import { COMMAND_NAME } from "@hov-router/core/product-identity";
+import { Logger } from "@hov-router/logger";
+import type { Provider } from "@hov-router/providers";
 import {
 	buildServerToolCapabilityProofKey,
 	CountTokensUnsupportedError,
@@ -32,7 +32,7 @@ import {
 	resolveCodexRequestModel,
 	resolveProviderForAccount,
 	usageCache,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import type {
 	Account,
 	AccountQuotaPressure,
@@ -50,7 +50,7 @@ import type {
 	RoutingSelectionDiagnostics,
 	ServerToolCapabilityTuple,
 	ServerToolRoutingCapabilitySummary,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { isNativeAnthropicOAuthDegradedModeEligible } from "../anthropic-degraded-eligibility";
 import type {
 	AnthropicDegradedRouteInspection,
@@ -913,17 +913,14 @@ const CONFIGURATION_FORCE_ROUTE_REASONS: ReadonlySet<ForceRouteUnavailableReason
 
 /**
  * True when the account stays unavailable until an operator resumes or
- * reauthenticates it: a reauth pause, a manual pause, or a failure-threshold
- * pause (nothing lifts that one on its own since auto-refresh was removed).
+ * reauthenticates it: a reauth pause or a manual pause.
  * Overage, peak-hours and rate-limit-window pauses (and an unattributed one)
  * clear on their own.
  */
 function needsOperatorToResume(account: Account): boolean {
 	return (
 		account.pause_reason === PAUSE_REASON_NEEDS_REAUTH ||
-		(account.paused &&
-			(account.pause_reason === "manual" ||
-				account.pause_reason === "failure_threshold"))
+		(account.paused && account.pause_reason === "manual")
 	);
 }
 
@@ -3887,7 +3884,6 @@ async function selectAccountsForRequestInternal(
 				{
 					provider: Account["provider"];
 					modelMappings: Account["model_mappings"];
-					modelFallbacks: Account["model_fallbacks"];
 					customEndpoint: Account["custom_endpoint"];
 					catalog: ReturnType<typeof getKnownCodexModels>;
 					serves: boolean;
@@ -3902,7 +3898,6 @@ async function selectAccountsForRequestInternal(
 							previous &&
 							previous.provider === account.provider &&
 							previous.modelMappings === account.model_mappings &&
-							previous.modelFallbacks === account.model_fallbacks &&
 							previous.customEndpoint === account.custom_endpoint &&
 							previous.catalog?.models === catalog?.models
 						) {
@@ -3911,7 +3906,6 @@ async function selectAccountsForRequestInternal(
 						const proof = {
 							provider: account.provider,
 							modelMappings: account.model_mappings,
-							modelFallbacks: account.model_fallbacks,
 							customEndpoint: account.custom_endpoint,
 							catalog,
 							serves: false,

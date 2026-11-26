@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { DatabaseFactory } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
+import { DatabaseFactory } from "@hov-router/database";
 import { createAccountAddHandler } from "../accounts";
 
 const TEST_DB_PATH = `${process.env.TMPDIR || "/tmp"}/test-account-add-duplicate-guard.db`;
@@ -70,7 +70,7 @@ describe("createAccountAddHandler — duplicate (name, provider, custom_endpoint
 		// Only the first row was persisted.
 		const rows = await dbOps
 			.getAdapter()
-			.query<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
+			.queryMain<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
 				"alpha",
 			]);
 		expect(rows).toHaveLength(1);
@@ -175,7 +175,7 @@ describe("createAccountAddHandler — duplicate (name, provider, custom_endpoint
 
 		const rows = await dbOps
 			.getAdapter()
-			.query<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
+			.queryMain<{ id: string }>("SELECT id FROM accounts WHERE name = ?", [
 				"race",
 			]);
 		expect(rows).toHaveLength(1);
@@ -195,11 +195,17 @@ describe("createAccountAddHandler — duplicate (name, provider, custom_endpoint
 		expect(seeded.status).toBe(200);
 
 		const realAdapter = dbOps.getAdapter();
+		// The pre-check's 400 reads the same as the UNIQUE path's, so the test
+		// also checks that the pre-check's read went through the blind.
+		const blindedReads: string[] = [];
 		const blindAdapter = new Proxy(realAdapter, {
 			get(target, prop, receiver) {
-				if (prop === "get") {
+				if (prop === "getMain") {
 					// assertAccountNameAvailable's SELECT sees no existing row.
-					return async () => null;
+					return async (sql: string) => {
+						blindedReads.push(sql);
+						return null;
+					};
 				}
 				const value = Reflect.get(target, prop, receiver);
 				return typeof value === "function" ? value.bind(target) : value;
@@ -226,7 +232,12 @@ describe("createAccountAddHandler — duplicate (name, provider, custom_endpoint
 		expect(JSON.stringify(await response.json())).toContain(
 			"Account name 'blind' is already taken",
 		);
-		const rows = await realAdapter.query<{ id: string }>(
+		expect(
+			blindedReads.some((sql) =>
+				/SELECT id FROM accounts\s+WHERE name = \?/.test(sql),
+			),
+		).toBe(true);
+		const rows = await realAdapter.queryMain<{ id: string }>(
 			"SELECT id FROM accounts WHERE name = ?",
 			["blind"],
 		);

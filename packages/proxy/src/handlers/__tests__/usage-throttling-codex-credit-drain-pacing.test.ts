@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { usageCache } from "@better-ccflare/providers";
+import { usageCache } from "@hov-router/providers";
 import { getAccountUsageThrottleUntil } from "../usage-throttling";
 
 const originalFetch = globalThis.fetch;

@@ -1,4 +1,4 @@
-import { alertEvents } from "@better-ccflare/core";
+import { alertEvents } from "@hov-router/core";
 import { createAlertsStreamHandler } from "../alerts";
 import { testSseKeepalive } from "./sse-keepalive-contract";
 

@@ -73,8 +73,6 @@ const ROUTER_CODES = [
 	"server_tool_forced_structurally_incapable",
 	"server_tool_advisor_declaration_unavailable",
 	"server_tool_advisor_history_unavailable",
-	// Written only by the retired Auto quality lane; old rows still carry it.
-	"quality_route_unavailable",
 	// Forwarded provider failures, as stored in production.
 	"upstream_http_403 type=api_error",
 	"upstream_http_503",
@@ -131,6 +129,15 @@ describe("getErrorMeta: router codes (#918)", () => {
 		);
 		expect(meta.description).toContain("invalid_request_error");
 		expect(meta.description).toContain("cyber_policy");
+	});
+
+	test("an upstream_http value names the field the provider rejected (#324)", () => {
+		const meta = getErrorMeta(
+			"upstream_http_400 type=invalid_request_error code=unsupported_value param=input[0].type",
+		);
+		expect(meta.title).toContain("400");
+		expect(meta.description).toContain("unsupported_value");
+		expect(meta.description).toContain("rejected field input[0].type");
 	});
 
 	test("a midstream error names the stream's error type", () => {

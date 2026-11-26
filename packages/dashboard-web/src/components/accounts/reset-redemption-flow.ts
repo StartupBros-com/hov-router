@@ -4,7 +4,7 @@ import type {
 	CodexResetRedemptionState,
 	RedeemResetResponse,
 	RedeemResetSpend,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { formatRelativeReset } from "../../lib/pool-usage";
 import {
 	mintRedeemRequestId,

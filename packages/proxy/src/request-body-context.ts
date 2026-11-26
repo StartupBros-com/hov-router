@@ -1,11 +1,11 @@
 import {
 	deriveNativeAnthropicToolRequirement,
 	deriveServerToolRequirement,
-} from "@better-ccflare/providers/server-tool-capabilities";
+} from "@hov-router/providers/server-tool-capabilities";
 import type {
 	NativeAnthropicToolRequirement,
 	ServerToolRequirements,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 export type RequestJsonBody = Record<string, unknown>;
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 /**
- * The dashboard imports the `@better-ccflare/core` barrel, which re-exports
+ * The dashboard imports the `@hov-router/core` barrel, which re-exports
  * force-account-model, so this module ships inside the browser bundle. Bun's
  * browser target has no `node:async_hooks`: it rewrites the import into a
  * destructure from an empty stub, leaving `AsyncLocalStorage` undefined. Any

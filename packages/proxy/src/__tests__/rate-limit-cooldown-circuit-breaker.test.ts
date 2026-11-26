@@ -19,7 +19,7 @@
  * removed. The orchestrator re-runs this; do not fake it.
  */
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import type { Account, RateLimitReason } from "@better-ccflare/types";
+import type { Account, RateLimitReason } from "@hov-router/types";
 import type { CircuitKey } from "../circuit-breaker";
 import { CircuitBreaker } from "../circuit-breaker";
 import type { ProxyContext } from "../handlers/proxy-types";
@@ -27,7 +27,7 @@ import { applyRateLimitCooldown } from "../handlers/rate-limit-cooldown";
 
 /**
  * The literal `"model_fallback_429"` below is sourced from
- * `@better-ccflare/types`'s `RateLimitReason` union (packages/types/src/
+ * `@hov-router/types`'s `RateLimitReason` union (packages/types/src/
  * account.ts). Using a typed `RateLimitReason` here pins the literal to
  * the upstream enum — if a future rename drops this variant from the
  * union, TypeScript fails this test at compile time, not at runtime.
@@ -70,7 +70,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

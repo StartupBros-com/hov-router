@@ -2,20 +2,20 @@ import type {
 	CodexResetCreditRow,
 	CodexResetRedemptionRow,
 	DatabaseOperations,
-} from "@better-ccflare/database";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/database";
+import { Logger } from "@hov-router/logger";
 import {
 	type CodexResetConsumeRequest,
 	classifyCodexResetConsume,
-} from "@better-ccflare/providers";
-import type { CodexResetRedeemDispatch } from "@better-ccflare/proxy";
+} from "@hov-router/providers";
+import type { CodexResetRedeemDispatch } from "@hov-router/proxy";
 import type {
 	RedeemResetErrorBody,
 	RedeemResetErrorReason,
 	RedeemResetOutcome,
 	RedeemResetResponse,
 	RedeemResetSpend,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	assessBankedResets,
 	readResetCreditCounts,

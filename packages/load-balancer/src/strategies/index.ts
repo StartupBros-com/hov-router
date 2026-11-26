@@ -1,15 +1,15 @@
-import { isAccountAvailable, TIME_CONSTANTS } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import { isAccountAvailable, TIME_CONSTANTS } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import type {
 	Account,
 	LoadBalancingStrategy,
 	RequestMeta,
 	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	PROVIDER_NAMES,
 	requiresSessionDurationTracking,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { isPeekAvailable } from "./peek-availability";
 import {
 	commitStrategyCandidateOrder,
@@ -243,9 +243,7 @@ export class SessionStrategy implements LoadBalancingStrategy {
 		let chosenFallback: Account | null = null;
 		const skippedByReason = new Map<string, string[]>();
 		for (const candidate of fallbackCandidates) {
-			// If the candidate is paused, only auto-unpause if it was paused due to
-			// overage, or `rate_limit_window` (reserved/future pause reason) — never auto-unpause
-			// manual or failure_threshold pauses.
+			// `rate_limit_window` is reserved: nothing writes it yet.
 			if (candidate.paused && this.store?.resumeAccount) {
 				const canAutoUnpause =
 					!candidate.pause_reason ||

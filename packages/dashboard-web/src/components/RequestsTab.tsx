@@ -2,7 +2,7 @@ import {
 	formatDuration,
 	formatTokens,
 	formatTokensPerSecond,
-} from "@better-ccflare/ui-common";
+} from "@hov-router/ui-common";
 import {
 	AlertCircle,
 	Bot,
@@ -319,10 +319,6 @@ export function RequestsTab() {
 	const decodeBase64 = (str: string | null): string => {
 		if (!str) return "No data";
 		try {
-			// Handle edge cases like "[streamed]" from older data
-			if (str === "[streamed]") {
-				return "[Streaming data not captured]";
-			}
 			return atob(str);
 		} catch (error) {
 			console.error("Failed to decode base64:", error, "Input:", str);

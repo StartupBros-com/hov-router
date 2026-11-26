@@ -1,16 +1,14 @@
 import { describe, expect, it, mock } from "bun:test";
 import type { ConverseStreamOutput } from "@aws-sdk/client-bedrock-runtime";
 
-mock.module("@better-ccflare/core", () => ({
+mock.module("@hov-router/core", () => ({
 	estimateCostUSD: async () => 0,
 }));
-mock.module("@better-ccflare/database", () => ({
+mock.module("@hov-router/database", () => ({
 	DatabaseFactory: {
 		initialize: mock(() => {}),
 		reset: mock(() => {}),
-		getInstance: mock(() => ({
-			getDatabase: mock(() => ({})),
-		})),
+		getInstance: mock(() => ({})),
 	},
 	ModelTranslationRepository: mock(() => ({
 		findSimilar: mock(() => []),

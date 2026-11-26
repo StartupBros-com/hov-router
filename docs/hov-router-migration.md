@@ -4,7 +4,7 @@ HoV Router is a House of Vibe project at [StartupBros-com/hov-router](https://gi
 
 The public repository moved from `StartupBros-com/better-ccflare` to the `StartupBros` account on 2026-10-19, was renamed `StartupBros/hov-router` on 2026-10-21, and has been `StartupBros-com/hov-router` since 2026-11-20. It is the same repository, ID `1278801682` (see [the repository move](#repository-move)). Use `StartupBros-com/hov-router` in clone, download, and support URLs. [Report Router issues here](https://github.com/StartupBros-com/hov-router/issues).
 
-The current [Linux x86_64 binary](reference.md#install-the-linux-x86_64-release), release 6.4.0, displays HoV Router, as do 3.7.0, 3.7.1, 4.0.0, 5.0.0, 5.0.1, 5.1.0, 6.0.0, 6.1.0, 6.2.0, 6.2.1, 6.2.2, 6.3.0 and new source builds. The earlier 3.6.2 binary keeps its original product name, exact bytes, source SHA, tag, and signing identity, and prints that original name even through `hov-router`; a filesystem alias cannot relabel its embedded output. See [the historical 3.6.2 release](hov-router-releases.md#verify-the-historical-362-release). Router npm packages, container images, and other-platform binaries are not published.
+The current [Linux x86_64 binary](reference.md#install-the-linux-x86_64-release), release 7.0.0, displays HoV Router, as do 3.7.0, 3.7.1, 4.0.0, 5.0.0, 5.0.1, 5.1.0, 6.0.0, 6.1.0, 6.2.0, 6.2.1, 6.2.2, 6.3.0, 6.4.0 and new source builds. The earlier 3.6.2 binary keeps its original product name, exact bytes, source SHA, tag, and signing identity, and prints that original name even through `hov-router`; a filesystem alias cannot relabel its embedded output. See [the historical 3.6.2 release](hov-router-releases.md#verify-the-historical-362-release). Router npm packages, container images, and other-platform binaries are not published.
 
 ## Install without replacing your current executable
 
@@ -28,7 +28,7 @@ Record the current executable location with `command -v` and the command name yo
 | Database override | `BETTER_CCFLARE_DB_PATH`; a PostgreSQL `DATABASE_URL` is refused (see [PostgreSQL support removed](#postgresql-support-removed)) |
 | Other integration names | Existing `BETTER_CCFLARE_*`, `CCFLARE_*`, and other environment variables; `x-better-ccflare-*` headers |
 | Default server port | `8080`; existing port overrides and deployment ports remain unchanged |
-| Build/package names | `apps/cli/dist/better-ccflare`, the `better-ccflare` package identity, and internal `@better-ccflare/*` packages |
+| Build/package names | `apps/cli/dist/better-ccflare` and the `better-ccflare` package identity |
 
 There is no new HoV configuration namespace and no config or credential migration. Do not rename storage directories, recovery files, environment variables, headers, or database files to match the product name. Existing deployments keep their paths, service names, and ports.
 
@@ -55,7 +55,7 @@ There is no PostgreSQL-to-SQLite migration tool, so option 2 starts with an empt
 
 1. **Window-opening messages.** Nothing is sent on an account's behalf. A usage window opens when real traffic first uses it.
 2. **Background OAuth token refresh.** Tokens are still refreshed when a request needs one: an expired or nearly expired token is refreshed before the request is sent, and a `401` on an Anthropic OAuth, Codex or xAI account triggers one refresh and retry. An account left idle until its refresh token lapses needs a re-login when it is next used (see [Re-authenticating an account](oauth-reauthentication.md)).
-3. **Resuming paused accounts after a successful message.** An account paused after repeated failures (`failure_threshold`) now stays paused until you resume it from the dashboard or with `POST /api/accounts/<id>/resume`. An overage pause still clears on its own once its usage window resets, but only on Anthropic, Codex and Z.ai accounts with auto-fallback on.
+3. **Resuming paused accounts after a successful message.** An account paused after repeated failures (`failure_threshold`) now stays paused until you resume it from the dashboard or with `POST /api/accounts/<id>/resume`. Release 7.0.0 relabels those pauses as manual; see [Failure-threshold pauses relabelled](#failure-threshold-pauses-relabelled). An overage pause still clears on its own once its usage window resets, but only on Anthropic, Codex and Z.ai accounts with auto-fallback on.
 
 **Who is affected.** Only accounts that had auto-refresh turned on. Release 4.0.0 logs one startup warning naming each of them and what they no longer get. Release 5.0.0 drops that warning, because the stored value has no effect. The Z.ai peak-hours pause, which ran on the same timer, is unchanged and now runs as its own job (see [Z.ai Peak-Hours Pause](providers.md#zai-peak-hours-pause)).
 
@@ -74,7 +74,7 @@ There is no PostgreSQL-to-SQLite migration tool, so option 2 starts with an empt
 | `GET /api/workspaces` | `GET /api/agents`, whose `workspaces` field lists the same workspaces. For a per-workspace agent count, count its `workspaceAgents` entries by `workspace`. |
 | `POST /api/debug/cache-diagnosis` | Nothing. It ran only when `CCFLARE_CACHE_DIAG` was set. |
 
-**Fields.** Account API responses no longer include `autoRefreshEnabled`. `GET /api/config` no longer includes `default_agent_model`. Until the next major release, `GET /api/insights/cache-parity` still reports the removed Codex levers, at fixed values: session keys, prefix sharding, settle window, pacing bypass, explicit breakpoints, turn state and WebSocket, with continuity fixed on. `GET /api/debug/cache-pacing` reports `codex_settle_ms` as `0`.
+**Fields.** Account API responses no longer include `autoRefreshEnabled`. `GET /api/config` no longer includes `default_agent_model`. Through the 5.x and 6.x releases, `GET /api/cache-parity` (`/api/insights/cache-parity` before 7.0.0) kept reporting the removed Codex levers at fixed values, and `GET /api/debug/cache-pacing` kept reporting `codex_settle_ms` as `0`. Release 7.0.0 removes those fields; see [Codex lever fields removed](#codex-lever-fields-removed).
 
 **Commands.** `--get-model` and `--set-model` are gone and now exit with status 1 as unknown arguments. `--show-config` still reads the configuration file without writing it.
 
@@ -101,11 +101,135 @@ Release 5.0.0 logs one startup warning naming each Codex variable that is still 
 
 **Commands.** Any `--quality-routing-*` flag exits with status 2 and a message saying the commands were removed, without opening the database.
 
-**Settings now ignored.** A leftover `quality_routing_policy` in the config file, or `CCFLARE_QUALITY_ROUTING_POLICY_JSON` in the environment, is ignored and left in place, with one startup warning naming where it was found. It is no longer validated, so a policy that an older release refused no longer stops startup.
+**Settings now ignored.** A leftover `quality_routing_policy` in the config file, or `CCFLARE_QUALITY_ROUTING_POLICY_JSON` in the environment, is ignored and left in place, with one startup warning naming where it was found. Release 7.0.0 drops that warning, because the setting has no effect. It is no longer validated, so a policy that an older release refused no longer stops startup.
 
 **History.** Requests the lane served keep their stored quality decision in request history. Its database tables are kept, with no migration.
 
 **Alerts.** The alert for a new model outside its approved line now checks only the Codex lines a route profile can pin (`gpt-astra`, `gpt-sol`). A newer Claude model is no longer flagged this way.
+
+## Insights page removed
+
+**What changed.** Release 7.0.0 removes the dashboard's Insights page and its cache efficiency, context composition and anomalies sections. The alert list it held moved to a new Alerts page at `/alerts`, and an old `/insights` link opens Alerts. The sidebar badge on Alerts counts unacknowledged warning and critical alerts from the last 24 hours. It used to count every unacknowledged alert ever stored, including info notices. Older alerts are still listed on the page.
+
+**Endpoints.** Nothing is served under `/api/insights` any more. Every path under it answers `410 Gone` from the router itself, for every method, with `removedIn: "7.0.0"` and the replacement, if any. These were removed:
+
+| Removed | Use instead |
+|---|---|
+| `GET /api/insights/cache` | `GET /api/analytics?modelBreakdown=true`, which reports the cache hit rate per model over time from the same token columns. The Analytics page charts it. |
+| `GET /api/insights/context` | Nothing. A request's stored payload is still shown in its details on the Requests page. |
+| `GET /api/insights/anomalies` | Nothing. The Requests and Analytics pages show per-request tokens and cost. |
+
+**Moved.** The alert and cache-parity routes moved out from under `/api/insights`. Point any script or proxy rule at the new path; the old one answers `410 Gone` naming it. Requests and responses are unchanged apart from the alert settings fields listed under Anomaly alerts below and the cache-parity fields listed under [Codex lever fields removed](#codex-lever-fields-removed).
+
+| Old path | New path |
+|---|---|
+| `GET /api/insights/alerts` (list alerts) | `GET /api/alerts` |
+| `POST /api/insights/alerts` (save alert settings) | `POST /api/alerts` |
+| `GET /api/insights/alerts/config` | `GET /api/alerts/config` |
+| `POST /api/insights/alerts/acknowledge-all` | `POST /api/alerts/acknowledge-all` |
+| `POST /api/insights/alerts/<id>` (acknowledge one alert) | `POST /api/alerts/<id>` |
+| `GET /api/insights/alerts/stream` and `POST /api/insights/alerts/stream/token` | `GET /api/alerts/stream` and `POST /api/alerts/stream/token` |
+| `GET /api/insights/cache-parity` | `GET /api/cache-parity` |
+
+A dashboard tab left open across the upgrade keeps calling the old paths, so its alert list and badge fail until the tab is reloaded. An nginx config copied from an older [deployment guide](deployment.md) matches `insights/alerts` in its event-stream location; change it to `alerts` or the alert stream is buffered again.
+
+**Anomaly alerts.** Release 7.0.0 also removes the anomaly alert sweep. It was off by default and raised `anomaly_token_outlier`, `anomaly_output_blowup`, `anomaly_runaway_loop` and `anomaly_model_misrouting` alerts. Its settings are ignored and left where they are: `ALERT_ANOMALY_ENABLED`, `ALERT_ANOMALY_INTERVAL_MINUTES`, `ALERT_ANOMALY_BASELINE_WINDOW_MINUTES`, `ALERT_ANOMALY_LOOP_MIN_REQUESTS` and the matching `alert_anomaly_*` config-file keys. The alert settings that `GET /api/alerts/config` and `POST /api/alerts` return no longer include `anomalyEnabled`, `anomalyIntervalMinutes`, `anomalyBaselineWindowMinutes` or `loopMinRequests`. A `POST` that still sends them succeeds and ignores them. The four `anomaly_*` type names are still accepted in `ALERT_WEBHOOK_TYPES` and `alert_webhook_types`, so a saved allowlist loads and saves as before; nothing raises those types any more.
+
+**Kept.** Stored alerts are untouched, including any `anomaly_*` alerts.
+
+## Codex lever fields removed
+
+**What changed.** Release 7.0.0 removes the response fields that still reported removed Codex cache levers at fixed values. The 5.0.0 notes kept them for one release, and 5.1.0 changed that to until the next major release; 6.0.0 still carried them.
+
+- `GET /api/cache-parity`: `policy` and `driftReport.declaredDefaults` no longer include `cacheKeySessionPercent`, `cacheKeyContinuityPercent`, `cacheKeyPrefixShardPercent`, `codexSettleMs`, `pacingBypassPercent`, `explicitBreakpointPercent`, `explicitBreakpointSuppressedScopes`, `turnStatePercent`, `turnStateObserveOnly` or `webSocketPercent`, so no `driftReport.deviations` entry can name them. `backendCapability` no longer includes `explicitBreakpoint`, which was always `"not_requested"`.
+- `GET /api/debug/cache-pacing` no longer includes `codex_settle_ms`, which was always `0`.
+
+**Kept.** `policy` still reports `promptCacheKeyEnabled`, `cacheKeyMode`, `pacingMs`, `globalKeepaliveTtlMinutes` and `xaiCacheKeepaliveTtlMinutes`, and the verdict, windows and `backendCapability.endpoint` are unchanged. The removed levers' environment variables stay ignored, as listed under [Removed in 5.0.0](#removed-in-500).
+
+## Upgrade leftovers removed
+
+Release 7.0.0 no longer copies `~/.ccflare/workspaces.json`. Only the original
+ccflare before v1.2.28 wrote that path. Move it to
+`~/.better-ccflare/workspaces.json` by hand if you still need those workspaces.
+
+The guard no longer reads `GUARD_ALLOW_LEGACY_POOL_BODY`. Responses without the
+proxy recovery header are forwarded without retrying. Rollback validation now
+requires the guard body limits and systemd policies introduced in 3.6.0.
+
+A first start with no `better-ccflare.db` no longer copies the pre-fork
+`~/.config/ccflare/ccflare.db` into place. If you are moving from ccflare, stop
+it, then copy the database with SQLite's backup command before the first start.
+A plain file copy can miss changes still held in the `-wal` file beside it.
+
+```bash
+mkdir -p ~/.config/better-ccflare
+sqlite3 ~/.config/ccflare/ccflare.db ".backup '$HOME/.config/better-ccflare/better-ccflare.db'"
+sqlite3 ~/.config/better-ccflare/better-ccflare.db "PRAGMA integrity_check;"   # prints ok
+```
+
+`ccflare_DB_PATH` is still read.
+
+Pending token rotations saved by releases before 6.0.0 as `.wal` files are no
+longer read; 6.0.0 and later save them as `.slot` files. Before upgrading, run
+`ls ~/.config/better-ccflare/pending-rotations/*.wal`. If it lists a file, keep
+6.x running until that account next refreshes its token, which removes the
+file. If you upgrade first and the account then asks you to sign in, log in to
+it again.
+
+The guard's `/_guard/health` counters no longer include
+`recoverySleepCapExceeded`. Read `recoverySilenceBudgetExceeded`, which always
+held the same count.
+
+## Old model mapping formats removed
+
+On first start, 7.0.0 moves mappings stored in `custom_endpoint` JSON
+(`modelMappings`) and in `model_fallbacks` into `model_mappings`, in the order
+the router applied them. The endpoint mapping overrides a family, and a fallback
+is appended as the next candidate. It then drops the `model_fallbacks` column.
+Values the router could not parse were never used and are dropped with a warning
+in the log. When removing `modelMappings` would leave an account with the same
+name, provider and endpoint as another account, the key is replaced with
+`foldedLegacyMappingsFor`, holding an account ID, so the two stay distinct.
+Nothing reads that key.
+
+The API and CLI no longer accept `modelFallbacks`, a `modelMappings` key inside
+`customEndpoint`, or a `model_mappings` value wrapped as
+`{"modelMappings": {...}}`. Send ordered candidates as `modelMappings` arrays.
+The API returns HTTP 400 for these retired inputs.
+
+One case changes routing: a fallback for a family that had no account mapping
+but did have one from `OPENAI_COMPATIBLE_MODEL_MAPPINGS` used to be tried after
+the environment mapping. It is now the account's mapping for that family and
+replaces the environment one. Add the family's full candidate list to the
+account to keep the old order.
+
+## Legacy headers and routes removed
+
+- The `x-anthropic-agent-id` request header no longer names the agent. Send
+  `x-better-ccflare-agent-id`.
+- The `x-project` request header no longer names the project. Send
+  `x-better-ccflare-project`.
+- `POST /api/accounts/muse-spark` answers `410 Gone`. Add Meta accounts with
+  `POST /api/accounts/meta`. Stored `muse-spark` accounts were already renamed
+  to `meta`, and model IDs such as `muse-spark-1.2` keep their names.
+
+## Failure-threshold pauses relabelled
+
+Only releases before 4.0.0 paused an account with the reason
+`failure_threshold`. On first start, 7.0.0 changes that reason to `manual`.
+Those accounts stay paused until you resume them, as before. The dashboard no
+longer marks them "Auto-paused: repeated failures".
+
+## max account mode removed
+
+Use `--mode claude-oauth` in the CLI or `mode: "claude-oauth"` in the API.
+The removed mode is rejected as an unknown mode.
+
+## Retired 5h rate-limit reason renamed
+
+Accounts stored with `upstream_429_no_reset_default_5h`, written only by ccflare
+3.5.x and earlier, are renamed to `upstream_429_no_reset_probe_cooldown`, which
+the router treats the same way.
 
 ## Manual source updates
 

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { estimateAnthropicAdmissionTokens } from "../../../packages/providers/src/request-capabilities";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../../../packages/proxy/src/handlers";
 import { chmod, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server } from "node:http";
@@ -196,7 +196,6 @@ function makeCodexAccount(credentialReads: { count: number }): Account {
 		custom_endpoint: null,
 		model_mappings: JSON.stringify({ sonnet: "gpt-5.3-codex-spark" }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		rate_limited_reason: null,

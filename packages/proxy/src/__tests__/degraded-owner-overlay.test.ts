@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AffinityOwnerSnapshot } from "@better-ccflare/types";
+import type { AffinityOwnerSnapshot } from "@hov-router/types";
 import type { AnthropicDegradedCohortKey } from "../anthropic-degraded-mode";
 import { DegradedOwnerOverlay } from "../degraded-owner-overlay";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Agent } from "@better-ccflare/types";
+import type { Agent } from "@hov-router/types";
 import { renderPage } from "../page-state-test-helpers";
 import { AgentCard } from "./AgentCard";
 

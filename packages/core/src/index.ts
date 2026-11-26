@@ -87,7 +87,6 @@ export {
 } from "./interval-manager";
 export {
 	CONCRETE_CLAUDE_MODEL_ID_PATTERN,
-	createCustomEndpointData,
 	getAccountOwnedModelMappings,
 	getAllowedModelsMessage,
 	getConfiguredModelMapping,
@@ -103,14 +102,12 @@ export {
 	KNOWN_PATTERNS,
 	mapModelName,
 	parseCustomEndpointData,
-	parseModelFallbacks,
 	parseModelMappings,
 	providerAcceptsClientModel,
 	resolveCompatibleEndpoint,
 	resolveFamilyAliasModel,
 	resolveRouteProfileModelAlias,
 	resolveStoredPolicyAliasModel,
-	validateAndSanitizeModelFallbacks,
 	validateAndSanitizeModelMappings,
 	weeklyScopedWindowKey,
 } from "./model-mappings";
@@ -165,6 +162,7 @@ export {
 } from "./pricing";
 export { PROCESS_STARTED_AT_MS } from "./process-start";
 export * from "./request-events";
+export { rejectRetiredModelMappingInput } from "./retired-model-mapping-input";
 export {
 	SseFrameBuffer,
 	type SseFrameBufferOptions,

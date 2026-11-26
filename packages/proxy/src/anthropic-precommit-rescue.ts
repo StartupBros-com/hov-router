@@ -1,4 +1,4 @@
-import { extractClaudeVersion } from "@better-ccflare/core";
+import { extractClaudeVersion } from "@hov-router/core";
 import {
 	assertManagedWorkAvailable,
 	managedRemainingMs,

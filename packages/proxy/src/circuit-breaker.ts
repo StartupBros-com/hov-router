@@ -41,8 +41,8 @@
  * with the env now set. The wiring task MUST do this or document why
  * bootstrap order guarantees env is already loaded.
  */
-import { Logger } from "@better-ccflare/logger";
-import type { Account, RateLimitReason } from "@better-ccflare/types";
+import { Logger } from "@hov-router/logger";
+import type { Account, RateLimitReason } from "@hov-router/types";
 
 const log = new Logger("CircuitBreaker");
 
@@ -101,7 +101,7 @@ const MAX_TRACKED_KEYS = 4_096;
  */
 const PROBE_LEASE_MS = 30_000;
 
-/** Read an env var defensively — matches the @better-ccflare/logger idiom.
+/** Read an env var defensively — matches the @hov-router/logger idiom.
  *  Bun injects `process` automatically; the `declare` keeps tsc happy in
  *  environments without @types/node, the runtime guard keeps it portable. */
 declare const process: { env: Record<string, string | undefined> } | undefined;
@@ -113,7 +113,7 @@ function readEnv(name: string): string | undefined {
 /**
  * Categorizes an upstream failure for circuit-breaker accounting.
  *
- * **This is a type alias of `RateLimitReason` from `@better-ccflare/types`.**
+ * **This is a type alias of `RateLimitReason` from `@hov-router/types`.**
  * The producer (proxy response handling) already classifies upstream signals
  * into a `RateLimitReason` literal at the call site; the breaker must accept
  * those literals directly so the exclusion of `model_fallback_429` (and other
@@ -244,7 +244,6 @@ export function shouldCountAsCircuitFailure(kind: FailureKind): boolean {
 		case "windowless_429":
 			return false;
 		case "upstream_429_with_reset":
-		case "upstream_429_no_reset_default_5h":
 		case "upstream_429_no_reset_probe_cooldown":
 		case "all_models_exhausted_429":
 		case "upstream_529_overloaded_with_reset":

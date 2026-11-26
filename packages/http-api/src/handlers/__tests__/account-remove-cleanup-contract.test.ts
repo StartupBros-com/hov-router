@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import { usageCache } from "@better-ccflare/providers";
+import { usageCache } from "@hov-router/providers";
 
 const removeAccountById = mock(async () => ({
 	success: true,
@@ -17,8 +17,8 @@ const clearCodexModelCacheForAccount = mock(() => {});
 const clearOpenAICompatibleModelCacheForAccount = mock(() => {});
 const clearPendingRotationForDeletedAccount = mock(() => {});
 
-mock.module("@better-ccflare/cli-commands", () => ({ removeAccountById }));
-mock.module("@better-ccflare/proxy", () => ({
+mock.module("@hov-router/cli-commands", () => ({ removeAccountById }));
+mock.module("@hov-router/proxy", () => ({
 	clearAccountRefreshCache,
 	clearAccountRemovalTrackingForAccount,
 	clearCodexModelCacheForAccount,
@@ -45,7 +45,7 @@ function request(confirm: string): Request {
 function dbOps(account: { name: string; provider?: string } | undefined) {
 	return {
 		getAdapter: () => ({
-			get: mock(async () => account),
+			getMain: mock(async () => account),
 		}),
 	};
 }

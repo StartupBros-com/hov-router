@@ -40,7 +40,7 @@ BETTER_CCFLARE_HOST=127.0.0.1 hov-router --serve --port 8080
 hov-router --add-account myaccount --mode claude-oauth --priority 0 --api-url http://127.0.0.1:8080
 ```
 
-Use the same local user and database configuration in both terminals. Account creation writes to the local database, then reviews routing through the live server. Use `claude-oauth` for Claude OAuth. `max` remains a deprecated compatibility alias: the CLI warns and normalizes it to `claude-oauth`.
+Use the same local user and database configuration in both terminals. Account creation writes to the local database, then reviews routing through the live server. Use `claude-oauth` for Claude OAuth.
 
 3. Inspect live routing without changing policy:
 ```bash
@@ -138,7 +138,7 @@ bun run cli --add-account <name> --mode <claude-oauth|console|zai|minimax|deepse
   - `codex`: Codex (OpenAI OAuth) provider
   - `xai`: xAI/Grok provider (imports local Grok CLI OAuth credentials)
   - `ollama`: Ollama local provider (no API key required)
-  - `meta`: Meta Model API provider (API key). `meta` is canonical; `muse-spark` remains server-side HTTP ingress compatibility only.
+  - `meta`: Meta Model API provider (API key).
 - `--priority`: Account priority (optional, defaults to 0)
   - Range: 0-100
   - Lower numbers indicate higher priority in load balancing
@@ -355,7 +355,7 @@ Do not send a replacement assignment or clear the combo, rules, Managed model, M
 - Treat JSON as a redacted reporting format; it must not include credentials, model mappings containing secrets, or raw authentication material.
 - Use `--json` with `routing` commands only; `--add-account --json` is rejected before creating an account.
 - Automate list, detail, and preview freely, but require explicit reviewed identifiers and confirmation for apply.
-- Never validate Managed routing by sending scripted inference to Anthropic or Codex. Use natural traffic and aggregate diagnostics for a live canary.
+- Use natural traffic and aggregate diagnostics for the Managed canary. A [bounded CLI route check](agent-setup.md#5-connect-claude-code-and-prove-the-route) does not replace that sample.
 
 ### Statistics and History
 
@@ -662,7 +662,7 @@ The SQLite database follows the same directory structure:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LB_STRATEGY` | Load balancing strategy (only 'session' is supported) | session |
+| `LB_STRATEGY` | Load balancing strategy; see [available strategies](load-balancing.md#available-strategies) | session |
 
 ### Retry Configuration
 

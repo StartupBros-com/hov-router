@@ -3,7 +3,7 @@ import type {
 	Account,
 	RequestMeta,
 	RoutingCandidateMetadata,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { CacheAffinityOrderer } from "../cache-affinity-orderer";
 
 function account(id: string, provider = "xai"): Account {
@@ -37,7 +37,6 @@ function account(id: string, provider = "xai"): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { usageCache } from "@better-ccflare/providers";
+import type { Config } from "@hov-router/config";
+import type { DatabaseOperations } from "@hov-router/database";
+import { usageCache } from "@hov-router/providers";
 import { createAccountsListHandler } from "../accounts";
 
 describe("accounts API 402 cooldown reason", () => {
@@ -39,13 +39,12 @@ describe("accounts API 402 cooldown reason", () => {
 				custom_endpoint: "https://provider.test/v1",
 				model_mappings: null,
 				cross_region_mode: null,
-				model_fallbacks: null,
 				billing_type: null,
 				pause_reason: null,
 			},
 		]);
 		const dbOps = {
-			getAdapter: () => ({ query }),
+			getAdapter: () => ({ queryMain: query }),
 			getStatsRepository: () => ({
 				getSessionStats: mock(async () => new Map()),
 			}),
@@ -103,13 +102,12 @@ describe("accounts API 402 cooldown reason", () => {
 				custom_endpoint: null,
 				model_mappings: null,
 				cross_region_mode: null,
-				model_fallbacks: null,
 				billing_type: null,
 				pause_reason: null,
 			},
 		]);
 		const dbOps = {
-			getAdapter: () => ({ query }),
+			getAdapter: () => ({ queryMain: query }),
 			getStatsRepository: () => ({
 				getSessionStats: mock(async () => new Map()),
 			}),
@@ -164,7 +162,6 @@ describe("accounts API 402 cooldown reason", () => {
 			custom_endpoint: null,
 			model_mappings: null,
 			cross_region_mode: null,
-			model_fallbacks: null,
 			billing_type: null,
 			pause_reason: null,
 		});
@@ -180,7 +177,7 @@ describe("accounts API 402 cooldown reason", () => {
 		try {
 			const query = mock(async () => [row(refusedId), row(acceptedId)]);
 			const dbOps = {
-				getAdapter: () => ({ query }),
+				getAdapter: () => ({ queryMain: query }),
 				getStatsRepository: () => ({
 					getSessionStats: mock(async () => new Map()),
 				}),

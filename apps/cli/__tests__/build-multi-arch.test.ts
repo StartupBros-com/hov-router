@@ -91,7 +91,7 @@ function define(name: string, value: string): string[] {
 
 function releaseFixtureDefines() {
 	return [
-		...define("__BETTER_CCFLARE_VERSION__", "1.2.3"),
+		...define("__HOV_ROUTER_VERSION__", "1.2.3"),
 		...releaseBuildDefines(
 			{
 				version: "1.2.3",
@@ -219,15 +219,15 @@ describe("Router build provenance", () => {
 				sourceRef: "refs/tags/v1.2.3",
 			};
 			const defines = [
-				...define("__BETTER_CCFLARE_VERSION__", evidence.version),
+				...define("__HOV_ROUTER_VERSION__", evidence.version),
 				...releaseBuildDefines(evidence, context),
 			];
 			expect(defines).toContain(
-				`__CCFLARE_BUILD_PROVENANCE_DISTRIBUTION__="${token}"`,
+				`__HOV_ROUTER_BUILD_PROVENANCE_DISTRIBUTION__="${token}"`,
 			);
 			expect(
 				defines.some((value) =>
-					value.startsWith("__CCFLARE_BUILD_PROVENANCE_UPDATE_CHANNEL__="),
+					value.startsWith("__HOV_ROUTER_BUILD_PROVENANCE_UPDATE_CHANNEL__="),
 				),
 			).toBe(false);
 			const embedded = runCompiledFixture(defines);
@@ -297,25 +297,25 @@ describe("release binary provenance", () => {
 		expect(releaseBuildDefines(evidence, null)).toEqual([]);
 		expect(releaseBuildDefines(evidence, "github-release-binary")).toEqual([
 			"--define",
-			`__BETTER_CCFLARE_GIT_SHA__=${JSON.stringify(sha)}`,
+			`__HOV_ROUTER_GIT_SHA__=${JSON.stringify(sha)}`,
 			"--define",
-			'__CCFLARE_BUILD_PROVENANCE_VERSION__="1.2.3"',
+			'__HOV_ROUTER_BUILD_PROVENANCE_VERSION__="1.2.3"',
 			"--define",
-			'__CCFLARE_BUILD_PROVENANCE_DISTRIBUTION__="v1:tombii-github-release-binary"',
+			'__HOV_ROUTER_BUILD_PROVENANCE_DISTRIBUTION__="v1:tombii-github-release-binary"',
 			"--define",
-			'__CCFLARE_BUILD_PROVENANCE_PRODUCER__="tombii"',
+			'__HOV_ROUTER_BUILD_PROVENANCE_PRODUCER__="tombii"',
 			"--define",
-			'__CCFLARE_BUILD_PROVENANCE_ARTIFACT_MODE__="binary"',
+			'__HOV_ROUTER_BUILD_PROVENANCE_ARTIFACT_MODE__="binary"',
 			"--define",
-			'__CCFLARE_BUILD_PROVENANCE_UPDATE_CHANNEL__="github-releases"',
+			'__HOV_ROUTER_BUILD_PROVENANCE_UPDATE_CHANNEL__="github-releases"',
 			"--define",
-			`__CCFLARE_BUILD_PROVENANCE_GIT_SHA__=${JSON.stringify(sha)}`,
+			`__HOV_ROUTER_BUILD_PROVENANCE_GIT_SHA__=${JSON.stringify(sha)}`,
 			"--define",
-			'__CCFLARE_BUILD_PROVENANCE_GIT_REF__="refs/tags/v1.2.3"',
+			'__HOV_ROUTER_BUILD_PROVENANCE_GIT_REF__="refs/tags/v1.2.3"',
 			"--define",
-			`__CCFLARE_BUILD_PROVENANCE_SOURCE_SHA__=${JSON.stringify(sha)}`,
+			`__HOV_ROUTER_BUILD_PROVENANCE_SOURCE_SHA__=${JSON.stringify(sha)}`,
 			"--define",
-			'__CCFLARE_BUILD_PROVENANCE_SOURCE_REF__="refs/tags/v1.2.3"',
+			'__HOV_ROUTER_BUILD_PROVENANCE_SOURCE_REF__="refs/tags/v1.2.3"',
 		]);
 	});
 
@@ -410,7 +410,7 @@ describe("release binary provenance", () => {
 		);
 
 		const embedded = runCompiledFixture([
-			...define("__BETTER_CCFLARE_VERSION__", "1.2.3"),
+			...define("__HOV_ROUTER_VERSION__", "1.2.3"),
 			...releaseBuildDefines(
 				{
 					version: "1.2.3",

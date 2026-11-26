@@ -1,7 +1,7 @@
 import type {
 	UpstreamTransportHealth,
 	UpstreamTransportProviderHealth,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 /**
  * Process-local record of whether upstream HTTP fetches get an answer, per

@@ -8,12 +8,12 @@ import {
 	setSystemTime,
 	spyOn,
 } from "bun:test";
-import { CODEX_LOGICAL_MODEL_FAMILY_HEADER } from "@better-ccflare/http-common";
+import { CODEX_LOGICAL_MODEL_FAMILY_HEADER } from "@hov-router/http-common";
 import type {
 	ProviderAttemptPlan,
 	ProviderAttemptPlanContext,
-} from "@better-ccflare/providers";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account, RequestMeta } from "@hov-router/types";
 import {
 	bindManagedRequest,
 	createAcceptedTiming,
@@ -26,7 +26,7 @@ import type { ProxyContext } from "../proxy-types";
 // Source worktrees intentionally exclude generated database worker bundles.
 // This harness injects dbOps and never constructs these classes.
 const usageCollectorModule = await import("../../usage-collector");
-const { getProvider } = await import("@better-ccflare/providers");
+const { getProvider } = await import("@hov-router/providers");
 const { ForceRouteUnavailableError, selectAccountsForRequest } = await import(
 	"../account-selector"
 );
@@ -65,7 +65,6 @@ function makeCodexAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: JSON.stringify({ sonnet: "gpt-5.4" }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -84,7 +83,7 @@ function makeProxyContext(): ProxyContext {
 			updateAccountUsage: mock(() => Promise.resolve()),
 			getAdapter: mock(() => ({
 				run: mock(() => Promise.resolve()),
-				get: mock(() => Promise.resolve(null)),
+				getMain: mock(() => Promise.resolve(null)),
 			})),
 		} as never,
 		runtime: { port: 8080, clientId: "test" } as never,
@@ -729,7 +728,9 @@ describe("proxyWithAccount: Codex attempt dispatch boundary", () => {
 				{ routeCandidateId: "codex-model-fallback-route" },
 				"codex-model-fallback-attempt-stamp",
 				makeCodexAccount({
-					model_fallbacks: JSON.stringify({ sonnet: "gpt-5.4-codex" }),
+					model_mappings: JSON.stringify({
+						sonnet: ["gpt-5.4", "gpt-5.4-codex"],
+					}),
 				}),
 			);
 		} catch (error) {

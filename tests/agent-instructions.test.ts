@@ -71,14 +71,21 @@ describe("repository agent instructions", () => {
 		}
 	});
 
-	test("the canonical instructions keep the account-ban safety invariant", () => {
-		// A rewrite that neutralizes wording must not narrow this rule to "testing":
-		// any scripted call to the named claude account risks the account, so the
-		// clause naming it has to survive verbatim rewording.
+	test("native CLI print mode preserves the subscription-account boundary", () => {
+		// The native-client boundary applies beyond testing; headless Claude Code
+		// is supported without allowing arbitrary clients or paid overage.
 		const instructions = readRepositoryFile("AGENTS.md");
 
 		expect(instructions).toContain("`claude` account");
-		expect(instructions).toMatch(/must only be used through a real interactive/);
+		expect(instructions).toContain(
+			"Never send an Anthropic-backed account a request that does not come from Claude Code",
+		);
+		expect(instructions).toMatch(/no curl, test harness, SDK script/);
+		expect(instructions).not.toMatch(/CRITICAL: Testing Restrictions/);
+		expect(instructions).not.toContain("must only be used through a real interactive");
+		expect(instructions).toContain("headless `claude -p`");
+		expect(instructions).toContain("Nothing here authorizes paid overage");
+		expect(instructions).toContain("`x-better-ccflare-account-id`");
 	});
 
 	test("the canonical instructions omit stale repository guidance", () => {

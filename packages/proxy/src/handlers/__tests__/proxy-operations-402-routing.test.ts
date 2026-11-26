@@ -7,11 +7,7 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type {
-	Account,
-	ComboWithSlots,
-	RequestMeta,
-} from "@better-ccflare/types";
+import type { Account, ComboWithSlots, RequestMeta } from "@hov-router/types";
 import { evaluateGuardRetry } from "../../../../../scripts/ccflare-guard-policy.mjs";
 import { handleProxy } from "../../proxy";
 import * as usageCollectorModule from "../../usage-collector";
@@ -56,7 +52,6 @@ function makeAccount(id: string, overrides: Partial<Account> = {}): Account {
 			opus: [`${id}-primary`, `${id}-fallback`],
 		}),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -228,7 +223,7 @@ function makeContext(
 			updateAccountRateLimitMeta: mock(async () => undefined),
 			getAdapter: mock(() => ({
 				run: mock(async () => undefined),
-				get: mock(async () => null),
+				getMain: mock(async () => null),
 			})),
 		},
 		runtime: { port: 8080, clientId: "test" },

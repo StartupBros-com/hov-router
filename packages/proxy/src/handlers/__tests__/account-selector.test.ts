@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import type { ImplicitFallbackPolicyConfig } from "@better-ccflare/config";
-import * as core from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
-import type { Provider } from "@better-ccflare/providers";
+import type { ImplicitFallbackPolicyConfig } from "@hov-router/config";
+import * as core from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
+import type { Provider } from "@hov-router/providers";
 import type {
 	Account,
 	ComboFamily,
@@ -14,7 +14,7 @@ import type {
 	ServerToolCapabilityTuple,
 	ServerToolRequirements,
 	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type {
 	AnthropicDegradedCohortKey,
 	AnthropicDegradedRouteInspection,
@@ -44,8 +44,8 @@ const {
 	registerProvider,
 	setProviderModelDefaultOverrides,
 	usageCache,
-} = await import("@better-ccflare/providers");
-const { SessionStrategy } = await import("@better-ccflare/load-balancer");
+} = await import("@hov-router/providers");
+const { SessionStrategy } = await import("@hov-router/load-balancer");
 const { getCodexCatalogLineTarget, getCodexCatalogRoleTarget } = await import(
 	"../../codex-model-catalog"
 );
@@ -106,7 +106,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		model_mappings: null,
 		cross_region_mode: null,
 		billing_type: null,
-		model_fallbacks: null,
 		...overrides,
 	};
 }
@@ -1031,11 +1030,10 @@ describe("selectAccountsForRequest — x-better-ccflare-account-id header", () =
 		expect(ctx.strategy.select).not.toHaveBeenCalled();
 	});
 
-	// Nothing lifts a failure-threshold pause on its own since auto-refresh was
+	// Nothing lifts a manual pause on its own since auto-refresh was
 	// removed, so retrying a forced route to it cannot succeed until an
 	// operator resumes the account.
 	for (const [pauseReason, retryable] of [
-		["failure_threshold", false],
 		["manual", false],
 		[null, true],
 		["overage", true],
@@ -2141,12 +2139,6 @@ describe("selectAccountsForRequest — catalog-role route profile", () => {
 				account.model_mappings = JSON.stringify({
 					opus: ["gpt-7-nova", "gpt-7-sol"],
 				});
-			},
-		},
-		{
-			label: "a legacy model_fallbacks entry",
-			apply: (account: Account) => {
-				account.model_fallbacks = JSON.stringify({ opus: "gpt-7-sol" });
 			},
 		},
 		{
@@ -6374,7 +6366,7 @@ describe("selectAccountsForRequest — server-tool capability-first routing", ()
 		}
 	});
 
-	for (const pauseReason of ["manual", "failure_threshold"] as const) {
+	for (const pauseReason of ["manual"] as const) {
 		it(`keeps a proven ${pauseReason} pause unavailable without attempting resume`, async () => {
 			const previous = installCapabilityProvider({
 				name: "anthropic",
@@ -7370,9 +7362,7 @@ describe("U5 canary: KTD9 Vercel 429 is model-scoped, not an account bench (cons
 	// test records explicitly that the 429 fixture was constructed rather than
 	// observed, and that no billing-exhaustion evidence was carried.
 	it("OpenAI-compatible parseRateLimit returns isRateLimited:false for a constructed Vercel 429", async () => {
-		const { OpenAICompatibleProvider } = await import(
-			"@better-ccflare/providers"
-		);
+		const { OpenAICompatibleProvider } = await import("@hov-router/providers");
 		const provider = new OpenAICompatibleProvider();
 
 		// CONSTRUCTED 429 fixture — no billing-exhaustion evidence was observed.
@@ -7413,9 +7403,7 @@ describe("U5 canary: KTD9 Vercel 429 is model-scoped, not an account bench (cons
 		// 429) and the account is not benched. This test verifies the chain:
 		// parseRateLimit(false) → 429 enters model-fallback, not account cooldown.
 		const { isModelUnavailableError } = await import("../proxy-operations");
-		const { OpenAICompatibleProvider } = await import(
-			"@better-ccflare/providers"
-		);
+		const { OpenAICompatibleProvider } = await import("@hov-router/providers");
 		const provider = new OpenAICompatibleProvider();
 
 		const response = new Response(

@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { LogEvent } from "@better-ccflare/types";
+import type { LogEvent } from "@hov-router/types";
 import { LogFileWriter } from "./file-writer";
 
 // /dev/full accepts open() and fails every write() with ENOSPC, which is

@@ -5,7 +5,7 @@ import type {
 	ComboFamily,
 	ComboRoutingPreviewResult,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	createPersistedAccountRoutingFinalizer,
 	type PersistedAccountRoutingFinalizationDependencies,

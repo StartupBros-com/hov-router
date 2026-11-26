@@ -1,7 +1,7 @@
 import {
 	RECOVERY_SCOPE_HEADER,
 	RECOVERY_STATUS_HEADER,
-} from "@better-ccflare/types/routing-recovery";
+} from "@hov-router/types/routing-recovery";
 
 /** Private hop-by-hop request correlation installed by ccflare-guard. */
 export const GUARD_REQUEST_ID_HEADER =
@@ -134,7 +134,7 @@ export function sanitizeRequestHeaders(original: Headers): Headers {
 	h.delete(GUARD_CORRELATION_SECRET_HEADER);
 	h.delete(CODEX_LOGICAL_MODEL_FAMILY_HEADER);
 	// keep in sync with INTERNAL_PROBE_SECRET_HEADER
-	// (@better-ccflare/proxy already depends on http-common, so importing the
+	// (@hov-router/proxy already depends on http-common, so importing the
 	// proxy package's constant here would create an import cycle)
 	h.delete("x-better-ccflare-internal-probe-secret");
 	return h;

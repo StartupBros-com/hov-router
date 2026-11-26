@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import { AnthropicProvider } from "../provider";
 
 const SKILL_MARKER = "Base directory for this skill: ";
@@ -46,7 +46,6 @@ describe("AnthropicProvider", () => {
 			auto_pause_on_overage_enabled: false,
 			model_mappings: null,
 			cross_region_mode: null,
-			model_fallbacks: null,
 			billing_type: null,
 		};
 	});

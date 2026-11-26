@@ -14,10 +14,10 @@ import type {
 	ExtraUsageHold,
 	ExtraUsageHoldInputs,
 	RequestMeta,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type { ProxyContext } from "../proxy-types";
 
-const { usageCache } = await import("@better-ccflare/providers");
+const { usageCache } = await import("@hov-router/providers");
 const { proxyWithAccount } = await import("../proxy-operations");
 const { ForceRouteUnavailableError } = await import("../account-selector");
 const { RoutingAttemptLedger } = await import("../routing-attempt-ledger");
@@ -56,7 +56,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -124,7 +123,7 @@ function makeCtx(inputs: ExtraUsageHoldInputs | null) {
 			updateAccountRateLimitMeta: mock(() => Promise.resolve()),
 			getAdapter: mock(() => ({
 				run: mock(() => Promise.resolve()),
-				get: mock(() => Promise.resolve(null)),
+				getMain: mock(() => Promise.resolve(null)),
 			})),
 		} as never,
 		runtime: { port: 8080, clientId: "test" } as never,

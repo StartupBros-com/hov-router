@@ -1,4 +1,4 @@
-import type { AnthropicDegradedRuntimeHealth } from "@better-ccflare/types";
+import type { AnthropicDegradedRuntimeHealth } from "@hov-router/types";
 import type {
 	AnthropicDegradedModeCoordinator,
 	AnthropicDegradedPermitOutcome,

@@ -1,10 +1,10 @@
-import { computeWindowStartMs, registerUIRefresh } from "@better-ccflare/core";
-import type { FullUsageData } from "@better-ccflare/types";
+import { computeWindowStartMs, registerUIRefresh } from "@hov-router/core";
+import type { FullUsageData } from "@hov-router/types";
 import {
 	formatClockTime,
 	isFutureDeadline,
 	sameResetKeepers,
-} from "@better-ccflare/ui-common";
+} from "@hov-router/ui-common";
 import { useEffect, useId, useState } from "react";
 import { formatRelativeReset } from "../../lib/pool-usage";
 import { cn, formatShortDuration } from "../../lib/utils";

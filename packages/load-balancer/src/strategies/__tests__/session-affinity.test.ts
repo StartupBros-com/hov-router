@@ -3,15 +3,15 @@ import {
 	affinityLaneDigest,
 	RoutingTransitionRecorder,
 	SessionAffinityStrategy,
-} from "@better-ccflare/load-balancer";
-import { Logger, logBus } from "@better-ccflare/logger";
+} from "@hov-router/load-balancer";
+import { Logger, logBus } from "@hov-router/logger";
 import type {
 	Account,
 	LogEvent,
 	RequestMeta,
 	RoutingCandidateMetadata,
 	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 function makeAccount(overrides: Partial<Account> = {}): Account {
 	return {
@@ -43,7 +43,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

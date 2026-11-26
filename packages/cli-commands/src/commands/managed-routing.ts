@@ -10,7 +10,7 @@ import type {
 	ComboRoutingPreviewResult,
 	EffectiveComboMemberView,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type { PromptAdapter } from "../prompts/adapter";
 import type { ManagedRoutingControlPlane } from "./managed-routing-client";
 

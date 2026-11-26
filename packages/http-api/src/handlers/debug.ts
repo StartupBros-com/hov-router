@@ -11,8 +11,8 @@
 
 // @ts-expect-error — bun:jsc types are incomplete; generateHeapSnapshotForDebugging exists at runtime
 import { generateHeapSnapshotForDebugging, heapStats } from "bun:jsc";
-import { MemoryMonitor } from "@better-ccflare/core";
-import type { MemorySnapshot } from "@better-ccflare/types";
+import { MemoryMonitor } from "@hov-router/core";
+import type { MemorySnapshot } from "@hov-router/types";
 
 /**
  * Returns JSC heap statistics — object counts by type, heap size,

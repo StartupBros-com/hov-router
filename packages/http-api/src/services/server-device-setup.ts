@@ -1,12 +1,12 @@
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	initiateCodexDeviceFlow,
 	pollCodexForToken,
-} from "@better-ccflare/providers/codex";
+} from "@hov-router/providers/codex";
 import {
 	initiateDeviceFlow as initiateQwenDeviceFlow,
 	pollForToken as pollQwenForToken,
-} from "@better-ccflare/providers/qwen";
+} from "@hov-router/providers/qwen";
 import { createServerOwnedAccountRoutingFinalizer } from "./account-routing-operations";
 import {
 	createDeviceSetupCoordinator,
@@ -150,8 +150,8 @@ export function createServerDeviceSetupCoordinator(
 				`INSERT INTO accounts (
 					id, name, provider, api_key, refresh_token, access_token,
 					expires_at, created_at, request_count, total_requests, priority,
-					custom_endpoint, model_mappings, model_fallbacks
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?)`,
+					custom_endpoint, model_mappings
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)`,
 				[
 					accountId,
 					name,
@@ -164,7 +164,6 @@ export function createServerDeviceSetupCoordinator(
 					priority,
 					customEndpoint,
 					null,
-					null,
 				],
 			);
 		},
@@ -172,7 +171,7 @@ export function createServerDeviceSetupCoordinator(
 			Boolean(
 				await dbOps
 					.getAdapter()
-					.get<{ id: string }>("SELECT id FROM accounts WHERE id = ?", [
+					.getMain<{ id: string }>("SELECT id FROM accounts WHERE id = ?", [
 						accountId,
 					]),
 			),

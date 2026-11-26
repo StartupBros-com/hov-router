@@ -1,15 +1,15 @@
 import { describe, expect, it, spyOn } from "bun:test";
-import type { ServerToolReplayKeysState } from "@better-ccflare/config";
+import type { ServerToolReplayKeysState } from "@hov-router/config";
 import type {
 	ServerToolReplayEnvelopeBinding,
 	ServerToolReplayEnvelopePayload,
 	ServerToolReplayIssuanceClaim,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 
 const {
 	createServerToolReplayEnvelopeCodec,
 	getServerToolReplayEnvelopeCounterIdentity,
-} = await import("@better-ccflare/providers");
+} = await import("@hov-router/providers");
 const {
 	bindRequestPrivateServerToolReplay,
 	createDurableServerToolReplayWriterAdmission,

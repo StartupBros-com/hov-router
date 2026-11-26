@@ -1,7 +1,7 @@
 /**
  * Tests for CacheKeepaliveScheduler.
  *
- * Strategy: mock.module("@better-ccflare/core") so registerHeartbeat is
+ * Strategy: mock.module("@hov-router/core") so registerHeartbeat is
  * intercepted before the scheduler module is imported.  The mock stores the
  * registered callback so individual tests can invoke it directly, which lets
  * us test sendKeepalives() without relying on real timers.
@@ -10,7 +10,7 @@
  * only registerHeartbeat. mock.module replaces the WHOLE module globally and
  * across file boundaries in Bun — a partial stub here would silently break
  * unrelated exports (e.g. isOverloadReason, computeRateLimitBackoffMs) for
- * every other test file that imports @better-ccflare/core later in the same
+ * every other test file that imports @hov-router/core later in the same
  * run.
  */
 import {
@@ -22,14 +22,14 @@ import {
 	it,
 	mock,
 } from "bun:test";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import type { ProxyContext } from "../proxy";
 
 const originalFetch = globalThis.fetch;
 
 // ---------------------------------------------------------------------------
 // Module mock — must be declared before importing the scheduler so that bun's
-// module resolution picks up the mock when it resolves @better-ccflare/core.
+// module resolution picks up the mock when it resolves @hov-router/core.
 // ---------------------------------------------------------------------------
 
 type HeartbeatOpts = {
@@ -51,18 +51,18 @@ const mockRegisterHeartbeat = mock((opts: HeartbeatOpts) => {
 	return mockUnregister;
 });
 
-const actualCore = await import("@better-ccflare/core");
+const actualCore = await import("@hov-router/core");
 
-mock.module("@better-ccflare/core", () => ({
+mock.module("@hov-router/core", () => ({
 	...actualCore,
 	registerHeartbeat: mockRegisterHeartbeat,
 }));
 
 // Restore the real module once this file's tests finish so later test files
 // in the same process (mock.module has no per-file isolation without
-// --isolate) resolve the real @better-ccflare/core exports again.
+// --isolate) resolve the real @hov-router/core exports again.
 afterAll(() => {
-	mock.module("@better-ccflare/core", () => actualCore);
+	mock.module("@hov-router/core", () => actualCore);
 });
 
 import { cacheBodyStore } from "../cache-body-store";

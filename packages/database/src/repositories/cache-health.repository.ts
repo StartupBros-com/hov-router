@@ -5,7 +5,7 @@ import {
 	type CacheHealthState,
 	cacheHealthScopeKey,
 	isNativeCacheHealthRoute,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { BatchExpectedChangesError } from "../adapters/bun-sql-adapter";
 import { BaseRepository } from "./base.repository";
 
@@ -141,6 +141,7 @@ export class CacheHealthRepository extends BaseRepository<CacheHealthState> {
 		const rows = await this.queryOffThread<BucketRow>(
 			cacheHealthBucketQuery(),
 			[startMs, endMs],
+			"bulk",
 		);
 		return rows.map((row) => {
 			const tokens = [row.input_tokens, row.read_tokens, row.write_tokens].map(
@@ -191,9 +192,13 @@ export class CacheHealthRepository extends BaseRepository<CacheHealthState> {
 		await this.pruneStates(nowMs);
 		// Retained snapshots must be visible with their existing revision: an
 		// idle non-native route cannot relearn capability from zero cache hits.
-		const rows = await this.query<StateRow>(
+		// Both state reads run on the bulk reader beside fetchBuckets; each write
+		// before them is awaited, so the reader sees it committed (#1013).
+		const rows = await this.queryOffThread<StateRow>(
 			`SELECT scope_key, revision, last_bucket_end, snapshot FROM cache_health_state
 			WHERE ${LIVE_GENERATION}`,
+			[],
+			"bulk",
 		);
 		return rows.map(readState);
 	}
@@ -203,10 +208,11 @@ export class CacheHealthRepository extends BaseRepository<CacheHealthState> {
 		let deleted = await this.runWithChanges(
 			`DELETE FROM cache_health_state WHERE NOT ${LIVE_GENERATION}`,
 		);
-		const rows = await this.query<StateRow>(
+		const rows = await this.queryOffThread<StateRow>(
 			`SELECT scope_key, revision, last_bucket_end, snapshot FROM cache_health_state
 			WHERE last_bucket_end < ? AND ${LIVE_GENERATION}`,
 			[nowMs - DAY_MS],
+			"bulk",
 		);
 		for (const row of rows) {
 			const state = readState(row);

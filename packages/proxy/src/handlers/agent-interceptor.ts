@@ -1,15 +1,15 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { agentRegistry } from "@better-ccflare/agents";
+import { agentRegistry } from "@hov-router/agents";
 import {
 	hasForcedToolChoice,
 	supportsForcedToolChoice,
-} from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { Logger } from "@better-ccflare/logger";
-import { validatePath } from "@better-ccflare/security";
-import type { AgentAttributionSource } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
+import { Logger } from "@hov-router/logger";
+import { validatePath } from "@hov-router/security";
+import type { AgentAttributionSource } from "@hov-router/types";
 import { getModelCatalog, type ModelCatalog } from "../model-catalog";
 import { RequestBodyContext } from "../request-body-context";
 
@@ -69,7 +69,7 @@ function declinesForcedToolChoiceRewrite(
  * Detects agent usage and modifies the request body to use the preferred model
  * @param requestBodyBuffer - The buffered request body
  * @param dbOps - Database operations instance
- * @param requestHeaders - Incoming request headers (used for x-anthropic-agent-id)
+ * @param requestHeaders - Incoming request headers (used for x-better-ccflare-agent-id)
  * @param options.frontmatterModelFallback - When true, fall back to the
  *   agent's frontmatter `model` if no explicit DB preference is configured.
  *   Defaults to false (see `Config.getAgentFrontmatterModelFallback`).
@@ -130,9 +130,6 @@ export async function interceptAndModifyRequest(
 		// a multi-agent orchestrator, a router, an SDK wrapper — declare which agent
 		// issued the request, so downstream observability tools can attribute usage
 		// per agent. Takes precedence over system-prompt matching; absent = unchanged.
-		// The namespaced `x-better-ccflare-agent-id` header is preferred; the legacy
-		// `x-anthropic-agent-id` header is honored for backward compatibility when
-		// the namespaced header is absent.
 		//
 		// When neither agent header nor a prompt-detected agent is present, fall
 		// back to the Claude Code session id (`x-claude-code-session-id`).
@@ -143,12 +140,8 @@ export async function interceptAndModifyRequest(
 		// workers by session and prevents runaway-loop false positives.
 		// `agentAttributionSource` distinguishes the two header paths so the
 		// attribution remains auditable downstream.
-		const namespacedAgentId = requestHeaders
+		const explicitAgentId = requestHeaders
 			?.get("x-better-ccflare-agent-id")
-			?.trim()
-			?.slice(0, 256);
-		const legacyAgentId = requestHeaders
-			?.get("x-anthropic-agent-id")
 			?.trim()
 			?.slice(0, 256);
 		const sessionHeaderId = requestHeaders
@@ -156,7 +149,6 @@ export async function interceptAndModifyRequest(
 			?.trim()
 			?.slice(0, 256);
 
-		const explicitAgentId = namespacedAgentId || legacyAgentId;
 		if (explicitAgentId) {
 			log.debug(`Agent attributed via explicit header: ${explicitAgentId}`);
 			// Both the header path and the system-prompt path below rewrite the
@@ -211,9 +203,10 @@ export async function interceptAndModifyRequest(
 			if (!sessionHeaderId) return null;
 
 			// Session-id fallback: claude-cli emits x-claude-code-session-id on
-			// every request. We surface it as `agentUsed` so the anomaly
-			// detector can key on per-session identity (issue #367 — distinct
-			// workers sharing one account+model+project no longer collapse).
+			// every request. We surface it as `agentUsed` with source
+			// `session_header` so the Requests list and request details can
+			// show which Claude Code session sent a request; the dashboard's
+			// lib/attribution.ts renders it as a session, not an agent.
 			// A session id is NOT an agent id, so model-preference lookup and
 			// model rewrite are deliberately skipped here; the body passes
 			// through unchanged.

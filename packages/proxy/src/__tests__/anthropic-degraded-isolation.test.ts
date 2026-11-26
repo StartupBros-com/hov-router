@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@better-ccflare/config";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@hov-router/config";
+import type { Account, RequestMeta } from "@hov-router/types";
 import {
 	AnthropicDegradedModeCoordinator,
 	type AnthropicDegradedRouteInspection,
@@ -16,7 +16,7 @@ spyOn(usageCollectorModule, "getUsageCollector").mockReturnValue({
 	handleEnd: mock(async () => undefined),
 } as unknown as usageCollectorModule.UsageCollector);
 
-const providers = await import("@better-ccflare/providers");
+const providers = await import("@hov-router/providers");
 const estimateAdmissionTokens = spyOn(
 	providers,
 	"estimateAnthropicAdmissionTokens",
@@ -60,7 +60,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

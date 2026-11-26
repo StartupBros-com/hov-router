@@ -1,7 +1,7 @@
 import type {
 	ServerToolReplayAtom,
 	ServerToolRequirements,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type { ServerToolReplayRuntimeState } from "./server-tool-replay-runtime";
 
 export type ServerToolReplayRuntimeStatus =

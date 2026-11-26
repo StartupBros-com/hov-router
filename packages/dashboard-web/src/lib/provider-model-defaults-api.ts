@@ -62,8 +62,6 @@ export interface ProviderModelDefaultOverrideInput {
  */
 export type CodexAccountFamilySource =
 	| "account_mapping_pin"
-	| "custom_endpoint_mapping"
-	| "model_fallbacks"
 	| "environment_mapping"
 	| "global_provider_override"
 	| "account_catalog"

@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type CodexCatalogEvt, codexCatalogEvents } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import { type CodexCatalogEvt, codexCatalogEvents } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import {
 	CodexProvider,
 	clearDerivedAccountModelDefaults,
@@ -12,12 +12,13 @@ import {
 	resolveModelContextCapability,
 	resolveProviderModelDefault,
 	setDerivedProviderModelDefaults,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import {
 	CODEX_CATALOG_STALE_ALERT_MS,
 	clearCodexModelCacheForAccount,
 	clearCodexModelCacheForTests,
+	codexClientCatalogResponse,
 	ensureCodexModelDefaults,
 	evaluateCodexCatalogStaleness,
 	evaluateCodexClientIdentityRecord,
@@ -255,6 +256,81 @@ afterEach(() => {
 	// test file that runs in the same bun process, e.g. provider.test.ts.
 	clearCodexModelCacheForTests();
 	clearDerivedProviderModelDefaults();
+});
+
+describe("codexClientCatalogResponse", () => {
+	function catalogResponse(body: unknown, etag: string): Response {
+		return new Response(JSON.stringify(body), {
+			status: 200,
+			headers: { "content-type": "application/json", etag },
+		});
+	}
+
+	it("answers 404 before any account has read a catalog", async () => {
+		const response = codexClientCatalogResponse();
+		expect(response.status).toBe(404);
+		expect(response.headers.get("etag")).toBeNull();
+	});
+
+	it("serves the newest read exactly as OpenAI sent it, hidden entries and ETag included", async () => {
+		const account = makeAccount();
+		globalThis.fetch = (async () =>
+			catalogResponse(LIVE_BODY, '"catalog-a"')) as typeof fetch;
+		const listing = await getCodexModels(account.id, makeCtx(account));
+		// The routing listing drops the hidden entries; the CLI's copy must not.
+		expect(listing?.models.map((model) => model.id)).not.toContain(
+			"codex-auto-review",
+		);
+
+		const response = codexClientCatalogResponse();
+		expect(response.status).toBe(200);
+		expect(response.headers.get("content-type")).toBe("application/json");
+		expect(response.headers.get("etag")).toBe('"catalog-a"');
+		expect(await response.text()).toBe(JSON.stringify(LIVE_BODY));
+
+		// A later failed read keeps serving the last good catalog.
+		globalThis.fetch = (async () =>
+			new Response("unavailable", { status: 503 })) as typeof fetch;
+		await getCodexModels(account.id, makeCtx(account));
+		const after = codexClientCatalogResponse();
+		expect(after.headers.get("etag")).toBe('"catalog-a"');
+		expect(await after.text()).toBe(JSON.stringify(LIVE_BODY));
+	});
+
+	it("keeps the newer catalog when an older read finishes later", async () => {
+		let fetches = 0;
+		const pending: Array<(response: Response) => void> = [];
+		const olderAccount = makeAccount({ id: "acc-older-client-catalog" });
+		const newerAccount = makeAccount({ id: "acc-newer-client-catalog" });
+		globalThis.fetch = (() => {
+			fetches++;
+			return new Promise<Response>((resolve) => pending.push(resolve));
+		}) as typeof globalThis.fetch;
+
+		const olderRequest = getCodexModels(olderAccount.id, makeCtx(olderAccount));
+		await waitForFetchCount(() => fetches, 1);
+		const newerRequest = getCodexModels(newerAccount.id, makeCtx(newerAccount));
+		await waitForFetchCount(() => fetches, 2);
+		pending[1](catalogResponse(NEW_FRONTIER_BODY, '"newer"'));
+		await newerRequest;
+		pending[0](catalogResponse(LIVE_BODY, '"older"'));
+		await olderRequest;
+
+		const response = codexClientCatalogResponse();
+		expect(response.headers.get("etag")).toBe('"newer"');
+		expect(await response.text()).toBe(JSON.stringify(NEW_FRONTIER_BODY));
+	});
+
+	it("publishes nothing from a read with no usable models", async () => {
+		const account = makeAccount();
+		globalThis.fetch = (async () =>
+			catalogResponse(
+				{ models: [{ slug: "codex-auto-review", visibility: "hide" }] },
+				'"hidden-only"',
+			)) as typeof fetch;
+		await getCodexModels(account.id, makeCtx(account));
+		expect(codexClientCatalogResponse().status).toBe(404);
+	});
 });
 
 describe("getCodexModels", () => {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import type { MarkAccountRateLimitedResult } from "@better-ccflare/database";
-import type { Account } from "@better-ccflare/types";
+import type { MarkAccountRateLimitedResult } from "@hov-router/database";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../proxy-types";
 import { applyRateLimitCooldownAwaitingPersist } from "../rate-limit-cooldown";
 import { createRoutingTerminalResponse } from "../routing-terminal";
@@ -56,7 +56,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		consecutive_rate_limits: 3,
 		...overrides,
 	} as Account;

@@ -7,7 +7,7 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import { DatabaseOperations } from "@better-ccflare/database";
+import { DatabaseOperations } from "@hov-router/database";
 import type { APIContext } from "../../types";
 import { createAnalyticsHandler } from "../analytics";
 
@@ -46,15 +46,15 @@ beforeEach(async () => {
 	spyOn(Date, "now").mockImplementation(() => clock);
 	modelPerfCalls = [];
 	const adapter = db.getAdapter();
-	const query = adapter.query.bind(adapter);
-	spyOn(adapter, "query").mockImplementation(((
+	const query = adapter.queryMain.bind(adapter);
+	spyOn(adapter, "queryMain").mockImplementation(((
 		sql: string,
 		params?: unknown[],
 	) => {
 		if (sql.includes("PERCENT_RANK"))
 			modelPerfCalls.push({ sql, params: params ?? [] });
 		return query(sql, params);
-	}) as typeof adapter.query);
+	}) as typeof adapter.queryMain);
 
 	for (let i = 1; i <= 20; i++)
 		await insertRequest(`in-a-${i}`, i * 1000, "model-a", i * 100, i !== 20);
@@ -94,7 +94,7 @@ describe("analytics model performance", () => {
 		const plan = (
 			await db
 				.getAdapter()
-				.query<{ detail: string }>(`EXPLAIN QUERY PLAN ${sql}`, params)
+				.queryMain<{ detail: string }>(`EXPLAIN QUERY PLAN ${sql}`, params)
 		)
 			.map((row) => row.detail)
 			.join("\n");

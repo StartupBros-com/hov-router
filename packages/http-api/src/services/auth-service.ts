@@ -1,11 +1,11 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { Logger } from "@better-ccflare/logger";
+import type { DatabaseOperations } from "@hov-router/database";
+import { Logger } from "@hov-router/logger";
 import {
 	type ApiKey,
 	type ApiKeyRole,
 	NodeCryptoUtils,
-} from "@better-ccflare/types/api-key";
+} from "@hov-router/types/api-key";
 import { classifyAuthPath } from "./auth-paths";
 import { extractApiKey } from "./extract-api-key";
 
@@ -618,7 +618,7 @@ export class AuthService {
 					? "logs"
 					: path === "/api/requests/stream"
 						? "requests"
-						: path === "/api/insights/alerts/stream"
+						: path === "/api/alerts/stream"
 							? "alerts"
 							: null
 				: null;

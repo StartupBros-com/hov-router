@@ -7,7 +7,7 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import type { Account, RequestMeta } from "@hov-router/types";
 import { AnthropicDegradedResponseLifecycle } from "../../anthropic-degraded-response-lifecycle";
 import { ANTHROPIC_DRAIN_DEADLINE_MS } from "../../anthropic-terminal-recovery";
 import type { AnthropicDegradedRequestSendState } from "../proxy-operations";
@@ -53,7 +53,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: "https://openrouter.ai/api/v1",
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -102,7 +101,7 @@ function makeProxyContext(
 			updateAccountUsage: mock(() => Promise.resolve()),
 			getAdapter: mock(() => ({
 				run: mock(() => Promise.resolve()),
-				get: mock(() => Promise.resolve(null)),
+				getMain: mock(() => Promise.resolve(null)),
 			})),
 		} as never,
 		runtime: { port: 8080, clientId: "test" } as never,

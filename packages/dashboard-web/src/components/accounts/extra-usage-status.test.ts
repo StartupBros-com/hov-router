@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { formatClockTime } from "@better-ccflare/ui-common";
+import { formatClockTime } from "@hov-router/ui-common";
 import {
 	ANTHROPIC_USAGE_SETTINGS_URL,
 	type ExtraUsageStatusInput,

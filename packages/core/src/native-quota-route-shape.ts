@@ -2,7 +2,7 @@ import type {
 	Account,
 	ComboFamily,
 	EffectiveComboMember,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	getEndpointUrl,
 	getModelList,
@@ -72,28 +72,11 @@ export function validateNativeQuotaRouteShape(input: {
 		}
 		try {
 			// Legacy parsers fail open; strict policy must not ignore malformed route configuration.
-			const embedded = account.custom_endpoint?.trim().startsWith("{")
-				? JSON.parse(account.custom_endpoint)
-				: null;
 			if (account.model_mappings) {
 				validateModelMappings(
 					JSON.parse(account.model_mappings),
 					"model_mappings",
 				);
-			}
-			if (embedded?.modelMappings !== undefined) {
-				validateModelMappings(
-					embedded.modelMappings,
-					"custom_endpoint.modelMappings",
-				);
-			}
-			if (account.model_fallbacks) {
-				const fallbacks = JSON.parse(account.model_fallbacks);
-				validateModelMappings(fallbacks, "model_fallbacks");
-				// The legacy fallback parser accepts single strings only, even when
-				// an array would be valid in the current model_mappings field.
-				if (Object.values(fallbacks).some(Array.isArray))
-					throw new Error("Invalid legacy fallback mapping");
 			}
 
 			const endpoint = getEndpointUrl(account);

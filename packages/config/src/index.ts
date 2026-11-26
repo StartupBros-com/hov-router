@@ -25,15 +25,15 @@ import {
 	validateEndpointUrl,
 	validateNumber,
 	validateString,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
-import { validatePathOrThrow } from "@better-ccflare/security";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
+import { validatePathOrThrow } from "@hov-router/security";
 import {
 	type AlertType,
 	CACHE_HEALTH_BUCKET_MS,
 	CACHE_HEALTH_DEFAULT_POLICY,
 	isAlertType,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { resolveConfigPath } from "./paths";
 import {
 	validateRuntimeRetry,
@@ -41,14 +41,6 @@ import {
 } from "./runtime-validation";
 
 const log = new Logger("Config");
-
-/**
- * Retired with the Auto quality lane (#816). A leftover policy is ignored, never
- * validated, and left in the file, so startup warns instead of refusing.
- */
-const RETIRED_QUALITY_ROUTING_POLICY_ENV =
-	"CCFLARE_QUALITY_ROUTING_POLICY_JSON";
-let warnedRetiredQualityRoutingPolicy = false;
 
 /** Any JSON object a retired setting may still hold on disk. */
 type RetiredConfigObject = { readonly [key: string]: unknown };
@@ -876,7 +868,7 @@ const _DEFAULT_PROVIDER_MODEL_DEFAULTS_PROVIDERS: readonly string[] = ["codex"];
  * Drops overrides for providers outside `enabledProviders` without
  * mutating the input. Callers pass in the full, persisted overrides
  * map and push the filtered result into the in-memory registry (see
- * setProviderModelDefaultOverrides in @better-ccflare/providers) at
+ * setProviderModelDefaultOverrides in @hov-router/providers) at
  * boot and after a successful POST. The persisted file always keeps
  * the full map — a disabled provider's stored override is never
  * erased, just excluded here, so it re-applies automatically once
@@ -955,6 +947,7 @@ export interface ConfigData {
 	alert_cache_health_min_requests?: number;
 	alert_cache_health_min_input_tokens?: number;
 	alert_cache_health_reminder_minutes?: number;
+	/** Retired in 7.0.0 (#1012): ignored, left on disk, kept out of settings. */
 	alert_anomaly_enabled?: boolean;
 	alert_anomaly_interval_minutes?: number;
 	alert_anomaly_baseline_window_minutes?: number;
@@ -1406,7 +1399,7 @@ function restrictConfigFile(path: string): void {
  * software (`~/.config` on a fresh machine). An existing directory is never
  * chmodded: it may hold other files, and production's does.
  *
- * Mirrors ensurePrivateDir in @better-ccflare/database, which this package
+ * Mirrors ensurePrivateDir in @hov-router/database, which this package
  * cannot import (database does not depend on config, nor config on database).
  */
 function ensureConfigDir(dir: string): void {
@@ -1442,22 +1435,6 @@ export class Config extends EventEmitter {
 			description: "config file",
 		});
 		this.loadConfig();
-		this.warnRetiredQualityRoutingPolicy();
-	}
-
-	private warnRetiredQualityRoutingPolicy(): void {
-		if (warnedRetiredQualityRoutingPolicy) return;
-		const sources = [
-			this.data.quality_routing_policy !== undefined &&
-				"quality_routing_policy in the config file",
-			process.env[RETIRED_QUALITY_ROUTING_POLICY_ENV] !== undefined &&
-				RETIRED_QUALITY_ROUTING_POLICY_ENV,
-		].filter((source): source is string => typeof source === "string");
-		if (sources.length === 0) return;
-		warnedRetiredQualityRoutingPolicy = true;
-		log.warn(
-			`Ignoring ${sources.join(" and ")}: the Auto quality lane was removed, so it has no effect and can be deleted.`,
-		);
 	}
 
 	getExternalCodexHomes(): string[] {
@@ -1964,12 +1941,8 @@ export class Config extends EventEmitter {
 	/**
 	 * Whether the automatic (non-manual) model catalog refresh is allowed to
 	 * fall back to an OAuth account when no eligible API-key account exists.
-	 * Defaults to false: recurring background traffic — and the proactive
-	 * OAuth token refreshes it can trigger — on a consumer OAuth account is an
-	 * atypical automation pattern that risks an account flag/ban, whereas
-	 * API-key accounts are the sanctioned programmatic surface. A manual,
-	 * human-triggered refresh always allows the OAuth fallback regardless of
-	 * this flag.
+	 * Defaults to false for scheduled /v1/models lookups. A manual catalog
+	 * refresh always allows the fallback. Neither path requests inference.
 	 */
 	getModelCatalogOAuthRefreshEnabled(): boolean {
 		const fromEnv = parseEnabledEnvFlag(
@@ -2017,7 +1990,7 @@ export class Config extends EventEmitter {
 	/**
 	 * Restart-scoped, opt-in list of Skill-tool document bundles to elide when
 	 * a request is routed to a non-Anthropic provider (see
-	 * `@better-ccflare/providers` skill-elision utilities). Default-off (empty
+	 * `@hov-router/providers` skill-elision utilities). Default-off (empty
 	 * list). The environment wins over the file wholesale when set at all —
 	 * even a malformed env value fails closed to `[]` rather than falling back
 	 * to the file, matching `parseSkillElisionBlockedSkills`'s own contract.
@@ -2540,71 +2513,6 @@ export class Config extends EventEmitter {
 		);
 	}
 
-	getAlertAnomalyEnabled(): boolean {
-		const fromEnv = parseEnabledEnvFlag(process.env.ALERT_ANOMALY_ENABLED);
-		if (fromEnv !== undefined) {
-			return fromEnv;
-		}
-		const fromFile = this.data.alert_anomaly_enabled;
-		if (typeof fromFile === "boolean") return fromFile;
-		return false;
-	}
-
-	setAlertAnomalyEnabled(value: boolean): void {
-		this.set("alert_anomaly_enabled", value);
-	}
-
-	getAlertAnomalyIntervalMinutes(): number {
-		const fromEnv = process.env.ALERT_ANOMALY_INTERVAL_MINUTES;
-		if (fromEnv) {
-			const n = Number.parseInt(fromEnv, 10);
-			if (!Number.isNaN(n)) return this.clamp(n, 5, 1440);
-		}
-		const fromFile = this.data.alert_anomaly_interval_minutes;
-		if (typeof fromFile === "number") return this.clamp(fromFile, 5, 1440);
-		return 15;
-	}
-
-	setAlertAnomalyIntervalMinutes(value: number): void {
-		this.set("alert_anomaly_interval_minutes", this.clamp(value, 5, 1440));
-	}
-
-	getAlertAnomalyBaselineWindowMinutes(): number {
-		const fromEnv = process.env.ALERT_ANOMALY_BASELINE_WINDOW_MINUTES;
-		if (fromEnv) {
-			const n = Number.parseInt(fromEnv, 10);
-			if (!Number.isNaN(n)) return this.clamp(n, 60, 43200);
-		}
-		const fromFile = this.data.alert_anomaly_baseline_window_minutes;
-		if (typeof fromFile === "number") return this.clamp(fromFile, 60, 43200);
-		return 1440;
-	}
-
-	setAlertAnomalyBaselineWindowMinutes(value: number): void {
-		this.set(
-			"alert_anomaly_baseline_window_minutes",
-			this.clamp(value, 60, 43200),
-		);
-	}
-
-	getAlertAnomalyLoopMinRequests(): number {
-		const fromEnv = process.env.ALERT_ANOMALY_LOOP_MIN_REQUESTS;
-		if (fromEnv) {
-			const n = Number.parseInt(fromEnv, 10);
-			if (!Number.isNaN(n)) return this.clamp(n, 5, 1000);
-		}
-		const fromFile = this.data.alert_anomaly_loop_min_requests;
-		if (typeof fromFile === "number") return this.clamp(fromFile, 5, 1000);
-		// Default 25 — above the per-agent request rate we expect from any
-		// single legitimate worker in a 5-minute window, while still well
-		// below the rate a true runaway loop reaches (50+ req/min).
-		return 25;
-	}
-
-	setAlertAnomalyLoopMinRequests(value: number): void {
-		this.set("alert_anomaly_loop_min_requests", this.clamp(value, 5, 1000));
-	}
-
 	getAlertCooldownMinutes(): number {
 		const fromEnv = process.env.ALERT_COOLDOWN_MINUTES;
 		if (fromEnv) {
@@ -2694,7 +2602,7 @@ export class Config extends EventEmitter {
 	}
 
 	/** Throws ValidationError if `value` contains any name that isn't a known
-	 * AlertType (see @better-ccflare/types ALERT_TYPES), or has more entries
+	 * AlertType (see @hov-router/types ALERT_TYPES), or has more entries
 	 * than MAX_ALERT_WEBHOOK_TYPES — unlike the getter, a config write is a
 	 * good moment to fail loudly. Without this explicit oversized-list check,
 	 * a write past that cap would fall through to parseAlertWebhookTypes's
@@ -2722,8 +2630,14 @@ export class Config extends EventEmitter {
 		// The member notice address and signing secret are removed here, not
 		// redacted, so no settings reader ever sees them. A retired quality
 		// policy is dropped: it is an object and no longer configures anything.
+		// The retired anomaly sweep settings are dropped for the same reason.
 		const {
 			quality_routing_policy: _retiredQualityRoutingPolicy,
+			alert_anomaly_enabled: _retiredAlertAnomalyEnabled,
+			alert_anomaly_interval_minutes: _retiredAlertAnomalyIntervalMinutes,
+			alert_anomaly_baseline_window_minutes:
+				_retiredAlertAnomalyBaselineWindowMinutes,
+			alert_anomaly_loop_min_requests: _retiredAlertAnomalyLoopMinRequests,
 			member_notice_webhook_url: _memberNoticeWebhookUrl,
 			member_notice_signing_secret: _memberNoticeSigningSecret,
 			...settings
@@ -2779,7 +2693,6 @@ export class Config extends EventEmitter {
 			alert_request_tokens: this.getAlertRequestTokens(),
 			alert_usage_window_threshold_percent:
 				this.getAlertUsageWindowThresholdPercent(),
-			alert_anomaly_enabled: this.getAlertAnomalyEnabled(),
 			alert_cache_health_enabled: this.getAlertCacheHealthEnabled(),
 			alert_cache_health_threshold_percent:
 				this.getAlertCacheHealthThresholdPercent(),
@@ -2790,10 +2703,6 @@ export class Config extends EventEmitter {
 				this.getAlertCacheHealthMinInputTokens(),
 			alert_cache_health_reminder_minutes:
 				this.getAlertCacheHealthReminderMinutes(),
-			alert_anomaly_interval_minutes: this.getAlertAnomalyIntervalMinutes(),
-			alert_anomaly_baseline_window_minutes:
-				this.getAlertAnomalyBaselineWindowMinutes(),
-			alert_anomaly_loop_min_requests: this.getAlertAnomalyLoopMinRequests(),
 			alert_cooldown_minutes: this.getAlertCooldownMinutes(),
 			alert_webhook_url: this.getAlertWebhookUrl(),
 			alert_webhook_types: this.getAlertWebhookTypes().join(","),
@@ -2967,6 +2876,6 @@ export class Config extends EventEmitter {
 }
 
 // Re-export types
-export type { StrategyName } from "@better-ccflare/core";
+export type { StrategyName } from "@hov-router/core";
 export { resolveConfigPath } from "./paths";
-export { getLegacyConfigDir, getPlatformConfigDir } from "./paths-common";
+export { getPlatformConfigDir } from "./paths-common";

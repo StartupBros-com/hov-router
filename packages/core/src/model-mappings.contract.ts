@@ -13,7 +13,6 @@ export type ParseCustomEndpointDataContract = Expect<
 		ReturnType<typeof parseCustomEndpointData>,
 		{
 			endpoint?: string;
-			modelMappings?: Record<string, string>;
 		} | null
 	>
 >;

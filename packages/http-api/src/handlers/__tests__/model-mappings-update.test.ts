@@ -7,8 +7,8 @@ import {
 	it,
 } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { DatabaseFactory } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
+import { DatabaseFactory } from "@hov-router/database";
 import {
 	createAccountModelMappingsUpdateHandler,
 	createOpenAIAccountAddHandler,
@@ -44,7 +44,7 @@ async function readMappings(
 	id: string,
 ): Promise<Record<string, unknown> | null> {
 	const db = dbOps.getAdapter();
-	const row = await db.get<{ model_mappings: string | null }>(
+	const row = await db.getMain<{ model_mappings: string | null }>(
 		"SELECT model_mappings FROM accounts WHERE id = ?",
 		[id],
 	);
@@ -262,7 +262,7 @@ describe("createAccountModelMappingsUpdateHandler — replace semantics", () => 
 		);
 		const row = await dbOps
 			.getAdapter()
-			.get<{ count: number }>(
+			.getMain<{ count: number }>(
 				"SELECT COUNT(*) AS count FROM accounts WHERE name = ?",
 				["overflow-create"],
 			);

@@ -8,29 +8,34 @@ export abstract class BaseRepository<_T> {
 
 	protected queryOffThread<R>(
 		sql: string,
-		params: unknown[] = [],
-		lane?: OffThreadReadLane,
+		params: unknown[],
+		lane: OffThreadReadLane,
 	): Promise<R[]> {
 		return this.adapter.queryOffThread<R>(sql, params, lane);
 	}
 
 	protected getOffThread<R>(
 		sql: string,
-		params: unknown[] = [],
-		lane?: OffThreadReadLane,
+		params: unknown[],
+		lane: OffThreadReadLane,
 	): Promise<R | null> {
 		return this.adapter.getOffThread<R>(sql, params, lane);
 	}
 
-	protected async query<R>(sql: string, params: unknown[] = []): Promise<R[]> {
-		return this.adapter.query<R>(sql, params);
+	/** Reads on the main thread; see BunSqlAdapter.queryMain before adding one. */
+	protected async queryMain<R>(
+		sql: string,
+		params: unknown[] = [],
+	): Promise<R[]> {
+		return this.adapter.queryMain<R>(sql, params);
 	}
 
-	protected async get<R>(
+	/** Reads on the main thread; see BunSqlAdapter.queryMain before adding one. */
+	protected async getMain<R>(
 		sql: string,
 		params: unknown[] = [],
 	): Promise<R | null> {
-		return this.adapter.get<R>(sql, params);
+		return this.adapter.getMain<R>(sql, params);
 	}
 
 	protected async run(sql: string, params: unknown[] = []): Promise<void> {

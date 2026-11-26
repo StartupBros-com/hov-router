@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { OpenAIRequest } from "@better-ccflare/openai-formats";
-import type { Account } from "@better-ccflare/types";
+import type { OpenAIRequest } from "@hov-router/openai-formats";
+import type { Account } from "@hov-router/types";
 import { QwenProvider } from "../provider";
 
 type CacheControl = { type: string };
@@ -109,7 +109,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		...overrides,
 	};

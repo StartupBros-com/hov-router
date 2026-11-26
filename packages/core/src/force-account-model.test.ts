@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import {
 	isForceAccountModelEnabled,
 	isForceAccountModelExempt,
@@ -35,7 +35,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: JSON.stringify({ opus: "gpt-5.6-sol" }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		...overrides,
 	};
 }

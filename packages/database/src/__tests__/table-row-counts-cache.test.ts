@@ -33,7 +33,7 @@ async function seed() {
 
 describe("table-count cache and deletion observers", () => {
 	it("deduplicates scans, caches for sixty seconds, then expires", async () => {
-		const get = spyOn(db.getAdapter(), "get");
+		const get = spyOn(db.getAdapter(), "getMain");
 		const results = await Promise.all([
 			db.getTableRowCounts(),
 			db.getTableRowCounts(),
@@ -69,7 +69,7 @@ describe("table-count cache and deletion observers", () => {
 		expect(await count()).toBe(0);
 	});
 	it("does not cache failed scans", async () => {
-		spyOn(db.getAdapter(), "query").mockRejectedValueOnce(
+		spyOn(db.getAdapter(), "queryMain").mockRejectedValueOnce(
 			new Error("scan failed"),
 		);
 		expect(await db.getTableRowCounts()).toEqual([]);
@@ -78,7 +78,7 @@ describe("table-count cache and deletion observers", () => {
 	it("does not let an invalidated in-flight scan repopulate old counts", async () => {
 		await seed();
 		const adapter = db.getAdapter();
-		const original = adapter.get.bind(adapter);
+		const original = adapter.getMain.bind(adapter);
 		let release: (() => void) | undefined;
 		const blocked = new Promise<void>((resolve) => {
 			release = resolve;
@@ -87,7 +87,7 @@ describe("table-count cache and deletion observers", () => {
 		const started = new Promise<void>((resolve) => {
 			captured = resolve;
 		});
-		const spy = spyOn(adapter, "get").mockImplementation(
+		const spy = spyOn(adapter, "getMain").mockImplementation(
 			async (sql, params) => {
 				const value = await original(sql, params);
 				if (sql.includes('COUNT(*) AS rowCount FROM "requests"')) {
@@ -142,7 +142,7 @@ describe("table-count cache and deletion observers", () => {
 		await expect(db.cleanupOldRequests(0, 0)).rejects.toBe(failure);
 		expect(calls).toBe(1);
 		expect(
-			await db.getAdapter().get("SELECT COUNT(*) AS n FROM requests"),
+			await db.getAdapter().getMain("SELECT COUNT(*) AS n FROM requests"),
 		).toEqual({ n: 0 });
 	});
 	it("isolates throwing listeners and releases listeners on close", async () => {

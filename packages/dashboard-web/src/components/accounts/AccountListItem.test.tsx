@@ -11,14 +11,18 @@
  * directory.
  */
 import { describe, expect, it, mock } from "bun:test";
-import type { BankedResets, FullUsageData } from "@better-ccflare/types";
-import { formatClockTime } from "@better-ccflare/ui-common";
+import type { BankedResets, FullUsageData } from "@hov-router/types";
+import { formatClockTime } from "@hov-router/ui-common";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup as renderMarkup } from "react-dom/server";
 import type { Account } from "../../api";
 import { StatusPill } from "../ui/status-pill";
-import { AccountList, accountListItems } from "./AccountList";
+import {
+	AccountAttentionSummary,
+	AccountList,
+	accountListItems,
+} from "./AccountList";
 import {
 	AccountListItem,
 	CodexCreditDrainControl,
@@ -375,28 +379,33 @@ describe("account scan layout", () => {
 			renderToStaticMarkup(<AccountList accounts={[]} {...requiredHandlers} />),
 		).toContain("No accounts yet");
 	});
-	it("renders labeled scan controls and result count", () => {
+	it("renders a search box and one sort with two orders, and no other filters", () => {
 		const html = renderToStaticMarkup(
 			<AccountList accounts={[makeAccount()]} {...requiredHandlers} />,
 		);
 		for (const text of [
 			"Search accounts",
-			"All providers",
-			"Needs attention",
-			"Paused",
-			"Showing 1 of 1 accounts",
 			"Sort",
+			"Routing priority",
 			"Next reset (soonest)",
-			"Weekly reset (soonest)",
-			"5-hour reset (soonest)",
-			"Weekly used (lowest first)",
-			"5-hour used (lowest first)",
 			"Usage and resets",
-			'aria-pressed="true"',
+			'role="status"',
 		])
 			expect(html).toContain(text);
-		// The view-order explanation appears only after choosing a non-default sort.
-		expect(html).not.toContain("View order only");
+		for (const text of [
+			"All providers",
+			"Filter by account status",
+			"aria-pressed",
+			"Name A–Z",
+			"Weekly reset (soonest)",
+			"5-hour used (lowest first)",
+			// The result count shows only while something is filtered out.
+			"Showing 1 of 1 accounts",
+			"Clear filters",
+			// The view-order explanation appears only after choosing the other order.
+			"not routing priority",
+		])
+			expect(html).not.toContain(text);
 	});
 	it("collapses routine settings and family details while keeping recovery visible", () => {
 		const html = renderToStaticMarkup(
@@ -658,6 +667,48 @@ describe("account scan layout", () => {
 		expect(visible).not.toContain("Clear cooldown");
 		expect(visible).not.toContain("Cooling down");
 	});
+	it("names a 402 bench as payment required and keeps Clear cooldown (#1025)", () => {
+		const html = renderToStaticMarkup(
+			<AccountListItem
+				account={makeAccount({
+					paused: false,
+					rateLimitStatus: "Rate limited (5m)",
+					rateLimitedUntil: Date.now() + 300_000,
+					rateLimitedReason: "upstream_402_payment_required",
+				})}
+				{...requiredHandlers}
+			/>,
+		);
+		const visible = withoutDetailsContent(html);
+		expect(visible).toContain("Payment required");
+		expect(visible).toContain("billing or credits");
+		expect(visible).toContain("Router retry");
+		expect(visible).toContain("Clear cooldown");
+		expect(visible).not.toContain("Cooling down");
+	});
+	it("keeps naming payment required after the 402 bench lapses, without a stale-cooldown pill (#1025)", () => {
+		const html = renderToStaticMarkup(
+			<AccountListItem
+				account={makeAccount({
+					paused: false,
+					rateLimitStatus: "OK",
+					rateLimitedUntil: null,
+					rateLimitedAt: Date.now() - 120_000,
+					rateLimitedReason: "upstream_402_payment_required",
+					// Usage under its limit is no reason to doubt a billing failure.
+					usageUtilization: 20,
+				})}
+				{...requiredHandlers}
+			/>,
+		);
+		const visible = withoutDetailsContent(html);
+		expect(visible).toContain("Payment required");
+		expect(visible).toContain("billing or credits");
+		expect(visible).toContain("Clear cooldown");
+		expect(visible).not.toContain("Router retry");
+		expect(visible).not.toContain("Ready");
+		expect(visible).not.toContain("Possible stale cooldown");
+	});
 	it("keeps naming the refusal after the bench lapses while the usage check is refused (#941)", () => {
 		// max-quaternary-spgm on 2026-11-21 read "Ready" for 14 hours here.
 		const html = renderToStaticMarkup(
@@ -835,7 +886,7 @@ describe("AccountListItem row actions", () => {
 		expect(article).toContain("_14rem]");
 	});
 
-	it("shows Clear cooldown once, after the router retry time, as a bordered button", () => {
+	it("shows Clear cooldown once, after the router retry time, as a small outline button", () => {
 		const html = visibleRow(
 			makeAccount({
 				paused: false,
@@ -853,14 +904,17 @@ describe("AccountListItem row actions", () => {
 		const clear = buttonWith(status, "Clear cooldown");
 		expect(clear).not.toContain("<svg");
 		expect(clear).toContain('aria-label="Clear cooldown for acc-1"');
-		// A border, not an underline, marks it as a control, at the status
-		// pills' 20px height.
-		expect(classes(clear)).toEqual(expect.arrayContaining(["border-2", "h-5"]));
+		// The standard small outline button: a 32px bordered box that reads as
+		// a button, not as a text field.
+		expect(classes(clear)).toEqual(expect.arrayContaining(["border-2", "h-8"]));
+		expect(classes(clear)).not.toContain("h-5");
 		expect(classes(clear)).not.toContain("underline");
-		// A 44px target on a line only a little taller than its text, lifted so
-		// the usage block below cannot cover its lower half.
+		// A 44px target: the overlay reaches 6px past each edge of the box.
 		expect(classes(clear)).toEqual(
-			expect.arrayContaining(["after:h-11", "relative", "z-10"]),
+			expect.arrayContaining(["after:h-11", "relative"]),
+		);
+		expect(clear).toContain(
+			'title="Clear the router’s saved rate-limit state. Provider usage limits are unchanged."',
 		);
 		expect(widthRules(clear)).toEqual([]);
 		expect(
@@ -898,13 +952,16 @@ describe("AccountListItem row actions", () => {
 		expect(widthRules(reauth)).toEqual([]);
 	});
 
-	it("keeps Clear cooldown's tap area off Re-authenticate when both show", () => {
+	it("keeps Clear cooldown's tap area off Re-authenticate with one spacing for every row", () => {
 		// The re-login flag is written with a pause, but an unpaused account can
 		// still carry it (a failed pause write, or a later resume) while cooling
 		// down. Re-authenticate can then sit just above the retry line. Clear
-		// cooldown's tap area reaches 12px above the button and the lines are 6px
-		// apart, so the retry line gets 6px more.
-		const html = visibleRow(
+		// cooldown's 32px box with a 44px tap area reaches 6px past each edge,
+		// and the status lines are 6px apart, so the two tap areas meet without
+		// overlapping and need no extra margin or stacking order. The retry
+		// line's own 4px gap only separates the button from the retry time,
+		// which is text.
+		const withReauth = visibleRow(
 			makeAccount({
 				paused: false,
 				requiresReauth: true,
@@ -912,22 +969,24 @@ describe("AccountListItem row actions", () => {
 			}),
 			{ onAnthropicReauth: noop },
 		);
-		const status = statusColumn(html);
-		expect(buttonWith(status, "Clear cooldown")).toBeDefined();
-		expect(retryLineClasses(html)).toContain("mt-1.5");
-		// If text metrics ever shift, the visible button still wins the overlap.
-		expect(classes(reauthButton(status))).toEqual(
-			expect.arrayContaining(["relative", "z-20"]),
-		);
-	});
-
-	it("adds no space above the retry line when Re-authenticate is not shown", () => {
-		const html = visibleRow(
+		const plain = visibleRow(
 			makeAccount({ paused: false, rateLimitedUntil: Date.now() + 60_000 }),
 		);
-		expect(retryLineClasses(html)).toBeDefined();
+		const status = statusColumn(withReauth);
+		const clear = buttonWith(status, "Clear cooldown");
+		expect(classes(clear)).toEqual(
+			expect.arrayContaining(["h-8", "after:h-11"]),
+		);
+		expect(classes(reauthButton(status))).toContain("min-h-11");
+		expect(withReauth).toContain(
+			'class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-sm',
+		);
+		expect(retryLineClasses(withReauth)).toContain("gap-y-1");
+		expect(retryLineClasses(withReauth)).toEqual(retryLineClasses(plain));
+		for (const element of [clear, reauthButton(status)])
+			expect(classes(element).filter((name) => /^z-/.test(name))).toEqual([]);
 		expect(
-			retryLineClasses(html)?.filter((name) => name.startsWith("mt-")),
+			retryLineClasses(withReauth)?.filter((name) => name.startsWith("mt-")),
 		).toEqual([]);
 	});
 
@@ -1003,6 +1062,49 @@ describe("AccountListItem row actions", () => {
 		const usage = html.slice(html.indexOf("Usage and resets"));
 		expect(usage).toContain('role="alert"');
 		expect(usage).toContain("Codex usage endpoint returned 401.");
+	});
+});
+
+describe("session totals on the usage tab", () => {
+	const NOW = Date.UTC(2026, 10, 24, 15, 0);
+	const totals = {
+		requests: 4,
+		inputTokens: 1_200,
+		cacheCreationInputTokens: 0,
+		cacheReadInputTokens: 0,
+		outputTokens: 300,
+		planCostUsd: 0,
+		apiCostUsd: 0,
+	};
+	const usageTab = (account: Account) => {
+		const html = renderToStaticMarkup(
+			<AccountListItem account={account} now={NOW} {...requiredHandlers} />,
+		);
+		return html.slice(html.indexOf("Usage and resets"));
+	};
+
+	it("says the totals could not be read instead of dropping the line", () => {
+		const usage = usageTab(
+			makeAccount({ sessionStats: null, sessionStatsUnavailable: true }),
+		);
+		expect(usage).toContain("Session totals unavailable right now");
+		// The totals line itself (its "Session" label) is absent, not zeroed.
+		expect(usage).not.toContain('font-medium">Session</span>');
+	});
+
+	it("names when the totals were read only once they are minutes old", () => {
+		const recent = usageTab(
+			makeAccount({ sessionStats: totals, sessionStatsAsOf: NOW - 90_000 }),
+		);
+		expect(recent).toContain("4 requests");
+		expect(recent).not.toContain("as of");
+
+		const readAt = NOW - 6 * 60_000;
+		const old = usageTab(
+			makeAccount({ sessionStats: totals, sessionStatsAsOf: readAt }),
+		);
+		expect(old).toContain("4 requests");
+		expect(old).toContain(`as of ${formatClockTime(readAt, NOW)}`);
 	});
 });
 
@@ -1093,17 +1195,16 @@ describe("AccountListItem (P2 review: pause-reason rendering)", () => {
 		expect(reauthButton(html)).toBeUndefined();
 	});
 
-	it("shows a human-readable known automatic pause reason", () => {
+	it("shows a human-readable overage pause reason", () => {
 		const html = renderToStaticMarkup(
 			<AccountListItem
-				account={makeAccount({ pauseReason: "failure_threshold" })}
+				account={makeAccount({ pauseReason: "overage" })}
 				{...requiredHandlers}
 				onAnthropicReauth={noop}
 			/>,
 		);
 
-		expect(html).toContain(">Auto-paused: repeated failures<");
-		expect(html).not.toContain("Paused (failure threshold)");
+		expect(html).toContain(">Auto-paused: overage<");
 	});
 
 	it("renders generic Paused copy with no reauth emphasis for an unrecognized pause reason", () => {
@@ -2449,10 +2550,69 @@ describe("compact hybrid list", () => {
 		);
 		expect(html).toContain('aria-label="Attention across all accounts"');
 		expect(html).toContain("1 needs attention");
+		expect(html).toContain("1 to reconnect");
 		expect(html).toContain("Review accounts");
 		expect(html).toContain("Router status");
 		expect(html).toContain("Usage and resets");
 		expect(withoutDetailsContent(html)).toContain("Usage unavailable");
+	});
+	it("shows no attention banner for accounts that are only at a limit", () => {
+		const now = Date.now();
+		const html = renderToStaticMarkup(
+			<AccountList
+				accounts={[
+					makeAccount({ id: "cooling", rateLimitedUntil: now + 600_000 }),
+					makeAccount({
+						id: "spent",
+						rateLimitStatus: "usage_exhausted (20m)",
+					}),
+					makeAccount({ id: "polling", usageRateLimitedUntil: now + 60_000 }),
+				]}
+				{...requiredHandlers}
+			/>,
+		);
+		expect(html).not.toContain("Attention across all accounts");
+		expect(html).not.toContain("attention");
+	});
+	it("names each kind of operator action and switches between the attention view and all accounts", () => {
+		const reasons = { reconnect: 1, refused: 2, payment: 1, routing: 1 };
+		const off = renderToStaticMarkup(
+			<AccountAttentionSummary
+				count={5}
+				reasons={reasons}
+				showingOnlyAttention={false}
+				onToggle={noop}
+			/>,
+		);
+		const visible = off.replace(/<[^>]*>/g, " ");
+		expect(visible).toContain("5 need attention");
+		expect(visible).toContain("1 to reconnect");
+		expect(visible).toContain("2 refused by Anthropic");
+		expect(visible).toContain("1 needs billing");
+		expect(visible).toContain("1 routing decision in Combos");
+		expect(off).toContain("Review accounts");
+		const plural = renderToStaticMarkup(
+			<AccountAttentionSummary
+				count={2}
+				reasons={{ reconnect: 0, refused: 0, payment: 2, routing: 0 }}
+				showingOnlyAttention={false}
+				onToggle={noop}
+			/>,
+		);
+		expect(plural.replace(/<[^>]*>/g, " ")).toContain("2 need billing");
+		const on = renderToStaticMarkup(
+			<AccountAttentionSummary
+				count={1}
+				reasons={{ reconnect: 0, refused: 0, payment: 0, routing: 1 }}
+				showingOnlyAttention
+				onToggle={noop}
+			/>,
+		);
+		expect(on).toContain("Show all accounts");
+		expect(on).not.toContain("Review accounts");
+		// The summary keeps naming what to do while the list shows only those accounts.
+		expect(on).toContain("1 routing decision in Combos");
+		expect(on).not.toContain("to reconnect");
 	});
 	it("starts collapsed with a button controlling an inline account region", () => {
 		const html = renderClosedMarkup(

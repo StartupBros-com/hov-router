@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { usageCache } from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+import { usageCache } from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../proxy-types";
 import {
 	handleRateLimitResponse,
@@ -36,7 +36,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		consecutive_rate_limits: 0,
 		...overrides,
 	};
@@ -78,7 +77,7 @@ function makeCtx(opts: {
 			updateAccountUsage: () => {},
 			updateAccountRateLimitMeta: () => {},
 			getAdapter: () => ({
-				get: async () => ({ rate_limited_until: null }),
+				getMain: async () => ({ rate_limited_until: null }),
 				run: async () => {},
 			}),
 		},
@@ -135,7 +134,7 @@ function makeCtxWithReason(opts: {
 			updateAccountUsage: () => {},
 			updateAccountRateLimitMeta: () => {},
 			getAdapter: () => ({
-				get: async () => ({ rate_limited_until: null }),
+				getMain: async () => ({ rate_limited_until: null }),
 				run: async () => {},
 			}),
 		},
@@ -785,7 +784,7 @@ function makeXaiCtx(opts: {
 			updateAccountUsage: () => {},
 			updateAccountRateLimitMeta: () => {},
 			getAdapter: () => ({
-				get: async () => ({ rate_limited_until: null }),
+				getMain: async () => ({ rate_limited_until: null }),
 				run: async () => {},
 			}),
 		},

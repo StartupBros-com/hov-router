@@ -15,14 +15,14 @@ import {
 	CLAUDE_MODEL_IDS,
 	getModelDisplayName,
 	registerHeartbeat,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import {
 	type AutoModelCapabilities,
 	getProvider,
 	normalizeAutoModelCapabilities,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "./handlers/proxy-types";
 import { getValidAccessToken } from "./handlers/token-manager";
 
@@ -94,10 +94,9 @@ const ANTHROPIC_ACCOUNT_PROVIDERS = new Set([
 	"claude-console-api",
 ]);
 
-// API-key ("console") accounts are the sanctioned surface for recurring,
-// non-interactive traffic. OAuth accounts are only added to the eligible
-// pool when explicitly opted in (manual refresh, or the OAuth-auto-refresh
-// config flag) — see `selectEligibleAccount`.
+// Scheduled catalog lookups use Console API-key accounts by default.
+// Manual refreshes and the scheduled OAuth opt-in also allow OAuth accounts
+// as a fallback — see `selectEligibleAccount`.
 const CONSOLE_ONLY_PROVIDERS = new Set(["claude-console-api"]);
 
 /** Upper bound on the random jitter added on top of the refresh interval. */
@@ -201,8 +200,7 @@ function computeNextRefreshAt(fetchedAt: number, intervalMs: number): number {
  * provider="anthropic" account pointed at a third-party/compatible endpoint
  * would otherwise have its foreign model list persisted as the "live"
  * Anthropic catalog). By default only `claude-console-api` (API-key) accounts
- * are eligible — recurring background traffic against a consumer OAuth
- * account risks an account flag/ban, so OAuth accounts only join the pool
+ * are eligible for scheduled lookups. OAuth accounts only join the pool
  * when `allowOAuth` is set (manual refresh, or the OAuth-auto-refresh opt-in
  * for scheduled refreshes). Console accounts always win over OAuth accounts;
  * ties break on the lowest `priority` number (mirrors account-selector
@@ -219,8 +217,7 @@ function selectEligibleAccount(
 		(a) => providers.has(a.provider) && !a.paused && !a.custom_endpoint,
 	);
 	if (eligible.length === 0) return null;
-	// Console accounts win over OAuth accounts regardless of priority (the
-	// ban-risk-motivated preference), then lowest `priority` number wins.
+	// Prefer a Console key; compare priority only within the same kind.
 	return eligible.reduce((best, current) => {
 		const bestIsConsole = best.provider === "claude-console-api";
 		const currentIsConsole = current.provider === "claude-console-api";
@@ -441,9 +438,9 @@ export async function refreshModelCatalog(
  * Passively capture a `GET /v1/models` response that was already forwarded
  * to a client for some other reason (e.g. a user's own `curl` against the
  * proxy), and fold it into the catalog. This never triggers a new upstream
- * call — it only *observes* traffic that would have happened anyway — so
- * unlike `refreshModelCatalog` it carries no ban-risk trade-off and is not
- * gated by account-eligibility/OAuth-opt-in policy. Never throws: any
+ * call — it only *observes* traffic that would have happened anyway. It is
+ * not gated by the scheduled-refresh OAuth opt-in; provider and endpoint
+ * eligibility checks still apply. Never throws: any
  * failure (offline, wrong provider, malformed body, empty listing) is
  * logged at debug level and treated as a no-op, leaving the existing
  * catalog untouched.

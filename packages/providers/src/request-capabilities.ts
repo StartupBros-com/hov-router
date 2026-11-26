@@ -1,18 +1,15 @@
-import {
-	getConfiguredModelMapping,
-	getModelFamily,
-} from "@better-ccflare/core";
+import { getConfiguredModelMapping, getModelFamily } from "@hov-router/core";
 import {
 	isGpt56SolModel,
 	type ReasoningEffort,
 	resolveAnthropicReasoningEffort,
-} from "@better-ccflare/openai-formats";
+} from "@hov-router/openai-formats";
 import type {
 	Account,
 	ComboRouteClass,
 	LogicalModelCapability,
-} from "@better-ccflare/types";
-import { PROVIDER_NAMES } from "@better-ccflare/types";
+} from "@hov-router/types";
+import { PROVIDER_NAMES } from "@hov-router/types";
 import { resolveProviderModelDefault } from "./provider-model-defaults";
 import { getCapabilityProvider } from "./registry";
 
@@ -231,14 +228,6 @@ export interface ModelContextCapability {
 	defaultContextWindow: number;
 	/** Catalog maximum window (`max_context_window`): the operational client capacity. */
 	maxContextWindow: number;
-	/**
-	 * Compatibility projection of {@link maxContextWindow}. Historically this
-	 * held a single number that conflated catalog default with capacity; it now
-	 * always equals the max, because every operational consumer (admission,
-	 * response context-window telemetry, trace utilization) needs capacity, not
-	 * the recommendation.
-	 */
-	rawContextWindow: number;
 	effectiveContextWindow: number;
 	effectiveContextPercent: number;
 	match: "exact" | "prefix";
@@ -501,7 +490,6 @@ export function resolveModelContextCapability(
 		family,
 		defaultContextWindow: metadata.defaultContextWindow,
 		maxContextWindow: metadata.maxContextWindow,
-		rawContextWindow: metadata.maxContextWindow,
 		effectiveContextWindow: Math.floor(
 			(metadata.maxContextWindow * metadata.effectiveContextPercent) / 100,
 		),

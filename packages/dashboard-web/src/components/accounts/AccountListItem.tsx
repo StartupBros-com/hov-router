@@ -1,9 +1,9 @@
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
 import {
 	AccountPresenter,
 	type AccountStatusReason,
 	formatClockTime,
-} from "@better-ccflare/ui-common";
+} from "@hov-router/ui-common";
 import {
 	ChevronDown,
 	CircleCheck,
@@ -71,6 +71,13 @@ const STATUS_ICON = {
 	muted: CirclePause,
 };
 
+/**
+ * Session totals older than this say when they were read. Under a slow
+ * database the server answers each 60 s poll with its last read, so totals a
+ * minute or two old are normal and stay unlabelled.
+ */
+const SESSION_TOTALS_SHOWN_AS_OLD_MS = 5 * 60_000;
+
 function formatTokenCount(n: number): string {
 	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
 	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
@@ -81,8 +88,6 @@ function formatPauseReason(reason: string | null): string | null {
 	// Keep internal/future pause reasons private and safely renderable. Only
 	// automatic pauses name their cause; a manual pause reads as plain "Paused".
 	switch (reason) {
-		case "failure_threshold":
-			return "repeated failures";
 		case "overage":
 			return "overage";
 		default:
@@ -104,18 +109,19 @@ const SETTING_CLASS =
 // Explicit dimensions avoid the switch's border shrinking an inset-based target.
 const SETTING_SWITCH_CLASS =
 	"relative after:absolute after:left-1/2 after:top-1/2 after:h-11 after:w-11 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']";
-// Clear cooldown: a small bordered button on the router retry line. The border
-// marks it as a control; at 20px it is no taller than the status pills, while
-// the hit area is still 44px tall. z-10 keeps the lower half of that area above
-// the usage block, which comes later in the row.
+// Clear cooldown: the standard small outline button, after the router retry
+// time. Its 32px box reads as a button, not a text field. The tap area reaches
+// 44px, 6px past each edge, which is no more than the status lines' 6px gap, so
+// it never covers Re-authenticate or the usage block. 32px is the smallest box
+// for which that holds, so no row needs an extra margin or stacking order.
 const CLEAR_COOLDOWN_CLASS =
-	"relative z-10 h-5 px-2 py-0 text-xs leading-4 text-foreground after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2 after:content-['']";
+	"relative text-foreground after:absolute after:inset-x-0 after:top-1/2 after:h-11 after:-translate-y-1/2 after:content-['']";
 
 /**
  * Codex-only usage extras (plan_type, credits_balance) come from the free
  * wham/usage poller and can be ABSENT from usageData at any moment -- live
  * traffic overwrites cached extras between polls. Not part of the public
- * FullUsageData union (see @better-ccflare/types), so every read here is
+ * FullUsageData union (see @hov-router/types), so every read here is
  * null-safe and simply omits the corresponding element when absent. Mirrors
  * the CodexUsageExtras cast in RateLimitProgress.tsx for the sibling
  * code_review_* extras.
@@ -154,6 +160,7 @@ const ACCOUNT_BLOCKED_STATUS = new Set<AccountStatusReason>([
 	"reauth",
 	"paused",
 	"refused",
+	"payment",
 	"cooldown",
 	"exhausted",
 	"hard-limit",
@@ -377,8 +384,11 @@ export function AccountListItem({
 	const showForceReset = status.clearCooldown;
 	// staleLockDetected only fires when numeric usage data exists (Anthropic accounts);
 	// Zai/NanoGPT accounts have usageUtilization === null and are correctly excluded
+	// A 402 is a billing failure, not a usage limit, so usage under 100% says
+	// nothing about it.
 	const staleLockDetected =
 		showForceReset &&
+		status.reason !== "payment" &&
 		typeof account.usageUtilization === "number" &&
 		account.usageUtilization < 100;
 	const codexUsageExtras = getCodexUsageExtras(account);
@@ -722,8 +732,7 @@ export function AccountListItem({
 					<Button
 						variant="default"
 						size="touch-sm"
-						// Above Clear cooldown's tap area where the two meet.
-						className="relative z-20 gap-1 text-xs text-black hover:text-black"
+						className="gap-1 text-xs text-black hover:text-black"
 						onClick={() => reauth.handler(account)}
 						title={reauth.title}
 					>
@@ -762,14 +771,7 @@ export function AccountListItem({
 					</StatusPill>
 				)}
 				{(status.routerRetryAt != null || showForceReset) && (
-					<span
-						className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground ${
-							// Re-authenticate can sit just above. Clear cooldown's tap area
-							// reaches 12px above the button and the lines are 6px apart, so
-							// 6px more keeps the two tap areas apart.
-							showForceReset && reauthShown ? "mt-1.5" : ""
-						}`}
-					>
+					<span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
 						{status.routerRetryAt != null && (
 							<span
 								title={new Date(
@@ -787,14 +789,11 @@ export function AccountListItem({
 						{showForceReset && (
 							<Button
 								variant="outline"
+								size="sm"
 								className={CLEAR_COOLDOWN_CLASS}
 								onClick={() => onForceResetRateLimit(account)}
 								aria-label={`Clear cooldown for ${account.name}`}
-								title={
-									staleLockDetected
-										? "Clear a possibly stale router cooldown. Provider usage limits are unchanged."
-										: "Clear the router’s saved rate-limit state. Provider usage limits are unchanged."
-								}
+								title="Clear the router’s saved rate-limit state. Provider usage limits are unchanged."
 							>
 								Clear cooldown
 							</Button>
@@ -973,9 +972,26 @@ export function AccountListItem({
 									{sessionInfo}
 								</span>
 							)}
+							{account.sessionStatsUnavailable && !account.sessionStats && (
+								<p className="text-xs text-muted-foreground">
+									Session totals unavailable right now. They return once the
+									database answers.
+								</p>
+							)}
 							{account.sessionStats && (
 								<div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
 									<span className="font-medium">Session</span>
+									{account.sessionStatsAsOf != null &&
+										now - account.sessionStatsAsOf >=
+											SESSION_TOTALS_SHOWN_AS_OLD_MS && (
+											<span
+												title={new Date(
+													account.sessionStatsAsOf,
+												).toLocaleString()}
+											>
+												as of {formatClockTime(account.sessionStatsAsOf, now)}
+											</span>
+										)}
 									<span>{account.sessionStats.requests} requests</span>
 									<span>
 										{formatTokenCount(account.sessionStats.inputTokens)} in

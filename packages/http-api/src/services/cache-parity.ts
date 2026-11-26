@@ -1,4 +1,4 @@
-import { summarizeCacheReadHistogram } from "@better-ccflare/core";
+import { summarizeCacheReadHistogram } from "@hov-router/core";
 import type {
 	CacheParityDimensionSummary,
 	CacheParityMetrics,
@@ -7,7 +7,7 @@ import type {
 	CacheParityResponse,
 	CacheParityVerdict,
 	CacheParityWindow,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { buildCacheParityDriftReport } from "./cache-parity-expectations";
 
 export type CacheParityPolicy = CacheParityPolicySnapshot;
@@ -261,8 +261,6 @@ export function buildCacheParityResponse(
 		},
 		backendCapability: {
 			endpoint: "chatgpt_subscription",
-			// GPT-5.6 explicit breakpoints were removed, so none is ever requested.
-			explicitBreakpoint: "not_requested",
 		},
 		policy: input.policy,
 		driftReport: buildCacheParityDriftReport(input.policy),

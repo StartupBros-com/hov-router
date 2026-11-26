@@ -2,8 +2,8 @@ import {
 	BUFFER_SIZES,
 	SseFrameBuffer,
 	StreamResourceLimitError,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 
 const log = new Logger("openai-responses-adapter");
 

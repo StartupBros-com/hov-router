@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { usageCache } from "@better-ccflare/providers/usage-cache";
+import type { DatabaseOperations } from "@hov-router/database";
+import { usageCache } from "@hov-router/providers/usage-cache";
 import type {
 	Account,
 	ComboFamilyPolicyChanges,
 	ComboRoutingPolicySnapshot,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { createServerOwnedAccountRoutingFinalizer } from "../../services/account-routing-operations";
 import {
 	createAccountRoutingOverviewHandler,
@@ -67,7 +67,6 @@ function account(id: string, priority = 0): Account {
 		custom_endpoint: "https://must-not-leak.example",
 		model_mappings: JSON.stringify({ opus: "private-physical-model" }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: "plan",
 		pause_reason: null,
 		refresh_token_issued_at: null,

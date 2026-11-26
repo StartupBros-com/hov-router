@@ -318,7 +318,7 @@ describe("Codex transform, disable_parallel_tool_use mapping", () => {
 	test("preserves an explicit Responses API false value", async () => {
 		const body = await transform({
 			...base,
-			__better_ccflare_codex_passthrough: {
+			__hov_router_codex_passthrough: {
 				parallel_tool_calls: false,
 			},
 		});
@@ -341,7 +341,7 @@ describe("Codex transform, store field", () => {
 	test("honors an explicit Responses API true value", async () => {
 		const body = await transform({
 			...base,
-			__better_ccflare_codex_passthrough: { store: true },
+			__hov_router_codex_passthrough: { store: true },
 		});
 		expect(body.store).toBe(true);
 	});
@@ -351,7 +351,7 @@ describe("Codex transform, store field", () => {
 		const request = makeRequest({
 			...base,
 			model: "claude-fable-5",
-			__better_ccflare_codex_passthrough: {
+			__hov_router_codex_passthrough: {
 				model: "gpt-5.6-sol",
 			},
 		});
@@ -371,7 +371,7 @@ describe("Codex transform, store field", () => {
 		const request = makeRequest({
 			...base,
 			model: "claude-opus-4-8",
-			__better_ccflare_codex_passthrough: { model: rawModel },
+			__hov_router_codex_passthrough: { model: rawModel },
 		});
 		const account = {
 			model_mappings: JSON.stringify({
@@ -401,7 +401,7 @@ describe("Codex transform, store field", () => {
 		const body = await transform({
 			...base,
 			model: "claude-fable-5",
-			__better_ccflare_codex_passthrough: {
+			__hov_router_codex_passthrough: {
 				model: "gpt-5.6-sol",
 			},
 		});

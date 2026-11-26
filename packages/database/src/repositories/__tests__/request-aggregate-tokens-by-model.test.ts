@@ -7,7 +7,7 @@
  */
 import { Database } from "bun:sqlite";
 import { beforeEach, describe, expect, it } from "bun:test";
-import { logBus } from "@better-ccflare/logger";
+import { logBus } from "@hov-router/logger";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { runMigrations } from "../../migrations";
 import { RequestRepository } from "../request.repository";

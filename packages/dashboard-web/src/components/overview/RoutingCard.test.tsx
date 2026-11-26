@@ -5,13 +5,13 @@
  * See LICENSE.md in the project root for license terms.
  */
 import { describe, expect, it } from "bun:test";
-import type { RoutingAttemptSummaryResponse } from "@better-ccflare/types";
+import { StrategyName } from "@hov-router/core";
+import type { RoutingAttemptSummaryResponse } from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
 	getStrategySelectItems,
 	RoutingCardView,
 	type RoutingCardViewProps,
-	type StrategySelectItem,
 } from "./RoutingCard";
 
 const emptySummary: RoutingAttemptSummaryResponse = {
@@ -75,11 +75,14 @@ describe("RoutingCardView", () => {
 
 	it("describes both drain-soonest modes honestly", () => {
 		const html = render();
-		expect(html).toContain("never preempted");
+		expect(html).not.toContain("never preempted");
+		expect(html).toContain("affinity and routing policy allow");
+		expect(html).toContain("account-level session");
 		expect(html).toContain("within each authorized routing class");
 		expect(html).toContain("only breaks ties");
 		expect(html).toContain("explicit owner-retention");
-		expect(html).toContain("Only session-class strategies are shown");
+		expect(html).toContain("Session affinity");
+		expect(html).toContain("Least used");
 	});
 
 	it("reflects the exhausted capacity mode as a checked switch", () => {
@@ -163,7 +166,7 @@ describe("RoutingCardView", () => {
 	});
 
 	it("does not throw when the effective strategy is not listed", () => {
-		const html = render({ strategy: "least-used" });
+		const html = render({ strategy: "future-strategy" });
 		expect(html).toContain('role="combobox"');
 	});
 
@@ -215,38 +218,27 @@ describe("RoutingCardView", () => {
 });
 
 describe("getStrategySelectItems", () => {
-	const listed: readonly StrategySelectItem[] = [
-		{ label: "Session", value: "session" },
-		{ label: "Session — drain soonest", value: "session-drain-soonest" },
-		{
-			label: "Session — drain soonest (strict)",
-			value: "session-drain-soonest-strict",
-		},
-	];
-
-	it("returns only the three listed options when the current strategy is listed", () => {
-		expect(getStrategySelectItems("session")).toEqual(listed);
-		expect(getStrategySelectItems("session-drain-soonest")).toEqual(listed);
-		expect(getStrategySelectItems("session-drain-soonest-strict")).toEqual(
-			listed,
-		);
-	});
-
-	it("appends the current strategy as a disabled item when it is not listed", () => {
-		expect(getStrategySelectItems("least-used")).toEqual([
-			...listed,
-			{ label: "least-used (current)", value: "least-used", disabled: true },
-		]);
-	});
-
-	it("appends session-affinity as a disabled current item", () => {
-		expect(getStrategySelectItems("session-affinity")).toEqual([
-			...listed,
-			{
-				label: "session-affinity (current)",
-				value: "session-affinity",
-				disabled: true,
-			},
-		]);
-	});
+	const known = Object.values(StrategyName).sort();
+	for (const current of [...known, "future-strategy"]) {
+		it(`offers every supported strategy once when ${current} is current`, () => {
+			const items = getStrategySelectItems(current);
+			expect(
+				items
+					.filter((item) => !item.disabled)
+					.map((item) => item.value)
+					.sort(),
+			).toEqual(known);
+			expect(items.filter((item) => item.disabled)).toEqual(
+				current === "future-strategy"
+					? [
+							{
+								label: "future-strategy (current)",
+								value: current,
+								disabled: true,
+							},
+						]
+					: [],
+			);
+		});
+	}
 });

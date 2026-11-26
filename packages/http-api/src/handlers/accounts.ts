@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import * as cliCommands from "@better-ccflare/cli-commands";
-import type { Config } from "@better-ccflare/config";
+import * as cliCommands from "@hov-router/cli-commands";
+import type { Config } from "@hov-router/config";
 import {
 	deriveExtraUsageHolds,
 	liveExtraUsageHolds,
@@ -11,6 +11,7 @@ import {
 	PAUSE_REASON_NEEDS_REAUTH,
 	patterns,
 	REAUTHENTICATION_REQUIRED_CODE,
+	rejectRetiredModelMappingInput,
 	resolveExtraUsageState,
 	sanitizers,
 	validateAndSanitizeModelMappings,
@@ -20,17 +21,17 @@ import {
 	validateNumber,
 	validatePriority,
 	validateString,
-} from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { ValidationError } from "@better-ccflare/errors";
+} from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
+import { ValidationError } from "@hov-router/errors";
 import {
 	BadRequest,
 	errorResponse,
 	InternalServerError,
 	jsonResponse,
 	NotFound,
-} from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
 import {
 	type AnyUsageData,
 	fetchUsageData,
@@ -44,7 +45,7 @@ import {
 	type UsageData,
 	type UsageSnapshot,
 	usageCache,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import {
 	clearAccountRefreshCache,
 	clearAccountRemovalTrackingForAccount,
@@ -55,11 +56,11 @@ import {
 	getUsageThrottleStatus,
 	refreshCodexUsageForAccount,
 	restartUsagePollingForAccount,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import {
 	DEFAULT_CAPACITY_SNAPSHOT_FRESHNESS_MS,
 	isCodexCreditDrainActive,
-} from "@better-ccflare/proxy/usage-throttling";
+} from "@hov-router/proxy/usage-throttling";
 import type {
 	Account,
 	AnthropicUsageData,
@@ -68,17 +69,19 @@ import type {
 	FullUsageData,
 	LoadBalancingStrategy,
 	RateLimitReason,
-} from "@better-ccflare/types";
+	SessionStats,
+} from "@hov-router/types";
 import {
 	parseExtraUsageHoldState,
 	requiresSessionDurationTracking,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	bumpPublicRosterGeneration,
 	runExclusiveRosterWrite,
 } from "../services/public-subscription-roster";
 import type { AccountResponse } from "../types";
 import { accountCreatedResponse } from "../utils/account-created-response";
+import { createLastGoodCache } from "../utils/last-good-cache";
 import { labelRevealsAccount } from "./account-public-value";
 import { loadBankedResets } from "./banked-resets";
 import {
@@ -89,11 +92,38 @@ import {
 
 const log = new Logger("AccountsHandler");
 
+/**
+ * How long GET /api/accounts waits on a read from the interactive reader
+ * before answering without it (#1013). On a saturated disk the session-totals
+ * aggregate took up to 119 s while the dashboard gives the request 30 s, and
+ * the reader runs one read at a time, so each poll queued another behind it.
+ * The read keeps running and serves a later poll when it lands.
+ */
+const SLOW_READ_WAIT_MS = 2_000;
+/** Session totals younger than this are answered without a new read. */
+const SESSION_STATS_FRESH_MS = 15_000;
+/** Older session totals are never shown; the row says they are unavailable. */
+const SESSION_STATS_MAX_AGE_MS = 10 * 60_000;
+/** A Codex usage recovery from stored payloads is reused for this long. */
+const CODEX_PAYLOAD_FRESH_MS = 60_000;
+/** Matches the usage cache TTL the recovered value is also written to. */
+const CODEX_PAYLOAD_MAX_AGE_MS = 10 * 60_000;
+
+/** One account's session totals as the response reports them. */
+interface SessionStatsRead {
+	stats: SessionStats | null;
+	asOf: number | null;
+	unavailable: boolean;
+}
+
+/** One session-totals read: the session each account was read for, and its totals. */
+interface SessionStatsSnapshot {
+	sessionStartById: Map<string, number>;
+	stats: Map<string, SessionStats>;
+}
+
 const RATE_LIMIT_REASONS = new Set<RateLimitReason>([
 	"upstream_429_with_reset",
-	// Kept for backwards-compat with DB rows written by ccflare ≤ v3.5.x;
-	// new code emits `upstream_429_no_reset_probe_cooldown` instead.
-	"upstream_429_no_reset_default_5h",
 	"upstream_429_no_reset_probe_cooldown",
 	"upstream_402_payment_required",
 	"model_fallback_429",
@@ -308,14 +338,18 @@ async function getPersistedAnthropicUsage(
  * Step 3 exists because Codex has no usage-polling endpoint: without it the
  * weekly percentage — the window that actually limits the account — is gone
  * after a restart or a quiet day, and the card shows an empty bar.
+ *
+ * Step 2 goes through `recoverFromPayloads`, which bounds the wait (#1013): a
+ * quiet account's cache empties after 10 minutes, and from then on every
+ * accounts poll would queue another payload read on the interactive reader.
  */
 async function getCachedOrPersistedCodexUsage(
 	dbOps: DatabaseOperations,
 	accountId: string,
 	accountName: string,
 	cacheData: FullUsageData | null,
+	recoverFromPayloads: CodexPayloadRecovery,
 ): Promise<FullUsageData | null> {
-	const db = dbOps.getAdapter();
 	if (cacheData) {
 		const normalizedCache = normalizeCodexUsageData(
 			cacheData as CodexUsageInput,
@@ -324,6 +358,43 @@ async function getCachedOrPersistedCodexUsage(
 			return normalizedCache;
 		}
 	}
+
+	const recovered = await recoverFromPayloads(accountId, accountName);
+	if (recovered) return recovered;
+
+	// Last resort: the durable weekly snapshot (see readStoredUsageWindows).
+	const stored = await readStoredUsageWindows(dbOps, accountId, accountName, [
+		"seven_day",
+	]);
+	if (stored) {
+		const normalizedSnapshot = normalizeCodexUsageData({
+			five_hour: { ...UNKNOWN_WINDOW },
+			seven_day: stored.seven_day,
+		});
+		if (normalizedSnapshot) {
+			log.debug(`Recovered Codex weekly usage from history for ${accountName}`);
+			return normalizedSnapshot;
+		}
+	}
+
+	return null;
+}
+
+type CodexPayloadRecovery = (
+	accountId: string,
+	accountName: string,
+) => Promise<FullUsageData | null>;
+
+/**
+ * Codex usage reparsed from the headers of the account's most recent stored
+ * payloads, or null. A recovered value is also written to the usage cache.
+ */
+async function recoverCodexUsageFromPayloads(
+	dbOps: DatabaseOperations,
+	accountId: string,
+	accountName: string,
+): Promise<FullUsageData | null> {
+	const db = dbOps.getAdapter();
 	// On the reader thread (#606). After a restart the cache is empty, and on the
 	// main thread this read of a cold page cache was the top statement in the
 	// event-loop stall (19-86 s) that froze the proxy at every backend start.
@@ -352,11 +423,11 @@ async function getCachedOrPersistedCodexUsage(
 				"interactive",
 			);
 	} catch (error) {
-		// A busy or failed reader must not fail the whole accounts list; the
-		// durable snapshot below still answers.
-		log.warn(
-			`Failed to read stored payloads for ${accountName}:`,
-			error instanceof Error ? error.message : String(error),
+		// Thrown, not answered as "no payloads": the caller's cache must not keep
+		// a failed read. The caller logs it and falls back to the weekly snapshot.
+		throw new Error(
+			`Failed to read stored payloads for ${accountName}: ${error instanceof Error ? error.message : String(error)}`,
+			{ cause: error },
 		);
 	}
 
@@ -386,7 +457,10 @@ async function getCachedOrPersistedCodexUsage(
 			// The cache's window type still declares `utilization: number`, while a
 			// normalized window may legitimately be unknown (null). Storing it is
 			// intended: every reader re-normalizes, and null renders as N/A.
-			usageCache.set(accountId, normalizedUsage as AnyUsageData);
+			// The read may land after the request stopped waiting; usage the proxy
+			// recorded meanwhile is newer than these stored headers and stays.
+			if (!usageCache.get(accountId))
+				usageCache.set(accountId, normalizedUsage as AnyUsageData);
 			log.debug(`Recovered Codex usage from stored payload for ${accountName}`);
 			return normalizedUsage;
 		} catch (error) {
@@ -394,21 +468,6 @@ async function getCachedOrPersistedCodexUsage(
 				`Failed to recover Codex usage from stored payload for ${accountName}:`,
 				error instanceof Error ? error.message : String(error),
 			);
-		}
-	}
-
-	// Last resort: the durable weekly snapshot (see readStoredUsageWindows).
-	const stored = await readStoredUsageWindows(dbOps, accountId, accountName, [
-		"seven_day",
-	]);
-	if (stored) {
-		const normalizedSnapshot = normalizeCodexUsageData({
-			five_hour: { ...UNKNOWN_WINDOW },
-			seven_day: stored.seven_day,
-		});
-		if (normalizedSnapshot) {
-			log.debug(`Recovered Codex weekly usage from history for ${accountName}`);
-			return normalizedSnapshot;
 		}
 	}
 
@@ -474,7 +533,108 @@ export function createAccountsListHandler(
 	dbOps: DatabaseOperations,
 	config: Config,
 	getStrategy?: () => LoadBalancingStrategy | null,
+	{ slowReadWaitMs = SLOW_READ_WAIT_MS }: { slowReadWaitMs?: number } = {},
 ) {
+	const sessionStatsReads = createLastGoodCache<SessionStatsSnapshot>({
+		freshMs: SESSION_STATS_FRESH_MS,
+		maxAgeMs: SESSION_STATS_MAX_AGE_MS,
+	});
+	const codexPayloadReads = createLastGoodCache<FullUsageData | null>({
+		freshMs: CODEX_PAYLOAD_FRESH_MS,
+		maxAgeMs: CODEX_PAYLOAD_MAX_AGE_MS,
+	});
+	const recoverCodexPayloads: CodexPayloadRecovery = async (
+		accountId,
+		accountName,
+	) => {
+		// A busy or failed reader must not fail the whole accounts list; the
+		// durable snapshot still answers.
+		const read = await codexPayloadReads
+			.get(
+				accountId,
+				() => recoverCodexUsageFromPayloads(dbOps, accountId, accountName),
+				{ waitMs: slowReadWaitMs },
+			)
+			.catch((error: unknown) => {
+				log.warn(
+					`${error instanceof Error ? error.message : String(error)}; answering from the weekly snapshot`,
+				);
+				return undefined;
+			});
+		if (read?.error)
+			log.warn(
+				`${read.error instanceof Error ? read.error.message : String(read.error)}; answering from usage read ${Math.round((Date.now() - read.asOf) / 1000)}s ago`,
+			);
+		else if (read === null)
+			log.warn(
+				`Stored-payload usage read for ${accountName} still running after ${slowReadWaitMs}ms; answering from the weekly snapshot`,
+			);
+		return read?.value ?? null;
+	};
+
+	/**
+	 * Session totals for every account in a session. One read runs at a time;
+	 * a slow one answers with the last totals read for the same session, or
+	 * marks the account unavailable. Never zeros in place of a missing read.
+	 */
+	async function readSessionStats(
+		inSession: Array<{ id: string; session_start: number }>,
+	): Promise<Map<string, SessionStatsRead>> {
+		const result = new Map<string, SessionStatsRead>();
+		if (inSession.length === 0) return result;
+		const read = await sessionStatsReads
+			.get(
+				"session-stats",
+				async () => ({
+					sessionStartById: new Map(
+						inSession.map((a) => [a.id, a.session_start]),
+					),
+					stats: await dbOps.getStatsRepository().getSessionStats(inSession),
+				}),
+				{
+					waitMs: slowReadWaitMs,
+					covers: (snapshot) =>
+						inSession.every(
+							(a) => snapshot.sessionStartById.get(a.id) === a.session_start,
+						),
+				},
+			)
+			.catch((error: unknown) => {
+				log.warn(
+					"Failed to read session totals:",
+					error instanceof Error ? error.message : String(error),
+				);
+				return null;
+			});
+		if (!read)
+			log.warn(
+				`Session totals unavailable (read failed or still running after ${slowReadWaitMs}ms); listing accounts without them`,
+			);
+		else if (read.error)
+			log.warn(
+				`Failed to read session totals (${read.error instanceof Error ? read.error.message : String(read.error)}); serving totals from ${Math.round((Date.now() - read.asOf) / 1000)}s ago`,
+			);
+		else if (!read.fresh)
+			log.warn(
+				`Session totals read still running; serving totals from ${Math.round((Date.now() - read.asOf) / 1000)}s ago`,
+			);
+		for (const account of inSession) {
+			const readForThisSession =
+				read?.value.sessionStartById.get(account.id) === account.session_start;
+			result.set(
+				account.id,
+				read && readForThisSession
+					? {
+							stats: read.value.stats.get(account.id) ?? null,
+							asOf: read.asOf,
+							unavailable: false,
+						}
+					: { stats: null, asOf: null, unavailable: true },
+			);
+		}
+		return result;
+	}
+
 	return async (): Promise<Response> => {
 		const db = dbOps.getAdapter();
 		const now = Date.now();
@@ -482,7 +642,7 @@ export function createAccountsListHandler(
 
 		const strategy = getStrategy?.() ?? null;
 
-		const accounts = await db.query<{
+		const accounts = await db.queryMain<{
 			id: string;
 			name: string;
 			provider: string | null;
@@ -516,7 +676,6 @@ export function createAccountsListHandler(
 			custom_endpoint: string | null;
 			model_mappings: string | null;
 			cross_region_mode: string | null;
-			model_fallbacks: string | null;
 			billing_type: string | null;
 			pause_reason: string | null;
 			extra_usage_holds: string | null;
@@ -556,7 +715,6 @@ export function createAccountsListHandler(
 
 					model_mappings,
 					cross_region_mode,
-					model_fallbacks,
 					billing_type,
 					pause_reason,
 					extra_usage_holds,
@@ -618,18 +776,16 @@ export function createAccountsListHandler(
 				)
 			: null;
 
-		// Fetch session-window token stats only for providers with session-based limits
-		const sessionStatsMap = await dbOps
-			.getStatsRepository()
-			.getSessionStats(
-				accounts
-					.filter((a) => requiresSessionDurationTracking(a.provider ?? ""))
-					.map((a) => ({
-						id: a.id,
-						session_start: a.session_start ? Number(a.session_start) : null,
-					})),
-			)
-			.catch(() => new Map());
+		// Session-window token totals only for providers with session-based limits
+		const sessionStatsById = await readSessionStats(
+			accounts
+				.filter(
+					(a) =>
+						requiresSessionDurationTracking(a.provider ?? "") &&
+						a.session_start,
+				)
+				.map((a) => ({ id: a.id, session_start: Number(a.session_start) })),
+		);
 
 		const bankedResetsById = await loadBankedResets(dbOps, accounts, now).catch(
 			(error) => {
@@ -653,6 +809,7 @@ export function createAccountsListHandler(
 						account.id,
 						account.name,
 						usageData,
+						recoverCodexPayloads,
 					);
 				} else if (account.provider === "anthropic" && !usageData) {
 					usageData = await getPersistedAnthropicUsage(
@@ -699,7 +856,7 @@ export function createAccountsListHandler(
 							const {
 								getRepresentativeNanoGPTUtilization,
 								getRepresentativeNanoGPTWindow,
-							} = require("@better-ccflare/providers");
+							} = require("@hov-router/providers");
 							usageUtilization = getRepresentativeNanoGPTUtilization(usageData);
 							usageWindow = getRepresentativeNanoGPTWindow(usageData);
 							fullUsageData = usageData as FullUsageData;
@@ -719,7 +876,7 @@ export function createAccountsListHandler(
 							const {
 								getRepresentativeZaiUtilization,
 								getRepresentativeZaiWindow,
-							} = require("@better-ccflare/providers");
+							} = require("@hov-router/providers");
 							usageUtilization = getRepresentativeZaiUtilization(usageData);
 							usageWindow = getRepresentativeZaiWindow(usageData);
 							fullUsageData = usageData as FullUsageData;
@@ -738,7 +895,7 @@ export function createAccountsListHandler(
 							const {
 								getRepresentativeKiloUtilization,
 								getRepresentativeKiloWindow,
-							} = require("@better-ccflare/providers");
+							} = require("@hov-router/providers");
 							usageUtilization = getRepresentativeKiloUtilization(usageData);
 							usageWindow = getRepresentativeKiloWindow(usageData);
 							fullUsageData = usageData as FullUsageData;
@@ -758,7 +915,7 @@ export function createAccountsListHandler(
 							const {
 								getRepresentativeAlibabaCodingPlanUtilization,
 								getRepresentativeAlibabaCodingPlanWindow,
-							} = require("@better-ccflare/providers");
+							} = require("@hov-router/providers");
 							usageUtilization =
 								getRepresentativeAlibabaCodingPlanUtilization(usageData);
 							usageWindow = getRepresentativeAlibabaCodingPlanWindow(usageData);
@@ -778,7 +935,7 @@ export function createAccountsListHandler(
 							const {
 								getRepresentativeXaiUtilization,
 								getRepresentativeXaiWindow,
-							} = require("@better-ccflare/providers");
+							} = require("@hov-router/providers");
 							usageUtilization = getRepresentativeXaiUtilization(usageData);
 							usageWindow = getRepresentativeXaiWindow(usageData);
 							fullUsageData = usageData as FullUsageData;
@@ -798,7 +955,7 @@ export function createAccountsListHandler(
 							const {
 								getRepresentativeMinimaxUtilization,
 								getRepresentativeMinimaxWindow,
-							} = require("@better-ccflare/providers");
+							} = require("@hov-router/providers");
 							usageUtilization = getRepresentativeMinimaxUtilization(usageData);
 							usageWindow = getRepresentativeMinimaxWindow(usageData);
 							fullUsageData = usageData as FullUsageData;
@@ -895,36 +1052,11 @@ export function createAccountsListHandler(
 				if (account.model_mappings) {
 					try {
 						const parsed = JSON.parse(account.model_mappings);
-						// Handle both formats: direct mappings or wrapped in modelMappings
-						modelMappings = parsed.modelMappings || parsed || null;
+						// Stored mappings are flat.
+						modelMappings = parsed || null;
 					} catch {
 						// If parsing fails, ignore model mappings
 						modelMappings = null;
-					}
-				} else if (
-					account.provider === "openai-compatible" &&
-					account.custom_endpoint
-				) {
-					// Also try parsing from custom_endpoint for backwards compatibility
-					try {
-						const parsed = JSON.parse(account.custom_endpoint);
-						if (parsed.modelMappings) {
-							modelMappings = parsed.modelMappings;
-						}
-					} catch {
-						// If parsing fails, ignore model mappings
-						modelMappings = null;
-					}
-				}
-
-				// Parse model fallbacks for all providers
-				let modelFallbacks: { [key: string]: string } | null = null;
-				if (account.model_fallbacks) {
-					try {
-						const parsed = JSON.parse(account.model_fallbacks);
-						modelFallbacks = parsed.modelFallbacks || parsed || null;
-					} catch {
-						modelFallbacks = null;
 					}
 				}
 
@@ -1002,9 +1134,11 @@ export function createAccountsListHandler(
 						!!account.refresh_token &&
 						account.refresh_token !== account.access_token, // API-key providers store key in both fields
 					crossRegionMode: account.cross_region_mode,
-					modelFallbacks,
 					billingType: account.billing_type,
-					sessionStats: sessionStatsMap.get(account.id) ?? null,
+					sessionStats: sessionStatsById.get(account.id)?.stats ?? null,
+					sessionStatsAsOf: sessionStatsById.get(account.id)?.asOf ?? null,
+					sessionStatsUnavailable:
+						sessionStatsById.get(account.id)?.unavailable ?? false,
 					isPrimary: account.id === primaryId,
 				};
 			}),
@@ -1021,6 +1155,7 @@ export function createAccountPriorityUpdateHandler(dbOps: DatabaseOperations) {
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate priority input using the centralized validation function
 			// Check if priority is provided (required)
@@ -1031,7 +1166,7 @@ export function createAccountPriorityUpdateHandler(dbOps: DatabaseOperations) {
 
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ id: string }>(
+			const account = await db.getMain<{ id: string }>(
 				"SELECT id FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -1075,7 +1210,7 @@ async function assertAccountNameAvailable(
 	customEndpoint: string | null,
 ): Promise<Response | null> {
 	const db = dbOps.getAdapter();
-	const existing = await db.get<{ id: string }>(
+	const existing = await db.getMain<{ id: string }>(
 		`SELECT id FROM accounts
 		 WHERE name = ?
 		   AND provider = ?
@@ -1120,6 +1255,7 @@ export function createAccountAddHandler(
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -1270,6 +1406,7 @@ export function createAccountRemoveHandler(dbOps: DatabaseOperations) {
 		try {
 			// Parse and validate confirmation
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate confirmation string
 			const confirm = validateString(body.confirm, "confirm", {
@@ -1280,7 +1417,7 @@ export function createAccountRemoveHandler(dbOps: DatabaseOperations) {
 			// the actual stored name (defence-in-depth: a typo in the URL
 			// segment should fail with 404, not silently succeed).
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string }>(
+			const account = await db.getMain<{ name: string }>(
 				"SELECT name FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -1356,7 +1493,7 @@ export function createAccountPauseHandler(dbOps: DatabaseOperations) {
 		try {
 			// Get account name by ID
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string }>(
+			const account = await db.getMain<{ name: string }>(
 				"SELECT name FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -1391,7 +1528,7 @@ export function createAccountResumeHandler(dbOps: DatabaseOperations) {
 		try {
 			// Get account name by ID
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string }>(
+			const account = await db.getMain<{ name: string }>(
 				"SELECT name FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -1433,6 +1570,7 @@ export function createAccountRenameHandler(dbOps: DatabaseOperations) {
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate new name
 			const newName = validateString(body.name, "name", {
@@ -1451,7 +1589,7 @@ export function createAccountRenameHandler(dbOps: DatabaseOperations) {
 
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string }>(
+			const account = await db.getMain<{ name: string }>(
 				"SELECT name FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -1461,7 +1599,7 @@ export function createAccountRenameHandler(dbOps: DatabaseOperations) {
 			}
 
 			// Check if new name is already taken
-			const existingAccount = await db.get<{ id: string }>(
+			const existingAccount = await db.getMain<{ id: string }>(
 				"SELECT id FROM accounts WHERE name = ? AND id != ?",
 				[newName, accountId],
 			);
@@ -1522,6 +1660,7 @@ export function createZaiAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -1630,7 +1769,7 @@ export function createZaiAccountAddHandler(dbOps: DatabaseOperations) {
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -1706,6 +1845,7 @@ export function createOpenAIAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -1825,7 +1965,7 @@ export function createOpenAIAccountAddHandler(dbOps: DatabaseOperations) {
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -1901,6 +2041,7 @@ export function createVertexAIAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -1987,7 +2128,7 @@ export function createVertexAIAccountAddHandler(dbOps: DatabaseOperations) {
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -2052,6 +2193,7 @@ export function createMinimaxAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -2126,7 +2268,7 @@ export function createMinimaxAccountAddHandler(dbOps: DatabaseOperations) {
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -2200,6 +2342,7 @@ export function createDeepseekAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 			const name = validateString(body.name, "name", {
 				required: true,
 				minLength: 1,
@@ -2321,6 +2464,7 @@ export function createNanoGPTAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 			// Validate account name
 			const name = validateString(body.name, "name", {
 				required: true,
@@ -2429,7 +2573,7 @@ export function createNanoGPTAccountAddHandler(dbOps: DatabaseOperations) {
 				`Successfully added NanoGPT account: ${name} (Priority ${priority})`,
 			);
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -2505,6 +2649,7 @@ export function createAnthropicCompatibleAccountAddHandler(
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -2610,7 +2755,7 @@ export function createAnthropicCompatibleAccountAddHandler(
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -2687,6 +2832,7 @@ export function createMetaAccountAddHandler(dbOps: DatabaseOperations) {
 		let name: string | undefined;
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			name = validateString(body.name, "name", {
@@ -2796,7 +2942,7 @@ export function createMetaAccountAddHandler(dbOps: DatabaseOperations) {
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -2872,6 +3018,7 @@ export function createOllamaAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			const name = validateString(body.name, "name", {
 				required: true,
@@ -2962,7 +3109,7 @@ export function createOllamaAccountAddHandler(dbOps: DatabaseOperations) {
 				`Successfully added Ollama account: ${name} (Priority ${priority})`,
 			);
 
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -3032,6 +3179,7 @@ export function createOllamaCloudAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			const name = validateString(body.name, "name", {
 				required: true,
@@ -3112,7 +3260,7 @@ export function createOllamaCloudAccountAddHandler(dbOps: DatabaseOperations) {
 				`Successfully added Ollama Cloud account: ${name} (Priority ${priority})`,
 			);
 
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -3185,6 +3333,7 @@ export function createAccountAutoFallbackHandler(dbOps: DatabaseOperations) {
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate enabled parameter
 			const enabled = validateNumber(body.enabled, "enabled", {
@@ -3198,7 +3347,7 @@ export function createAccountAutoFallbackHandler(dbOps: DatabaseOperations) {
 
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string; provider: string }>(
+			const account = await db.getMain<{ name: string; provider: string }>(
 				"SELECT name, provider FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -3248,6 +3397,7 @@ export function createAccountCodexCreditDrainHandler(
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			const enabled = validateNumber(body.enabled, "enabled", {
 				required: true,
@@ -3259,7 +3409,7 @@ export function createAccountCodexCreditDrainHandler(
 			}
 
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string; provider: string }>(
+			const account = await db.getMain<{ name: string; provider: string }>(
 				"SELECT name, provider FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -3312,6 +3462,7 @@ export function createAccountAutoPauseOnOverageHandler(
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate enabled parameter
 			const enabled = validateNumber(body.enabled, "enabled", {
@@ -3325,7 +3476,7 @@ export function createAccountAutoPauseOnOverageHandler(
 
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string; provider: string }>(
+			const account = await db.getMain<{ name: string; provider: string }>(
 				"SELECT name, provider FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -3393,6 +3544,7 @@ export function createAccountPeakHoursPauseHandler(dbOps: DatabaseOperations) {
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate enabled parameter
 			const enabled = validateNumber(body.enabled, "enabled", {
@@ -3406,7 +3558,7 @@ export function createAccountPeakHoursPauseHandler(dbOps: DatabaseOperations) {
 
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string; provider: string }>(
+			const account = await db.getMain<{ name: string; provider: string }>(
 				"SELECT name, provider FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -3458,6 +3610,7 @@ export function createAccountBillingTypeHandler(dbOps: DatabaseOperations) {
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			const billingType = validateString(body.billingType, "billingType", {
 				required: true,
@@ -3472,7 +3625,7 @@ export function createAccountBillingTypeHandler(dbOps: DatabaseOperations) {
 
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string; provider: string }>(
+			const account = await db.getMain<{ name: string; provider: string }>(
 				"SELECT name, provider FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -3524,6 +3677,7 @@ export function createAccountCustomEndpointUpdateHandler(
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate custom endpoint
 			const customEndpoint = validateString(
@@ -3547,7 +3701,7 @@ export function createAccountCustomEndpointUpdateHandler(
 			);
 
 			const adapter = dbOps.getAdapter();
-			const account = await adapter.get<{
+			const account = await adapter.getMain<{
 				provider: string;
 			}>("SELECT provider FROM accounts WHERE id = ?", [accountId]);
 
@@ -3600,10 +3754,11 @@ export function createAccountModelMappingsUpdateHandler(
 	return async (req: Request, accountId: string): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Get account to verify it supports model mappings
 			const db = dbOps.getAdapter();
-			const account = await db.get<{
+			const account = await db.getMain<{
 				provider: string;
 				custom_endpoint: string | null;
 			}>("SELECT provider, custom_endpoint FROM accounts WHERE id = ?", [
@@ -3660,7 +3815,7 @@ export function createAccountForceResetRateLimitHandler(
 	return async (_req: Request, accountId: string): Promise<Response> => {
 		try {
 			const db = dbOps.getAdapter();
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -3753,7 +3908,7 @@ export function createAccountReloadHandler(dbOps: DatabaseOperations) {
 		try {
 			// Check if account exists
 			const db = dbOps.getAdapter();
-			const account = await db.get<{ name: string; provider: string }>(
+			const account = await db.getMain<{ name: string; provider: string }>(
 				"SELECT name, provider FROM accounts WHERE id = ?",
 				[accountId],
 			);
@@ -3871,6 +4026,7 @@ export function createBedrockAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -3995,7 +4151,7 @@ export function createBedrockAccountAddHandler(dbOps: DatabaseOperations) {
 			);
 
 			// Get the created account for response
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -4059,6 +4215,7 @@ export function createKiloAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -4151,7 +4308,7 @@ export function createKiloAccountAddHandler(dbOps: DatabaseOperations) {
 				`Successfully added Kilo Gateway account: ${name} (Priority ${priority})`,
 			);
 
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -4221,6 +4378,7 @@ export function createAlibabaCodingPlanAccountAddHandler(
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			const name = validateString(body.name, "name", {
 				required: true,
@@ -4308,7 +4466,7 @@ export function createAlibabaCodingPlanAccountAddHandler(
 				`Successfully added Alibaba Coding Plan account: ${name} (Priority ${priority})`,
 			);
 
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;
@@ -4376,6 +4534,7 @@ export function createOpenRouterAccountAddHandler(dbOps: DatabaseOperations) {
 	return async (req: Request): Promise<Response> => {
 		try {
 			const body = await req.json();
+			rejectRetiredModelMappingInput(body);
 
 			// Validate account name
 			const name = validateString(body.name, "name", {
@@ -4471,7 +4630,7 @@ export function createOpenRouterAccountAddHandler(dbOps: DatabaseOperations) {
 				`Successfully added OpenRouter account: ${name} (Priority ${priority})`,
 			);
 
-			const account = await db.get<{
+			const account = await db.getMain<{
 				id: string;
 				name: string;
 				provider: string;

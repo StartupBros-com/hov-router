@@ -1,23 +1,23 @@
-import { isUsageExhausted } from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { errorResponse, jsonResponse } from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
+import { isUsageExhausted } from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
+import { errorResponse, jsonResponse } from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
 import {
 	chatGptAccountHashOf,
 	getRepresentativeUsageSnapshotForProvider,
 	isCodexSubscriptionEndpoint,
 	resolveCodexEndpoint,
 	usageCache,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import {
 	hasCodexResetRedeemer,
 	redeemCodexResetCreditForAccount,
 	refreshCodexUsageForAccount,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import type {
 	RedeemResetErrorBody,
 	RedeemResetErrorReason,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	type CodexResetRedemptionDeps,
 	CodexResetRedemptionService,
@@ -135,7 +135,7 @@ export function createAccountRedeemResetHandler(
 			);
 		}
 		try {
-			const account = await dbOps.getAdapter().get<{
+			const account = await dbOps.getAdapter().getMain<{
 				name: string;
 				provider: string;
 				custom_endpoint: string | null;

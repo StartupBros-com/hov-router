@@ -1,11 +1,10 @@
-// Leaf-module subpath imports, NOT the core barrel: this file is evaluated
-// while the @better-ccflare/types barrel is still initializing, and core's
+// Leaf-module subpath import, NOT the core barrel: this file is evaluated
+// while the @hov-router/types barrel is still initializing, and core's
 // barrel loads core/strategy.ts, which reads StrategyName from the types
 // barrel at module scope — an uninitialized binding at that point. Importing
-// the two leaf modules directly keeps core/strategy.ts (and the rest of
+// the leaf module directly keeps core/strategy.ts (and the rest of
 // core's barrel) out of the types-barrel evaluation window.
-import { isValidClaudeModel } from "@better-ccflare/core/model-mappings";
-import { CLAUDE_MODEL_IDS } from "@better-ccflare/core/models";
+import { CLAUDE_MODEL_IDS } from "@hov-router/core/models";
 
 export type AgentSource = "global" | "workspace" | "plugin";
 
@@ -73,11 +72,6 @@ export type AgentModelSource = "preference" | "frontmatter" | "inherit";
 
 // Pattern-based validation - accepts any string (validation done at runtime)
 export type AllowedModel = string;
-
-// Add validation function for backward compatibility with existing code
-export function isAllowedModel(model: string): model is AllowedModel {
-	return isValidClaudeModel(model);
-}
 
 // Export commonly used models for defaults (not for validation)
 export const COMMON_MODELS = [

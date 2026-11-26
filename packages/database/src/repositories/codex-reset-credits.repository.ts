@@ -106,7 +106,7 @@ function toCredit(row: Raw): CodexResetCreditRow {
 
 export class CodexResetCreditsRepository extends BaseRepository<never> {
 	async getState(accountId: string): Promise<CodexResetCreditState | null> {
-		const row = await this.get<Raw>(
+		const row = await this.getMain<Raw>(
 			`SELECT * FROM codex_reset_credit_state WHERE account_id = ?`,
 			[accountId],
 		);
@@ -114,7 +114,7 @@ export class CodexResetCreditsRepository extends BaseRepository<never> {
 	}
 
 	async listAllStates(): Promise<CodexResetCreditState[]> {
-		const rows = await this.query<Raw>(
+		const rows = await this.queryMain<Raw>(
 			`SELECT * FROM codex_reset_credit_state ORDER BY account_id`,
 		);
 		return rows.map(toState);
@@ -208,7 +208,7 @@ export class CodexResetCreditsRepository extends BaseRepository<never> {
 		accountId: string,
 		options: { includeVanished: boolean },
 	): Promise<CodexResetCreditRow[]> {
-		const rows = await this.query<Raw>(
+		const rows = await this.queryMain<Raw>(
 			`SELECT * FROM codex_reset_credits
 			 WHERE account_id = ?${options.includeVanished ? "" : " AND vanished_at IS NULL"}
 			 ORDER BY first_seen_at, credit_id`,
@@ -218,7 +218,7 @@ export class CodexResetCreditsRepository extends BaseRepository<never> {
 	}
 
 	async listLiveCredits(): Promise<CodexResetCreditRow[]> {
-		const rows = await this.query<Raw>(
+		const rows = await this.queryMain<Raw>(
 			`SELECT * FROM codex_reset_credits WHERE vanished_at IS NULL
 			 ORDER BY account_id, first_seen_at, credit_id`,
 		);
@@ -312,7 +312,7 @@ export class CodexResetCreditsRepository extends BaseRepository<never> {
 		seenAfter: number,
 		expiringAfter: number,
 	): Promise<CodexWaveSummary[]> {
-		const rows = await this.query<Raw>(
+		const rows = await this.queryMain<Raw>(
 			`SELECT wave_id,
 			        MIN(expires_at) AS expires_at,
 			        MAX(first_seen_at) AS newest_first_seen_at,
@@ -337,7 +337,7 @@ export class CodexResetCreditsRepository extends BaseRepository<never> {
 		accountId: string,
 		since: number,
 	): Promise<boolean> {
-		const row = await this.get<Raw>(
+		const row = await this.getMain<Raw>(
 			`SELECT 1 AS found FROM codex_reset_credits
 			 WHERE account_id = ?
 			   AND vanish_reason IN ('redeemed_elsewhere', 'redeemed_by_router')
@@ -353,7 +353,7 @@ export class CodexResetCreditsRepository extends BaseRepository<never> {
 		grantedAt: number,
 		windowMs: number,
 	): Promise<string | null> {
-		const row = await this.get<{ wave_id: string }>(
+		const row = await this.getMain<{ wave_id: string }>(
 			`SELECT wave_id FROM codex_reset_credits
 			 WHERE wave_id IS NOT NULL AND granted_at IS NOT NULL
 			   AND ABS(granted_at - CAST(? AS BIGINT)) <= CAST(? AS BIGINT)

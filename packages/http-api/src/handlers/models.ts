@@ -2,18 +2,18 @@ import {
 	listCatalogueModels,
 	validateApiKey,
 	validateEndpointUrl,
-} from "@better-ccflare/core";
-import { ValidationError } from "@better-ccflare/errors";
+} from "@hov-router/core";
+import { ValidationError } from "@hov-router/errors";
 import {
 	BadGateway,
 	BadRequest,
 	errorResponse,
 	jsonResponse,
-} from "@better-ccflare/http-common";
+} from "@hov-router/http-common";
 import {
 	fetchOpenAICompatibleModelsPreview,
 	OpenAICompatibleModelDiscoveryError,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import type { APIContext } from "../types";
 
 type CodexListing = NonNullable<
@@ -311,7 +311,7 @@ export function createModelsRefreshHandler(context: APIContext) {
  * account id: this exists precisely for the moment before an account is
  * saved, in the add-account wizard. It shares no cache, state, or derived
  * routing-default plumbing with the saved-account discovery path above —
- * see fetchOpenAICompatibleModelsPreview in @better-ccflare/proxy. A
+ * see fetchOpenAICompatibleModelsPreview in @hov-router/proxy. A
  * successful call is not capability evidence: it grants no routing
  * eligibility and creates nothing.
  *

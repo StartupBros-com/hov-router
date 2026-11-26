@@ -7,7 +7,7 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type { ProviderServerToolCapabilityContext } from "@better-ccflare/providers";
+import type { ProviderServerToolCapabilityContext } from "@hov-router/providers";
 import type {
 	Account,
 	ComboFamily,
@@ -15,14 +15,14 @@ import type {
 	ComboWithSlots,
 	ServerToolCapabilityProof,
 	ServerToolCapabilityTuple,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import type { UsageCollector } from "../usage-collector";
 
 // Unit-test loading must not require the CLI build's ignored embedded worker
 // artifacts. handleProxy does not use DatabaseFactory; keep that package at its
 // boundary before dynamically loading the proxy module.
-const providersModule = await import("@better-ccflare/providers");
+const providersModule = await import("@hov-router/providers");
 const { usageCache } = providersModule;
 const usageCollectorModule = await import("../usage-collector");
 const { handleProxy } = await import("../proxy");
@@ -77,7 +77,6 @@ function makeAccount(id: string, fallbacks: string[] = [FABLE, OPUS]): Account {
 		custom_endpoint: null,
 		model_mappings: JSON.stringify({ fable: fallbacks }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

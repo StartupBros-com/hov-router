@@ -3,8 +3,8 @@ import {
 	BUFFER_SIZES,
 	type CacheFlightCohortSealReceipt,
 	requestEvents,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import { ANTHROPIC_SEMANTIC_LIVENESS_ERROR_FRAME } from "../anthropic-semantic-liveness";
 import {
 	ANTHROPIC_PRE_COMMIT_TIMEOUT_ENV,
@@ -106,7 +106,6 @@ describe("forwardToClient usage-collector protocol", () => {
 			custom_endpoint: null,
 			model_mappings: null,
 			cross_region_mode: null,
-			model_fallbacks: null,
 			billing_type: null,
 			pause_reason: null,
 			refresh_token_issued_at: null,
@@ -1912,7 +1911,6 @@ describe("forwardToClient passive model-catalog capture", () => {
 			custom_endpoint: null,
 			model_mappings: null,
 			cross_region_mode: null,
-			model_fallbacks: null,
 			billing_type: null,
 			pause_reason: null,
 			refresh_token_issued_at: null,

@@ -24,7 +24,6 @@ import {
 	LATEST_SONNET_MODEL,
 	MAX_MODEL_MAPPING_CANDIDATES,
 	mapModelName,
-	parseCustomEndpointData,
 	parseModelMappings,
 	resolveCompatibleEndpoint,
 	resolveFamilyAliasModel,
@@ -32,8 +31,8 @@ import {
 	supportsForcedToolChoice,
 	ValidationError,
 	validatePriority,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import { validateModelMappings } from "./validation";
 
 const candidateModels = (count: number) =>
@@ -250,17 +249,15 @@ describe("Model Mapping", () => {
 				id: "account-owned-mappings",
 				name: "account-owned-mappings",
 				model_mappings: JSON.stringify({
-					opus: ["account-opus", "account-opus-backup"],
-					haiku: "account-haiku",
-				}),
-				custom_endpoint: JSON.stringify({
-					modelMappings: { haiku: "legacy-haiku" },
-				}),
-				model_fallbacks: JSON.stringify({
-					opus: "account-opus-fallback",
+					opus: [
+						"account-opus",
+						"account-opus-backup",
+						"account-opus-fallback",
+					],
 					sonnet: "account-sonnet-fallback",
-					haiku: "account-haiku-fallback",
+					haiku: ["legacy-haiku", "account-haiku-fallback"],
 				}),
+				custom_endpoint: null,
 			} as Account;
 			const ownedMappings = {
 				opus: ["account-opus", "account-opus-backup", "account-opus-fallback"],
@@ -271,13 +268,11 @@ describe("Model Mapping", () => {
 			expect(getModelMappings(account)).toEqual({
 				...ownedMappings,
 				fable: "env-only",
-				sonnet: ["env-sonnet", "account-sonnet-fallback"],
 			});
 			expect(
 				getAccountOwnedModelMappings({
 					...account,
 					model_mappings: null,
-					model_fallbacks: null,
 					custom_endpoint: null,
 				}),
 			).toEqual({});
@@ -299,7 +294,6 @@ describe("Model Mapping", () => {
 				"claude-opus-special": "physical-exact",
 				opus: ["physical-family", "physical-fallback"],
 			}),
-			model_fallbacks: null,
 			custom_endpoint: null,
 		} as Account;
 
@@ -337,26 +331,6 @@ describe("Model Mapping", () => {
 	test("parseModelMappings handles null/empty", () => {
 		expect(parseModelMappings(null)).toBeNull();
 		expect(parseModelMappings("")).toBeNull();
-	});
-
-	test("parseCustomEndpointData preserves its string-only public runtime contract", () => {
-		expect(
-			parseCustomEndpointData(
-				JSON.stringify({
-					endpoint: "https://example.invalid",
-					modelMappings: {
-						sonnet: ["physical-primary", "physical-fallback"],
-						opus: "physical-opus",
-					},
-				}),
-			),
-		).toEqual({
-			endpoint: "https://example.invalid",
-			modelMappings: {
-				sonnet: "physical-primary",
-				opus: "physical-opus",
-			},
-		});
 	});
 
 	test("validateModelMappings accepts exactly 16 candidates", () => {
@@ -402,7 +376,6 @@ describe("Model Mapping", () => {
 				id: "runtime-defense",
 				name: "runtime-defense",
 				model_mappings: null,
-				model_fallbacks: null,
 				custom_endpoint: JSON.stringify({
 					endpoint: "https://example.invalid",
 					modelMappings: { opus: candidateModels(17) },
@@ -417,54 +390,6 @@ describe("Model Mapping", () => {
 			} else {
 				process.env.OPENAI_COMPATIBLE_MODEL_MAPPINGS = previous;
 			}
-		}
-	});
-
-	test("retains bounded custom-endpoint candidates for internal routing", () => {
-		const account = {
-			id: "legacy-candidates",
-			name: "legacy-candidates",
-			model_mappings: null,
-			model_fallbacks: null,
-			custom_endpoint: JSON.stringify({
-				endpoint: "https://example.invalid",
-				modelMappings: {
-					sonnet: ["physical-primary", "physical-fallback"],
-				},
-			}),
-		} as Account;
-
-		expect(getModelList("claude-sonnet-4-5", account)).toEqual([
-			"physical-primary",
-			"physical-fallback",
-		]);
-	});
-
-	test("does not append deprecated model_fallbacks beyond the candidate limit", () => {
-		const account = {
-			id: "bounded-fallback",
-			name: "bounded-fallback",
-			model_mappings: JSON.stringify({ sonnet: candidateModels(16) }),
-			model_fallbacks: JSON.stringify({ sonnet: "overflow-fallback" }),
-			custom_endpoint: null,
-		} as Account;
-
-		expect(getModelList("claude-sonnet-4-5", account)).toEqual(
-			candidateModels(16),
-		);
-	});
-
-	test("ignores persisted model_fallbacks values that are arrays or non-strings", () => {
-		for (const invalidFallback of [["fallback"], 42]) {
-			const account = {
-				id: "invalid-fallback",
-				name: "invalid-fallback",
-				model_mappings: JSON.stringify({ sonnet: "primary" }),
-				model_fallbacks: JSON.stringify({ sonnet: invalidFallback }),
-				custom_endpoint: null,
-			} as Account;
-
-			expect(getModelList("claude-sonnet-4-5", account)).toEqual(["primary"]);
 		}
 	});
 
@@ -1114,7 +1039,6 @@ describe("Vercel AI Gateway catch-all recipe (U4)", () => {
 		name: "vercel-gateway",
 		provider: "openai-compatible",
 		model_mappings: JSON.stringify(vercelMappings),
-		model_fallbacks: null,
 		custom_endpoint: JSON.stringify({
 			endpoint: "https://ai-gateway.vercel.sh/v1",
 		}),
@@ -1154,7 +1078,6 @@ describe("Vercel AI Gateway catch-all recipe (U4)", () => {
 			name: "unmapped",
 			provider: "openai-compatible",
 			model_mappings: null,
-			model_fallbacks: null,
 			custom_endpoint: null,
 		} as Account;
 

@@ -9,12 +9,12 @@
  * works around it with a side-effect import.
  *
  * The handler needs runtime (not type-only) imports for the column-narrowing
- * helpers and takes them from the cycle-free `@better-ccflare/types/request`
+ * helpers and takes them from the cycle-free `@hov-router/types/request`
  * subpath.
  *
  * Why the first test is a SOURCE check and not just a cold import: measured,
  * the handler loads fine with the barrel import too, because `jsonResponse`
- * from `@better-ccflare/http-common` sits one line above and pulls core in
+ * from `@hov-router/http-common` sits one line above and pulls core in
  * first. A cold import alone therefore passes either way and would guard
  * nothing — it only proves the module loads today, by accident of import
  * ORDER. Asserting the import specifier is what actually catches a revert; the
@@ -56,8 +56,8 @@ describe("requests handler — cycle-free imports", () => {
 	it("takes the narrowing helpers from the subpath, never the package barrel", async () => {
 		const source = await Bun.file(HANDLER_SOURCE).text();
 
-		expect(source).toContain('from "@better-ccflare/types/request"');
-		// A bare `from "@better-ccflare/types"` (barrel) would reintroduce the
+		expect(source).toContain('from "@hov-router/types/request"');
+		// A bare `from "@hov-router/types"` (barrel) would reintroduce the
 		// dependency on some earlier import happening to load core first.
 		expect(source).not.toMatch(/from ["']@better-ccflare\/types["']/);
 	});
@@ -74,7 +74,7 @@ describe("requests handler — cycle-free imports", () => {
 
 	it("resolves the subpath without evaluating the types barrel", async () => {
 		const { exitCode, stderr, timedOut } = await coldImport(
-			"@better-ccflare/types/request",
+			"@hov-router/types/request",
 		);
 
 		expect(timedOut).toBe(false);

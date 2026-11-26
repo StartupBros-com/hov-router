@@ -1,15 +1,15 @@
-import { isFirstPartyAnthropicAccount } from "@better-ccflare/core";
+import { isFirstPartyAnthropicAccount } from "@hov-router/core";
 import type {
 	Account,
 	RateLimitReason,
 	RouteCircuitRecoveryHint,
 	RoutingSelectionDiagnostics,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	RECOVERY_SCOPE_HEADER,
 	RECOVERY_STATUS_EXHAUSTED,
 	RECOVERY_STATUS_HEADER,
-} from "@better-ccflare/types/routing-recovery";
+} from "@hov-router/types/routing-recovery";
 import { sanitizeAnthropicRetryAfterSeconds } from "../anthropic-degraded-mode";
 import type { RoutingCapacityContext } from "./account-selector";
 import type { NativeQuotaTerminalPresentation } from "./native-quota-policy";
@@ -267,7 +267,6 @@ interface AutomaticRecovery {
 // or removal fails typecheck here instead of silently drifting out of sync.
 const GLOBAL_COOLDOWN_REASONS = new Set<RateLimitReason>([
 	"upstream_429_with_reset",
-	"upstream_429_no_reset_default_5h",
 	"upstream_429_no_reset_probe_cooldown",
 	"all_models_exhausted_429",
 	"upstream_529_overloaded_with_reset",

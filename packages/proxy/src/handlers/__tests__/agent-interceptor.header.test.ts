@@ -2,12 +2,9 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
-import { agentRegistry } from "@better-ccflare/agents";
-import {
-	DatabaseFactory,
-	type DatabaseOperations,
-} from "@better-ccflare/database";
-import type { Agent } from "@better-ccflare/types";
+import { agentRegistry } from "@hov-router/agents";
+import { DatabaseFactory, type DatabaseOperations } from "@hov-router/database";
+import type { Agent } from "@hov-router/types";
 import type { ModelCatalog } from "../../model-catalog";
 import { interceptAndModifyRequest } from "../agent-interceptor";
 
@@ -17,11 +14,11 @@ const TEST_DB_PATH = join(
 );
 
 /**
- * Tests for the X-Anthropic-Agent-Id explicit-attribution header path:
+ * Tests for the X-Better-Ccflare-Agent-Id explicit-attribution header path:
  * header takes precedence over system-prompt matching, honors model
  * preference substitution, and is bounded by a length cap.
  */
-describe("Agent Interceptor - X-Anthropic-Agent-Id Header", () => {
+describe("Agent Interceptor - X-Better-Ccflare-Agent-Id Header", () => {
 	let dbOps: DatabaseOperations;
 
 	function createMockRequestBody(
@@ -85,7 +82,7 @@ describe("Agent Interceptor - X-Anthropic-Agent-Id Header", () => {
 			const result = await interceptAndModifyRequest(
 				buffer,
 				dbOps,
-				headers({ "x-anthropic-agent-id": "my-router-agent" }),
+				headers({ "x-better-ccflare-agent-id": "my-router-agent" }),
 			);
 			expect(result.agentUsed).toBe("my-router-agent");
 			expect(result.agentAttributionSource).toBe("header_agent");
@@ -97,7 +94,7 @@ describe("Agent Interceptor - X-Anthropic-Agent-Id Header", () => {
 			const result = await interceptAndModifyRequest(
 				buffer,
 				dbOps,
-				headers({ "X-Anthropic-Agent-Id": "case-insensitive-agent" }),
+				headers({ "X-Better-Ccflare-Agent-Id": "case-insensitive-agent" }),
 			);
 			expect(result.agentUsed).toBe("case-insensitive-agent");
 			expect(result.agentAttributionSource).toBe("header_agent");
@@ -209,7 +206,7 @@ describe("Agent Interceptor - X-Anthropic-Agent-Id Header", () => {
 			const result = await interceptAndModifyRequest(
 				buffer,
 				dbOps,
-				headers({ "x-anthropic-agent-id": "preferred-agent" }),
+				headers({ "x-better-ccflare-agent-id": "preferred-agent" }),
 				{ getModelCatalog: async () => nonVetoingCatalog() },
 			);
 			expect(result.agentUsed).toBe("preferred-agent");
@@ -230,7 +227,7 @@ describe("Agent Interceptor - X-Anthropic-Agent-Id Header", () => {
 			const result = await interceptAndModifyRequest(
 				buffer,
 				dbOps,
-				headers({ "x-anthropic-agent-id": "no-pref-agent" }),
+				headers({ "x-better-ccflare-agent-id": "no-pref-agent" }),
 			);
 			expect(result.agentUsed).toBe("no-pref-agent");
 			expect(result.agentAttributionSource).toBe("header_agent");
@@ -251,7 +248,7 @@ describe("Agent Interceptor - X-Anthropic-Agent-Id Header", () => {
 			const result = await interceptAndModifyRequest(
 				buffer,
 				dbOps,
-				headers({ "x-anthropic-agent-id": "same-model-agent" }),
+				headers({ "x-better-ccflare-agent-id": "same-model-agent" }),
 			);
 			expect(result.appliedModel).toBe("claude-3-5-sonnet-20241022");
 			expect(result.modifiedBody).toBe(buffer);
@@ -264,7 +261,7 @@ describe("Agent Interceptor - X-Anthropic-Agent-Id Header", () => {
 			const result = await interceptAndModifyRequest(
 				buffer,
 				dbOps,
-				headers({ "x-anthropic-agent-id": "  trimmed-agent  " }),
+				headers({ "x-better-ccflare-agent-id": "  trimmed-agent  " }),
 			);
 			expect(result.agentUsed).toBe("trimmed-agent");
 			expect(result.agentAttributionSource).toBe("header_agent");
@@ -276,7 +273,7 @@ describe("Agent Interceptor - X-Anthropic-Agent-Id Header", () => {
 			const result = await interceptAndModifyRequest(
 				buffer,
 				dbOps,
-				headers({ "x-anthropic-agent-id": longId }),
+				headers({ "x-better-ccflare-agent-id": longId }),
 			);
 			expect(result.agentUsed).toHaveLength(256);
 			expect(result.agentUsed).toBe("a".repeat(256));
@@ -288,7 +285,7 @@ describe("Agent Interceptor - X-Anthropic-Agent-Id Header", () => {
 			const result = await interceptAndModifyRequest(
 				buffer,
 				dbOps,
-				headers({ "x-anthropic-agent-id": "   " }),
+				headers({ "x-better-ccflare-agent-id": "   " }),
 			);
 			// Falls through to system-prompt path => no agent from a benign prompt
 			expect(result.agentUsed).toBeNull();
@@ -372,7 +369,7 @@ describe("Agent Interceptor - X-Anthropic-Agent-Id Header", () => {
 			expect(result.agentAttributionSource).toBe("header_agent");
 		});
 
-		test("legacy x-anthropic-agent-id also wins over session header", async () => {
+		test("ignores legacy x-anthropic-agent-id and uses the session header", async () => {
 			const buffer = toArrayBuffer(createMockRequestBody());
 			const result = await interceptAndModifyRequest(
 				buffer,
@@ -382,8 +379,8 @@ describe("Agent Interceptor - X-Anthropic-Agent-Id Header", () => {
 					"x-claude-code-session-id": "session-loses",
 				}),
 			);
-			expect(result.agentUsed).toBe("legacy-agent-wins");
-			expect(result.agentAttributionSource).toBe("header_agent");
+			expect(result.agentUsed).toBe("session-loses");
+			expect(result.agentAttributionSource).toBe("session_header");
 		});
 
 		test("trims surrounding whitespace on the session id", async () => {

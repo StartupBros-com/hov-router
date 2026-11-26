@@ -1,7 +1,4 @@
-import type {
-	RateLimitReason,
-	RoutingAttemptCause,
-} from "@better-ccflare/types";
+import type { RateLimitReason, RoutingAttemptCause } from "@hov-router/types";
 
 export type ErrorSeverity = "warning" | "error";
 
@@ -42,13 +39,6 @@ const KNOWN_ERROR_META: Record<
 		suggestion:
 			"Restore this account's billing or credits; other eligible accounts remain available for traffic.",
 		severity: "error",
-	},
-	upstream_429_no_reset_default_5h: {
-		title: "Provider rate limit (legacy 5h ban)",
-		description:
-			"Legacy ban from better-ccflare ≤ v3.5.x, before HoV Router. No longer emitted by current code.",
-		suggestion: "Historical record — no action needed.",
-		severity: "warning",
 	},
 	all_models_exhausted_429: {
 		title: "All fallback models rate-limited",
@@ -511,15 +501,6 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 		suggestion: "No action needed for an occasional one.",
 		severity: "warning",
 	},
-	quality_route_unavailable: {
-		title: "Quality route unavailable (retired)",
-		description:
-			"Written by the Auto quality lane, which has since been retired. " +
-			"Current builds never write this code, so these rows come from an " +
-			"older build.",
-		suggestion: "No action needed.",
-		severity: "warning",
-	},
 };
 
 type FamilyEntry = Omit<ErrorMeta, "description"> & { detail: string };
@@ -803,12 +784,14 @@ function getMidstreamMeta(errorType: string): ErrorMeta {
 
 function getUpstreamHttpMeta(value: string): ErrorMeta {
 	// describeUpstreamFailure (packages/proxy/src/upstream-error-observability.ts):
-	// `upstream_http_<status>`, then ` type=<type>` and ` code=<code>`.
+	// `upstream_http_<status>`, then ` type=<type>`, ` code=<code>` and
+	// ` param=<field>`.
 	const [status = "", ...fields] = value.split(" ");
 	const field = (name: string) =>
 		fields.find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1);
 	const type = field("type");
 	const code = field("code");
+	const param = field("param");
 	const statusNumber = Number(status);
 	const overloaded = statusNumber === 529 || type === "overloaded_error";
 	const serverSide = overloaded || statusNumber >= 500;
@@ -828,6 +811,7 @@ function getUpstreamHttpMeta(value: string): ErrorMeta {
 	const details = [
 		...(type ? [`error type ${type}`] : []),
 		...(code ? [`code ${code}`] : []),
+		...(param ? [`rejected field ${param}`] : []),
 	].join(" and ");
 	return {
 		title,
@@ -835,13 +819,13 @@ function getUpstreamHttpMeta(value: string): ErrorMeta {
 			`The provider answered HTTP ${status}` +
 			(details ? ` with ${details}` : "") +
 			", and the router passed that reply to the client. This error line " +
-			"keeps only the status, error type and code, never the provider's " +
-			"message text.",
+			"keeps only the status, error type, code and the name of the field " +
+			"the provider rejected, never the provider's message text.",
 		suggestion: serverSide
 			? "This is trouble on the provider's side. Occasional ones need no " +
 				"action; if they repeat, check the provider's status page."
-			: "The error type and code say what the provider objected to. Check the " +
-				"request and the account at the provider.",
+			: "The error type, code and rejected field say what the provider " +
+				"objected to. Check the request and the account at the provider.",
 		severity: overloaded ? "warning" : "error",
 	};
 }

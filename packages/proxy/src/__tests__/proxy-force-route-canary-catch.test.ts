@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import { usageCache } from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+import { usageCache } from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import { observeCachePacing } from "../cache-pacing";
 import type { ProxyContext } from "../handlers";
 import { handleProxy } from "../proxy";
@@ -44,7 +44,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -424,9 +423,6 @@ describe("handleProxy: force-route 503 retry instruction", () => {
 			"needs reauthentication",
 			{ paused: true, pause_reason: "oauth_invalid_grant" },
 		],
-		// Nothing lifts a failure-threshold pause on its own since the
-		// auto-refresh scheduler was removed (Refs #718); it waits for an operator.
-		["failure-threshold", { paused: true, pause_reason: "failure_threshold" }],
 	] as const)("tells the client not to retry a %s pause", async (_label, state) => {
 		const response = await forceRoute(makeAccount(state));
 
