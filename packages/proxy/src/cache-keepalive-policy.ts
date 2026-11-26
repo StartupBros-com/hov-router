@@ -1,5 +1,5 @@
-import type { Config } from "@better-ccflare/config";
-import type { CacheFlightKeepalivePolicySnapshot } from "@better-ccflare/core";
+import type { Config } from "@hov-router/config";
+import type { CacheFlightKeepalivePolicySnapshot } from "@hov-router/core";
 
 export type CacheKeepalivePolicyConfig = Pick<
 	Config,

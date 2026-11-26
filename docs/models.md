@@ -113,7 +113,7 @@ export type ClaudeModelId = (typeof CLAUDE_MODEL_IDS)[keyof typeof CLAUDE_MODEL_
 ### Getting a Model's Display Name
 
 ```typescript
-import { getModelDisplayName, CLAUDE_MODEL_IDS } from "@better-ccflare/core";
+import { getModelDisplayName, CLAUDE_MODEL_IDS } from "@hov-router/core";
 
 const modelId = CLAUDE_MODEL_IDS.SONNET_4;
 const displayName = getModelDisplayName(modelId);
@@ -123,7 +123,7 @@ const displayName = getModelDisplayName(modelId);
 ### Validating a Model ID
 
 ```typescript
-import { isValidModelId } from "@better-ccflare/core";
+import { isValidModelId } from "@hov-router/core";
 
 if (isValidModelId("claude-3-5-sonnet-20241022")) {
     // This is a valid model ID
@@ -133,7 +133,7 @@ if (isValidModelId("claude-3-5-sonnet-20241022")) {
 ### Using the Model Type
 
 ```typescript
-import type { ClaudeModelId } from "@better-ccflare/core";
+import type { ClaudeModelId } from "@hov-router/core";
 
 function processModel(modelId: ClaudeModelId) {
     // TypeScript knows this is a valid model ID

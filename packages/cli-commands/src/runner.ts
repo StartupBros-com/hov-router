@@ -1,5 +1,5 @@
-import { COMMAND_NAME } from "@better-ccflare/core/product-identity";
-import type { ComboFamily } from "@better-ccflare/types";
+import { COMMAND_NAME } from "@hov-router/core/product-identity";
+import type { ComboFamily } from "@hov-router/types";
 import type { CreatedAccountIdentity } from "./commands/account";
 import {
 	createManagedAccountRoutingReviewedSelection,

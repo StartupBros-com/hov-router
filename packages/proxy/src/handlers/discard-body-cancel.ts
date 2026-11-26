@@ -2,7 +2,7 @@ import {
 	type DrainReaderOptions,
 	drainReader,
 	getResponseDrainTransport,
-} from "@better-ccflare/providers/stream-drain";
+} from "@hov-router/providers/stream-drain";
 
 /**
  * Best-effort drain of a discarded response body to release off-heap backing
@@ -60,7 +60,7 @@ import {
  *
  * Lives in its own module so the regression test can import the helper
  * directly without pulling in the proxy-operations.ts transitive
- * dependency chain (which loads cacheBodyStore → @better-ccflare/database,
+ * dependency chain (which loads cacheBodyStore → @hov-router/database,
  * and that module fails to initialise in worktrees where `bun install`
  * has not run). The 13 discard sites in proxy-operations.ts import this
  * helper and call it before each `return null;`.

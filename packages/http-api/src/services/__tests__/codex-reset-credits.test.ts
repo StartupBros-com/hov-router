@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { DatabaseOperations } from "@better-ccflare/database";
+import { DatabaseOperations } from "@hov-router/database";
 import type {
 	CodexResetCredit,
 	CodexResetCreditListResult,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import {
 	assessBankedResets,
 	CodexResetCreditObserver,

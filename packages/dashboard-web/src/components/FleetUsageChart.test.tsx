@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { FleetAccountUsageSeries } from "@better-ccflare/types";
+import type { FleetAccountUsageSeries } from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CHART_COLORS } from "../constants";
 import { buildFleetChartData, FleetUsageChart } from "./FleetUsageChart";

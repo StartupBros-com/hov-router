@@ -5,7 +5,7 @@ import type {
 	ComboMembershipReasonCode,
 	ComboMembershipSource,
 	ComboRoutingAvailabilityReason,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { getAccountFamilyRoutingStates } from "../../../../dashboard-web/src/components/accounts/account-routing";
 import {
 	type ManagedRoutingAccountProjection,

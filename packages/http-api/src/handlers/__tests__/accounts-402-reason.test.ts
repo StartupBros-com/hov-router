@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { usageCache } from "@better-ccflare/providers";
+import type { Config } from "@hov-router/config";
+import type { DatabaseOperations } from "@hov-router/database";
+import { usageCache } from "@hov-router/providers";
 import { createAccountsListHandler } from "../accounts";
 
 describe("accounts API 402 cooldown reason", () => {

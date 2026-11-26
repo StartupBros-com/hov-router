@@ -1,4 +1,4 @@
-import type { ComboFamilyAssignment } from "@better-ccflare/types";
+import type { ComboFamilyAssignment } from "@hov-router/types";
 import type { PillTone } from "../ui/status-pill";
 
 /** Managed routing is the active, product-level mode; Manual is the default. */

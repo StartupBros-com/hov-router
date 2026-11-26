@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { TIME_CONSTANTS } from "@better-ccflare/core";
+import { TIME_CONSTANTS } from "@hov-router/core";
 
 export const CODEX_SINGLE_ORCHESTRATION_ROOT_ENV =
 	"CCFLARE_CODEX_SINGLE_ORCHESTRATION_ROOT";

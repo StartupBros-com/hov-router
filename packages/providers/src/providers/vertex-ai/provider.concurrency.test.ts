@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import { materializeProviderAttemptPlan } from "../../provider-attempt-plan";
 import type { ProviderAttemptPlanContext } from "../../types";
 import { VertexAIProvider } from "./provider";

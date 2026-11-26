@@ -1,15 +1,11 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import { getModelList } from "@better-ccflare/core";
+import { getModelList } from "@hov-router/core";
 import {
 	getProvider,
 	registerProvider,
 	usageCache,
-} from "@better-ccflare/providers";
-import type {
-	Account,
-	ComboFamily,
-	ComboWithSlots,
-} from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account, ComboFamily, ComboWithSlots } from "@hov-router/types";
 import { AnthropicDegradedModeCoordinator } from "../anthropic-degraded-mode";
 import { DegradedOwnerOverlay } from "../degraded-owner-overlay";
 import type { ProxyContext } from "../handlers";

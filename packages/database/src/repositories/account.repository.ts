@@ -1,4 +1,4 @@
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 import {
 	type Account,
 	type AccountRow,
@@ -7,7 +7,7 @@ import {
 	parseExtraUsageHoldState,
 	type RateLimitReason,
 	toAccount,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { BaseRepository } from "./base.repository";
 
 const log = new Logger("AccountRepository");

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type {
-	Account,
-	RoutingSelectionDiagnostics,
-} from "@better-ccflare/types";
+import type { Account, RoutingSelectionDiagnostics } from "@hov-router/types";
 import type { RoutingCapacityContext } from "../account-selector";
 import type { RequestRateLimitOutcome } from "../rate-limit-scope";
 import {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	MODEL_SCOPED_DEPLETION_TTL_MS,
 	type UsageSnapshot,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import {
 	boundedAccountHoldReset,
 	classifyPreByte429,

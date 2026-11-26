@@ -1,11 +1,11 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 import type {
 	Account,
 	Combo,
 	ComboFamilyAssignment,
 	ComboSlot,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { createSlotAddHandler, createSlotUpdateHandler } from "../combos";
 
 const combo: Combo = {

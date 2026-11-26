@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Account, EffectiveComboMember } from "@better-ccflare/types";
+import type { Account, EffectiveComboMember } from "@hov-router/types";
 import { validateNativeQuotaRouteShape } from "./native-quota-route-shape";
 
 const account = (id: string, overrides: Partial<Account> = {}) =>

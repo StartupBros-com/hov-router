@@ -1,4 +1,4 @@
-import type { FleetAccountUsageSeries } from "@better-ccflare/types";
+import type { FleetAccountUsageSeries } from "@hov-router/types";
 import { useMemo } from "react";
 import { CHART_COLORS } from "../constants";
 import {

@@ -1,5 +1,5 @@
-import { getModelFamily } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import { getModelFamily } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 
 const log = new Logger("RoutingObservations");
 

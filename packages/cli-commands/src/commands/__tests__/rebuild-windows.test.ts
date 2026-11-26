@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseOperations } from "@better-ccflare/database";
-import type { CanonicalUsageWindow } from "@better-ccflare/types";
+import { DatabaseOperations } from "@hov-router/database";
+import type { CanonicalUsageWindow } from "@hov-router/types";
 import {
 	formatRebuildWindowsReport,
 	type RebuildWindowsResult,

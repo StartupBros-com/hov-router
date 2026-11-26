@@ -7,7 +7,7 @@ import type {
 	ComboSlot,
 	ComboWithSlots,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { queryKeys } from "../../lib/query-keys";

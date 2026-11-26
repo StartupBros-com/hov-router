@@ -1,7 +1,3 @@
-import type {
-	ComboFamilyAssignment,
-	ComboWithSlots,
-} from "@better-ccflare/types";
 import {
 	closestCenter,
 	DndContext,
@@ -18,6 +14,7 @@ import {
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import type { ComboFamilyAssignment, ComboWithSlots } from "@hov-router/types";
 import { GripVertical, Plus } from "lucide-react";
 import { useRef, useState } from "react";
 import {

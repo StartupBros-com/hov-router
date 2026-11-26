@@ -1,17 +1,17 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { LATEST_OPUS_MODEL } from "@better-ccflare/core";
+import { LATEST_OPUS_MODEL } from "@hov-router/core";
 import {
 	BunSqlAdapter,
 	ensureSchema,
 	RouteProfileConfigRepository,
-} from "@better-ccflare/database";
+} from "@hov-router/database";
 import {
 	ModelRouteProfileController,
 	type ModelRouteProfileStore,
 	ModelRouteSessionRegistry,
 	setActiveModelRouteProfiles,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import {
 	createRouteProfilesGetHandler,
 	createRouteProfilesPutHandler,

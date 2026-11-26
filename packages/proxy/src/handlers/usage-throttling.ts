@@ -3,13 +3,13 @@ import {
 	computeWindowStartMs,
 	getModelFamily,
 	weeklyScopedWindowKey,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	type AnyUsageData,
 	type CodexSubscriptionFacts,
 	getCodexSubscriptionFacts,
 	usageCache,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import type {
 	Account,
 	AccountBindingConstraint,
@@ -17,7 +17,7 @@ import type {
 	QualityApprovedLine,
 	QualityProvider,
 	QualitySpendGrant,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 export interface AutoCapacityOptions {
 	readonly accountId: string;

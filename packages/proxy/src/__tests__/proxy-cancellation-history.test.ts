@@ -14,17 +14,13 @@ import {
 	AsyncDbWriter,
 	DatabaseFactory,
 	type DatabaseOperations,
-} from "@better-ccflare/database";
+} from "@hov-router/database";
 import {
 	LeastUsedStrategy,
 	restoreAffinityPins,
 	SessionAffinityStrategy,
-} from "@better-ccflare/load-balancer";
-import type {
-	Account,
-	RequestMeta,
-	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/load-balancer";
+import type { Account, RequestMeta, StrategyStore } from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import * as operations from "../handlers/proxy-operations";
 import { INTERNAL_PROBE_SECRET_HEADER } from "../handlers/proxy-types";

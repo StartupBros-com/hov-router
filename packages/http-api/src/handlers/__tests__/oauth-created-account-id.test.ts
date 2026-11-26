@@ -8,13 +8,13 @@ const complete = mock(async () => ({
 	authType: "oauth" as const,
 }));
 
-mock.module("@better-ccflare/oauth-flow", () => ({
+mock.module("@hov-router/oauth-flow", () => ({
 	createOAuthFlow: async () => ({ complete }),
 }));
-mock.module("@better-ccflare/providers", () => ({
+mock.module("@hov-router/providers", () => ({
 	getOAuthProvider: () => ({ getOAuthConfig: () => ({ clientId: "test" }) }),
 }));
-mock.module("@better-ccflare/providers/qwen", () => ({
+mock.module("@hov-router/providers/qwen", () => ({
 	initiateDeviceFlow: async () => ({
 		deviceCode: "device",
 		userCode: "code",
@@ -29,7 +29,7 @@ mock.module("@better-ccflare/providers/qwen", () => ({
 		expires_in: 3600,
 	}),
 }));
-mock.module("@better-ccflare/providers/codex", () => ({
+mock.module("@hov-router/providers/codex", () => ({
 	initiateCodexDeviceFlow: async () => ({
 		deviceAuthId: "device",
 		userCode: "code",
@@ -42,7 +42,7 @@ mock.module("@better-ccflare/providers/codex", () => ({
 		expires_in: 3600,
 	}),
 }));
-mock.module("@better-ccflare/proxy", () => ({
+mock.module("@hov-router/proxy", () => ({
 	clearAccountRefreshCache: () => {},
 }));
 

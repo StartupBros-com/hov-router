@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { DatabaseOperations } from "@better-ccflare/database";
-import { usageCache } from "@better-ccflare/providers";
+import { DatabaseOperations } from "@hov-router/database";
+import { usageCache } from "@hov-router/providers";
 import { startUsagePollingWithRefresh } from "./server";
 import { UsagePollingLifecycle } from "./usage-polling-lifecycle";
 

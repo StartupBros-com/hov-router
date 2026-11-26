@@ -5,7 +5,7 @@ import {
 	type CacheHealthState,
 	cacheHealthScopeKey,
 	isNativeCacheHealthRoute,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { BatchExpectedChangesError } from "../adapters/bun-sql-adapter";
 import { BaseRepository } from "./base.repository";
 

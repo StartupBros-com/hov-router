@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Buffer } from "node:buffer";
-import { GUARD_REQUEST_ID_HEADER } from "@better-ccflare/http-common";
+import { GUARD_REQUEST_ID_HEADER } from "@hov-router/http-common";
 import {
 	createGuardCorrelationEnvelope,
 	createGuardCorrelationVerifier,

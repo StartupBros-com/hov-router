@@ -9,13 +9,13 @@ import {
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DatabaseOperations as DatabaseOperationsType } from "@better-ccflare/database";
+import type { DatabaseOperations as DatabaseOperationsType } from "@hov-router/database";
 
 const temp = mkdtempSync(join(tmpdir(), "ccflare-window-read-"));
 process.env.DATABASE_URL = "";
 process.env.BETTER_CCFLARE_DB_PATH = join(temp, "isolated.db");
 process.env.BETTER_CCFLARE_CONFIG_PATH = join(temp, "config.json");
-const { DatabaseOperations } = await import("@better-ccflare/database");
+const { DatabaseOperations } = await import("@hov-router/database");
 const { readUsageWindows, valueOpenWindow, toUsageWindowRecord } = await import(
 	"../usage-window-read"
 );

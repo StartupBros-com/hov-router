@@ -1,5 +1,5 @@
-import type { AccountRoutingOverview } from "@better-ccflare/types";
-import { formatClockTime } from "@better-ccflare/ui-common";
+import type { AccountRoutingOverview } from "@hov-router/types";
+import { formatClockTime } from "@hov-router/ui-common";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { type Account, api } from "../api";

@@ -3,7 +3,7 @@
  * All magic numbers should be defined here to improve maintainability
  */
 
-import type { RateLimitReason } from "@better-ccflare/types";
+import type { RateLimitReason } from "@hov-router/types";
 
 // Time constants (all in milliseconds)
 export const TIME_CONSTANTS = {

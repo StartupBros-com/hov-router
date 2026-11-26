@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { DatabaseFactory } from "@better-ccflare/database";
-import { AuthService } from "@better-ccflare/http-api";
-import { generateApiKey, listApiKeys, disableApiKey, enableApiKey, deleteApiKey, updateApiKeyRole } from "@better-ccflare/cli-commands";
-import { NodeCryptoUtils } from "@better-ccflare/types";
+import { DatabaseFactory } from "@hov-router/database";
+import { AuthService } from "@hov-router/http-api";
+import { generateApiKey, listApiKeys, disableApiKey, enableApiKey, deleteApiKey, updateApiKeyRole } from "@hov-router/cli-commands";
+import { NodeCryptoUtils } from "@hov-router/types";
 
 // Test data
 const TEST_DB_PATH = `${process.env.TMPDIR || "/tmp"}/test-api-auth.db`;

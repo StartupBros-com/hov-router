@@ -1,5 +1,5 @@
-import { isStorageFullError } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import { isStorageFullError } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 
 const log = new Logger("PendingRotationRegistry");
 
@@ -24,7 +24,7 @@ export type PendingRotation = {
 /**
  * Narrow structural view of the DatabaseOperations CAS methods this registry
  * needs to flush a pending rotation. Declared here (not imported from the
- * class) so this module has no runtime dependency on @better-ccflare/database.
+ * class) so this module has no runtime dependency on @hov-router/database.
  */
 export type PendingRotationDbOps = {
 	updateAccountTokensIfRefreshTokenMatches(

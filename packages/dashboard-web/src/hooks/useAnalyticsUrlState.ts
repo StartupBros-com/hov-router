@@ -11,7 +11,7 @@ import {
 	normalizeState,
 } from "../lib/analytics-url-state";
 
-const STORAGE_KEY = "better-ccflare:analytics-state";
+const STORAGE_KEY = "hov-router:analytics-state";
 
 function readStoredState(): AnalyticsUrlState | null {
 	if (typeof window === "undefined") return null;

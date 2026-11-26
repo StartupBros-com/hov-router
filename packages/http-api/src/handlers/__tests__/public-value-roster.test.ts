@@ -10,15 +10,15 @@ import {
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 import type { APIContext } from "../../types";
 
 const scratch = mkdtempSync(join(tmpdir(), "ccflare-public-roster-"));
 process.env.BETTER_CCFLARE_DB_PATH = join(scratch, "isolated.db");
 process.env.BETTER_CCFLARE_CONFIG_PATH = join(scratch, "isolated-config.json");
 process.env.DATABASE_URL = "";
-const { VALUE_PRICING_VERSION } = await import("@better-ccflare/core");
-const { DatabaseOperations } = await import("@better-ccflare/database");
+const { VALUE_PRICING_VERSION } = await import("@hov-router/core");
+const { DatabaseOperations } = await import("@hov-router/database");
 const { createPublicSubscriptionValueHandler } = await import(
 	"../public-subscription-value"
 );

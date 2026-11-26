@@ -1,11 +1,11 @@
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 import type {
 	AffinityRestoreHealth,
 	AffinityRestoreSession,
 	LoadBalancingStrategy,
 	RoutingAffinityLaneRecord,
-} from "@better-ccflare/types";
-import { parseRoutingAffinityLaneSummary } from "@better-ccflare/types/request";
+} from "@hov-router/types";
+import { parseRoutingAffinityLaneSummary } from "@hov-router/types/request";
 
 export const AFFINITY_RESTORE_BUDGET_MS = 3000;
 export const AFFINITY_RESTORE_ROW_CAP = 20_000;

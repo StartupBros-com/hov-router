@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import type { Account, RequestMeta } from "@hov-router/types";
 import { discardUpstreamBody, proxyWithAccount } from "../proxy-operations";
 import type { ProxyContext } from "../proxy-types";
 

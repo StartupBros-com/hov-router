@@ -1,7 +1,7 @@
 import {
 	MAX_MODEL_MAPPING_CANDIDATES,
 	validateModelMappings,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 
 type ModelMappings = Record<string, string | string[]>;
 

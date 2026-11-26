@@ -143,27 +143,30 @@ export function releaseBuildDefines(
 	if (!validEvidence(evidence) || context === null) return [];
 	const distribution = distributionFor(context);
 	return [
-		...define("__BETTER_CCFLARE_GIT_SHA__", evidence.sourceSha),
-		...define("__CCFLARE_BUILD_PROVENANCE_VERSION__", evidence.version),
+		...define("__HOV_ROUTER_GIT_SHA__", evidence.sourceSha),
+		...define("__HOV_ROUTER_BUILD_PROVENANCE_VERSION__", evidence.version),
 		...define(
-			"__CCFLARE_BUILD_PROVENANCE_DISTRIBUTION__",
+			"__HOV_ROUTER_BUILD_PROVENANCE_DISTRIBUTION__",
 			releaseDistributionToken(context, evidence.version),
 		),
-		...define("__CCFLARE_BUILD_PROVENANCE_PRODUCER__", distribution.producer),
 		...define(
-			"__CCFLARE_BUILD_PROVENANCE_ARTIFACT_MODE__",
+			"__HOV_ROUTER_BUILD_PROVENANCE_PRODUCER__",
+			distribution.producer,
+		),
+		...define(
+			"__HOV_ROUTER_BUILD_PROVENANCE_ARTIFACT_MODE__",
 			distribution.artifactMode,
 		),
 		...(distribution.updateChannel === null
 			? []
 			: define(
-					"__CCFLARE_BUILD_PROVENANCE_UPDATE_CHANNEL__",
+					"__HOV_ROUTER_BUILD_PROVENANCE_UPDATE_CHANNEL__",
 					distribution.updateChannel,
 				)),
-		...define("__CCFLARE_BUILD_PROVENANCE_GIT_SHA__", evidence.sourceSha),
-		...define("__CCFLARE_BUILD_PROVENANCE_GIT_REF__", evidence.sourceRef),
-		...define("__CCFLARE_BUILD_PROVENANCE_SOURCE_SHA__", evidence.sourceSha),
-		...define("__CCFLARE_BUILD_PROVENANCE_SOURCE_REF__", evidence.sourceRef),
+		...define("__HOV_ROUTER_BUILD_PROVENANCE_GIT_SHA__", evidence.sourceSha),
+		...define("__HOV_ROUTER_BUILD_PROVENANCE_GIT_REF__", evidence.sourceRef),
+		...define("__HOV_ROUTER_BUILD_PROVENANCE_SOURCE_SHA__", evidence.sourceSha),
+		...define("__HOV_ROUTER_BUILD_PROVENANCE_SOURCE_REF__", evidence.sourceRef),
 	];
 }
 

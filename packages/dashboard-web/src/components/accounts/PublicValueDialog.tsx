@@ -1,4 +1,4 @@
-import { PUBLIC_VALUE_PLANS } from "@better-ccflare/core";
+import { PUBLIC_VALUE_PLANS } from "@hov-router/core";
 import { useState } from "react";
 import { Button } from "../ui/button";
 import {

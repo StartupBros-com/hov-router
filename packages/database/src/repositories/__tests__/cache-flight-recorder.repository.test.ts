@@ -8,7 +8,7 @@ import {
 	PARTITION_DIMENSION_ORDER as CORE_PARTITION_DIMENSION_ORDER,
 	SERVICE_DIMENSION_ORDER as CORE_SERVICE_DIMENSION_ORDER,
 	type TurnEvidence,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { ensureSchema, runMigrations } from "../../migrations";
 import { CacheFlightRecorderRepository } from "../cache-flight-recorder.repository";
@@ -1664,7 +1664,7 @@ describe("CacheFlightRecorderRepository", () => {
 
 	// This repository keeps its own SERVICE_DIMENSION_ORDER / PARTITION_DIMENSION_ORDER
 	// literal arrays (see module scope above) instead of importing
-	// @better-ccflare/core's canonical order, because assertPrivacySafeSealReceipt
+	// @hov-router/core's canonical order, because assertPrivacySafeSealReceipt
 	// must not trust anything the proxy-side capture path computed — including
 	// which order it used. That independence is deliberate, but it means the
 	// two copies can silently drift. expectedServiceUnavailable/
@@ -1676,7 +1676,7 @@ describe("CacheFlightRecorderRepository", () => {
 	// and a receipt using any other order is rejected. That makes order
 	// agreement directly observable through the public appendTurn API without
 	// needing to export this repository's private order constants.
-	it("keeps its own PARTITION_DIMENSION_ORDER positionally aligned with @better-ccflare/core's canonical order", async () => {
+	it("keeps its own PARTITION_DIMENSION_ORDER positionally aligned with @hov-router/core's canonical order", async () => {
 		const db = makeDb();
 		const repo = new CacheFlightRecorderRepository(new BunSqlAdapter(db));
 		await repo.appendTurn(
@@ -1713,7 +1713,7 @@ describe("CacheFlightRecorderRepository", () => {
 		db2.close();
 	});
 
-	it("keeps its own SERVICE_DIMENSION_ORDER positionally aligned with @better-ccflare/core's canonical order", async () => {
+	it("keeps its own SERVICE_DIMENSION_ORDER positionally aligned with @hov-router/core's canonical order", async () => {
 		// seal_contract_version is excluded: an out-of-contract version throws
 		// its own dedicated error before assertExactUnavailable ever runs, so
 		// it can never appear as a declared-unavailable dimension in a receipt

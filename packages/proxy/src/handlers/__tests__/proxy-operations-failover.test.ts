@@ -7,14 +7,14 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type { CacheFlightCohortSealReceipt } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import type { CacheFlightCohortSealReceipt } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import type {
 	Provider,
 	ProviderAttemptPlan,
 	ProviderAttemptPlanContext,
 	ProviderServerToolCapabilityContext,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import type {
 	Account,
 	RequestMeta,
@@ -23,7 +23,7 @@ import type {
 	ServerToolCapabilityTuple,
 	ServerToolReplayAtom,
 	ServerToolRequirements,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { ServerToolCandidateCapabilityError } from "../../server-tool-routing-errors";
 import type { StartMessage } from "../../worker-messages";
 import type { ProxyContext } from "../proxy-types";
@@ -81,7 +81,7 @@ mock.module("../discard-body-cancel", () => ({
 }));
 
 const { buildServerToolCapabilityProofKey, getProvider } = await import(
-	"@better-ccflare/providers"
+	"@hov-router/providers"
 );
 const {
 	boundResponseBodyForClassification,
@@ -2553,13 +2553,13 @@ describe("proxyWithAccount — in-memory cooldown mutation (issue #178 fix)", ()
 
 describe("getModelList ordered candidates", () => {
 	it("returns single-element list when no fallbacks", async () => {
-		const { getModelList } = await import("@better-ccflare/core");
+		const { getModelList } = await import("@hov-router/core");
 		const list = getModelList("claude-sonnet-4-5", makeAccount());
 		expect(list).toEqual(["qwen/qwen3.6-plus:free"]);
 	});
 
 	it("returns array directly when model_mappings value is an array", async () => {
-		const { getModelList } = await import("@better-ccflare/core");
+		const { getModelList } = await import("@hov-router/core");
 		const account = makeAccount({
 			model_mappings: JSON.stringify({
 				sonnet: ["qwen/qwen3.6-plus:free", "meta-llama/llama-3.3-70b:free"],

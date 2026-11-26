@@ -1,10 +1,6 @@
-import { DEFAULT_AGENT_MODEL } from "@better-ccflare/core";
-import type {
-	Agent,
-	AgentTool,
-	AgentUpdatePayload,
-} from "@better-ccflare/types";
-import { ALL_TOOLS } from "@better-ccflare/types";
+import { DEFAULT_AGENT_MODEL } from "@hov-router/core";
+import type { Agent, AgentTool, AgentUpdatePayload } from "@hov-router/types";
+import { ALL_TOOLS } from "@hov-router/types";
 import {
 	Check,
 	Cpu,

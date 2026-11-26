@@ -11,8 +11,8 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
-import { getPlatformConfigDir } from "@better-ccflare/config";
-import { Logger } from "@better-ccflare/logger";
+import { getPlatformConfigDir } from "@hov-router/config";
+import { Logger } from "@hov-router/logger";
 import {
 	MODEL_ROUTE_PROFILES_ENV,
 	type ModelRouteProfile,

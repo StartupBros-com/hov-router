@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	DatabaseFactory,
 	DatabaseOperations as DirectDbOps,
-} from "@better-ccflare/database";
+} from "@hov-router/database";
 import {
 	createAnthropicReauthCallbackHandler,
 	createAnthropicReauthInitHandler,
@@ -27,19 +27,19 @@ const TEST_DB_PATH = `${process.env.TMPDIR || "/tmp"}/test-oauth-handler.db`;
 // clearAccountRefreshCache, getUsageThrottleStatus, refreshCodexUsageForAccount,
 // restartUsagePollingForAccount) still see the real functions, then restore the
 // real module in afterAll so later test files in this process resolve the real
-// @better-ccflare/proxy exports again.
-const actualProxy = await import("@better-ccflare/proxy");
+// @hov-router/proxy exports again.
+const actualProxy = await import("@hov-router/proxy");
 const mockClearAccountRefreshCache = mock((_accountId: string) => {});
 
-mock.module("@better-ccflare/proxy", () => ({
+mock.module("@hov-router/proxy", () => ({
 	...actualProxy,
 	clearAccountRefreshCache: mockClearAccountRefreshCache,
 }));
 
 afterAll(() => {
-	mock.module("@better-ccflare/proxy", () => actualProxy);
-	mock.module("@better-ccflare/providers/codex", () => actualCodex);
-	mock.module("@better-ccflare/providers/qwen", () => actualQwen);
+	mock.module("@hov-router/proxy", () => actualProxy);
+	mock.module("@hov-router/providers/codex", () => actualCodex);
+	mock.module("@hov-router/providers/qwen", () => actualQwen);
 });
 
 /** Poll a device-flow status handler until the session reaches a terminal state. */
@@ -260,12 +260,12 @@ const mockInitiateCodexDeviceFlow = mock(async () => ({
 	interval: 5,
 }));
 
-// Capture the real @better-ccflare/providers/codex module first so other
+// Capture the real @hov-router/providers/codex module first so other
 // exports stay intact for downstream consumers (mock.module replaces the
-// WHOLE module globally — see the @better-ccflare/proxy mock comment above).
-const actualCodex = await import("@better-ccflare/providers/codex");
+// WHOLE module globally — see the @hov-router/proxy mock comment above).
+const actualCodex = await import("@hov-router/providers/codex");
 
-mock.module("@better-ccflare/providers/codex", () => ({
+mock.module("@hov-router/providers/codex", () => ({
 	...actualCodex,
 	initiateCodexDeviceFlow: mockInitiateCodexDeviceFlow,
 	pollCodexForToken: mock(async () => ({
@@ -285,12 +285,12 @@ const mockInitiateQwenDeviceFlow = mock(async () => ({
 	pkce: { verifier: "test-verifier", challenge: "test-challenge" },
 }));
 
-// Capture the real @better-ccflare/providers/qwen module first so other
+// Capture the real @hov-router/providers/qwen module first so other
 // exports stay intact for downstream consumers (mock.module replaces the
-// WHOLE module globally — see the @better-ccflare/proxy mock comment above).
-const actualQwen = await import("@better-ccflare/providers/qwen");
+// WHOLE module globally — see the @hov-router/proxy mock comment above).
+const actualQwen = await import("@hov-router/providers/qwen");
 
-mock.module("@better-ccflare/providers/qwen", () => ({
+mock.module("@hov-router/providers/qwen", () => ({
 	...actualQwen,
 	initiateDeviceFlow: mockInitiateQwenDeviceFlow,
 	pollForToken: mock(async () => ({
@@ -567,7 +567,7 @@ describe("createAnthropicReauthInitHandler", () => {
 	// Config is required by this handler — use a minimal stub
 	const stubConfig = {
 		getRuntime: () => ({ clientId: "test-client-id" }),
-	} as unknown as import("@better-ccflare/config").Config;
+	} as unknown as import("@hov-router/config").Config;
 
 	let handler: (req: Request) => Promise<Response>;
 
@@ -666,7 +666,7 @@ describe("createAnthropicReauthCallbackHandler", () => {
 	let dbOps: DatabaseOperations;
 	const stubConfig = {
 		getRuntime: () => ({ clientId: "test-client-id" }),
-	} as unknown as import("@better-ccflare/config").Config;
+	} as unknown as import("@hov-router/config").Config;
 
 	let handler: (req: Request) => Promise<Response>;
 

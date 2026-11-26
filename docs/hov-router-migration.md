@@ -4,7 +4,7 @@ HoV Router is a House of Vibe project at [StartupBros-com/hov-router](https://gi
 
 The public repository moved from `StartupBros-com/better-ccflare` to the `StartupBros` account on 2026-10-19, was renamed `StartupBros/hov-router` on 2026-10-21, and has been `StartupBros-com/hov-router` since 2026-11-20. It is the same repository, ID `1278801682` (see [the repository move](#repository-move)). Use `StartupBros-com/hov-router` in clone, download, and support URLs. [Report Router issues here](https://github.com/StartupBros-com/hov-router/issues).
 
-The current [Linux x86_64 binary](reference.md#install-the-linux-x86_64-release), release 6.4.0, displays HoV Router, as do 3.7.0, 3.7.1, 4.0.0, 5.0.0, 5.0.1, 5.1.0, 6.0.0, 6.1.0, 6.2.0, 6.2.1, 6.2.2, 6.3.0 and new source builds. The earlier 3.6.2 binary keeps its original product name, exact bytes, source SHA, tag, and signing identity, and prints that original name even through `hov-router`; a filesystem alias cannot relabel its embedded output. See [the historical 3.6.2 release](hov-router-releases.md#verify-the-historical-362-release). Router npm packages, container images, and other-platform binaries are not published.
+The current [Linux x86_64 binary](reference.md#install-the-linux-x86_64-release), release 7.0.0, displays HoV Router, as do 3.7.0, 3.7.1, 4.0.0, 5.0.0, 5.0.1, 5.1.0, 6.0.0, 6.1.0, 6.2.0, 6.2.1, 6.2.2, 6.3.0, 6.4.0 and new source builds. The earlier 3.6.2 binary keeps its original product name, exact bytes, source SHA, tag, and signing identity, and prints that original name even through `hov-router`; a filesystem alias cannot relabel its embedded output. See [the historical 3.6.2 release](hov-router-releases.md#verify-the-historical-362-release). Router npm packages, container images, and other-platform binaries are not published.
 
 ## Install without replacing your current executable
 
@@ -28,7 +28,7 @@ Record the current executable location with `command -v` and the command name yo
 | Database override | `BETTER_CCFLARE_DB_PATH`; a PostgreSQL `DATABASE_URL` is refused (see [PostgreSQL support removed](#postgresql-support-removed)) |
 | Other integration names | Existing `BETTER_CCFLARE_*`, `CCFLARE_*`, and other environment variables; `x-better-ccflare-*` headers |
 | Default server port | `8080`; existing port overrides and deployment ports remain unchanged |
-| Build/package names | `apps/cli/dist/better-ccflare`, the `better-ccflare` package identity, and internal `@better-ccflare/*` packages |
+| Build/package names | `apps/cli/dist/better-ccflare` and the `better-ccflare` package identity |
 
 There is no new HoV configuration namespace and no config or credential migration. Do not rename storage directories, recovery files, environment variables, headers, or database files to match the product name. Existing deployments keep their paths, service names, and ports.
 

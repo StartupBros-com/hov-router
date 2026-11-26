@@ -1,4 +1,4 @@
-import { type Account, PROVIDER_NAMES } from "@better-ccflare/types";
+import { type Account, PROVIDER_NAMES } from "@hov-router/types";
 
 /** Clock-skew buffer, matching the other window-reset checks in this folder. */
 const RATE_LIMIT_RESET_BUFFER_MS = 1000;

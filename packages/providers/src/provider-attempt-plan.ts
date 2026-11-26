@@ -1,4 +1,4 @@
-import type { Account, ServerToolReplayAtom } from "@better-ccflare/types";
+import type { Account, ServerToolReplayAtom } from "@hov-router/types";
 import type {
 	CacheReplayModelStrategy,
 	Provider,

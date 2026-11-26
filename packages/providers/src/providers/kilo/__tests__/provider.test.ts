@@ -1,4 +1,4 @@
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import { KiloProvider } from "../provider";
 
 describe("KiloProvider", () => {

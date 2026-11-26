@@ -1,5 +1,5 @@
-import { Config } from "@better-ccflare/config";
-import { Logger } from "@better-ccflare/logger";
+import { Config } from "@hov-router/config";
+import { Logger } from "@hov-router/logger";
 
 const log = new Logger("SkillElision");
 
@@ -222,7 +222,7 @@ export function applySkillElision<T>(
 // ProxyContext-level config value in. This lazily-constructed, module-level
 // Config singleton is the smallest-diff path, precedented by the existing
 // CCFLARE_CODEX_* env-read pattern in the Codex provider
-// (getCodexReasoningRetention in @better-ccflare/config), extended here to
+// (getCodexReasoningRetention in @hov-router/config), extended here to
 // also cover the file-backed field. Restart-scoped like every other policy
 // resolved this way in this codebase: the config FILE is read once and
 // cached for the process lifetime, but CCFLARE_SKILL_ELISION_BLOCKED is

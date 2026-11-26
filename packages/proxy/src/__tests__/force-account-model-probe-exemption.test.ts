@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import {
 	isForceAccountModelEnabled,
 	setForceAccountModel,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import type { ProxyContext } from "../handlers";
 import { INTERNAL_PROBE_SECRET_HEADER } from "../handlers/proxy-types";
 import { handleProxy } from "../proxy";

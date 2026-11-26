@@ -38,8 +38,8 @@
 
 import { randomUUID } from "node:crypto";
 import { hostname as osHostname } from "node:os";
-import { errorKind, isStorageFullError } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import { errorKind, isStorageFullError } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import type { BunSqlAdapter } from "./adapters/bun-sql-adapter";
 
 const log = new Logger("multi-instance-guard");

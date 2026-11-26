@@ -15,11 +15,11 @@ import type {
 	ExtraUsageHoldState,
 	RequestMeta,
 	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type { ProxyContext } from "../proxy-types";
 
-const { usageCache } = await import("@better-ccflare/providers");
-const { SessionStrategy } = await import("@better-ccflare/load-balancer");
+const { usageCache } = await import("@hov-router/providers");
+const { SessionStrategy } = await import("@hov-router/load-balancer");
 const {
 	ForceRouteUnavailableError,
 	getRoutingCapacityContext,

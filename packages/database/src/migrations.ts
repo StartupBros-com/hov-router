@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 import { CACHE_HEALTH_STATE_SCHEMA } from "./cache-health-schema";
 import { restrictDbFile } from "./file-modes";
 import { foldLegacyModelMappings } from "./legacy-model-mapping-fold";

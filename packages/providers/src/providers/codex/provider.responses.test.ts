@@ -31,14 +31,14 @@ test.each([
 				max_tokens: 10,
 				messages: [{ role: "user", content: "Use the native tool" }],
 				tools: [{ name: "NativeFunction", input_schema: { type: "object" } }],
-				__better_ccflare_codex_passthrough: { tools },
+				__hov_router_codex_passthrough: { tools },
 			}),
 		}),
 	);
 	const mapped = (await transformed.json()) as Record<string, unknown>;
 
 	expect(mapped.tools).toEqual(tools);
-	expect(mapped).not.toHaveProperty("__better_ccflare_codex_passthrough");
+	expect(mapped).not.toHaveProperty("__hov_router_codex_passthrough");
 });
 
 test("preserves custom tool calls in labeled Codex SSE", async () => {
@@ -110,7 +110,7 @@ test("labels Responses Lite additional tools as native passthrough", async () =>
 			max_tokens: 10,
 			stream: true,
 			messages: [{ role: "user", content: "hi" }],
-			__better_ccflare_codex_passthrough: {
+			__hov_router_codex_passthrough: {
 				additional_tools: [
 					{
 						type: "additional_tools",

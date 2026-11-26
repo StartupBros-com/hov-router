@@ -1,15 +1,15 @@
-import { isAccountAvailable, TIME_CONSTANTS } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import { isAccountAvailable, TIME_CONSTANTS } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import type {
 	Account,
 	LoadBalancingStrategy,
 	RequestMeta,
 	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	PROVIDER_NAMES,
 	requiresSessionDurationTracking,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { isPeekAvailable } from "./peek-availability";
 import {
 	commitStrategyCandidateOrder,

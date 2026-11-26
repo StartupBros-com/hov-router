@@ -1,12 +1,12 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	DatabaseFactory,
 	ensureSchema,
 	runMigrations,
-} from "@better-ccflare/database";
+} from "@hov-router/database";
 import {
 	createAnthropicCompatibleAccountAddHandler,
 	createMinimaxAccountAddHandler,

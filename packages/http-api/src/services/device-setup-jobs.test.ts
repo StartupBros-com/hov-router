@@ -4,7 +4,7 @@ import type {
 	DeviceSetupProvider,
 	DeviceSetupRoutingOutcome,
 	DeviceSetupRoutingSelection,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	createDeviceSetupCoordinator,
 	DeviceSetupIdempotencyConflictError,

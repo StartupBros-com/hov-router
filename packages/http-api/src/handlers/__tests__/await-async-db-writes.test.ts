@@ -5,9 +5,9 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
-import type { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
-import type { APIContext } from "@better-ccflare/types";
+import type { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
+import type { APIContext } from "@hov-router/types";
 import {
 	createAccountAutoFallbackHandler,
 	createAccountAutoPauseOnOverageHandler,

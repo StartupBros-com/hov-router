@@ -1,5 +1,5 @@
-import { isAccountAvailable } from "@better-ccflare/core";
-import { type Account, PROVIDER_NAMES } from "@better-ccflare/types";
+import { isAccountAvailable } from "@hov-router/core";
+import { type Account, PROVIDER_NAMES } from "@hov-router/types";
 
 const RATE_LIMIT_RESET_BUFFER_MS = 1000;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { PredictionPoint } from "@better-ccflare/types";
+import type { PredictionPoint } from "@hov-router/types";
 import { computeUsagePrediction } from "../usage-prediction";
 
 const H = 60 * 60 * 1000;

@@ -3,8 +3,8 @@ import {
 	LeastUsedStrategy,
 	SessionAffinityStrategy,
 	SessionStrategy,
-} from "@better-ccflare/load-balancer";
-import type { RoutingCandidateMetadata } from "@better-ccflare/types";
+} from "@hov-router/load-balancer";
+import type { RoutingCandidateMetadata } from "@hov-router/types";
 import { account, candidate, meta, store } from "./candidate-routing-fixture";
 
 describe("atomic strategy candidates", () => {

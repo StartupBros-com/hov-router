@@ -1,6 +1,6 @@
-import { Logger } from "@better-ccflare/logger";
-import type { Provider, RequestObservation } from "@better-ccflare/providers";
-import { getProvider } from "@better-ccflare/providers";
+import { Logger } from "@hov-router/logger";
+import type { Provider, RequestObservation } from "@hov-router/providers";
+import { getProvider } from "@hov-router/providers";
 
 const log = new Logger("RequestObservation");
 

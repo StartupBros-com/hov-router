@@ -1,6 +1,6 @@
 import { describe, expect, it, mock, spyOn } from "bun:test";
-import { MAX_REQUEST_BODY_BYTES } from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+import { MAX_REQUEST_BODY_BYTES } from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import { handleProxy } from "../proxy";
 import * as usageCollectorModule from "../usage-collector";

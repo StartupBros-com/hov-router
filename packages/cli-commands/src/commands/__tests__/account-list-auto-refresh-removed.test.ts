@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import { getAccountsList } from "../account";
 
 describe("getAccountsList after the auto-refresh removal", () => {

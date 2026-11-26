@@ -1,4 +1,4 @@
-import type { ServerToolReplayKeysState } from "@better-ccflare/config";
+import type { ServerToolReplayKeysState } from "@hov-router/config";
 import {
 	awaitServerToolReplayEnvelopeCodecReady,
 	createServerToolReplayEnvelopeCodec,
@@ -14,7 +14,7 @@ import {
 	type ServerToolReplayEnvelopePayload,
 	type ServerToolReplayEnvelopeWriter,
 	type ServerToolReplayWriterAdmission,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import { opaqueRuntimeId } from "./opaque-runtime-id";
 
 const SAFE_REPLAY_KEY_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;

@@ -204,7 +204,7 @@ describe("handleResponsesRequest", () => {
 
 		expect(response.status).toBe(200);
 		expect(forwardedBody).toMatchObject({
-			__better_ccflare_codex_passthrough: {
+			__hov_router_codex_passthrough: {
 				additional_tools: [additionalTools],
 			},
 		});
@@ -250,7 +250,7 @@ describe("handleResponsesRequest", () => {
 		);
 		expect(
 			(
-				forwardedBody?.__better_ccflare_codex_passthrough as
+				forwardedBody?.__hov_router_codex_passthrough as
 					| Record<string, unknown>
 					| undefined
 			)?.continuation_strategy,
@@ -268,7 +268,7 @@ describe("handleResponsesRequest", () => {
 		);
 		expect(
 			(
-				forwardedBody?.__better_ccflare_codex_passthrough as
+				forwardedBody?.__hov_router_codex_passthrough as
 					| Record<string, unknown>
 					| undefined
 			)?.continuation_strategy,
@@ -284,7 +284,7 @@ describe("handleResponsesRequest", () => {
 		);
 		expect(
 			(
-				forwardedBody?.__better_ccflare_codex_passthrough as
+				forwardedBody?.__hov_router_codex_passthrough as
 					| Record<string, unknown>
 					| undefined
 			)?.continuation_strategy,

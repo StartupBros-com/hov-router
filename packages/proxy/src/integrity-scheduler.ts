@@ -1,8 +1,8 @@
-import { TIME_CONSTANTS } from "@better-ccflare/core";
-import { COMMAND_NAME } from "@better-ccflare/core/product-identity";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { runIntegrityCheckInWorker } from "@better-ccflare/database";
-import { Logger } from "@better-ccflare/logger";
+import { TIME_CONSTANTS } from "@hov-router/core";
+import { COMMAND_NAME } from "@hov-router/core/product-identity";
+import type { DatabaseOperations } from "@hov-router/database";
+import { runIntegrityCheckInWorker } from "@hov-router/database";
+import { Logger } from "@hov-router/logger";
 
 /**
  * Periodic integrity scheduler. Two probes run on independent timers:

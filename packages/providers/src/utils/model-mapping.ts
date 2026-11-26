@@ -1,6 +1,6 @@
-import { mapModelName } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
-import type { Account } from "@better-ccflare/types";
+import { mapModelName } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
+import type { Account } from "@hov-router/types";
 import { stripCodexReasoningRetention } from "./codex-reasoning-retention";
 import {
 	applySkillElision,
@@ -142,13 +142,12 @@ export async function transformRequestBodyModel<T extends TransformRequestBody>(
 		// The Responses adapter's Codex carrier belongs solely to Codex. A later
 		// provider failover must not forward private adapter metadata upstream.
 		const {
-			__better_ccflare_codex_passthrough: _codexPassthrough,
+			__hov_router_codex_passthrough: _codexPassthrough,
 			...withoutCodexPassthrough
 		} = rawParsedBody as T & {
-			__better_ccflare_codex_passthrough?: unknown;
+			__hov_router_codex_passthrough?: unknown;
 		};
-		const carrierStripped =
-			"__better_ccflare_codex_passthrough" in rawParsedBody;
+		const carrierStripped = "__hov_router_codex_passthrough" in rawParsedBody;
 		const carrierSafeBody = carrierStripped
 			? (withoutCodexPassthrough as T)
 			: rawParsedBody;

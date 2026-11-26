@@ -24,8 +24,8 @@ import { randomBytes } from "node:crypto";
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Logger } from "@better-ccflare/logger";
-import type { Account } from "@better-ccflare/types";
+import { Logger } from "@hov-router/logger";
+import type { Account } from "@hov-router/types";
 import { TOKEN_REFRESH_BACKOFF_MS } from "../../constants";
 import {
 	clearAllPendingRotationsForTests,

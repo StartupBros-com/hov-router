@@ -12,8 +12,8 @@ import {
 import {
 	clearDerivedProviderModelDefaults,
 	usageCache,
-} from "@better-ccflare/providers";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account, RequestMeta } from "@hov-router/types";
 import { AnthropicDegradedModeCoordinator } from "../anthropic-degraded-mode";
 import {
 	clearCodexModelCacheForTests,
@@ -241,7 +241,7 @@ async function proxyModel(
 			messages: [{ role: "user", content: "hello" }],
 			max_tokens: 16,
 			...(physicalModel
-				? { __better_ccflare_codex_passthrough: { model: physicalModel } }
+				? { __hov_router_codex_passthrough: { model: physicalModel } }
 				: {}),
 		}),
 	});

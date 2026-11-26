@@ -3,8 +3,8 @@ import {
 	isAccountAvailable,
 	minimumRoutableTier,
 	TIME_CONSTANTS,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import type {
 	Account,
 	AffinityOwnerSnapshot,
@@ -19,7 +19,7 @@ import type {
 	RoutingCandidateSuccessReport,
 	RoutingHealth,
 	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { affinityLaneDigest } from "./affinity-lane-digest";
 import { isPeekAvailable, wouldAutoUnpause } from "./peek-availability";
 import {
@@ -376,7 +376,7 @@ export class SessionAffinityStrategy implements LoadBalancingStrategy {
 	 * why `isAccountAvailable` filtering and `autoUnpauseElapsedAccounts`
 	 * live inside `select()` rather than upstream of it.
 	 *
-	 * Deliberately NOT `@better-ccflare/core`'s `minimumRoutableTier`: that
+	 * Deliberately NOT `@hov-router/core`'s `minimumRoutableTier`: that
 	 * helper only ever sees candidates already filtered down to currently
 	 * routable ones. Reusing it here over CONFIGURED (possibly unavailable)
 	 * candidates would misreport a rate-limited best tier as "not

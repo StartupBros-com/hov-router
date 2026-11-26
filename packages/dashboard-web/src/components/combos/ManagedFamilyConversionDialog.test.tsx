@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { LATEST_MODEL_BY_FAMILY } from "@better-ccflare/core";
+import { LATEST_MODEL_BY_FAMILY } from "@hov-router/core";
 import type {
 	ComboRoutingPreviewResult,
 	ComboRoutingProposalPreview,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
 	buildManagedFamilyApplyCommand,

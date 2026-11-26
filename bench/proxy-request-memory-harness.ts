@@ -25,7 +25,7 @@
  * not enforce allocator or RSS thresholds.
  */
 import { heapStats, heapSize, memoryUsage as jscMemoryUsage } from "bun:jsc";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import {
 	BodyAdmissionController,
 	withBodyAdmission,

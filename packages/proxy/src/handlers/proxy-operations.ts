@@ -15,19 +15,19 @@ import {
 	ProviderError,
 	supportsForcedToolChoice,
 	TIME_CONSTANTS,
-} from "@better-ccflare/core";
-import type { RoutingAttemptData } from "@better-ccflare/database";
+} from "@hov-router/core";
+import type { RoutingAttemptData } from "@hov-router/database";
 import {
 	CODEX_LOGICAL_MODEL_FAMILY_HEADER,
 	withSanitizedProxyHeaders,
-} from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
-import { stripCacheControlFromOpenAIRequest } from "@better-ccflare/openai-formats";
+} from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
+import { stripCacheControlFromOpenAIRequest } from "@hov-router/openai-formats";
 import type {
 	CodexModelContextSnapshot,
 	Provider,
 	ProviderAttemptPlan,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import {
 	applyXaiConvIdHeader,
 	assertSynchronousProviderResult,
@@ -58,12 +58,12 @@ import {
 	resolveProviderForAccount,
 	stripCodexReasoningRetention,
 	usageCache,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import {
 	drainReader,
 	getResponseDrainTransport,
 	transferResponseDrainTransport,
-} from "@better-ccflare/providers/stream-drain";
+} from "@hov-router/providers/stream-drain";
 import type {
 	Account,
 	ExtraUsageHoldInputs,
@@ -71,12 +71,12 @@ import type {
 	ServerToolCapabilityDecision,
 	ServerToolCapabilityTuple,
 	ServerToolReplayAtom,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	RECOVERY_SCOPE_HEADER,
 	RECOVERY_STATUS_EXHAUSTED,
 	RECOVERY_STATUS_HEADER,
-} from "@better-ccflare/types/routing-recovery";
+} from "@hov-router/types/routing-recovery";
 import { assertManagedWorkAvailable } from "../../../../scripts/ccflare-managed-timing.mjs";
 import {
 	isAdvisorResultUnprocessableMessage,

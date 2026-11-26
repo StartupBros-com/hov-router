@@ -8,15 +8,15 @@ import {
 	LATEST_HAIKU_MODEL,
 	LATEST_OPUS_MODEL,
 	LATEST_SONNET_MODEL,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
-import { validatePathOrThrow } from "@better-ccflare/security";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
+import { validatePathOrThrow } from "@hov-router/security";
 import type {
 	Agent,
 	AgentTool,
 	AgentWorkspace,
 	AllowedModel,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	getAgentsDirectory,
 	getPluginManifestPath,

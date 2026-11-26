@@ -1,12 +1,12 @@
 import { describe, expect, it, mock } from "bun:test";
-import { getGitSha, getVersionSync } from "@better-ccflare/core";
+import { getGitSha, getVersionSync } from "@hov-router/core";
 import {
 	restoreAffinityPins,
 	SessionAffinityStrategy,
-} from "@better-ccflare/load-balancer";
-import type { Account, HealthResponse } from "@better-ccflare/types";
+} from "@hov-router/load-balancer";
+import type { Account, HealthResponse } from "@hov-router/types";
 
-mock.module("@better-ccflare/database", () => ({
+mock.module("@hov-router/database", () => ({
 	AsyncDbWriter: class {
 		private queuedJobs = 0;
 
@@ -45,7 +45,7 @@ mock.module("@better-ccflare/database", () => ({
 	ModelTranslationRepository: class ModelTranslationRepository {},
 }));
 
-const { AsyncDbWriter } = await import("@better-ccflare/database");
+const { AsyncDbWriter } = await import("@hov-router/database");
 const { createHealthHandler } = await import("../health");
 
 describe("health runtime payload", () => {
@@ -55,12 +55,12 @@ describe("health runtime payload", () => {
 				{ name: "paused1", paused: true, rate_limited_until: null },
 				{ name: "paused2", paused: true, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
 			getHealthDetailEnabled: () => false,
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config);
 		const url = new URL("http://localhost/health");
@@ -79,12 +79,12 @@ describe("health runtime payload", () => {
 				{ name: "acc2", paused: false, rate_limited_until: null },
 				{ name: "acc3", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
 			getHealthDetailEnabled: () => false,
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config, {
 			getAsyncWriterHealth: () => ({
@@ -130,11 +130,11 @@ describe("health runtime payload", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 		const config = {
 			getStrategy: () => "session",
 			getHealthDetailEnabled: () => false,
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const response = await createHealthHandler(db, config, {
 			getMemorySnapshot: () => ({
@@ -171,11 +171,11 @@ describe("health runtime payload", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config);
 		const url = new URL("http://localhost/health");
@@ -191,11 +191,11 @@ describe("health runtime payload", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 		const config = {
 			getStrategy: () => "session-drain-soonest",
 			getHealthDetailEnabled: () => false,
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 		const routing = {
 			affinityEntries: 41,
 			routeSuppressionEntries: 3,
@@ -224,11 +224,11 @@ describe("health runtime payload", () => {
 			getAllAccounts: async () => [
 				{ name: "test-account", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 		const config = {
 			getStrategy: () => "session-affinity",
 			getHealthDetailEnabled: () => false,
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 		const strategy = new SessionAffinityStrategy();
 		let finishRead!: () => void;
 		const pending = new Promise<{ summaries: string[]; capReached: boolean }>(
@@ -276,11 +276,11 @@ describe("health runtime payload", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 		const config = {
 			getStrategy: () => "session",
 			getHealthDetailEnabled: () => false,
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 		const anthropicDegraded = {
 			schemaVersion: 1 as const,
 			bootId: "or1_boot_public-opaque-value",
@@ -381,10 +381,10 @@ describe("health runtime payload", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 		const config = {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 		const base = {
 			schemaVersion: 1 as const,
 			mode: "off" as const,
@@ -462,11 +462,11 @@ describe("health runtime payload", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const lastSuccessAt = Date.now() - 60_000;
 		const handler = createHealthHandler(db, config, {
@@ -493,11 +493,11 @@ describe("health runtime payload", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const lastErrorAt = Date.now() - 5_000;
 		const handler = createHealthHandler(db, config, {
@@ -524,11 +524,11 @@ describe("health runtime payload", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config);
 		const url = new URL("http://localhost/health");
@@ -546,11 +546,11 @@ describe("health runtime payload", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const logFailedAt = Date.now() - 9_000;
 		const uncaughtAt = Date.now() - 4_000;
@@ -597,11 +597,11 @@ describe("health runtime payload", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config, {
 			getRetentionStatus: () => ({
@@ -635,11 +635,11 @@ describe("health runtime payload", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config, {
 			getFullDiskStatus: () => ({
@@ -664,11 +664,11 @@ describe("health runtime payload", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config);
 		const response = await handler(new URL("http://localhost/health"));
@@ -898,10 +898,10 @@ describe("HTTP status codes", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 		const config = {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 		const response = await createHealthHandler(
 			db,
 			config,
@@ -918,10 +918,10 @@ describe("HTTP status codes", () => {
 					rate_limited_until: Date.now() + 3600000,
 				},
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 		const config = {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 		const response = await createHealthHandler(
 			db,
 			config,
@@ -936,10 +936,10 @@ describe("HTTP status codes", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: true, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 		const config = {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 		const response = await createHealthHandler(
 			db,
 			config,
@@ -957,10 +957,10 @@ describe("HTTP status codes", () => {
 					rate_limited_until: Date.now() + 3600000,
 				},
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 		const config = {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 		const response = await createHealthHandler(
 			db,
 			config,
@@ -997,12 +997,12 @@ describe("?detail=1 parameter", () => {
 					rate_limited_at: Date.now() - 60000,
 				},
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
 			getHealthDetailEnabled: () => true,
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config);
 		const url = new URL("http://localhost/health?detail=1");
@@ -1039,12 +1039,12 @@ describe("?detail=1 parameter", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
 			getHealthDetailEnabled: () => true,
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config);
 		const url = new URL("http://localhost/health");
@@ -1063,12 +1063,12 @@ describe("?detail=1 parameter", () => {
 					rate_limited_until: Date.now() - 1000,
 				},
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
 			getHealthDetailEnabled: () => true,
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config);
 		const url = new URL("http://localhost/health?detail=1");
@@ -1084,12 +1084,12 @@ describe("?detail=1 parameter", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
 			getHealthDetailEnabled: () => false,
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config);
 		const url = new URL("http://localhost/health?detail=1");
@@ -1113,12 +1113,12 @@ describe("cache isolation between detail and non-detail", () => {
 					{ name: `acc-${callCount}`, paused: false, rate_limited_until: null },
 				];
 			},
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
 			getHealthDetailEnabled: () => true,
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config);
 
@@ -1147,12 +1147,12 @@ describe("cache isolation between detail and non-detail", () => {
 					{ name: `acc-${callCount}`, paused: false, rate_limited_until: null },
 				];
 			},
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
 			getHealthDetailEnabled: () => true,
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config);
 
@@ -1180,12 +1180,12 @@ describe("cache isolation between detail and non-detail", () => {
 					{ name: `acc-${callCount}`, paused: false, rate_limited_until: null },
 				];
 			},
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 
 		const config = {
 			getStrategy: () => "session",
 			getHealthDetailEnabled: () => true,
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 
 		const handler = createHealthHandler(db, config);
 
@@ -1235,7 +1235,7 @@ describe("health build-time provenance", () => {
 	function makeConfig() {
 		return {
 			getStrategy: () => "session",
-		} as unknown as import("@better-ccflare/config").Config;
+		} as unknown as import("@hov-router/config").Config;
 	}
 
 	function makeDb() {
@@ -1243,7 +1243,7 @@ describe("health build-time provenance", () => {
 			getAllAccounts: async () => [
 				{ name: "acc1", paused: false, rate_limited_until: null },
 			],
-		} as unknown as import("@better-ccflare/database").DatabaseOperations;
+		} as unknown as import("@hov-router/database").DatabaseOperations;
 	}
 
 	// NOTE: `version` and `git_sha` are intentionally NOT asserted against the

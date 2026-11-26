@@ -27,19 +27,19 @@
  *     bun scripts/bench-sse-resource-limits.ts
  */
 
-import { BUFFER_SIZES } from "@better-ccflare/core";
+import { BUFFER_SIZES } from "@hov-router/core";
 // Deep relative imports for both translators, rather than importing
-// @better-ccflare/providers' or @better-ccflare/openai-responses-adapter's
+// @hov-router/providers' or @hov-router/openai-responses-adapter's
 // package index barrels:
-//   - CodexProvider itself has no dependency on @better-ccflare/database,
-//     but @better-ccflare/providers' index.ts barrel re-exports sibling
+//   - CodexProvider itself has no dependency on @hov-router/database,
+//     but @hov-router/providers' index.ts barrel re-exports sibling
 //     modules that transitively do, including the auto-generated
 //     inline-integrity-check-worker (gitignored, built by `bun run build`,
 //     and explicitly off-limits to read/edit per CLAUDE.md). Importing
 //     CodexProvider directly from its own file avoids evaluating that
 //     barrel at all, so this script runs without requiring a prior build.
 //   - translateAnthropicStreamToResponses is an internal implementation
-//     detail of @better-ccflare/openai-responses-adapter, not re-exported
+//     detail of @hov-router/openai-responses-adapter, not re-exported
 //     from its package index (see src/index.ts) in the first place.
 import { CodexProvider } from "../packages/providers/src/providers/codex/provider";
 import { translateAnthropicStreamToResponses } from "../packages/openai-responses-adapter/src/stream-translator";

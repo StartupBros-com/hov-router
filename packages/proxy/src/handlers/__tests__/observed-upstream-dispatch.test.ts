@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Provider } from "@better-ccflare/providers";
+import type { Provider } from "@hov-router/providers";
 import { forwardObservedUpstream } from "../observed-upstream";
 
 const context = {

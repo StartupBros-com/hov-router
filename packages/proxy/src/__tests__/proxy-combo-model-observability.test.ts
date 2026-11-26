@@ -13,14 +13,14 @@
  * requests.applied_model and exposes on the live summary event.
  */
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import { LATEST_OPUS_MODEL } from "@better-ccflare/core";
-import { usageCache } from "@better-ccflare/providers";
+import { LATEST_OPUS_MODEL } from "@hov-router/core";
+import { usageCache } from "@hov-router/providers";
 import type {
 	Account,
 	ComboFamily,
 	ComboRoutingPolicySnapshot,
 	ComboWithSlots,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import {
 	getRateLimitProbeAdmission,

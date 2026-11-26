@@ -1,6 +1,6 @@
 import { describe, expect, it, spyOn } from "bun:test";
-import { type TokenRefreshResult, usageCache } from "@better-ccflare/providers";
-import type { Account, RateLimitReason } from "@better-ccflare/types";
+import { type TokenRefreshResult, usageCache } from "@hov-router/providers";
+import type { Account, RateLimitReason } from "@hov-router/types";
 import {
 	refreshPollingAccessToken,
 	startUsagePollingWithRefresh,

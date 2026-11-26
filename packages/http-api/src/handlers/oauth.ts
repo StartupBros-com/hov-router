@@ -1,11 +1,7 @@
 import crypto from "node:crypto";
-import { Config } from "@better-ccflare/config";
-import {
-	patterns,
-	validatePriority,
-	validateString,
-} from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import { Config } from "@hov-router/config";
+import { patterns, validatePriority, validateString } from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	BadRequest,
 	Conflict,
@@ -14,18 +10,18 @@ import {
 	jsonResponse,
 	NotFound,
 	ServiceUnavailable,
-} from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
-import { createOAuthFlow } from "@better-ccflare/oauth-flow";
+} from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
+import { createOAuthFlow } from "@hov-router/oauth-flow";
 import {
 	initiateCodexDeviceFlow,
 	pollCodexForToken,
-} from "@better-ccflare/providers/codex";
+} from "@hov-router/providers/codex";
 import {
 	initiateDeviceFlow as initiateQwenDeviceFlow,
 	pollForToken as pollQwenForToken,
-} from "@better-ccflare/providers/qwen";
-import { clearAccountRefreshCache } from "@better-ccflare/proxy";
+} from "@hov-router/providers/qwen";
+import { clearAccountRefreshCache } from "@hov-router/proxy";
 import type { DeviceSetupCoordinator } from "../services/device-setup-jobs";
 import {
 	DeviceSetupAuthorizationUnavailableError,
@@ -651,8 +647,8 @@ export function createAnthropicReauthCallbackHandler(
 			try {
 				const oauthFlow = await createOAuthFlow(dbOps, config);
 
-				const oauthProvider = await import("@better-ccflare/providers").then(
-					(m) => m.getOAuthProvider("anthropic"),
+				const oauthProvider = await import("@hov-router/providers").then((m) =>
+					m.getOAuthProvider("anthropic"),
 				);
 				if (!oauthProvider) {
 					throw new Error("OAuth provider not found");
@@ -860,8 +856,8 @@ export function createOAuthCallbackHandler(dbOps: DatabaseOperations) {
 
 				// We need to reconstruct the flow data since we can't pass the full BeginResult through HTTP
 				// The OAuth flow will handle the token exchange and account creation
-				const oauthProvider = await import("@better-ccflare/providers").then(
-					(m) => m.getOAuthProvider("anthropic"),
+				const oauthProvider = await import("@hov-router/providers").then((m) =>
+					m.getOAuthProvider("anthropic"),
 				);
 				if (!oauthProvider) {
 					throw new Error("OAuth provider not found");

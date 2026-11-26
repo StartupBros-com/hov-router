@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
-import { parseHttpError } from "@better-ccflare/errors";
+import { parseHttpError } from "@hov-router/errors";
 import { api } from "../api";
 import {
 	applyLaneForm,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { MAX_REQUEST_BODY_BYTES } from "@better-ccflare/core";
+import { MAX_REQUEST_BODY_BYTES } from "@hov-router/core";
 import {
 	BODY_ADMISSION_RESERVATION_MULTIPLIER,
 	BodyAdmissionController,

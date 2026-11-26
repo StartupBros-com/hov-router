@@ -1,4 +1,4 @@
-import { HttpError } from "@better-ccflare/http-common";
+import { HttpError } from "@hov-router/http-common";
 import { Braces, Edit, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import {

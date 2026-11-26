@@ -8,8 +8,8 @@ import {
 	spyOn,
 } from "bun:test";
 import { readFileSync } from "node:fs";
-import { Logger } from "@better-ccflare/logger";
-import * as providersModule from "@better-ccflare/providers";
+import { Logger } from "@hov-router/logger";
+import * as providersModule from "@hov-router/providers";
 import {
 	AnthropicProvider,
 	CodexProvider,
@@ -17,8 +17,8 @@ import {
 	OpenAICompatibleProvider,
 	type Provider,
 	setCodexAccountModelContextMetadata,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import {
 	INTERNAL_PROBE_SECRET_HEADER,

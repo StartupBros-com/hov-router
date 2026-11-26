@@ -2,7 +2,7 @@ import {
 	ContentBlockType,
 	type MessageData,
 	type ToolUse,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { normalizeText } from "../utils/normalize-text";
 
 export function parseRequestMessages(body: string | null): MessageData[] {

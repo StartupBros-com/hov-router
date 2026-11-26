@@ -16,7 +16,7 @@ import type {
 	CacheParityDriftReport,
 	CacheParityLeverKey,
 	CacheParityPolicySnapshot,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 /**
  * Declared default for every lever in CacheParityPolicySnapshot. Values

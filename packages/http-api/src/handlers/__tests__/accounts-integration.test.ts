@@ -10,18 +10,18 @@ import {
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
 import {
 	clearDerivedProviderModelDefaults,
 	resolveProviderModelDefault,
 	setDerivedAccountModelDefaults,
-} from "@better-ccflare/providers";
-import { deriveComboRouteClass } from "@better-ccflare/providers/request-capabilities";
+} from "@hov-router/providers";
+import { deriveComboRouteClass } from "@hov-router/providers/request-capabilities";
 import {
 	clearOpenAICompatibleModelCacheForAccount,
 	getOpenAICompatibleModels,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import {
 	createAccountCustomEndpointUpdateHandler,
 	createAccountPauseHandler,

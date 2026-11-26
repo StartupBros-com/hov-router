@@ -1,7 +1,7 @@
 import type {
 	AgentAttributionSource,
 	RouteLineageMetadata,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { opaqueRuntimeId } from "./opaque-runtime-id";
 
 const CLAUDE_CODE_PARENT_AGENT_HEADER = "x-claude-code-parent-agent-id";

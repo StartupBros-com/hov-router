@@ -1,4 +1,4 @@
-import { type RequestEvt, requestEvents } from "@better-ccflare/core";
+import { type RequestEvt, requestEvents } from "@hov-router/core";
 import { createEventStreamHandler } from "./event-stream";
 
 export function createRequestsStreamHandler() {

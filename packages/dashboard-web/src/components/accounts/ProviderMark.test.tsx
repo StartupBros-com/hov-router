@@ -1,5 +1,5 @@
 import { expect, it } from "bun:test";
-import { PROVIDER_NAMES } from "@better-ccflare/types";
+import { PROVIDER_NAMES } from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ProviderMark, providerMarkKey } from "./ProviderMark";
 

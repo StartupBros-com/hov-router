@@ -3,7 +3,7 @@ import { describe, expect, it, mock } from "bun:test";
 import type {
 	DeviceSetupJobView,
 	DeviceSetupStartResult,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { BunSqlAdapter } from "../../../../database/src/adapters/bun-sql-adapter";
 import {
 	ensureSchema,
@@ -18,10 +18,10 @@ import {
 	validateDeviceSetupCommand,
 } from "../../services/device-setup-jobs";
 
-mock.module("@better-ccflare/proxy", () => ({
+mock.module("@hov-router/proxy", () => ({
 	clearAccountRefreshCache: () => {},
 }));
-mock.module("@better-ccflare/oauth-flow", () => ({
+mock.module("@hov-router/oauth-flow", () => ({
 	createOAuthFlow: async () => ({ complete: async () => undefined }),
 }));
 

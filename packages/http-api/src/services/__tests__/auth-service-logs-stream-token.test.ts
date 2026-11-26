@@ -16,8 +16,8 @@
  * unchanged.
  */
 import { describe, expect, it } from "bun:test";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { NodeCryptoUtils } from "@better-ccflare/types/api-key";
+import type { DatabaseOperations } from "@hov-router/database";
+import { NodeCryptoUtils } from "@hov-router/types/api-key";
 import { AuthService } from "../auth-service";
 
 const RAW_KEY = "sk-test-logs-stream-key";

@@ -1,8 +1,5 @@
-import type {
-	CleanupPacer,
-	DatabaseOperations,
-} from "@better-ccflare/database";
-import type { Logger } from "@better-ccflare/logger";
+import type { CleanupPacer, DatabaseOperations } from "@hov-router/database";
+import type { Logger } from "@hov-router/logger";
 
 /**
  * Wall-clock budget for one periodic or startup retention sweep (#613). A

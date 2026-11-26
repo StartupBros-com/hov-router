@@ -2,12 +2,12 @@ import {
 	BadRequest,
 	errorResponse,
 	jsonResponse,
-} from "@better-ccflare/http-common";
+} from "@hov-router/http-common";
 import {
 	ROUTING_ATTEMPT_SUMMARY_WINDOWS,
 	type RoutingAttemptSummary,
 	type RoutingAttemptSummaryWindow,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 export interface RoutingAttemptSummaryReader {
 	getRoutingAttemptSummary(input: {

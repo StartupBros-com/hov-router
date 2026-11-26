@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { normalizeProviderUsageWindows } from "@better-ccflare/core";
-import type { CanonicalUsageWindow } from "@better-ccflare/types";
+import { normalizeProviderUsageWindows } from "@hov-router/core";
+import type { CanonicalUsageWindow } from "@hov-router/types";
 import { DatabaseOperations } from "../database-operations";
 
 const HOUR = 3_600_000;

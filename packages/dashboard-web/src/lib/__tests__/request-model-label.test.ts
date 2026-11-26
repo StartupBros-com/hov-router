@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { RouteProvenance } from "@better-ccflare/types";
+import type { RouteProvenance } from "@hov-router/types";
 import { requestModelLabel } from "../request-model-label";
 
 function route(overrides: Partial<RouteProvenance>): RouteProvenance {

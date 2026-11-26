@@ -1,4 +1,4 @@
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import { getEndpointUrl } from "./model-mappings";
 import { getCatalogModelSummaries } from "./pricing";
 

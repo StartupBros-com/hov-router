@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import {
-	getCodexSubscriptionFacts,
-	usageCache,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+import { getCodexSubscriptionFacts, usageCache } from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import { mapWhamUsageResponse } from "../../../../providers/src/providers/codex/api-usage";
 import type { ProxyContext } from "../proxy-types";
 import { processProxyResponse } from "../response-processor";

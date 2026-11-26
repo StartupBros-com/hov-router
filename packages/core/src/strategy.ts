@@ -1,4 +1,4 @@
-import { type Account, StrategyName } from "@better-ccflare/types";
+import { type Account, StrategyName } from "@hov-router/types";
 import { PAUSE_REASON_NEEDS_REAUTH } from "./errors";
 
 // Array of all strategies for backwards compatibility
@@ -78,4 +78,4 @@ export function minimumRoutableTier(tiers: Iterable<number>): number | null {
 }
 
 // Re-export from types package for backwards compatibility
-export { StrategyName } from "@better-ccflare/types";
+export { StrategyName } from "@hov-router/types";

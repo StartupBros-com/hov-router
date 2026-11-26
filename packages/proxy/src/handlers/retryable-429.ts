@@ -1,4 +1,4 @@
-import { isAnthropicOutOfCredits } from "@better-ccflare/providers";
+import { isAnthropicOutOfCredits } from "@hov-router/providers";
 
 /**
  * Identifies a 429 whose scope is narrower than the account, so the caller can

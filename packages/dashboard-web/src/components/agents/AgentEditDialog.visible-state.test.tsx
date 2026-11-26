@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { Agent } from "@better-ccflare/types";
+import type { Agent } from "@hov-router/types";
 import type { ReactNode } from "react";
 
 const state = { isError: false };

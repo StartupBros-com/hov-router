@@ -3,8 +3,8 @@ import {
 	type AuthFailureEvt,
 	authFailureEvents,
 	OAuthRefreshTokenError,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import { getValidAccessToken, refreshAccessTokenSafe } from "../token-manager";
 
 function makeAccount(id: string, name = "test-account"): Account {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { CacheFlightPersistedSeal } from "@better-ccflare/core";
-import type { CacheFlightRecorderTimeline } from "@better-ccflare/database";
+import type { CacheFlightPersistedSeal } from "@hov-router/core";
+import type { CacheFlightRecorderTimeline } from "@hov-router/database";
 import {
 	buildCacheFlightRecorderReport,
 	renderCacheFlightRecorderReport,

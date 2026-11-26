@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
-import { DatabaseFactory } from "@better-ccflare/database";
+import { DatabaseFactory } from "@hov-router/database";
 import { translateBedrockError } from "../error-handler";
 
 // getModelNotFoundSuggestion (exercised indirectly below) calls
 // DatabaseFactory.getInstance() directly, so it can't be exercised without a
-// database instance. Rather than mock.module("@better-ccflare/database", ...)
+// database instance. Rather than mock.module("@hov-router/database", ...)
 // — which replaces the WHOLE module globally and across file boundaries in
 // Bun (no per-file isolation without --isolate), permanently shadowing the
 // real DatabaseFactory/ModelTranslationRepository for every other test file

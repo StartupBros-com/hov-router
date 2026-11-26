@@ -1,12 +1,9 @@
-import {
-	getModelDisplayName,
-	resolveFamilyAliasModel,
-} from "@better-ccflare/core";
+import { getModelDisplayName, resolveFamilyAliasModel } from "@hov-router/core";
 import type {
 	ComboFamily,
 	ComboFamilyAssignment,
 	ComboRoutingPreviewResult,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { useMemo, useRef, useState } from "react";
 import {
 	type UpdateFamilyPolicyVariables,

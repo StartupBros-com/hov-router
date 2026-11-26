@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { getPrivateAiTraceRoutes } from "@better-ccflare/config";
+import { getPrivateAiTraceRoutes } from "@hov-router/config";
 
 /** Stamp only disposable HTTP headers; no body access, exporter, or routing change. */
 export function applyPrivateAiTraceContext(

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
-import { HttpError } from "@better-ccflare/http-common";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
+import { HttpError } from "@hov-router/http-common";
 import {
 	authenticateErrorMessage,
 	isKeyRejection,

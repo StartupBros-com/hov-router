@@ -1,4 +1,4 @@
-import type { AccountResponse } from "@better-ccflare/types";
+import type { AccountResponse } from "@hov-router/types";
 import { resetActionAvailability } from "../components/accounts/reset-redemption-flow";
 import { providerPlanTitle } from "../utils/provider-utils";
 import {

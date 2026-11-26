@@ -5,8 +5,8 @@ import {
 	type CodexIdentityRecordError,
 	emitCodexCatalogEvent,
 	registerHeartbeat,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import {
 	type AutoModelCapabilities,
 	CODEX_VERIFIED_VERSION_FILE_ENV,
@@ -20,8 +20,8 @@ import {
 	setCodexAccountModelContextMetadata,
 	setDerivedAccountModelDefaults,
 	setDerivedProviderModelDefaults,
-} from "@better-ccflare/providers";
-import type { Account, QualityApprovedLine } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account, QualityApprovedLine } from "@hov-router/types";
 import type { ProxyContext } from "./handlers/proxy-types";
 import { getValidAccessToken } from "./handlers/token-manager";
 

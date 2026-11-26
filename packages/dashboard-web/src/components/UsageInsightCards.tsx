@@ -1,4 +1,4 @@
-import type { UsageHistoryWindowSeries } from "@better-ccflare/types";
+import type { UsageHistoryWindowSeries } from "@hov-router/types";
 import { Flame } from "lucide-react";
 import { computeWeeklyPace } from "../lib/usage-pace";
 import { formatShortDuration } from "../lib/utils";

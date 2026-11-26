@@ -1,7 +1,7 @@
 import type {
 	NativeAnthropicToolRequirement,
 	ServerToolRoutingCapabilitySummary,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 export type ServerToolRoutingErrorReason =
 	| "invalid_requirement"

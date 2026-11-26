@@ -1,16 +1,16 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { EventEmitter } from "node:events";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import {
 	alertEvents,
 	authFailureEvents,
 	requestEvents,
-} from "@better-ccflare/core";
-import type { BunSqlAdapter as BunSqlAdapterType } from "@better-ccflare/database";
-import { BunSqlAdapter, ensureSchema } from "@better-ccflare/database";
-import { logBus } from "@better-ccflare/logger";
-import type { LogEvent, RequestResponse } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { BunSqlAdapter as BunSqlAdapterType } from "@hov-router/database";
+import { BunSqlAdapter, ensureSchema } from "@hov-router/database";
+import { logBus } from "@hov-router/logger";
+import type { LogEvent, RequestResponse } from "@hov-router/types";
 import { AlertService } from "../alerts";
 
 async function waitFor(predicate: () => boolean): Promise<void> {

@@ -5,10 +5,7 @@
  * See LICENSE.md in the project root for license terms.
  */
 import { describe, expect, it } from "bun:test";
-import {
-	CodexProvider,
-	OpenAICompatibleProvider,
-} from "@better-ccflare/providers";
+import { CodexProvider, OpenAICompatibleProvider } from "@hov-router/providers";
 import { prepareRequestBody, validateProviderPath } from "../request-handler";
 
 describe("validateProviderPath", () => {

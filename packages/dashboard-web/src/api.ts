@@ -2,7 +2,7 @@ import {
 	HttpClient,
 	HttpError,
 	type RequestOptions,
-} from "@better-ccflare/http-common";
+} from "@hov-router/http-common";
 import type {
 	AccountResponse,
 	AccountRoutingOverview,
@@ -37,7 +37,7 @@ import type {
 	RoutingAttemptSummaryResponse,
 	RoutingAttemptSummaryWindow,
 	UsageHistoryResponse,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { API_LIMITS, API_TIMEOUT } from "./constants";
 import { type HealthVerdict, parseHealthVerdict } from "./lib/health-verdict";
 import { type RedeemResetAnswer, sendRedeemReset } from "./lib/redeem-reset";
@@ -146,7 +146,7 @@ export type {
 	RequestResponse,
 	RoutingAttemptSummaryResponse,
 	RoutingAttemptSummaryWindow,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 // Agent response interface
 export interface AgentsResponse {
@@ -253,7 +253,7 @@ export interface OpenAICompatibleModelPreviewResponse {
 }
 
 class API extends HttpClient {
-	private static readonly API_KEY_STORAGE_KEY = "better-ccflare-api-key";
+	private static readonly API_KEY_STORAGE_KEY = "hov-router-api-key";
 
 	private logger = {
 		info: (message: string, ...args: unknown[]) => {
@@ -2671,11 +2671,11 @@ class API extends HttpClient {
 	}
 
 	async getAlerts(limit = 100): Promise<{
-		alerts: import("@better-ccflare/types").AlertEvent[];
+		alerts: import("@hov-router/types").AlertEvent[];
 		unacknowledgedCount: number;
 	}> {
 		const res = await this.get<{
-			alerts: import("@better-ccflare/types").AlertEvent[];
+			alerts: import("@hov-router/types").AlertEvent[];
 			unacknowledgedCount: number;
 		}>(`/api/alerts?limit=${Math.min(Math.max(1, limit), 500)}`);
 		return res;

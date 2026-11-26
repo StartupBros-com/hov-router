@@ -1,4 +1,4 @@
-import { MAX_REQUEST_BODY_BYTES } from "@better-ccflare/core";
+import { MAX_REQUEST_BODY_BYTES } from "@hov-router/core";
 
 export const DEFAULT_BODY_ADMISSION_BUDGET_BYTES = 256 * 1024 * 1024;
 export const BODY_ADMISSION_RESERVATION_MULTIPLIER = 8;

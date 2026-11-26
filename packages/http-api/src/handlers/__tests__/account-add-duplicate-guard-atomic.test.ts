@@ -163,8 +163,8 @@ describe("createAccountAddHandler — atomic DB-level guard (Greptile P1)", () =
 	it('handler catch is wired: replays the UNIQUE error into BadRequest("Account name ...")', async () => {
 		// We import the handler lazily so this test file does NOT pull
 		// in the full provider/CLI subgraph just to compile. The
-		// handler itself only depends on @better-ccflare/database +
-		// @better-ccflare/cli-commands, and the imports chain through
+		// handler itself only depends on @hov-router/database +
+		// @hov-router/cli-commands, and the imports chain through
 		// optional provider SDKs that may be absent in this test env.
 		// We isolate the contract we care about by importing just
 		// the helper `isUniqueConstraintError` indirectly via the

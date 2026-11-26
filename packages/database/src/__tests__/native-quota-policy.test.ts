@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, it } from "bun:test";
-import { toComboFamilyAssignment } from "@better-ccflare/types";
+import { toComboFamilyAssignment } from "@hov-router/types";
 import { BunSqlAdapter } from "../adapters/bun-sql-adapter";
 import { ensureSchema, runMigrations } from "../migrations";
 import { ComboRepository } from "../repositories/combo.repository";

@@ -8,6 +8,6 @@
 import {
 	GUARD_CORRELATION_SECRET_HEADER,
 	GUARD_REQUEST_ID_HEADER,
-} from "@better-ccflare/http-common";
+} from "@hov-router/http-common";
 
 export { GUARD_CORRELATION_SECRET_HEADER, GUARD_REQUEST_ID_HEADER };

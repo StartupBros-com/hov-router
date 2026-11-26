@@ -7,15 +7,23 @@
 // that exports them cannot redirect tests at real locations. Subprocesses see
 // these only when spawned with `env: process.env`: Bun (1.3) hands a child the
 // startup environment by default, not later process.env changes.
+//
+// XDG_CONFIG_HOME is pinned for the same reason: the default config directory,
+// and the default database inside it, is production's on this host, and a test
+// that forgets to set its own DB or config path would otherwise open it.
+// getPlatformConfigDir() reads XDG_CONFIG_HOME on every call. HOME is not
+// pinned because Bun caches os.homedir() at startup, so setting it here would
+// change nothing in-process.
 import { afterAll } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const dir = mkdtempSync(join(tmpdir(), "ccflare-test-"));
+const dir = mkdtempSync(join(tmpdir(), "hov-router-test-"));
 process.env.TMPDIR = dir;
 process.env.TEMP = dir;
 process.env.TMP = dir;
+process.env.XDG_CONFIG_HOME = join(dir, "config");
 process.env.BETTER_CCFLARE_LOG_DIR = join(dir, "logs");
 process.env.BETTER_CCFLARE_MODELS_CACHE_DIR = join(dir, "models-cache");
 

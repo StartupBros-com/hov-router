@@ -7,7 +7,7 @@
 
 import { Buffer } from "node:buffer";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { GUARD_REQUEST_ID_HEADER } from "@better-ccflare/http-common";
+import { GUARD_REQUEST_ID_HEADER } from "@hov-router/http-common";
 
 export const GUARD_CORRELATION_VERSION = "v1" as const;
 export const MAX_GUARD_ATTEMPT_ORDINAL = 1_000_000;

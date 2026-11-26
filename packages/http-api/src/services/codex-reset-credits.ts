@@ -3,14 +3,14 @@ import type {
 	CodexResetCreditState,
 	CodexResetCreditVanishReason,
 	DatabaseOperations,
-} from "@better-ccflare/database";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/database";
+import { Logger } from "@hov-router/logger";
 import {
 	type CodexResetCredit,
 	type CodexResetCreditListResult,
 	hashChatGptAccountId,
 	nonNegativeIntegerOrNull,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 
 const log = new Logger("CodexResetCredits");
 

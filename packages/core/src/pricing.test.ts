@@ -843,7 +843,7 @@ describe("getModelRates", () => {
 });
 
 /**
- * The production pricing logger is `@better-ccflare/logger`'s `Logger`, whose
+ * The production pricing logger is `@hov-router/logger`'s `Logger`, whose
  * `warn`/`debug` take a message and at most one data value and print the
  * message verbatim. A third argument is dropped and a `%s` stays literal.
  */

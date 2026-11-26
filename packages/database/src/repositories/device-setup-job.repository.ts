@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ComboFamily } from "@better-ccflare/types";
+import type { ComboFamily } from "@hov-router/types";
 import { BaseRepository } from "./base.repository";
 
 export const DEVICE_SETUP_JOB_STATUSES = [

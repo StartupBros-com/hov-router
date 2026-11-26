@@ -4,9 +4,9 @@ import {
 	LATEST_HAIKU_MODEL,
 	LATEST_OPUS_MODEL,
 	LATEST_SONNET_MODEL,
-} from "@better-ccflare/core";
-import { logBus } from "@better-ccflare/logger";
-import type { LogEvent } from "@better-ccflare/types";
+} from "@hov-router/core";
+import { logBus } from "@hov-router/logger";
+import type { LogEvent } from "@hov-router/types";
 import {
 	MAX_RESPONSES_CONTENT_PARTS,
 	MAX_RESPONSES_INPUT_ITEMS,

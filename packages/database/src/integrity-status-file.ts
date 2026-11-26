@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { rename, rm, writeFile } from "node:fs/promises";
-import type { IntegrityStatus } from "@better-ccflare/types";
+import type { IntegrityStatus } from "@hov-router/types";
 
 /**
  * The last integrity-check results, kept in a small JSON file beside the

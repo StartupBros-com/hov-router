@@ -31,8 +31,8 @@ import {
 	supportsForcedToolChoice,
 	ValidationError,
 	validatePriority,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import { validateModelMappings } from "./validation";
 
 const candidateModels = (count: number) =>

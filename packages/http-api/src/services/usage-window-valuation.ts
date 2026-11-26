@@ -1,12 +1,12 @@
 import {
 	valueWindowAggregates as valueCoreAggregates,
 	type WindowTokenAggregate,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	activeModelRouteProfiles,
 	type ModelRouteProfile,
 	modelRouteProfileModelIds,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 
 /** Keep observed model keys in the ledger, resolving configured route aliases
  * only for pricing. Unknown physical models retain the unpriced-token signal. */

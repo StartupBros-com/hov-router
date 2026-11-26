@@ -1,4 +1,4 @@
-import { NO_ACCOUNT_ID } from "@better-ccflare/types";
+import { NO_ACCOUNT_ID } from "@hov-router/types";
 
 /**
  * Range and filter parsing for request-analytics style endpoints:

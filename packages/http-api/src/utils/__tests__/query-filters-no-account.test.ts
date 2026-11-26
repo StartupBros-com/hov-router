@@ -16,8 +16,8 @@
  */
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import "@better-ccflare/core";
-import { NO_ACCOUNT_ID } from "@better-ccflare/types";
+import "@hov-router/core";
+import { NO_ACCOUNT_ID } from "@hov-router/types";
 import { buildRequestFilters } from "../query-filters";
 
 function makeDb(): Database {

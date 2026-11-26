@@ -4,8 +4,8 @@ import {
 	LATEST_OPUS_MODEL,
 	LATEST_SONNET_MODEL,
 	supportsForcedToolChoice,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import { flattenToolHistory, parseBase64DataUrl } from "./inbound-compat";
 import type {
 	AnthropicContent,

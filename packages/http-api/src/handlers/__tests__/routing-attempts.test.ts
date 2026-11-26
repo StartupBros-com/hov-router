@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { RoutingAttemptSummary } from "@better-ccflare/types";
+import type { RoutingAttemptSummary } from "@hov-router/types";
 import { createRoutingAttemptsSummaryHandler } from "../routing-attempts";
 
 const summary: RoutingAttemptSummary = {

@@ -7,10 +7,10 @@ import {
 	OAuthRefreshTokenError,
 	readBoundedOAuthResponseText,
 	validateEndpointUrl,
-} from "@better-ccflare/core";
-import { sanitizeProxyHeaders } from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
-import type { Account, LogicalModelCapability } from "@better-ccflare/types";
+} from "@hov-router/core";
+import { sanitizeProxyHeaders } from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
+import type { Account, LogicalModelCapability } from "@hov-router/types";
 import { BaseProvider } from "../../base";
 import type {
 	CacheReplayModelStrategy,

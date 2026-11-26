@@ -25,15 +25,15 @@ import {
 	validateEndpointUrl,
 	validateNumber,
 	validateString,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
-import { validatePathOrThrow } from "@better-ccflare/security";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
+import { validatePathOrThrow } from "@hov-router/security";
 import {
 	type AlertType,
 	CACHE_HEALTH_BUCKET_MS,
 	CACHE_HEALTH_DEFAULT_POLICY,
 	isAlertType,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { resolveConfigPath } from "./paths";
 import {
 	validateRuntimeRetry,
@@ -868,7 +868,7 @@ const _DEFAULT_PROVIDER_MODEL_DEFAULTS_PROVIDERS: readonly string[] = ["codex"];
  * Drops overrides for providers outside `enabledProviders` without
  * mutating the input. Callers pass in the full, persisted overrides
  * map and push the filtered result into the in-memory registry (see
- * setProviderModelDefaultOverrides in @better-ccflare/providers) at
+ * setProviderModelDefaultOverrides in @hov-router/providers) at
  * boot and after a successful POST. The persisted file always keeps
  * the full map — a disabled provider's stored override is never
  * erased, just excluded here, so it re-applies automatically once
@@ -1399,7 +1399,7 @@ function restrictConfigFile(path: string): void {
  * software (`~/.config` on a fresh machine). An existing directory is never
  * chmodded: it may hold other files, and production's does.
  *
- * Mirrors ensurePrivateDir in @better-ccflare/database, which this package
+ * Mirrors ensurePrivateDir in @hov-router/database, which this package
  * cannot import (database does not depend on config, nor config on database).
  */
 function ensureConfigDir(dir: string): void {
@@ -1990,7 +1990,7 @@ export class Config extends EventEmitter {
 	/**
 	 * Restart-scoped, opt-in list of Skill-tool document bundles to elide when
 	 * a request is routed to a non-Anthropic provider (see
-	 * `@better-ccflare/providers` skill-elision utilities). Default-off (empty
+	 * `@hov-router/providers` skill-elision utilities). Default-off (empty
 	 * list). The environment wins over the file wholesale when set at all —
 	 * even a malformed env value fails closed to `[]` rather than falling back
 	 * to the file, matching `parseSkillElisionBlockedSkills`'s own contract.
@@ -2602,7 +2602,7 @@ export class Config extends EventEmitter {
 	}
 
 	/** Throws ValidationError if `value` contains any name that isn't a known
-	 * AlertType (see @better-ccflare/types ALERT_TYPES), or has more entries
+	 * AlertType (see @hov-router/types ALERT_TYPES), or has more entries
 	 * than MAX_ALERT_WEBHOOK_TYPES — unlike the getter, a config write is a
 	 * good moment to fail loudly. Without this explicit oversized-list check,
 	 * a write past that cap would fall through to parseAlertWebhookTypes's
@@ -2876,6 +2876,6 @@ export class Config extends EventEmitter {
 }
 
 // Re-export types
-export type { StrategyName } from "@better-ccflare/core";
+export type { StrategyName } from "@hov-router/core";
 export { resolveConfigPath } from "./paths";
 export { getPlatformConfigDir } from "./paths-common";

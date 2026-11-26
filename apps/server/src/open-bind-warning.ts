@@ -1,8 +1,5 @@
-import { isLoopbackHost } from "@better-ccflare/core";
-import {
-	COMMAND_NAME,
-	PRODUCT_NAME,
-} from "@better-ccflare/core/product-identity";
+import { isLoopbackHost } from "@hov-router/core";
+import { COMMAND_NAME, PRODUCT_NAME } from "@hov-router/core/product-identity";
 
 /**
  * Whether the listening address is provably loopback only. Anything else

@@ -1,4 +1,4 @@
-import { TIME_CONSTANTS } from "@better-ccflare/core";
+import { TIME_CONSTANTS } from "@hov-router/core";
 
 const DRAIN_DEADLINE = Symbol("drain-deadline");
 const responseDrainTransports = new WeakMap<Response, AbortController>();

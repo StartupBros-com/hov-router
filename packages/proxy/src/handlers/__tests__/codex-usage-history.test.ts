@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { usageCache } from "@better-ccflare/providers";
-import type { Account, CanonicalUsageWindow } from "@better-ccflare/types";
+import type { DatabaseOperations } from "@hov-router/database";
+import { usageCache } from "@hov-router/providers";
+import type { Account, CanonicalUsageWindow } from "@hov-router/types";
 import {
 	recordCodexUsageSnapshot,
 	resetCodexUsageHistoryThrottle,

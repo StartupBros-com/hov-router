@@ -3,8 +3,8 @@ import {
 	type PublicValuePlanObject,
 	publicValuePlanObject,
 	VALUE_PRICING_VERSION,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import { getPublicRosterGeneration } from "../services/public-subscription-roster";
 import {
 	isValidPublicId,

@@ -1,7 +1,7 @@
 import type {
 	ImplicitFallbackPolicyConfig,
 	ModelScopedCapacityRoutingMode,
-} from "@better-ccflare/config";
+} from "@hov-router/config";
 import {
 	coveringExtraUsageHolds,
 	extraUsageHoldWindowKind,
@@ -14,10 +14,10 @@ import {
 	PAUSE_REASON_NEEDS_REAUTH,
 	providerAcceptsClientModel,
 	resolveEffectiveComboMembership,
-} from "@better-ccflare/core";
-import { COMMAND_NAME } from "@better-ccflare/core/product-identity";
-import { Logger } from "@better-ccflare/logger";
-import type { Provider } from "@better-ccflare/providers";
+} from "@hov-router/core";
+import { COMMAND_NAME } from "@hov-router/core/product-identity";
+import { Logger } from "@hov-router/logger";
+import type { Provider } from "@hov-router/providers";
 import {
 	buildServerToolCapabilityProofKey,
 	CountTokensUnsupportedError,
@@ -32,7 +32,7 @@ import {
 	resolveCodexRequestModel,
 	resolveProviderForAccount,
 	usageCache,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import type {
 	Account,
 	AccountQuotaPressure,
@@ -50,7 +50,7 @@ import type {
 	RoutingSelectionDiagnostics,
 	ServerToolCapabilityTuple,
 	ServerToolRoutingCapabilitySummary,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { isNativeAnthropicOAuthDegradedModeEligible } from "../anthropic-degraded-eligibility";
 import type {
 	AnthropicDegradedRouteInspection,

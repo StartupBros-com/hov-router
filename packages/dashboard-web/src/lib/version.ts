@@ -5,14 +5,11 @@ import packageJson from "../../../../apps/cli/package.json";
 
 // Build-time injected version (set by packages/dashboard-web/build.ts when
 // CCFLARE_BUILD_SUFFIX is present). undefined at dev/runtime.
-declare const __BETTER_CCFLARE_VERSION__: string | undefined;
+declare const __HOV_ROUTER_VERSION__: string | undefined;
 
 function resolveVersion(): string {
-	if (
-		typeof __BETTER_CCFLARE_VERSION__ !== "undefined" &&
-		__BETTER_CCFLARE_VERSION__
-	) {
-		return __BETTER_CCFLARE_VERSION__;
+	if (typeof __HOV_ROUTER_VERSION__ !== "undefined" && __HOV_ROUTER_VERSION__) {
+		return __HOV_ROUTER_VERSION__;
 	}
 	return packageJson.version;
 }

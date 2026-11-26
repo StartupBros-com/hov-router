@@ -1,4 +1,4 @@
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
 
 /**
  * Removed API endpoints, answered with 410 Gone.

@@ -1,4 +1,4 @@
-import type { RouteProvenance } from "@better-ccflare/types";
+import type { RouteProvenance } from "@hov-router/types";
 
 /**
  * What a request row's model badge names.

@@ -14,21 +14,21 @@
  */
 import { Database } from "bun:sqlite";
 import { describe, expect, it } from "bun:test";
-import "@better-ccflare/core";
-import type { Config } from "@better-ccflare/config";
+import "@hov-router/core";
+import type { Config } from "@hov-router/config";
 import {
 	BunSqlAdapter,
 	type DatabaseOperations,
 	ensureSchema,
 	runMigrations,
-} from "@better-ccflare/database";
-import { SessionAffinityStrategy } from "@better-ccflare/load-balancer";
+} from "@hov-router/database";
+import { SessionAffinityStrategy } from "@hov-router/load-balancer";
 import type {
 	Account,
 	HealthResponse,
 	RequestMeta,
 	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { APIRouter } from "../router";
 import type { APIContext } from "../types";
 

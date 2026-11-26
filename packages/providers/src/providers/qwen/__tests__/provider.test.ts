@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { OpenAIRequest } from "@better-ccflare/openai-formats";
-import type { Account } from "@better-ccflare/types";
+import type { OpenAIRequest } from "@hov-router/openai-formats";
+import type { Account } from "@hov-router/types";
 import { QwenProvider } from "../provider";
 
 type CacheControl = { type: string };

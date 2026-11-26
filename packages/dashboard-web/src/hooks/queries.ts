@@ -1,4 +1,4 @@
-import { getModelDisplayName } from "@better-ccflare/core";
+import { getModelDisplayName } from "@hov-router/core";
 import type {
 	AgentUpdatePayload,
 	ComboExhaustionPolicy,
@@ -9,8 +9,8 @@ import type {
 	DeviceSetupJobStatus,
 	DeviceSetupJobView,
 	RoutingAttemptSummaryWindow,
-} from "@better-ccflare/types";
-import { COMMON_MODELS } from "@better-ccflare/types";
+} from "@hov-router/types";
+import { COMMON_MODELS } from "@hov-router/types";
 import {
 	type QueryClient,
 	replaceEqualDeep,

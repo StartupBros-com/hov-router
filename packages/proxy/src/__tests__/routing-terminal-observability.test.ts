@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	ANTHROPIC_DEGRADED_MODE_DEFAULTS,
 	type AnthropicDegradedModeConfig,
-} from "@better-ccflare/config";
+} from "@hov-router/config";
 import {
 	AnthropicDegradedModeCoordinator,
 	buildAnthropicDegradedCohortKey,

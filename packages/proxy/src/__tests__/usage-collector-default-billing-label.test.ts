@@ -4,20 +4,20 @@
  * Dashboard and analytics split plan cost from pay-per-use cost on this label.
  */
 import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
-import "@better-ccflare/core";
-import { AsyncDbWriter, DatabaseOperations } from "@better-ccflare/database";
-import { listProviders } from "@better-ccflare/providers";
-import type { RequestResponse } from "@better-ccflare/types";
+import "@hov-router/core";
+import { AsyncDbWriter, DatabaseOperations } from "@hov-router/database";
+import { listProviders } from "@hov-router/providers";
+import type { RequestResponse } from "@hov-router/types";
 import type { StartMessage } from "../worker-messages";
 
 // Isolate the pricing catalogue: these fixtures must never fetch models.dev.
-const actualCore = await import("@better-ccflare/core");
-mock.module("@better-ccflare/core", () => ({
+const actualCore = await import("@hov-router/core");
+mock.module("@hov-router/core", () => ({
 	...actualCore,
 	isModelPriced: async () => false,
 	estimateCostUSD: async () => 0,
 }));
-afterAll(() => mock.module("@better-ccflare/core", () => actualCore));
+afterAll(() => mock.module("@hov-router/core", () => actualCore));
 const { UsageCollector } = await import("../usage-collector");
 
 const REPLY = Buffer.from(

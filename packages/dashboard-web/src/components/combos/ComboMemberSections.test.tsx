@@ -4,7 +4,7 @@ import type {
 	ComboMembershipExclusion,
 	ComboSlot,
 	EffectiveComboMemberView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ManagedExclusionList } from "./ManagedExclusionList";

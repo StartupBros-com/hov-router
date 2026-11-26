@@ -1,7 +1,4 @@
-import type {
-	CanonicalUsageWindow,
-	UsageSnapshotRow,
-} from "@better-ccflare/types";
+import type { CanonicalUsageWindow, UsageSnapshotRow } from "@hov-router/types";
 import { getCleanupBatchSize } from "../adapters/bun-sql-adapter";
 import { type CleanupPacer, deleteInBatches } from "../cleanup-pacing";
 import { BaseRepository } from "./base.repository";
