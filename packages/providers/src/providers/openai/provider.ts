@@ -1,10 +1,10 @@
-import { getChatTemplateReasoningAccountIds } from "@better-ccflare/config";
+import { getChatTemplateReasoningAccountIds } from "@hov-router/config";
 import {
 	AuthError,
 	resolveCompatibleEndpoint,
 	ValidationError,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import {
 	convertAnthropicPathToOpenAI,
 	convertAnthropicRequestToOpenAI,
@@ -12,8 +12,8 @@ import {
 	type OpenAIRequest,
 	sanitizeHeaders,
 	transformStreamingResponse,
-} from "@better-ccflare/openai-formats";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/openai-formats";
+import type { Account } from "@hov-router/types";
 import { BaseProvider } from "../../base";
 import type {
 	ProviderPathCapability,

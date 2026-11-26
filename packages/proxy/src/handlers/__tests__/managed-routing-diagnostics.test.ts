@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { ComboMembershipResolution } from "@better-ccflare/types";
+import type { ComboMembershipResolution } from "@hov-router/types";
 import { buildComboMembershipDiagnostics } from "../managed-routing-diagnostics";
 
 const ALLOWED_DIAGNOSTIC_KEYS = [

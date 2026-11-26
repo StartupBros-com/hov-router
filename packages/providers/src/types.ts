@@ -6,7 +6,7 @@ import type {
 	ServerToolCapabilityTuple,
 	ServerToolReplayAtom,
 	ServerToolRequirements,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type { ServerToolHistoryProjection } from "./server-tools/history-projection";
 import type {
 	ServerToolReplayEnvelopeBinding,

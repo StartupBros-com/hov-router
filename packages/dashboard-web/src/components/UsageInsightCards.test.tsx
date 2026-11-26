@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import type {
 	UsageHistoryWindowSeries,
 	UsagePrediction,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { UsageInsightCards } from "./UsageInsightCards";
 

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	checkAllAccountsHealth,
 	getAccountsNeedingReauth,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import {
 	createAccountTokenHealthHandler,
 	createReauthNeededHandler,

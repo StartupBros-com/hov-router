@@ -4,7 +4,7 @@ import {
 	getResponseDrainTransport,
 	registerResponseDrainTransport,
 	transferResponseDrainTransport,
-} from "@better-ccflare/providers/stream-drain";
+} from "@hov-router/providers/stream-drain";
 import { AnthropicProvider } from "../../../../providers/src/providers/anthropic/provider";
 import { makeProxyRequest } from "../request-handler";
 

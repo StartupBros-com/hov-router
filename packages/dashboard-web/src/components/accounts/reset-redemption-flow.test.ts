@@ -5,7 +5,7 @@ import type {
 	RedeemResetOutcome,
 	RedeemResetResponse,
 	RedeemResetSpend,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type { RedeemResetAnswer } from "../../lib/redeem-reset";
 import {
 	accountResetWindows,

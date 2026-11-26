@@ -1,4 +1,4 @@
-import { BUFFER_SIZES, SseFrameBuffer } from "@better-ccflare/core";
+import { BUFFER_SIZES, SseFrameBuffer } from "@hov-router/core";
 import {
 	type AnthropicSseFrameKindCounts,
 	type AnthropicTransientSseErrorType,

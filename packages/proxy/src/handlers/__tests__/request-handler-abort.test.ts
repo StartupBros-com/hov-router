@@ -5,7 +5,7 @@
  * See LICENSE.md in the project root for license terms.
  */
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { TIME_CONSTANTS } from "@better-ccflare/core";
+import { TIME_CONSTANTS } from "@hov-router/core";
 import { makeProxyRequest } from "../request-handler";
 
 interface ScheduledTimer {

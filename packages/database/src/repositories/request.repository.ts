@@ -2,20 +2,20 @@ import {
 	LONG_CONTEXT_PROMPT_TOKENS,
 	type LongContextTokenSubset,
 	type WindowTokenAggregate,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import type {
 	AgentAttributionSource,
 	ProjectAttributionSource,
 	RequestAccountingContext,
 	RouteProvenance,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	type QualityDecisionRecord,
 	type RequestRoutingAttemptSummary,
 	sanitizeQualityDecision,
 	sanitizeRequestRoutingAttemptSummary,
-} from "@better-ccflare/types/request";
+} from "@hov-router/types/request";
 import { getCleanupBatchSize } from "../adapters/bun-sql-adapter";
 import { type CleanupPacer, deleteInBatches } from "../cleanup-pacing";
 import { decryptPayload, encryptPayload } from "../payload-encryption";
@@ -616,7 +616,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 	 * Per-model token/request totals for `accountId` in `[fromMs, toMs)`,
 	 * scoped to plan-billed Messages traffic — the input to the Window Value
 	 * Ledger's valuation step (see `valueWindowAggregates` in
-	 * @better-ccflare/core). `path = '/v1/messages'` is an EXACT match,
+	 * @hov-router/core). `path = '/v1/messages'` is an EXACT match,
 	 * deliberately excluding `/v1/messages/count_tokens` (a distinct,
 	 * non-billed endpoint that happens to share the prefix). Only
 	 * `billing_type = 'plan'` rows count toward a window's value — pay-as-you-go

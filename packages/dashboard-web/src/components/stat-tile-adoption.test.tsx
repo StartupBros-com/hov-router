@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { UsageHistoryWindowSeries } from "@better-ccflare/types";
+import type { UsageHistoryWindowSeries } from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ModelAnalytics, ModelDetailTiles } from "./analytics/ModelAnalytics";
 import { TokenSpeedAnalytics } from "./analytics/TokenSpeedAnalytics";

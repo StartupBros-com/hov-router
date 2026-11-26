@@ -4,7 +4,7 @@ import {
 	ANTHROPIC_DEGRADED_MODE_DEFAULTS,
 	type AnthropicDegradedModeConfig,
 	resolveAnthropicDegradedModeConfig,
-} from "@better-ccflare/config";
+} from "@hov-router/config";
 import {
 	AnthropicDegradedModeCoordinator,
 	type AnthropicDegradedOutcome,

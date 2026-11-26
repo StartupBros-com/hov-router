@@ -19,11 +19,11 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { EventEmitter } from "node:events";
-import type { Config } from "@better-ccflare/config";
-import { alertEvents, authFailureEvents } from "@better-ccflare/core";
-import { BunSqlAdapter, ensureSchema } from "@better-ccflare/database";
-import { logBus } from "@better-ccflare/logger";
-import type { AlertEvent, AlertType, LogEvent } from "@better-ccflare/types";
+import type { Config } from "@hov-router/config";
+import { alertEvents, authFailureEvents } from "@hov-router/core";
+import { BunSqlAdapter, ensureSchema } from "@hov-router/database";
+import { logBus } from "@hov-router/logger";
+import type { AlertEvent, AlertType, LogEvent } from "@hov-router/types";
 import {
 	AlertService,
 	buildDiscordAlertContent,

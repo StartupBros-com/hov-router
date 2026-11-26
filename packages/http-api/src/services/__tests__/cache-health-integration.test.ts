@@ -12,20 +12,20 @@ import { EventEmitter } from "node:events";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Config } from "@better-ccflare/config";
-import { type AlertEvt, alertEvents } from "@better-ccflare/core";
+import { Config } from "@hov-router/config";
+import { type AlertEvt, alertEvents } from "@hov-router/core";
 import {
 	BunSqlAdapter,
 	CacheHealthRepository,
 	ensureSchema,
 	runMigrations,
-} from "@better-ccflare/database";
-import { logBus } from "@better-ccflare/logger";
+} from "@hov-router/database";
+import { logBus } from "@hov-router/logger";
 import {
 	CACHE_HEALTH_BUCKET_MS as BUCKET,
 	type LogEvent,
 	CACHE_HEALTH_SETTLEMENT_MS as SETTLE,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	CACHE_TEST_TIME as START,
 	seedCacheAccount,

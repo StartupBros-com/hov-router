@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { CACHE_HEALTH_DEFAULT_POLICY } from "@better-ccflare/types";
+import { CACHE_HEALTH_DEFAULT_POLICY } from "@hov-router/types";
 import { Config } from "./index";
 
 const keys = [

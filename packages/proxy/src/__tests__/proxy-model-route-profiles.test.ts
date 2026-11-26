@@ -7,21 +7,21 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import { agentRegistry } from "@better-ccflare/agents";
+import { agentRegistry } from "@hov-router/agents";
 import {
 	type CodexCatalogEvt,
 	codexCatalogEvents,
 	LATEST_MYTHOS_MODEL,
 	LATEST_OPUS_MODEL,
-} from "@better-ccflare/core";
-import { SessionAffinityStrategy } from "@better-ccflare/load-balancer";
-import { handleResponsesRequest } from "@better-ccflare/openai-responses-adapter";
+} from "@hov-router/core";
+import { SessionAffinityStrategy } from "@hov-router/load-balancer";
+import { handleResponsesRequest } from "@hov-router/openai-responses-adapter";
 import {
 	CodexProvider,
 	clearDerivedProviderModelDefaults,
 	usageCache,
-} from "@better-ccflare/providers";
-import type { Account, Agent } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account, Agent } from "@hov-router/types";
 import { AnthropicDegradedModeCoordinator } from "../anthropic-degraded-mode";
 import {
 	clearCodexModelCacheForTests,
@@ -511,7 +511,7 @@ function apiRequest(
 		headers: {
 			"content-type": "application/json",
 			// Carrier fixtures represent the adapter's synthetic requests by default.
-			...(body.__better_ccflare_codex_passthrough
+			...(body.__hov_router_codex_passthrough
 				? { [ADAPTER_SECRET_HEADER]: ADAPTER_SECRET }
 				: {}),
 			...headers,
@@ -597,7 +597,7 @@ describe("Claude Code gateway model route profiles", () => {
 			"claude-sonnet-5",
 			{},
 			{
-				__better_ccflare_codex_passthrough: { model: "gpt-6-astra" },
+				__hov_router_codex_passthrough: { model: "gpt-6-astra" },
 			},
 		);
 		if (marker === undefined) request.headers.delete(ADAPTER_SECRET_HEADER);
@@ -726,7 +726,7 @@ describe("Claude Code gateway model route profiles", () => {
 				"claude-sonnet-5",
 				{},
 				{
-					__better_ccflare_codex_passthrough: { model: "gpt-6-astra" },
+					__hov_router_codex_passthrough: { model: "gpt-6-astra" },
 				},
 			);
 
@@ -778,7 +778,7 @@ describe("Claude Code gateway model route profiles", () => {
 				"claude-sonnet-5",
 				{},
 				{
-					__better_ccflare_codex_passthrough: { model: "gpt-6-astra" },
+					__hov_router_codex_passthrough: { model: "gpt-6-astra" },
 				},
 			);
 
@@ -810,7 +810,7 @@ describe("Claude Code gateway model route profiles", () => {
 				"x-claude-code-agent-id": "implicit-child",
 			},
 			{
-				__better_ccflare_codex_passthrough: { model: "gpt-6-astra" },
+				__hov_router_codex_passthrough: { model: "gpt-6-astra" },
 			},
 		);
 
@@ -841,7 +841,7 @@ describe("Claude Code gateway model route profiles", () => {
 			PROFILE_MODEL,
 			{},
 			{
-				__better_ccflare_codex_passthrough: { model: "gpt-6-astra" },
+				__hov_router_codex_passthrough: { model: "gpt-6-astra" },
 			},
 		);
 
@@ -894,7 +894,7 @@ describe("Claude Code gateway model route profiles", () => {
 			"claude-sonnet-5",
 			{},
 			{
-				__better_ccflare_codex_passthrough: { model: "gpt-unknown-physical" },
+				__hov_router_codex_passthrough: { model: "gpt-unknown-physical" },
 			},
 		);
 

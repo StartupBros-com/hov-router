@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import type { Provider } from "@better-ccflare/providers";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import type { Provider } from "@hov-router/providers";
+import type { Account, RequestMeta } from "@hov-router/types";
 import { CACHE_REPLAY_MODEL_HEADER } from "../../cache-transport-staging";
 import type { ProxyContext } from "../proxy-types";
 import {

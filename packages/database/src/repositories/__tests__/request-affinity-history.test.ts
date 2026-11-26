@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, spyOn, test } from "bun:test";
-import "@better-ccflare/core";
+import "@hov-router/core";
 import { attemptRequest } from "../../__tests__/route-provenance.fixture";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { DatabaseOperations } from "../../database-operations";

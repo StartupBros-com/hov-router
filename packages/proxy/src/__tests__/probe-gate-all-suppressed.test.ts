@@ -11,7 +11,7 @@
  * no other account to prefer.
  */
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import type { Account, ComboWithSlots } from "@better-ccflare/types";
+import type { Account, ComboWithSlots } from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import {
 	getRateLimitProbeAdmission,

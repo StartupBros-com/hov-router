@@ -1,4 +1,4 @@
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 
 /**
  * The exact slice of `Config` that `readCacheParityPolicy` (cache-parity.ts)

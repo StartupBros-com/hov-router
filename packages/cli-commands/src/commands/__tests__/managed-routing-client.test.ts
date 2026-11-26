@@ -4,7 +4,7 @@ import type {
 	AccountRoutingOverview,
 	ComboFamilyAssignment,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	createManagedRoutingClient,
 	ManagedRoutingHttpError,

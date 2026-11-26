@@ -1,10 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { SessionDrainSoonestStrategy } from "@better-ccflare/load-balancer";
-import type {
-	Account,
-	RequestMeta,
-	StrategyStore,
-} from "@better-ccflare/types";
+import { SessionDrainSoonestStrategy } from "@hov-router/load-balancer";
+import type { Account, RequestMeta, StrategyStore } from "@hov-router/types";
 
 function makeAccount(overrides: Partial<Account> = {}): Account {
 	return {

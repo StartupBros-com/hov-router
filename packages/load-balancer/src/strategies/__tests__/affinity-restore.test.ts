@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import * as loadBalancer from "@better-ccflare/load-balancer";
+import * as loadBalancer from "@hov-router/load-balancer";
 import type {
 	Account,
 	RequestMeta,
 	RoutingAffinityLaneOwner,
 	RoutingAffinityLaneRecord,
 	StrategyStore,
-} from "@better-ccflare/types";
-import { sanitizeRequestRoutingAttemptSummary } from "@better-ccflare/types/request";
+} from "@hov-router/types";
+import { sanitizeRequestRoutingAttemptSummary } from "@hov-router/types/request";
 import { RoutingAttemptLedger } from "../../../../proxy/src/handlers/routing-attempt-ledger";
 import { getRequestLifecycleCoordinator } from "../../../../proxy/src/routing-terminal-recorder";
 import type {

@@ -1,5 +1,5 @@
-import type { BankedResetsSummary as BankedResetsSummaryData } from "@better-ccflare/types";
-import { formatClockTime } from "@better-ccflare/ui-common";
+import type { BankedResetsSummary as BankedResetsSummaryData } from "@hov-router/types";
+import { formatClockTime } from "@hov-router/ui-common";
 import { ChevronDown } from "lucide-react";
 import { formatRelativeReset } from "../../lib/pool-usage";
 import { cn } from "../../lib/utils";

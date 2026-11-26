@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { parseRequestUrl } from "@better-ccflare/core";
+import { parseRequestUrl } from "@hov-router/core";
 
 describe("parseRequestUrl", () => {
 	it("should parse a normal absolute request URL", () => {

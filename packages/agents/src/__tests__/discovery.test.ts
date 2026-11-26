@@ -7,7 +7,7 @@ import {
 	LATEST_HAIKU_MODEL,
 	LATEST_OPUS_MODEL,
 	LATEST_SONNET_MODEL,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import { AgentRegistry } from "../discovery";
 import { WorkspacePersistence } from "../workspace-persistence";
 

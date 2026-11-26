@@ -42,18 +42,18 @@ function invalidatedKeys(invalidateQueries: ReturnType<typeof mock>) {
 describe("managed-routing query keys", () => {
 	it("keeps effective routing and the account overview under stable roots", () => {
 		expect(queryKeys.routingEffective()).toEqual([
-			"better-ccflare",
+			"hov-router",
 			"routing",
 			"effective",
 		]);
 		expect(queryKeys.routingEffective("opus")).toEqual([
-			"better-ccflare",
+			"hov-router",
 			"routing",
 			"effective",
 			"opus",
 		]);
 		expect(queryKeys.accountRoutingOverview()).toEqual([
-			"better-ccflare",
+			"hov-router",
 			"routing",
 			"accounts",
 		]);
@@ -64,7 +64,7 @@ describe("managed-routing query keys", () => {
 
 	it("keeps durable job list and details below one invalidation root", () => {
 		expect(queryKeys.deviceSetupJobs()).toEqual([
-			"better-ccflare",
+			"hov-router",
 			"device-setup",
 			"jobs",
 		]);
@@ -321,7 +321,7 @@ describe("query test module isolation", () => {
 	it("leaves shared API, core, React Query, and React exports intact", async () => {
 		const [{ api }, core, reactQuery, react] = await Promise.all([
 			import("../api"),
-			import("@better-ccflare/core"),
+			import("@hov-router/core"),
 			import("@tanstack/react-query"),
 			import("react"),
 		]);

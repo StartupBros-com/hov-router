@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import {
 	isMetaMessagesPath,
 	isMetaModel,

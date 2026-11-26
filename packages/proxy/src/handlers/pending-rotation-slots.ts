@@ -20,7 +20,7 @@ import {
 	writeSync,
 } from "node:fs";
 import { join } from "node:path";
-import { isStorageFullError } from "@better-ccflare/core";
+import { isStorageFullError } from "@hov-router/core";
 import type { PendingRotation } from "./pending-rotation-registry";
 
 function assertPendingRotation(value: unknown): PendingRotation {

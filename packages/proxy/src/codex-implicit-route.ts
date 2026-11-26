@@ -3,8 +3,8 @@ import {
 	getModelFamily,
 	isAccountAvailable,
 	KNOWN_PATTERNS,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import {
 	CODEX_CATALOG_REFRESH_ACCOUNT_LIMIT,
 	ensureCodexModelDefaults,
@@ -136,7 +136,7 @@ export function getCodexPassthroughPhysicalModel(
 		return null;
 	}
 	const passthrough = (parsedBody as Record<string, unknown>)
-		.__better_ccflare_codex_passthrough;
+		.__hov_router_codex_passthrough;
 	if (
 		!passthrough ||
 		typeof passthrough !== "object" ||

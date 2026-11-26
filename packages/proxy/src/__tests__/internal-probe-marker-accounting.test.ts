@@ -17,7 +17,7 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import { cacheBodyStore } from "../cache-body-store";
 import {
 	applyCacheBodyStagingPolicy,

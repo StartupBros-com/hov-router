@@ -6,17 +6,17 @@ import { unknownArgumentLines } from "./unknown-argument";
 // loaded the same fallbacks using its physical executable, before app imports.
 loadCliDotenv(process.argv[1]);
 
-import type { CreatedAccountIdentity } from "@better-ccflare/cli-commands";
-import { getManagedRoutingHelpText } from "@better-ccflare/cli-commands/help";
-import { createManagedRoutingClient } from "@better-ccflare/cli-commands/managed-routing-client";
+import type { CreatedAccountIdentity } from "@hov-router/cli-commands";
+import { getManagedRoutingHelpText } from "@hov-router/cli-commands/help";
+import { createManagedRoutingClient } from "@hov-router/cli-commands/managed-routing-client";
 import {
 	executeManagedRoutingCliCommand,
 	handlePostCreateManagedRouting,
 	type ManagedRoutingCliCommand,
 	ManagedRoutingCliUsageError,
 	parseManagedRoutingCliCommand,
-} from "@better-ccflare/cli-commands/runner";
-import { Config } from "@better-ccflare/config";
+} from "@hov-router/cli-commands/runner";
+import { Config } from "@hov-router/config";
 import {
 	getGitSha,
 	getVersionSync,
@@ -26,20 +26,20 @@ import {
 	NETWORK,
 	resolveFamilyAliasModel,
 	shutdown,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	COMMAND_NAME,
 	LEGACY_COMMAND_NAME,
 	PRODUCT_NAME,
-} from "@better-ccflare/core/product-identity";
-import { container, SERVICE_KEYS } from "@better-ccflare/core-di";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core/product-identity";
+import { container, SERVICE_KEYS } from "@hov-router/core-di";
+import type { DatabaseOperations } from "@hov-router/database";
+import { Logger } from "@hov-router/logger";
 import type {
 	ComboFamily,
 	FamilyAliasPolicyApplyResult,
 	FamilyAliasPolicyPreview,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 /**
  * Single source of truth for the account modes accepted by
@@ -293,7 +293,7 @@ let serverOwnsShutdown = false;
  */
 async function startServerWithConfig(args: ParsedArgs, config: Config) {
 	const { default: startServer, exitOnFailedStart } = await import(
-		"@better-ccflare/server"
+		"@hov-router/server"
 	);
 	serverOwnsShutdown = true;
 	const runtime = config.getRuntime();
@@ -371,8 +371,8 @@ function getModeSuggestions(
  */
 function displayConfigInfo(parsed: ParsedArgs, config: Config): void {
 	const runtime = config.getRuntime();
-	const { getPlatformConfigDir } = require("@better-ccflare/config");
-	const { resolveDbPath } = require("@better-ccflare/database");
+	const { getPlatformConfigDir } = require("@hov-router/config");
+	const { resolveDbPath } = require("@hov-router/database");
 
 	interface ConfigItem {
 		name: string;
@@ -1273,7 +1273,7 @@ async function main() {
 	}
 	const parsed = parseArgs(args);
 	if (parsed.scanExternalCodex && parsed.json) {
-		const { setConsoleLogging } = await import("@better-ccflare/logger");
+		const { setConsoleLogging } = await import("@hov-router/logger");
 		setConsoleLogging(false);
 	}
 	const recorderRequested =
@@ -1285,9 +1285,9 @@ async function main() {
 			cacheFlightRecorderError,
 			isValidCacheFlightRecorderId,
 			runCacheFlightRecorderCommand,
-		} = await import("@better-ccflare/cli-commands");
+		} = await import("@hov-router/cli-commands");
 		const { isCacheFlightRecorderEnabled } = await import(
-			"@better-ccflare/providers"
+			"@hov-router/providers"
 		);
 		const invalidReportId =
 			args.includes("--cache-flight-recorder-report") &&
@@ -1307,7 +1307,7 @@ async function main() {
 		}
 
 		const { DatabaseFactory, PostgresUrlRefusedError } = await import(
-			"@better-ccflare/database"
+			"@hov-router/database"
 		);
 		try {
 			const config = new Config();
@@ -1474,14 +1474,14 @@ async function main() {
 		runDoctor,
 		setAccountPriority,
 		stdPromptAdapter,
-	} = await import("@better-ccflare/cli-commands");
-	const { parseBedrockConfig } = await import("@better-ccflare/providers");
+	} = await import("@hov-router/cli-commands");
+	const { parseBedrockConfig } = await import("@hov-router/providers");
 
 	// Initialize DI container and services for commands that need them
 	const cliConfig = new Config();
 	container.registerInstance(SERVICE_KEYS.Config, cliConfig);
 	container.registerInstance(SERVICE_KEYS.Logger, new Logger("CLI"));
-	const { DatabaseFactory } = await import("@better-ccflare/database");
+	const { DatabaseFactory } = await import("@hov-router/database");
 
 	// Route CLI outbound fetches (OAuth exchange, API key validation, etc.)
 	// through the configured forward proxy, same as the server process.
@@ -1506,11 +1506,9 @@ async function main() {
 	// Handle non-interactive commands
 
 	if (parsed.scanExternalCodex) {
-		const { ExternalUsageRepository } = await import(
-			"@better-ccflare/database"
-		);
+		const { ExternalUsageRepository } = await import("@hov-router/database");
 		const { ExternalCodexScanner, UsageWindowLedger } = await import(
-			"@better-ccflare/http-api"
+			"@hov-router/http-api"
 		);
 		const repository = new ExternalUsageRepository(dbOps.getAdapter());
 		const ledger = new UsageWindowLedger(dbOps);
@@ -1580,9 +1578,7 @@ async function main() {
 
 			if (needsInteractiveAuth) {
 				// Use real prompt adapter for OAuth - needs user to paste auth code
-				const { stdPromptAdapter } = await import(
-					"@better-ccflare/cli-commands"
-				);
+				const { stdPromptAdapter } = await import("@hov-router/cli-commands");
 				createdAccount = await addAccount(dbOps, new Config(), {
 					name: parsed.addAccount,
 					mode,
@@ -1632,9 +1628,7 @@ async function main() {
 				mode === "openai-compatible"
 			) {
 				// These modes need interactive prompts for endpoint + API key
-				const { stdPromptAdapter } = await import(
-					"@better-ccflare/cli-commands"
-				);
+				const { stdPromptAdapter } = await import("@hov-router/cli-commands");
 				createdAccount = await addAccount(dbOps, new Config(), {
 					name: parsed.addAccount,
 					mode,
@@ -1653,9 +1647,7 @@ async function main() {
 
 				if (!apiKey) {
 					// Prompt for API key if not in environment
-					const { stdPromptAdapter } = await import(
-						"@better-ccflare/cli-commands"
-					);
+					const { stdPromptAdapter } = await import("@hov-router/cli-commands");
 					apiKey = await stdPromptAdapter.input(
 						`Enter API key for ${parsed.addAccount}: `,
 					);

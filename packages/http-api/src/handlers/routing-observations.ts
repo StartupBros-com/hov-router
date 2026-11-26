@@ -1,7 +1,7 @@
 import {
 	getRoutingObservations,
 	type RoutingObservation,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import { jsonResponse } from "../utils/http-error";
 
 /**
@@ -10,7 +10,7 @@ import { jsonResponse } from "../utils/http-error";
  * is recorded and why (display-only telemetry, never routing input).
  *
  * The reader is injectable so tests can supply a fake without reaching for
- * `mock.module("@better-ccflare/proxy", …)`: Bun applies module mocks
+ * `mock.module("@hov-router/proxy", …)`: Bun applies module mocks
  * PROCESS-WIDE across file boundaries, so mocking the proxy package here also
  * replaced the module the proxy package's OWN tests import, breaking them
  * whenever both files ran in one `bun test` invocation (order-independent,

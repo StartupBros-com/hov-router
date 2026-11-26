@@ -7,7 +7,7 @@ import {
 
 // RequestBodyContext imports the providers facade, whose production side effects
 // are outside this lifecycle unit test. Keep only the pure classifier seam here.
-mock.module("@better-ccflare/providers", () => ({
+mock.module("@hov-router/providers", () => ({
 	deriveNativeAnthropicToolRequirement,
 	deriveServerToolRequirement,
 }));

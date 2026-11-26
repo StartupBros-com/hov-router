@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	MAX_MODEL_MAPPING_CANDIDATES,
 	parseModelMappings,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	foldLegacyModelMappings,
 	type LegacyModelMappingRow,

@@ -1,4 +1,4 @@
-import type { AnthropicDegradedMode } from "@better-ccflare/config";
+import type { AnthropicDegradedMode } from "@hov-router/config";
 import {
 	type OpaqueRuntimeId,
 	type OpaqueRuntimeIdFactory,

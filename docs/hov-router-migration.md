@@ -28,7 +28,7 @@ Record the current executable location with `command -v` and the command name yo
 | Database override | `BETTER_CCFLARE_DB_PATH`; a PostgreSQL `DATABASE_URL` is refused (see [PostgreSQL support removed](#postgresql-support-removed)) |
 | Other integration names | Existing `BETTER_CCFLARE_*`, `CCFLARE_*`, and other environment variables; `x-better-ccflare-*` headers |
 | Default server port | `8080`; existing port overrides and deployment ports remain unchanged |
-| Build/package names | `apps/cli/dist/better-ccflare`, the `better-ccflare` package identity, and internal `@better-ccflare/*` packages |
+| Build/package names | `apps/cli/dist/better-ccflare` and the `better-ccflare` package identity |
 
 There is no new HoV configuration namespace and no config or credential migration. Do not rename storage directories, recovery files, environment variables, headers, or database files to match the product name. Existing deployments keep their paths, service names, and ports.
 

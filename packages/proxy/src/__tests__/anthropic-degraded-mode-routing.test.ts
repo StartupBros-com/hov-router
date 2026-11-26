@@ -7,14 +7,14 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@better-ccflare/config";
-import { logBus } from "@better-ccflare/logger";
+import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@hov-router/config";
+import { logBus } from "@hov-router/logger";
 import type {
 	Account,
 	ComboWithSlots,
 	LogEvent,
 	RequestMeta,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	AnthropicDegradedModeCoordinator,
 	buildAnthropicDegradedCohortKey,

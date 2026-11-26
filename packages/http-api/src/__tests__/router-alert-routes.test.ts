@@ -27,7 +27,7 @@ for (const key of Object.keys(process.env)) {
 }
 
 const { APIRouter } = await import("../router");
-const { Config } = await import("@better-ccflare/config");
+const { Config } = await import("@hov-router/config");
 
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { LogEvent } from "@better-ccflare/types";
+import type { LogEvent } from "@hov-router/types";
 import { LogFileWriter } from "./file-writer";
 import { Logger, LogLevel, logBus } from "./index";
 

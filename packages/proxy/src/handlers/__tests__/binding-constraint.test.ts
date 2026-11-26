@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AnyUsageData } from "@better-ccflare/providers";
+import type { AnyUsageData } from "@hov-router/providers";
 import { getBindingConstraint } from "../usage-throttling";
 
 const NOW = Date.UTC(2026, 7, 11, 23, 0, 0);

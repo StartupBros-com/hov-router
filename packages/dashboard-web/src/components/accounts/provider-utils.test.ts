@@ -11,7 +11,7 @@
  *      production and the bug returns silently.
  *
  * Provider strings are asserted as literals (not via PROVIDER_NAMES) so
- * this test file has no @better-ccflare/types dependency — adding one
+ * this test file has no @hov-router/types dependency — adding one
  * pulls in a circular import that breaks PROVIDER_NAMES initialization
  * across the whole dashboard-web test process.
  */

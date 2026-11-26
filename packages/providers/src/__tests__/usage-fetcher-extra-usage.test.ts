@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { isUsageExhausted } from "@better-ccflare/core";
+import { isUsageExhausted } from "@hov-router/core";
 import type { UsageData } from "../usage-fetcher";
 import {
 	getRankingUtilizationForProvider,

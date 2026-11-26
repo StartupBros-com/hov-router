@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { FullUsageData } from "@better-ccflare/types";
+import type { FullUsageData } from "@hov-router/types";
 import { accountUsageWindows } from "./account-usage-windows";
 
 const reset = "2030-01-01T00:00:00.000Z";

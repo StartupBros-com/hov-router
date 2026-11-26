@@ -3,7 +3,7 @@
  * anthropic-ratelimit-unified-* headers on the request row, bounded.
  */
 import { expect, test } from "bun:test";
-import { AsyncDbWriter, DatabaseOperations } from "@better-ccflare/database";
+import { AsyncDbWriter, DatabaseOperations } from "@hov-router/database";
 import { UsageCollector } from "../usage-collector";
 import type { EndMessage, StartMessage } from "../worker-messages";
 

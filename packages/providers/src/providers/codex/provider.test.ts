@@ -8,9 +8,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BUFFER_SIZES } from "@better-ccflare/core";
-import { CODEX_LOGICAL_MODEL_FAMILY_HEADER } from "@better-ccflare/http-common";
-import { logBus } from "@better-ccflare/logger";
+import { BUFFER_SIZES } from "@hov-router/core";
+import { CODEX_LOGICAL_MODEL_FAMILY_HEADER } from "@hov-router/http-common";
+import { logBus } from "@hov-router/logger";
 import { setDerivedProviderModelDefaults } from "../../provider-model-defaults";
 import {
 	clearCodexAccountModelContextMetadata,
@@ -7343,7 +7343,7 @@ describe("CodexProvider.transformRequestBody", () => {
 				model: "claude-3-7-sonnet",
 				max_tokens: 10,
 				messages: [{ role: "user", content: "hello" }],
-				__better_ccflare_codex_passthrough: { model: "gpt-5.4-mini" },
+				__hov_router_codex_passthrough: { model: "gpt-5.4-mini" },
 			}),
 		});
 
@@ -7351,7 +7351,7 @@ describe("CodexProvider.transformRequestBody", () => {
 		const body = (await transformed.json()) as Record<string, unknown>;
 
 		expect(body.model).toBe("gpt-5.3-codex");
-		expect(body).not.toHaveProperty("__better_ccflare_codex_passthrough");
+		expect(body).not.toHaveProperty("__hov_router_codex_passthrough");
 	});
 
 	it("uses a native Responses model ahead of an advisory family default", async () => {
@@ -7372,7 +7372,7 @@ describe("CodexProvider.transformRequestBody", () => {
 				model: "claude-3-7-sonnet",
 				max_tokens: 10,
 				messages: [{ role: "user", content: "hello" }],
-				__better_ccflare_codex_passthrough: { model: "gpt-5.4-mini" },
+				__hov_router_codex_passthrough: { model: "gpt-5.4-mini" },
 			}),
 		});
 

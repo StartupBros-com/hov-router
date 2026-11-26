@@ -32,8 +32,8 @@
  * next exemption that is too broad returns 401 instead of reaching a provider.
  */
 import { describe, expect, it } from "bun:test";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { type ApiKey, NodeCryptoUtils } from "@better-ccflare/types/api-key";
+import type { DatabaseOperations } from "@hov-router/database";
+import { type ApiKey, NodeCryptoUtils } from "@hov-router/types/api-key";
 import { AuthService } from "../auth-service";
 
 const INTERNAL_PROBE_SECRET_HEADER = "x-better-ccflare-internal-probe-secret";

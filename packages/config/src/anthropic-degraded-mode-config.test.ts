@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 import {
 	ANTHROPIC_DEGRADED_MODE_DEFAULTS,
 	type AnthropicDegradedModeConfig,

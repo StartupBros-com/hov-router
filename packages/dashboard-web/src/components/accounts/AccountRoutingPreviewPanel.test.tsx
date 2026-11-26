@@ -4,7 +4,7 @@ import type {
 	ComboRoutingPreviewResult,
 	ComboRoutingProposalPreview,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AccountRoutingPreviewPanel } from "./AccountRoutingPreviewPanel";
 

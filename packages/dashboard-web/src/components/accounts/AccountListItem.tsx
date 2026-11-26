@@ -1,9 +1,9 @@
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
 import {
 	AccountPresenter,
 	type AccountStatusReason,
 	formatClockTime,
-} from "@better-ccflare/ui-common";
+} from "@hov-router/ui-common";
 import {
 	ChevronDown,
 	CircleCheck,
@@ -121,7 +121,7 @@ const CLEAR_COOLDOWN_CLASS =
  * Codex-only usage extras (plan_type, credits_balance) come from the free
  * wham/usage poller and can be ABSENT from usageData at any moment -- live
  * traffic overwrites cached extras between polls. Not part of the public
- * FullUsageData union (see @better-ccflare/types), so every read here is
+ * FullUsageData union (see @hov-router/types), so every read here is
  * null-safe and simply omits the corresponding element when absent. Mirrors
  * the CodexUsageExtras cast in RateLimitProgress.tsx for the sibling
  * code_review_* extras.

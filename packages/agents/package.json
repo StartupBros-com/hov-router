@@ -1,5 +1,5 @@
 {
-	"name": "@better-ccflare/agents",
+	"name": "@hov-router/agents",
 	"version": "1.0.0",
 	"description": "Agent discovery and management for ccflare",
 	"main": "./src/index.ts",
@@ -15,9 +15,9 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@better-ccflare/logger": "workspace:*",
-		"@better-ccflare/security": "workspace:*",
-		"@better-ccflare/types": "workspace:*"
+		"@hov-router/logger": "workspace:*",
+		"@hov-router/security": "workspace:*",
+		"@hov-router/types": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/node": "^22.5.4",

@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { getPlatformConfigDir } from "@better-ccflare/config";
+import { getPlatformConfigDir } from "@hov-router/config";
 
 export function resolveDbPath(): string {
 	// Check for explicit DB path from environment (support both old and new env var names)

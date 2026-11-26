@@ -1,8 +1,5 @@
-import type {
-	BunSqlAdapter,
-	DatabaseOperations,
-} from "@better-ccflare/database";
-import { jsonResponse } from "@better-ccflare/http-common";
+import type { BunSqlAdapter, DatabaseOperations } from "@hov-router/database";
+import { jsonResponse } from "@hov-router/http-common";
 // Subpath, not the package barrel: these are RUNTIME imports, and evaluating
 // the barrel first trips the documented types↔core cycle (see the header of
 // packages/types/src/request.ts). `types/request` imports nothing.
@@ -12,7 +9,7 @@ import {
 	toProjectAttributionSource,
 	toRouteProvenance,
 	toStreamTerminalState,
-} from "@better-ccflare/types/request";
+} from "@hov-router/types/request";
 import type { RequestResponse } from "../types";
 
 const MAX_BODY_PREVIEW_BYTES = 256 * 1024; // 256KB - match response body cap to preserve full conversation history

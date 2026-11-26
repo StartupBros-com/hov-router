@@ -1,5 +1,5 @@
 {
-	"name": "@better-ccflare/oauth-flow",
+	"name": "@hov-router/oauth-flow",
 	"version": "0.1.0",
 	"type": "module",
 	"main": "./src/index.ts",
@@ -7,8 +7,8 @@
 		"typecheck": "bunx tsc --noEmit"
 	},
 	"dependencies": {
-		"@better-ccflare/config": "workspace:*",
-		"@better-ccflare/database": "workspace:*",
-		"@better-ccflare/providers": "workspace:*"
+		"@hov-router/config": "workspace:*",
+		"@hov-router/database": "workspace:*",
+		"@hov-router/providers": "workspace:*"
 	}
 }

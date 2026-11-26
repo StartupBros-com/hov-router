@@ -1,7 +1,7 @@
 import type {
 	AgentAttributionSource,
 	ProjectAttributionSource,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 /**
  * Maps a raw attribution source enum value to a short human label.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Combo } from "@better-ccflare/types";
+import type { Combo } from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ComboCard } from "./ComboCard";
 

@@ -1,5 +1,5 @@
-import type { DatabaseOperations } from "@better-ccflare/database";
-import type { ModelRouteProfile } from "@better-ccflare/proxy";
+import type { DatabaseOperations } from "@hov-router/database";
+import type { ModelRouteProfile } from "@hov-router/proxy";
 import {
 	applyCodexModelMigration,
 	CODEX_MIGRATION_FAMILIES,

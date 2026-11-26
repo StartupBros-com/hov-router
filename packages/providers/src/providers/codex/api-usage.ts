@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 import type {
 	UsageData,
 	UsageFetchResult,

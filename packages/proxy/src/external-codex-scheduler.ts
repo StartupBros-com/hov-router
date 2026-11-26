@@ -1,4 +1,4 @@
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 /** Source parsing runs asynchronously; one scan may be active per scheduler. */
 export function startExternalCodexScheduler(
 	enabled: boolean | (() => boolean),

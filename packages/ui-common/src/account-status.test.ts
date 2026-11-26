@@ -3,7 +3,7 @@ import type {
 	Account,
 	AccountDisplay,
 	AccountResponse,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { classifyAccountStatus } from "./account-status";
 import { AccountPresenter } from "./presenters";
 

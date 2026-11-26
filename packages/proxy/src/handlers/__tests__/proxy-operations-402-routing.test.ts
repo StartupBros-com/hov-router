@@ -7,11 +7,7 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type {
-	Account,
-	ComboWithSlots,
-	RequestMeta,
-} from "@better-ccflare/types";
+import type { Account, ComboWithSlots, RequestMeta } from "@hov-router/types";
 import { evaluateGuardRetry } from "../../../../../scripts/ccflare-guard-policy.mjs";
 import { handleProxy } from "../../proxy";
 import * as usageCollectorModule from "../../usage-collector";

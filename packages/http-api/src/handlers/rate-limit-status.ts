@@ -17,20 +17,20 @@
  *   4. "OK".
  */
 
-import { isUsageExhausted } from "@better-ccflare/core";
+import { isUsageExhausted } from "@hov-router/core";
 
 // Re-exported for backward compatibility — canonical definition now lives in
-// @better-ccflare/core so packages that can't depend on http-api (e.g. proxy's
+// @hov-router/core so packages that can't depend on http-api (e.g. proxy's
 // account-selector) can use the same predicate.
-export { isUsageExhausted } from "@better-ccflare/core";
+export { isUsageExhausted } from "@hov-router/core";
 
 // Re-exported for backward compatibility — canonical definition now lives in
-// @better-ccflare/providers so packages that can't depend on http-api (e.g.
+// @hov-router/providers so packages that can't depend on http-api (e.g.
 // proxy's account-selector) can use the same reset-time extraction.
 export {
 	extractUsageResetMs,
 	getRepresentativeUsageResetMs,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 
 export interface RateLimitStatusInput {
 	/** Last `anthropic-ratelimit-unified-status` snapshot, if any. */

@@ -15,7 +15,7 @@
  * missing, or the marker header is absent.
  */
 import { describe, expect, it } from "bun:test";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 import { AuthService } from "../auth-service";
 
 const INTERNAL_PROBE_SECRET_HEADER = "x-better-ccflare-internal-probe-secret";

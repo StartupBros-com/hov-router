@@ -2,8 +2,8 @@ import {
 	armStartReserve,
 	START_RESERVE_BYTES,
 	type StartReserveArmResult,
-} from "@better-ccflare/database";
-import type { Logger } from "@better-ccflare/logger";
+} from "@hov-router/database";
+import type { Logger } from "@hov-router/logger";
 
 /**
  * How often the server checks that the start reserve is whole.

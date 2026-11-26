@@ -1,4 +1,4 @@
-import { formatCost, formatPercentage } from "@better-ccflare/ui-common";
+import { formatCost, formatPercentage } from "@hov-router/ui-common";
 import { useMemo } from "react";
 import { CHART_COLORS, COLORS } from "../../constants";
 import { useMediaQuery } from "../../hooks/useMediaQuery";

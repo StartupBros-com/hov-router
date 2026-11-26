@@ -1,9 +1,9 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import type { DatabaseOperations } from "@hov-router/database";
 import type { PromptAdapter } from "../../prompts";
 
-mock.module("@better-ccflare/database", () => ({
+mock.module("@hov-router/database", () => ({
 	DatabaseOperations: class DatabaseOperations {},
 	DatabaseFactory: class DatabaseFactory {},
 	ModelTranslationRepository: class ModelTranslationRepository {},
@@ -35,7 +35,7 @@ const oauthComplete = mock(
 	}),
 );
 
-mock.module("@better-ccflare/oauth-flow", () => ({
+mock.module("@hov-router/oauth-flow", () => ({
 	createOAuthFlow: async () => ({ begin: oauthBegin, complete: oauthComplete }),
 }));
 

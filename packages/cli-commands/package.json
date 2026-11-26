@@ -1,5 +1,5 @@
 {
-	"name": "@better-ccflare/cli-commands",
+	"name": "@hov-router/cli-commands",
 	"version": "0.1.0",
 	"type": "module",
 	"main": "./src/index.ts",
@@ -14,14 +14,14 @@
 		"typecheck": "bunx tsc --noEmit"
 	},
 	"dependencies": {
-		"@better-ccflare/core": "workspace:*",
-		"@better-ccflare/core-di": "workspace:*",
-		"@better-ccflare/config": "workspace:*",
-		"@better-ccflare/database": "workspace:*",
-		"@better-ccflare/http-api": "workspace:*",
-		"@better-ccflare/providers": "workspace:*",
-		"@better-ccflare/oauth-flow": "workspace:*",
-		"@better-ccflare/types": "workspace:*",
+		"@hov-router/core": "workspace:*",
+		"@hov-router/core-di": "workspace:*",
+		"@hov-router/config": "workspace:*",
+		"@hov-router/database": "workspace:*",
+		"@hov-router/http-api": "workspace:*",
+		"@hov-router/providers": "workspace:*",
+		"@hov-router/oauth-flow": "workspace:*",
+		"@hov-router/types": "workspace:*",
 		"open": "^11.0.4"
 	}
 }

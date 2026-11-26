@@ -12,11 +12,11 @@ import {
 	resolveBuildProvenance,
 	runForceAccountModelExempt,
 	ServiceUnavailableError,
-} from "@better-ccflare/core";
-import { reauthInstruction } from "@better-ccflare/core/reauth-instructions";
-import { DatabaseFactory } from "@better-ccflare/database";
-import { sanitizeRequestHeaders } from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { reauthInstruction } from "@hov-router/core/reauth-instructions";
+import { DatabaseFactory } from "@hov-router/database";
+import { sanitizeRequestHeaders } from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
 import {
 	CountTokensUnsupportedError,
 	canonicalizeBetaSignature,
@@ -28,7 +28,7 @@ import {
 	isOfficialXaiEndpoint,
 	isXaiCacheNativeEnabled,
 	type RequestObservation,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import type {
 	Account,
 	NativeAnthropicToolRequirement,
@@ -37,7 +37,7 @@ import type {
 	RoutingSelectionDiagnostics,
 	RoutingSelectionZeroAttemptReason,
 	ServerToolRequirements,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { registerManagedTerminal } from "../../../scripts/ccflare-managed-timing.mjs";
 import {
 	type AnthropicDegradedCohortFacts,

@@ -4,8 +4,8 @@ import { randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AsyncDbWriter, DatabaseFactory } from "@better-ccflare/database";
-import type { RequestMeta, RequestResponse } from "@better-ccflare/types";
+import { AsyncDbWriter, DatabaseFactory } from "@hov-router/database";
+import type { RequestMeta, RequestResponse } from "@hov-router/types";
 import { RoutingAttemptLedger } from "../../../packages/proxy/src/handlers/routing-attempt-ledger";
 import {
 	getRequestLifecycleCoordinator,

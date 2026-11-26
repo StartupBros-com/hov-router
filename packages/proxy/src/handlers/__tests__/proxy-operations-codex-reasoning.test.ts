@@ -2,8 +2,8 @@ import { describe, expect, it, mock, spyOn } from "bun:test";
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Logger } from "@better-ccflare/logger";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import { Logger } from "@hov-router/logger";
+import type { Account, RequestMeta } from "@hov-router/types";
 import type { ProxyContext } from "../proxy-types";
 
 const usageCollectorModule = await import("../../usage-collector");

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@better-ccflare/config";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@hov-router/config";
+import type { Account, RequestMeta } from "@hov-router/types";
 import {
 	AnthropicDegradedModeCoordinator,
 	buildAnthropicDegradedCohortKey,

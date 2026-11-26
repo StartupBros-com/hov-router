@@ -1,8 +1,5 @@
-import type { AccountResponse } from "@better-ccflare/types";
-import {
-	classifyAccountStatus,
-	isFutureDeadline,
-} from "@better-ccflare/ui-common";
+import type { AccountResponse } from "@hov-router/types";
+import { classifyAccountStatus, isFutureDeadline } from "@hov-router/ui-common";
 import { AlertCircle } from "lucide-react";
 import { formatShortDuration } from "../../lib/utils";
 import {

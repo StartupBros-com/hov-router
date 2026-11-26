@@ -4,7 +4,7 @@ import {
 	isFamilyAliasModel,
 	LATEST_MODEL_BY_FAMILY,
 	resolveFamilyAliasModel,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import type {
 	Combo,
 	ComboEnrollmentRule,
@@ -19,7 +19,7 @@ import type {
 	ComboSlot,
 	EffectiveComboMemberView,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	routingAvailabilityLabel,
 	routingReasonLabel,

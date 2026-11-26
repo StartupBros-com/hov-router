@@ -8,14 +8,14 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import {
 	BunSqlAdapter,
 	ensureSchema,
 	runMigrations,
-} from "@better-ccflare/database";
-import { usageCache } from "@better-ccflare/providers";
-import type { AccountResponse, SessionStats } from "@better-ccflare/types";
+} from "@hov-router/database";
+import { usageCache } from "@hov-router/providers";
+import type { AccountResponse, SessionStats } from "@hov-router/types";
 import { createAccountsListHandler } from "../accounts";
 
 const NOW = 1_800_000_000_000;

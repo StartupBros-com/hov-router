@@ -1,11 +1,11 @@
-import { type AlertEvt, alertEvents } from "@better-ccflare/core";
+import { type AlertEvt, alertEvents } from "@hov-router/core";
 import {
 	errorResponse,
 	InternalServerError,
 	jsonResponse,
-} from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
-import type { AlertsConfigPayload } from "@better-ccflare/types";
+} from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
+import type { AlertsConfigPayload } from "@hov-router/types";
 import { getAlertsConfig, setAlertsConfig } from "../services/alerts";
 import type { APIContext } from "../types";
 import { createEventStreamHandler } from "./event-stream";

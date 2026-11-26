@@ -1,5 +1,5 @@
 import { expect, it, mock, spyOn } from "bun:test";
-import { intervalManager } from "@better-ccflare/core";
+import { intervalManager } from "@hov-router/core";
 import * as React from "react";
 import { RateLimitProgress } from "./RateLimitProgress";
 

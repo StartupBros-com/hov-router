@@ -1,4 +1,4 @@
-import { TIME_RANGES, type TimeRange } from "@better-ccflare/ui-constants";
+import { TIME_RANGES, type TimeRange } from "@hov-router/ui-constants";
 import type { FilterState } from "../components/analytics/AnalyticsFilters";
 
 export type AnalyticsUrlState = {

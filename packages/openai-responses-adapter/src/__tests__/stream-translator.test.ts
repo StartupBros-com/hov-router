@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { BUFFER_SIZES } from "@better-ccflare/core";
-import { logBus } from "@better-ccflare/logger";
+import { BUFFER_SIZES } from "@hov-router/core";
+import { logBus } from "@hov-router/logger";
 import { translateAnthropicStreamToResponses } from "../stream-translator";
 
 async function collectSseEvents(

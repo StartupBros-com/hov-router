@@ -1,8 +1,8 @@
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 import type {
 	Provider,
 	UpstreamObservationContext,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 
 const log = new Logger("ObservedUpstream");
 

@@ -9,9 +9,9 @@ import { describe, expect, it, spyOn } from "bun:test";
 import {
 	MAX_OAUTH_ERROR_INPUT_LENGTH,
 	OAuthRefreshTokenError,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
+import type { Account } from "@hov-router/types";
 import { AnthropicProvider } from "../provider";
 
 function mockFetchOnce(response: {

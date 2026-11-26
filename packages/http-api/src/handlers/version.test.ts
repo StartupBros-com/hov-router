@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import {
 	type ResolvedDistributionProvenance,
 	resolveBuildProvenance,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	createUpdateStatusService,
 	createVersionCheckHandler,

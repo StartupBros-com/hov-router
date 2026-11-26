@@ -89,7 +89,7 @@ export class ResourcePhaseRecorder {
 			}
 		const jsc = jscMemoryUsage();
 		const value = {
-			schema: "ccflare.resource_phase.v1",
+			schema: "hov-router.resource_phase.v1",
 			phase,
 			complete: true,
 			...(workloadComplete ? { workloadComplete: true } : {}),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { UsageSnapshotRow } from "@better-ccflare/types";
+import type { UsageSnapshotRow } from "@hov-router/types";
 import { createUsageHistoryHandler } from "../usage-history";
 
 // Captures the opts passed to getUsageHistory so we can assert filter forwarding.

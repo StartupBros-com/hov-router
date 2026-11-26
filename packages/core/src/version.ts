@@ -5,13 +5,13 @@
 // Claude CLI version to use in user-agent headers
 export const CLAUDE_CLI_VERSION = "2.1.250";
 
-// Build-time injected version via --define __BETTER_CCFLARE_VERSION__="x.y.z"
+// Build-time injected version via --define __HOV_ROUTER_VERSION__="x.y.z"
 // Replaced by bun bundler with a string literal; undefined at dev/runtime.
-declare const __BETTER_CCFLARE_VERSION__: string | undefined;
+declare const __HOV_ROUTER_VERSION__: string | undefined;
 
-// Build-time injected git short SHA via --define __BETTER_CCFLARE_GIT_SHA__="abc1234"
+// Build-time injected git short SHA via --define __HOV_ROUTER_GIT_SHA__="abc1234"
 // Replaced by bun bundler with a string literal; undefined at dev/runtime.
-declare const __BETTER_CCFLARE_GIT_SHA__: string | undefined;
+declare const __HOV_ROUTER_GIT_SHA__: string | undefined;
 
 // Cache the version to avoid repeated file reads
 let cachedVersion: string | null = null;
@@ -25,11 +25,8 @@ export async function getVersion(): Promise<string> {
 	}
 
 	// 1. Build-time injected version (reliable for compiled binaries)
-	if (
-		typeof __BETTER_CCFLARE_VERSION__ !== "undefined" &&
-		__BETTER_CCFLARE_VERSION__
-	) {
-		cachedVersion = __BETTER_CCFLARE_VERSION__;
+	if (typeof __HOV_ROUTER_VERSION__ !== "undefined" && __HOV_ROUTER_VERSION__) {
+		cachedVersion = __HOV_ROUTER_VERSION__;
 		return cachedVersion;
 	}
 
@@ -72,11 +69,8 @@ export function getVersionSync(): string {
 	}
 
 	// 1. Build-time injected version (reliable for compiled binaries)
-	if (
-		typeof __BETTER_CCFLARE_VERSION__ !== "undefined" &&
-		__BETTER_CCFLARE_VERSION__
-	) {
-		cachedVersion = __BETTER_CCFLARE_VERSION__;
+	if (typeof __HOV_ROUTER_VERSION__ !== "undefined" && __HOV_ROUTER_VERSION__) {
+		cachedVersion = __HOV_ROUTER_VERSION__;
 		return cachedVersion;
 	}
 
@@ -112,11 +106,11 @@ export function getGitSha(): string | null {
 
 	// 1. Build-time injected SHA (reliable for compiled binaries)
 	if (
-		typeof __BETTER_CCFLARE_GIT_SHA__ !== "undefined" &&
-		__BETTER_CCFLARE_GIT_SHA__ &&
-		__BETTER_CCFLARE_GIT_SHA__ !== "unknown"
+		typeof __HOV_ROUTER_GIT_SHA__ !== "undefined" &&
+		__HOV_ROUTER_GIT_SHA__ &&
+		__HOV_ROUTER_GIT_SHA__ !== "unknown"
 	) {
-		cachedGitSha = __BETTER_CCFLARE_GIT_SHA__;
+		cachedGitSha = __HOV_ROUTER_GIT_SHA__;
 		return cachedGitSha;
 	}
 

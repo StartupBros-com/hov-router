@@ -1,10 +1,10 @@
 import { describe, expect, it, mock } from "bun:test";
-import { BUFFER_SIZES } from "@better-ccflare/core";
+import { BUFFER_SIZES } from "@hov-router/core";
 import {
 	getProvider,
 	listProviders,
 	OpenAICompatibleProvider,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import {
 	ANTHROPIC_PRE_COMMIT_MAX_BUFFERED_BYTES,
 	ANTHROPIC_PRE_COMMIT_ROUTE_SUPPRESSION_MS,

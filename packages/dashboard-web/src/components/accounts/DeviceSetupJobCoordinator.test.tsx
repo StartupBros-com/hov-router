@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { DeviceSetupJobView } from "@better-ccflare/types";
+import type { DeviceSetupJobView } from "@hov-router/types";
 import type { QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../../lib/query-keys";
 import { invalidateNewSuccessfulDeviceSetupJobs } from "./DeviceSetupJobCoordinator";

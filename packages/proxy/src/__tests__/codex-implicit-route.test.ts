@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { PAUSE_REASON_NEEDS_REAUTH } from "@better-ccflare/core";
+import { PAUSE_REASON_NEEDS_REAUTH } from "@hov-router/core";
 import {
 	clearDerivedProviderModelDefaults,
 	setDerivedProviderModelDefaults,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import {
 	accountServesPhysicalModel,
 	getCodexPassthroughPhysicalModel,
@@ -80,7 +80,7 @@ afterEach(() => {
 });
 
 const carrier = (model: unknown) => ({
-	__better_ccflare_codex_passthrough: { model },
+	__hov_router_codex_passthrough: { model },
 });
 
 describe("accountServesPhysicalModel evidence", () => {
@@ -566,8 +566,8 @@ describe("getCodexPassthroughPhysicalModel", () => {
 			"gpt-6-codex",
 			{},
 			{ model: "gpt-6-codex" },
-			{ __better_ccflare_codex_passthrough: null },
-			{ __better_ccflare_codex_passthrough: "gpt-6-codex" },
+			{ __hov_router_codex_passthrough: null },
+			{ __hov_router_codex_passthrough: "gpt-6-codex" },
 			carrier(undefined),
 			carrier(42),
 			carrier(""),

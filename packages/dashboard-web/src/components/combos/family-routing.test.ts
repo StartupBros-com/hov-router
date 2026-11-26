@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { getModelFamily, LATEST_MODEL_BY_FAMILY } from "@better-ccflare/core";
+import { getModelFamily, LATEST_MODEL_BY_FAMILY } from "@hov-router/core";
 import type {
 	ComboFamily,
 	ComboMembershipDecisionView,
@@ -7,7 +7,7 @@ import type {
 	ComboRoutingPreviewResult,
 	EffectiveComboMemberView,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	familyModelOptions,
 	familyRoutingReasonLabel,

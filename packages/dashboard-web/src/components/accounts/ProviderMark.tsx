@@ -1,4 +1,4 @@
-import type { ProviderName } from "@better-ccflare/types";
+import type { ProviderName } from "@hov-router/types";
 import { Plug } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { PROVIDER_MARK_DATA, type ProviderMarkKey } from "./provider-mark-data";

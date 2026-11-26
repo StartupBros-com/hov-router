@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import type { MarkAccountRateLimitedResult } from "@better-ccflare/database";
-import type { Account } from "@better-ccflare/types";
+import type { MarkAccountRateLimitedResult } from "@hov-router/database";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../proxy-types";
 import { applyRateLimitCooldownAwaitingPersist } from "../rate-limit-cooldown";
 import { createRoutingTerminalResponse } from "../routing-terminal";

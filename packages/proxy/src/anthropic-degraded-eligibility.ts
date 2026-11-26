@@ -1,5 +1,5 @@
-import { deriveComboRouteClass } from "@better-ccflare/providers/request-capabilities";
-import type { Account } from "@better-ccflare/types";
+import { deriveComboRouteClass } from "@hov-router/providers/request-capabilities";
+import type { Account } from "@hov-router/types";
 
 export type NativeAnthropicOAuthDegradedModeAccount = Pick<
 	Account,

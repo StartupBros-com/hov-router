@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import { isModelPriced, resetNanoGPTPricingCacheForTest } from "./pricing";
 import { isOfficialXaiEndpoint, resolveXaiContextWindow } from "./xai";
 

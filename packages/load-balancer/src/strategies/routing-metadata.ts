@@ -2,7 +2,7 @@ import type {
 	Account,
 	RequestMeta,
 	RoutingCandidateMetadata,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 const PRESSURE_RANK = {
 	cold: 0,

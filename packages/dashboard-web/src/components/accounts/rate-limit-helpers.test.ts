@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AnthropicUsageData, UsageLimit } from "@better-ccflare/types";
+import type { AnthropicUsageData, UsageLimit } from "@hov-router/types";
 import {
 	collectAnthropicLimitRows,
 	collectAnthropicUsageRows,

@@ -7,8 +7,8 @@ import {
 	type ConverseStreamCommandInput,
 	type ConverseStreamOutput,
 } from "@aws-sdk/client-bedrock-runtime";
-import { Logger } from "@better-ccflare/logger";
-import type { Account } from "@better-ccflare/types";
+import { Logger } from "@hov-router/logger";
+import type { Account } from "@hov-router/types";
 import { BaseProvider } from "../../base";
 import type { Provider, RateLimitInfo, TokenRefreshResult } from "../../types";
 import {

@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { SessionAffinityStrategy } from "@better-ccflare/load-balancer";
+import { SessionAffinityStrategy } from "@hov-router/load-balancer";
 import {
 	account,
 	candidate,

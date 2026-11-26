@@ -1,13 +1,13 @@
 import {
 	isForceAccountModelEnabled,
 	parseModelMappings,
-} from "@better-ccflare/core";
-import { resolveCodexRequestModel } from "@better-ccflare/providers/codex";
+} from "@hov-router/core";
+import { resolveCodexRequestModel } from "@hov-router/providers/codex";
 import {
 	CATALOG_REFRESH_INTERVAL_MS,
 	getKnownOrSharedCodexModels,
-} from "@better-ccflare/proxy";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/proxy";
+import type { Account } from "@hov-router/types";
 
 /**
  * Where a Codex account's effective per-family model came from, ranked most
@@ -110,7 +110,7 @@ export function resolveCodexAccountFamilyDefault(
 	options: {
 		/**
 		 * `getProviderModelDefaultOverrides().codex?.[family]` from
-		 * `@better-ccflare/providers` — the process-wide registry
+		 * `@hov-router/providers` — the process-wide registry
 		 * `resolveCodexRequestModel` resolves from, not Config's persisted
 		 * copy, so this label cannot disagree with `effectiveModel`.
 		 */

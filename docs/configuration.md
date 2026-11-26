@@ -32,7 +32,7 @@ HoV Router uses a flexible configuration system that supports:
 - **Environment variables**: Override configuration for deployment flexibility
 - **Runtime updates**: Modify certain settings via API without restart
 
-Configuration is managed through the `@better-ccflare/config` package, which provides automatic loading, validation, and change notifications.
+Configuration is managed through the `@hov-router/config` package, which provides automatic loading, validation, and change notifications.
 
 ## Configuration Precedence
 

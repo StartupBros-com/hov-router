@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
 import {
 	createAccountAddHandler,
 	createAccountModelMappingsUpdateHandler,

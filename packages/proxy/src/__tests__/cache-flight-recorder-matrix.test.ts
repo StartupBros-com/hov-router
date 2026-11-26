@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AnthropicDegradedModeConfig } from "@better-ccflare/config";
+import type { AnthropicDegradedModeConfig } from "@hov-router/config";
 import {
 	type DegradedModeDiagnosticEvent,
 	DegradedModeObservability,

@@ -3,14 +3,14 @@ import {
 	isForceAccountModelEnabled,
 	parseModelMappings,
 	validateModelMappings,
-} from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { getProviderModelDefaultOverrides } from "@better-ccflare/providers";
+} from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
+import { getProviderModelDefaultOverrides } from "@hov-router/providers";
 import {
 	getCodexCatalogRoleTarget,
 	type ModelRouteProfile,
-} from "@better-ccflare/proxy";
-import type { Account, GuardedModelMappingsWrite } from "@better-ccflare/types";
+} from "@hov-router/proxy";
+import type { Account, GuardedModelMappingsWrite } from "@hov-router/types";
 import { Conflict, NotFound } from "../utils/http-error";
 import {
 	type CodexAccountCatalogInfo,

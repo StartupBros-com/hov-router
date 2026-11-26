@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import type { DatabaseOperations } from "@hov-router/database";
 
 // This focused unit test only needs the command's DatabaseOperations contract,
 // not the worker-backed database runtime.
-mock.module("@better-ccflare/database", () => ({
+mock.module("@hov-router/database", () => ({
 	DatabaseOperations: class DatabaseOperations {},
 	DatabaseFactory: class DatabaseFactory {},
 	ModelTranslationRepository: class ModelTranslationRepository {},

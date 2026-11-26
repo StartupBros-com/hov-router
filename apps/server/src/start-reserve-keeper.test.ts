@@ -6,7 +6,7 @@ import {
 	START_RESERVE_BYTES,
 	type StartReserveArmResult,
 	startReservePath,
-} from "@better-ccflare/database";
+} from "@hov-router/database";
 import {
 	createStartReserveKeeper,
 	startReserveReleasedMessage,

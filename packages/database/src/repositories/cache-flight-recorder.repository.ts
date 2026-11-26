@@ -8,7 +8,7 @@ import type {
 	Completeness,
 	Timeline,
 	TurnEvidence,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	BatchExpectedChangesError,
 	type BatchStatement,

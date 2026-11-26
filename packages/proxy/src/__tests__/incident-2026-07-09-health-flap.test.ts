@@ -10,8 +10,8 @@ import {
 import {
 	computeRateLimitBackoffMs,
 	isAccountAvailable,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import { applyRateLimitCooldown } from "../handlers/rate-limit-cooldown";
 import { handleProxy } from "../proxy";

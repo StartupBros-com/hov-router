@@ -1,18 +1,15 @@
-import {
-	getConfiguredModelMapping,
-	getModelFamily,
-} from "@better-ccflare/core";
+import { getConfiguredModelMapping, getModelFamily } from "@hov-router/core";
 import {
 	isGpt56SolModel,
 	type ReasoningEffort,
 	resolveAnthropicReasoningEffort,
-} from "@better-ccflare/openai-formats";
+} from "@hov-router/openai-formats";
 import type {
 	Account,
 	ComboRouteClass,
 	LogicalModelCapability,
-} from "@better-ccflare/types";
-import { PROVIDER_NAMES } from "@better-ccflare/types";
+} from "@hov-router/types";
+import { PROVIDER_NAMES } from "@hov-router/types";
 import { resolveProviderModelDefault } from "./provider-model-defaults";
 import { getCapabilityProvider } from "./registry";
 

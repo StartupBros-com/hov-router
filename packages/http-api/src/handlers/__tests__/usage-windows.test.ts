@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { DatabaseOperations } from "@better-ccflare/database";
+import { DatabaseOperations } from "@hov-router/database";
 import type { APIContext } from "../../types";
 import { createUsageWindowsHandler } from "../usage-windows";
 

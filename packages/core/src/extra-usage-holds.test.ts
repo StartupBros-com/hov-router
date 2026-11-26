@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { ExtraUsageHoldState } from "@better-ccflare/types";
+import type { ExtraUsageHoldState } from "@hov-router/types";
 import {
 	coveringExtraUsageHolds,
 	deriveExtraUsageHolds,

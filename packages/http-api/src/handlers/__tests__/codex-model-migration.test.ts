@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import { parseModelMappings, setForceAccountModel } from "@better-ccflare/core";
-import { DatabaseOperations } from "@better-ccflare/database";
+import { parseModelMappings, setForceAccountModel } from "@hov-router/core";
+import { DatabaseOperations } from "@hov-router/database";
 import {
 	clearDerivedProviderModelDefaults,
 	setDerivedAccountModelDefaults,
 	setProviderModelDefaultOverrides,
-} from "@better-ccflare/providers";
-import { resolveCodexRequestModel } from "@better-ccflare/providers/codex";
+} from "@hov-router/providers";
+import { resolveCodexRequestModel } from "@hov-router/providers/codex";
 import {
 	clearCodexModelCacheForTests,
 	getCodexModels,
 	parseModelRouteProfiles,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import { createAccountModelMappingsUpdateHandler } from "../accounts";
 import {
 	createCodexModelMigrationApplyHandler,

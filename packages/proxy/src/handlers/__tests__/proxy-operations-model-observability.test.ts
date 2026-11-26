@@ -20,8 +20,8 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type { CacheFlightCohortSealReceipt } from "@better-ccflare/core";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import type { CacheFlightCohortSealReceipt } from "@hov-router/core";
+import type { Account, RequestMeta } from "@hov-router/types";
 import * as usageCollectorModule from "../../usage-collector";
 import type { StartMessage } from "../../worker-messages";
 import {

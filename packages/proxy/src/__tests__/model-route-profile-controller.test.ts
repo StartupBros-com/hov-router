@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { LATEST_MYTHOS_MODEL } from "@better-ccflare/core";
+import { LATEST_MYTHOS_MODEL } from "@hov-router/core";
 import {
 	ModelRouteProfileController,
 	type ModelRouteProfileStore,

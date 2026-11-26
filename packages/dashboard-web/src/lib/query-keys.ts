@@ -1,7 +1,7 @@
-import type { RoutingAttemptSummaryWindow } from "@better-ccflare/types";
+import type { RoutingAttemptSummaryWindow } from "@hov-router/types";
 
 export const queryKeys = {
-	all: ["better-ccflare"] as const,
+	all: ["hov-router"] as const,
 	accounts: () => [...queryKeys.all, "accounts"] as const,
 	// Nested under accounts so every accounts invalidation refreshes it too.
 	bankedResets: () => [...queryKeys.accounts(), "banked-resets"] as const,

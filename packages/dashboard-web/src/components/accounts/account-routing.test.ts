@@ -8,7 +8,7 @@ import type {
 	ComboRoutingProposalPreview,
 	EffectiveComboMemberView,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	type AccountSetupMode,
 	type AccountSetupRoutingMetadata,

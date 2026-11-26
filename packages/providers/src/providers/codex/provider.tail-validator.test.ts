@@ -23,7 +23,7 @@
 //    the tail, and the non-eligible (failed handoff) path really does still
 //    tear the transport down via the pre-existing cleanup code.
 import { describe, expect, it, spyOn } from "bun:test";
-import { BUFFER_SIZES, SseFrameBuffer } from "@better-ccflare/core";
+import { BUFFER_SIZES, SseFrameBuffer } from "@hov-router/core";
 import {
 	CODEX_AUTHENTICATED_CALLER_HEADER,
 	CODEX_DEFAULT_ENDPOINT,
@@ -435,7 +435,7 @@ describe("CodexProvider KTD7 tail validator (Defect 2) -- integration through pr
 					}),
 				},
 				messages,
-				__better_ccflare_codex_passthrough: {
+				__hov_router_codex_passthrough: {
 					continuation_strategy: "previous_response_id",
 				},
 			}),

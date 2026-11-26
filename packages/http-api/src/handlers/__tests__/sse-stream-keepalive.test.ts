@@ -1,5 +1,5 @@
-import { requestEvents } from "@better-ccflare/core";
-import { logBus } from "@better-ccflare/logger";
+import { requestEvents } from "@hov-router/core";
+import { logBus } from "@hov-router/logger";
 import { createLogsStreamHandler } from "../logs";
 import { createRequestsStreamHandler } from "../requests-stream";
 import { testSseKeepalive } from "./sse-keepalive-contract";

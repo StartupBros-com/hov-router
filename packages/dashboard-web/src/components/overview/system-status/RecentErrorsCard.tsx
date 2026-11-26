@@ -1,4 +1,4 @@
-import { NO_ACCOUNT_ID, type RecentErrorGroup } from "@better-ccflare/types";
+import { NO_ACCOUNT_ID, type RecentErrorGroup } from "@hov-router/types";
 import { useState } from "react";
 import { useAccounts, useRecentErrors } from "../../../hooks/queries";
 import { useApiError } from "../../../hooks/useApiError";

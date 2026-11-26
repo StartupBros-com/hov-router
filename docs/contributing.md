@@ -227,9 +227,9 @@ better-ccflare/
 ### Package Naming Convention
 
 - Apps: Simple names (e.g., `server`, `cli`)
-- Packages: Prefixed with `@better-ccflare/` (e.g., `@better-ccflare/core`, `@better-ccflare/database`)
+- Packages: Prefixed with `@hov-router/` (e.g., `@hov-router/core`, `@hov-router/database`)
 
-The `@better-ccflare/*` workspace package names are internal and intentionally unchanged.
+New names use HoV Router naming. Do not add a `ccflare` name; the remaining ones are being renamed in [#1056](https://github.com/StartupBros-com/hov-router/issues/1056).
 
 ## Coding Standards
 
@@ -324,7 +324,7 @@ bun run lint
 
 1. **Import Order** (automatically organized by Biome):
    - External packages
-   - Internal packages (`@better-ccflare/*`)
+   - Internal packages (`@hov-router/*`)
    - Relative imports
    - Type imports
 
@@ -335,10 +335,10 @@ bun run lint
 
    ```typescript
    // Good
-   import { Database } from '@better-ccflare/database';
-   import { LoadBalancer } from '@better-ccflare/load-balancer';
+   import { Database } from '@hov-router/database';
+   import { LoadBalancer } from '@hov-router/load-balancer';
    import { formatDate } from './utils';
-   import type { Account } from '@better-ccflare/types';
+   import type { Account } from '@hov-router/types';
    
    // Bad
    import { Database } from '../../../packages/database/src';
@@ -783,7 +783,7 @@ bun run build:cli
 
 1. **TypeScript errors**: Run `bun run typecheck` to identify issues
 2. **Formatting issues**: Run `bun run format` to auto-fix
-3. **Import errors**: Ensure you're using workspace imports (`@better-ccflare/*`) for cross-package dependencies
+3. **Import errors**: Ensure you're using workspace imports (`@hov-router/*`) for cross-package dependencies
 4. **Database issues**: The SQLite database is created automatically in the data directory
 
 Thank you for contributing to HoV Router! Your efforts help make Claude AI more accessible to everyone.

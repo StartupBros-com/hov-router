@@ -1,4 +1,4 @@
-# @better-ccflare/security
+# @hov-router/security
 
 Centralized security utilities for path validation and sanitization in the better-ccflare monorepo.
 
@@ -24,7 +24,7 @@ This is an internal workspace package. Add it to your package dependencies:
 ```json
 {
   "dependencies": {
-    "@better-ccflare/security": "workspace:*"
+    "@hov-router/security": "workspace:*"
   }
 }
 ```
@@ -34,7 +34,7 @@ This is an internal workspace package. Add it to your package dependencies:
 ### Basic Usage
 
 ```typescript
-import { validatePath } from '@better-ccflare/security';
+import { validatePath } from '@hov-router/security';
 
 const result = validatePath('/home/user/data/file.txt', {
   description: 'user data file'
@@ -52,7 +52,7 @@ const content = readFileSync(result.resolvedPath, 'utf-8');
 ### Throw on Invalid Path
 
 ```typescript
-import { validatePathOrThrow } from '@better-ccflare/security';
+import { validatePathOrThrow } from '@hov-router/security';
 
 try {
   const safePath = validatePathOrThrow('/home/user/../../etc/passwd', {
@@ -67,7 +67,7 @@ try {
 ### Custom Allowed Directories
 
 ```typescript
-import { validatePath } from '@better-ccflare/security';
+import { validatePath } from '@hov-router/security';
 
 const result = validatePath('/opt/app/data/file.txt', {
   description: 'application data',
@@ -78,7 +78,7 @@ const result = validatePath('/opt/app/data/file.txt', {
 ### Block Symbolic Links
 
 ```typescript
-import { validatePath } from '@better-ccflare/security';
+import { validatePath } from '@hov-router/security';
 
 const result = validatePath('/home/user/link', {
   description: 'user file',
@@ -91,7 +91,7 @@ const result = validatePath('/home/user/link', {
 By default, empty strings are allowed and resolve to the current working directory. Use `allowEmpty: false` to reject empty paths:
 
 ```typescript
-import { validatePath } from '@better-ccflare/security';
+import { validatePath } from '@hov-router/security';
 
 // For user uploads: disallow empty paths to prevent security issues
 const result = validatePath(userPath, {

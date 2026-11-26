@@ -1,7 +1,7 @@
 import { describe, expect, it, spyOn } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolveBuildProvenance } from "@better-ccflare/core";
+import { resolveBuildProvenance } from "@hov-router/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
@@ -76,7 +76,7 @@ describe("navigation identity", () => {
 		for (const path of ["navigation.tsx", "../lib/page-meta.ts"]) {
 			const source = readFileSync(join(import.meta.dir, path), "utf8");
 			expect(source).toContain(
-				'import { PRODUCT_NAME } from "@better-ccflare/core/product-identity"',
+				'import { PRODUCT_NAME } from "@hov-router/core/product-identity"',
 			);
 		}
 		for (const path of [
@@ -85,7 +85,7 @@ describe("navigation identity", () => {
 			"../App.tsx",
 		]) {
 			const source = readFileSync(join(import.meta.dir, path), "utf8");
-			expect(source).not.toContain('from "@better-ccflare/core"');
+			expect(source).not.toContain('from "@hov-router/core"');
 		}
 	});
 

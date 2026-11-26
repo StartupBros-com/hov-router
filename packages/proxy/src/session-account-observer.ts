@@ -1,4 +1,4 @@
-import { TIME_CONSTANTS } from "@better-ccflare/core";
+import { TIME_CONSTANTS } from "@hov-router/core";
 
 /**
  * Records the account selected for response forwarding for a Claude Code
@@ -219,7 +219,7 @@ export class SessionAccountObserver {
 
 /**
  * Process-wide singleton. `packages/http-api` imports the read function directly
- * from `@better-ccflare/proxy`, following the `usageCache` singleton precedent
+ * from `@hov-router/proxy`, following the `usageCache` singleton precedent
  * (KTD-2).
  */
 const observer = new SessionAccountObserver();

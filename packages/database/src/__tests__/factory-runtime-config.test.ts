@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { RuntimeConfig } from "@better-ccflare/config";
+import type { RuntimeConfig } from "@hov-router/config";
 import { DatabaseFactory } from "../factory";
 
 // The server's runtime config only takes effect if it reaches the factory

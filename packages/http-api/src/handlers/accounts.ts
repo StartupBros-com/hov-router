@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import * as cliCommands from "@better-ccflare/cli-commands";
-import type { Config } from "@better-ccflare/config";
+import * as cliCommands from "@hov-router/cli-commands";
+import type { Config } from "@hov-router/config";
 import {
 	deriveExtraUsageHolds,
 	liveExtraUsageHolds,
@@ -21,17 +21,17 @@ import {
 	validateNumber,
 	validatePriority,
 	validateString,
-} from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { ValidationError } from "@better-ccflare/errors";
+} from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
+import { ValidationError } from "@hov-router/errors";
 import {
 	BadRequest,
 	errorResponse,
 	InternalServerError,
 	jsonResponse,
 	NotFound,
-} from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
 import {
 	type AnyUsageData,
 	fetchUsageData,
@@ -45,7 +45,7 @@ import {
 	type UsageData,
 	type UsageSnapshot,
 	usageCache,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import {
 	clearAccountRefreshCache,
 	clearAccountRemovalTrackingForAccount,
@@ -56,11 +56,11 @@ import {
 	getUsageThrottleStatus,
 	refreshCodexUsageForAccount,
 	restartUsagePollingForAccount,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import {
 	DEFAULT_CAPACITY_SNAPSHOT_FRESHNESS_MS,
 	isCodexCreditDrainActive,
-} from "@better-ccflare/proxy/usage-throttling";
+} from "@hov-router/proxy/usage-throttling";
 import type {
 	Account,
 	AnthropicUsageData,
@@ -70,11 +70,11 @@ import type {
 	LoadBalancingStrategy,
 	RateLimitReason,
 	SessionStats,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	parseExtraUsageHoldState,
 	requiresSessionDurationTracking,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	bumpPublicRosterGeneration,
 	runExclusiveRosterWrite,
@@ -856,7 +856,7 @@ export function createAccountsListHandler(
 							const {
 								getRepresentativeNanoGPTUtilization,
 								getRepresentativeNanoGPTWindow,
-							} = require("@better-ccflare/providers");
+							} = require("@hov-router/providers");
 							usageUtilization = getRepresentativeNanoGPTUtilization(usageData);
 							usageWindow = getRepresentativeNanoGPTWindow(usageData);
 							fullUsageData = usageData as FullUsageData;
@@ -876,7 +876,7 @@ export function createAccountsListHandler(
 							const {
 								getRepresentativeZaiUtilization,
 								getRepresentativeZaiWindow,
-							} = require("@better-ccflare/providers");
+							} = require("@hov-router/providers");
 							usageUtilization = getRepresentativeZaiUtilization(usageData);
 							usageWindow = getRepresentativeZaiWindow(usageData);
 							fullUsageData = usageData as FullUsageData;
@@ -895,7 +895,7 @@ export function createAccountsListHandler(
 							const {
 								getRepresentativeKiloUtilization,
 								getRepresentativeKiloWindow,
-							} = require("@better-ccflare/providers");
+							} = require("@hov-router/providers");
 							usageUtilization = getRepresentativeKiloUtilization(usageData);
 							usageWindow = getRepresentativeKiloWindow(usageData);
 							fullUsageData = usageData as FullUsageData;
@@ -915,7 +915,7 @@ export function createAccountsListHandler(
 							const {
 								getRepresentativeAlibabaCodingPlanUtilization,
 								getRepresentativeAlibabaCodingPlanWindow,
-							} = require("@better-ccflare/providers");
+							} = require("@hov-router/providers");
 							usageUtilization =
 								getRepresentativeAlibabaCodingPlanUtilization(usageData);
 							usageWindow = getRepresentativeAlibabaCodingPlanWindow(usageData);
@@ -935,7 +935,7 @@ export function createAccountsListHandler(
 							const {
 								getRepresentativeXaiUtilization,
 								getRepresentativeXaiWindow,
-							} = require("@better-ccflare/providers");
+							} = require("@hov-router/providers");
 							usageUtilization = getRepresentativeXaiUtilization(usageData);
 							usageWindow = getRepresentativeXaiWindow(usageData);
 							fullUsageData = usageData as FullUsageData;
@@ -955,7 +955,7 @@ export function createAccountsListHandler(
 							const {
 								getRepresentativeMinimaxUtilization,
 								getRepresentativeMinimaxWindow,
-							} = require("@better-ccflare/providers");
+							} = require("@hov-router/providers");
 							usageUtilization = getRepresentativeMinimaxUtilization(usageData);
 							usageWindow = getRepresentativeMinimaxWindow(usageData);
 							fullUsageData = usageData as FullUsageData;

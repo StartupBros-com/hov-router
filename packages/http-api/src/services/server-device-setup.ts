@@ -1,12 +1,12 @@
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	initiateCodexDeviceFlow,
 	pollCodexForToken,
-} from "@better-ccflare/providers/codex";
+} from "@hov-router/providers/codex";
 import {
 	initiateDeviceFlow as initiateQwenDeviceFlow,
 	pollForToken as pollQwenForToken,
-} from "@better-ccflare/providers/qwen";
+} from "@hov-router/providers/qwen";
 import { createServerOwnedAccountRoutingFinalizer } from "./account-routing-operations";
 import {
 	createDeviceSetupCoordinator,

@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
-import * as cliCommands from "@better-ccflare/cli-commands";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { DatabaseFactory } from "@better-ccflare/database";
+import * as cliCommands from "@hov-router/cli-commands";
+import type { DatabaseOperations } from "@hov-router/database";
+import { DatabaseFactory } from "@hov-router/database";
 import { createAccountRemoveHandler } from "../accounts";
 
 // Conventional test pattern (mirrors kilo.test.ts). Requires the

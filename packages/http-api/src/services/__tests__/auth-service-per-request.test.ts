@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type ApiKey, NodeCryptoUtils } from "@better-ccflare/types/api-key";
+import { type ApiKey, NodeCryptoUtils } from "@hov-router/types/api-key";
 import { AuthService } from "../auth-service";
 
 /**

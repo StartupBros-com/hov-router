@@ -1,5 +1,5 @@
 {
-	"name": "@better-ccflare/openai-responses-adapter",
+	"name": "@hov-router/openai-responses-adapter",
 	"version": "0.1.0",
 	"type": "module",
 	"main": "./src/index.ts",
@@ -10,8 +10,8 @@
 		"typecheck": "bunx tsc --noEmit"
 	},
 	"dependencies": {
-		"@better-ccflare/core": "workspace:*",
-		"@better-ccflare/logger": "workspace:*",
-		"@better-ccflare/types": "workspace:*"
+		"@hov-router/core": "workspace:*",
+		"@hov-router/logger": "workspace:*",
+		"@hov-router/types": "workspace:*"
 	}
 }

@@ -4,7 +4,7 @@ import {
 	BunSqlAdapter,
 	ensureSchema,
 	runMigrations,
-} from "@better-ccflare/database";
+} from "@hov-router/database";
 import { createCacheParityConfigStub } from "../../__tests__/support/cache-parity-config-stub";
 import type { APIContext } from "../../types";
 import { createCacheParityHandler } from "../cache-parity";

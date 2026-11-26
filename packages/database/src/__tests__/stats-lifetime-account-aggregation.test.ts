@@ -9,7 +9,7 @@ import {
 	spyOn,
 } from "bun:test";
 // Avoid the pre-existing types/core initialization cycle.
-import "@better-ccflare/core";
+import "@hov-router/core";
 import { BunSqlAdapter } from "../adapters/bun-sql-adapter";
 import { ensureSchema, runMigrations } from "../migrations";
 import { StatsRepository } from "../repositories/stats.repository";

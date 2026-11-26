@@ -1,9 +1,9 @@
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { jsonResponse } from "@better-ccflare/http-common";
+import type { DatabaseOperations } from "@hov-router/database";
+import { jsonResponse } from "@hov-router/http-common";
 import {
 	checkAllAccountsHealth,
 	checkRefreshTokenHealth,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 
 /**
  * Create a token health handler for all accounts

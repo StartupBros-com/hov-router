@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { parseModelRouteProfiles } from "@better-ccflare/proxy";
+import { parseModelRouteProfiles } from "@hov-router/proxy";
 import { valueWindowAggregates } from "../usage-window-valuation";
 
 test("configured physical aliases price and retain their original breakdown key", () => {

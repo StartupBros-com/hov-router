@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { ComboSlot } from "@better-ccflare/types";
+import type { ComboSlot } from "@hov-router/types";
 import {
 	COMBO_REORDER_WARNING,
 	getDefaultComboSlotPriority,

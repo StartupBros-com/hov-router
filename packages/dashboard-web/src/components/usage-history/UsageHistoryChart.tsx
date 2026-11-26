@@ -1,4 +1,4 @@
-import type { UsageHistoryWindowSeries } from "@better-ccflare/types";
+import type { UsageHistoryWindowSeries } from "@hov-router/types";
 import { useMemo } from "react";
 import { COLORS } from "../../constants";
 import { BaseLineChart } from "../charts/BaseLineChart";

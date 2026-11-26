@@ -1,14 +1,14 @@
-// Re-export provider-related types and functions from @better-ccflare/providers
+// Re-export provider-related types and functions from @hov-router/providers
 export type {
 	Provider,
 	RateLimitInfo,
 	TokenRefreshResult,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 export {
 	getProvider,
 	listProviders,
 	registerProvider,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 export {
 	type AnthropicDegradedAdmissionDecision,
 	type AnthropicDegradedCohortFacts,

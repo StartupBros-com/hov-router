@@ -1,13 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import "@better-ccflare/core";
-import type {
-	CacheHealthBucket,
-	CacheHealthState,
-} from "@better-ccflare/types";
+import "@hov-router/core";
+import type { CacheHealthBucket, CacheHealthState } from "@hov-router/types";
 import {
 	cacheHealthScopeKey,
 	isNativeCacheHealthRoute,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	advanceCacheHealth,
 	aggregateProviderCacheBuckets,

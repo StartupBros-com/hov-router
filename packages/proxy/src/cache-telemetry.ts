@@ -9,7 +9,7 @@
  * placement, but the proxy is where the pattern is visible fleet-wide, so we
  * warn when a turn crosses the window.
  */
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 import type { RequestJsonBody } from "./handlers";
 
 const log = new Logger("CacheTelemetry");

@@ -1,25 +1,22 @@
 import { Database } from "bun:sqlite";
 import { stat } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { RuntimeConfig } from "@better-ccflare/config";
+import type { RuntimeConfig } from "@hov-router/config";
 import type {
 	CacheFlightCohortSealReceipt,
 	Disposable,
 	TurnEvidence,
 	WindowTokenAggregate,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	deriveExtraUsageHolds,
 	PAUSE_REASON_NEEDS_REAUTH,
 	sameExtraUsageHolds,
 	shouldNarrowBilledHold,
 	TIME_CONSTANTS,
-} from "@better-ccflare/core";
-import {
-	COMMAND_NAME,
-	PRODUCT_NAME,
-} from "@better-ccflare/core/product-identity";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { COMMAND_NAME, PRODUCT_NAME } from "@hov-router/core/product-identity";
+import { Logger } from "@hov-router/logger";
 import type {
 	Account,
 	AgentAttributionSource,
@@ -48,7 +45,7 @@ import type {
 	RateLimitReason,
 	RouteProvenance,
 	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { BunSqlAdapter } from "./adapters/bun-sql-adapter";
 import type { CleanupPacer } from "./cleanup-pacing";
 import { ensurePrivateDir, restrictDbFiles } from "./file-modes";
@@ -1309,7 +1306,7 @@ OAuth tokens will need to be re-authenticated.
 	 */
 	async recordUsageSnapshot(
 		accountId: string,
-		usage: import("@better-ccflare/types").CanonicalUsageWindow[],
+		usage: import("@hov-router/types").CanonicalUsageWindow[],
 		now: number,
 		expectedCreatedAt?: number,
 	): Promise<void> {
@@ -1345,7 +1342,7 @@ OAuth tokens will need to be re-authenticated.
 	 */
 	private async applyReadingToExtraUsageHolds(
 		accountId: string,
-		windows: import("@better-ccflare/types").CanonicalUsageWindow[],
+		windows: import("@hov-router/types").CanonicalUsageWindow[],
 		readingAt: number,
 		expectedCreatedAt?: number,
 	): Promise<void> {

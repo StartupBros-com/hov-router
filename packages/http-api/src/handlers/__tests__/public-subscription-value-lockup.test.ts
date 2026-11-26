@@ -10,7 +10,7 @@ import {
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 import type { APIContext } from "../../types";
 
 const scratch = mkdtempSync(join(tmpdir(), "ccflare-public-value-lockup-"));

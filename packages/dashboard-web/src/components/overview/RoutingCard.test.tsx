@@ -5,8 +5,8 @@
  * See LICENSE.md in the project root for license terms.
  */
 import { describe, expect, it } from "bun:test";
-import { StrategyName } from "@better-ccflare/core";
-import type { RoutingAttemptSummaryResponse } from "@better-ccflare/types";
+import { StrategyName } from "@hov-router/core";
+import type { RoutingAttemptSummaryResponse } from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
 	getStrategySelectItems,

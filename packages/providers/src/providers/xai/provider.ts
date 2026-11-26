@@ -9,10 +9,10 @@ import {
 	resolveXaiContextWindow,
 	ValidationError,
 	validateEndpointUrl,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
-import type { OpenAIRequest } from "@better-ccflare/openai-formats";
-import type { Account, LogicalModelCapability } from "@better-ccflare/types";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
+import type { OpenAIRequest } from "@hov-router/openai-formats";
+import type { Account, LogicalModelCapability } from "@hov-router/types";
 import { parseStandardRetryAfter429 } from "../../base";
 import {
 	registerProviderModelDefaultFactory,

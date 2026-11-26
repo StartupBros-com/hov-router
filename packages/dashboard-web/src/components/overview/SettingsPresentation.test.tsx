@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { RoutingAttemptSummaryResponse } from "@better-ccflare/types";
+import type { RoutingAttemptSummaryResponse } from "@hov-router/types";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { renderPage } from "../page-state-test-helpers";

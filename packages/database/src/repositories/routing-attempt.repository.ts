@@ -4,7 +4,7 @@ import {
 	type RoutingAttemptScope,
 	type RoutingAttemptSummary,
 	type RoutingAttemptSummaryWindow,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { getCleanupBatchSize } from "../adapters/bun-sql-adapter";
 import { type CleanupPacer, deleteInBatches } from "../cleanup-pacing";
 import { BaseRepository } from "./base.repository";

@@ -1,4 +1,4 @@
-import { jsonResponse } from "@better-ccflare/http-common";
+import { jsonResponse } from "@hov-router/http-common";
 
 /** Preserve one immutable post-create lookup key across every account flow. */
 export function accountCreatedResponse<T extends Record<string, unknown>>(

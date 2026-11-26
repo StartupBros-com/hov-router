@@ -20,12 +20,8 @@ import {
 	LeastUsedStrategy,
 	SessionAffinityStrategy,
 	SessionStrategy,
-} from "@better-ccflare/load-balancer";
-import type {
-	Account,
-	RequestMeta,
-	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/load-balancer";
+import type { Account, RequestMeta, StrategyStore } from "@hov-router/types";
 
 // ---------------------------------------------------------------------------
 // Helpers

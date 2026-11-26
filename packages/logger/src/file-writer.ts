@@ -8,7 +8,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { LogEvent } from "@better-ccflare/types";
+import type { LogEvent } from "@hov-router/types";
 
 // Local constants to avoid circular dependency with core
 const BUFFER_SIZES = {

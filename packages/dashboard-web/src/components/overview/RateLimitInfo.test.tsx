@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AccountResponse } from "@better-ccflare/types";
+import type { AccountResponse } from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { RateLimitInfo } from "./RateLimitInfo";
 

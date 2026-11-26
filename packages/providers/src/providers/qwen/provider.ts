@@ -1,6 +1,6 @@
-import { getModelFamily } from "@better-ccflare/core";
-import type { OpenAIRequest } from "@better-ccflare/openai-formats";
-import type { Account, LogicalModelCapability } from "@better-ccflare/types";
+import { getModelFamily } from "@hov-router/core";
+import type { OpenAIRequest } from "@hov-router/openai-formats";
+import type { Account, LogicalModelCapability } from "@hov-router/types";
 import {
 	registerProviderModelDefaultFactory,
 	resolveProviderModelDefault,

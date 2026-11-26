@@ -1,5 +1,5 @@
-import { DEFAULT_AGENT_MODEL } from "@better-ccflare/core";
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
+import { DEFAULT_AGENT_MODEL } from "@hov-router/core";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
 import { format, formatDistanceToNow } from "date-fns";
 import {
 	Folder,

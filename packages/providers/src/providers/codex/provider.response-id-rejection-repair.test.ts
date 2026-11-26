@@ -95,7 +95,7 @@ function nativeResponseIdRequestFor(params: {
 		system: instructions,
 		metadata: { user_id: JSON.stringify({ session_id: sessionId }) },
 		messages,
-		__better_ccflare_codex_passthrough: {
+		__hov_router_codex_passthrough: {
 			continuation_strategy: "previous_response_id",
 		},
 	};

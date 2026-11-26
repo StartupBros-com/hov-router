@@ -128,9 +128,9 @@ describe("writeExpanded (storage-injected)", () => {
 				calls.push([key, value]);
 			},
 		};
-		writeExpanded("ccflare.poolCapacity.expanded", ["a", "b"], storage);
+		writeExpanded("hov-router.poolCapacity.expanded", ["a", "b"], storage);
 		expect(calls).toEqual([
-			["ccflare.poolCapacity.expanded", JSON.stringify(["a", "b"])],
+			["hov-router.poolCapacity.expanded", JSON.stringify(["a", "b"])],
 		]);
 	});
 });

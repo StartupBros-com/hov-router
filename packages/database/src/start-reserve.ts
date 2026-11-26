@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { constants, realpathSync, rmSync, statfsSync, statSync } from "node:fs";
 import { type FileHandle, open } from "node:fs/promises";
 import { dirname } from "node:path";
-import { isStorageFullError } from "@better-ccflare/core";
+import { isStorageFullError } from "@hov-router/core";
 
 /**
  * Size of the start reserve: a file of written bytes kept beside the database

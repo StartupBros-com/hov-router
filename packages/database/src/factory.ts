@@ -1,5 +1,5 @@
-import type { RuntimeConfig } from "@better-ccflare/config";
-import { registerDisposable, unregisterDisposable } from "@better-ccflare/core";
+import type { RuntimeConfig } from "@hov-router/config";
+import { registerDisposable, unregisterDisposable } from "@hov-router/core";
 import {
 	type DatabaseConfig,
 	DatabaseOperations,

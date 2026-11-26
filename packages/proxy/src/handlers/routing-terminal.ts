@@ -1,15 +1,15 @@
-import { isFirstPartyAnthropicAccount } from "@better-ccflare/core";
+import { isFirstPartyAnthropicAccount } from "@hov-router/core";
 import type {
 	Account,
 	RateLimitReason,
 	RouteCircuitRecoveryHint,
 	RoutingSelectionDiagnostics,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	RECOVERY_SCOPE_HEADER,
 	RECOVERY_STATUS_EXHAUSTED,
 	RECOVERY_STATUS_HEADER,
-} from "@better-ccflare/types/routing-recovery";
+} from "@hov-router/types/routing-recovery";
 import { sanitizeAnthropicRetryAfterSeconds } from "../anthropic-degraded-mode";
 import type { RoutingCapacityContext } from "./account-selector";
 import type { NativeQuotaTerminalPresentation } from "./native-quota-policy";

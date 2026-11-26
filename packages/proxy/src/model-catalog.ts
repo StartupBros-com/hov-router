@@ -15,14 +15,14 @@ import {
 	CLAUDE_MODEL_IDS,
 	getModelDisplayName,
 	registerHeartbeat,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import {
 	type AutoModelCapabilities,
 	getProvider,
 	normalizeAutoModelCapabilities,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "./handlers/proxy-types";
 import { getValidAccessToken } from "./handlers/token-manager";
 

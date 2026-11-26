@@ -9,14 +9,14 @@ import {
 	spyOn,
 } from "bun:test";
 import { EventEmitter } from "node:events";
-import type { Config } from "@better-ccflare/config";
-import { orgPermissionDeniedEvents, requestEvents } from "@better-ccflare/core";
+import type { Config } from "@hov-router/config";
+import { orgPermissionDeniedEvents, requestEvents } from "@hov-router/core";
 import {
 	BunSqlAdapter,
 	ensureSchema,
 	runMigrations,
-} from "@better-ccflare/database";
-import type { AlertEvent, RequestResponse } from "@better-ccflare/types";
+} from "@hov-router/database";
+import type { AlertEvent, RequestResponse } from "@hov-router/types";
 import { AlertService, buildDiscordAlertContent } from "../alerts";
 
 // Issue #877: on 2026-11-16 Anthropic refused max-primary-bros for over two

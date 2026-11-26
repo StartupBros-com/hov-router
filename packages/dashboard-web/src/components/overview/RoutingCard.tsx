@@ -1,5 +1,5 @@
-import { StrategyName } from "@better-ccflare/core";
-import type { RoutingAttemptSummaryResponse } from "@better-ccflare/types";
+import { StrategyName } from "@hov-router/core";
+import type { RoutingAttemptSummaryResponse } from "@hov-router/types";
 import {
 	useModelCapacityRouting,
 	useRoutingAttemptSummary,
