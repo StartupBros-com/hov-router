@@ -912,7 +912,6 @@ mapfile -t OLD_GUARD_DIRS < <(
 for guard_dir in "${OLD_GUARD_DIRS[@]:-}"; do
 	[[ -n "$guard_dir" ]] || continue
 	if [[ "$guard_dir" != "$GUARDS_ROOT/"* ]] || ! {
-		artifact_module_set_matches "$guard_dir" ccflare-guard.mjs ccflare-guard-policy.mjs ||
 		artifact_module_set_matches "$guard_dir" ccflare-guard.mjs ccflare-guard-policy.mjs ccflare-managed-timing.mjs
 	}; then
 		echo "    skipped non-standard guard directory $guard_dir" >&2
@@ -932,7 +931,6 @@ mapfile -t OLD_RUNNER_DIRS < <(
 for runner_dir in "${OLD_RUNNER_DIRS[@]:-}"; do
 	[[ -n "$runner_dir" ]] || continue
 	if [[ "$runner_dir" != "$RUNNERS_ROOT/"* ]] || ! {
-		artifact_module_set_matches "$runner_dir" run-ccflare-stack.sh ||
 		artifact_module_set_matches "$runner_dir" run-ccflare-stack.sh ccflare-deployment-transaction.mjs
 	}; then
 		echo "    skipped non-standard runner directory $runner_dir" >&2

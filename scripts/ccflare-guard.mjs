@@ -1830,7 +1830,6 @@ export function createGuard(options = {}) {
 		deadlineExceeded: 0,
 		acceptedDeadlineExceeded: 0,
 		recoveryBeyondDeadline: 0,
-		recoverySleepCapExceeded: 0,
 		recoverySilenceBudgetExceeded: 0,
 		recoveryWaitCapacityFull: 0,
 		recoveryWaitAdmitted: 0,
@@ -3141,8 +3140,6 @@ export function createGuard(options = {}) {
 		switch (reason) {
 			case "recovery_silence_budget_exceeded":
 				counters.recoverySilenceBudgetExceeded += 1;
-				// Compatibility counter retained for existing dashboards.
-				counters.recoverySleepCapExceeded += 1;
 				break;
 			case "recovery_beyond_deadline":
 				counters.recoveryBeyondDeadline += 1;

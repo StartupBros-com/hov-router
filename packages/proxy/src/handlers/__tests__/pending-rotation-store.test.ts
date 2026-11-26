@@ -9,9 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { PendingRotationPersistence } from "../pending-rotation-registry";
 import {
-	createPendingRotationSlotStore,
 	type PendingRotationSlotStore,
 	SLOT_FILE_BYTES,
 } from "../pending-rotation-slots";
@@ -19,7 +17,6 @@ import {
 	composePendingRotationStores,
 	createPendingRotationStore,
 } from "../pending-rotation-store";
-import { createPendingRotationWal } from "../pending-rotation-wal";
 
 const SECRET = "pending-rotation-store-test-secret-with-enough-entropy";
 
@@ -65,110 +62,28 @@ afterEach(() => {
 });
 
 describe("pending rotation store on disk", () => {
-	it("saves to the slot and removes the account's legacy file", async () => {
-		const legacy = createPendingRotationWal({ directory, secret: SECRET });
-		await legacy.save("account-1", rotation("old"));
-		expect(filesEndingWith(".wal")).toHaveLength(1);
-
-		const store = createPendingRotationStore({ directory, secret: SECRET });
-		await store.save("account-1", rotation("new"));
-
-		expect(filesEndingWith(".wal")).toHaveLength(0);
-		expect(filesEndingWith(".slot")).toHaveLength(1);
-		expect(
-			await createPendingRotationStore({ directory, secret: SECRET }).load(),
-		).toEqual([{ accountId: "account-1", rotation: rotation("new") }]);
-	});
-
-	it("loads a legacy entry that has no slot and leaves its file in place", async () => {
-		const legacy = createPendingRotationWal({ directory, secret: SECRET });
-		await legacy.save("account-1", rotation("old"));
-
-		const store = createPendingRotationStore({ directory, secret: SECRET });
-
-		expect(await store.load()).toEqual([
-			{ accountId: "account-1", rotation: rotation("old") },
-		]);
-		expect(filesEndingWith(".wal")).toHaveLength(1);
-	});
-
-	it("lets a pending slot shadow the legacy file for the same account, removes that file and says so", async () => {
-		const log = makeLog();
-		const store = createPendingRotationStore({
+	it("saves only slots and ignores old files during save, load, remove and discard", async () => {
+		const oldFile = join(
 			directory,
-			secret: SECRET,
-			log,
-		});
-		await store.save("account-1", rotation("new"));
-		// A legacy file left behind, as after an unlink that failed.
-		await createPendingRotationWal({ directory, secret: SECRET }).save(
-			"account-1",
-			rotation("old"),
+			`pending-rotation-${digest("account-1")}.wal`,
 		);
-		await createPendingRotationWal({ directory, secret: SECRET }).save(
-			"account-2",
-			rotation("other"),
-		);
-
-		const loaded = await store.load();
-
-		expect(loaded).toHaveLength(2);
-		expect(loaded).toContainEqual({
-			accountId: "account-1",
-			rotation: rotation("new"),
-		});
-		expect(loaded).toContainEqual({
-			accountId: "account-2",
-			rotation: rotation("other"),
-		});
-		expect(filesEndingWith(".wal")).toEqual([
-			`pending-rotation-${digest("account-2")}.wal`,
-		]);
-		expect(log.info).toHaveBeenCalledTimes(1);
-	});
-
-	it("does not let a cleared slot hide a legacy entry", async () => {
+		writeFileSync(oldFile, "not an envelope");
 		const store = createPendingRotationStore({ directory, secret: SECRET });
-		await store.reserve("account-1");
-		await createPendingRotationWal({ directory, secret: SECRET }).save(
-			"account-1",
-			rotation("old"),
-		);
-
+		expect(await store.load()).toEqual([]);
+		await store.save("account-1", rotation("new"));
 		expect(await store.load()).toEqual([
-			{ accountId: "account-1", rotation: rotation("old") },
+			{ accountId: "account-1", rotation: rotation("new") },
 		]);
-	});
-
-	it("remove keeps the slot file allocated and removes the legacy file", async () => {
-		const store = createPendingRotationStore({ directory, secret: SECRET });
-		await store.save("account-1", rotation("new"));
-		await createPendingRotationWal({ directory, secret: SECRET }).save(
-			"account-1",
-			rotation("old"),
-		);
 		const slot = join(directory, filesEndingWith(".slot")[0] as string);
 		const inode = statSync(slot).ino;
-
 		await store.remove("account-1");
-
 		expect(await store.load()).toEqual([]);
-		expect(filesEndingWith(".wal")).toHaveLength(0);
 		expect(statSync(slot).size).toBe(SLOT_FILE_BYTES);
 		expect(statSync(slot).ino).toBe(inode);
-	});
-
-	it("discard removes the slot and the legacy file", async () => {
-		const store = createPendingRotationStore({ directory, secret: SECRET });
-		await store.save("account-1", rotation("new"));
-		await createPendingRotationWal({ directory, secret: SECRET }).save(
-			"account-1",
-			rotation("old"),
-		);
-
+		expect(filesEndingWith(".wal")).toHaveLength(1);
 		await store.discard("account-1");
-
-		expect(readdirSync(directory)).toEqual([]);
+		expect(filesEndingWith(".slot")).toEqual([]);
+		expect(filesEndingWith(".wal")).toHaveLength(1);
 	});
 
 	it("reports an unreadable slot and still loads the rest", async () => {
@@ -189,34 +104,9 @@ describe("pending rotation store on disk", () => {
 		]);
 		expect(log.error).toHaveBeenCalledTimes(1);
 	});
-
-	it("still fails the load on an unreadable legacy file", async () => {
-		writeFileSync(
-			join(directory, `pending-rotation-${digest("account-1")}.wal`),
-			"not an envelope",
-		);
-		const store = createPendingRotationStore({ directory, secret: SECRET });
-
-		await expect(store.load()).rejects.toBeDefined();
-	});
 });
 
 describe("pending rotation store failure handling", () => {
-	function realSlots(): PendingRotationSlotStore {
-		return createPendingRotationSlotStore({ directory, secret: SECRET });
-	}
-
-	function fakeLegacy(
-		overrides: Partial<PendingRotationPersistence> = {},
-	): PendingRotationPersistence {
-		return {
-			save: mock(async () => {}),
-			load: mock(async () => []),
-			remove: mock(async () => {}),
-			...overrides,
-		};
-	}
-
 	function fakeSlots(
 		overrides: Partial<PendingRotationSlotStore> = {},
 	): PendingRotationSlotStore {
@@ -230,114 +120,17 @@ describe("pending rotation store failure handling", () => {
 		};
 	}
 
-	it("logs and keeps the save when the legacy file cannot be removed", async () => {
-		const log = makeLog();
-		const store = composePendingRotationStores({
-			slots: realSlots(),
-			legacy: fakeLegacy({
-				remove: mock(async () => {
-					throw new Error("EACCES: permission denied, unlink");
-				}),
-			}),
-			log,
-		});
-
-		await expect(
-			store.save("account-1", rotation("new")),
-		).resolves.toBeUndefined();
-
-		expect(log.warn).toHaveBeenCalledTimes(1);
-		expect(await realSlots().load()).toEqual([
-			{ accountId: "account-1", rotation: rotation("new") },
-		]);
-	});
-
-	it("does not touch the legacy file when the slot save fails", async () => {
-		const legacy = fakeLegacy();
+	it("propagates a slot save failure", async () => {
 		const store = composePendingRotationStores({
 			slots: fakeSlots({
 				save: mock(async () => {
 					throw storageFull();
 				}),
 			}),
-			legacy,
-			log: makeLog(),
 		});
-
 		await expect(
 			store.save("account-1", rotation("new")),
 		).rejects.toMatchObject({ code: "ENOSPC" });
-		expect(legacy.remove).not.toHaveBeenCalled();
-	});
-
-	it("logs and keeps the load when a shadowed legacy file cannot be removed", async () => {
-		const log = makeLog();
-		const slots = realSlots();
-		await slots.save("account-1", rotation("new"));
-		const store = composePendingRotationStores({
-			slots,
-			legacy: fakeLegacy({
-				load: mock(async () => [
-					{ accountId: "account-1", rotation: rotation("old") },
-				]),
-				remove: mock(async () => {
-					throw new Error("EACCES: permission denied, unlink");
-				}),
-			}),
-			log,
-		});
-
-		expect(await store.load()).toEqual([
-			{ accountId: "account-1", rotation: rotation("new") },
-		]);
-		expect(log.warn).toHaveBeenCalledTimes(1);
-	});
-
-	it("still fails a remove whose legacy file cannot be removed", async () => {
-		const store = composePendingRotationStores({
-			slots: realSlots(),
-			legacy: fakeLegacy({
-				remove: mock(async () => {
-					throw new Error("EACCES: permission denied, unlink");
-				}),
-			}),
-			log: makeLog(),
-		});
-
-		await expect(store.remove("account-1")).rejects.toThrow("EACCES");
-	});
-
-	it("keeps the slot's rotation ahead of a legacy file that could not be removed", async () => {
-		// An older rotation sits in a legacy file that cannot be unlinked. Were
-		// the slot cleared first, the next start would find a cleared slot
-		// beside that file and restore the older rotation, whose refresh token
-		// the provider has already seen spent.
-		const stuckLegacy = fakeLegacy({
-			load: mock(async () => [
-				{ accountId: "account-1", rotation: rotation("old") },
-			]),
-			remove: mock(async () => {
-				throw new Error("EACCES: permission denied, unlink");
-			}),
-		});
-		const store = composePendingRotationStores({
-			slots: realSlots(),
-			legacy: stuckLegacy,
-			log: makeLog(),
-		});
-		await store.save("account-1", rotation("new"));
-
-		await expect(store.remove("account-1")).rejects.toThrow("EACCES");
-
-		// The next start, over the same directory.
-		const next = composePendingRotationStores({
-			slots: realSlots(),
-			legacy: stuckLegacy,
-			log: makeLog(),
-		});
-		expect(await next.load()).toEqual([
-			{ accountId: "account-1", rotation: rotation("new") },
-		]);
 	});
 
 	describe("reservation that fails for lack of space", () => {
@@ -348,8 +141,6 @@ describe("pending rotation store failure handling", () => {
 			});
 			const store = composePendingRotationStores({
 				slots: fakeSlots({ reserve }),
-				legacy: fakeLegacy(),
-				log: makeLog(),
 				now: () => now,
 				reserveRetryMs: 5_000,
 			});
@@ -378,8 +169,6 @@ describe("pending rotation store failure handling", () => {
 			});
 			const store = composePendingRotationStores({
 				slots: fakeSlots({ reserve }),
-				legacy: fakeLegacy(),
-				log: makeLog(),
 				now: () => now,
 				reserveRetryMs: 5_000,
 			});
@@ -399,8 +188,6 @@ describe("pending rotation store failure handling", () => {
 			});
 			const store = composePendingRotationStores({
 				slots: fakeSlots({ reserve }),
-				legacy: fakeLegacy(),
-				log: makeLog(),
 				now: () => 1_000,
 				reserveRetryMs: 5_000,
 			});
@@ -416,8 +203,6 @@ describe("pending rotation store failure handling", () => {
 			});
 			const store = composePendingRotationStores({
 				slots: fakeSlots({ reserve }),
-				legacy: fakeLegacy(),
-				log: makeLog(),
 				now: () => 1_000,
 				reserveRetryMs: 5_000,
 			});
@@ -434,8 +219,6 @@ describe("pending rotation store failure handling", () => {
 			});
 			const store = composePendingRotationStores({
 				slots: fakeSlots({ reserve }),
-				legacy: fakeLegacy(),
-				log: makeLog(),
 				now: () => 1_000,
 				reserveRetryMs: 5_000,
 			});

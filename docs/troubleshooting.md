@@ -412,7 +412,7 @@ Environment variables override config file settings:
 
 **Never delete these two kinds of file**, even though they look like spare data during a cleanup:
 - `~/.config/better-ccflare/better-ccflare.db.start-reserve` (64 KiB). The router removes it itself when a start on a full disk needs room to open the database, and writes it back once space returns. Deleting it takes away the margin the next start on a full disk depends on.
-- `~/.config/better-ccflare/pending-rotations/*.slot` (64 KiB each, one per OAuth account whose provider rotates refresh tokens). A slot can hold a rotated refresh token that is not in the database yet, and deleting it then costs that account its sign-in. Older installs may also have `.wal` files there; the router removes each one itself once a slot holds that account's rotation.
+- `~/.config/better-ccflare/pending-rotations/*.slot` (64 KiB each, one per OAuth account whose provider rotates refresh tokens). A slot can hold a rotated refresh token that is not in the database yet, and deleting it then costs that account its sign-in. Slots are the only pending-rotation files the router reads or writes.
 
 **Solutions**:
 1. Free space on that disk. Nothing in the router's own directory needs removing for this.

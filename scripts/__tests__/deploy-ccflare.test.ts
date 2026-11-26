@@ -3094,7 +3094,7 @@ describe("deploy --no-prune", () => {
 
 	// Execute the actual parser and cleanup section, not a replica of its pruning
 	// algorithm. All filesystem effects (including sudo rm) stay in this fixture.
-	function runCleanup(flags: string, healthy = true) {
+	function runCleanup(flags: string, healthy = true, oldLayout = false) {
 		const root = tempDir();
 		const dest = join(root, "artifacts");
 		const pins = join(root, "pins");
@@ -3115,7 +3115,7 @@ describe("deploy --no-prune", () => {
 					const modules = category === 1
 						? ["ccflare-guard.mjs", "ccflare-guard-policy.mjs", "ccflare-managed-timing.mjs"]
 						: ["run-ccflare-stack.sh", "ccflare-deployment-transaction.mjs"];
-					for (const module of modules) writeFileSync(join(path, module), "fixture\n");
+					for (const module of oldLayout ? modules.slice(0, -1) : modules) writeFileSync(join(path, module), "fixture\n");
 				} else writeFileSync(path, "fixture\n");
 				utimesSync(path, 1000 + i, 1000 + i);
 				categories[category]?.push(path);
@@ -3166,6 +3166,14 @@ describe("deploy --no-prune", () => {
 			expect(existsSync(paths[7] as string)).toBe(true);
 		}
 		for (const paths of categories.slice(0, 3)) expect(existsSync(paths[0] as string)).toBe(true);
+	});
+
+	test("skips old-layout guard and runner directories as non-standard", () => {
+		const { result, categories } = runCleanup("", true, true);
+		expectCommandOk(result);
+		for (const paths of categories.slice(1, 3)) expect(paths.filter(existsSync)).toEqual(paths);
+		expect(capturedOutput(result.stderr, "stderr")).toContain("skipped non-standard guard directory");
+		expect(capturedOutput(result.stderr, "stderr")).toContain("skipped non-standard runner directory");
 	});
 
 	test("does not bypass failed health or reach cleanup after failure", () => {

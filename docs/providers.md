@@ -44,7 +44,7 @@
   - Model mapping required (e.g., `claude-sonnet-4-6` → `deepseek-v4-flash:cloud`)
   - Bearer token authentication via API key
 - **Meta** (`meta`) - Meta Model API at `https://api.meta.ai`:
-  - `meta` is the canonical provider identifier; legacy `muse-spark` is accepted only for server-side HTTP ingress compatibility
+  - `meta` is the provider identifier; `POST /api/accounts/muse-spark` answers `410 Gone` from 7.0.0, so add accounts with `POST /api/accounts/meta`
   - Anthropic-compatible Messages endpoint (`/v1/messages`, `/v1/messages/count_tokens`)
   - Models `muse-spark-1.2` (default), `muse-spark-1.1`, `muse-spark-1.2-contributor`
   - Bearer token authentication via API key
@@ -150,7 +150,7 @@ The HoV Router providers system is a modular architecture designed to support mu
 
 11. **Meta Provider** (`meta`) - Provides access to:
     - **Meta Model API** at `https://api.meta.ai` via its Anthropic-compatible Messages endpoint
-    - `meta` is the canonical provider identifier. Legacy `muse-spark` is server-side HTTP ingress compatibility only; it is not the provider identifier to configure.
+    - `meta` is the provider identifier. The old `POST /api/accounts/muse-spark` route answers `410 Gone` from 7.0.0; use `POST /api/accounts/meta`.
     - Models `muse-spark-1.2` (default), `muse-spark-1.1`, and `muse-spark-1.2-contributor`
     - 1,048,576-token context window; 131,072-token maximum output
     - Bearer token authentication (`Authorization: Bearer`), not `x-api-key`
@@ -361,7 +361,7 @@ The `DeepSeekProvider` (`deepseek`) extends `BaseAnthropicCompatibleProvider` an
 
 ## MetaProvider Implementation
 
-The MetaProvider (`meta`) extends `BaseAnthropicCompatibleProvider` and serves Meta models through the Meta Model API. The legacy `muse-spark` name is retained only as server-side HTTP ingress compatibility; model IDs such as `muse-spark-1.2` are unchanged.
+The MetaProvider (`meta`) extends `BaseAnthropicCompatibleProvider` and serves Meta models through the Meta Model API. Model IDs such as `muse-spark-1.2` keep their names.
 
 ### Key Features
 

@@ -171,7 +171,7 @@ export class LeastUsedStrategy implements LoadBalancingStrategy {
 	 * confirms the resume actually happened (`resumed === true`), so the
 	 * subsequent isAccountAvailable check never reflects a resume the DB
 	 * refused (e.g. a blocked pause reason or a concurrent writer). Manual
-	 * pauses (pause_reason='manual' or 'failure_threshold') are not touched.
+	 * pauses (pause_reason='manual') are not touched.
 	 *
 	 * Stays in sync with SessionStrategy.select() via the shared predicate —
 	 * keep changes there mirrored here.

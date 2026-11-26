@@ -5,7 +5,6 @@ import {
 	DatabaseOperations,
 	type DatabaseRetryConfig,
 } from "./database-operations";
-import { migrateFromCcflare } from "./migrate-from-ccflare";
 import { resolveDbPath } from "./paths";
 import { assertNotPostgresUrl } from "./postgres-refusal";
 import { openWithStartReserve } from "./start-reserve";
@@ -14,7 +13,6 @@ let instance: DatabaseOperations | null = null;
 let closing: Promise<void> | null = null;
 let dbPath: string | undefined;
 let runtimeConfig: RuntimeConfig | undefined;
-let migrationChecked = false;
 
 export function initialize(
 	dbPathParam?: string,
@@ -45,14 +43,7 @@ export function getInstance(): DatabaseOperations {
 			"Database owner retiring; await closeAll() before replacement",
 		);
 	if (!instance) {
-		// Before the legacy copy below, which would otherwise leave database
-		// files behind for a start that is refused anyway.
 		assertNotPostgresUrl();
-		// Perform one-time migration check from legacy ccflare
-		if (!migrationChecked) {
-			migrateFromCcflare();
-			migrationChecked = true;
-		}
 		// Extract database configuration from runtime config
 		const dbConfig: DatabaseConfig | undefined = runtimeConfig?.database
 			? {

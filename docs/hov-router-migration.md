@@ -55,7 +55,7 @@ There is no PostgreSQL-to-SQLite migration tool, so option 2 starts with an empt
 
 1. **Window-opening messages.** Nothing is sent on an account's behalf. A usage window opens when real traffic first uses it.
 2. **Background OAuth token refresh.** Tokens are still refreshed when a request needs one: an expired or nearly expired token is refreshed before the request is sent, and a `401` on an Anthropic OAuth, Codex or xAI account triggers one refresh and retry. An account left idle until its refresh token lapses needs a re-login when it is next used (see [Re-authenticating an account](oauth-reauthentication.md)).
-3. **Resuming paused accounts after a successful message.** An account paused after repeated failures (`failure_threshold`) now stays paused until you resume it from the dashboard or with `POST /api/accounts/<id>/resume`. An overage pause still clears on its own once its usage window resets, but only on Anthropic, Codex and Z.ai accounts with auto-fallback on.
+3. **Resuming paused accounts after a successful message.** An account paused after repeated failures (`failure_threshold`) now stays paused until you resume it from the dashboard or with `POST /api/accounts/<id>/resume`. Release 7.0.0 relabels those pauses as manual; see [Failure-threshold pauses relabelled](#failure-threshold-pauses-relabelled). An overage pause still clears on its own once its usage window resets, but only on Anthropic, Codex and Z.ai accounts with auto-fallback on.
 
 **Who is affected.** Only accounts that had auto-refresh turned on. Release 4.0.0 logs one startup warning naming each of them and what they no longer get. Release 5.0.0 drops that warning, because the stored value has no effect. The Z.ai peak-hours pause, which ran on the same timer, is unchanged and now runs as its own job (see [Z.ai Peak-Hours Pause](providers.md#zai-peak-hours-pause)).
 
@@ -156,6 +156,22 @@ The guard no longer reads `GUARD_ALLOW_LEGACY_POOL_BODY`. Responses without the
 proxy recovery header are forwarded without retrying. Rollback validation now
 requires the guard body limits and systemd policies introduced in 3.6.0.
 
+A first start with no `better-ccflare.db` no longer copies the pre-fork
+`~/.config/ccflare/ccflare.db` into place. Copy it to
+`~/.config/better-ccflare/better-ccflare.db` by hand before the first start if
+you are moving from ccflare. `ccflare_DB_PATH` is still read.
+
+Pending token rotations saved by releases before 6.0.0 as `.wal` files are no
+longer read; 6.0.0 and later save them as `.slot` files. Before upgrading, run
+`ls ~/.config/better-ccflare/pending-rotations/*.wal`. If it lists a file, keep
+6.x running until that account next refreshes its token, which removes the
+file. If you upgrade first and the account then asks you to sign in, log in to
+it again.
+
+The guard's `/_guard/health` counters no longer include
+`recoverySleepCapExceeded`. Read `recoverySilenceBudgetExceeded`, which always
+held the same count.
+
 ## Old model mapping formats removed
 
 On first start, 7.0.0 moves mappings stored in `custom_endpoint` JSON
@@ -178,6 +194,23 @@ but did have one from `OPENAI_COMPATIBLE_MODEL_MAPPINGS` used to be tried after
 the environment mapping. It is now the account's mapping for that family and
 replaces the environment one. Add the family's full candidate list to the
 account to keep the old order.
+
+## Legacy headers and routes removed
+
+- The `x-anthropic-agent-id` request header no longer names the agent. Send
+  `x-better-ccflare-agent-id`.
+- The `x-project` request header no longer names the project. Send
+  `x-better-ccflare-project`.
+- `POST /api/accounts/muse-spark` answers `410 Gone`. Add Meta accounts with
+  `POST /api/accounts/meta`. Stored `muse-spark` accounts were already renamed
+  to `meta`, and model IDs such as `muse-spark-1.2` keep their names.
+
+## Failure-threshold pauses relabelled
+
+Only releases before 4.0.0 paused an account with the reason
+`failure_threshold`. On first start, 7.0.0 changes that reason to `manual`.
+Those accounts stay paused until you resume them, as before. The dashboard no
+longer marks them "Auto-paused: repeated failures".
 
 ## max account mode removed
 

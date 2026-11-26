@@ -333,7 +333,7 @@ export interface AccountRow {
 	model_mappings?: string | null; // JSON string for OpenAI-compatible providers
 	cross_region_mode?: string | null; // Bedrock cross-region inference mode
 	billing_type?: string | null; // Per-account billing override
-	pause_reason?: string | null; // null=not paused, 'manual'=user paused, 'failure_threshold'=auto-refresh failures (setter removed; legacy rows), 'overage'=billing overage
+	pause_reason?: string | null; // null=not paused, 'manual'=user paused, 'overage'=billing overage
 	refresh_token_issued_at?: number | null; // Timestamp when the current refresh token was issued (updated on each token refresh)
 	consecutive_rate_limits?: number | null;
 	extra_usage_holds?: string | null; // JSON ExtraUsageHoldState
@@ -389,7 +389,7 @@ export interface Account {
 	model_mappings: string | null; // JSON string for OpenAI-compatible providers
 	cross_region_mode: string | null; // Bedrock cross-region inference mode
 	billing_type: string | null;
-	pause_reason: string | null; // null=not paused, 'manual'=user paused, 'failure_threshold'=auto-refresh failures (setter removed; legacy rows), 'overage'=billing overage
+	pause_reason: string | null; // null=not paused, 'manual'=user paused, 'overage'=billing overage
 	refresh_token_issued_at: number | null; // Timestamp when the current refresh token was issued (updated on each token refresh)
 	consecutive_rate_limits: number;
 	/**

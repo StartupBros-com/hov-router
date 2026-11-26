@@ -11,7 +11,7 @@ Manual installation, client configuration, and operating details for HoV Router.
 ## Capabilities
 
 - **Account failover** - Distribute requests across available accounts; exhausted pools can still fail
-- **🤖 Multi-Provider Support** - Claude OAuth, Claude API console, Vertex AI, AWS Bedrock, NanoGPT, z.ai, Minimax, DeepSeek, OpenRouter, Kilo, Codex (OpenAI OAuth), xAI/Grok, Meta Model API (`meta`; legacy `muse-spark` HTTP ingress compatibility), Anthropic-compatible, and OpenAI-compatible providers
+- **🤖 Multi-Provider Support** - Claude OAuth, Claude API console, Vertex AI, AWS Bedrock, NanoGPT, z.ai, Minimax, DeepSeek, OpenRouter, Kilo, Codex (OpenAI OAuth), xAI/Grok, Meta Model API (`meta`), Anthropic-compatible, and OpenAI-compatible providers
 - **🔒 OAuth Token Health** - Real-time monitoring of OAuth token status with automatic refresh and health indicators
 - **🔗 Custom API Endpoints** - Configure custom endpoints for Anthropic accounts for enterprise deployments
 - **☁️ OpenAI-Compatible Support** - Use OpenAI-compatible providers like OpenRouter, Together AI, and more with Claude API format
@@ -30,7 +30,7 @@ This project builds upon the foundation of [snipeship/ccflare](https://github.co
 **🎯 Core Improvements (v3.0.0):**
 - **Enhanced Security** - Critical fixes for authentication bypass, command injection, and PKCE implementation
 - **OAuth Token Health Monitoring** - Real-time status indicators and automatic token refresh with 30-minute buffer
-- **Extended Provider Support** - AWS Bedrock, NanoGPT (with dynamic pricing), Minimax, DeepSeek, OpenRouter, Kilo, Codex (OpenAI OAuth), xAI/Grok, Meta Model API (`meta`; legacy `muse-spark` HTTP ingress compatibility), Anthropic-compatible, and OpenAI-compatible providers
+- **Extended Provider Support** - AWS Bedrock, NanoGPT (with dynamic pricing), Minimax, DeepSeek, OpenRouter, Kilo, Codex (OpenAI OAuth), xAI/Grok, Meta Model API (`meta`), Anthropic-compatible, and OpenAI-compatible providers
 - **Simplified Load Balancing** - Removed tier system for O(1) priority-based selection
 - **Real-time Analytics Dashboard** - Web UI with fixed request history (no disappearing requests)
 - **Source Installation** - Build the current fork locally; upstream distribution recipes below install upstream, not HoV Router
@@ -1170,7 +1170,7 @@ See [Service-Lifetime Cohort Seal configuration and operator guidance](configura
 - **OpenRouter** - OpenRouter integration with native API support and model mapping
 - **xAI/Grok** - Native Grok CLI OAuth import/refresh with per-request token accounting and Grok Build credits usage polling via grok.com gRPC-web
 - **Kilo** - Kilo API integration with usage tracking
-- **Meta Model API (`meta`; legacy `muse-spark` HTTP ingress compatibility)** - Meta's Muse Spark models (1M-token context) over the Anthropic Messages API at `https://api.meta.ai`, with bearer-token auth, automatic model mapping to `muse-spark-1.2`, and request normalization for Meta's strict field validation
+- **Meta Model API (`meta`)** - Meta's Muse Spark models (1M-token context) over the Anthropic Messages API at `https://api.meta.ai`, with bearer-token auth, automatic model mapping to `muse-spark-1.2`, and request normalization for Meta's strict field validation
 - **Anthropic-Compatible** - Custom Anthropic-compatible providers with pay-as-you-go model
 - **Ollama** - Local Ollama instance (v0.14.0+) via native Anthropic-compatible API at `/v1/messages`, no API key required
 - **OpenAI-Compatible** - OpenAI-compatible providers (Together AI, etc.) with Claude API format

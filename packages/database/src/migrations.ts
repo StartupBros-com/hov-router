@@ -2671,8 +2671,7 @@ export function runMigrations(db: Database, dbPath?: string): void {
 
 		// Add pause_reason column to track why an account is paused (issue #139)
 		// Possible values: null (not paused), 'manual' (user paused via CLI/API),
-		// 'failure_threshold' (auto-refresh failures; the scheduler that set it was
-		// removed, old rows may still carry it), 'overage' (billing overage)
+		// 'overage' (billing overage)
 		if (!initialAccountsColumnNames.includes("pause_reason")) {
 			db.prepare("ALTER TABLE accounts ADD COLUMN pause_reason TEXT").run();
 			log.info("Added pause_reason column to accounts table");
@@ -2686,6 +2685,12 @@ export function runMigrations(db: Database, dbPath?: string): void {
 			`).run();
 			log.info("Backfilled pause_reason for existing paused accounts");
 		}
+
+		// Only auto-refresh before 4.0.0 wrote this reason, and nothing lifts such a
+		// pause on its own, so it is a manual pause in all but name.
+		db.prepare(
+			"UPDATE accounts SET pause_reason = 'manual' WHERE pause_reason = 'failure_threshold'",
+		).run();
 
 		if (!initialAccountsColumnNames.includes("requires_reauth")) {
 			db.prepare(
@@ -3204,24 +3209,6 @@ export function runMigrations(db: Database, dbPath?: string): void {
 			).run();
 
 			log.info("Removed tier column from oauth_sessions table");
-		}
-
-		// Update existing "max" mode values to "claude-oauth" in oauth_sessions table
-		try {
-			const updateCount = db
-				.prepare(
-					`UPDATE oauth_sessions SET mode = 'claude-oauth' WHERE mode = 'max'`,
-				)
-				.run().changes;
-			if (updateCount > 0) {
-				log.info(
-					`Updated ${updateCount} oauth_sessions records from 'max' to 'claude-oauth'`,
-				);
-			}
-		} catch (error) {
-			log.warn(
-				`Error updating oauth_sessions mode values: ${(error as Error).message}`,
-			);
 		}
 
 		// Migrate existing Claude console accounts from 'anthropic' to 'claude-console-api' provider
