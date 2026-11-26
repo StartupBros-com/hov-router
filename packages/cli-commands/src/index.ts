@@ -24,7 +24,6 @@ export {
 	executeManagedRoutingCliCommand,
 	ManagedRoutingCliUsageError,
 	parseManagedRoutingCliCommand,
-	runCli,
 } from "./runner";
 // Export utilities
 export * from "./utils/browser";

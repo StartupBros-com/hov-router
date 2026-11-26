@@ -5,7 +5,7 @@
 ### Currently Supported Providers
 - **Anthropic** - Single provider with two modes:
   - **console mode**: Standard Claude API (console.anthropic.com)
-  - **max mode**: Claude Code (claude.ai)
+  - **claude-oauth mode**: Claude Code (claude.ai)
 - **Vertex AI** - Google Cloud's Claude on Vertex AI:
   - Uses Google Cloud authentication (gcloud or service accounts)
   - Supports all Claude models via Vertex AI
@@ -88,7 +88,7 @@ The HoV Router providers system is a modular architecture designed to support mu
 
 1. **Anthropic Provider** - Provides access to:
    - **Claude API** (console mode) - Standard API access via console.anthropic.com
-   - **Claude Code** (max mode) - Enhanced access via claude.ai
+   - **Claude Code** (claude-oauth mode) - Enhanced access via claude.ai
    - OAuth authentication with PKCE security
    - Token health monitoring with automatic refresh (30-minute buffer)
 
@@ -294,7 +294,7 @@ getOAuthConfig(mode: "console" | "claude-oauth" = "console"): OAuthConfig {
 
 **Mode Differences:**
 - **console mode**: Uses the standard Claude API via console.anthropic.com
-- **max mode**: Uses Claude Code via claude.ai for enhanced capabilities
+- **claude-oauth mode**: Uses Claude Code via claude.ai for enhanced capabilities
 - Both modes use the same API endpoint (api.anthropic.com) for actual requests
 
 **Client ID Configuration:**
@@ -898,7 +898,7 @@ buildUrl(path: string, query: string): string {
 }
 ```
 
-**Important**: Both console and max modes use the same API endpoint. The mode only affects:
+**Important**: Both console and claude-oauth modes use the same API endpoint. The mode only affects:
 - OAuth authorization flow (which frontend to use)
 - Account priority configuration
 - Rate limits based on subscription type
@@ -1060,7 +1060,7 @@ When rate limited, accounts are temporarily blocked:
 The system supports two authentication methods:
 
 1. **OAuth Authentication** (Recommended)
-   - Used for both console and max modes
+   - Used for both console and claude-oauth modes
    - Provides automatic token refresh
    - Better security with short-lived access tokens
    - Supports PKCE for enhanced security

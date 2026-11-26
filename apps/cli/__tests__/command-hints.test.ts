@@ -4,13 +4,6 @@ import { basename, join } from "node:path";
 
 const root = join(import.meta.dir, "..", "..", "..");
 
-// Reachable only through runCli (packages/cli-commands/src/runner.ts), which
-// nothing calls; its subcommands are not the binary's syntax.
-const UNREACHABLE = new Set([
-	"packages/cli-commands/src/runner.ts",
-	"packages/cli-commands/src/commands/token-health.ts",
-]);
-
 // A command name, or the source-checkout script, followed by its first flag.
 const HINT =
 	/(?:\$\{COMMAND_NAME\}|\$\{LEGACY_COMMAND_NAME\}|\bbun run cli|(?<![\w/.~-])(?:hov-router|better-ccflare))\s+(--[a-z][a-z0-9-]*)/g;
@@ -25,8 +18,7 @@ function runtimeSources(): { path: string; lines: string[] }[] {
 			(path) =>
 				!path.includes("/__tests__/") &&
 				!/\.test\.tsx?$/.test(path) &&
-				!/^inline-.*worker\.ts$/.test(basename(path)) &&
-				!UNREACHABLE.has(path),
+				!/^inline-.*worker\.ts$/.test(basename(path)),
 		)
 		.sort()
 		.map((path) => ({

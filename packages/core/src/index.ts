@@ -87,7 +87,6 @@ export {
 } from "./interval-manager";
 export {
 	CONCRETE_CLAUDE_MODEL_ID_PATTERN,
-	createCustomEndpointData,
 	getAccountOwnedModelMappings,
 	getAllowedModelsMessage,
 	getConfiguredModelMapping,

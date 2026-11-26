@@ -40,7 +40,7 @@ BETTER_CCFLARE_HOST=127.0.0.1 hov-router --serve --port 8080
 hov-router --add-account myaccount --mode claude-oauth --priority 0 --api-url http://127.0.0.1:8080
 ```
 
-Use the same local user and database configuration in both terminals. Account creation writes to the local database, then reviews routing through the live server. Use `claude-oauth` for Claude OAuth. `max` remains a deprecated compatibility alias: the CLI warns and normalizes it to `claude-oauth`.
+Use the same local user and database configuration in both terminals. Account creation writes to the local database, then reviews routing through the live server. Use `claude-oauth` for Claude OAuth.
 
 3. Inspect live routing without changing policy:
 ```bash

@@ -139,17 +139,10 @@ describe("packaged CLI post-create managed-routing handoff", () => {
 			join(process.cwd(), "apps/cli/src/main.ts"),
 			"utf8",
 		);
-		const legacySource = readFileSync(
-			join(process.cwd(), "packages/cli-commands/src/runner.ts"),
-			"utf8",
-		);
-
 		expect(
 			packagedSource.match(/createdAccount = await addAccount\(/g),
 		).toHaveLength(5);
 		expect(packagedSource).toContain("identity: createdAccount");
-		expect(legacySource).toContain("const createdAccount = await addAccount");
-		expect(legacySource).toContain("identity: createdAccount");
 	});
 
 	it("prints the authoritative exact-ID routing detail and guidance without previewing or mutating when noninteractive", async () => {
@@ -179,7 +172,7 @@ describe("packaged CLI post-create managed-routing handoff", () => {
 		expect(api.rollbackFamilyToManual).toHaveBeenCalledTimes(0);
 	});
 
-	it("preserves the validated custom API URL in noninteractive guidance shared by both entry points", async () => {
+	it("preserves the validated custom API URL in noninteractive guidance", async () => {
 		const api = client();
 		const stdout: string[] = [];
 		const result = await handlePostCreateManagedRouting({
@@ -203,12 +196,7 @@ describe("packaged CLI post-create managed-routing handoff", () => {
 			join(process.cwd(), "apps/cli/src/main.ts"),
 			"utf8",
 		);
-		const legacySource = readFileSync(
-			join(process.cwd(), "packages/cli-commands/src/runner.ts"),
-			"utf8",
-		);
 		expect(packagedSource).toContain("{ apiUrl: parsed.apiUrl }");
-		expect(legacySource).toContain("{ apiUrl }");
 	});
 
 	it("reports an incomplete authoritative read after persistence, preserves identity and guidance, and sends no mutation", async () => {

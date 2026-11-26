@@ -549,7 +549,7 @@ The database can be managed through CLI commands:
 ### Account Management
 ```bash
 # Add a new account
-bun cli add <name> [--mode <max|console>] [--priority <0-100>]
+bun cli add <name> [--mode <claude-oauth|console>] [--priority <0-100>]
 
 # List all accounts with status
 bun cli list

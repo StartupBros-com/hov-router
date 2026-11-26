@@ -46,6 +46,14 @@ function makeConfig(
 		getAlertRequestTokens: () => 0,
 		getAlertUsageWindowThresholdPercent: () =>
 			overrides.usageWindowThresholdPercent ?? 90,
+		getAlertCacheHealthEnabled: () => false,
+		getAlertCacheHealthThresholdPercent: () => 80,
+		getAlertCacheHealthDurationMinutes: () => 15,
+		getAlertCacheHealthMinRequests: () => 5,
+		getAlertCacheHealthMinInputTokens: () => 10000,
+		getAlertCacheHealthReminderMinutes: () => 60,
+		getMemberNoticeWebhookUrl: () => "",
+		getMemberNoticeSigningSecret: () => "",
 		getAlertCooldownMinutes: () => overrides.cooldownMinutes ?? 60,
 		getAlertWebhookUrl: () => "",
 		get: (

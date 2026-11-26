@@ -504,15 +504,6 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 		suggestion: "No action needed for an occasional one.",
 		severity: "warning",
 	},
-	quality_route_unavailable: {
-		title: "Quality route unavailable (retired)",
-		description:
-			"Written by the Auto quality lane, which has since been retired. " +
-			"Current builds never write this code, so these rows come from an " +
-			"older build.",
-		suggestion: "No action needed.",
-		severity: "warning",
-	},
 };
 
 type FamilyEntry = Omit<ErrorMeta, "description"> & { detail: string };

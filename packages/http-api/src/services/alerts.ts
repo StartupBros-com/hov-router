@@ -204,24 +204,12 @@ export function getAlertsConfig(config: Config): AlertsConfigPayload {
 		usageWindowValueDropThreshold: getUsageWindowValueDropThreshold(config),
 		cooldownMinutes: config.getAlertCooldownMinutes(),
 		webhookUrl: config.getAlertWebhookUrl(),
-		// Legacy Config doubles implement only the older alert getters.
-		cacheHealthEnabled: config.getAlertCacheHealthEnabled?.() ?? true,
-		cacheHealthThresholdPercent:
-			config.getAlertCacheHealthThresholdPercent?.() ??
-			CACHE_HEALTH_DEFAULT_POLICY.warningPercent,
-		cacheHealthDurationMinutes:
-			config.getAlertCacheHealthDurationMinutes?.() ??
-			(CACHE_HEALTH_DEFAULT_POLICY.warningBuckets * CACHE_HEALTH_BUCKET_MS) /
-				60_000,
-		cacheHealthMinRequests:
-			config.getAlertCacheHealthMinRequests?.() ??
-			CACHE_HEALTH_DEFAULT_POLICY.minimumRequests,
-		cacheHealthMinInputTokens:
-			config.getAlertCacheHealthMinInputTokens?.() ??
-			CACHE_HEALTH_DEFAULT_POLICY.minimumInputTokens,
-		cacheHealthReminderMinutes:
-			config.getAlertCacheHealthReminderMinutes?.() ??
-			CACHE_HEALTH_DEFAULT_POLICY.reminderMs / 60_000,
+		cacheHealthEnabled: config.getAlertCacheHealthEnabled(),
+		cacheHealthThresholdPercent: config.getAlertCacheHealthThresholdPercent(),
+		cacheHealthDurationMinutes: config.getAlertCacheHealthDurationMinutes(),
+		cacheHealthMinRequests: config.getAlertCacheHealthMinRequests(),
+		cacheHealthMinInputTokens: config.getAlertCacheHealthMinInputTokens(),
+		cacheHealthReminderMinutes: config.getAlertCacheHealthReminderMinutes(),
 		memberNotices: { state: getMemberNoticeDestination(config).state },
 	};
 }
@@ -1180,8 +1168,7 @@ export type MemberNoticeDestination =
 export function getMemberNoticeDestination(
 	config: Config,
 ): MemberNoticeDestination {
-	// Legacy Config doubles implement only the older alert getters.
-	const address = (config.getMemberNoticeWebhookUrl?.() ?? "").trim();
+	const address = config.getMemberNoticeWebhookUrl().trim();
 	if (address === "") return { state: "off", url: null, secret: null };
 	let url: URL;
 	try {
@@ -1194,7 +1181,7 @@ export function getMemberNoticeDestination(
 	}
 	// BroBot verifies with its secret exactly as set, so this one is used
 	// exactly as set too; only an empty or blank value counts as unset.
-	const secret = config.getMemberNoticeSigningSecret?.() ?? "";
+	const secret = config.getMemberNoticeSigningSecret();
 	if (secret.trim() === "") {
 		return { state: "missing_secret", url: null, secret: null };
 	}
@@ -1953,9 +1940,7 @@ export class AlertService {
 
 	private restartCacheHealthTimer(): void {
 		this.invalidateCacheHealth();
-		// Older Config test doubles deliberately have no cache accessors. They
-		// keep their original timer/query behavior; real Config defaults on.
-		if (!this.started || !this.config.getAlertCacheHealthEnabled?.()) return;
+		if (!this.started || !this.config.getAlertCacheHealthEnabled()) return;
 		this.cacheHealthTimer = setInterval(() => {
 			void this.evaluateCacheHealth();
 		}, CACHE_HEALTH_INTERVAL_MS);
@@ -1968,7 +1953,7 @@ export class AlertService {
 			settings.cacheHealthThresholdPercent ??
 			CACHE_HEALTH_DEFAULT_POLICY.warningPercent;
 		return {
-			enabled: this.config.getAlertCacheHealthEnabled?.() ?? false,
+			enabled: this.config.getAlertCacheHealthEnabled(),
 			policy: {
 				...CACHE_HEALTH_DEFAULT_POLICY,
 				warningPercent,
@@ -2019,7 +2004,7 @@ export class AlertService {
 	}
 
 	private async scanCacheHealth(nowMs: number, epoch: number): Promise<void> {
-		if (!this.config.getAlertCacheHealthEnabled?.()) return;
+		if (!this.config.getAlertCacheHealthEnabled()) return;
 		const configuration = this.cacheHealthConfig();
 		if (!configuration.enabled) return;
 		const signature = JSON.stringify(configuration);
