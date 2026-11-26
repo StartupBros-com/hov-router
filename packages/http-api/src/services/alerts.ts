@@ -884,8 +884,6 @@ export function buildUnpricedWindowAlert(
 /** Where a pinned Codex family's model came from, in operator words. */
 const CODEX_PIN_SOURCE_LABEL: Record<CodexAccountFamilySource, string> = {
 	account_mapping_pin: "account model mapping",
-	custom_endpoint_mapping: "custom endpoint model mapping",
-	model_fallbacks: "legacy model fallback",
 	environment_mapping: "environment model mapping",
 	global_provider_override: "provider-wide default override",
 	account_catalog: "account catalog",
@@ -903,7 +901,6 @@ export interface CodexPinAccountRow {
 	provider: string;
 	model_mappings: string | null;
 	custom_endpoint: string | null;
-	model_fallbacks: string | null;
 	created_at: number;
 }
 
@@ -2395,7 +2392,7 @@ export class AlertService {
 				// Credential-free columns only, read fresh so attribution sees the
 				// account's current pins; a deleted account has nothing to report.
 				const row = await this.db.getMain<CodexPinAccountRow>(
-					`SELECT id, name, provider, model_mappings, custom_endpoint, model_fallbacks, created_at
+					`SELECT id, name, provider, model_mappings, custom_endpoint, created_at
 					 FROM accounts WHERE id = ?`,
 					[event.accountId],
 				);

@@ -85,7 +85,7 @@ const REMOVED: Array<{
 	{
 		method: "POST",
 		path: "/api/accounts/acct-1/model-fallbacks",
-		body: { modelFallbacks: { sonnet: ["model-b"] } },
+		body: { modelMappings: { sonnet: ["model-b"] } },
 		endpoint: "/api/accounts/:id/model-fallbacks",
 		replacement: "POST /api/accounts/:id/model-mappings",
 	},

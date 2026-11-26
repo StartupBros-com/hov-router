@@ -43,13 +43,6 @@ const KNOWN_ERROR_META: Record<
 			"Restore this account's billing or credits; other eligible accounts remain available for traffic.",
 		severity: "error",
 	},
-	upstream_429_no_reset_default_5h: {
-		title: "Provider rate limit (legacy 5h ban)",
-		description:
-			"Legacy ban from better-ccflare ≤ v3.5.x, before HoV Router. No longer emitted by current code.",
-		suggestion: "Historical record — no action needed.",
-		severity: "warning",
-	},
 	all_models_exhausted_429: {
 		title: "All fallback models rate-limited",
 		description: "Every fallback model also returned 429.",

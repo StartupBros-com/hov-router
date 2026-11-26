@@ -106,7 +106,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		model_mappings: null,
 		cross_region_mode: null,
 		billing_type: null,
-		model_fallbacks: null,
 		...overrides,
 	};
 }
@@ -2141,12 +2140,6 @@ describe("selectAccountsForRequest — catalog-role route profile", () => {
 				account.model_mappings = JSON.stringify({
 					opus: ["gpt-7-nova", "gpt-7-sol"],
 				});
-			},
-		},
-		{
-			label: "a legacy model_fallbacks entry",
-			apply: (account: Account) => {
-				account.model_fallbacks = JSON.stringify({ opus: "gpt-7-sol" });
 			},
 		},
 		{

@@ -54,7 +54,6 @@ describe("AccountRepository — compare-and-set token/requires_reauth writes (ro
 				custom_endpoint TEXT,
 				model_mappings TEXT,
 				cross_region_mode TEXT,
-				model_fallbacks TEXT,
 				billing_type TEXT,
 				pause_reason TEXT,
 				refresh_token_issued_at INTEGER,

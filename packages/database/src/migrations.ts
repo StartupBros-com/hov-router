@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { Logger } from "@better-ccflare/logger";
 import { CACHE_HEALTH_STATE_SCHEMA } from "./cache-health-schema";
 import { restrictDbFile } from "./file-modes";
+import { foldLegacyModelMappings } from "./legacy-model-mapping-fold";
 import { addPerformanceIndexes } from "./performance-indexes";
 import { ROUTING_ATTEMPT_REASON_SQL } from "./routing-attempt-taxonomy";
 
@@ -271,7 +272,6 @@ function ensureRoutingPolicyRevisionSchema(db: Database): void {
 		"priority",
 		"billing_type",
 		"model_mappings",
-		"model_fallbacks",
 		"custom_endpoint",
 		"api_key",
 		"refresh_token",
@@ -1154,6 +1154,126 @@ export function ensureSchema(db: Database): void {
 }
 
 /**
+ * Release 7.0.0 retires two old places for model mappings: a `modelMappings`
+ * key inside custom_endpoint JSON and the model_fallbacks column. Fold both
+ * into model_mappings the way the router merged them at request time, then
+ * drop the column. A no-op once nothing is left to fold.
+ */
+function migrateLegacyAccountModelMappings(db: Database): void {
+	const hasFallbackColumn = tableHasColumn(db, "accounts", "model_fallbacks");
+	const rows = db
+		.query<
+			{
+				id: string;
+				name: string;
+				provider: string | null;
+				model_mappings: string | null;
+				custom_endpoint: string | null;
+				model_fallbacks: string | null;
+			},
+			[]
+		>(
+			`SELECT id, name, provider, model_mappings, custom_endpoint,
+			        ${hasFallbackColumn ? "model_fallbacks" : "NULL AS model_fallbacks"}
+			 FROM accounts
+			 WHERE custom_endpoint IS NOT NULL
+			 ${hasFallbackColumn ? "OR length(trim(COALESCE(model_fallbacks, ''))) > 0" : ""}`,
+		)
+		.all();
+
+	// idx_accounts_unique_name_provider_endpoint covers custom_endpoint, so a
+	// rewritten value must not match another account's tuple. A partner that
+	// held the same custom_endpoint before the fold is an exact duplicate from a
+	// database older than the index; the duplicate collapse merges the two.
+	const originalEndpoint = new Map(
+		rows.map((row) => [row.id, row.custom_endpoint]),
+	);
+	// Exact duplicates share one marker so they stay identical for the collapse.
+	const duplicateKey = (row: (typeof rows)[number]) =>
+		JSON.stringify([row.name, row.provider, row.custom_endpoint]);
+	const markerId = new Map<string, string>();
+	for (const row of rows) {
+		const key = duplicateKey(row);
+		const current = markerId.get(key);
+		if (current === undefined || row.id < current) markerId.set(key, row.id);
+	}
+	const endpointPartners = db.query<
+		{ id: string },
+		[string, string, string | null, string]
+	>(
+		`SELECT id FROM accounts
+		 WHERE id != ?1 AND name = ?2 AND provider = ?3
+		   AND COALESCE(custom_endpoint, '') = ?4`,
+	);
+	const update = db.prepare<unknown, [string | null, string | null, string]>(
+		"UPDATE accounts SET model_mappings = ?1, custom_endpoint = ?2 WHERE id = ?3",
+	);
+
+	// Every endpoint is selected because the old reader decoded the JSON, so a
+	// key written as `modelMappings` counted; a text match would miss it.
+	// The fold leaves a row with no legacy key unchanged, and it is not written.
+	let folded = 0;
+	for (const row of rows) {
+		const result = foldLegacyModelMappings(row);
+		let customEndpoint = result.custom_endpoint;
+		const collides =
+			customEndpoint !== row.custom_endpoint &&
+			endpointPartners
+				.all(row.id, row.name, row.provider, customEndpoint ?? "")
+				.some(
+					(partner) =>
+						!originalEndpoint.has(partner.id) ||
+						originalEndpoint.get(partner.id) !== row.custom_endpoint,
+				);
+		if (collides) {
+			// Removing the key alone would give this row another account's tuple.
+			// Its id keeps it distinct, and with modelMappings gone a later start
+			// does not fold it again over edits.
+			customEndpoint = JSON.stringify({
+				...JSON.parse(customEndpoint ?? "{}"),
+				foldedLegacyMappingsFor: markerId.get(duplicateKey(row)) ?? row.id,
+			});
+			result.warnings.push(
+				"replaced modelMappings in custom_endpoint with foldedLegacyMappingsFor, because removing it alone would match another account; nothing reads that key",
+			);
+		}
+		for (const warning of result.warnings) {
+			log.warn(`Account ${row.name}: ${warning}`);
+		}
+		if (
+			result.model_mappings === row.model_mappings &&
+			customEndpoint === row.custom_endpoint
+		) {
+			continue;
+		}
+		update.run(result.model_mappings, customEndpoint, row.id);
+		folded++;
+	}
+	if (folded > 0) {
+		log.info(
+			`Moved legacy model mappings into model_mappings on ${folded} account(s)`,
+		);
+	}
+
+	if (!hasFallbackColumn) return;
+	db.run(
+		"UPDATE accounts SET model_fallbacks = NULL WHERE model_fallbacks IS NOT NULL",
+	);
+	try {
+		// The routing-revision trigger names the column, so it goes first and is
+		// reinstalled from the current column list below.
+		db.run("DROP TRIGGER IF EXISTS trg_routing_revision_accounts_update");
+		db.run("ALTER TABLE accounts DROP COLUMN model_fallbacks");
+		log.info("Dropped the retired model_fallbacks column from accounts");
+	} catch (error) {
+		log.warn(
+			`Could not drop the retired model_fallbacks column; it stays empty and nothing reads it: ${(error as Error).message}`,
+		);
+	}
+	ensureRoutingPolicyRevisionSchema(db);
+}
+
+/**
  * Collapse duplicate `(name, provider, COALESCE(custom_endpoint,''))` rows in
  * the `accounts` table into a single survivor per tuple, while preserving as
  * much working account state as possible.
@@ -1373,7 +1493,6 @@ function collapseAccountDuplicatesPreservingState(db: Database): void {
 		   pause_reason = COALESCE(pause_reason, ${freshest("pause_reason")}),
 		   rate_limited_reason = COALESCE(rate_limited_reason, ${freshest("rate_limited_reason")}),
 		   model_mappings = COALESCE(model_mappings, ${freshest("model_mappings")}),
-		   model_fallbacks = COALESCE(model_fallbacks, ${freshest("model_fallbacks")}),
 		   cross_region_mode = COALESCE(cross_region_mode, ${freshest("cross_region_mode")}),
 		   billing_type = COALESCE(billing_type, ${freshest("billing_type")})
 		 WHERE id = $survivor_id`,
@@ -2452,11 +2571,10 @@ export function runMigrations(db: Database, dbPath?: string): void {
 			log.info("Added cross_region_mode column to accounts table");
 		}
 
-		// Add model_fallbacks column for automatic model fallback on unavailable models
-		if (!initialAccountsColumnNames.includes("model_fallbacks")) {
-			db.prepare("ALTER TABLE accounts ADD COLUMN model_fallbacks TEXT").run();
-			log.info("Added model_fallbacks column to accounts table");
-		}
+		// Release 7.0.0 retires custom_endpoint modelMappings and model_fallbacks.
+		// Runs after the custom_endpoint and model_mappings columns exist and
+		// before the table rebuilds below, which no longer copy model_fallbacks.
+		migrateLegacyAccountModelMappings(db);
 
 		// Add billing_type column for per-account billing classification
 		if (!initialAccountsColumnNames.includes("billing_type")) {
@@ -2583,6 +2701,22 @@ export function runMigrations(db: Database, dbPath?: string): void {
 			log.info("Added rate_limited_reason column to accounts table");
 		}
 
+		// Release 7.0.0 retires upstream_429_no_reset_default_5h, last written by
+		// ccflare 3.5.x. The probe-cooldown reason is classified the same way: a
+		// circuit failure and an account-wide cooldown.
+		const legacyFiveHourReasons = db
+			.prepare(
+				`UPDATE accounts
+				 SET rate_limited_reason = 'upstream_429_no_reset_probe_cooldown'
+				 WHERE rate_limited_reason = 'upstream_429_no_reset_default_5h'`,
+			)
+			.run().changes;
+		if (legacyFiveHourReasons > 0) {
+			log.info(
+				`Renamed the retired 5h rate-limit reason on ${legacyFiveHourReasons} account(s)`,
+			);
+		}
+
 		if (!initialAccountsColumnNames.includes("rate_limited_at")) {
 			db.prepare(
 				"ALTER TABLE accounts ADD COLUMN rate_limited_at INTEGER",
@@ -2630,7 +2764,6 @@ export function runMigrations(db: Database, dbPath?: string): void {
 					auto_refresh_enabled INTEGER DEFAULT 0,
 					model_mappings TEXT,
 					cross_region_mode TEXT DEFAULT 'geographic',
-					model_fallbacks TEXT,
 					auto_pause_on_overage_enabled INTEGER DEFAULT 0,
 					pause_reason TEXT,
 					requires_reauth INTEGER DEFAULT 0,
@@ -2656,7 +2789,7 @@ export function runMigrations(db: Database, dbPath?: string): void {
 					rate_limited_until, session_start, session_request_count,
 					paused, rate_limit_reset, rate_limit_reset_at, rate_limit_status, rate_limit_remaining,
 					auto_fallback_enabled, custom_endpoint, auto_refresh_enabled,
-					model_mappings, cross_region_mode, model_fallbacks,
+					model_mappings, cross_region_mode,
 					auto_pause_on_overage_enabled, pause_reason, requires_reauth,
 					codex_credit_drain_enabled,
 					public_value_enabled, public_value_label, public_value_id,
@@ -2998,7 +3131,7 @@ export function runMigrations(db: Database, dbPath?: string): void {
 			       rate_limited_until, session_start, session_request_count, paused,
 			       rate_limit_reset, rate_limit_reset_at, rate_limit_status, rate_limit_remaining,
 			       auto_fallback_enabled, custom_endpoint, auto_refresh_enabled, model_mappings,
-			       cross_region_mode, model_fallbacks, billing_type, auto_pause_on_overage_enabled,
+			       cross_region_mode, billing_type, auto_pause_on_overage_enabled,
 			       pause_reason, requires_reauth, codex_credit_drain_enabled,
 			       public_value_enabled, public_value_label, public_value_id,
 			       public_value_plan,

@@ -78,7 +78,7 @@ bun run cli --serve
 bun run dev:server
 
 # In another terminal, add Claude accounts
-bun run cli --add-account myaccount --mode max --priority 0
+bun run cli --add-account myaccount --mode claude-oauth --priority 0
 ```
 
 ### Development Configuration

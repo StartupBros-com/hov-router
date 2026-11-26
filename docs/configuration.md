@@ -516,8 +516,7 @@ CCFLARE_MODEL_ROUTE_PROFILES_JSON='[
   background, so they qualify only after ordinary traffic has read their own
   listing.
 - **Every model the route could send must be the role target.** The check
-  covers the account's `model_mappings` (including fallback arrays and legacy
-  `model_fallbacks`), `OPENAI_COMPATIBLE_MODEL_MAPPINGS`, and the global
+  covers the account's `model_mappings` (including fallback arrays), `OPENAI_COMPATIBLE_MODEL_MAPPINGS`, and the global
   provider default override. A pin that differs keeps that account out. A pin
   that happens to equal the target is admitted, and a pin for another family
   does not matter.
@@ -1274,11 +1273,11 @@ Configuration for optimizing account usage with automatic fallback to higher pri
 # Setup accounts with auto-fallback for optimal usage
 
 # Add primary account with highest priority and auto-fallback enabled
-better-ccflare --add-account primary-account --mode max --priority 0
+better-ccflare --add-account primary-account --mode claude-oauth --priority 0
 
 # Add secondary accounts with lower priorities
-better-ccflare --add-account secondary-1 --mode max --priority 10
-better-ccflare --add-account secondary-2 --mode max --priority 20
+better-ccflare --add-account secondary-1 --mode claude-oauth --priority 10
+better-ccflare --add-account secondary-2 --mode claude-oauth --priority 20
 
 # Add backup account with lowest priority
 better-ccflare --add-account backup --mode console --priority 50

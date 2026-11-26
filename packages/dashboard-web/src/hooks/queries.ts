@@ -934,11 +934,7 @@ export const getUpdateAccountCustomEndpointMutationOptions = (
 		accountId: string;
 		customEndpoint: string | null;
 	}) => api.updateAccountCustomEndpoint(accountId, customEndpoint),
-	// A custom endpoint's embedded `modelMappings` is the
-	// `custom_endpoint_mapping` pin source, so saving it can change the
-	// Automatic/Pinned status AccountModelMappingsDialog reads via
-	// `useCodexAccountEffectiveDefaults` (queryKeys.providerModelDefaults()).
-	// The endpoint also decides which models the server lists for the account.
+	// The endpoint decides which models the server lists for the account.
 	onSuccess: () =>
 		invalidateManagedRouting(queryClient, {
 			...FULL_MANAGED_ROUTING_INVALIDATION,

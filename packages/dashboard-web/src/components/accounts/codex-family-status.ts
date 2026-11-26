@@ -5,8 +5,6 @@ import type {
 
 const SOURCE_LABELS: Record<string, string> = {
 	account_mapping_pin: "account mapping",
-	custom_endpoint_mapping: "legacy custom endpoint mapping",
-	model_fallbacks: "deprecated model fallback",
 	environment_mapping: "environment mapping",
 	global_provider_override: "global provider override",
 	account_catalog: "this account’s catalog",

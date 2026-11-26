@@ -86,8 +86,8 @@ Auto-fallback integrates seamlessly with the existing session-based load balanci
 
 ```bash
 # Add accounts with different priorities
-better-ccflare --add-account primary --mode max --priority 0
-better-ccflare --add-account secondary --mode max --priority 10
+better-ccflare --add-account primary --mode claude-oauth --priority 0
+better-ccflare --add-account secondary --mode claude-oauth --priority 10
 better-ccflare --add-account backup --mode console --priority 50
 ```
 
@@ -129,8 +129,8 @@ API_BASE="http://localhost:8080/api"
 echo "Setting up auto-fallback configuration..."
 
 # Add accounts (if they don't exist)
-better-ccflare --add-account primary --mode max --priority 0 || true
-better-ccflare --add-account secondary --mode max --priority 10 || true
+better-ccflare --add-account primary --mode claude-oauth --priority 0 || true
+better-ccflare --add-account secondary --mode claude-oauth --priority 10 || true
 better-ccflare --add-account backup --mode console --priority 50 || true
 
 # Get account IDs
@@ -162,8 +162,8 @@ Setup to minimize costs by preferring free accounts:
 better-ccflare --add-account high-priority --mode console --priority 0
 
 # Lower priority accounts
-better-ccflare --add-account medium-priority --mode max --priority 10
-better-ccflare --add-account low-priority --mode max --priority 20
+better-ccflare --add-account medium-priority --mode claude-oauth --priority 10
+better-ccflare --add-account low-priority --mode claude-oauth --priority 20
 
 # Enable auto-fallback on high priority account
 ACCOUNT_ID=$(curl -s http://localhost:8080/api/accounts | jq -r '.[] | select(.name=="high-priority") | .id')
@@ -183,10 +183,10 @@ Setup to prioritize highest performance accounts:
 
 ```bash
 # High priority account (highest performance, priority 0)
-better-ccflare --add-account premium --mode max --priority 0
+better-ccflare --add-account premium --mode claude-oauth --priority 0
 
 # Medium priority account (good performance, priority 10)
-better-ccflare --add-account standard --mode max --priority 10
+better-ccflare --add-account standard --mode claude-oauth --priority 10
 
 # Low priority account (lower performance, priority 20)
 better-ccflare --add-account basic --mode console --priority 20
@@ -209,10 +209,10 @@ Setup for different usage patterns during business vs after hours:
 
 ```bash
 # High priority account (priority 0)
-better-ccflare --add-account business --mode max --priority 0
+better-ccflare --add-account business --mode claude-oauth --priority 0
 
 # Medium priority account (priority 10)
-better-ccflare --add-account after-hours --mode max --priority 10
+better-ccflare --add-account after-hours --mode claude-oauth --priority 10
 
 # Low priority account (priority 20)
 better-ccflare --add-account weekend --mode console --priority 20

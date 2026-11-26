@@ -6336,7 +6336,7 @@ export async function proxyWithAccount(
 
 			// On model unavailable / rate-limited: cycle through the model list for
 			// this account. getModelList returns [primary, ...fallbacks] merged from
-			// model_mappings arrays and legacy model_fallbacks. We already tried index 0
+			// model_mappings arrays. We already tried index 0
 			// (the primary), so start at index 1.
 			if (
 				!isNativeXaiCapacityOrRateLimitSignal &&

@@ -710,15 +710,7 @@ function parseArgs(args: string[]): ParsedArgs {
 					console.error("❌ --mode requires a value");
 					fastExit(1);
 				}
-				let modeValue = args[++i] as AccountMode | "max";
-
-				// Handle deprecated "max" mode with warning
-				if (modeValue === "max") {
-					console.warn(
-						'⚠️  Mode "max" is deprecated. Please use "claude-oauth" instead.',
-					);
-					modeValue = "claude-oauth";
-				}
+				const modeValue = args[++i] as AccountMode;
 
 				if (!ACCOUNT_MODES.includes(modeValue)) {
 					console.error(`❌ Invalid mode: ${modeValue}`);

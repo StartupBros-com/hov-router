@@ -39,7 +39,6 @@ describe("accounts API 402 cooldown reason", () => {
 				custom_endpoint: "https://provider.test/v1",
 				model_mappings: null,
 				cross_region_mode: null,
-				model_fallbacks: null,
 				billing_type: null,
 				pause_reason: null,
 			},
@@ -103,7 +102,6 @@ describe("accounts API 402 cooldown reason", () => {
 				custom_endpoint: null,
 				model_mappings: null,
 				cross_region_mode: null,
-				model_fallbacks: null,
 				billing_type: null,
 				pause_reason: null,
 			},
@@ -164,7 +162,6 @@ describe("accounts API 402 cooldown reason", () => {
 			custom_endpoint: null,
 			model_mappings: null,
 			cross_region_mode: null,
-			model_fallbacks: null,
 			billing_type: null,
 			pause_reason: null,
 		});

@@ -41,7 +41,6 @@ function makeDb(): { db: Database; repo: AccountRepository } {
 			custom_endpoint TEXT,
 			model_mappings TEXT,
 			cross_region_mode TEXT,
-			model_fallbacks TEXT,
 			billing_type TEXT,
 			pause_reason TEXT,
 			consecutive_rate_limits INTEGER DEFAULT 0
@@ -106,20 +105,6 @@ describe("AccountRepository — setRateLimited with reason audit (issue #178)", 
 
 			const row = getAudit(db, "acc-2");
 			expect(row.rate_limited_reason).toBe("upstream_429_with_reset");
-		});
-
-		it("stores rate_limited_reason when reason='upstream_429_no_reset_default_5h'", async () => {
-			insertAccount(db, "acc-3");
-			const until = Date.now() + 5 * 60 * 60 * 1000;
-
-			await repo.setRateLimited(
-				"acc-3",
-				until,
-				"upstream_429_no_reset_default_5h",
-			);
-
-			const row = getAudit(db, "acc-3");
-			expect(row.rate_limited_reason).toBe("upstream_429_no_reset_default_5h");
 		});
 
 		it("stores rate_limited_reason when reason='model_fallback_429'", async () => {

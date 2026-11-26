@@ -142,7 +142,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: "https://openrouter.ai/api/v1",
 		model_mappings: JSON.stringify({ sonnet: "qwen/qwen3.6-plus:free" }),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,
@@ -1953,7 +1952,7 @@ describe("proxyWithAccount — 429 failover", () => {
 		const result = await proxyWithAccount(
 			req,
 			new URL("https://proxy.local/v1/messages"),
-			makeAccount(), // no model_fallbacks
+			makeAccount(), // single candidate
 			makeRequestMeta(),
 			bodyBuffer,
 			() => undefined,
@@ -2012,8 +2011,11 @@ describe("proxyWithAccount — 429 failover", () => {
 				req,
 				new URL("https://proxy.local/v1/messages"),
 				makeAccount({
-					model_fallbacks: JSON.stringify({
-						sonnet: "bytedance-seed/dola-seed-2.0-pro:free",
+					model_mappings: JSON.stringify({
+						sonnet: [
+							"qwen/qwen3.6-plus:free",
+							"bytedance-seed/dola-seed-2.0-pro:free",
+						],
 					}),
 				}),
 				makeRequestMeta(),
@@ -2054,8 +2056,11 @@ describe("proxyWithAccount — 429 failover", () => {
 			req,
 			new URL("https://proxy.local/v1/messages"),
 			makeAccount({
-				model_fallbacks: JSON.stringify({
-					sonnet: "bytedance-seed/dola-seed-2.0-pro:free",
+				model_mappings: JSON.stringify({
+					sonnet: [
+						"qwen/qwen3.6-plus:free",
+						"bytedance-seed/dola-seed-2.0-pro:free",
+					],
 				}),
 			}),
 			makeRequestMeta(),
@@ -2287,7 +2292,7 @@ describe("proxyWithAccount — rate limit audit trail (issue #178)", () => {
 		await proxyWithAccount(
 			req,
 			new URL("https://proxy.local/v1/messages"),
-			makeAccount(), // no model_fallbacks
+			makeAccount(), // single candidate
 			makeRequestMeta(),
 			bodyBuffer,
 			() => undefined,
@@ -2546,22 +2551,7 @@ describe("proxyWithAccount — in-memory cooldown mutation (issue #178 fix)", ()
 	});
 });
 
-describe("getModelList — model_fallbacks merge", () => {
-	it("merges model_fallbacks into the model list", async () => {
-		const { getModelList } = await import("@better-ccflare/core");
-		const account = makeAccount({
-			model_mappings: JSON.stringify({ sonnet: "qwen/qwen3.6-plus:free" }),
-			model_fallbacks: JSON.stringify({
-				sonnet: "bytedance-seed/dola-seed-2.0-pro:free",
-			}),
-		});
-		const list = getModelList("claude-sonnet-4-5", account);
-		expect(list).toEqual([
-			"qwen/qwen3.6-plus:free",
-			"bytedance-seed/dola-seed-2.0-pro:free",
-		]);
-	});
-
+describe("getModelList ordered candidates", () => {
 	it("returns single-element list when no fallbacks", async () => {
 		const { getModelList } = await import("@better-ccflare/core");
 		const list = getModelList("claude-sonnet-4-5", makeAccount());

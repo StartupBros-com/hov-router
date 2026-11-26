@@ -28,7 +28,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		...overrides,
 	};
