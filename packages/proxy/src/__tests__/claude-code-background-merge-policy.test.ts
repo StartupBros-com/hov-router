@@ -119,7 +119,6 @@ function account(provider = "anthropic", id = "policy-fixture"): Account {
 						sonnet: provider === "codex" ? "gpt-5.1-codex" : "gpt-4o",
 					}),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

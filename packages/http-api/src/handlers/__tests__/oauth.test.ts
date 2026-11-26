@@ -94,8 +94,8 @@ describe("OAuth Handler - Backward Compatibility", () => {
 		}
 	});
 
-	describe('Deprecated "max" mode handling', () => {
-		it('should accept "max" mode and convert to "claude-oauth"', async () => {
+	describe("Account mode validation", () => {
+		it('should reject removed "max" mode', async () => {
 			const request = new Request("http://localhost/api/oauth/init", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -109,14 +109,9 @@ describe("OAuth Handler - Backward Compatibility", () => {
 			const response = await handler(request);
 			const data = await response.json();
 
-			// Should succeed (creates OAuth session)
-			expect(response.status).toBe(200);
-			expect(data.success).toBe(true);
-			expect(data.authUrl).toBeDefined();
-			expect(data.sessionId).toBeDefined();
-
-			// Note: We can't easily verify the warning was logged without mocking the logger,
-			// but the fact that it succeeded proves the mode was converted
+			expect(response.status).toBe(400);
+			expect(JSON.stringify(data)).toContain("claude-oauth");
+			expect(data.authUrl).toBeUndefined();
 		});
 
 		it('should accept "claude-oauth" mode normally', async () => {
@@ -372,8 +367,8 @@ describe("createCodexReauthHandler", () => {
 		await dbOps.getAdapter().run(
 			`INSERT INTO accounts (id, name, provider, api_key, refresh_token, access_token,
 			expires_at, created_at, request_count, total_requests, priority,
-			custom_endpoint, model_mappings, model_fallbacks)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL, NULL)`,
+			custom_endpoint, model_mappings)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL)`,
 			[
 				accountId,
 				"anthropic-account",
@@ -405,8 +400,8 @@ describe("createCodexReauthHandler", () => {
 		await dbOps.getAdapter().run(
 			`INSERT INTO accounts (id, name, provider, api_key, refresh_token, access_token,
 			expires_at, created_at, request_count, total_requests, priority,
-			custom_endpoint, model_mappings, model_fallbacks)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL, NULL)`,
+			custom_endpoint, model_mappings)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL)`,
 			[
 				accountId,
 				"codex-account",
@@ -442,8 +437,8 @@ describe("createCodexReauthHandler", () => {
 		await dbOps.getAdapter().run(
 			`INSERT INTO accounts (id, name, provider, api_key, refresh_token, access_token,
 			expires_at, created_at, request_count, total_requests, priority,
-			custom_endpoint, model_mappings, model_fallbacks)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL, NULL)`,
+			custom_endpoint, model_mappings)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL)`,
 			[
 				accountId,
 				"codex-account-clear-cache",
@@ -517,8 +512,8 @@ describe("createQwenReauthHandler", () => {
 		await dbOps.getAdapter().run(
 			`INSERT INTO accounts (id, name, provider, api_key, refresh_token, access_token,
 			expires_at, created_at, request_count, total_requests, priority,
-			custom_endpoint, model_mappings, model_fallbacks)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL, NULL)`,
+			custom_endpoint, model_mappings)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL)`,
 			[
 				accountId,
 				"qwen-account-clear-cache",
@@ -634,8 +629,8 @@ describe("createAnthropicReauthInitHandler", () => {
 		await dbOps.getAdapter().run(
 			`INSERT INTO accounts (id, name, provider, api_key, refresh_token, access_token,
 			expires_at, created_at, request_count, total_requests, priority,
-			custom_endpoint, model_mappings, model_fallbacks)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL, NULL)`,
+			custom_endpoint, model_mappings)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL)`,
 			[
 				accountId,
 				"codex-account-for-anthropic-test",

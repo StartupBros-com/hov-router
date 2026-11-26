@@ -25,7 +25,6 @@ const account = (id: string, overrides: Partial<Account> = {}) =>
 		paused: false,
 		custom_endpoint: null,
 		model_mappings: null,
-		model_fallbacks: null,
 		...overrides,
 	}) as Account;
 const member = (id: string, model: string, tier = 0) =>

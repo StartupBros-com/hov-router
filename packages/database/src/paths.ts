@@ -18,9 +18,3 @@ export function resolveDbPath(): string {
 	// - .env file: BETTER_CCFLARE_DB_PATH=/path/to/dev.db
 	return join(configDir, "better-ccflare.db");
 }
-
-export function getLegacyDbPath(): string {
-	const { getLegacyConfigDir } = require("@better-ccflare/config");
-	const legacyConfigDir = getLegacyConfigDir();
-	return join(legacyConfigDir, "ccflare.db");
-}

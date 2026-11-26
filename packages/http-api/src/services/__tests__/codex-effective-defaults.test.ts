@@ -22,7 +22,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		created_at: Date.now(),
 		model_mappings: null,
 		custom_endpoint: null,
-		model_fallbacks: null,
 		...overrides,
 	} as Account;
 }
@@ -56,56 +55,6 @@ describe("resolveCodexAccountFamilyDefault", () => {
 			pinned: true,
 		});
 		expect(result.effectiveModel).toBe("gpt-5.3-codex-pinned");
-	});
-
-	it("prefers a legacy custom_endpoint.modelMappings pin over model_mappings for the same family", () => {
-		const account = makeAccount({
-			model_mappings: JSON.stringify({ opus: "from-model-mappings" }),
-			custom_endpoint: JSON.stringify({
-				endpoint: "https://example.test",
-				modelMappings: { opus: "from-custom-endpoint" },
-			}),
-		});
-		const result = resolveCodexAccountFamilyDefault(account, "opus", {
-			catalog: NONE_CATALOG,
-		});
-		expect(result.source).toBe("custom_endpoint_mapping");
-		expect(result.effectiveModel).toBe(
-			resolveCodexRequestModel("opus", account),
-		);
-		expect(result.effectiveModel).toBe("from-custom-endpoint");
-		expect(result.pinned).toBe(true);
-	});
-
-	it("reports a deprecated model_fallbacks source only when nothing else set the family", () => {
-		const account = makeAccount({
-			model_fallbacks: JSON.stringify({ opus: "fallback-model" }),
-		});
-		const result = resolveCodexAccountFamilyDefault(account, "opus", {
-			catalog: NONE_CATALOG,
-		});
-		expect(result).toEqual({
-			family: "opus",
-			effectiveModel: resolveCodexRequestModel("opus", account),
-			source: "model_fallbacks",
-			pinned: true,
-		});
-		expect(result.effectiveModel).toBe("fallback-model");
-	});
-
-	it("does not let model_fallbacks override an existing model_mappings pin (matches request-time merge order)", () => {
-		const account = makeAccount({
-			model_mappings: JSON.stringify({ opus: "from-model-mappings" }),
-			model_fallbacks: JSON.stringify({ opus: "should-not-win" }),
-		});
-		const result = resolveCodexAccountFamilyDefault(account, "opus", {
-			catalog: NONE_CATALOG,
-		});
-		expect(result.source).toBe("account_mapping_pin");
-		expect(result.effectiveModel).toBe(
-			resolveCodexRequestModel("opus", account),
-		);
-		expect(result.effectiveModel).toBe("from-model-mappings");
 	});
 
 	describe("environment mapping", () => {
@@ -268,25 +217,6 @@ describe("resolveCodexAccountFamilyDefault", () => {
 			expect(result.effectiveModel).not.toBe("gpt-5.3-codex-pinned");
 		});
 
-		it("does not report a custom_endpoint_mapping pin that the routed request will not receive", () => {
-			const account = makeAccount({
-				custom_endpoint: JSON.stringify({
-					endpoint: "https://example.test",
-					modelMappings: { opus: "from-custom-endpoint" },
-				}),
-			});
-			setForceAccountModel(true);
-			const result = resolveCodexAccountFamilyDefault(account, "opus", {
-				catalog: NONE_CATALOG,
-			});
-			expect(result.source).not.toBe("custom_endpoint_mapping");
-			expect(result.pinned).toBe(false);
-			expect(result.effectiveModel).toBe(
-				resolveCodexRequestModel("opus", account),
-			);
-			expect(result.effectiveModel).not.toBe("from-custom-endpoint");
-		});
-
 		it("does not report an environment_mapping pin that the routed request will not receive", () => {
 			const originalEnv = process.env.OPENAI_COMPATIBLE_MODEL_MAPPINGS;
 			process.env.OPENAI_COMPATIBLE_MODEL_MAPPINGS = JSON.stringify({
@@ -311,22 +241,6 @@ describe("resolveCodexAccountFamilyDefault", () => {
 					process.env.OPENAI_COMPATIBLE_MODEL_MAPPINGS = originalEnv;
 				}
 			}
-		});
-
-		it("does not report a model_fallbacks pin that the routed request will not receive", () => {
-			const account = makeAccount({
-				model_fallbacks: JSON.stringify({ opus: "fallback-model" }),
-			});
-			setForceAccountModel(true);
-			const result = resolveCodexAccountFamilyDefault(account, "opus", {
-				catalog: NONE_CATALOG,
-			});
-			expect(result.source).not.toBe("model_fallbacks");
-			expect(result.pinned).toBe(false);
-			expect(result.effectiveModel).toBe(
-				resolveCodexRequestModel("opus", account),
-			);
-			expect(result.effectiveModel).not.toBe("fallback-model");
 		});
 
 		it("still reports global_provider_override in force mode, and it wins over an account-level pin that no longer applies", () => {

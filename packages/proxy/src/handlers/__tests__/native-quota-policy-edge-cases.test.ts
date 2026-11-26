@@ -22,7 +22,6 @@ const account = {
 	billing_type: "plan",
 	custom_endpoint: null,
 	model_mappings: null,
-	model_fallbacks: null,
 } as Account;
 const members = [
 	{ id: "primary", account_id: "a", logical_model: "claude-fable-5", tier: 0 },

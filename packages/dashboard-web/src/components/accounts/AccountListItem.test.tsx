@@ -1195,17 +1195,16 @@ describe("AccountListItem (P2 review: pause-reason rendering)", () => {
 		expect(reauthButton(html)).toBeUndefined();
 	});
 
-	it("shows a human-readable known automatic pause reason", () => {
+	it("shows a human-readable overage pause reason", () => {
 		const html = renderToStaticMarkup(
 			<AccountListItem
-				account={makeAccount({ pauseReason: "failure_threshold" })}
+				account={makeAccount({ pauseReason: "overage" })}
 				{...requiredHandlers}
 				onAnthropicReauth={noop}
 			/>,
 		);
 
-		expect(html).toContain(">Auto-paused: repeated failures<");
-		expect(html).not.toContain("Paused (failure threshold)");
+		expect(html).toContain(">Auto-paused: overage<");
 	});
 
 	it("renders generic Paused copy with no reauth emphasis for an unrecognized pause reason", () => {

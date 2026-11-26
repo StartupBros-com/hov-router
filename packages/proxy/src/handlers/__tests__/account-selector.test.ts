@@ -106,7 +106,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		model_mappings: null,
 		cross_region_mode: null,
 		billing_type: null,
-		model_fallbacks: null,
 		...overrides,
 	};
 }
@@ -1031,11 +1030,10 @@ describe("selectAccountsForRequest — x-better-ccflare-account-id header", () =
 		expect(ctx.strategy.select).not.toHaveBeenCalled();
 	});
 
-	// Nothing lifts a failure-threshold pause on its own since auto-refresh was
+	// Nothing lifts a manual pause on its own since auto-refresh was
 	// removed, so retrying a forced route to it cannot succeed until an
 	// operator resumes the account.
 	for (const [pauseReason, retryable] of [
-		["failure_threshold", false],
 		["manual", false],
 		[null, true],
 		["overage", true],
@@ -2141,12 +2139,6 @@ describe("selectAccountsForRequest — catalog-role route profile", () => {
 				account.model_mappings = JSON.stringify({
 					opus: ["gpt-7-nova", "gpt-7-sol"],
 				});
-			},
-		},
-		{
-			label: "a legacy model_fallbacks entry",
-			apply: (account: Account) => {
-				account.model_fallbacks = JSON.stringify({ opus: "gpt-7-sol" });
 			},
 		},
 		{
@@ -6374,7 +6366,7 @@ describe("selectAccountsForRequest — server-tool capability-first routing", ()
 		}
 	});
 
-	for (const pauseReason of ["manual", "failure_threshold"] as const) {
+	for (const pauseReason of ["manual"] as const) {
 		it(`keeps a proven ${pauseReason} pause unavailable without attempting resume`, async () => {
 			const previous = installCapabilityProvider({
 				name: "anthropic",

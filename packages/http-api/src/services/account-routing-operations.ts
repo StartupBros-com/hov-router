@@ -290,7 +290,6 @@ function draftToAccount(draft: ComboRoutingAccountDraft): Account {
 		custom_endpoint: null,
 		model_mappings: validateModelMappings(draft.model_mappings),
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: routeProbe.billing_type,
 		pause_reason: null,
 		refresh_token_issued_at: null,

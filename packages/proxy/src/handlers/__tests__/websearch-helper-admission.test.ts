@@ -101,7 +101,6 @@ function account(): Account {
 		auto_pause_on_overage_enabled: false,
 		peak_hours_pause_enabled: false,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: null,
 		pause_reason: null,
 		refresh_token_issued_at: null,

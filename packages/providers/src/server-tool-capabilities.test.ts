@@ -49,7 +49,6 @@ function capabilityAccountFixture(): Account {
 		custom_endpoint: "https://fixture.invalid/v1/responses",
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		billing_type: "plan",
 		pause_reason: null,
 		refresh_token_issued_at: null,

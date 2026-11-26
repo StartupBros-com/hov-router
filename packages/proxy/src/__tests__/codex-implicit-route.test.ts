@@ -32,7 +32,6 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 		expires_at: Date.now() + 3_600_000,
 		custom_endpoint: null,
 		model_mappings: null,
-		model_fallbacks: null,
 		...overrides,
 	} as Account;
 }
@@ -134,16 +133,10 @@ describe("accountServesPhysicalModel evidence", () => {
 		}
 	});
 
-	it("recognizes exact Claude ids and legacy static mapping storage", async () => {
+	it("recognizes exact Claude id mappings", async () => {
 		for (const mapping of [
 			{ model_mappings: JSON.stringify({ "claude-sonnet-5": PHYSICAL_MODEL }) },
 			{ model_mappings: JSON.stringify({ "claude-opus-4-6": PHYSICAL_MODEL }) },
-			{ model_fallbacks: JSON.stringify({ haiku: PHYSICAL_MODEL }) },
-			{
-				custom_endpoint: JSON.stringify({
-					modelMappings: { opus: PHYSICAL_MODEL },
-				}),
-			},
 		]) {
 			expect(
 				await accountServesPhysicalModel(makeAccount(mapping), PHYSICAL_MODEL),

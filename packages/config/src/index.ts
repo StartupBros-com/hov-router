@@ -42,23 +42,6 @@ import {
 
 const log = new Logger("Config");
 
-/**
- * Retired with the Auto quality lane (#816). A leftover policy is ignored, never
- * validated, and left in the file, so startup warns instead of refusing.
- */
-const RETIRED_QUALITY_ROUTING_POLICY_ENV =
-	"CCFLARE_QUALITY_ROUTING_POLICY_JSON";
-let warnedRetiredQualityRoutingPolicy = false;
-
-/**
- * Retired with the anomaly alert sweep (7.0.0, #1012). The four
- * `alert_anomaly_*` keys and `ALERT_ANOMALY_*` variables are ignored and left
- * in place. Any install that saved alert settings holds the keys, usually
- * with the sweep off, so startup warns only when the sweep was turned on.
- */
-const RETIRED_ALERT_ANOMALY_ENABLED_ENV = "ALERT_ANOMALY_ENABLED";
-let warnedRetiredAlertAnomaly = false;
-
 /** Any JSON object a retired setting may still hold on disk. */
 type RetiredConfigObject = { readonly [key: string]: unknown };
 
@@ -1452,38 +1435,6 @@ export class Config extends EventEmitter {
 			description: "config file",
 		});
 		this.loadConfig();
-		this.warnRetiredQualityRoutingPolicy();
-		this.warnRetiredAlertAnomaly();
-	}
-
-	private warnRetiredQualityRoutingPolicy(): void {
-		if (warnedRetiredQualityRoutingPolicy) return;
-		const sources = [
-			this.data.quality_routing_policy !== undefined &&
-				"quality_routing_policy in the config file",
-			process.env[RETIRED_QUALITY_ROUTING_POLICY_ENV] !== undefined &&
-				RETIRED_QUALITY_ROUTING_POLICY_ENV,
-		].filter((source): source is string => typeof source === "string");
-		if (sources.length === 0) return;
-		warnedRetiredQualityRoutingPolicy = true;
-		log.warn(
-			`Ignoring ${sources.join(" and ")}: the Auto quality lane was removed, so it has no effect and can be deleted.`,
-		);
-	}
-
-	private warnRetiredAlertAnomaly(): void {
-		if (warnedRetiredAlertAnomaly) return;
-		const sources = [
-			this.data.alert_anomaly_enabled === true &&
-				"alert_anomaly_enabled in the config file",
-			parseEnabledEnvFlag(process.env[RETIRED_ALERT_ANOMALY_ENABLED_ENV]) ===
-				true && RETIRED_ALERT_ANOMALY_ENABLED_ENV,
-		].filter((source): source is string => typeof source === "string");
-		if (sources.length === 0) return;
-		warnedRetiredAlertAnomaly = true;
-		log.warn(
-			`Ignoring ${sources.join(" and ")}: the anomaly alert sweep was removed in 7.0.0, so the alert_anomaly_* settings and ALERT_ANOMALY_* variables have no effect and can be deleted.`,
-		);
 	}
 
 	getExternalCodexHomes(): string[] {
@@ -2927,4 +2878,4 @@ export class Config extends EventEmitter {
 // Re-export types
 export type { StrategyName } from "@better-ccflare/core";
 export { resolveConfigPath } from "./paths";
-export { getLegacyConfigDir, getPlatformConfigDir } from "./paths-common";
+export { getPlatformConfigDir } from "./paths-common";

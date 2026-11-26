@@ -173,10 +173,20 @@ describe("Agent Interceptor - precedence (DB preference vs. frontmatter fallback
 	test("(a) DB preference set => rewrite happens for the header path too", async () => {
 		await dbOps.setAgentPreference("header-agent-a", "claude-opus-model");
 		const buffer = toArrayBuffer(createMockRequestBody());
-		const result = await interceptAndModifyRequest(
+		const ignored = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
 			new Headers({ "x-anthropic-agent-id": "header-agent-a" }),
+			{
+				getModelCatalog: async () => nonVetoingCatalog(),
+			},
+		);
+		expect(ignored.agentUsed).toBeNull();
+		expect(ignored.appliedModel).toBe("claude-3-5-sonnet-20241022");
+		const result = await interceptAndModifyRequest(
+			buffer,
+			dbOps,
+			new Headers({ "x-better-ccflare-agent-id": "header-agent-a" }),
 			{ getModelCatalog: async () => nonVetoingCatalog() },
 		);
 		expect(result.agentUsed).toBe("header-agent-a");
@@ -266,7 +276,9 @@ describe("Agent Interceptor - precedence (DB preference vs. frontmatter fallback
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-anthropic-agent-id": "same-model-agent-precedence" }),
+			new Headers({
+				"x-better-ccflare-agent-id": "same-model-agent-precedence",
+			}),
 		);
 		expect(result.appliedModel).toBe("claude-3-5-sonnet-20241022");
 		expect(result.modifiedBody).toBe(buffer);

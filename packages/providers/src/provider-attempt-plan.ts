@@ -507,7 +507,6 @@ function createScalarAccountView(account: Account): Account {
 		custom_endpoint: readAccountNullableString(account, "custom_endpoint"),
 		model_mappings: readAccountNullableString(account, "model_mappings"),
 		cross_region_mode: readAccountNullableString(account, "cross_region_mode"),
-		model_fallbacks: readAccountNullableString(account, "model_fallbacks"),
 		billing_type: readAccountNullableString(account, "billing_type"),
 		pause_reason: readAccountNullableString(account, "pause_reason"),
 		refresh_token_issued_at: readAccountNullableNumber(

@@ -33,7 +33,6 @@ function account(
 		provider,
 		paused: false,
 		model_mappings: null,
-		model_fallbacks: null,
 		custom_endpoint: null,
 		...overrides,
 	} as Account;

@@ -69,6 +69,14 @@ function makeConfig(
 		getAlertTokensPerHour: () => 0,
 		getAlertRequestTokens: () => 0,
 		getAlertUsageWindowThresholdPercent: () => 0,
+		getAlertCacheHealthEnabled: () => false,
+		getAlertCacheHealthThresholdPercent: () => 80,
+		getAlertCacheHealthDurationMinutes: () => 15,
+		getAlertCacheHealthMinRequests: () => 5,
+		getAlertCacheHealthMinInputTokens: () => 10000,
+		getAlertCacheHealthReminderMinutes: () => 60,
+		getMemberNoticeWebhookUrl: () => "",
+		getMemberNoticeSigningSecret: () => "",
 		getAlertCooldownMinutes: () => COOLDOWN_MINUTES,
 		getAlertWebhookUrl: () =>
 			overrides.webhookUrl ?? "http://127.0.0.1:9/codex-alert-webhook",
@@ -125,15 +133,14 @@ describe("AlertService Codex catalog alerts", () => {
 			id: string;
 			name: string;
 			model_mappings: string | null;
-			model_fallbacks: string | null;
 			custom_endpoint: string | null;
 		}> = {},
 	): Promise<void> {
 		await adapter.run(
 			`INSERT INTO accounts (
 				id, name, provider, api_key, refresh_token, access_token, expires_at,
-				created_at, model_mappings, model_fallbacks, custom_endpoint
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				created_at, model_mappings, custom_endpoint
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			[
 				overrides.id ?? ACCOUNT_ID,
 				overrides.name ?? ACCOUNT_NAME,
@@ -144,7 +151,6 @@ describe("AlertService Codex catalog alerts", () => {
 				Date.now() + 3_600_000,
 				1_700_000_000_000,
 				overrides.model_mappings ?? null,
-				overrides.model_fallbacks ?? null,
 				overrides.custom_endpoint ?? null,
 			],
 		);
@@ -286,9 +292,12 @@ describe("AlertService Codex catalog alerts", () => {
 			expect(emitted).toEqual([]);
 		});
 
-		it("attributes legacy and custom-endpoint pins the same way routing does", async () => {
+		it("attributes account pins the same way routing does", async () => {
 			await insertAccount({
-				model_fallbacks: JSON.stringify({ haiku: "gpt-5.4-mini" }),
+				model_mappings: JSON.stringify({
+					haiku: "gpt-5.4-mini",
+					sonnet: "gpt-7-luna",
+				}),
 				custom_endpoint: JSON.stringify({
 					endpoint: "https://example.test",
 					modelMappings: { sonnet: "gpt-7-luna" },

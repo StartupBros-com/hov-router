@@ -217,7 +217,6 @@ function makeCodexAccount(): Account {
 		custom_endpoint: null,
 		model_mappings: null,
 		cross_region_mode: null,
-		model_fallbacks: null,
 		consecutive_rate_limits: 0,
 	} as Account;
 }

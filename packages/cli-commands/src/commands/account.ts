@@ -8,8 +8,8 @@ import {
 	PAUSE_REASON_NEEDS_REAUTH,
 	REAUTHENTICATION_REQUIRED_CODE,
 	reauthInstruction,
+	rejectRetiredModelMappingInput,
 	supportsCliReauthentication,
-	validateAndSanitizeModelFallbacks,
 	validateAndSanitizeModelMappings,
 	validateApiKey,
 	validateEndpointUrl,
@@ -31,11 +31,7 @@ import {
 	pollForToken as pollQwenForToken,
 } from "@better-ccflare/providers/qwen";
 import type { AccountListItem } from "@better-ccflare/types";
-import {
-	type PromptAdapter,
-	promptAccountRemovalConfirmation,
-	stdPromptAdapter,
-} from "../prompts/index";
+import { type PromptAdapter, stdPromptAdapter } from "../prompts/index";
 import { openBrowser } from "../utils/browser";
 
 // Extended type for CLI-specific options that includes adapter functionality
@@ -64,8 +60,6 @@ export interface AddAccountOptionsWithAdapter {
 	priority?: number;
 	customEndpoint?: string;
 	modelMappings?: { [key: string]: string | string[] };
-	/** @deprecated Use comma-separated values in modelMappings instead */
-	modelFallbacks?: { [key: string]: string };
 	profile?: string;
 	crossRegionMode?: "geographic" | "global" | "regional";
 	adapter?: PromptAdapter;
@@ -86,9 +80,6 @@ export function toCreatedAccountIdentity(
 		provider: account.provider,
 	});
 }
-
-// Re-export AccountListItem from types for backward compatibility
-export type { AccountListItem } from "@better-ccflare/types";
 
 /**
  * Create a Console account with direct API key in the database
@@ -220,7 +211,6 @@ export async function createNanoGPTAccount(
 	priority: number,
 	customEndpoint?: string,
 	modelMappings?: { [key: string]: string | string[] } | null,
-	modelFallbacks?: { [key: string]: string | string[] } | null,
 ): Promise<CreatedAccountIdentity> {
 	const accountId = crypto.randomUUID();
 	const now = Date.now();
@@ -238,17 +228,11 @@ export async function createNanoGPTAccount(
 		const validatedMappings = validateAndSanitizeModelMappings(modelMappings);
 		validatedModelMappings = JSON.stringify(validatedMappings);
 	}
-	// Validate model fallbacks
-	let validatedModelFallbacks = null;
-	if (modelFallbacks && Object.keys(modelFallbacks).length > 0) {
-		const validated = validateAndSanitizeModelFallbacks(modelFallbacks);
-		validatedModelFallbacks = validated ? JSON.stringify(validated) : null;
-	}
 	await dbOps.getAdapter().run(
 		`INSERT INTO accounts (
 			id, name, provider, api_key, refresh_token, access_token,
-			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings, model_fallbacks
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		[
 			accountId,
 			name,
@@ -263,7 +247,6 @@ export async function createNanoGPTAccount(
 			validatedPriority,
 			validatedEndpoint,
 			validatedModelMappings,
-			validatedModelFallbacks,
 		],
 	);
 	return toCreatedAccountIdentity({ id: accountId, name, provider: "nanogpt" });
@@ -278,7 +261,6 @@ async function createKiloAccount(
 	apiKey: string,
 	priority: number,
 	modelMappings?: { [key: string]: string | string[] } | null,
-	modelFallbacks?: { [key: string]: string | string[] } | null,
 ): Promise<CreatedAccountIdentity> {
 	const accountId = crypto.randomUUID();
 	const now = Date.now();
@@ -289,17 +271,11 @@ async function createKiloAccount(
 		const validated = validateAndSanitizeModelMappings(modelMappings);
 		validatedModelMappings = JSON.stringify(validated);
 	}
-	// Validate model fallbacks
-	let validatedModelFallbacks = null;
-	if (modelFallbacks && Object.keys(modelFallbacks).length > 0) {
-		const validated = validateAndSanitizeModelFallbacks(modelFallbacks);
-		validatedModelFallbacks = validated ? JSON.stringify(validated) : null;
-	}
 	await dbOps.getAdapter().run(
 		`INSERT INTO accounts (
 			id, name, provider, api_key, refresh_token, access_token,
-			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings, model_fallbacks
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		[
 			accountId,
 			name,
@@ -314,7 +290,6 @@ async function createKiloAccount(
 			validatedPriority,
 			null,
 			validatedModelMappings,
-			validatedModelFallbacks,
 		],
 	);
 	return toCreatedAccountIdentity({ id: accountId, name, provider: "kilo" });
@@ -329,7 +304,6 @@ async function createAlibabaCodingPlanAccount(
 	apiKey: string,
 	priority: number,
 	modelMappings?: { [key: string]: string | string[] } | null,
-	modelFallbacks?: { [key: string]: string | string[] } | null,
 ): Promise<CreatedAccountIdentity> {
 	const accountId = crypto.randomUUID();
 	const now = Date.now();
@@ -340,17 +314,11 @@ async function createAlibabaCodingPlanAccount(
 		const validated = validateAndSanitizeModelMappings(modelMappings);
 		validatedModelMappings = JSON.stringify(validated);
 	}
-	// Validate model fallbacks
-	let validatedModelFallbacks = null;
-	if (modelFallbacks && Object.keys(modelFallbacks).length > 0) {
-		const validated = validateAndSanitizeModelFallbacks(modelFallbacks);
-		validatedModelFallbacks = validated ? JSON.stringify(validated) : null;
-	}
 	await dbOps.getAdapter().run(
 		`INSERT INTO accounts (
 			id, name, provider, api_key, refresh_token, access_token,
-			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings, model_fallbacks
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		[
 			accountId,
 			name,
@@ -365,7 +333,6 @@ async function createAlibabaCodingPlanAccount(
 			validatedPriority,
 			null,
 			validatedModelMappings,
-			validatedModelFallbacks,
 		],
 	);
 	return toCreatedAccountIdentity({
@@ -384,7 +351,6 @@ async function createOpenRouterAccount(
 	apiKey: string,
 	priority: number,
 	modelMappings?: { [key: string]: string | string[] } | null,
-	modelFallbacks?: { [key: string]: string | string[] } | null,
 ): Promise<CreatedAccountIdentity> {
 	const accountId = crypto.randomUUID();
 	const now = Date.now();
@@ -395,17 +361,11 @@ async function createOpenRouterAccount(
 		const validatedMappings = validateAndSanitizeModelMappings(modelMappings);
 		validatedModelMappings = JSON.stringify(validatedMappings);
 	}
-	// Validate model fallbacks
-	let validatedModelFallbacks = null;
-	if (modelFallbacks && Object.keys(modelFallbacks).length > 0) {
-		const validated = validateAndSanitizeModelFallbacks(modelFallbacks);
-		validatedModelFallbacks = validated ? JSON.stringify(validated) : null;
-	}
 	await dbOps.getAdapter().run(
 		`INSERT INTO accounts (
 			id, name, provider, api_key, refresh_token, access_token,
-			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings, model_fallbacks
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		[
 			accountId,
 			name,
@@ -420,7 +380,6 @@ async function createOpenRouterAccount(
 			validatedPriority,
 			null,
 			validatedModelMappings,
-			validatedModelFallbacks,
 		],
 	);
 	return toCreatedAccountIdentity({
@@ -440,7 +399,6 @@ async function createAnthropicCompatibleAccount(
 	priority: number,
 	customEndpoint?: string,
 	modelMappings?: { [key: string]: string | string[] } | null,
-	modelFallbacks?: { [key: string]: string | string[] } | null,
 	provider = "anthropic-compatible",
 ): Promise<CreatedAccountIdentity> {
 	const accountId = crypto.randomUUID();
@@ -466,18 +424,11 @@ async function createAnthropicCompatibleAccount(
 		validatedModelMappings = JSON.stringify(validatedMappings);
 	}
 
-	// Validate model fallbacks
-	let validatedModelFallbacks = null;
-	if (modelFallbacks && Object.keys(modelFallbacks).length > 0) {
-		const validated = validateAndSanitizeModelFallbacks(modelFallbacks);
-		validatedModelFallbacks = validated ? JSON.stringify(validated) : null;
-	}
-
 	await dbOps.getAdapter().run(
 		`INSERT INTO accounts (
 			id, name, provider, api_key, refresh_token, access_token,
-			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings, model_fallbacks
-		) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, 0, 0, ?, ?, ?, ?)`,
+			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings
+		) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, 0, 0, ?, ?, ?)`,
 		[
 			accountId,
 			name,
@@ -487,7 +438,6 @@ async function createAnthropicCompatibleAccount(
 			validatedPriority,
 			validatedEndpoint,
 			validatedModelMappings,
-			validatedModelFallbacks,
 		],
 	);
 	return toCreatedAccountIdentity({ id: accountId, name, provider });
@@ -502,7 +452,6 @@ async function createZaiAccount(
 	apiKey: string,
 	priority: number,
 	modelMappings?: { [key: string]: string | string[] } | null,
-	modelFallbacks?: { [key: string]: string | string[] } | null,
 ): Promise<CreatedAccountIdentity> {
 	const accountId = crypto.randomUUID();
 	const now = Date.now();
@@ -515,18 +464,12 @@ async function createZaiAccount(
 		const validated = validateAndSanitizeModelMappings(modelMappings);
 		validatedModelMappings = JSON.stringify(validated);
 	}
-	// Validate model fallbacks
-	let validatedModelFallbacks = null;
-	if (modelFallbacks && Object.keys(modelFallbacks).length > 0) {
-		const validated = validateAndSanitizeModelFallbacks(modelFallbacks);
-		validatedModelFallbacks = validated ? JSON.stringify(validated) : null;
-	}
 
 	await dbOps.getAdapter().run(
 		`INSERT INTO accounts (
 			id, name, provider, api_key, refresh_token, access_token,
-			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings, model_fallbacks
-		) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings
+		) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?)`,
 		[
 			accountId,
 			name,
@@ -538,7 +481,6 @@ async function createZaiAccount(
 			validatedPriority,
 			null,
 			validatedModelMappings,
-			validatedModelFallbacks,
 		],
 	);
 
@@ -846,8 +788,8 @@ async function createXaiAccount(
 	await dbOps.getAdapter().run(
 		`INSERT INTO accounts (
 			id, name, provider, api_key, refresh_token, access_token,
-			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings, model_fallbacks
-		) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings
+		) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		[
 			accountId,
 			name,
@@ -891,7 +833,6 @@ async function createOpenAIAccount(
 	endpoint: string,
 	priority: number,
 	modelMappings: ModelMapping | null,
-	modelFallbacks?: ModelMapping | null,
 ): Promise<CreatedAccountIdentity> {
 	const accountId = crypto.randomUUID();
 	const now = Date.now();
@@ -910,18 +851,11 @@ async function createOpenAIAccount(
 		? JSON.stringify(validatedModelMappings)
 		: null;
 
-	// Validate model fallbacks
-	let validatedModelFallbacks = null;
-	if (modelFallbacks && Object.keys(modelFallbacks).length > 0) {
-		const validated = validateAndSanitizeModelFallbacks(modelFallbacks);
-		validatedModelFallbacks = validated ? JSON.stringify(validated) : null;
-	}
-
 	await dbOps.getAdapter().run(
 		`INSERT INTO accounts (
 			id, name, provider, api_key, refresh_token, access_token,
-			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings, model_fallbacks
-		) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings
+		) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?)`,
 		[
 			accountId,
 			name,
@@ -933,7 +867,6 @@ async function createOpenAIAccount(
 			validatedPriority,
 			validatedEndpoint,
 			modelMappingsJson,
-			validatedModelFallbacks,
 		],
 	);
 
@@ -967,7 +900,6 @@ async function createCodexOAuthAccount(
 	priority: number,
 	customEndpoint?: string,
 	modelMappings?: { [key: string]: string | string[] } | null,
-	modelFallbacks?: { [key: string]: string | string[] } | null,
 ): Promise<CreatedAccountIdentity> {
 	// Get the CodexOAuthProvider
 	const oauthProvider = getOAuthProvider("codex");
@@ -1066,19 +998,12 @@ async function createCodexOAuthAccount(
 		validatedModelMappings = JSON.stringify(validated);
 	}
 
-	// Validate model fallbacks
-	let validatedModelFallbacks = null;
-	if (modelFallbacks && Object.keys(modelFallbacks).length > 0) {
-		const validated = validateAndSanitizeModelFallbacks(modelFallbacks);
-		validatedModelFallbacks = validated ? JSON.stringify(validated) : null;
-	}
-
 	await dbOps.getAdapter().run(
 		`INSERT INTO accounts (
 			id, name, provider, api_key, refresh_token, access_token,
-			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings, model_fallbacks,
+			expires_at, created_at, request_count, total_requests, priority, custom_endpoint, model_mappings,
 			refresh_token_issued_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?)`,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?)`,
 		[
 			accountId,
 			name,
@@ -1091,7 +1016,6 @@ async function createCodexOAuthAccount(
 			validatedPriority,
 			validatedEndpoint,
 			validatedModelMappings,
-			validatedModelFallbacks,
 			now,
 		],
 	);
@@ -1106,7 +1030,6 @@ async function createQwenOAuthAccount(
 	name: string,
 	priority: number,
 	modelMappings?: { [key: string]: string | string[] } | null,
-	modelFallbacks?: { [key: string]: string | string[] } | null,
 ): Promise<CreatedAccountIdentity> {
 	console.log("\nQwen uses OAuth device code authentication.");
 	console.log("You will be given a URL and a code to enter in your browser.\n");
@@ -1160,12 +1083,6 @@ async function createQwenOAuthAccount(
 		validatedModelMappings = JSON.stringify(validated);
 	}
 
-	let validatedModelFallbacks = null;
-	if (modelFallbacks && Object.keys(modelFallbacks).length > 0) {
-		const validated = validateAndSanitizeModelFallbacks(modelFallbacks);
-		validatedModelFallbacks = validated ? JSON.stringify(validated) : null;
-	}
-
 	// Store resource_url as custom_endpoint
 	const resourceUrl = tokens.resource_url
 		? normalizeQwenBaseUrl(tokens.resource_url)
@@ -1175,9 +1092,9 @@ async function createQwenOAuthAccount(
 		`INSERT INTO accounts (
 			id, name, provider, api_key, refresh_token, access_token,
 			expires_at, created_at, request_count, total_requests, priority,
-			custom_endpoint, model_mappings, model_fallbacks,
+			custom_endpoint, model_mappings,
 			refresh_token_issued_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?)`,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?)`,
 		[
 			accountId,
 			name,
@@ -1190,7 +1107,6 @@ async function createQwenOAuthAccount(
 			validatedPriority,
 			resourceUrl,
 			validatedModelMappings,
-			validatedModelFallbacks,
 			now,
 		],
 	);
@@ -1289,6 +1205,8 @@ export async function addAccount(
 		modelMappings,
 		adapter = stdPromptAdapter,
 	} = options;
+
+	rejectRetiredModelMappingInput(options as unknown as Record<string, unknown>);
 
 	// Create OAuth flow instance
 	const oauthFlow = await createOAuthFlow(dbOps, config);
@@ -1835,7 +1753,6 @@ export async function addAccount(
 				: priority || 0,
 			endpoint,
 			finalModelMappings,
-			null,
 			"ollama",
 		);
 		console.log(`\nAccount '${name}' added successfully!`);
@@ -1869,7 +1786,6 @@ export async function addAccount(
 				: priority || 0,
 			undefined,
 			finalModelMappings,
-			undefined,
 			"ollama-cloud",
 		);
 		console.log(`\nAccount '${name}' added successfully!`);
@@ -1910,7 +1826,6 @@ export async function addAccount(
 				: priority || 0,
 			endpoint,
 			finalModelMappings,
-			undefined,
 			"meta",
 		);
 		console.log(`\nAccount '${name}' added successfully!`);
@@ -2085,59 +2000,6 @@ export async function removeAccount(
 	}
 
 	return removeAccountById(dbOps, matches[0].id);
-}
-
-/**
- * Remove an account by name with confirmation prompt (for CLI)
- *
- * Same ambiguity guard as `removeAccount`: refuses to proceed if more
- * than one row matches the supplied name. The CLI surface cannot
- * disambiguate with a typed confirmation string when the name is shared,
- * so we surface a clear error and let the caller re-run by id.
- */
-export async function removeAccountWithConfirmation(
-	dbOps: DatabaseOperations,
-	name: string,
-	force?: boolean,
-): Promise<{ success: boolean; message: string }> {
-	const adapter = dbOps.getAdapter();
-	const matches = await adapter.queryMain<{ id: string; name: string }>(
-		"SELECT id, name FROM accounts WHERE name = ?",
-		[name],
-	);
-
-	if (matches.length === 0) {
-		return {
-			success: false,
-			message: `Account '${name}' not found`,
-		};
-	}
-
-	if (matches.length > 1) {
-		return {
-			success: false,
-			message: `Multiple accounts named '${name}' exist; remove by id to avoid deleting the wrong account`,
-		};
-	}
-
-	// Skip confirmation if force flag is set
-	if (!force) {
-		const confirmed = await promptAccountRemovalConfirmation(name);
-		if (!confirmed) {
-			return {
-				success: false,
-				message: "Account removal cancelled",
-			};
-		}
-	}
-
-	const result = await removeAccountById(dbOps, matches[0].id);
-	// Hide the id-keyed "not found" race window from confirmation-prompt callers
-	// by remapping to the by-name phrasing they expect.
-	if (!result.success) {
-		return { success: false, message: `Account '${name}' not found` };
-	}
-	return { success: result.success, message: result.message };
 }
 
 /**

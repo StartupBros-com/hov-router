@@ -14,7 +14,6 @@ mock.module("../../utils/browser", () => ({
 }));
 
 mock.module("../../prompts/index", () => ({
-	promptAccountRemovalConfirmation: async () => true,
 	stdPromptAdapter: {
 		select: async () => "claude-oauth",
 		input: async () => "authorization-code#state",

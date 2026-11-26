@@ -267,7 +267,6 @@ interface AutomaticRecovery {
 // or removal fails typecheck here instead of silently drifting out of sync.
 const GLOBAL_COOLDOWN_REASONS = new Set<RateLimitReason>([
 	"upstream_429_with_reset",
-	"upstream_429_no_reset_default_5h",
 	"upstream_429_no_reset_probe_cooldown",
 	"all_models_exhausted_429",
 	"upstream_529_overloaded_with_reset",
