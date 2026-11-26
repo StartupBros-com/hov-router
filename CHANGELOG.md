@@ -1,5 +1,58 @@
 # Changelog
 
+## [7.0.0](https://github.com/StartupBros-com/hov-router/compare/v6.4.0...v7.0.0) (2026-11-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove legacy headers, the muse-spark route and pre-6.0 upgrade readers ([#1051](https://github.com/StartupBros-com/hov-router/issues/1051))
+* retire legacy model-mapping formats, the max mode alias and the 5h rate-limit reason ([#1045](https://github.com/StartupBros-com/hov-router/issues/1045))
+* **api:** GET /api/cache-parity no longer reports the removed Codex levers. policy and driftReport.declaredDefaults drop cacheKeySessionPercent, cacheKeyContinuityPercent, cacheKeyPrefixShardPercent, codexSettleMs, pacingBypassPercent, explicitBreakpointPercent, explicitBreakpointSuppressedScopes, turnStatePercent, turnStateObserveOnly and webSocketPercent, and backendCapability drops explicitBreakpoint. GET /api/debug/cache-pacing drops codex_settle_ms.
+* **api:** the alert routes moved from /api/insights/alerts to /api/alerts (GET and POST /api/alerts, GET /api/alerts/config, POST /api/alerts/acknowledge-all, POST /api/alerts/<id>, GET /api/alerts/stream and POST /api/alerts/stream/token), and GET /api/insights/cache-parity moved to GET /api/cache-parity. The old paths answer 410 Gone naming the new ones. An nginx config that matches insights/alerts in its event-stream location needs the new path.
+* **alerts:** the anomaly alert sweep is removed. ALERT_ANOMALY_ENABLED, ALERT_ANOMALY_INTERVAL_MINUTES, ALERT_ANOMALY_BASELINE_WINDOW_MINUTES, ALERT_ANOMALY_LOOP_MIN_REQUESTS and the alert_anomaly_* config keys are ignored, and the alert settings returned by GET /api/insights/alerts/config and POST /api/insights/alerts no longer include anomalyEnabled, anomalyIntervalMinutes, anomalyBaselineWindowMinutes or loopMinRequests.
+* **dashboard:** the dashboard's Insights page is removed and its alert list moved to the new Alerts page. GET /api/insights/cache, /api/insights/context and /api/insights/anomalies answer 410 Gone; use GET /api/analytics?modelBreakdown=true for cache hit rates.
+* **public-value:** serve the public subscription value feed as schema version 2 only ([#1007](https://github.com/StartupBros-com/hov-router/issues/1007))
+
+### Features
+
+* **dashboard:** replace the Insights page with an Alerts page ([#1015](https://github.com/StartupBros-com/hov-router/issues/1015)) ([c7ff0d7](https://github.com/StartupBros-com/hov-router/commit/c7ff0d75b78b5017164032d90d770a56c96a3e18))
+* **public-value:** serve the public subscription value feed as schema version 2 only ([#1007](https://github.com/StartupBros-com/hov-router/issues/1007)) ([53a45a6](https://github.com/StartupBros-com/hov-router/commit/53a45a6e12ee9aa076860130a3175daae8731198))
+* **public-value:** store each published account's plan and send it in the value feed ([#1008](https://github.com/StartupBros-com/hov-router/issues/1008)) ([d76ec51](https://github.com/StartupBros-com/hov-router/commit/d76ec51774a94be6fea1697274e7bf2974637622))
+
+
+### Bug Fixes
+
+* **codex:** serve the Codex CLI its own model catalog on /v1/models ([#1032](https://github.com/StartupBros-com/hov-router/issues/1032)) ([68aaddb](https://github.com/StartupBros-com/hov-router/commit/68aaddb34640b2efbaa397ebaf7fa688eb1412f0))
+* **codex:** stop forwarding the Responses Lite header, and name rejected fields ([#1022](https://github.com/StartupBros-com/hov-router/issues/1022)) ([db71c92](https://github.com/StartupBros-com/hov-router/commit/db71c925ea00c5b0eeeb984160e855189108d075))
+* **dashboard:** count only operator actions as needing attention on Accounts, and trim its controls ([#1023](https://github.com/StartupBros-com/hov-router/issues/1023)) ([4ce8cb5](https://github.com/StartupBros-com/hov-router/commit/4ce8cb56cbbcefa508c8d52cedf0586288b7346a)), refs [#1013](https://github.com/StartupBros-com/hov-router/issues/1013)
+* **dashboard:** name a 402 as Payment required on Accounts and count it as needing attention ([#1029](https://github.com/StartupBros-com/hov-router/issues/1029)) ([b952515](https://github.com/StartupBros-com/hov-router/commit/b95251522b15e3b33eabb6b8a62c0dc277efc842)), refs [#1025](https://github.com/StartupBros-com/hov-router/issues/1025)
+* **dashboard:** show Clear cooldown as the standard small outline button ([#1035](https://github.com/StartupBros-com/hov-router/issues/1035)) ([c468753](https://github.com/StartupBros-com/hov-router/commit/c46875358855a56128960de84f28c6a7b70d93f9)), refs [#890](https://github.com/StartupBros-com/hov-router/issues/890)
+* **database:** run the requests list, usage-window list and cache-health state reads off the main thread ([#1038](https://github.com/StartupBros-com/hov-router/issues/1038)) ([0844352](https://github.com/StartupBros-com/hov-router/commit/084435293ebf678ee26be552bd497680b516c0bd)), refs [#1013](https://github.com/StartupBros-com/hov-router/issues/1013)
+* **http-api:** keep the accounts page answering when the database reader is slow ([#1019](https://github.com/StartupBros-com/hov-router/issues/1019)) ([5adaf09](https://github.com/StartupBros-com/hov-router/commit/5adaf09e16c5e2a482cd6a59e2902092e662bccc)), refs [#1013](https://github.com/StartupBros-com/hov-router/issues/1013)
+* **http-api:** keep the public value feed up when the reader is slow ([#1010](https://github.com/StartupBros-com/hov-router/issues/1010)) ([fcc2c09](https://github.com/StartupBros-com/hov-router/commit/fcc2c092bb2ea31ac433d2ca12b13d63d2cdcd9c))
+* **http-api:** log slow public value feed builds at warn so production records them ([#1021](https://github.com/StartupBros-com/hov-router/issues/1021)) ([aa3a407](https://github.com/StartupBros-com/hov-router/commit/aa3a4073a23202eec66016465b8c4454c88f50ab))
+* **public-value:** rebuild the feed ahead of expiry so requests never wait ([#994](https://github.com/StartupBros-com/hov-router/issues/994)) ([3191e2f](https://github.com/StartupBros-com/hov-router/commit/3191e2fd2b8a249c28630f49a3bdd99867853e7c)), refs [#993](https://github.com/StartupBros-com/hov-router/issues/993)
+* remove obsolete automation and routing restrictions ([#1017](https://github.com/StartupBros-com/hov-router/issues/1017)) ([7f6e093](https://github.com/StartupBros-com/hov-router/commit/7f6e093c6fd47a5652839259820cd8d6bf96905c)), refs [#1014](https://github.com/StartupBros-com/hov-router/issues/1014)
+* **responses:** keep a tool output given as content parts ([#1026](https://github.com/StartupBros-com/hov-router/issues/1026)) ([28d70bc](https://github.com/StartupBros-com/hov-router/commit/28d70bc902a205f51a00e3d20e47d08fdfc1ba44))
+
+
+### Improvements
+
+* **alerts:** remove the dormant anomaly alert sweep ([#1024](https://github.com/StartupBros-com/hov-router/issues/1024)) ([c1af265](https://github.com/StartupBros-com/hov-router/commit/c1af265eaaaec16f226d0349df1bdb4fd38d06f1))
+* **api:** move the alert and cache-parity routes off /api/insights ([#1027](https://github.com/StartupBros-com/hov-router/issues/1027)) ([8b037e2](https://github.com/StartupBros-com/hov-router/commit/8b037e22199b805a8b3474ff7e0e8efb5840201a))
+* **api:** remove the fixed Codex lever fields from cache parity ([#1037](https://github.com/StartupBros-com/hov-router/issues/1037)) ([040ac86](https://github.com/StartupBros-com/hov-router/commit/040ac86107cf7a7beff2e6884ea8e3b128740347))
+* **database:** name main-thread reads and require a lane for off-thread ones ([#1044](https://github.com/StartupBros-com/hov-router/issues/1044)) ([e73b583](https://github.com/StartupBros-com/hov-router/commit/e73b5837ac5d806ad682554160f695728e62ea5b)), refs [#1042](https://github.com/StartupBros-com/hov-router/issues/1042)
+* remove legacy headers, the muse-spark route and pre-6.0 upgrade readers ([#1051](https://github.com/StartupBros-com/hov-router/issues/1051)) ([643d8d6](https://github.com/StartupBros-com/hov-router/commit/643d8d693ef6304667f35334ba0a7f9a9f5e16ed))
+* remove legacy readers and dead code that nothing calls ([#1050](https://github.com/StartupBros-com/hov-router/issues/1050)) ([734594a](https://github.com/StartupBros-com/hov-router/commit/734594a109513a383dd112f1c3e74388b953914e))
+* remove upgrade leftovers that nothing reads ([#1043](https://github.com/StartupBros-com/hov-router/issues/1043)) ([e47cfd4](https://github.com/StartupBros-com/hov-router/commit/e47cfd4305658641df6a91df6a7e301cd6f43abd))
+* retire legacy model-mapping formats, the max mode alias and the 5h rate-limit reason ([#1045](https://github.com/StartupBros-com/hov-router/issues/1045)) ([5cbe074](https://github.com/StartupBros-com/hov-router/commit/5cbe07409f40d86578c85934532f41ab00cddea9))
+
+
+### Performance Improvements
+
+* **database:** read the startup usage-window scans on the bulk lane ([#1046](https://github.com/StartupBros-com/hov-router/issues/1046)) ([09b6000](https://github.com/StartupBros-com/hov-router/commit/09b600037e790461f9ed06f2f2a9835241a34420))
+* **database:** run the two background usage_windows scans on the bulk reader ([#1003](https://github.com/StartupBros-com/hov-router/issues/1003)) ([2674d45](https://github.com/StartupBros-com/hov-router/commit/2674d456a48f4d0975b021c08745a1e06de79191)), refs [#991](https://github.com/StartupBros-com/hov-router/issues/991)
+
 ## [6.4.0](https://github.com/StartupBros-com/hov-router/compare/v6.3.0...v6.4.0) (2026-11-22)
 
 
