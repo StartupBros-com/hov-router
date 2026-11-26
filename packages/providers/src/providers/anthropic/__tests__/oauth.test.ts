@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { OAuthError } from "@better-ccflare/core";
+import { OAuthError } from "@hov-router/core";
 import type { OAuthProviderConfig } from "../../../types";
 import { AnthropicOAuthProvider } from "../oauth";
 

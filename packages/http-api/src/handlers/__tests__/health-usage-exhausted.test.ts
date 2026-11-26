@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { usageCache } from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+import { usageCache } from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import { computePoolStatus, createHealthHandler } from "../health";
 
 /**
@@ -107,10 +107,10 @@ describe("createHealthHandler — pool.usage_exhausted in the response", () => {
 	const dbWith = (accounts: Partial<Account>[]) =>
 		({
 			getAllAccounts: async () => accounts,
-		}) as unknown as import("@better-ccflare/database").DatabaseOperations;
+		}) as unknown as import("@hov-router/database").DatabaseOperations;
 	const config = {
 		getStrategy: () => "session",
-	} as unknown as import("@better-ccflare/config").Config;
+	} as unknown as import("@hov-router/config").Config;
 
 	afterEach(() => {
 		usageCache.delete("health-test-exhausted");

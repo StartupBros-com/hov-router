@@ -1,4 +1,4 @@
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import {
 	type CacheFlightCohortSealReceipt,
 	type CacheFlightKeepalivePolicySnapshot,
@@ -11,13 +11,13 @@ import {
 	normalizeDeploymentRevision,
 	type ResolvedBuildProvenance,
 	readBuildProvenance,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	isCacheFlightRecorderEnabled,
 	isOfficialXaiEndpoint,
 	isXaiCacheNativeEnabled,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import { readEffectiveXaiKeepalivePolicy } from "./cache-keepalive-policy";
 import {
 	type OpaqueRuntimeIdFactory,

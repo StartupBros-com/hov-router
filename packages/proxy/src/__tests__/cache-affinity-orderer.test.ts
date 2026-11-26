@@ -3,7 +3,7 @@ import type {
 	Account,
 	RequestMeta,
 	RoutingCandidateMetadata,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { CacheAffinityOrderer } from "../cache-affinity-orderer";
 
 function account(id: string, provider = "xai"): Account {

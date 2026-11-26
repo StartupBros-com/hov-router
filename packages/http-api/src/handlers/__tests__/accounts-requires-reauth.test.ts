@@ -1,13 +1,13 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import { isAccountAvailable } from "@better-ccflare/core";
+import type { Config } from "@hov-router/config";
+import { isAccountAvailable } from "@hov-router/core";
 import {
 	BunSqlAdapter,
 	ensureSchema,
 	runMigrations,
-} from "@better-ccflare/database";
-import type { Account, AccountResponse } from "@better-ccflare/types";
+} from "@hov-router/database";
+import type { Account, AccountResponse } from "@hov-router/types";
 import { createAccountsListHandler } from "../accounts";
 
 describe("GET /api/accounts canonical reauthentication state", () => {

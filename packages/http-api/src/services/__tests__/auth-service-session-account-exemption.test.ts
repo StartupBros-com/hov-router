@@ -10,7 +10,7 @@
  * might be added later, or for a non-GET method on this same path.
  */
 import { describe, expect, it } from "bun:test";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 import { AuthService } from "../auth-service";
 
 function makeDbOpsWithApiKeys(): DatabaseOperations {

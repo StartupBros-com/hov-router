@@ -16,7 +16,7 @@ import {
 	deriveExtraUsageHolds,
 	extraUsageHoldWindowKind,
 	normalizeProviderUsageWindows,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import { evaluateHardCapacity } from "../usage-throttling";
 
 const HOUR = 3_600_000;

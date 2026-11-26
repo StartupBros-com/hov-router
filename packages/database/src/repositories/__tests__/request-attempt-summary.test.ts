@@ -1,11 +1,11 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import "@better-ccflare/core";
+import "@hov-router/core";
 import {
 	type RequestRow,
 	toRequest,
 	toRequestResponse,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	attemptRequest as base,
 	expectedA,

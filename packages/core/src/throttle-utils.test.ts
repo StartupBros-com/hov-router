@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	computeWindowStartMs,
 	FIXED_WINDOW_DURATION_MS,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 
 const RESET = 1_700_000_000_000;
 const HOUR = 60 * 60 * 1000;

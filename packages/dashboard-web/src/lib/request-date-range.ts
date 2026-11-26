@@ -1,4 +1,4 @@
-import { formatClockTime } from "@better-ccflare/ui-common";
+import { formatClockTime } from "@hov-router/ui-common";
 
 /**
  * How the Requests page reads its From and To inputs. They are

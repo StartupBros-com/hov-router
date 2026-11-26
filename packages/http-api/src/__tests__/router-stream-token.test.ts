@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
-import "@better-ccflare/core";
-import { type ApiKey, NodeCryptoUtils } from "@better-ccflare/types/api-key";
+import "@hov-router/core";
+import { type ApiKey, NodeCryptoUtils } from "@hov-router/types/api-key";
 import { APIRouter } from "../router";
 import type { APIContext } from "../types";
 

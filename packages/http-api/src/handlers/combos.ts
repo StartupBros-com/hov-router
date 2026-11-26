@@ -1,18 +1,18 @@
-import type { ComboResolverDependencies } from "@better-ccflare/core/managed-routing";
+import type { ComboResolverDependencies } from "@hov-router/core/managed-routing";
 import {
 	getAllowedModelsMessage,
 	getModelFamily,
 	isFamilyAliasModel,
 	resolveEffectiveComboMembership,
 	resolveFamilyAliasModel,
-} from "@better-ccflare/core/managed-routing";
-import type { DatabaseOperations } from "@better-ccflare/database";
+} from "@hov-router/core/managed-routing";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	BadRequest,
 	Conflict,
 	NotFound,
 	UnprocessableEntity,
-} from "@better-ccflare/errors";
+} from "@hov-router/errors";
 import type {
 	AccountRoutingOpportunityView,
 	AccountRoutingOverview,
@@ -29,11 +29,11 @@ import type {
 	EffectiveComboRoutingView,
 	FamilyAliasPolicyApplyInput,
 	FamilyAliasPolicySelection,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	COMBO_SLOT_PRIORITY_MAX,
 	isComboSlotPriority,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	applyRoutingProposal,
 	assertNativeQuotaPolicyShape,

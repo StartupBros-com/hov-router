@@ -571,7 +571,7 @@ describe("release source evidence", () => {
 				sourceRef: `refs/tags/v${version}`,
 			};
 			const defines = releaseBuildDefines(evidence, "hov-router-binary");
-			const name = "__CCFLARE_BUILD_PROVENANCE_DISTRIBUTION__=";
+			const name = "__HOV_ROUTER_BUILD_PROVENANCE_DISTRIBUTION__=";
 			expect(
 				defines.find((define) => define.startsWith(name))?.slice(name.length),
 			).toBe(JSON.stringify(tokenFor(version)));

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { resolveBuildProvenance } from "@better-ccflare/core";
+import { resolveBuildProvenance } from "@hov-router/core";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {

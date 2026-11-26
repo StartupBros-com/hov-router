@@ -1,22 +1,20 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import { PAUSE_REASON_NEEDS_REAUTH } from "@better-ccflare/core";
-import type { Provider } from "@better-ccflare/providers";
+import { PAUSE_REASON_NEEDS_REAUTH } from "@hov-router/core";
+import type { Provider } from "@hov-router/providers";
 import type {
 	Account,
 	ComboFamily,
 	ComboRoutingPolicySnapshot,
 	ComboWithSlots,
 	RequestMeta,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { AnthropicDegradedModeCoordinator } from "../anthropic-degraded-mode";
 import { DegradedOwnerOverlay } from "../degraded-owner-overlay";
 import type { ProxyContext } from "../handlers";
 import type { UsageCollector } from "../usage-collector";
 
-const { usageCache } = await import("@better-ccflare/providers");
-const { getProvider, registerProvider } = await import(
-	"@better-ccflare/providers"
-);
+const { usageCache } = await import("@hov-router/providers");
+const { getProvider, registerProvider } = await import("@hov-router/providers");
 const { clearCodexModelCacheForTests } = await import("../codex-model-catalog");
 const { RESPONSES_ADAPTER_SECRET_HEADER } = await import(
 	"../handlers/proxy-types"
@@ -2424,7 +2422,7 @@ describe("native quota wait execution", () => {
 
 	it("preserves session affinity through Fable to Opus and back to recovered Fable", async () => {
 		const { SessionAffinityStrategy } = await import(
-			"@better-ccflare/load-balancer"
+			"@hov-router/load-balancer"
 		);
 		const { clearSession, getServedAccountObservation } = await import(
 			"../session-account-observer"
@@ -3539,7 +3537,7 @@ describe("adapter-authorized physical routing", () => {
 				model: "claude-sonnet-5",
 				messages: [{ role: "user", content: "offline fixture" }],
 				max_tokens: 16,
-				__better_ccflare_codex_passthrough: { model: "gpt-6-astra" },
+				__hov_router_codex_passthrough: { model: "gpt-6-astra" },
 			}),
 		});
 

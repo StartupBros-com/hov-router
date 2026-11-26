@@ -1,4 +1,4 @@
-import type { AnthropicUsageData, BankedResets } from "@better-ccflare/types";
+import type { AnthropicUsageData, BankedResets } from "@hov-router/types";
 import { useRef, useState } from "react";
 import type { Account } from "../../api";
 import type { RedeemResetAnswer } from "../../lib/redeem-reset";

@@ -1,4 +1,4 @@
-import type { Agent } from "@better-ccflare/types";
+import type { Agent } from "@hov-router/types";
 import { Bot, Cpu, Edit3, Folder, Globe, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "../ui/badge";

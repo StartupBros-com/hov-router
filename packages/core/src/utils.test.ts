@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { levenshteinDistance } from "@better-ccflare/core";
+import { levenshteinDistance } from "@hov-router/core";
 
 describe("Levenshtein Distance Utility", () => {
 	it("should return 0 for identical strings", () => {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { estimateAnthropicAdmissionTokens } from "../../../packages/providers/src/request-capabilities";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../../../packages/proxy/src/handlers";
 import { chmod, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server } from "node:http";

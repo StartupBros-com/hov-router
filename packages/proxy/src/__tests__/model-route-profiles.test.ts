@@ -5,7 +5,7 @@ import {
 	LATEST_MYTHOS_MODEL,
 	LATEST_OPUS_MODEL,
 	LATEST_SONNET_MODEL,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	describeModelRouteProfileFlow,
 	MODEL_ROUTE_PROFILE_MODEL_PREFIX,

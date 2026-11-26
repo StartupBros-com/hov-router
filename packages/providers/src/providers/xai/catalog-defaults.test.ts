@@ -3,9 +3,9 @@ import {
 	getCatalogModelSummaries,
 	isModelPriced,
 	resetNanoGPTPricingCacheForTest,
-} from "@better-ccflare/core";
-import { logBus } from "@better-ccflare/logger";
-import type { LogEvent } from "@better-ccflare/types";
+} from "@hov-router/core";
+import { logBus } from "@hov-router/logger";
+import type { LogEvent } from "@hov-router/types";
 import {
 	clearDerivedProviderModelDefaults,
 	registerProviderModelDefaultFactory,
@@ -328,7 +328,7 @@ describe("deriveXaiCatalogDefaults", () => {
 
 describe("getCatalogModelSummaries availability used by deriveXaiCatalogDefaults", () => {
 	// Sanity check that the accessor this module depends on is reachable from
-	// @better-ccflare/core with the shape catalog-defaults.ts expects - guards
+	// @hov-router/core with the shape catalog-defaults.ts expects - guards
 	// against a barrel-export regression silently breaking derivation.
 	it("is exported and returns an array", () => {
 		expect(Array.isArray(getCatalogModelSummaries("xai"))).toBe(true);

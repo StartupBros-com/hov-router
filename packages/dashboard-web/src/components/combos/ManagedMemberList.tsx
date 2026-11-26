@@ -1,4 +1,4 @@
-import type { ComboFamily } from "@better-ccflare/types";
+import type { ComboFamily } from "@hov-router/types";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import type { projectFamilyRouting } from "./family-routing";

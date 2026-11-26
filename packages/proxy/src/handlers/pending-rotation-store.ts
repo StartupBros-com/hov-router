@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
-import { isStorageFullError } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import { isStorageFullError } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import type {
 	PendingRotation,
 	PendingRotationPersistence,
@@ -21,7 +21,7 @@ import {
 /** How long a reservation that failed for lack of space is not tried again. */
 export const RESERVE_RETRY_MS = 5_000;
 
-/** Matches `@better-ccflare/logger`'s `Logger`: a message and at most one data value. */
+/** Matches `@hov-router/logger`'s `Logger`: a message and at most one data value. */
 export interface PendingRotationStoreLog {
 	info(message: string, data?: unknown): void;
 	warn(message: string, data?: unknown): void;

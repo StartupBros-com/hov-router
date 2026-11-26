@@ -1,5 +1,5 @@
-import { computeWindowStartMs, getModelFamily } from "@better-ccflare/core";
-import type { AccountResponse, FullUsageData } from "@better-ccflare/types";
+import { computeWindowStartMs, getModelFamily } from "@hov-router/core";
+import type { AccountResponse, FullUsageData } from "@hov-router/types";
 import type { RoutingObservation } from "../api";
 
 export type PoolWindow = "five_hour" | "seven_day";

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
-import { logBus } from "@better-ccflare/logger";
-import type { LogEvent } from "@better-ccflare/types";
+import { logBus } from "@hov-router/logger";
+import type { LogEvent } from "@hov-router/types";
 import { createLogsStreamHandler } from "../logs";
 
 const decoder = new TextDecoder();

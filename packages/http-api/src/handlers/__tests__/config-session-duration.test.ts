@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Config } from "@better-ccflare/config";
-import { TIME_CONSTANTS } from "@better-ccflare/core";
+import { Config } from "@hov-router/config";
+import { TIME_CONSTANTS } from "@hov-router/core";
 import { createConfigHandlers } from "../config";
 
 describe("GET /api/config session duration", () => {

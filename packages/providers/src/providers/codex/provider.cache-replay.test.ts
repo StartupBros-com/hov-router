@@ -112,7 +112,7 @@ function nativeResponseIdRequestFor(params: {
 		if (optIn) passthrough.continuation_strategy = "previous_response_id";
 		if (additionalTools) passthrough.additional_tools = additionalTools;
 		if (passthroughTools) passthrough.tools = passthroughTools;
-		body.__better_ccflare_codex_passthrough = passthrough;
+		body.__hov_router_codex_passthrough = passthrough;
 	}
 	return new Request(CODEX_DEFAULT_ENDPOINT, {
 		method: "POST",

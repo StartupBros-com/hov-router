@@ -1,4 +1,4 @@
-import type { ComboRoutingPreviewResult } from "@better-ccflare/types";
+import type { ComboRoutingPreviewResult } from "@hov-router/types";
 import type {
 	AccountRoutingOutcome,
 	AccountRoutingSelection,

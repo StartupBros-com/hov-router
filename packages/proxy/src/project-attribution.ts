@@ -1,5 +1,5 @@
-import { Logger } from "@better-ccflare/logger";
-import type { ProjectAttributionSource } from "@better-ccflare/types";
+import { Logger } from "@hov-router/logger";
+import type { ProjectAttributionSource } from "@hov-router/types";
 import type { RequestJsonBody } from "./request-body-context";
 
 const log = new Logger("ProjectAttribution");

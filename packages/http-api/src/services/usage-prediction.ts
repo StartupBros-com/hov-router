@@ -1,5 +1,5 @@
 // packages/http-api/src/services/usage-prediction.ts
-import type { PredictionPoint, UsagePrediction } from "@better-ccflare/types";
+import type { PredictionPoint, UsagePrediction } from "@hov-router/types";
 
 const HOUR_MS = 60 * 60 * 1000;
 const MIN_POINTS = 3;

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import type { ImplicitFallbackPolicyConfig } from "@better-ccflare/config";
-import * as core from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
-import type { Provider } from "@better-ccflare/providers";
+import type { ImplicitFallbackPolicyConfig } from "@hov-router/config";
+import * as core from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
+import type { Provider } from "@hov-router/providers";
 import type {
 	Account,
 	ComboFamily,
@@ -14,7 +14,7 @@ import type {
 	ServerToolCapabilityTuple,
 	ServerToolRequirements,
 	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type {
 	AnthropicDegradedCohortKey,
 	AnthropicDegradedRouteInspection,
@@ -44,8 +44,8 @@ const {
 	registerProvider,
 	setProviderModelDefaultOverrides,
 	usageCache,
-} = await import("@better-ccflare/providers");
-const { SessionStrategy } = await import("@better-ccflare/load-balancer");
+} = await import("@hov-router/providers");
+const { SessionStrategy } = await import("@hov-router/load-balancer");
 const { getCodexCatalogLineTarget, getCodexCatalogRoleTarget } = await import(
 	"../../codex-model-catalog"
 );
@@ -7362,9 +7362,7 @@ describe("U5 canary: KTD9 Vercel 429 is model-scoped, not an account bench (cons
 	// test records explicitly that the 429 fixture was constructed rather than
 	// observed, and that no billing-exhaustion evidence was carried.
 	it("OpenAI-compatible parseRateLimit returns isRateLimited:false for a constructed Vercel 429", async () => {
-		const { OpenAICompatibleProvider } = await import(
-			"@better-ccflare/providers"
-		);
+		const { OpenAICompatibleProvider } = await import("@hov-router/providers");
 		const provider = new OpenAICompatibleProvider();
 
 		// CONSTRUCTED 429 fixture — no billing-exhaustion evidence was observed.
@@ -7405,9 +7403,7 @@ describe("U5 canary: KTD9 Vercel 429 is model-scoped, not an account bench (cons
 		// 429) and the account is not benched. This test verifies the chain:
 		// parseRateLimit(false) → 429 enters model-fallback, not account cooldown.
 		const { isModelUnavailableError } = await import("../proxy-operations");
-		const { OpenAICompatibleProvider } = await import(
-			"@better-ccflare/providers"
-		);
+		const { OpenAICompatibleProvider } = await import("@hov-router/providers");
 		const provider = new OpenAICompatibleProvider();
 
 		const response = new Response(

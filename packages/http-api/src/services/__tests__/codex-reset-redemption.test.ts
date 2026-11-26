@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	type CodexResetCreditRow,
 	DatabaseOperations,
-} from "@better-ccflare/database";
-import type { CodexResetConsumeRequest } from "@better-ccflare/providers";
-import type { CodexResetRedeemDispatch } from "@better-ccflare/proxy";
+} from "@hov-router/database";
+import type { CodexResetConsumeRequest } from "@hov-router/providers";
+import type { CodexResetRedeemDispatch } from "@hov-router/proxy";
 import {
 	CodexResetRedemptionService,
 	chooseRedeemCreditId,

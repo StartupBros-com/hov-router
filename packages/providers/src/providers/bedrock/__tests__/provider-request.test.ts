@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 import { BedrockClient } from "@aws-sdk/client-bedrock";
 import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 
 let capturedInput: Record<string, unknown> | undefined;
 
@@ -38,11 +38,11 @@ Object.defineProperty(BedrockClient.prototype, "send", {
 	value: profileSend,
 });
 
-mock.module("@better-ccflare/core", () => ({
+mock.module("@hov-router/core", () => ({
 	estimateCostUSD: async () => 0,
 }));
 
-mock.module("@better-ccflare/database", () => ({
+mock.module("@hov-router/database", () => ({
 	DatabaseFactory: {
 		initialize: mock(() => {}),
 		reset: mock(() => {}),

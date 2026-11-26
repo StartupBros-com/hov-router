@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import type { DatabaseOperations } from "@hov-router/database";
 
 // Account command imports the provider barrel, whose Bedrock error helper has
 // runtime database imports. This focused unit test never exercises that helper.
-mock.module("@better-ccflare/database", () => ({
+mock.module("@hov-router/database", () => ({
 	DatabaseFactory: class DatabaseFactory {},
 	ModelTranslationRepository: class ModelTranslationRepository {},
 }));

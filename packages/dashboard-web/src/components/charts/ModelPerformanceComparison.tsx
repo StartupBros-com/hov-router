@@ -1,4 +1,4 @@
-import { formatCost, formatTokensPerSecond } from "@better-ccflare/ui-common";
+import { formatCost, formatTokensPerSecond } from "@hov-router/ui-common";
 import {
 	Area,
 	AreaChart,

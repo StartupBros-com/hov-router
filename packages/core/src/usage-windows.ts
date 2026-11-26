@@ -1,4 +1,4 @@
-import type { CanonicalUsageWindow } from "@better-ccflare/types";
+import type { CanonicalUsageWindow } from "@hov-router/types";
 import { getModelFamily, weeklyScopedWindowKey } from "./model-mappings";
 
 type UsageRecord = Record<string, unknown>;

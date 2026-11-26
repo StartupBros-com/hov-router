@@ -5,7 +5,7 @@
  * proxy has to look at the first chunk to notice.
  *
  * Kept in its own module (with only dependency-light imports) so it can be
- * unit-tested — proxy-operations.ts pulls in @better-ccflare/database
+ * unit-tested — proxy-operations.ts pulls in @hov-router/database
  * transitively and is not importable from tests.
  */
 import { drainBody } from "./discard-body-cancel";

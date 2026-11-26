@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { sanitizeRequestRoutingAttemptSummary } from "@better-ccflare/types/request";
+import { sanitizeRequestRoutingAttemptSummary } from "@hov-router/types/request";
 import * as collectors from "../../usage-collector";
 import type { EndMessage } from "../../worker-messages";
 
@@ -28,13 +28,13 @@ afterEach(() => {
 import {
 	affinityLaneDigest,
 	SessionAffinityStrategy,
-} from "@better-ccflare/load-balancer";
+} from "@hov-router/load-balancer";
 import {
 	deriveServerToolRequirement,
 	getProvider,
 	usageCache,
-} from "@better-ccflare/providers";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account, RequestMeta } from "@hov-router/types";
 import { resetDefaultCircuitBreaker } from "../../circuit-breaker";
 import {
 	ModelRouteSessionRegistry,

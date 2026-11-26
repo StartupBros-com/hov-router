@@ -1,9 +1,9 @@
 import { describe, expect, it, mock } from "bun:test";
-import { BUFFER_SIZES } from "@better-ccflare/core";
+import { BUFFER_SIZES } from "@hov-router/core";
 import {
 	DEFAULT_KEEPALIVE_INTERVAL_MS,
 	transformStreamingResponse,
-} from "@better-ccflare/openai-formats";
+} from "@hov-router/openai-formats";
 import {
 	ANTHROPIC_PRECOMMIT_RESCUE_PING_FRAME,
 	coordinateAnthropicPreCommitRescue,

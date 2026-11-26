@@ -7,18 +7,18 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 
 // This focused unit test does not need DatabaseOperations' worker-backed runtime.
 // Mock the package before loading the handler so a source checkout can run it
 // without generating any inline worker artifacts.
-mock.module("@better-ccflare/database", () => ({
+mock.module("@hov-router/database", () => ({
 	DatabaseOperations: class DatabaseOperations {},
 	DatabaseFactory: class DatabaseFactory {},
 	ModelTranslationRepository: class ModelTranslationRepository {},
 }));
 
-mock.module("@better-ccflare/cli-commands", () => ({
+mock.module("@hov-router/cli-commands", () => ({
 	pauseAccount: mock(async () => ({ success: true })),
 	removeAccount: mock(async () => ({ success: true })),
 	resumeAccount: mock(async () => ({ success: true })),
@@ -29,7 +29,7 @@ mock.module("@better-ccflare/cli-commands", () => ({
 // undefined, so omitting one fails the whole file rather than one assertion.
 // Only visible when this file runs ALONE — a batch run may already have loaded
 // the real module — which is exactly what CI's isolated-file pass is for.
-mock.module("@better-ccflare/proxy", () => ({
+mock.module("@hov-router/proxy", () => ({
 	clearAccountRefreshCache: mock(() => {}),
 	clearAccountRemovalTrackingForAccount: mock(() => {}),
 	clearCodexModelCacheForAccount: mock(() => {}),
@@ -41,7 +41,7 @@ mock.module("@better-ccflare/proxy", () => ({
 	restartUsagePollingForAccount: mock(() => {}),
 }));
 
-const { usageCache } = await import("@better-ccflare/providers");
+const { usageCache } = await import("@hov-router/providers");
 const { createAccountForceResetRateLimitHandler } = await import("../accounts");
 
 function handledRejectedPromise<T>(error: Error): Promise<T> {

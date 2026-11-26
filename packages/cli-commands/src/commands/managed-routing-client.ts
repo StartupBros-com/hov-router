@@ -5,7 +5,7 @@ import type {
 	ComboFamilyAssignment,
 	ComboRoutingPreviewResult,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 export const DEFAULT_MANAGED_ROUTING_API_URL = "http://127.0.0.1:8788";
 

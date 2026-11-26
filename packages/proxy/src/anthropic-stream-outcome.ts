@@ -3,7 +3,7 @@ import {
 	SseFrameBuffer,
 	SseLimitError,
 	type StreamResourceLimitKind,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 
 const DEFAULT_MAX_FRAME_BYTES = BUFFER_SIZES.SSE_TRANSPORT_FRAME_MAX_BYTES;
 const DEFAULT_MAX_BUFFER_BYTES = BUFFER_SIZES.SSE_TRANSPORT_TAIL_MAX_BYTES;

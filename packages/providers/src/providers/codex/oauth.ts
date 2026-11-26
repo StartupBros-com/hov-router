@@ -1,5 +1,5 @@
-import { OAuthError } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import { OAuthError } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import type {
 	OAuthProvider,
 	OAuthProviderConfig,

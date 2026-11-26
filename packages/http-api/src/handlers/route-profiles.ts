@@ -3,7 +3,7 @@ import {
 	Conflict,
 	HttpError,
 	ServiceUnavailable,
-} from "@better-ccflare/errors";
+} from "@hov-router/errors";
 import {
 	MAX_STORED_ROUTE_PROFILES_BYTES,
 	type ModelRouteProfile,
@@ -12,7 +12,7 @@ import {
 	ModelRouteProfilesInvalidError,
 	ModelRouteProfilesUnavailableError,
 	modelRouteProfileModelIds,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import { errorResponse, jsonResponse } from "../utils/http-error";
 
 export interface RouteProfileAccount {

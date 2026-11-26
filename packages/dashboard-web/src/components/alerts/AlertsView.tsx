@@ -1,4 +1,4 @@
-import type { AlertSeverity } from "@better-ccflare/types";
+import type { AlertSeverity } from "@hov-router/types";
 import { useQueryClient } from "@tanstack/react-query";
 import {
 	Check,

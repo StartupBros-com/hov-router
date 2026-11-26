@@ -4,8 +4,8 @@ import {
 	type ResolvedDistributionProvenance,
 	resolveBuildProvenance,
 	type TrustedUpdateChannel,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import { jsonResponse } from "../utils/http-error";
 
 const log = new Logger("VersionHandler");

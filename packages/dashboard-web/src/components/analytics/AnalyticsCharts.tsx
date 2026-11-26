@@ -1,5 +1,5 @@
-import type { TimePoint } from "@better-ccflare/types";
-import { formatCost, formatTokens } from "@better-ccflare/ui-common";
+import type { TimePoint } from "@hov-router/types";
+import { formatCost, formatTokens } from "@hov-router/ui-common";
 import { useState } from "react";
 import {
 	Area,

@@ -1,14 +1,14 @@
-import { agentRegistry } from "@better-ccflare/agents";
-import { validateString } from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import { agentRegistry } from "@hov-router/agents";
+import { validateString } from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	BadRequest,
 	errorResponse,
 	HttpError,
 	jsonResponse,
-} from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
-import type { AgentModelSource, APIContext } from "@better-ccflare/types";
+} from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
+import type { AgentModelSource, APIContext } from "@hov-router/types";
 import {
 	allowedModelErrorMessage,
 	isAllowedModel,

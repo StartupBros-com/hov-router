@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { APIContext } from "@better-ccflare/types";
+import type { APIContext } from "@hov-router/types";
 import { allowedModelErrorMessage, isAllowedModel } from "../model-validation";
 
 function makeCatalog(

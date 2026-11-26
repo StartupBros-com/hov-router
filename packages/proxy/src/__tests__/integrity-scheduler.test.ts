@@ -22,16 +22,16 @@ import {
 	it,
 	mock,
 } from "bun:test";
-import { TIME_CONSTANTS } from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import type { IntegrityStatus } from "@better-ccflare/types";
+import { TIME_CONSTANTS } from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
+import type { IntegrityStatus } from "@hov-router/types";
 
 const { SECOND, MINUTE, HOUR } = TIME_CONSTANTS;
 
 // ---------------------------------------------------------------------------
 // Module mock — must be declared before importing the scheduler so that
 // bun's module resolution picks up the mock when it resolves
-// @better-ccflare/database. The scheduler imports `runIntegrityCheckInWorker`
+// @hov-router/database. The scheduler imports `runIntegrityCheckInWorker`
 // as a value (only thing we need to fake); `DatabaseOperations` is a
 // type-only import and is erased at runtime, so it doesn't need a stub.
 // ---------------------------------------------------------------------------
@@ -55,21 +55,21 @@ const mockRunIntegrityCheckInWorker = mock(
 // mock.module replaces the WHOLE module globally and across file boundaries
 // in Bun (no per-file isolation without --isolate), so spread the real
 // module's exports and only override runIntegrityCheckInWorker — otherwise
-// other test files importing @better-ccflare/database later in the same
+// other test files importing @hov-router/database later in the same
 // process would lose every other export (DatabaseFactory, DatabaseOperations,
 // etc.) this file doesn't otherwise need to touch.
-const actualDatabase = await import("@better-ccflare/database");
+const actualDatabase = await import("@hov-router/database");
 
-mock.module("@better-ccflare/database", () => ({
+mock.module("@hov-router/database", () => ({
 	...actualDatabase,
 	runIntegrityCheckInWorker: mockRunIntegrityCheckInWorker,
 }));
 
 // Restore the real module once this file's tests finish so later test files
 // in the same process (mock.module has no per-file isolation without
-// --isolate) resolve the real @better-ccflare/database exports again.
+// --isolate) resolve the real @hov-router/database exports again.
 afterAll(() => {
-	mock.module("@better-ccflare/database", () => actualDatabase);
+	mock.module("@hov-router/database", () => actualDatabase);
 });
 
 import {

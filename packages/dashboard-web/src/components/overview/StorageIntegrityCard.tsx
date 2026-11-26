@@ -1,4 +1,4 @@
-import { COMMAND_NAME } from "@better-ccflare/core/product-identity";
+import { COMMAND_NAME } from "@hov-router/core/product-identity";
 import {
 	AlertTriangle,
 	CheckCircle,

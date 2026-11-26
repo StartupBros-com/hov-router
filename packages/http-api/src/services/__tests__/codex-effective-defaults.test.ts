@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { setForceAccountModel } from "@better-ccflare/core";
+import { setForceAccountModel } from "@hov-router/core";
 import {
 	clearDerivedProviderModelDefaults,
 	setDerivedAccountModelDefaults,
 	setDerivedProviderWideModelDefaults,
 	setProviderModelDefaultOverrides,
-} from "@better-ccflare/providers";
-import { resolveCodexRequestModel } from "@better-ccflare/providers/codex";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import { resolveCodexRequestModel } from "@hov-router/providers/codex";
+import type { Account } from "@hov-router/types";
 import { resolveCodexAccountFamilyDefault } from "../codex-effective-defaults";
 
 function makeAccount(overrides: Partial<Account> = {}): Account {

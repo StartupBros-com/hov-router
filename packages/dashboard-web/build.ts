@@ -39,7 +39,7 @@ const result = await Bun.build({
 	splitting: true,
 	define: {
 		"process.env.NODE_ENV": JSON.stringify("production"),
-		__BETTER_CCFLARE_VERSION__: JSON.stringify(bundleVersion),
+		__HOV_ROUTER_VERSION__: JSON.stringify(bundleVersion),
 	},
 });
 

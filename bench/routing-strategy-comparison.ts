@@ -1,8 +1,8 @@
 import {
 	SessionAffinityStrategy,
 	SessionDrainSoonestStrategy,
-} from "@better-ccflare/load-balancer";
-import type { Account, RoutingCandidateMetadata } from "@better-ccflare/types";
+} from "@hov-router/load-balancer";
+import type { Account, RoutingCandidateMetadata } from "@hov-router/types";
 import {
 	account,
 	candidate,

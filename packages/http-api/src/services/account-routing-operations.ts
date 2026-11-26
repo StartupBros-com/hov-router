@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import {
 	coveringExtraUsageHolds,
 	validateModelMappings as validateCoreModelMappings,
-} from "@better-ccflare/core";
-import type { ComboResolverDependencies } from "@better-ccflare/core/managed-routing";
+} from "@hov-router/core";
+import type { ComboResolverDependencies } from "@hov-router/core/managed-routing";
 import {
 	proposeComboEnrollmentRules,
 	proposeComboFamilyConversionRules,
@@ -11,24 +11,24 @@ import {
 	resolveComboProposalPolicyModel,
 	resolveEffectiveComboMembership,
 	validateNativeQuotaRouteShape,
-} from "@better-ccflare/core/managed-routing";
-import type { DatabaseOperations } from "@better-ccflare/database";
+} from "@hov-router/core/managed-routing";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	BadRequest,
 	Conflict,
 	NotFound,
 	UnprocessableEntity,
-} from "@better-ccflare/errors";
+} from "@hov-router/errors";
 import {
 	createComboRouteClassDraftProbe,
 	deriveComboRouteClass,
 	resolveAccountLogicalModelCapability,
-} from "@better-ccflare/providers/request-capabilities";
-import { usageCache } from "@better-ccflare/providers/usage-cache";
+} from "@hov-router/providers/request-capabilities";
+import { usageCache } from "@hov-router/providers/usage-cache";
 import {
 	evaluateHardCapacity,
 	isCodexCreditDrainActive,
-} from "@better-ccflare/proxy/usage-throttling";
+} from "@hov-router/proxy/usage-throttling";
 import type {
 	Account,
 	AccountRoutingEffectiveView,
@@ -46,8 +46,8 @@ import type {
 	ComboRoutingPreviewScope,
 	ComboRoutingPreviewSubject,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
-import { isComboSlotPriority } from "@better-ccflare/types";
+} from "@hov-router/types";
+import { isComboSlotPriority } from "@hov-router/types";
 import { createPersistedAccountRoutingFinalizer } from "./account-routing-finalization";
 
 const VALID_ROUTE_CLASSES: readonly ComboRouteClass[] = [

@@ -1,4 +1,4 @@
-import { BUFFER_SIZES, extractClaudeVersion } from "@better-ccflare/core";
+import { BUFFER_SIZES, extractClaudeVersion } from "@hov-router/core";
 import { isPotentialDownstreamAnthropicMessagesRequest } from "./anthropic-precommit-rescue";
 import { classifyAnthropicSseFrame } from "./anthropic-sse-frame-classifier";
 

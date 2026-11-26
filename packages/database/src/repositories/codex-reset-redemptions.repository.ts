@@ -1,6 +1,6 @@
 import { BaseRepository } from "./base.repository";
 
-/** Mirrors `CodexResetRedemptionState` in @better-ccflare/types. */
+/** Mirrors `CodexResetRedemptionState` in @hov-router/types. */
 export type CodexResetRedemptionRowState =
 	| "pending"
 	| "unknown"

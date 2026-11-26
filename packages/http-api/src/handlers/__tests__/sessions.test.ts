@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { usageCache } from "@better-ccflare/providers";
+import type { Config } from "@hov-router/config";
+import type { DatabaseOperations } from "@hov-router/database";
+import { usageCache } from "@hov-router/providers";
 import {
 	clearSession,
 	getServedAccountObservation,
 	recordServedAccount,
-} from "@better-ccflare/proxy";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/proxy";
+import type { Account } from "@hov-router/types";
 import { AuthService } from "../../services/auth-service";
 import { createSessionAccountHandler } from "../sessions";
 

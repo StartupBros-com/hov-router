@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import "@better-ccflare/core";
-import { SessionAffinityStrategy } from "@better-ccflare/load-balancer";
-import type { RequestMeta } from "@better-ccflare/types";
+import "@hov-router/core";
+import { SessionAffinityStrategy } from "@hov-router/load-balancer";
+import type { RequestMeta } from "@hov-router/types";
 import {
 	sanitizeRequestRoutingAttemptSummary,
 	sanitizeRoutingDecision,
-} from "@better-ccflare/types/request";
+} from "@hov-router/types/request";
 import { RoutingAttemptLedger } from "../handlers/routing-attempt-ledger";
 import {
 	captureRoutingDecision,

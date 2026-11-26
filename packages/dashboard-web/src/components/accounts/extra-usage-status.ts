@@ -5,7 +5,7 @@
  * hold's short cue; Details > Settings shows the rest.
  * Pure, so the row and its tests share one source for the copy.
  */
-import { formatClockTime } from "@better-ccflare/ui-common";
+import { formatClockTime } from "@hov-router/ui-common";
 import type { Account } from "../../api";
 import { formatWindowName } from "./rate-limit-helpers";
 

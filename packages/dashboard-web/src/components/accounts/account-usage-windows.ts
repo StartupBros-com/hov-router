@@ -1,4 +1,4 @@
-import type { AnthropicUsageData, FullUsageData } from "@better-ccflare/types";
+import type { AnthropicUsageData, FullUsageData } from "@hov-router/types";
 import { normalizeResetMs } from "../../lib/pool-usage";
 import { providerShowsWeeklyUsage } from "../../utils/provider-utils";
 import {

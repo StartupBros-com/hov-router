@@ -4,7 +4,7 @@ import type {
 	AccountRoutingOverview,
 	ComboFamily,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type { PromptAdapter } from "../../prompts/adapter";
 import {
 	executeManagedRoutingCliCommand,

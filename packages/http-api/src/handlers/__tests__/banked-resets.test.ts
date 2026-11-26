@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
-import type {
-	AccountResponse,
-	BankedResetsSummary,
-} from "@better-ccflare/types";
+import type { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
+import type { AccountResponse, BankedResetsSummary } from "@hov-router/types";
 import { APIRouter } from "../../router";
 import type { APIContext } from "../../types";
 import { createAccountsListHandler } from "../accounts";

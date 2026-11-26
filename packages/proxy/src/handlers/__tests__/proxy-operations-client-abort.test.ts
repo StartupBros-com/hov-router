@@ -7,7 +7,7 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import type { Account, RequestMeta } from "@hov-router/types";
 import { AnthropicDegradedResponseLifecycle } from "../../anthropic-degraded-response-lifecycle";
 import { ANTHROPIC_DRAIN_DEADLINE_MS } from "../../anthropic-terminal-recovery";
 import type { AnthropicDegradedRequestSendState } from "../proxy-operations";

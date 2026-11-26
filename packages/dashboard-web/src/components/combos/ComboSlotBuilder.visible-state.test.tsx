@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { ComboWithSlots } from "@better-ccflare/types";
+import type { ComboWithSlots } from "@hov-router/types";
 import type { ReactNode } from "react";
 import { queryKeys } from "../../lib/query-keys";
 

@@ -8,12 +8,12 @@ import {
 	setSystemTime,
 	spyOn,
 } from "bun:test";
-import { CODEX_LOGICAL_MODEL_FAMILY_HEADER } from "@better-ccflare/http-common";
+import { CODEX_LOGICAL_MODEL_FAMILY_HEADER } from "@hov-router/http-common";
 import type {
 	ProviderAttemptPlan,
 	ProviderAttemptPlanContext,
-} from "@better-ccflare/providers";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account, RequestMeta } from "@hov-router/types";
 import {
 	bindManagedRequest,
 	createAcceptedTiming,
@@ -26,7 +26,7 @@ import type { ProxyContext } from "../proxy-types";
 // Source worktrees intentionally exclude generated database worker bundles.
 // This harness injects dbOps and never constructs these classes.
 const usageCollectorModule = await import("../../usage-collector");
-const { getProvider } = await import("@better-ccflare/providers");
+const { getProvider } = await import("@hov-router/providers");
 const { ForceRouteUnavailableError, selectAccountsForRequest } = await import(
 	"../account-selector"
 );

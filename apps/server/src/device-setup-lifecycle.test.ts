@@ -6,7 +6,7 @@ import { startExternalCodexScheduler } from "../../../packages/proxy/src/externa
 // Server unit tests exercise exported pure lifecycle helpers without booting a
 // database. The production database barrel imports generated worker modules,
 // which intentionally do not exist until the build step runs.
-mock.module("@better-ccflare/database", () => ({
+mock.module("@hov-router/database", () => ({
 	AsyncDbWriter: class {},
 	ExternalUsageRepository,
 	DatabaseFactory: {},
@@ -33,7 +33,7 @@ class MockCodexResetCreditObserver {
 }
 const restorePendingRotations = mock(async () => 0);
 
-mock.module("@better-ccflare/http-api", () => ({
+mock.module("@hov-router/http-api", () => ({
 	ExternalCodexScanner,
 	AlertService: MockHttpApiService,
 	APIRouter: MockHttpApiService,
@@ -50,10 +50,10 @@ mock.module("@better-ccflare/http-api", () => ({
 		drain: async () => {},
 	}),
 }));
-mock.module("@better-ccflare/openai-responses-adapter", () => ({
+mock.module("@hov-router/openai-responses-adapter", () => ({
 	handleResponsesRequest: async () => new Response(),
 }));
-mock.module("@better-ccflare/providers", () => ({
+mock.module("@hov-router/providers", () => ({
 	CODEX_DEFAULT_ENDPOINT: "https://example.invalid",
 	CODEX_PING_MODEL: "test-model",
 	consumeCodexResetCredit: async () => ({ kind: "network" }),
@@ -75,12 +75,12 @@ mock.module("@better-ccflare/providers", () => ({
 	setProviderModelDefaultOverrides: () => {},
 	usageCache: { clear: () => {} },
 }));
-mock.module("@better-ccflare/providers/bedrock", () => ({
+mock.module("@hov-router/providers/bedrock", () => ({
 	canUseInferenceProfileDynamic: async () => false,
 	parseBedrockConfig: () => null,
 	translateModelName: (model: string) => model,
 }));
-mock.module("@better-ccflare/proxy", () => {
+mock.module("@hov-router/proxy", () => {
 	class Scheduler {
 		stop() {}
 	}

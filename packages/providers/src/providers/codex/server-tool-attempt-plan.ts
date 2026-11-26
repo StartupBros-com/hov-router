@@ -1,5 +1,5 @@
-import { BUFFER_SIZES, SseFrameBuffer } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import { BUFFER_SIZES, SseFrameBuffer } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import {
 	type AnthropicServerToolEncoder,
 	type AnthropicServerToolJsonCompletion,

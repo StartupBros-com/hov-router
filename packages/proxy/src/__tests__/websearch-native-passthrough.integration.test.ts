@@ -7,16 +7,16 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type { Provider } from "@better-ccflare/providers";
+import type { Provider } from "@hov-router/providers";
 import type {
 	Account,
 	ServerToolCapabilityProof,
 	ServerToolCapabilityTuple,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 
 // Focused proxy tests must not load ignored embedded worker artifacts.
-const { getProvider } = await import("@better-ccflare/providers");
+const { getProvider } = await import("@hov-router/providers");
 const usageCollectorModule = await import("../usage-collector");
 const accountSelectorModule = await import("../handlers/account-selector");
 const { handleProxy } = await import("../proxy");
@@ -467,7 +467,7 @@ describe("native web_search passthrough dispatch", () => {
 	});
 
 	it("logs the demotion at warn level with the model, once for the request", async () => {
-		const { Logger } = await import("@better-ccflare/logger");
+		const { Logger } = await import("@hov-router/logger");
 		const warn = spyOn(Logger.prototype, "warn").mockImplementation(
 			() => undefined,
 		);
@@ -489,7 +489,7 @@ describe("native web_search passthrough dispatch", () => {
 	});
 
 	it("demotes every attempt of one request but logs the demotion warn once across a failover", async () => {
-		const { Logger } = await import("@better-ccflare/logger");
+		const { Logger } = await import("@hov-router/logger");
 		const warn = spyOn(Logger.prototype, "warn").mockImplementation(
 			() => undefined,
 		);

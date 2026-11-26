@@ -1,15 +1,15 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { agentRegistry } from "@better-ccflare/agents";
+import { agentRegistry } from "@hov-router/agents";
 import {
 	hasForcedToolChoice,
 	supportsForcedToolChoice,
-} from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { Logger } from "@better-ccflare/logger";
-import { validatePath } from "@better-ccflare/security";
-import type { AgentAttributionSource } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
+import { Logger } from "@hov-router/logger";
+import { validatePath } from "@hov-router/security";
+import type { AgentAttributionSource } from "@hov-router/types";
 import { getModelCatalog, type ModelCatalog } from "../model-catalog";
 import { RequestBodyContext } from "../request-body-context";
 

@@ -1,8 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import {
-	installOutboundProxy,
-	uninstallOutboundProxy,
-} from "@better-ccflare/core";
+import { installOutboundProxy, uninstallOutboundProxy } from "@hov-router/core";
 
 interface FakeProxy {
 	server: ReturnType<typeof Bun.listen>;

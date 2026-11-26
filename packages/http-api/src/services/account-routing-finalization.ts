@@ -3,7 +3,7 @@ import type {
 	ComboRoutingPreviewResult,
 	EffectiveComboMemberView,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 export interface ReviewedAccountRoutingSelection {
 	family: ComboFamily;

@@ -1,4 +1,4 @@
-import { formatTokensPerSecond } from "@better-ccflare/ui-common";
+import { formatTokensPerSecond } from "@hov-router/ui-common";
 import {
 	Bar,
 	BarChart,

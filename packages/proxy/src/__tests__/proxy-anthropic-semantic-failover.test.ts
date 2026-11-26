@@ -7,15 +7,11 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@better-ccflare/config";
-import { SessionAffinityStrategy } from "@better-ccflare/load-balancer";
-import { logBus } from "@better-ccflare/logger";
-import { transformStreamingResponse } from "@better-ccflare/openai-formats";
-import type {
-	Account,
-	ComboWithSlots,
-	RequestMeta,
-} from "@better-ccflare/types";
+import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@hov-router/config";
+import { SessionAffinityStrategy } from "@hov-router/load-balancer";
+import { logBus } from "@hov-router/logger";
+import { transformStreamingResponse } from "@hov-router/openai-formats";
+import type { Account, ComboWithSlots, RequestMeta } from "@hov-router/types";
 import {
 	AnthropicDegradedModeCoordinator,
 	buildAnthropicDegradedCohortKey,
@@ -110,7 +106,7 @@ const {
 	setDerivedProviderModelDefaults,
 	usageCache,
 	XaiProvider,
-} = await import("@better-ccflare/providers");
+} = await import("@hov-router/providers");
 const { clearCodexModelCacheForTests } = await import("../codex-model-catalog");
 const { alignRouteCandidateIds, handleProxy } = await import("../proxy");
 

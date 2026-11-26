@@ -1,4 +1,4 @@
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import { BaseAnthropicCompatibleProvider } from "../base-anthropic-compatible";
 
 const ALIBABA_CODING_PLAN_DEFAULT_ENDPOINT =

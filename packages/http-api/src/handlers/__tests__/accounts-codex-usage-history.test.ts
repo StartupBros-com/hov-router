@@ -1,13 +1,13 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import {
 	BunSqlAdapter,
 	ensureSchema,
 	runMigrations,
-} from "@better-ccflare/database";
-import { usageCache } from "@better-ccflare/providers";
-import type { AccountResponse } from "@better-ccflare/types";
+} from "@hov-router/database";
+import { usageCache } from "@hov-router/providers";
+import type { AccountResponse } from "@hov-router/types";
 import { createAccountsListHandler } from "../accounts";
 
 /**

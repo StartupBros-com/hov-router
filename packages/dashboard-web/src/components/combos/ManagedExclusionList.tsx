@@ -1,7 +1,4 @@
-import type {
-	ComboFamily,
-	ComboMembershipExclusion,
-} from "@better-ccflare/types";
+import type { ComboFamily, ComboMembershipExclusion } from "@hov-router/types";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {

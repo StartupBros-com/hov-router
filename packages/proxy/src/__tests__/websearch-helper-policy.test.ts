@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { RequestMeta } from "@better-ccflare/types";
+import type { RequestMeta } from "@hov-router/types";
 import { parseModelRouteProfiles } from "../model-route-profiles";
 import {
 	authorizeWebSearchHelper,

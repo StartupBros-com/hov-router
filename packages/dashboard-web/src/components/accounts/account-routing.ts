@@ -10,7 +10,7 @@ import type {
 	ComboRoutingProposalPreview,
 	EffectiveComboMemberView,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 export type AccountSetupMode =
 	| "claude-oauth"

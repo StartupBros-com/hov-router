@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import { HttpError } from "@better-ccflare/errors";
+import { HttpError } from "@hov-router/errors";
 import { api } from "../api";
 import {
 	fetchProviderModelDefaultsResponse,

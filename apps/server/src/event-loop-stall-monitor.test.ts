@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { SqlWindowSummary } from "@better-ccflare/database";
+import type { SqlWindowSummary } from "@hov-router/database";
 import {
 	EventLoopStallMonitor,
 	type EventLoopStallReport,

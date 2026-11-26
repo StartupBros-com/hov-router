@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { DatabaseOperations } from "@better-ccflare/database";
+import { DatabaseOperations } from "@hov-router/database";
 import { createAccountAutoPauseOnOverageHandler } from "../accounts";
 
 const HOUR = 3_600_000;

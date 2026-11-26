@@ -20,7 +20,7 @@
  * This is a static/structural check, consistent with the repo's existing
  * issue #273 regression test (bun-leak-273-regression.test.ts Group B) —
  * proxy-operations.ts is not imported directly here because its transitive
- * dependency chain loads @better-ccflare/database, which can fail to
+ * dependency chain loads @hov-router/database, which can fail to
  * initialise in worktrees where `bun install` has not run.
  *
  * Run: bun test packages/proxy/src/handlers/__tests__/proxy-operations-529-parselimit-clones.test.ts

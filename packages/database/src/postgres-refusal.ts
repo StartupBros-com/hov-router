@@ -1,4 +1,4 @@
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
 
 /** The docs section the refusal points to; its heading must stay in sync. */
 export const POSTGRES_REMOVED_GUIDE =

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import { logBus } from "@better-ccflare/logger";
+import { logBus } from "@hov-router/logger";
 import {
 	fetchMinimaxUsageData,
 	getRepresentativeMinimaxUtilization,

@@ -6,7 +6,7 @@ import {
 	statSync,
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 
 // Ported from SijanC147/better-ccflare packages/database/src/file-modes.ts
 // (aa6787355, 2f4b3eb3b), with the -journal sidecar and ensurePrivateDir added.

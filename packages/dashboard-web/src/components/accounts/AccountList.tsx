@@ -1,4 +1,4 @@
-import { registerUIRefresh } from "@better-ccflare/core";
+import { registerUIRefresh } from "@hov-router/core";
 import { AlertCircle, ChevronDown, Search, X } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import type { Account } from "../../api";

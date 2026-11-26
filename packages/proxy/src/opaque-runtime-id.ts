@@ -46,8 +46,8 @@ export interface OpaqueRuntimeIdFactoryOptions {
  */
 const PROCESS_ID_SECRET = randomBytes(32);
 const PROCESS_BOOT_NONCE = randomBytes(32);
-const FRAME_DOMAIN = "better-ccflare/opaque-runtime-id/v1";
-const EXPLICIT_FRAME_DOMAIN = "better-ccflare/opaque-runtime-id/v2";
+const FRAME_DOMAIN = "hov-router/opaque-runtime-id/v1";
+const EXPLICIT_FRAME_DOMAIN = "hov-router/opaque-runtime-id/v2";
 
 function updateLength(digest: Hmac, length: number): void {
 	const frame = Buffer.allocUnsafe(4);

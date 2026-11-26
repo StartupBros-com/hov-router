@@ -1,7 +1,7 @@
 /**
  * Centralized interval manager to prevent interval accumulation and provide better control
  */
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 
 const log = new Logger("IntervalManager");
 

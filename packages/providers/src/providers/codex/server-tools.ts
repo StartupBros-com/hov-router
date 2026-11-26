@@ -1,4 +1,4 @@
-import { sanitizeSchemaForOpenAI } from "@better-ccflare/openai-formats";
+import { sanitizeSchemaForOpenAI } from "@hov-router/openai-formats";
 import type {
 	ServerToolCapabilityDecision,
 	ServerToolCapabilityProof,
@@ -7,7 +7,7 @@ import type {
 	ServerToolReplayAtom,
 	ServerToolRequirements,
 	ServerToolResponseMode,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	buildServerToolCapabilityTupleKey,
 	deriveServerToolRequirement,

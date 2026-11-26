@@ -99,10 +99,7 @@ import {
 	writeSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import {
-	START_RESERVE_BYTES,
-	startReservePath,
-} from "@better-ccflare/database";
+import { START_RESERVE_BYTES, startReservePath } from "@hov-router/database";
 import {
 	assertDedicatedSmallMount,
 	assertLoopbackOnly,

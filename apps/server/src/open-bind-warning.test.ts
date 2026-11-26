@@ -1,8 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-	COMMAND_NAME,
-	PRODUCT_NAME,
-} from "@better-ccflare/core/product-identity";
+import { COMMAND_NAME, PRODUCT_NAME } from "@hov-router/core/product-identity";
 import {
 	isLoopbackBind,
 	openBindWarning,

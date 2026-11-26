@@ -1,6 +1,6 @@
 import { afterEach, expect, it, mock, spyOn } from "bun:test";
-import type { Logger } from "@better-ccflare/logger";
-import type { RequestMeta } from "@better-ccflare/types";
+import type { Logger } from "@hov-router/logger";
+import type { RequestMeta } from "@hov-router/types";
 import { SessionStrategy } from "../index";
 
 afterEach(() => mock.restore());

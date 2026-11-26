@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Config } from "@better-ccflare/config";
-import type { ModelMapping } from "@better-ccflare/core";
+import type { Config } from "@hov-router/config";
+import type { ModelMapping } from "@hov-router/core";
 import {
 	PAUSE_REASON_NEEDS_REAUTH,
 	REAUTHENTICATION_REQUIRED_CODE,
@@ -14,9 +14,9 @@ import {
 	validateApiKey,
 	validateEndpointUrl,
 	validatePriority,
-} from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { createOAuthFlow } from "@better-ccflare/oauth-flow";
+} from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
+import { createOAuthFlow } from "@hov-router/oauth-flow";
 import {
 	generatePKCE,
 	getOAuthProvider,
@@ -25,12 +25,12 @@ import {
 	type TokenRefreshResult as TokenResult,
 	XAI_DEFAULT_ENDPOINT,
 	XAI_MODEL_MAPPINGS,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import {
 	initiateDeviceFlow as initiateQwenDeviceFlow,
 	pollForToken as pollQwenForToken,
-} from "@better-ccflare/providers/qwen";
-import type { AccountListItem } from "@better-ccflare/types";
+} from "@hov-router/providers/qwen";
+import type { AccountListItem } from "@hov-router/types";
 import { type PromptAdapter, stdPromptAdapter } from "../prompts/index";
 import { openBrowser } from "../utils/browser";
 

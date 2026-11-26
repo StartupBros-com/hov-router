@@ -3,7 +3,7 @@ import {
 	getStrictClaudeModelFamily,
 	isFamilyAliasModel,
 	LATEST_MODEL_BY_FAMILY,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	type Combo,
 	type ComboEnrollmentRule,
@@ -38,7 +38,7 @@ import {
 	toComboFamilyAssignment,
 	toComboMembershipExclusion,
 	toComboSlot,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	BatchExpectedChangesError,
 	type BatchStatement,

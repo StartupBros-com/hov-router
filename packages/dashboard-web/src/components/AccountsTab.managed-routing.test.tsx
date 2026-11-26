@@ -2,8 +2,8 @@ import { describe, expect, it, mock } from "bun:test";
 import type {
 	AccountRoutingOverview,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
-import { formatClockTime } from "@better-ccflare/ui-common";
+} from "@hov-router/types";
+import { formatClockTime } from "@hov-router/ui-common";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Account } from "../api";
@@ -319,8 +319,7 @@ describe("account routing overview query", () => {
 			.getAll()
 			.map((query) => query.queryKey)
 			.filter(
-				(queryKey) =>
-					queryKey[0] === "better-ccflare" && queryKey[1] === "routing",
+				(queryKey) => queryKey[0] === "hov-router" && queryKey[1] === "routing",
 			);
 		expect(routingQueryKeys).toEqual([queryKeys.accountRoutingOverview()]);
 		expect(getAccountRoutingOverviewQueryOptions().queryKey).toEqual(

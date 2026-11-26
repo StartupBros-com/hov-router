@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import { reauthenticateAccount } from "../account";
 
 function dbOpsWith(provider: string) {

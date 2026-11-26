@@ -2,7 +2,7 @@ import {
 	type Config,
 	filterEnabledProviderModelDefaultOverrides,
 	PROVIDER_MODEL_DEFAULTS_ENV_VAR,
-} from "@better-ccflare/config";
+} from "@hov-router/config";
 import {
 	NETWORK,
 	STRATEGIES,
@@ -10,20 +10,20 @@ import {
 	setForceAccountModel as setForceAccountModelFlag,
 	validateNumber,
 	validateString,
-} from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
+} from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	BadRequest,
 	errorResponse,
 	jsonResponse,
-} from "@better-ccflare/http-common";
+} from "@hov-router/http-common";
 import {
 	getProviderModelDefaultFactories,
 	getProviderModelDefaultOverrides,
 	resolveProviderModelDefault,
 	setProviderModelDefaultOverrides,
-} from "@better-ccflare/providers";
-import { resolveCodexClientIdentity } from "@better-ccflare/providers/codex";
+} from "@hov-router/providers";
+import { resolveCodexClientIdentity } from "@hov-router/providers/codex";
 import {
 	describeCodexAccountCatalog,
 	resolveCodexAccountFamilyDefault,

@@ -1,7 +1,7 @@
 import type {
 	DeviceSetupJobView,
 	DeviceSetupProvider,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type {
 	AccountRoutingOutcome,
 	AccountRoutingSelection,

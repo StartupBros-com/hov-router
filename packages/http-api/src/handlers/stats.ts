@@ -1,6 +1,6 @@
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { jsonResponse } from "@better-ccflare/http-common";
-import type { RecentErrorGroup } from "@better-ccflare/types";
+import type { DatabaseOperations } from "@hov-router/database";
+import { jsonResponse } from "@hov-router/http-common";
+import type { RecentErrorGroup } from "@hov-router/types";
 import { createTtlCache } from "../utils/ttl-cache";
 
 async function loadStats(

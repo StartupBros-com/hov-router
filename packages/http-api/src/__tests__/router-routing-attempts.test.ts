@@ -1,12 +1,12 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import type { RoutingAttemptSummary } from "@better-ccflare/types";
+import type { Config } from "@hov-router/config";
+import type { RoutingAttemptSummary } from "@hov-router/types";
 import type { APIContext } from "../types";
 
 // Fresh worktrees intentionally omit generated database workers. The route is
 // tested with an injected facade, so prevent unrelated router imports from
 // loading DatabaseOperations and its generated worker dependencies.
-mock.module("@better-ccflare/database", () => ({
+mock.module("@hov-router/database", () => ({
 	AsyncDbWriter: class AsyncDbWriter {},
 	CacheHealthRepository: class CacheHealthRepository {},
 	DatabaseFactory: class DatabaseFactory {},

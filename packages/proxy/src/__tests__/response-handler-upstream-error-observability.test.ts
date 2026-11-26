@@ -1,6 +1,6 @@
 import { describe, expect, it, mock, spyOn } from "bun:test";
-import { logBus } from "@better-ccflare/logger";
-import type { LogEvent } from "@better-ccflare/types";
+import { logBus } from "@hov-router/logger";
+import type { LogEvent } from "@hov-router/types";
 import { forwardToClient } from "../response-handler";
 import * as usageCollectorModule from "../usage-collector";
 

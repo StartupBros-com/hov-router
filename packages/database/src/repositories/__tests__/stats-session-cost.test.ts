@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import "@better-ccflare/core";
+import "@hov-router/core";
 import { StatsRepository } from "../stats.repository";
 
 const createRepoWithRows = (rows: Array<Record<string, unknown>>) => {

@@ -1,4 +1,4 @@
-import type { PoolStatus } from "@better-ccflare/types";
+import type { PoolStatus } from "@hov-router/types";
 import type { HealthVerdict } from "../../../lib/health-verdict";
 
 export type SystemStatusTone = "ok" | "warning" | "down" | "neutral";

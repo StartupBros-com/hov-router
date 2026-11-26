@@ -1,7 +1,7 @@
 import https from "node:https";
-import type { Config } from "@better-ccflare/config";
-import { registerHeartbeat } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import type { Config } from "@hov-router/config";
+import { registerHeartbeat } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import { type CachedRequestEntry, cacheBodyStore } from "./cache-body-store";
 import { resolveKeepaliveTtlMinutes } from "./cache-keepalive-policy";
 import { CACHE_REPLAY_MODEL_HEADER } from "./cache-transport-staging";

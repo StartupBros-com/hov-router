@@ -5,23 +5,23 @@ import { join } from "node:path";
 import {
 	Config,
 	filterEnabledProviderModelDefaultOverrides,
-} from "@better-ccflare/config";
+} from "@hov-router/config";
 import {
 	clearDerivedProviderModelDefaults,
 	getProviderModelDefaultOverrides,
 	resolveProviderModelDefault,
 	setProviderModelDefaultOverrides,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import {
 	CODEX_CLIENT_VERSION_ENV,
 	resolveCodexRequestModel,
-} from "@better-ccflare/providers/codex";
+} from "@hov-router/providers/codex";
 import {
 	clearCodexModelCacheForTests,
 	getCodexModels,
 	type ProxyContext,
-} from "@better-ccflare/proxy";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/proxy";
+import type { Account } from "@hov-router/types";
 import { createConfigHandlers } from "../config";
 
 function makeConfig() {
@@ -52,7 +52,7 @@ function makeConfig() {
 		getCacheKeepaliveTtlMinutes: () => 0,
 		setCacheKeepaliveTtlMinutes: mock(() => {}),
 		setSystemPromptCacheTtl1h: mock(() => {}),
-	} as unknown as import("@better-ccflare/config").Config;
+	} as unknown as import("@hov-router/config").Config;
 }
 
 describe("createConfigHandlers", () => {
@@ -120,7 +120,7 @@ function makeCodexProviderDefaultsConfig(overrides?: {
 		getEnabledProviderModelDefaultProviders: () =>
 			overrides?.enabled ?? ["codex"],
 		getProviderModelDefaultOverrides: () => overrides?.providerOverrides ?? {},
-	} as unknown as import("@better-ccflare/config").Config;
+	} as unknown as import("@hov-router/config").Config;
 }
 
 function makeCodexAccount(overrides: Partial<Account> = {}): Account {
@@ -165,7 +165,7 @@ function makeCodexAccount(overrides: Partial<Account> = {}): Account {
 function makeDbOpsWithAccounts(accounts: Account[]) {
 	return {
 		getAllAccounts: async () => accounts,
-	} as unknown as import("@better-ccflare/database").DatabaseOperations;
+	} as unknown as import("@hov-router/database").DatabaseOperations;
 }
 
 /**

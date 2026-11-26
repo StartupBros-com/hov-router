@@ -254,7 +254,7 @@ async function buildPlatform(platform: Platform) {
 		`--target=${platform.target}`,
 		"--minify",
 		"--define",
-		`__BETTER_CCFLARE_VERSION__=${JSON.stringify(version)}`,
+		`__HOV_ROUTER_VERSION__=${JSON.stringify(version)}`,
 		...releaseBuildDefines(evidence, releaseContext ?? null),
 	];
 	if (!evidence) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { AlertEvent } from "@better-ccflare/types";
+import type { AlertEvent } from "@hov-router/types";
 import {
 	ALERT_ATTENTION_WINDOW_MS,
 	alertBadgeLabel,

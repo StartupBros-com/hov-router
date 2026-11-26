@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
 import { PAGE_META, pageMetaForPath } from "./page-meta";
 
 const byPath = (field: "title" | "description") =>

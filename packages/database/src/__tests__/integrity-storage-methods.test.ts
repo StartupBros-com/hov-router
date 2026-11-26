@@ -9,7 +9,7 @@ import { randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { COMMAND_NAME } from "@better-ccflare/core/product-identity";
+import { COMMAND_NAME } from "@hov-router/core/product-identity";
 import { DatabaseOperations } from "../database-operations";
 
 function tempDbPath(): string {

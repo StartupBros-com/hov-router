@@ -1,4 +1,4 @@
-import "@better-ccflare/core";
+import "@hov-router/core";
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";

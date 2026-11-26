@@ -3,7 +3,7 @@ import type {
 	Account,
 	HealthResponse,
 	UpstreamTransportHealth,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { createHealthHandler } from "../health";
 
 /**
@@ -34,12 +34,12 @@ const db = {
 				rate_limited_until: null,
 			},
 		] as Account[],
-} as unknown as import("@better-ccflare/database").DatabaseOperations;
+} as unknown as import("@hov-router/database").DatabaseOperations;
 
 const config = {
 	getStrategy: () => "session",
 	getHealthDetailEnabled: () => false,
-} as unknown as import("@better-ccflare/config").Config;
+} as unknown as import("@hov-router/config").Config;
 
 const anthropicUnreachable: UpstreamTransportHealth = {
 	windowMs: 300_000,

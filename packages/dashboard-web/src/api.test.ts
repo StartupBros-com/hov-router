@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import { HttpError } from "@better-ccflare/errors";
-import type { RequestOptions } from "@better-ccflare/http-common";
-import type { RecentErrorGroup } from "@better-ccflare/types";
+import { HttpError } from "@hov-router/errors";
+import type { RequestOptions } from "@hov-router/http-common";
+import type { RecentErrorGroup } from "@hov-router/types";
 import { api } from "./api";
 
 type RequestCall = [url: string, options: RequestOptions];

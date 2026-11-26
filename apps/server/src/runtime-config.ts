@@ -1,9 +1,9 @@
-import type { Config, RuntimeConfig } from "@better-ccflare/config";
-import { TIME_CONSTANTS } from "@better-ccflare/core";
+import type { Config, RuntimeConfig } from "@hov-router/config";
+import { TIME_CONSTANTS } from "@hov-router/core";
 import {
 	type ModelRouteProfile,
 	ModelRouteSessionRegistry,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 
 /**
  * The server's RuntimeConfig, resolved through `config.getRuntime()` so the

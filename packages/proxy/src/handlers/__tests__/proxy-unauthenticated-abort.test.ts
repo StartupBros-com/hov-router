@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import { CodexProvider } from "@better-ccflare/providers";
-import type { RequestMeta } from "@better-ccflare/types";
+import { CodexProvider } from "@hov-router/providers";
+import type { RequestMeta } from "@hov-router/types";
 import { ANTHROPIC_DRAIN_DEADLINE_MS } from "../../anthropic-terminal-recovery";
 import * as usageCollectorModule from "../../usage-collector";
 import { proxyUnauthenticated } from "../proxy-operations";

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
-// Side-effect import: load @better-ccflare/core before @better-ccflare/types.
+// Side-effect import: load @hov-router/core before @hov-router/types.
 // types/agent.ts runtime-imports core while core/strategy.ts imports types, a
 // pre-existing cycle that crashes when types is the first module evaluated.
-import "@better-ccflare/core";
-import { NO_ACCOUNT_ID } from "@better-ccflare/types";
+import "@hov-router/core";
+import { NO_ACCOUNT_ID } from "@hov-router/types";
 import { buildRequestFilters, getRangeConfig } from "../query-filters";
 
 const HOUR = 60 * 60 * 1000;

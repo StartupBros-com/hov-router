@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type CodexCatalogEvt, codexCatalogEvents } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import { type CodexCatalogEvt, codexCatalogEvents } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import {
 	CodexProvider,
 	clearDerivedAccountModelDefaults,
@@ -12,8 +12,8 @@ import {
 	resolveModelContextCapability,
 	resolveProviderModelDefault,
 	setDerivedProviderModelDefaults,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import {
 	CODEX_CATALOG_STALE_ALERT_MS,
 	clearCodexModelCacheForAccount,

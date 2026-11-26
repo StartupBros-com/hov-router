@@ -4,7 +4,7 @@ export const REQUEST_BODY_UPSTREAM_READY_TYPE =
 	"proxy-request-memory-upstream-ready";
 export const REQUEST_BODY_UPSTREAM_PATH = "/v1/messages";
 export const REQUEST_BODY_UPSTREAM_STATS_PATH =
-	"/__better_ccflare_request_memory_stats";
+	"/__hov_router_request_memory_stats";
 
 export type RequestBodyUpstreamReadyMessage = {
 	type: typeof REQUEST_BODY_UPSTREAM_READY_TYPE;

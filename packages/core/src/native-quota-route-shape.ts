@@ -2,7 +2,7 @@ import type {
 	Account,
 	ComboFamily,
 	EffectiveComboMember,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	getEndpointUrl,
 	getModelList,

@@ -7,8 +7,8 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import { usageCache } from "@better-ccflare/providers";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import { usageCache } from "@hov-router/providers";
+import type { Account, RequestMeta } from "@hov-router/types";
 import * as usageCollectorModule from "../../usage-collector";
 import { proxyWithAccount } from "../proxy-operations";
 import type { ProxyContext } from "../proxy-types";

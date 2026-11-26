@@ -2,11 +2,8 @@ import { createHash } from "node:crypto";
 import {
 	REASONING_EFFORT_VALUES,
 	type ReasoningEffort,
-} from "@better-ccflare/openai-formats";
-import type {
-	QualityApprovedLine,
-	QualityProvider,
-} from "@better-ccflare/types";
+} from "@hov-router/openai-formats";
+import type { QualityApprovedLine, QualityProvider } from "@hov-router/types";
 
 type EvidenceValue =
 	| null

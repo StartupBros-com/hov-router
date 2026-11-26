@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
-import { PROCESS_STARTED_AT_MS } from "@better-ccflare/core";
-import * as requestTypes from "@better-ccflare/types/request";
-import { sanitizeRequestRoutingAttemptSummary } from "@better-ccflare/types/request";
+import { PROCESS_STARTED_AT_MS } from "@hov-router/core";
+import * as requestTypes from "@hov-router/types/request";
+import { sanitizeRequestRoutingAttemptSummary } from "@hov-router/types/request";
 import {
 	formatRoutingAttemptMessage,
 	MAX_REQUEST_PHYSICAL_ATTEMPTS,

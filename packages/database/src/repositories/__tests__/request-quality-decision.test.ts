@@ -1,12 +1,12 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
-import "@better-ccflare/core";
+import "@hov-router/core";
 import {
 	type RequestRow,
 	sanitizeQualityDecision,
 	toRequest,
 	toRequestResponse,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { runMigrations } from "../../migrations";
 import { RequestRepository } from "../request.repository";

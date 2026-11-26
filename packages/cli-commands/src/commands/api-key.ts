@@ -1,11 +1,11 @@
-import type { DatabaseOperations } from "@better-ccflare/database";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	type ApiKeyGenerationResult,
 	type ApiKeyResponse,
 	type ApiKeyRole,
 	NodeCryptoUtils,
 	toApiKeyResponse,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 /**
  * Generate a new API key

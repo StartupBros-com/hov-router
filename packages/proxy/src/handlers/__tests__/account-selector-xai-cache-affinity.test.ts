@@ -1,9 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import type {
-	Account,
-	ComboWithSlots,
-	RequestMeta,
-} from "@better-ccflare/types";
+import type { Account, ComboWithSlots, RequestMeta } from "@hov-router/types";
 import { CacheAffinityOrderer } from "../../cache-affinity-orderer";
 import {
 	getXaiConvId,

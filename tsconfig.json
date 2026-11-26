@@ -17,14 +17,14 @@
 		"types": ["bun-types"],
 		"jsx": "react-jsx",
 		"paths": {
-			"@better-ccflare/providers/server-tool-capabilities": [
+			"@hov-router/providers/server-tool-capabilities": [
 				"./packages/providers/src/server-tool-capabilities.ts"
 			],
-			"@better-ccflare/types/combo": ["./packages/types/src/combo.ts"],
-			"@better-ccflare/types/request": ["./packages/types/src/request.ts"],
-			"@better-ccflare/*": ["./packages/*/src"],
-			"@better-ccflare/server": ["./apps/server/src/server.ts"],
-			"@better-ccflare/dashboard-web/dist/*": ["./packages/dashboard-web/dist/*"]
+			"@hov-router/types/combo": ["./packages/types/src/combo.ts"],
+			"@hov-router/types/request": ["./packages/types/src/request.ts"],
+			"@hov-router/*": ["./packages/*/src"],
+			"@hov-router/server": ["./apps/server/src/server.ts"],
+			"@hov-router/dashboard-web/dist/*": ["./packages/dashboard-web/dist/*"]
 		}
 	},
 	"include": ["packages/*/src/**/*", "apps/*/src/**/*"],

@@ -1,10 +1,10 @@
-import { registerUIRefresh } from "@better-ccflare/core";
+import { registerUIRefresh } from "@hov-router/core";
 import {
 	formatCost,
 	formatNumber,
 	formatPercentage,
 	formatTokensPerSecond,
-} from "@better-ccflare/ui-common";
+} from "@hov-router/ui-common";
 import { format } from "date-fns";
 import { Activity, CheckCircle, Clock, DollarSign, Zap } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useState } from "react";

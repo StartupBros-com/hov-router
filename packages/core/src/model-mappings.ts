@@ -1,5 +1,5 @@
-import { Logger } from "@better-ccflare/logger";
-import type { Account, ComboFamily } from "@better-ccflare/types";
+import { Logger } from "@hov-router/logger";
+import type { Account, ComboFamily } from "@hov-router/types";
 import { isForceAccountModelEnabled } from "./force-account-model";
 import {
 	LATEST_MODEL_BY_FAMILY,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { CleanupResponse } from "@better-ccflare/types";
+import type { CleanupResponse } from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DataRetentionCleanupSummary } from "./DataRetentionCard";
 

@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, it } from "bun:test";
-import type { CanonicalUsageWindow } from "@better-ccflare/types";
+import type { CanonicalUsageWindow } from "@hov-router/types";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { ensureSchema, runMigrations } from "../../migrations";
 import { UsageHistoryRepository } from "../usage-history.repository";

@@ -1,4 +1,4 @@
-import { cacheReadSharePercent } from "@better-ccflare/core";
+import { cacheReadSharePercent } from "@hov-router/core";
 import {
 	CACHE_HEALTH_BUCKET_MS,
 	CACHE_HEALTH_CATCHUP_MS,
@@ -13,9 +13,9 @@ import {
 	type CacheHealthState,
 	type CacheHealthStreak,
 	cacheHealthScopeKey,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
-export { CACHE_HEALTH_DEFAULT_POLICY } from "@better-ccflare/types";
+export { CACHE_HEALTH_DEFAULT_POLICY } from "@hov-router/types";
 
 const BASELINE_MS = 24 * 60 * 60_000;
 

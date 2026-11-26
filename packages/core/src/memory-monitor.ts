@@ -1,7 +1,7 @@
 import type {
 	MemoryMaintenanceOwnerSnapshot,
 	MemorySnapshot,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 export type MemoryUsageSample = Readonly<{
 	rss: number;

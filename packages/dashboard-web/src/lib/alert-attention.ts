@@ -1,4 +1,4 @@
-import type { AlertEvent } from "@better-ccflare/types";
+import type { AlertEvent } from "@hov-router/types";
 
 /** How many alerts the dashboard fetches, newest first. */
 export const ALERTS_LIST_LIMIT = 200;

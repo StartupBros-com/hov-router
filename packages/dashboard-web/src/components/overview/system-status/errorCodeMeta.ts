@@ -1,7 +1,4 @@
-import type {
-	RateLimitReason,
-	RoutingAttemptCause,
-} from "@better-ccflare/types";
+import type { RateLimitReason, RoutingAttemptCause } from "@hov-router/types";
 
 export type ErrorSeverity = "warning" | "error";
 

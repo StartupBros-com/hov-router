@@ -1,4 +1,4 @@
-import type { ComboFamilyAssignment } from "@better-ccflare/types";
+import type { ComboFamilyAssignment } from "@hov-router/types";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import {

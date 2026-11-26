@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import {
-	computeRateLimitBackoffMs,
-	TIME_CONSTANTS,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+import { computeRateLimitBackoffMs, TIME_CONSTANTS } from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../proxy-types";
 import { applyRateLimitCooldown } from "../rate-limit-cooldown";
 

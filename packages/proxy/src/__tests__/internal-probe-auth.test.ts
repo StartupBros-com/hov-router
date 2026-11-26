@@ -10,8 +10,8 @@ import {
 import {
 	type CacheReplayModelStrategy,
 	usageCache,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import { cacheBodyStore } from "../cache-body-store";
 import {
 	CACHE_PACING_MS_ENV,

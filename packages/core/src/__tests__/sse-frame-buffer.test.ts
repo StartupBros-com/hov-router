@@ -4,7 +4,7 @@ import {
 	SseFrameBuffer,
 	SseLimitError,
 	StreamResourceLimitError,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 
 const encoder = new TextEncoder();
 

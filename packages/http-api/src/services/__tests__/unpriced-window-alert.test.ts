@@ -16,14 +16,14 @@ import {
 	it,
 } from "bun:test";
 import { EventEmitter } from "node:events";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import {
 	LIST_PRICE_ERAS,
 	resetNanoGPTPricingCacheForTest,
 	VALUE_PRICING_VERSION,
-} from "@better-ccflare/core";
-import type { UsageWindow } from "@better-ccflare/database";
-import { BunSqlAdapter, ensureSchema } from "@better-ccflare/database";
+} from "@hov-router/core";
+import type { UsageWindow } from "@hov-router/database";
+import { BunSqlAdapter, ensureSchema } from "@hov-router/database";
 import {
 	AlertService,
 	buildDiscordAlertContent,

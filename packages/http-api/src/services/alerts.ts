@@ -1,4 +1,4 @@
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import {
 	type AlertEvt,
 	type AuthFailureEvt,
@@ -37,19 +37,19 @@ import {
 	selectListPriceEra,
 	VALUE_PRICING_VERSION,
 	warmPricingCatalog,
-} from "@better-ccflare/core";
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
+} from "@hov-router/core";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
 import {
 	type BunSqlAdapter,
 	CacheHealthRepository,
 	type UsageWindow,
-} from "@better-ccflare/database";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/database";
+import { Logger } from "@hov-router/logger";
 import {
 	getProviderModelDefaultOverrides,
 	getSupportedLineIdentities,
 	getSupportedLines,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import type {
 	Account,
 	AlertEvent,
@@ -59,7 +59,7 @@ import type {
 	MemberNoticeState,
 	PredictionPoint,
 	RequestResponse,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	CACHE_HEALTH_BUCKET_MS,
 	CACHE_HEALTH_DEFAULT_POLICY,
@@ -69,7 +69,7 @@ import {
 	type CacheHealthState,
 	cacheHealthScopeKey,
 	isWebhookOptInAlertType,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	advanceCacheHealth,
 	aggregateProviderCacheBuckets,

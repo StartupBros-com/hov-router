@@ -1,8 +1,8 @@
 import { afterEach, expect, it, mock } from "bun:test";
-import { DatabaseOperations } from "@better-ccflare/database";
+import { DatabaseOperations } from "@hov-router/database";
 
-const actual = await import("@better-ccflare/providers/codex");
-mock.module("@better-ccflare/providers/codex", () => ({
+const actual = await import("@hov-router/providers/codex");
+mock.module("@hov-router/providers/codex", () => ({
 	...actual,
 	initiateCodexDeviceFlow: async () => ({
 		deviceAuthId: "test-device",
@@ -20,7 +20,7 @@ const { createServerDeviceSetupCoordinator } = await import(
 	"./server-device-setup"
 );
 afterEach(() => {
-	mock.module("@better-ccflare/providers/codex", () => actual);
+	mock.module("@hov-router/providers/codex", () => actual);
 });
 
 it("commits a device-authorized account against the migrated schema", async () => {

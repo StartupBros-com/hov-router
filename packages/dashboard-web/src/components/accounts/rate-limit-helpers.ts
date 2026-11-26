@@ -7,8 +7,8 @@
  * the legacy flat `seven_day_*` keys are null on current plans. We render from
  * `limits[]` when present and fall back to the legacy flat windows otherwise.
  */
-import { weeklyScopedWindowKey } from "@better-ccflare/core";
-import type { AnthropicUsageData, UsageLimit } from "@better-ccflare/types";
+import { weeklyScopedWindowKey } from "@hov-router/core";
+import type { AnthropicUsageData, UsageLimit } from "@hov-router/types";
 import { formatShortDuration } from "../../lib/utils";
 
 /** A single progress-bar row rendered by RateLimitProgress. */

@@ -1,4 +1,4 @@
-import { computeWindowStartMs } from "@better-ccflare/core";
+import { computeWindowStartMs } from "@hov-router/core";
 
 /** How a `seven_day` window's actual usage compares to its calendar pace. */
 export type PaceBand = "on_pace" | "over_pace" | "in_reserve";

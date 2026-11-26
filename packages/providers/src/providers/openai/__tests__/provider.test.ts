@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { AuthError } from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+import { AuthError } from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import { OpenAICompatibleProvider } from "../provider";
 
 const SKILL_MARKER = "Base directory for this skill: ";

@@ -1,5 +1,5 @@
 import { describe, expect, it, spyOn } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import {
 	getModelName,
 	transformRequestBodyModel,
@@ -254,7 +254,7 @@ describe("transformRequestBodyModel", () => {
 		const requestBody = {
 			model: "claude-sonnet-4-5-20250929",
 			messages: [{ role: "user", content: "test" }],
-			__better_ccflare_codex_passthrough: { store: true },
+			__hov_router_codex_passthrough: { store: true },
 		};
 
 		const request = new Request("http://test.com", {
@@ -266,7 +266,7 @@ describe("transformRequestBodyModel", () => {
 		const result = await transformRequestBodyModel(request, undefined);
 		const resultBody = await result.json();
 
-		expect(resultBody).not.toHaveProperty("__better_ccflare_codex_passthrough");
+		expect(resultBody).not.toHaveProperty("__hov_router_codex_passthrough");
 		expect(resultBody.model).toBe("claude-sonnet-4-5-20250929");
 	});
 });

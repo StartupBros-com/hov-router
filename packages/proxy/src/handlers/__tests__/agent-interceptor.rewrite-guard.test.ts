@@ -14,11 +14,8 @@ import {
 	agentRegistry,
 	WorkspacePersistence,
 	workspacePersistence,
-} from "@better-ccflare/agents";
-import {
-	DatabaseFactory,
-	type DatabaseOperations,
-} from "@better-ccflare/database";
+} from "@hov-router/agents";
+import { DatabaseFactory, type DatabaseOperations } from "@hov-router/database";
 import type { ModelCatalog } from "../../model-catalog";
 import {
 	interceptAndModifyRequest,

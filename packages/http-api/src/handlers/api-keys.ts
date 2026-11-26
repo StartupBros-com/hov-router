@@ -5,10 +5,10 @@ import {
 	generateApiKey,
 	listApiKeys,
 	updateApiKeyRole,
-} from "@better-ccflare/cli-commands";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { BadRequest } from "@better-ccflare/errors";
-import type { ApiKeyGenerationResult } from "@better-ccflare/types";
+} from "@hov-router/cli-commands";
+import type { DatabaseOperations } from "@hov-router/database";
+import { BadRequest } from "@hov-router/errors";
+import type { ApiKeyGenerationResult } from "@hov-router/types";
 import { errorResponse } from "../utils/http-error";
 
 export function createApiKeysListHandler(dbOps: DatabaseOperations) {

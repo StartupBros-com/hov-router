@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { sanitizeRequestHeaders } from "@better-ccflare/http-common";
+import { sanitizeRequestHeaders } from "@hov-router/http-common";
 import type {
 	RequestMeta,
 	RouteProvenance,
 	RoutingAffinityLaneRecord,
-} from "@better-ccflare/types";
-import { sanitizeQualityDecision } from "@better-ccflare/types/request";
+} from "@hov-router/types";
+import { sanitizeQualityDecision } from "@hov-router/types/request";
 import type { RoutingAttemptLedger } from "./handlers/routing-attempt-ledger";
 import { captureRoutingDecision } from "./handlers/routing-selection-diagnostics";
 import { getWebSearchHelperRoutingSummary } from "./websearch-helper-policy";

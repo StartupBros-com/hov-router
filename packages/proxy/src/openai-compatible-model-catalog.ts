@@ -1,10 +1,10 @@
-import { resolveCompatibleEndpoint } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import { resolveCompatibleEndpoint } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import {
 	clearDerivedAccountModelDefaults,
 	setDerivedAccountModelDefaults,
-} from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "./handlers/proxy-types";
 
 const log = new Logger("OpenAICompatibleModelCatalog");

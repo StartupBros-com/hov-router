@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 
 export type AlertEvt = {
 	type: "alert";
-	payload: import("@better-ccflare/types").AlertEvent;
+	payload: import("@hov-router/types").AlertEvent;
 };
 
 class AlertEventBus extends EventEmitter {}

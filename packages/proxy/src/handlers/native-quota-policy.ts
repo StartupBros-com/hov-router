@@ -4,19 +4,19 @@ import {
 	getModelList,
 	getStrictClaudeModelFamily,
 	resolveStoredPolicyAliasModel,
-} from "@better-ccflare/core";
-import { validateNativeQuotaRouteShape } from "@better-ccflare/core/managed-routing";
+} from "@hov-router/core";
+import { validateNativeQuotaRouteShape } from "@hov-router/core/managed-routing";
 import type {
 	FamilyScopedRejectionEvidence,
 	UsageSnapshot,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import type {
 	Account,
 	ComboFamily,
 	ComboRoutingPolicySnapshot,
 	EffectiveComboMember,
 	ExtraUsageHold,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	collectWindows,
 	DEFAULT_CAPACITY_SNAPSHOT_FRESHNESS_MS,

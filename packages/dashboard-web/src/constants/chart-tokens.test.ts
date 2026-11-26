@@ -5,7 +5,7 @@ import {
 	CHART_PROPS,
 	CHART_TOOLTIP_STYLE,
 	COLORS,
-} from "@better-ccflare/ui-constants";
+} from "@hov-router/ui-constants";
 
 const css = readFileSync(
 	new URL("../../styles/globals.css", import.meta.url),

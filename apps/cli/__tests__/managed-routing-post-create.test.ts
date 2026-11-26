@@ -4,14 +4,14 @@ import { join } from "node:path";
 import type {
 	ManagedRoutingControlPlane,
 	PromptAdapter,
-} from "@better-ccflare/cli-commands";
-import { handlePostCreateManagedRouting } from "@better-ccflare/cli-commands/runner";
+} from "@hov-router/cli-commands";
+import { handlePostCreateManagedRouting } from "@hov-router/cli-commands/runner";
 import type {
 	AccountResponse,
 	ComboFamily,
 	ComboRoutingPreviewResult,
 	EffectiveComboRoutingView,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 function effective(family: ComboFamily): EffectiveComboRoutingView {
 	return {
