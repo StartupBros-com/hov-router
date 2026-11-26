@@ -53,9 +53,16 @@ systemd's `Started ccflare-stack.service` lines are in the system journal. An un
 | Full restart | 4 | 0 |
 | Supervisor restart | 1 | 0 |
 
-A quiet start in a class that never showed the symptom is no evidence. In the class that did, one quiet start is weak evidence. At 3 in 20, it takes 19 quiet handoffs in a row before chance alone falls under 1 in 20 (0.85^19 ≈ 0.046). Two of the three stalls ended 8 and 9 s after an outgoing backend's slow close checkpoint (1939 ms and 5016 ms). That fits competition for the disk during a handoff, but three cases do not establish it.
+A quiet start in a class that never showed the symptom is no evidence. Then split the class that did by whatever else differed between its starts. Here the difference was how long the new backend took to reach READY after the runner's `backend handoff` line:
 
-**Look for a line the fix changes, not for a quiet start.** A fix that moves a statement to another thread changes the line it logs. Since #1046, a slow startup scan logs as an unsuffixed `Slow off-thread SQL` line instead of `Slow main-thread SQL`. One such line, on a start of any class, shows which thread ran the scan. A scan that finishes under the 250 ms slow-SQL threshold logs nothing at all. Per-thread I/O counters show which thread ran it on any start: [verify-worker-thread-lanes-by-per-thread-syscr.md](verify-worker-thread-lanes-by-per-thread-syscr.md). The keyed `get` lines that begin with the same columns are not the scans: [polled-endpoint-waiting-on-an-unbounded-read-dies-on-a-slow-disk.md](../performance-issues/polled-endpoint-waiting-on-an-unbounded-read-dies-on-a-slow-disk.md).
+| Handoff time to READY | Handoffs | With a window-column startup stall |
+|---|---|---|
+| Under 2 s | 15 | 0 |
+| 7.2 s to 178.7 s | 5 | 3 |
+
+So the stall came with a slow handoff, not with every handoff. That points at load during the start, such as competition for the disk, rather than at the handoff itself, though the slow handoffs were not examined further. On a quiet start the scans finish under the 250 ms slow-SQL threshold and log nothing on either thread, so a quiet start of any class tests nothing, and no count of quiet starts confirms this kind of fix. Two of the three stalls ended 8 and 9 s after an outgoing backend's slow close checkpoint (1939 ms and 5016 ms). That fits competition for the disk, but three cases do not establish it.
+
+**Look for a line the fix changes, not for a quiet start.** A fix that moves a statement to another thread changes the line it logs. Since #1046, a slow startup scan logs as an unsuffixed `Slow off-thread SQL` line instead of `Slow main-thread SQL`. One such line, on a start of any class, shows which thread ran the scan. A scan that finishes under the 250 ms slow-SQL threshold logs nothing at all. Per-thread I/O counters are the other route ([verify-worker-thread-lanes-by-per-thread-syscr.md](verify-worker-thread-lanes-by-per-thread-syscr.md)), but nobody has yet checked that they can single out reads made before READY. The keyed `get` lines that begin with the same columns are not the scans: [polled-endpoint-waiting-on-an-unbounded-read-dies-on-a-slow-disk.md](../performance-issues/polled-endpoint-waiting-on-an-unbounded-read-dies-on-a-slow-disk.md).
 
 **Tie each line to the process that logged it, not to the newest start.** The PID in `run-ccflare-stack.sh[PID]` is journald's `_PID` for the line, which `journalctl -o json` shows as a field. During a handoff two backends log at once, and the outgoing one keeps logging until it exits.
 
@@ -84,7 +91,7 @@ journalctl -u ccflare-stack.service --since "2026-11-22 00:00 UTC" -o short-iso-
 
 - Before writing that a startup change worked, or did not, from the journal.
 - When counting a symptom per start, or setting a threshold from that count.
-- When the deploy being judged is a different start class from the starts that showed the symptom. `scripts/deploy-ccflare.sh --check` says which kind a deploy will be: [backend-only-deploy-keeps-the-runners-environment.md](backend-only-deploy-keeps-the-runners-environment.md).
+- When the deploy being judged differs from the starts that showed the symptom, in start class or in load. `scripts/deploy-ccflare.sh --check` says which kind a deploy will be: [backend-only-deploy-keeps-the-runners-environment.md](backend-only-deploy-keeps-the-runners-environment.md).
 
 ## Examples
 
@@ -105,7 +112,7 @@ The handoff with the longest checkpoint, on 2026-11-24, with times in UTC and th
 
 The checkpoint belongs to 3557958, the backend that was leaving, not to the start a second later. The scan line belongs to 2954715, and it was logged before that backend's READY line.
 
-The first two starts on a build with #1046 were at 2026-11-26 00:01Z and 00:52Z. Production's `/health` read after each gave `git_sha` bc4595b5 and then 5cbe0740, both descended from #1046, with `handoff.pid` equal to the new backend's PID. Both were full restarts. Neither logged a window-column `all` line on the main thread, but neither did the two full restarts in the extract from before the fix, so these two starts test nothing. The check still needs one of three things: a backend-only handoff start, a scan line that logs as off-thread, or the per-thread counters.
+The first two starts on a build with #1046 were at 2026-11-26 00:01Z and 00:52Z. Production's `/health` read after each gave `git_sha` bc4595b5 and then 5cbe0740, both descended from #1046, with `handoff.pid` equal to the new backend's PID. Both were full restarts. Neither logged a window-column `all` line on the main thread, but neither did the two full restarts in the extract from before the fix, so these two starts test nothing. A quiet handoff would not test it either. The check needs either a startup scan logged as an unsuffixed `Slow off-thread SQL` line, which only a start under load produces, or per-thread counters that can single out the scans.
 
 ## Related
 
