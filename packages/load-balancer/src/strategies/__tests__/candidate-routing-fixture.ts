@@ -3,7 +3,7 @@ import type {
 	RequestMeta,
 	RoutingCandidateMetadata,
 	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 export function account(id: string, priority = 0): Account {
 	return {

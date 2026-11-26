@@ -1,17 +1,17 @@
 import type {
 	CodexResetCreditRow,
 	DatabaseOperations,
-} from "@better-ccflare/database";
-import { jsonResponse } from "@better-ccflare/http-common";
+} from "@hov-router/database";
+import { jsonResponse } from "@hov-router/http-common";
 import {
 	isCodexSubscriptionEndpoint,
 	resolveCodexEndpoint,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import type {
 	BankedResets,
 	BankedResetsAppliesNowEntry,
 	BankedResetsSummary,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { assessBankedResets } from "../services/codex-reset-credits";
 
 export interface BankedResetsAccount {

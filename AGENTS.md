@@ -10,19 +10,28 @@ Anthropic-backed accounts, including the `claude` account, are Claude subscripti
 
 Nothing here authorizes paid overage.
 
-## ⚠️ CRITICAL: Names that must NOT be renamed
+## ⚠️ CRITICAL: ccflare names are being renamed in #1056
 
-The product is HoV Router, but these operational names predate it and existing installs depend on them. A "consistency" rename breaks configuration, credentials, clients or deployments. Change them only in a separately approved migration.
+HoV Router still carries operational names from the ccflare fork. [#1056](https://github.com/StartupBros-com/hov-router/issues/1056) renames them to HoV Router names. Names that never leave the binary are already renamed: the `@hov-router/*` workspaces, build defines and dashboard storage keys. A single PR renames the rest, and they change together in one full-restart deploy.
 
-- **Commands:** `hov-router` is preferred; `better-ccflare` must keep working (`COMMAND_NAMES` in `packages/core/src/product-identity.ts`). New installs no longer create `wstack-router`, but existing `wstack-router` links run the same binary and the upgrade block in `docs/reference.md` keeps them current.
-- **Storage:** config directory `~/.config/better-ccflare` (or `$XDG_CONFIG_HOME/better-ccflare`; Windows `better-ccflare` under `LOCALAPPDATA`/`APPDATA`), `better-ccflare.json`, `better-ccflare.db`.
-- **Environment variables:** `BETTER_CCFLARE_*`, `CCFLARE_*`, and the legacy `ccflare_*` fallbacks. **Headers:** `x-better-ccflare-*`.
-- **Packages and artifacts:** npm package name `better-ccflare`, internal `@better-ccflare/*` workspaces, `apps/cli/dist/better-ccflare`, release asset `better-ccflare-linux-amd64`.
-- **Ports and services:** default `8080`; production guard `:8788` → binary `:8789`; `ccflare-stack.service`.
-- **Release identity:** the `v1:startupbros-wstack-router-*` provenance tokens embedded in published v3.6.2 through v3.7.1 (later builds embed `v1:startupbros-hov-router-*`; the verifier and runtime catalogue recognize both), and published v3.6.2 bytes and signer identity (historical; never rewrite).
-- **Upstream recognition and credit:** `tombii` distribution contexts in build provenance and the version checker exist to classify upstream builds; LICENSE, `docs/acknowledgements.md`, `UPSTREAM.md` and historical citations stay.
+Until that deploy, production reads only the old names below, so use them when you talk to it. Rename them only in that PR, never one at a time on the side. A missed reader silently falls back:
+- An ignored `BETTER_CCFLARE_DB_PATH` opens the default database.
+- An ignored `x-better-ccflare-account-id` sends the request into the pool.
 
-Display text uses the constants instead of hard-coded names: `PRODUCT_NAME` / `COMMAND_NAME` from `@better-ccflare/core/product-identity`. Import that subpath directly, not the core barrel, which the dashboard cannot load. Reference: [docs/hov-router-migration.md](docs/hov-router-migration.md#what-stays-the-same).
+Add no new `ccflare` names. New code uses `hov-router`, `HOV_ROUTER_*`, `x-hov-router-*` and `@hov-router/*`.
+
+Still live under the old names:
+- **Commands:** `hov-router` is preferred, and `better-ccflare` still works (`COMMAND_NAMES` in `packages/core/src/product-identity.ts`). Existing `wstack-router` links run the same binary.
+- **Storage:** the config directory `~/.config/better-ccflare` (or `$XDG_CONFIG_HOME/better-ccflare`; on Windows, `better-ccflare` under `LOCALAPPDATA`/`APPDATA`), plus `better-ccflare.json` and `better-ccflare.db`.
+- **Environment variables:** `BETTER_CCFLARE_*`, `CCFLARE_*`, `ccflare_*`. **Headers:** `x-better-ccflare-*`.
+- **Artifacts:** `apps/cli/dist/better-ccflare`, the `better-ccflare` package name in `apps/cli`, and the release asset `better-ccflare-linux-amd64`.
+- **Service:** `ccflare-stack.service` (guard `:8788` → binary `:8789`; default port `8080`). The port numbers stay after the rename.
+
+Never renamed, because they are history or required credit:
+- Published release bytes, assets and attestations, and the provenance tokens embedded in them: `v1:startupbros-wstack-router-*` (v3.6.2 through v3.7.1), `v1:startupbros-hov-router-*`, and the `v1:tombii-*` tokens that recognize upstream builds.
+- LICENSE, `docs/acknowledgements.md`, the upstream links in `UPSTREAM.md`, CHANGELOG, and dated plans and reports. `docs/solutions/` is current guidance, so rename the names in it.
+
+Display text uses `PRODUCT_NAME` / `COMMAND_NAME` from `@hov-router/core/product-identity`. Import that subpath directly, not the core barrel, which the dashboard cannot load.
 
 ## ⚠️ CRITICAL: Generated files
 

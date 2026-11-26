@@ -6,7 +6,7 @@ export {
 	ServiceUnavailableError,
 	TokenRefreshError,
 	ValidationError,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 
 // Error type constants
 export const ERROR_TYPES = {

@@ -1,13 +1,13 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import type {
 	DatabaseOperations,
 	MemberNoticeAttemptResult,
 	MemberNoticeKind,
 	MemberNoticeRow,
-} from "@better-ccflare/database";
-import { Logger } from "@better-ccflare/logger";
-import type { MemberNoticeState } from "@better-ccflare/types";
+} from "@hov-router/database";
+import { Logger } from "@hov-router/logger";
+import type { MemberNoticeState } from "@hov-router/types";
 import { ALERT_WEBHOOK_USER_AGENT, getMemberNoticeDestination } from "./alerts";
 
 /**

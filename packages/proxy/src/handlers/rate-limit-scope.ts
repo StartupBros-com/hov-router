@@ -1,10 +1,10 @@
-import { getModelFamily } from "@better-ccflare/core";
+import { getModelFamily } from "@hov-router/core";
 import {
 	type FamilyScopedRejectionEvidence,
 	MODEL_SCOPED_DEPLETION_TTL_MS,
 	parseAnthropicRateLimitResetAt,
 	type UsageSnapshot,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 
 /** Two default 90-second usage polls. */
 export const REACTIVE_429_MAX_USAGE_AGE_MS = 180_000;

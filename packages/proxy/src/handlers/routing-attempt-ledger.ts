@@ -1,4 +1,4 @@
-import { PROCESS_STARTED_AT_MS } from "@better-ccflare/core";
+import { PROCESS_STARTED_AT_MS } from "@hov-router/core";
 import {
 	MAX_ROUTING_ATTEMPT_SNAPSHOTS,
 	type RequestRoutingAttemptSummary,
@@ -9,7 +9,7 @@ import {
 	sanitizeRoutingDecision,
 	sanitizeRoutingStreamEvidence,
 	toRoutingAttemptCause,
-} from "@better-ccflare/types/request";
+} from "@hov-router/types/request";
 import type {
 	DegradedModePhysicalAttemptKind,
 	DegradedModeRequestTracker,
@@ -201,7 +201,7 @@ export class RoutingAttemptLedger {
 	> | null = null;
 	/** First local decision belongs to the terminal owner; sanitize before retaining. */
 	observeRoutingDecision(
-		decision: import("@better-ccflare/types/request").RoutingDecision,
+		decision: import("@hov-router/types/request").RoutingDecision,
 	): void {
 		this.routingDecisionObservation ??= sanitizeRoutingDecision(decision);
 	}

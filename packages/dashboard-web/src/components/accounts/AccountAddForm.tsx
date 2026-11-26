@@ -2,7 +2,7 @@ import type {
 	ComboRoutingPreviewResult,
 	DeviceSetupJobView,
 	DeviceSetupProvider,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type DeviceSetupInitRequest } from "../../api";
 import { useDeviceSetupJob } from "../../hooks/queries";

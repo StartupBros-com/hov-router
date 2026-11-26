@@ -1,8 +1,8 @@
-import { COMMAND_NAME } from "@better-ccflare/core/product-identity";
-import { Logger } from "@better-ccflare/logger";
-import type { XaiUsageData } from "@better-ccflare/types";
+import { COMMAND_NAME } from "@hov-router/core/product-identity";
+import { Logger } from "@hov-router/logger";
+import type { XaiUsageData } from "@hov-router/types";
 
-export type { XaiUsageData, XaiUsageWindow } from "@better-ccflare/types";
+export type { XaiUsageData, XaiUsageWindow } from "@hov-router/types";
 
 const log = new Logger("XaiUsageFetcher");
 

@@ -23,7 +23,7 @@ import { EmptyState, ErrorState, LoadingState } from "../ui/state";
 import { ObservedRoutingTable } from "./ObservedRoutingTable";
 import { PoolRunway } from "./PoolRunway";
 
-const STORAGE_KEY = "ccflare.poolCapacity.expanded";
+const STORAGE_KEY = "hov-router.poolCapacity.expanded";
 const HIDDEN_LIST = new Intl.ListFormat("en", {
 	style: "long",
 	type: "conjunction",

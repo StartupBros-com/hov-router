@@ -3,7 +3,7 @@ import type {
 	ComboMembershipReasonCode,
 	ComboMembershipResolution,
 	ComboMembershipSource,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 export interface ComboMembershipDiagnosticsSelection {
 	readonly source: ComboMembershipSource;

@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import {
 	MAX_OAUTH_ERROR_INPUT_LENGTH,
 	OAuthRefreshTokenError,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import { AnthropicProvider } from "../provider";
 
 function oauthAccount(overrides: Partial<Account> = {}): Account {

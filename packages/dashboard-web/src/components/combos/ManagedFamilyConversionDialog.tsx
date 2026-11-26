@@ -1,10 +1,10 @@
-import { resolveFamilyAliasModel } from "@better-ccflare/core";
+import { resolveFamilyAliasModel } from "@hov-router/core";
 import type {
 	ComboFamily,
 	ComboRoutingPreviewMemberState,
 	ComboRoutingPreviewResult,
 	ComboRoutingProposalPreview,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { Button } from "../ui/button";
 import {
 	Dialog,

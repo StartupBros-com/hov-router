@@ -15,11 +15,8 @@ import { join } from "node:path";
 
 // We need to import the function we want to test
 // Since extractAgentDirectories is not exported, we'll test via the public API
-import { agentRegistry, WorkspacePersistence } from "@better-ccflare/agents";
-import {
-	DatabaseFactory,
-	type DatabaseOperations,
-} from "@better-ccflare/database";
+import { agentRegistry, WorkspacePersistence } from "@hov-router/agents";
+import { DatabaseFactory, type DatabaseOperations } from "@hov-router/database";
 import { interceptAndModifyRequest } from "../agent-interceptor";
 
 const TEST_DB_PATH = `${process.env.TMPDIR || "/tmp"}/test-agent-interceptor-security.db`;

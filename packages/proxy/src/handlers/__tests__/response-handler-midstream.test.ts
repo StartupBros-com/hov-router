@@ -10,8 +10,8 @@
  * from being routed to the overloaded account until the cooldown expires.
  */
 import { describe, expect, it, mock, spyOn } from "bun:test";
-import { usageCache } from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+import { usageCache } from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import { forwardToClient } from "../../response-handler";
 import * as usageCollectorModule from "../../usage-collector";
 import type { ProxyContext } from "../proxy-types";

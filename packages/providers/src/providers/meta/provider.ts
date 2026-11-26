@@ -1,6 +1,6 @@
-import { getModelFamily, mapModelName } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
-import type { Account, LogicalModelCapability } from "@better-ccflare/types";
+import { getModelFamily, mapModelName } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
+import type { Account, LogicalModelCapability } from "@hov-router/types";
 import type { RateLimitInfo } from "../../types";
 import { stripCodexReasoningRetention } from "../../utils/codex-reasoning-retention";
 import { transformRequestBodyModel } from "../../utils/model-mapping";

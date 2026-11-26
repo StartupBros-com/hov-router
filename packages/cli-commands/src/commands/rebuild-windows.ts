@@ -1,10 +1,10 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { UsageWindow } from "@better-ccflare/database";
-import { DatabaseOperations } from "@better-ccflare/database";
-import { UsageWindowLedger } from "@better-ccflare/http-api";
-import type { Account, CanonicalUsageWindow } from "@better-ccflare/types";
+import type { UsageWindow } from "@hov-router/database";
+import { DatabaseOperations } from "@hov-router/database";
+import { UsageWindowLedger } from "@hov-router/http-api";
+import type { Account, CanonicalUsageWindow } from "@hov-router/types";
 
 /**
  * Mirrors UsageWindowLedger's private `LEDGER_WINDOW_KEY` (issue #252, task

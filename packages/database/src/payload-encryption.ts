@@ -1,4 +1,4 @@
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 
 /**
  * Payload encryption at rest using AES-256-GCM (Web Crypto).

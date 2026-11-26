@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import {
 	type OrgUsageCheckEvt,
 	orgPermissionDeniedEvents,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	fetchUsageData,
 	isUsageOrgRefusal,

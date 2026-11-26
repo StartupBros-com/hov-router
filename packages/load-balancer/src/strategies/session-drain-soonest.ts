@@ -1,11 +1,11 @@
-import { TIME_CONSTANTS } from "@better-ccflare/core";
+import { TIME_CONSTANTS } from "@hov-router/core";
 import {
 	type Account,
 	PROVIDER_NAMES,
 	type RequestMeta,
 	requiresSessionDurationTracking,
 	type StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	compareStrategyCandidates,
 	isSameStrategyCandidateRouteClass,

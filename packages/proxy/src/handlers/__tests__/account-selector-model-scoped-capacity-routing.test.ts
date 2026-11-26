@@ -1,12 +1,8 @@
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import type {
-	Account,
-	ComboWithSlots,
-	RequestMeta,
-} from "@better-ccflare/types";
+import type { Account, ComboWithSlots, RequestMeta } from "@hov-router/types";
 import type { ProxyContext } from "../proxy-types";
 
-const { usageCache } = await import("@better-ccflare/providers");
+const { usageCache } = await import("@hov-router/providers");
 const {
 	getCapacityDeferredModelRoutes,
 	getComboSlotInfo,

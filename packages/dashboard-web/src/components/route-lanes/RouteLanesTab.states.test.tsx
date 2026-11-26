@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { formatError, parseHttpError } from "@better-ccflare/errors";
+import { formatError, parseHttpError } from "@hov-router/errors";
 import { renderToStaticMarkup } from "react-dom/server";
 import { queryKeys } from "../../lib/query-keys";
 import type { RouteLanes } from "../../lib/route-lanes-api";

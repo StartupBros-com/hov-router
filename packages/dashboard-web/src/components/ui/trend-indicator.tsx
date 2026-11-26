@@ -1,4 +1,4 @@
-import { formatPercentage } from "@better-ccflare/ui-common";
+import { formatPercentage } from "@hov-router/ui-common";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "../../lib/utils";
 

@@ -3,8 +3,8 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
+import { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
 import {
 	detectMemberNotices,
 	type MemberNoticeFetch,

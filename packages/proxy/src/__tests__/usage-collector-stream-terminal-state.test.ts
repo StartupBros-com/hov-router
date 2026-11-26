@@ -19,9 +19,9 @@ import {
 	AsyncDbWriter,
 	DatabaseFactory,
 	type DatabaseOperations,
-} from "@better-ccflare/database";
-import { SessionAffinityStrategy } from "@better-ccflare/load-balancer";
-import type { RequestMeta, RequestResponse } from "@better-ccflare/types";
+} from "@hov-router/database";
+import { SessionAffinityStrategy } from "@hov-router/load-balancer";
+import type { RequestMeta, RequestResponse } from "@hov-router/types";
 import { RoutingAttemptLedger } from "../handlers/routing-attempt-ledger";
 import { getRequestLifecycleCoordinator } from "../routing-terminal-recorder";
 import { UsageCollector } from "../usage-collector";

@@ -4,9 +4,9 @@
  */
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-// Force @better-ccflare/core to initialise before @better-ccflare/types resolves its
+// Force @hov-router/core to initialise before @hov-router/types resolves its
 // circular dependency. Same pattern as account-pause-reason.test.ts.
-import "@better-ccflare/core";
+import "@hov-router/core";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { runMigrations } from "../../migrations";
 import { RequestRepository } from "../request.repository";

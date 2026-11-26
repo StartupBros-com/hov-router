@@ -1,4 +1,4 @@
-import type { BankedResets } from "@better-ccflare/types";
+import type { BankedResets } from "@hov-router/types";
 import { ChevronDown } from "lucide-react";
 import { useId } from "react";
 import { cn } from "../../lib/utils";

@@ -1,6 +1,6 @@
-import { sseResponse } from "@better-ccflare/http-common";
-import { logBus } from "@better-ccflare/logger";
-import type { LogEvent } from "@better-ccflare/types";
+import { sseResponse } from "@hov-router/http-common";
+import { logBus } from "@hov-router/logger";
+import type { LogEvent } from "@hov-router/types";
 import { startSseKeepalive } from "./sse-keepalive";
 
 /**

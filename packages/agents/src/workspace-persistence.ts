@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import { Logger } from "@better-ccflare/logger";
-import type { AgentWorkspace } from "@better-ccflare/types";
+import { Logger } from "@hov-router/logger";
+import type { AgentWorkspace } from "@hov-router/types";
 
 const log = new Logger("WorkspacePersistence");
 

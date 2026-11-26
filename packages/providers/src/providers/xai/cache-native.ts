@@ -1,14 +1,11 @@
 import { createHash } from "node:crypto";
-import type {
-	XaiCacheCanaryFields,
-	XaiCacheOutcome,
-} from "@better-ccflare/core";
+import type { XaiCacheCanaryFields, XaiCacheOutcome } from "@hov-router/core";
 import {
 	cacheOutcomeFromTokens,
 	formatXaiCacheCanary,
 	isOfficialXaiEndpoint,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 
 /** Opt-in: set to "1" to enable the Grok Chat cache-native vertical slice. */
 export const XAI_CACHE_NATIVE_ENV = "CCFLARE_XAI_CACHE_NATIVE";

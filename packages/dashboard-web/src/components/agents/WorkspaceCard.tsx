@@ -1,4 +1,4 @@
-import type { AgentWorkspace } from "@better-ccflare/types";
+import type { AgentWorkspace } from "@hov-router/types";
 import { formatDistanceToNow } from "date-fns";
 import { Folder, FolderOpen, Package } from "lucide-react";
 import { Badge } from "../ui/badge";

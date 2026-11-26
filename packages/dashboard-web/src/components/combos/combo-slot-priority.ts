@@ -2,7 +2,7 @@ import {
 	COMBO_SLOT_PRIORITY_MAX,
 	type ComboSlot,
 	isComboSlotPriority,
-} from "@better-ccflare/types/combo";
+} from "@hov-router/types/combo";
 
 export const COMBO_REORDER_WARNING =
 	"Dragging intentionally rewrites every slot as a strict 0–N fallback chain, replacing any equal-priority dynamic tiers.";

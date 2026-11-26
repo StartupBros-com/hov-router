@@ -1,4 +1,4 @@
-import type { RoutingStreamEvidence } from "@better-ccflare/types/request";
+import type { RoutingStreamEvidence } from "@hov-router/types/request";
 
 export type RawStreamEvidence = Pick<
 	RoutingStreamEvidence,

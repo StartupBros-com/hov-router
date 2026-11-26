@@ -30,7 +30,7 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import {
 	CIRCUIT_BREAKER_ENV,
 	CircuitBreaker,

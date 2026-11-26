@@ -7,7 +7,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
  * It lives here, as a plain in-memory flag, for the same reason the provider
  * default map does (see providers/src/provider-model-defaults.ts): the code
  * that rewrites a model name sits in core and providers, and neither may
- * depend on @better-ccflare/config without inverting the dependency graph.
+ * depend on @hov-router/config without inverting the dependency graph.
  * The config remains the source of truth — apps/server pushes the value in at
  * boot, and the config POST handler pushes it again after a write, so the
  * switch takes effect without a restart.

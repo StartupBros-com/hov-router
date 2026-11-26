@@ -28,30 +28,30 @@
       },
     },
     "apps/server": {
-      "name": "@better-ccflare/server",
+      "name": "@hov-router/server",
       "version": "0.1.0",
       "dependencies": {
-        "@better-ccflare/config": "workspace:*",
-        "@better-ccflare/core": "workspace:*",
-        "@better-ccflare/core-di": "workspace:*",
-        "@better-ccflare/dashboard-web": "workspace:*",
-        "@better-ccflare/database": "workspace:*",
-        "@better-ccflare/http-api": "workspace:*",
-        "@better-ccflare/load-balancer": "workspace:*",
-        "@better-ccflare/logger": "workspace:*",
-        "@better-ccflare/openai-responses-adapter": "workspace:*",
-        "@better-ccflare/proxy": "workspace:*",
-        "@better-ccflare/security": "workspace:*",
-        "@better-ccflare/types": "workspace:*",
+        "@hov-router/config": "workspace:*",
+        "@hov-router/core": "workspace:*",
+        "@hov-router/core-di": "workspace:*",
+        "@hov-router/dashboard-web": "workspace:*",
+        "@hov-router/database": "workspace:*",
+        "@hov-router/http-api": "workspace:*",
+        "@hov-router/load-balancer": "workspace:*",
+        "@hov-router/logger": "workspace:*",
+        "@hov-router/openai-responses-adapter": "workspace:*",
+        "@hov-router/proxy": "workspace:*",
+        "@hov-router/security": "workspace:*",
+        "@hov-router/types": "workspace:*",
       },
     },
     "packages/agents": {
-      "name": "@better-ccflare/agents",
+      "name": "@hov-router/agents",
       "version": "1.0.0",
       "dependencies": {
-        "@better-ccflare/logger": "workspace:*",
-        "@better-ccflare/security": "workspace:*",
-        "@better-ccflare/types": "workspace:*",
+        "@hov-router/logger": "workspace:*",
+        "@hov-router/security": "workspace:*",
+        "@hov-router/types": "workspace:*",
       },
       "devDependencies": {
         "@types/node": "^22.5.4",
@@ -59,51 +59,51 @@
       },
     },
     "packages/cli-commands": {
-      "name": "@better-ccflare/cli-commands",
+      "name": "@hov-router/cli-commands",
       "version": "0.1.0",
       "dependencies": {
-        "@better-ccflare/config": "workspace:*",
-        "@better-ccflare/core": "workspace:*",
-        "@better-ccflare/core-di": "workspace:*",
-        "@better-ccflare/database": "workspace:*",
-        "@better-ccflare/http-api": "workspace:*",
-        "@better-ccflare/oauth-flow": "workspace:*",
-        "@better-ccflare/providers": "workspace:*",
-        "@better-ccflare/types": "workspace:*",
+        "@hov-router/config": "workspace:*",
+        "@hov-router/core": "workspace:*",
+        "@hov-router/core-di": "workspace:*",
+        "@hov-router/database": "workspace:*",
+        "@hov-router/http-api": "workspace:*",
+        "@hov-router/oauth-flow": "workspace:*",
+        "@hov-router/providers": "workspace:*",
+        "@hov-router/types": "workspace:*",
         "open": "^11.0.4",
       },
     },
     "packages/config": {
-      "name": "@better-ccflare/config",
+      "name": "@hov-router/config",
       "version": "0.1.0",
       "dependencies": {
-        "@better-ccflare/core": "workspace:*",
-        "@better-ccflare/logger": "workspace:*",
-        "@better-ccflare/security": "workspace:*",
-        "@better-ccflare/types": "workspace:*",
+        "@hov-router/core": "workspace:*",
+        "@hov-router/logger": "workspace:*",
+        "@hov-router/security": "workspace:*",
+        "@hov-router/types": "workspace:*",
       },
     },
     "packages/core": {
-      "name": "@better-ccflare/core",
+      "name": "@hov-router/core",
       "version": "0.1.0",
       "dependencies": {
-        "@better-ccflare/types": "workspace:*",
+        "@hov-router/types": "workspace:*",
       },
     },
     "packages/core-di": {
-      "name": "@better-ccflare/core-di",
+      "name": "@hov-router/core-di",
       "version": "0.1.0",
     },
     "packages/dashboard-web": {
-      "name": "@better-ccflare/dashboard-web",
+      "name": "@hov-router/dashboard-web",
       "version": "1.0.0",
       "dependencies": {
-        "@better-ccflare/core": "workspace:*",
-        "@better-ccflare/errors": "workspace:*",
-        "@better-ccflare/http-common": "workspace:*",
-        "@better-ccflare/types": "workspace:*",
-        "@better-ccflare/ui-common": "workspace:*",
-        "@better-ccflare/ui-constants": "workspace:*",
+        "@hov-router/core": "workspace:*",
+        "@hov-router/errors": "workspace:*",
+        "@hov-router/http-common": "workspace:*",
+        "@hov-router/types": "workspace:*",
+        "@hov-router/ui-common": "workspace:*",
+        "@hov-router/ui-constants": "workspace:*",
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
@@ -138,18 +138,18 @@
       },
     },
     "packages/database": {
-      "name": "@better-ccflare/database",
+      "name": "@hov-router/database",
       "version": "0.1.0",
       "dependencies": {
-        "@better-ccflare/core": "workspace:*",
-        "@better-ccflare/logger": "workspace:*",
+        "@hov-router/core": "workspace:*",
+        "@hov-router/logger": "workspace:*",
       },
     },
     "packages/errors": {
-      "name": "@better-ccflare/errors",
+      "name": "@hov-router/errors",
       "version": "1.0.0",
       "dependencies": {
-        "@better-ccflare/core": "workspace:*",
+        "@hov-router/core": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "1.4.5",
@@ -157,25 +157,25 @@
       },
     },
     "packages/http-api": {
-      "name": "@better-ccflare/http-api",
+      "name": "@hov-router/http-api",
       "version": "0.1.0",
       "dependencies": {
-        "@better-ccflare/agents": "workspace:*",
-        "@better-ccflare/config": "workspace:*",
-        "@better-ccflare/core": "workspace:*",
-        "@better-ccflare/database": "workspace:*",
-        "@better-ccflare/oauth-flow": "workspace:*",
-        "@better-ccflare/providers": "workspace:*",
-        "@better-ccflare/proxy": "workspace:*",
-        "@better-ccflare/types": "workspace:*",
+        "@hov-router/agents": "workspace:*",
+        "@hov-router/config": "workspace:*",
+        "@hov-router/core": "workspace:*",
+        "@hov-router/database": "workspace:*",
+        "@hov-router/oauth-flow": "workspace:*",
+        "@hov-router/providers": "workspace:*",
+        "@hov-router/proxy": "workspace:*",
+        "@hov-router/types": "workspace:*",
       },
     },
     "packages/http-common": {
-      "name": "@better-ccflare/http-common",
+      "name": "@hov-router/http-common",
       "version": "0.0.0",
       "dependencies": {
-        "@better-ccflare/errors": "workspace:*",
-        "@better-ccflare/types": "workspace:*",
+        "@hov-router/errors": "workspace:*",
+        "@hov-router/types": "workspace:*",
       },
       "devDependencies": {
         "@types/node": "^22.10.2",
@@ -183,91 +183,91 @@
       },
     },
     "packages/load-balancer": {
-      "name": "@better-ccflare/load-balancer",
+      "name": "@hov-router/load-balancer",
       "version": "0.1.0",
       "dependencies": {
-        "@better-ccflare/core": "workspace:*",
-        "@better-ccflare/logger": "workspace:*",
+        "@hov-router/core": "workspace:*",
+        "@hov-router/logger": "workspace:*",
       },
     },
     "packages/logger": {
-      "name": "@better-ccflare/logger",
+      "name": "@hov-router/logger",
       "version": "0.1.0",
       "dependencies": {
-        "@better-ccflare/types": "workspace:*",
+        "@hov-router/types": "workspace:*",
       },
     },
     "packages/oauth-flow": {
-      "name": "@better-ccflare/oauth-flow",
+      "name": "@hov-router/oauth-flow",
       "version": "0.1.0",
       "dependencies": {
-        "@better-ccflare/config": "workspace:*",
-        "@better-ccflare/database": "workspace:*",
-        "@better-ccflare/providers": "workspace:*",
+        "@hov-router/config": "workspace:*",
+        "@hov-router/database": "workspace:*",
+        "@hov-router/providers": "workspace:*",
       },
     },
     "packages/openai-formats": {
-      "name": "@better-ccflare/openai-formats",
+      "name": "@hov-router/openai-formats",
       "version": "0.1.0",
       "dependencies": {
-        "@better-ccflare/core": "workspace:*",
-        "@better-ccflare/logger": "workspace:*",
-        "@better-ccflare/types": "workspace:*",
+        "@hov-router/core": "workspace:*",
+        "@hov-router/logger": "workspace:*",
+        "@hov-router/types": "workspace:*",
       },
     },
     "packages/openai-responses-adapter": {
-      "name": "@better-ccflare/openai-responses-adapter",
+      "name": "@hov-router/openai-responses-adapter",
       "version": "0.1.0",
       "dependencies": {
-        "@better-ccflare/core": "workspace:*",
-        "@better-ccflare/logger": "workspace:*",
-        "@better-ccflare/types": "workspace:*",
+        "@hov-router/core": "workspace:*",
+        "@hov-router/logger": "workspace:*",
+        "@hov-router/types": "workspace:*",
       },
     },
     "packages/providers": {
-      "name": "@better-ccflare/providers",
+      "name": "@hov-router/providers",
       "version": "0.1.0",
       "dependencies": {
         "@aws-sdk/client-bedrock": "^3.1173.0",
         "@aws-sdk/client-bedrock-runtime": "^3.1173.0",
         "@aws-sdk/credential-providers": "^3.1173.0",
-        "@better-ccflare/config": "workspace:*",
-        "@better-ccflare/core": "workspace:*",
-        "@better-ccflare/openai-formats": "workspace:*",
+        "@hov-router/config": "workspace:*",
+        "@hov-router/core": "workspace:*",
+        "@hov-router/openai-formats": "workspace:*",
         "google-auth-library": "^10.6.2",
       },
     },
     "packages/proxy": {
-      "name": "@better-ccflare/proxy",
+      "name": "@hov-router/proxy",
       "version": "0.1.0",
       "dependencies": {
-        "@better-ccflare/agents": "workspace:*",
-        "@better-ccflare/config": "workspace:*",
-        "@better-ccflare/core": "workspace:*",
-        "@better-ccflare/database": "workspace:*",
-        "@better-ccflare/logger": "workspace:*",
-        "@better-ccflare/providers": "workspace:*",
-        "@better-ccflare/security": "workspace:*",
-        "@better-ccflare/types": "workspace:*",
-        "@better-ccflare/ui-common": "workspace:*",
+        "@hov-router/agents": "workspace:*",
+        "@hov-router/config": "workspace:*",
+        "@hov-router/core": "workspace:*",
+        "@hov-router/database": "workspace:*",
+        "@hov-router/logger": "workspace:*",
+        "@hov-router/providers": "workspace:*",
+        "@hov-router/security": "workspace:*",
+        "@hov-router/types": "workspace:*",
+        "@hov-router/ui-common": "workspace:*",
       },
     },
     "packages/security": {
-      "name": "@better-ccflare/security",
+      "name": "@hov-router/security",
       "version": "0.1.0",
       "dependencies": {
-        "@better-ccflare/logger": "workspace:*",
+        "@hov-router/logger": "workspace:*",
       },
     },
     "packages/types": {
-      "name": "@better-ccflare/types",
+      "name": "@hov-router/types",
       "version": "0.1.0",
     },
     "packages/ui-common": {
-      "name": "@better-ccflare/ui-common",
+      "name": "@hov-router/ui-common",
       "version": "0.0.0",
       "dependencies": {
-        "@better-ccflare/types": "workspace:*",
+        "@hov-router/types": "workspace:*",
       },
       "devDependencies": {
         "@types/node": "^22.10.2",
@@ -275,7 +275,7 @@
       },
     },
     "packages/ui-constants": {
-      "name": "@better-ccflare/ui-constants",
+      "name": "@hov-router/ui-constants",
       "version": "1.0.0",
       "devDependencies": {
         "@types/bun": "1.4.5",
@@ -332,49 +332,49 @@
 
     "@babel/helper-validator-identifier": ["@babel/helper-validator-identifier@7.29.7", "", {}, "sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg=="],
 
-    "@better-ccflare/agents": ["@better-ccflare/agents@workspace:packages/agents"],
+    "@hov-router/agents": ["@hov-router/agents@workspace:packages/agents"],
 
-    "@better-ccflare/cli-commands": ["@better-ccflare/cli-commands@workspace:packages/cli-commands"],
+    "@hov-router/cli-commands": ["@hov-router/cli-commands@workspace:packages/cli-commands"],
 
-    "@better-ccflare/config": ["@better-ccflare/config@workspace:packages/config"],
+    "@hov-router/config": ["@hov-router/config@workspace:packages/config"],
 
-    "@better-ccflare/core": ["@better-ccflare/core@workspace:packages/core"],
+    "@hov-router/core": ["@hov-router/core@workspace:packages/core"],
 
-    "@better-ccflare/core-di": ["@better-ccflare/core-di@workspace:packages/core-di"],
+    "@hov-router/core-di": ["@hov-router/core-di@workspace:packages/core-di"],
 
-    "@better-ccflare/dashboard-web": ["@better-ccflare/dashboard-web@workspace:packages/dashboard-web"],
+    "@hov-router/dashboard-web": ["@hov-router/dashboard-web@workspace:packages/dashboard-web"],
 
-    "@better-ccflare/database": ["@better-ccflare/database@workspace:packages/database"],
+    "@hov-router/database": ["@hov-router/database@workspace:packages/database"],
 
-    "@better-ccflare/errors": ["@better-ccflare/errors@workspace:packages/errors"],
+    "@hov-router/errors": ["@hov-router/errors@workspace:packages/errors"],
 
-    "@better-ccflare/http-api": ["@better-ccflare/http-api@workspace:packages/http-api"],
+    "@hov-router/http-api": ["@hov-router/http-api@workspace:packages/http-api"],
 
-    "@better-ccflare/http-common": ["@better-ccflare/http-common@workspace:packages/http-common"],
+    "@hov-router/http-common": ["@hov-router/http-common@workspace:packages/http-common"],
 
-    "@better-ccflare/load-balancer": ["@better-ccflare/load-balancer@workspace:packages/load-balancer"],
+    "@hov-router/load-balancer": ["@hov-router/load-balancer@workspace:packages/load-balancer"],
 
-    "@better-ccflare/logger": ["@better-ccflare/logger@workspace:packages/logger"],
+    "@hov-router/logger": ["@hov-router/logger@workspace:packages/logger"],
 
-    "@better-ccflare/oauth-flow": ["@better-ccflare/oauth-flow@workspace:packages/oauth-flow"],
+    "@hov-router/oauth-flow": ["@hov-router/oauth-flow@workspace:packages/oauth-flow"],
 
-    "@better-ccflare/openai-formats": ["@better-ccflare/openai-formats@workspace:packages/openai-formats"],
+    "@hov-router/openai-formats": ["@hov-router/openai-formats@workspace:packages/openai-formats"],
 
-    "@better-ccflare/openai-responses-adapter": ["@better-ccflare/openai-responses-adapter@workspace:packages/openai-responses-adapter"],
+    "@hov-router/openai-responses-adapter": ["@hov-router/openai-responses-adapter@workspace:packages/openai-responses-adapter"],
 
-    "@better-ccflare/providers": ["@better-ccflare/providers@workspace:packages/providers"],
+    "@hov-router/providers": ["@hov-router/providers@workspace:packages/providers"],
 
-    "@better-ccflare/proxy": ["@better-ccflare/proxy@workspace:packages/proxy"],
+    "@hov-router/proxy": ["@hov-router/proxy@workspace:packages/proxy"],
 
-    "@better-ccflare/security": ["@better-ccflare/security@workspace:packages/security"],
+    "@hov-router/security": ["@hov-router/security@workspace:packages/security"],
 
-    "@better-ccflare/server": ["@better-ccflare/server@workspace:apps/server"],
+    "@hov-router/server": ["@hov-router/server@workspace:apps/server"],
 
-    "@better-ccflare/types": ["@better-ccflare/types@workspace:packages/types"],
+    "@hov-router/types": ["@hov-router/types@workspace:packages/types"],
 
-    "@better-ccflare/ui-common": ["@better-ccflare/ui-common@workspace:packages/ui-common"],
+    "@hov-router/ui-common": ["@hov-router/ui-common@workspace:packages/ui-common"],
 
-    "@better-ccflare/ui-constants": ["@better-ccflare/ui-constants@workspace:packages/ui-constants"],
+    "@hov-router/ui-constants": ["@hov-router/ui-constants@workspace:packages/ui-constants"],
 
     "@biomejs/biome": ["@biomejs/biome@2.4.10", "", { "optionalDependencies": { "@biomejs/cli-darwin-arm64": "2.4.10", "@biomejs/cli-darwin-x64": "2.4.10", "@biomejs/cli-linux-arm64": "2.4.10", "@biomejs/cli-linux-arm64-musl": "2.4.10", "@biomejs/cli-linux-x64": "2.4.10", "@biomejs/cli-linux-x64-musl": "2.4.10", "@biomejs/cli-win32-arm64": "2.4.10", "@biomejs/cli-win32-x64": "2.4.10" }, "bin": { "biome": "bin/biome" } }, "sha512-xxA3AphFQ1geij4JTHXv4EeSTda1IFn22ye9LdyVPoJU19fNVl0uzfEuhsfQ4Yue/0FaLs2/ccVi4UDiE7R30w=="],
 
@@ -1076,11 +1076,11 @@
 
     "yargs-parser": ["yargs-parser@21.1.1", "", {}, "sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw=="],
 
-    "@better-ccflare/dashboard-web/@types/bun": ["@types/bun@1.4.5", "", { "dependencies": { "bun-types": "1.4.5" } }, "sha512-DpgwNI9z0L1S0gtb45QLCWgwCUcMLnsHYMJHQvpNj7erGiCGBvpggltAIeARrtobNMKMuy0UP7i56tKKgwFs/Q=="],
+    "@hov-router/dashboard-web/@types/bun": ["@types/bun@1.4.5", "", { "dependencies": { "bun-types": "1.4.5" } }, "sha512-DpgwNI9z0L1S0gtb45QLCWgwCUcMLnsHYMJHQvpNj7erGiCGBvpggltAIeARrtobNMKMuy0UP7i56tKKgwFs/Q=="],
 
-    "@better-ccflare/errors/@types/bun": ["@types/bun@1.4.5", "", { "dependencies": { "bun-types": "1.4.5" } }, "sha512-DpgwNI9z0L1S0gtb45QLCWgwCUcMLnsHYMJHQvpNj7erGiCGBvpggltAIeARrtobNMKMuy0UP7i56tKKgwFs/Q=="],
+    "@hov-router/errors/@types/bun": ["@types/bun@1.4.5", "", { "dependencies": { "bun-types": "1.4.5" } }, "sha512-DpgwNI9z0L1S0gtb45QLCWgwCUcMLnsHYMJHQvpNj7erGiCGBvpggltAIeARrtobNMKMuy0UP7i56tKKgwFs/Q=="],
 
-    "@better-ccflare/ui-constants/@types/bun": ["@types/bun@1.4.5", "", { "dependencies": { "bun-types": "1.4.5" } }, "sha512-DpgwNI9z0L1S0gtb45QLCWgwCUcMLnsHYMJHQvpNj7erGiCGBvpggltAIeARrtobNMKMuy0UP7i56tKKgwFs/Q=="],
+    "@hov-router/ui-constants/@types/bun": ["@types/bun@1.4.5", "", { "dependencies": { "bun-types": "1.4.5" } }, "sha512-DpgwNI9z0L1S0gtb45QLCWgwCUcMLnsHYMJHQvpNj7erGiCGBvpggltAIeARrtobNMKMuy0UP7i56tKKgwFs/Q=="],
 
     "@isaacs/cliui/string-width": ["string-width@5.1.2", "", { "dependencies": { "eastasianwidth": "^0.2.0", "emoji-regex": "^9.2.2", "strip-ansi": "^7.0.1" } }, "sha512-HnLOCR3vjcY8beoNLtcjZ5/nxn2afmME6lhrDrebokqMap+XbeW8n9TXpPDOqdGK5qcI3oT0GKTW6wC7EMiVqA=="],
 
@@ -1130,11 +1130,11 @@
 
     "release-please/typescript": ["typescript@4.9.5", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-1FXk9E2Hm+QzZQ7z+McJiHL4NW1F2EzMu9Nq9i3zAaGqibafqYwCVU6WyWAuyQRRzOlxou8xZSyXLEN8oKj24g=="],
 
-    "@better-ccflare/dashboard-web/@types/bun/bun-types": ["bun-types@1.4.5", "", { "dependencies": { "@types/node": "*", "undici-types": "*" } }, "sha512-ECHn+9dhL3wv0G6u0+7dQvrnaimXiRDxxerYBmhTaLyJEEuvTPWk2Fye3XIf5Y++JIIiHKfQw4Z7V5D8KuiXbg=="],
+    "@hov-router/dashboard-web/@types/bun/bun-types": ["bun-types@1.4.5", "", { "dependencies": { "@types/node": "*", "undici-types": "*" } }, "sha512-ECHn+9dhL3wv0G6u0+7dQvrnaimXiRDxxerYBmhTaLyJEEuvTPWk2Fye3XIf5Y++JIIiHKfQw4Z7V5D8KuiXbg=="],
 
-    "@better-ccflare/errors/@types/bun/bun-types": ["bun-types@1.4.5", "", { "dependencies": { "@types/node": "*", "undici-types": "*" } }, "sha512-ECHn+9dhL3wv0G6u0+7dQvrnaimXiRDxxerYBmhTaLyJEEuvTPWk2Fye3XIf5Y++JIIiHKfQw4Z7V5D8KuiXbg=="],
+    "@hov-router/errors/@types/bun/bun-types": ["bun-types@1.4.5", "", { "dependencies": { "@types/node": "*", "undici-types": "*" } }, "sha512-ECHn+9dhL3wv0G6u0+7dQvrnaimXiRDxxerYBmhTaLyJEEuvTPWk2Fye3XIf5Y++JIIiHKfQw4Z7V5D8KuiXbg=="],
 
-    "@better-ccflare/ui-constants/@types/bun/bun-types": ["bun-types@1.4.5", "", { "dependencies": { "@types/node": "*", "undici-types": "*" } }, "sha512-ECHn+9dhL3wv0G6u0+7dQvrnaimXiRDxxerYBmhTaLyJEEuvTPWk2Fye3XIf5Y++JIIiHKfQw4Z7V5D8KuiXbg=="],
+    "@hov-router/ui-constants/@types/bun/bun-types": ["bun-types@1.4.5", "", { "dependencies": { "@types/node": "*", "undici-types": "*" } }, "sha512-ECHn+9dhL3wv0G6u0+7dQvrnaimXiRDxxerYBmhTaLyJEEuvTPWk2Fye3XIf5Y++JIIiHKfQw4Z7V5D8KuiXbg=="],
 
     "@isaacs/cliui/string-width/emoji-regex": ["emoji-regex@9.2.2", "", {}, "sha512-L18DaJsXSUk2+42pv8mLs5jJT2hqFkFE4j21wOmgbUqsZ2hL72NsUU785g9RXgo3s0ZNgVl42TiHp3ZtOv/Vyg=="],
 

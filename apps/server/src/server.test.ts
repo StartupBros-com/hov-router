@@ -2,17 +2,17 @@ import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BunSqlAdapter } from "@better-ccflare/database";
-import { RoutingTransitionRecorder } from "@better-ccflare/load-balancer";
-import { Logger, logBus } from "@better-ccflare/logger";
-import { CODEX_DEFAULT_ENDPOINT } from "@better-ccflare/providers";
+import { BunSqlAdapter } from "@hov-router/database";
+import { RoutingTransitionRecorder } from "@hov-router/load-balancer";
+import { Logger, logBus } from "@hov-router/logger";
+import { CODEX_DEFAULT_ENDPOINT } from "@hov-router/providers";
 import type {
 	Account,
 	LogEvent,
 	RequestMeta,
 	StrategyStore,
-} from "@better-ccflare/types";
-import { StrategyName } from "@better-ccflare/types";
+} from "@hov-router/types";
+import { StrategyName } from "@hov-router/types";
 import {
 	accountSupportsRefreshBackedUsagePolling,
 	bootstrapMinimaxUsagePolling,

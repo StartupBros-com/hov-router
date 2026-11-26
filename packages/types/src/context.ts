@@ -1,14 +1,11 @@
-import type { Config } from "@better-ccflare/config";
-import type {
-	BunSqlAdapter,
-	DatabaseOperations,
-} from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import type { BunSqlAdapter, DatabaseOperations } from "@hov-router/database";
 import type {
 	CircuitBreaker,
 	ModelRouteProfile,
 	ModelRouteProfileController,
 	ModelRouteProfilesStatus,
-} from "@better-ccflare/proxy";
+} from "@hov-router/proxy";
 import type { Account } from "./account";
 import type { AlertEvent } from "./alerts";
 import type { AffinityOwnerSnapshot, RequestMeta } from "./api";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { CanonicalUsageWindow } from "@better-ccflare/types";
+import type { CanonicalUsageWindow } from "@hov-router/types";
 import {
 	collectAutoCapacityEvidence,
 	normalizeProviderUsageWindows,

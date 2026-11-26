@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import { AnthropicDegradedModeCoordinator } from "../anthropic-degraded-mode";
 import { DegradedOwnerOverlay } from "../degraded-owner-overlay";
 import type { ProxyContext } from "../handlers";

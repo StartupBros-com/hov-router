@@ -7,9 +7,9 @@
  */
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-// Initialise @better-ccflare/core before types (circular import ordering).
-import "@better-ccflare/core";
-import { toAccount, toAccountResponse } from "@better-ccflare/types";
+// Initialise @hov-router/core before types (circular import ordering).
+import "@hov-router/core";
+import { toAccount, toAccountResponse } from "@hov-router/types";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { ensureSchema, runMigrations } from "../../migrations";
 import { AccountRepository } from "../account.repository";

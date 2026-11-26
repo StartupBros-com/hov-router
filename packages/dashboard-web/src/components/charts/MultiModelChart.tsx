@@ -3,7 +3,7 @@ import {
 	formatNumber,
 	formatTokens,
 	formatTokensPerSecond,
-} from "@better-ccflare/ui-common";
+} from "@hov-router/ui-common";
 import {
 	CartesianGrid,
 	Legend,

@@ -7,7 +7,7 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import type { Account, RequestMeta } from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import {
 	getPreTransportDeadlineConfig,

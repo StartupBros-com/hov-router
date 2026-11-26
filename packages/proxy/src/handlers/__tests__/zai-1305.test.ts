@@ -3,7 +3,7 @@
  * error code 1305 ("service overloaded"). These cover the detector and the
  * stream-peeking helper built on it; the retry/fallback wiring around them
  * lives in proxy-operations.ts, which is not importable from tests (it pulls
- * in @better-ccflare/database).
+ * in @hov-router/database).
  */
 import { describe, expect, it } from "bun:test";
 import {

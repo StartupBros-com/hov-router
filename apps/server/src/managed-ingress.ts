@@ -2,7 +2,7 @@ import {
 	BUFFER_SIZES,
 	parseRequestUrl,
 	SseFrameBuffer,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	bindManagedRequest,
 	bootIdentity,

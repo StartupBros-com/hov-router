@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	LATEST_MODEL_BY_FAMILY,
 	resolveFamilyAliasModel,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { ensureSchema } from "../../migrations";
 import { ComboRepository } from "../combo.repository";

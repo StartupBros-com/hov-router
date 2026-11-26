@@ -11,11 +11,11 @@ import { EventEmitter } from "node:events";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Config } from "@better-ccflare/config";
-import { normalizeProviderUsageWindows } from "@better-ccflare/core";
-import { DatabaseOperations } from "@better-ccflare/database";
-import { usageCache } from "@better-ccflare/providers";
-import type { AccountResponse } from "@better-ccflare/types";
+import type { Config } from "@hov-router/config";
+import { normalizeProviderUsageWindows } from "@hov-router/core";
+import { DatabaseOperations } from "@hov-router/database";
+import { usageCache } from "@hov-router/providers";
+import type { AccountResponse } from "@hov-router/types";
 import { OffThreadReader } from "../../../../database/src/off-thread-reader";
 import {
 	CACHE_TEST_TIME,

@@ -14,12 +14,9 @@ import {
 	agentRegistry,
 	WorkspacePersistence,
 	workspacePersistence,
-} from "@better-ccflare/agents";
-import { LATEST_SONNET_MODEL } from "@better-ccflare/core";
-import {
-	DatabaseFactory,
-	type DatabaseOperations,
-} from "@better-ccflare/database";
+} from "@hov-router/agents";
+import { LATEST_SONNET_MODEL } from "@hov-router/core";
+import { DatabaseFactory, type DatabaseOperations } from "@hov-router/database";
 import type { ModelCatalog } from "../../model-catalog";
 import { interceptAndModifyRequest } from "../agent-interceptor";
 

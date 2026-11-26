@@ -6,14 +6,14 @@ import {
 	RequestBodyTooLargeError,
 	readBoundedRequestBody,
 	serializeBoundedJson,
-} from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import {
 	RECOVERY_SCOPE_HEADER,
 	RECOVERY_STATUS_EXHAUSTED,
 	RECOVERY_STATUS_HEADER,
 	recoveryScopeForCode,
-} from "@better-ccflare/types/routing-recovery";
+} from "@hov-router/types/routing-recovery";
 import { inheritManagedRequest } from "../../../scripts/ccflare-managed-timing.mjs";
 import {
 	MAX_RESPONSES_CONTENT_PARTS,
@@ -40,7 +40,7 @@ const RESPONSES_ADAPTER_SECRET_HEADER =
 // providers dependency. This is a client-facing opt-in only: the adapter
 // reads it and, if present with this exact value, carries a same-named
 // `continuation_strategy` flag inside the already-trust-gated
-// `__better_ccflare_codex_passthrough` carrier. The Codex provider treats
+// `__hov_router_codex_passthrough` carrier. The Codex provider treats
 // that flag as opt-in only -- it never trusts a client-supplied
 // `previous_response_id` value itself (see the request body handling below).
 const CODEX_CONTINUATION_HEADER = "x-better-ccflare-codex-continuation";
@@ -512,9 +512,9 @@ export async function handleResponsesRequest(
 	if (Object.keys(codexPassthrough).length > 0) {
 		(
 			anthropicBody as typeof anthropicBody & {
-				__better_ccflare_codex_passthrough?: Record<string, unknown>;
+				__hov_router_codex_passthrough?: Record<string, unknown>;
 			}
-		).__better_ccflare_codex_passthrough = codexPassthrough;
+		).__hov_router_codex_passthrough = codexPassthrough;
 	}
 
 	// 5. Keep translated request serialization within the same canonical budget.

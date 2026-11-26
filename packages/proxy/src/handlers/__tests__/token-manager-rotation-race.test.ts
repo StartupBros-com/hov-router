@@ -3,8 +3,8 @@ import {
 	type AuthFailureEvt,
 	authFailureEvents,
 	OAuthRefreshTokenError,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import {
 	clearAllPendingRotationsForTests,
 	getPendingRotation,
@@ -1434,7 +1434,7 @@ describe("backend retirement", () => {
 			await expect(
 				refreshAccessTokenSafe(account as never, ctx as never),
 			).rejects.toBeInstanceOf(
-				(await import("@better-ccflare/core")).ServiceUnavailableError,
+				(await import("@hov-router/core")).ServiceUnavailableError,
 			);
 			expect(refreshToken).toHaveBeenCalledTimes(0);
 			const fresh = makeAccount(account.id, {

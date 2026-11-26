@@ -1,14 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-// Force @better-ccflare/core to initialise before @better-ccflare/types
+// Force @hov-router/core to initialise before @hov-router/types
 // resolves its circular dependency (types/agent.ts → core → core/strategy.ts
 // → types/StrategyName). Without this the enum is undefined when
 // strategy.ts runs Object.values(StrategyName). Same pattern as
 // stats-session-cost.test.ts and account-rate-limit-audit.test.ts.
-import "@better-ccflare/core";
-import {
-	RATE_LIMIT_REASONS,
-	type RateLimitReason,
-} from "@better-ccflare/types";
+import "@hov-router/core";
+import { RATE_LIMIT_REASONS, type RateLimitReason } from "@hov-router/types";
 import {
 	CIRCUIT_BREAKER_ENV,
 	CircuitBreaker,
@@ -522,7 +519,7 @@ describe("F1: probe lease prevents permanent wedge", () => {
 describe("F2: FailureKind ↔ RateLimitReason parity", () => {
 	test("the breaker accepts the literal upstream string `model_fallback_429` and does NOT open", () => {
 		// This is the F2 reproducing test. The upstream `RateLimitReason`
-		// enum lives at `@better-ccflare/types`. The breaker must accept
+		// enum lives at `@hov-router/types`. The breaker must accept
 		// its literal strings directly; if the breaker renames the
 		// variant internally, the wire-up will pass `model_fallback_429`
 		// through and the predicate will silently fail to exclude it.

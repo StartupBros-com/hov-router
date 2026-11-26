@@ -2,7 +2,7 @@ import {
 	formatDuration,
 	formatTokens,
 	formatTokensPerSecond,
-} from "@better-ccflare/ui-common";
+} from "@hov-router/ui-common";
 import {
 	AlertCircle,
 	Bot,

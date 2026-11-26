@@ -1,6 +1,6 @@
-import { TIME_CONSTANTS } from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { analyzeIndexUsage } from "@better-ccflare/database";
+import { TIME_CONSTANTS } from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
+import { analyzeIndexUsage } from "@hov-router/database";
 
 /**
  * Analyze query performance and index usage

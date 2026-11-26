@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import type { Account } from "@better-ccflare/types";
+import type { Account } from "@hov-router/types";
 import {
 	applyXaiConvIdHeader,
 	CACHE_FLIGHT_RECORDER_ENV,

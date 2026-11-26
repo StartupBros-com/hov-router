@@ -1,4 +1,4 @@
-import { getModelShortName } from "@better-ccflare/core/models";
+import { getModelShortName } from "@hov-router/core/models";
 import { CHART_COLORS, COLORS } from "../../constants";
 
 export const MODEL_COLORS: Record<string, string> = {

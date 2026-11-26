@@ -1,4 +1,4 @@
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
 import { Button } from "./ui/button";
 
 export function StartupCheckingView({ slow }: { slow: boolean }) {

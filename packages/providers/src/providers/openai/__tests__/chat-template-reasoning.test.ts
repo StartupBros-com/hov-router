@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { getChatTemplateReasoningAccountIds } from "@better-ccflare/config";
-import type { Account } from "@better-ccflare/types";
+import { getChatTemplateReasoningAccountIds } from "@hov-router/config";
+import type { Account } from "@hov-router/types";
 import { OpenAICompatibleProvider } from "../provider";
 
 const ENV = "CCFLARE_CHAT_TEMPLATE_REASONING_ACCOUNTS";

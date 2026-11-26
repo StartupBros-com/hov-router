@@ -2,12 +2,9 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
-import { agentRegistry } from "@better-ccflare/agents";
-import {
-	DatabaseFactory,
-	type DatabaseOperations,
-} from "@better-ccflare/database";
-import type { Agent } from "@better-ccflare/types";
+import { agentRegistry } from "@hov-router/agents";
+import { DatabaseFactory, type DatabaseOperations } from "@hov-router/database";
+import type { Agent } from "@hov-router/types";
 import type { ModelCatalog } from "../../model-catalog";
 import { interceptAndModifyRequest } from "../agent-interceptor";
 

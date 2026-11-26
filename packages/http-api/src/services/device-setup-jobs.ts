@@ -9,10 +9,10 @@ import type {
 	DeviceSetupRoutingSelection,
 	DeviceSetupSafeErrorCode,
 	DeviceSetupStartResult,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 // Keep the service runtime free of the types-package barrel's legacy runtime
-// cycle. The public constants in @better-ccflare/types use these exact values.
+// cycle. The public constants in @hov-router/types use these exact values.
 const SAFE_ERROR_MESSAGES = {
 	authorization_denied: "Authorization was not approved",
 	authorization_failed: "Authorization failed",

@@ -3,21 +3,19 @@
  * Handles both streaming and non-streaming responses
  */
 
-import type { CacheFlightCohortSealReceipt } from "@better-ccflare/core";
-import type { GenerationStart } from "@better-ccflare/providers/stream-evidence";
+import type { CacheFlightCohortSealReceipt } from "@hov-router/core";
+import type { GenerationStart } from "@hov-router/providers/stream-evidence";
 import type {
 	AgentAttributionSource,
 	ProjectAttributionSource,
 	RequestAccountingContext,
 	RouteProvenance,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 // ===== MAIN THREAD → WORKER =====
 
 export interface StartMessage {
-	qualityDecision?:
-		| import("@better-ccflare/types").QualityDecisionRecord
-		| null;
+	qualityDecision?: import("@hov-router/types").QualityDecisionRecord | null;
 	accounting?: RequestAccountingContext;
 	type: "start";
 	messageId: string; // envelope ID for ack tracking
@@ -140,7 +138,7 @@ export interface ChunkMessage {
 
 export interface EndMessage {
 	routingAttemptSummary?:
-		| import("@better-ccflare/types").RequestRoutingAttemptSummary
+		| import("@hov-router/types").RequestRoutingAttemptSummary
 		| null;
 	type: "end";
 	requestId: string;
@@ -210,5 +208,5 @@ export interface ShutdownCompleteMessage {
 
 export interface SummaryMessage {
 	type: "summary";
-	summary: import("@better-ccflare/types").RequestResponse;
+	summary: import("@hov-router/types").RequestResponse;
 }

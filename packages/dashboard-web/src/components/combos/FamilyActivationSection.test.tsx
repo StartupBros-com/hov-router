@@ -1,12 +1,9 @@
 import { describe, expect, it, mock } from "bun:test";
-import {
-	getModelDisplayName,
-	LATEST_MODEL_BY_FAMILY,
-} from "@better-ccflare/core";
+import { getModelDisplayName, LATEST_MODEL_BY_FAMILY } from "@hov-router/core";
 import type {
 	ComboFamilyAssignment,
 	ComboRoutingPreviewResult,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { queryKeys } from "../../lib/query-keys";

@@ -1,4 +1,4 @@
-import type { DatabaseOperations, UsageWindow } from "@better-ccflare/database";
+import type { DatabaseOperations, UsageWindow } from "@hov-router/database";
 import { valueWindowAggregates } from "./usage-window-valuation";
 
 const HOUR_MS = 60 * 60 * 1000;

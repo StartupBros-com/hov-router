@@ -1,11 +1,11 @@
-import { isAccountAvailable } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
+import { isAccountAvailable } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
 import type {
 	Account,
 	LoadBalancingStrategy,
 	RequestMeta,
 	StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { isPeekAvailable, wouldAutoUnpause } from "./peek-availability";
 import {
 	commitStrategyCandidateOrder,

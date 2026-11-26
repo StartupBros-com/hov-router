@@ -31,7 +31,7 @@
  *   `proxy-operations.ts` to assert the current drain calls are present
  *   and structurally well-formed. Removing any one of them flips this
  *   red. We don't import proxy-operations.ts (its transitive
- *   dependency chain loads @better-ccflare/database, which itself has
+ *   dependency chain loads @hov-router/database, which itself has
  *   missing modules in this worktree's `bun install`-blocked state —
  *   a pre-existing issue unrelated to this fix), but the source-level
  *   check is enough to detect the negative-control removal: every site,

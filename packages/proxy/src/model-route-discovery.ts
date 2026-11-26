@@ -3,9 +3,9 @@ import {
 	getModelFamily,
 	isFirstPartyAnthropicAccount,
 	isRouteOnlyClaudeModelId,
-} from "@better-ccflare/core";
-import { previewAccountPhysicalModel } from "@better-ccflare/providers";
-import type { Account, QualityApprovedLine } from "@better-ccflare/types";
+} from "@hov-router/core";
+import { previewAccountPhysicalModel } from "@hov-router/providers";
+import type { Account, QualityApprovedLine } from "@hov-router/types";
 import {
 	getCodexCatalogLineTarget,
 	getCodexCatalogRoleTarget,

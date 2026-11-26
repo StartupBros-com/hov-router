@@ -23,8 +23,8 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import { usageCache } from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+import { usageCache } from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 import { handleProxy } from "../proxy";
 import * as usageCollectorModule from "../usage-collector";

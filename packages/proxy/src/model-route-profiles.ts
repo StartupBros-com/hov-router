@@ -2,12 +2,12 @@ import {
 	getModelFamily,
 	isRouteOnlyClaudeModelId,
 	resolveRouteProfileModelAlias,
-} from "@better-ccflare/core";
-import { getSupportedLines } from "@better-ccflare/providers";
+} from "@hov-router/core";
+import { getSupportedLines } from "@hov-router/providers";
 import type {
 	QualityApprovedLine,
 	RoutePhysicalModelPolicy,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 export const MODEL_ROUTE_PROFILES_ENV =
 	"CCFLARE_MODEL_ROUTE_PROFILES_JSON" as const;

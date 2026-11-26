@@ -79,7 +79,7 @@ Neither keep had a reader. What each one cost:
 every reader in the same change:
 
 - **The bundled dashboard.** `apps/server/src/server.ts` serves it from
-  `@better-ccflare/dashboard-web/dist/embedded`, so it ships in the binary and can never
+  `@hov-router/dashboard-web/dist/embedded`, so it ships in the binary and can never
   be out of step with the routes. It is never a reason to keep one.
 - **The operator's scripts, units and hooks.** Update them alongside the change.
 

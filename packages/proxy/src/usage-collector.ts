@@ -9,29 +9,29 @@ import {
 	SseFrameBuffer,
 	TIME_CONSTANTS,
 	type TurnEvidence,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	type AdvisorModelUsage,
 	AsyncDbWriter,
 	DatabaseOperations,
-} from "@better-ccflare/database";
-import { sanitizeResponseHeaders } from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
+} from "@hov-router/database";
+import { sanitizeResponseHeaders } from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
 import {
 	type AgentAttributionSource,
 	getDefaultBillingType,
 	NO_ACCOUNT_ID,
 	type ProjectAttributionSource,
 	type RequestResponse,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 // Cycle-free subpath (see packages/types/src/request.ts header) — same guard
 // the REST handler uses, so both write surfaces narrow identically.
 import {
 	sanitizeQualityDecision,
 	sanitizeRequestRoutingAttemptSummary,
 	toStreamTerminalState,
-} from "@better-ccflare/types/request";
-import { formatCost } from "@better-ccflare/ui-common";
+} from "@hov-router/types/request";
+import { formatCost } from "@hov-router/ui-common";
 import {
 	advisorResultOwnerKeyFromBlock,
 	getAdvisorResultOwnerKey,

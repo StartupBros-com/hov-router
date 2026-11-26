@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Config } from "@better-ccflare/config";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { DatabaseFactory } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import type { DatabaseOperations } from "@hov-router/database";
+import { DatabaseFactory } from "@hov-router/database";
 import type { PromptAdapter } from "../../prompts";
 import { addAccount, reauthenticateAccount } from "../account";
 

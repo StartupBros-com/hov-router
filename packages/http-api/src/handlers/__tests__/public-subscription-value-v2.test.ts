@@ -11,14 +11,14 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 import type { APIContext } from "../../types";
 
 const scratch = mkdtempSync(join(tmpdir(), "ccflare-public-value-v2-"));
 process.env.BETTER_CCFLARE_DB_PATH = join(scratch, "isolated.db");
 process.env.BETTER_CCFLARE_CONFIG_PATH = join(scratch, "isolated-config.json");
 process.env.DATABASE_URL = "";
-const { DatabaseOperations } = await import("@better-ccflare/database");
+const { DatabaseOperations } = await import("@hov-router/database");
 const { createPublicSubscriptionValueHandler, MAX_AGE_MS } = await import(
 	"../public-subscription-value"
 );

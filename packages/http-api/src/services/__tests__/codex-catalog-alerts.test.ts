@@ -1,26 +1,26 @@
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { EventEmitter } from "node:events";
-import type { Config } from "@better-ccflare/config";
+import type { Config } from "@hov-router/config";
 import {
 	alertEvents,
 	type CodexCatalogEvt,
 	type CodexOwnCatalogPublishedEvt,
 	codexCatalogEvents,
 	setForceAccountModel,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 import {
 	BunSqlAdapter,
 	ensureSchema,
 	runMigrations,
-} from "@better-ccflare/database";
-import { setProviderModelDefaultOverrides } from "@better-ccflare/providers";
+} from "@hov-router/database";
+import { setProviderModelDefaultOverrides } from "@hov-router/providers";
 import {
 	ALERT_TYPES,
 	type AlertEvent,
 	type AlertType,
 	isAlertType,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	AlertService,
 	buildThresholdAlertId,

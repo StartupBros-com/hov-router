@@ -1,6 +1,6 @@
 import { describe, expect, it, mock, spyOn } from "bun:test";
-import { usageCache } from "@better-ccflare/providers";
-import { registerPollingRestarter } from "@better-ccflare/proxy";
+import { usageCache } from "@hov-router/providers";
+import { registerPollingRestarter } from "@hov-router/proxy";
 import { createAccountRefreshUsageHandler } from "../accounts";
 
 describe("createAccountRefreshUsageHandler", () => {

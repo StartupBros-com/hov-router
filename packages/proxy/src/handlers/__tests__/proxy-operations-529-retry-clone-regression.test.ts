@@ -7,7 +7,7 @@
  * Static/structural check, same convention as the issue #354 test
  * (proxy-operations-529-parselimit-clones.test.ts) — proxy-operations.ts is
  * not imported directly because its transitive dependency chain loads
- * @better-ccflare/database, which can fail to initialise in worktrees where
+ * @hov-router/database, which can fail to initialise in worktrees where
  * `bun install` has not run.
  *
  * Run: bun test packages/proxy/src/handlers/__tests__/proxy-operations-529-retry-clone-regression.test.ts

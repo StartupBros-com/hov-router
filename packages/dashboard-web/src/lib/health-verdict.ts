@@ -1,4 +1,4 @@
-import type { HealthResponse, PoolStatus } from "@better-ccflare/types";
+import type { HealthResponse, PoolStatus } from "@hov-router/types";
 
 export type HealthVerdictStatus = "ok" | "degraded" | "unhealthy";
 

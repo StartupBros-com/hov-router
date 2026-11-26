@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BUNDLED_MODELS_AS_OF, CLAUDE_MODEL_IDS } from "@better-ccflare/core";
-import { getProvider } from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+import { BUNDLED_MODELS_AS_OF, CLAUDE_MODEL_IDS } from "@hov-router/core";
+import { getProvider } from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../handlers/proxy-types";
 import {
 	fetchLiveModels,

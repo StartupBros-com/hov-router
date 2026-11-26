@@ -7,7 +7,7 @@
  */
 import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
-import { intervalManager } from "@better-ccflare/core";
+import { intervalManager } from "@hov-router/core";
 import { BunSqlAdapter } from "../../../database/src/adapters/bun-sql-adapter";
 import { ensureSchema, runMigrations } from "../../../database/src/migrations";
 import {

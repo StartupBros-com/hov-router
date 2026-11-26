@@ -1,4 +1,4 @@
-import type { CleanupResponse } from "@better-ccflare/types";
+import type { CleanupResponse } from "@hov-router/types";
 import { useEffect, useState } from "react";
 import {
 	useCleanupNow,

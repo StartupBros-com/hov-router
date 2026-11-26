@@ -8,7 +8,7 @@ import {
 	type RuntimeConfig,
 	readGuardCorrelationSecret,
 	resolveConfigPath,
-} from "@better-ccflare/config";
+} from "@hov-router/config";
 import {
 	CACHE,
 	DEFAULT_STRATEGY,
@@ -26,16 +26,16 @@ import {
 	setPricingLogger,
 	shutdown,
 	TIME_CONSTANTS,
-} from "@better-ccflare/core";
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
-import { container, SERVICE_KEYS } from "@better-ccflare/core-di";
-import type { DatabaseOperations } from "@better-ccflare/database";
+} from "@hov-router/core";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
+import { container, SERVICE_KEYS } from "@hov-router/core-di";
+import type { DatabaseOperations } from "@hov-router/database";
 import {
 	AsyncDbWriter,
 	DatabaseFactory,
 	ExternalUsageRepository,
 	initPayloadEncryption,
-} from "@better-ccflare/database";
+} from "@hov-router/database";
 import {
 	AlertService,
 	APIRouter,
@@ -48,7 +48,7 @@ import {
 	runMemberNoticePass,
 	startMemberNoticeScheduler,
 	UsageWindowLedger,
-} from "@better-ccflare/http-api";
+} from "@hov-router/http-api";
 import {
 	LeastUsedStrategy,
 	RoutingTransitionRecorder,
@@ -56,13 +56,9 @@ import {
 	SessionAffinityStrategy,
 	SessionDrainSoonestStrategy,
 	SessionStrategy,
-} from "@better-ccflare/load-balancer";
-import {
-	Logger,
-	logFileWriter,
-	setConsoleLogging,
-} from "@better-ccflare/logger";
-import { handleResponsesRequest } from "@better-ccflare/openai-responses-adapter";
+} from "@hov-router/load-balancer";
+import { Logger, logFileWriter, setConsoleLogging } from "@hov-router/logger";
+import { handleResponsesRequest } from "@hov-router/openai-responses-adapter";
 import {
 	CODEX_DEFAULT_ENDPOINT,
 	CODEX_PING_MODEL,
@@ -80,12 +76,12 @@ import {
 	setProviderModelDefaultOverrides,
 	type UsageSnapshotPayload,
 	usageCache,
-} from "@better-ccflare/providers";
+} from "@hov-router/providers";
 import {
 	canUseInferenceProfileDynamic,
 	parseBedrockConfig,
 	translateModelName,
-} from "@better-ccflare/providers/bedrock";
+} from "@hov-router/providers/bedrock";
 import {
 	AnthropicDegradedModeCoordinator,
 	CacheAffinityOrderer,
@@ -139,8 +135,8 @@ import {
 	unregisterPollingRestarter,
 	unregisterRefreshClearer,
 	upstreamTransportTracker,
-} from "@better-ccflare/proxy";
-import { validatePathOrThrow } from "@better-ccflare/security";
+} from "@hov-router/proxy";
+import { validatePathOrThrow } from "@hov-router/security";
 import {
 	type Account,
 	type FullDiskStatus,
@@ -148,7 +144,7 @@ import {
 	type RetentionStatus,
 	StrategyName,
 	type StrategyStore,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { serve } from "bun";
 import {
 	BODY_ADMISSION_RESERVATION_MULTIPLIER,
@@ -245,14 +241,14 @@ let dashboardManifest: Record<string, string> | null = null;
 
 // Try to load embedded dashboard (will exist in production build)
 try {
-	const embedded = await import("@better-ccflare/dashboard-web/dist/embedded");
+	const embedded = await import("@hov-router/dashboard-web/dist/embedded");
 	embeddedDashboard = embedded.embeddedDashboard;
 	dashboardManifest = embedded.dashboardManifest;
 } catch {
 	// Fallback: try loading from file system (development)
 	try {
 		const manifestModule = await import(
-			"@better-ccflare/dashboard-web/dist/manifest.json"
+			"@hov-router/dashboard-web/dist/manifest.json"
 		);
 		dashboardManifest = manifestModule.default as Record<string, string>;
 	} catch {
@@ -519,7 +515,7 @@ export function resolveDashboardRoute(
 
 /**
  * Minimal interface satisfied by the `usageCache` singleton in
- * `@better-ccflare/providers`. Declared locally so the bootstrap helper
+ * `@hov-router/providers`. Declared locally so the bootstrap helper
  * can be unit-tested with a mock without dragging the full UsageCache
  * class (which is not exported) into the public type surface.
  */
@@ -635,7 +631,7 @@ function resolveDashboardAsset(assetPath: string): string | null {
 	try {
 		// Try resolving as a package first
 		return Bun.resolveSync(
-			`@better-ccflare/dashboard-web/dist${assetPath}`,
+			`@hov-router/dashboard-web/dist${assetPath}`,
 			dirname(import.meta.path),
 		);
 	} catch {
@@ -967,7 +963,7 @@ async function runStartupMaintenance(
 	}
 	try {
 		// Prune old agent workspaces (not seen in 7 days)
-		const { agentRegistry } = await import("@better-ccflare/agents");
+		const { agentRegistry } = await import("@hov-router/agents");
 		await agentRegistry.pruneOldWorkspaces();
 		log.info("Pruned old agent workspaces");
 	} catch (err) {

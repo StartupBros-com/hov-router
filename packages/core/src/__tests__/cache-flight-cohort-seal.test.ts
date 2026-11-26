@@ -6,7 +6,7 @@ import {
 	type CacheFlightPersistedSeal,
 	type CacheFlightSealCompleteness,
 	type CacheFlightServiceEpoch,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 
 const completeKeepalivePolicy: CacheFlightKeepalivePolicySnapshot = {
 	globalTtlMinutes: 20,

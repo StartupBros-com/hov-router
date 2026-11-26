@@ -7,9 +7,9 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@better-ccflare/config";
-import { CodexProvider, XaiProvider } from "@better-ccflare/providers";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import { ANTHROPIC_DEGRADED_MODE_DEFAULTS } from "@hov-router/config";
+import { CodexProvider, XaiProvider } from "@hov-router/providers";
+import type { Account, RequestMeta } from "@hov-router/types";
 import { AnthropicDegradedModeCoordinator } from "../../anthropic-degraded-mode";
 import { DegradedModeObservability } from "../../anthropic-degraded-observability";
 import { DegradedOwnerOverlay } from "../../degraded-owner-overlay";

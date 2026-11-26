@@ -1,6 +1,6 @@
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import { Logger } from "@better-ccflare/logger";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
+import type { DatabaseOperations } from "@hov-router/database";
+import { Logger } from "@hov-router/logger";
 
 export async function runDoctor(
 	dbOps: DatabaseOperations,

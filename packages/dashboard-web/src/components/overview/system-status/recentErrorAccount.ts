@@ -1,4 +1,4 @@
-import type { RecentErrorGroup } from "@better-ccflare/types";
+import type { RecentErrorGroup } from "@hov-router/types";
 
 type AccountFields = Pick<RecentErrorGroup, "accountId" | "accountName">;
 

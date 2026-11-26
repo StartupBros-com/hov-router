@@ -1,6 +1,6 @@
-import { reauthInstruction } from "@better-ccflare/core/reauth-instructions";
-import { Logger } from "@better-ccflare/logger";
-import type { Account } from "@better-ccflare/types";
+import { reauthInstruction } from "@hov-router/core/reauth-instructions";
+import { Logger } from "@hov-router/logger";
+import type { Account } from "@hov-router/types";
 import { REFRESH_TOKEN_HEALTH_CHECK_INTERVAL_MS } from "../constants";
 import {
 	checkAllAccountsHealth,

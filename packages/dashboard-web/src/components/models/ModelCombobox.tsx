@@ -1,4 +1,4 @@
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useProviderModels } from "../../hooks/useProviderModels";

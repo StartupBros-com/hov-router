@@ -1,4 +1,4 @@
-import { summarizeCacheReadHistogram } from "@better-ccflare/core";
+import { summarizeCacheReadHistogram } from "@hov-router/core";
 import type {
 	CacheParityDimensionSummary,
 	CacheParityMetrics,
@@ -7,7 +7,7 @@ import type {
 	CacheParityResponse,
 	CacheParityVerdict,
 	CacheParityWindow,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { buildCacheParityDriftReport } from "./cache-parity-expectations";
 
 export type CacheParityPolicy = CacheParityPolicySnapshot;

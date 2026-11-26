@@ -1,9 +1,9 @@
-import { minimumRoutableTier } from "@better-ccflare/core";
+import { minimumRoutableTier } from "@hov-router/core";
 import type {
 	Account,
 	RequestMeta,
 	RoutingCandidateMetadata,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 
 const DEFAULT_MAX_ENTRIES = 10_000;
 

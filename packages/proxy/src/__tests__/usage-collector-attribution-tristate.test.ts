@@ -26,8 +26,8 @@ import {
 	AsyncDbWriter,
 	DatabaseFactory,
 	type DatabaseOperations,
-} from "@better-ccflare/database";
-import type { RequestResponse } from "@better-ccflare/types";
+} from "@hov-router/database";
+import type { RequestResponse } from "@hov-router/types";
 import { UsageCollector } from "../usage-collector";
 import type { EndMessage, StartMessage } from "../worker-messages";
 

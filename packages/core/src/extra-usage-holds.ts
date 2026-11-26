@@ -2,7 +2,7 @@ import type {
 	CanonicalUsageWindow,
 	ExtraUsageHold,
 	ExtraUsageHoldState,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { getModelFamily } from "./model-mappings";
 
 /**

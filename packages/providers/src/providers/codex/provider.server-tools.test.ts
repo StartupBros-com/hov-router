@@ -3,7 +3,7 @@ import type {
 	Account,
 	ServerToolCapabilityTuple,
 	ServerToolRequirements,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { materializeProviderAttemptPlan } from "../../provider-attempt-plan";
 import {
 	captureCodexModelContextSnapshot,

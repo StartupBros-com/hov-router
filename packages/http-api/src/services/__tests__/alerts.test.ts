@@ -3,15 +3,15 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Config } from "@better-ccflare/config";
-import { CLAUDE_MODEL_IDS, LATEST_MODEL_BY_FAMILY } from "@better-ccflare/core";
-import { BunSqlAdapter, ensureSchema } from "@better-ccflare/database";
+import { Config } from "@hov-router/config";
+import { CLAUDE_MODEL_IDS, LATEST_MODEL_BY_FAMILY } from "@hov-router/core";
+import { BunSqlAdapter, ensureSchema } from "@hov-router/database";
 import type {
 	AlertEvent,
 	AlertsConfigPayload,
 	RequestResponse,
-} from "@better-ccflare/types";
-import { CACHE_HEALTH_INTERVAL_MS } from "@better-ccflare/types";
+} from "@hov-router/types";
+import { CACHE_HEALTH_INTERVAL_MS } from "@hov-router/types";
 import {
 	AlertService,
 	buildCodexRouteRoleUnavailableAlert,

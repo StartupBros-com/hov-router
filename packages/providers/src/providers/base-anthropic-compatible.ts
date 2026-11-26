@@ -1,7 +1,7 @@
-import { mapModelName, TIME_CONSTANTS } from "@better-ccflare/core";
-import { sanitizeProxyHeaders } from "@better-ccflare/http-common";
-import { Logger } from "@better-ccflare/logger";
-import type { Account } from "@better-ccflare/types";
+import { mapModelName, TIME_CONSTANTS } from "@hov-router/core";
+import { sanitizeProxyHeaders } from "@hov-router/http-common";
+import { Logger } from "@hov-router/logger";
+import type { Account } from "@hov-router/types";
 import { BaseProvider } from "../base";
 import type {
 	CacheReplayModelStrategy,

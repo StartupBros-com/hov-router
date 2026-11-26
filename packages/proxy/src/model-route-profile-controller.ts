@@ -1,4 +1,4 @@
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 import {
 	MODEL_ROUTE_PROFILES_ENV,
 	type ModelRouteProfile,

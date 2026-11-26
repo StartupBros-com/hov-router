@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { ServerToolRequirements } from "@better-ccflare/types";
+import type { ServerToolRequirements } from "@hov-router/types";
 import { evaluateServerToolReplayEligibility } from "./server-tool-replay-eligibility";
 import type { ServerToolReplayRuntimeState } from "./server-tool-replay-runtime";
 

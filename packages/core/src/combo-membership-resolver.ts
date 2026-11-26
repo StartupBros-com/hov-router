@@ -9,7 +9,7 @@ import type {
 	ComboRoutingPolicySnapshot,
 	EffectiveComboMember,
 	LogicalModelCapability,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	getModelFamily,
 	isFamilyAliasModel,

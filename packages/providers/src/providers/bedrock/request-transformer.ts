@@ -11,7 +11,7 @@ import type {
 	ToolResultContentBlock,
 	ToolUseBlock,
 } from "@aws-sdk/client-bedrock-runtime";
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 
 const log = new Logger("BedrockRequestTransformer");
 

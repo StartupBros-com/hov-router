@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { StrategyName } from "@better-ccflare/core";
+import { StrategyName } from "@hov-router/core";
 import { Config } from "./index";
 
 function makeConfig(): { config: Config; cleanup: () => void } {

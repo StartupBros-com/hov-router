@@ -7,7 +7,7 @@ import type {
 	ComboRouteClass,
 	ComboRoutingPolicySnapshot,
 	LogicalModelCapability,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import {
 	createManagedComboMemberId,
 	proposeComboEnrollmentRules,

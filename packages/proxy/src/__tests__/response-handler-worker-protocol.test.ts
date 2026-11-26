@@ -3,8 +3,8 @@ import {
 	BUFFER_SIZES,
 	type CacheFlightCohortSealReceipt,
 	requestEvents,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import { ANTHROPIC_SEMANTIC_LIVENESS_ERROR_FRAME } from "../anthropic-semantic-liveness";
 import {
 	ANTHROPIC_PRE_COMMIT_TIMEOUT_ENV,

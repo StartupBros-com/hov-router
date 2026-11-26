@@ -17,13 +17,13 @@ const complete = mock(async () => ({
 }));
 const completeReauth = mock(async () => {});
 
-mock.module("@better-ccflare/oauth-flow", () => ({
+mock.module("@hov-router/oauth-flow", () => ({
 	createOAuthFlow: async () => ({ complete, completeReauth }),
 }));
-mock.module("@better-ccflare/providers", () => ({
+mock.module("@hov-router/providers", () => ({
 	getOAuthProvider: () => ({ getOAuthConfig: () => ({ clientId: "test" }) }),
 }));
-mock.module("@better-ccflare/proxy", () => ({
+mock.module("@hov-router/proxy", () => ({
 	clearAccountRefreshCache: () => {},
 }));
 

@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
-import { usageCache } from "@better-ccflare/providers";
-import { clearSession, recordServedAccount } from "@better-ccflare/proxy";
-import type { Account, AccountResponse } from "@better-ccflare/types";
+import type { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
+import { usageCache } from "@hov-router/providers";
+import { clearSession, recordServedAccount } from "@hov-router/proxy";
+import type { Account, AccountResponse } from "@hov-router/types";
 import {
 	createAccountCodexCreditDrainHandler,
 	createAccountsListHandler,

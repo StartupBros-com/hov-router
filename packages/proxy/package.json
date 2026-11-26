@@ -1,5 +1,5 @@
 {
-	"name": "@better-ccflare/proxy",
+	"name": "@hov-router/proxy",
 	"version": "0.1.0",
 	"type": "module",
 	"main": "./src/index.ts",
@@ -12,14 +12,14 @@
 		"typecheck": "bunx tsc --noEmit"
 	},
 	"dependencies": {
-		"@better-ccflare/agents": "workspace:*",
-		"@better-ccflare/config": "workspace:*",
-		"@better-ccflare/core": "workspace:*",
-		"@better-ccflare/database": "workspace:*",
-		"@better-ccflare/logger": "workspace:*",
-		"@better-ccflare/providers": "workspace:*",
-		"@better-ccflare/security": "workspace:*",
-		"@better-ccflare/types": "workspace:*",
-		"@better-ccflare/ui-common": "workspace:*"
+		"@hov-router/agents": "workspace:*",
+		"@hov-router/config": "workspace:*",
+		"@hov-router/core": "workspace:*",
+		"@hov-router/database": "workspace:*",
+		"@hov-router/logger": "workspace:*",
+		"@hov-router/providers": "workspace:*",
+		"@hov-router/security": "workspace:*",
+		"@hov-router/types": "workspace:*",
+		"@hov-router/ui-common": "workspace:*"
 	}
 }

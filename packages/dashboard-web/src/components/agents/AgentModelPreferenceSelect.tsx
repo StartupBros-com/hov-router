@@ -1,5 +1,5 @@
-import { getModelDisplayName } from "@better-ccflare/core";
-import type { Agent } from "@better-ccflare/types";
+import { getModelDisplayName } from "@hov-router/core";
+import type { Agent } from "@hov-router/types";
 import {
 	AGENT_DEFAULT_MODEL_SENTINEL,
 	useUpdateAgentPreference,

@@ -2,11 +2,11 @@ import { describe, expect, it, mock, spyOn } from "bun:test";
 import {
 	attachGenerationStartReader,
 	type GenerationStart,
-} from "@better-ccflare/providers/stream-evidence";
+} from "@hov-router/providers/stream-evidence";
 import type { ProxyContext } from "../handlers";
 
 // See response-handler-anthropic-terminal-recovery.test.ts for why this file
-// spies getUsageCollector instead of stubbing @better-ccflare/database.
+// spies getUsageCollector instead of stubbing @hov-router/database.
 const usageCollectorModule = await import("../usage-collector");
 const { forwardToClient } = await import("../response-handler");
 

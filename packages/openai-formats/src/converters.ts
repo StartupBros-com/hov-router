@@ -1,6 +1,6 @@
-import { mapModelName } from "@better-ccflare/core";
-import { Logger } from "@better-ccflare/logger";
-import type { Account } from "@better-ccflare/types";
+import { mapModelName } from "@hov-router/core";
+import { Logger } from "@hov-router/logger";
+import type { Account } from "@hov-router/types";
 import { resolveAnthropicReasoningEffort } from "./reasoning";
 import type {
 	AnthropicContent,

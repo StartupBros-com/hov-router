@@ -1,5 +1,5 @@
-import type { RecentErrorGroup } from "@better-ccflare/types";
-import { formatTimestamp } from "@better-ccflare/ui-common";
+import type { RecentErrorGroup } from "@hov-router/types";
+import { formatTimestamp } from "@hov-router/ui-common";
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, X, XCircle } from "lucide-react";
 import { Badge } from "../../ui/badge";

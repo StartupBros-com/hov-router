@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, it } from "bun:test";
-import { normalizeProviderUsageWindows } from "@better-ccflare/core";
+import { normalizeProviderUsageWindows } from "@hov-router/core";
 import { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { DatabaseOperations } from "../../database-operations";
 import { ensureSchema, runMigrations } from "../../migrations";

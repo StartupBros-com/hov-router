@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
-import { attachStreamEvidenceReader } from "@better-ccflare/providers/stream-evidence";
+import { attachStreamEvidenceReader } from "@hov-router/providers/stream-evidence";
 import { createAnthropicPreCommitRescueRouteContext } from "../anthropic-precommit-rescue";
 import { gateAnthropicSsePreCommit } from "../anthropic-semantic-preflight";
 import { RoutingAttemptLedger } from "../handlers/routing-attempt-ledger";

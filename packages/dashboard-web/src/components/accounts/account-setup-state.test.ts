@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { DeviceSetupJobView } from "@better-ccflare/types";
+import type { DeviceSetupJobView } from "@hov-router/types";
 import type {
 	AccountRoutingOutcome,
 	AccountRoutingSelection,

@@ -1,4 +1,4 @@
-import type { SqlWindowSummary } from "@better-ccflare/database";
+import type { SqlWindowSummary } from "@hov-router/database";
 import { diffHostCounters, type HostCounters } from "./host-counters";
 
 /**

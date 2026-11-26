@@ -4,12 +4,12 @@ import {
 	type AnthropicDegradedMode,
 	type AnthropicDegradedModeConfig,
 	resolveAnthropicDegradedModeConfig,
-} from "@better-ccflare/config";
+} from "@hov-router/config";
 import {
 	CLAUDE_MODEL_IDS,
 	type ClaudeModelId,
 	getModelFamily,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 
 const KNOWN_CLAUDE_MODELS = new Set<ClaudeModelId>(
 	Object.values(CLAUDE_MODEL_IDS),

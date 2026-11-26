@@ -1,4 +1,4 @@
-import type { DeviceSetupJobView } from "@better-ccflare/types";
+import type { DeviceSetupJobView } from "@hov-router/types";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef } from "react";
 import {

@@ -1,5 +1,5 @@
-import { BUFFER_SIZES, SseFrameBuffer } from "@better-ccflare/core";
-import { drainReaderWithDeadline } from "@better-ccflare/providers/stream-drain";
+import { BUFFER_SIZES, SseFrameBuffer } from "@hov-router/core";
+import { drainReaderWithDeadline } from "@hov-router/providers/stream-drain";
 import { classifyAnthropicSseFrame } from "./anthropic-sse-frame-classifier";
 
 export const ANTHROPIC_MESSAGE_STOP_FRAME =
@@ -34,7 +34,7 @@ export type AnthropicTerminalRecoveryReason = "timeout" | "eof";
  * response-handler to record genuine success/failure.
  *
  * Exported as a runtime array — not just a type — so the API-side copy in
- * `@better-ccflare/types` can be compared against it in a test. A type-only
+ * `@hov-router/types` can be compared against it in a test. A type-only
  * declaration is erased at compile time and could drift silently
  * (`packages/types` must not import this package, so the two sets cannot share
  * one declaration).

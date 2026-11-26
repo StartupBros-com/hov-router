@@ -9,8 +9,8 @@
  * without mock.module (which leaks across proxy test files).
  */
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import { type AuthFailureEvt, authFailureEvents } from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+import { type AuthFailureEvt, authFailureEvents } from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import { getValidAccessToken } from "../token-manager";
 
 const CREATED_AT = 101;

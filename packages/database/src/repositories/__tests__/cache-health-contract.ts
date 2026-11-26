@@ -3,7 +3,7 @@ import {
 	type AlertEvent,
 	type CacheHealthState,
 	cacheHealthScopeKey,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import type { BunSqlAdapter } from "../../adapters/bun-sql-adapter";
 import { CacheHealthRepository } from "../cache-health.repository";
 

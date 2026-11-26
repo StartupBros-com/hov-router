@@ -15,13 +15,13 @@
  * opened, so this can never touch a developer's or operator's live DB.
  */
 import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
-import { LATEST_MODEL_BY_FAMILY } from "@better-ccflare/core";
-import type { DatabaseOperations } from "@better-ccflare/database";
+import { LATEST_MODEL_BY_FAMILY } from "@hov-router/core";
+import type { DatabaseOperations } from "@hov-router/database";
 import type {
 	Combo,
 	ComboFamilyAssignment,
 	ComboSlot,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { resolveFamilyPolicyAliases } from "../src/main";
 
 function assignment(

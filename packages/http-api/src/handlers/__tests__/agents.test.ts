@@ -15,9 +15,9 @@ import {
 	agentRegistry,
 	WorkspacePersistence,
 	workspacePersistence,
-} from "@better-ccflare/agents";
-import type { DatabaseOperations } from "@better-ccflare/database";
-import type { Agent, APIContext } from "@better-ccflare/types";
+} from "@hov-router/agents";
+import type { DatabaseOperations } from "@hov-router/database";
+import type { Agent, APIContext } from "@hov-router/types";
 import {
 	createAgentPreferenceDeleteHandler,
 	createAgentPreferenceUpdateHandler,

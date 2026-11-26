@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { usageCache } from "@better-ccflare/providers";
-import type { Account } from "@better-ccflare/types";
+import { usageCache } from "@hov-router/providers";
+import type { Account } from "@hov-router/types";
 import type { ProxyContext } from "../proxy-types";
 import { updateAccountMetadata } from "../response-processor";
 

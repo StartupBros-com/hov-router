@@ -1,4 +1,4 @@
-import { BUFFER_SIZES } from "@better-ccflare/core";
+import { BUFFER_SIZES } from "@hov-router/core";
 import type { ProviderServerToolReplayIssuer } from "../types";
 import type {
 	HostedSearchCitation,

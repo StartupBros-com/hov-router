@@ -7,12 +7,12 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type { Account, StrategyStore } from "@better-ccflare/types";
+import type { Account, StrategyStore } from "@hov-router/types";
 import type { ProxyContext } from "../handlers";
 
 // Focused proxy tests must not load ignored embedded worker artifacts.
-const { getProvider } = await import("@better-ccflare/providers");
-const { SessionStrategy } = await import("@better-ccflare/load-balancer");
+const { getProvider } = await import("@hov-router/providers");
+const { SessionStrategy } = await import("@hov-router/load-balancer");
 const accountSelectorModule = await import("../handlers/account-selector");
 const usageCollectorModule = await import("../usage-collector");
 const { handleProxy } = await import("../proxy");

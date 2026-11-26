@@ -1,4 +1,4 @@
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 
 export const PRE_TRANSPORT_AGENT_INTERCEPTION_TIMEOUT_ENV =
 	"CCFLARE_AGENT_INTERCEPTION_TIMEOUT_MS";

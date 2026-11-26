@@ -1,5 +1,5 @@
 import { expect, it, spyOn } from "bun:test";
-import { HttpError } from "@better-ccflare/errors";
+import { HttpError } from "@hov-router/errors";
 import { HttpClient } from "../client";
 import { errorResponse } from "../responses";
 

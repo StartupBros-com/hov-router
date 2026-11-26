@@ -1,6 +1,6 @@
 import { expect, it } from "bun:test";
-import type { Config } from "@better-ccflare/config";
-import { DatabaseOperations } from "@better-ccflare/database";
+import type { Config } from "@hov-router/config";
+import { DatabaseOperations } from "@hov-router/database";
 import type { PromptAdapter } from "../../prompts/adapter";
 import { type AddAccountOptionsWithAdapter, addAccount } from "../account";
 

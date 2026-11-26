@@ -8,7 +8,7 @@ import {
 	getRateLimitResetStabilityMs,
 	resolveCooldownUntil,
 	TIME_CONSTANTS,
-} from "@better-ccflare/core";
+} from "@hov-router/core";
 
 describe("resolveCooldownUntil", () => {
 	const now = 1_700_000_000_000; // fixed reference time

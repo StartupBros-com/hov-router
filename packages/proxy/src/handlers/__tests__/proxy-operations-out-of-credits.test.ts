@@ -7,13 +7,13 @@ import {
 	mock,
 	spyOn,
 } from "bun:test";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+import type { Account, RequestMeta } from "@hov-router/types";
 import type { ProxyContext } from "../proxy-types";
 
 // Source worktrees intentionally exclude generated database worker bundles.
 // This focused proxy harness supplies dbOps directly and never constructs these
 // classes, so keep the unit test independent from generated build artifacts.
-const { usageCache } = await import("@better-ccflare/providers");
+const { usageCache } = await import("@hov-router/providers");
 const { AnthropicProvider } = await import(
 	"../../../../providers/src/providers/anthropic/provider"
 );

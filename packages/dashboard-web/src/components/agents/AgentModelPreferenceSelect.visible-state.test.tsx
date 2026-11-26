@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from "bun:test";
-import type { Agent } from "@better-ccflare/types";
+import type { Agent } from "@hov-router/types";
 
 const state = { isError: false };
 const real = await import("../../hooks/queries");

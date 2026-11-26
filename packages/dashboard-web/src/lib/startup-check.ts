@@ -1,5 +1,5 @@
-import { PRODUCT_NAME } from "@better-ccflare/core/product-identity";
-import { HttpError } from "@better-ccflare/http-common";
+import { PRODUCT_NAME } from "@hov-router/core/product-identity";
+import { HttpError } from "@hov-router/http-common";
 
 /** Show the "may be restarting" copy once the startup check has waited this long. */
 export const STARTUP_SLOW_NOTICE_MS = 5_000;

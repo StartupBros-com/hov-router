@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Config } from "@better-ccflare/config";
+import { Config } from "@hov-router/config";
 import {
 	getAlertsConfig,
 	getMemberNoticeDestination,

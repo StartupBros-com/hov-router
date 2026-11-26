@@ -11,8 +11,8 @@
  * directory.
  */
 import { describe, expect, it, mock } from "bun:test";
-import type { BankedResets, FullUsageData } from "@better-ccflare/types";
-import { formatClockTime } from "@better-ccflare/ui-common";
+import type { BankedResets, FullUsageData } from "@hov-router/types";
+import { formatClockTime } from "@hov-router/ui-common";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup as renderMarkup } from "react-dom/server";

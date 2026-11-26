@@ -3,8 +3,8 @@ import {
 	getModelDisplayName,
 	LATEST_MYTHOS_MODEL,
 	LATEST_OPUS_MODEL,
-} from "@better-ccflare/core";
-import type { Account } from "@better-ccflare/types";
+} from "@hov-router/core";
+import type { Account } from "@hov-router/types";
 import {
 	buildModelRouteDiscoveryModels,
 	listModelRouteDiscoveryModels,

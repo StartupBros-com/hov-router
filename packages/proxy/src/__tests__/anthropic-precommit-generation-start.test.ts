@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	attachGenerationStartReader,
 	readGenerationStart,
-} from "@better-ccflare/providers/stream-evidence";
+} from "@hov-router/providers/stream-evidence";
 import {
 	type AnthropicSemanticPreflightOptions,
 	gateAnthropicSsePreCommit,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import type { UsageSnapshot } from "@better-ccflare/providers";
-import type { Account, EffectiveComboMember } from "@better-ccflare/types";
+import type { UsageSnapshot } from "@hov-router/providers";
+import type { Account, EffectiveComboMember } from "@hov-router/types";
 import {
 	createNativeQuotaContext,
 	evaluateNativeQuotaPolicy,

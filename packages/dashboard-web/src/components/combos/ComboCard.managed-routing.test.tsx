@@ -3,7 +3,7 @@ import type {
 	Combo,
 	ComboFamily,
 	ComboFamilyAssignment,
-} from "@better-ccflare/types";
+} from "@hov-router/types";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ComboCard, type ComboFamilyRoutingCardState } from "./ComboCard";
 import type { FamilyRoutingProjection } from "./family-routing";

@@ -12,7 +12,7 @@
  * changing coordination behavior.
  */
 import { createHash } from "node:crypto";
-import { Logger } from "@better-ccflare/logger";
+import { Logger } from "@hov-router/logger";
 import { opaqueRuntimeId } from "./opaque-runtime-id";
 
 const log = new Logger("CachePacing");

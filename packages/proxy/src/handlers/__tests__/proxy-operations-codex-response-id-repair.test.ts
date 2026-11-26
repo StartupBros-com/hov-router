@@ -44,12 +44,12 @@
 // for correlating the attempt id across two independent calls, not a
 // bypass of anything the guard depends on.
 import { describe, expect, it, mock, spyOn } from "bun:test";
-import { getProvider } from "@better-ccflare/providers";
+import { getProvider } from "@hov-router/providers";
 import {
 	CODEX_DEFAULT_ENDPOINT,
 	type CodexProvider,
-} from "@better-ccflare/providers/codex";
-import type { Account, RequestMeta } from "@better-ccflare/types";
+} from "@hov-router/providers/codex";
+import type { Account, RequestMeta } from "@hov-router/types";
 import type { ProxyContext } from "../proxy-types";
 
 const usageCollectorModule = await import("../../usage-collector");
@@ -203,7 +203,7 @@ function nativeResponseIdRequestFor(params: {
 		system: "keep the same turn",
 		metadata: { user_id: JSON.stringify({ session_id: sessionId }) },
 		messages,
-		__better_ccflare_codex_passthrough: {
+		__hov_router_codex_passthrough: {
 			continuation_strategy: "previous_response_id",
 		},
 	};

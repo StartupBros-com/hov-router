@@ -1,6 +1,6 @@
-import { intervalManager } from "@better-ccflare/core";
-import type { BunSqlAdapter } from "@better-ccflare/database";
-import { Logger } from "@better-ccflare/logger";
+import { intervalManager } from "@hov-router/core";
+import type { BunSqlAdapter } from "@hov-router/database";
+import { Logger } from "@hov-router/logger";
 
 const log = new Logger("ZaiPeakHoursPause");
 
