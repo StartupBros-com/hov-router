@@ -39,26 +39,39 @@ describe("findRetiredEnvNames", () => {
 			}),
 		).toEqual([
 			{ name: "BETTER_CCFLARE_HOST", replacement: "HOV_ROUTER_HOST" },
-			{ name: "CCFLARE_CODEX_TRACE_DIR", replacement: "HOV_ROUTER_CODEX_TRACE_DIR" },
+			{
+				name: "CCFLARE_CODEX_TRACE_DIR",
+				replacement: "HOV_ROUTER_CODEX_TRACE_DIR",
+			},
 			{ name: "ccflare_DB_PATH", replacement: "HOV_ROUTER_DB_PATH" },
 		]);
 	});
 
 	it("names the health SHA override separately from the provenance SHA", () => {
 		expect(
-			findRetiredEnvNames({ BETTER_CCFLARE_GIT_SHA: "a", CCFLARE_GIT_SHA: "b" }),
+			findRetiredEnvNames({
+				BETTER_CCFLARE_GIT_SHA: "a",
+				CCFLARE_GIT_SHA: "b",
+			}),
 		).toEqual([
-			{ name: "BETTER_CCFLARE_GIT_SHA", replacement: "HOV_ROUTER_HEALTH_GIT_SHA" },
+			{
+				name: "BETTER_CCFLARE_GIT_SHA",
+				replacement: "HOV_ROUTER_HEALTH_GIT_SHA",
+			},
 			{ name: "CCFLARE_GIT_SHA", replacement: "HOV_ROUTER_GIT_SHA" },
 		]);
 	});
 
 	it("counts a set but empty variable, which the old reader also saw", () => {
-		expect(findRetiredEnvNames({ CCFLARE_DEBUG_CODEX_STREAM: "" })).toHaveLength(1);
+		expect(
+			findRetiredEnvNames({ CCFLARE_DEBUG_CODEX_STREAM: "" }),
+		).toHaveLength(1);
 	});
 
 	it("ignores names that only contain the old word", () => {
-		expect(findRetiredEnvNames({ MY_CCFLARE_NOTE: "1", HOV_ROUTER_DB_PATH: "/x" })).toEqual([]);
+		expect(
+			findRetiredEnvNames({ MY_CCFLARE_NOTE: "1", HOV_ROUTER_DB_PATH: "/x" }),
+		).toEqual([]);
 	});
 });
 
@@ -67,7 +80,10 @@ describe("findRetiredStorage", () => {
 		const { home, base } = scratch();
 		mkdirSync(join(base, "better-ccflare"));
 		expect(findRetiredStorage({ env: {}, home, configBase: base })).toEqual([
-			{ path: join(base, "better-ccflare"), replacement: join(base, "hov-router") },
+			{
+				path: join(base, "better-ccflare"),
+				replacement: join(base, "hov-router"),
+			},
 		]);
 	});
 
@@ -85,8 +101,14 @@ describe("findRetiredStorage", () => {
 		writeFileSync(join(dir, "better-ccflare.db"), "");
 		writeFileSync(join(dir, "better-ccflare.json"), "{}");
 		expect(findRetiredStorage({ env: {}, home, configBase: base })).toEqual([
-			{ path: join(dir, "better-ccflare.json"), replacement: join(dir, "hov-router.json") },
-			{ path: join(dir, "better-ccflare.db"), replacement: join(dir, "hov-router.db") },
+			{
+				path: join(dir, "better-ccflare.json"),
+				replacement: join(dir, "hov-router.json"),
+			},
+			{
+				path: join(dir, "better-ccflare.db"),
+				replacement: join(dir, "hov-router.db"),
+			},
 		]);
 	});
 
@@ -97,9 +119,38 @@ describe("findRetiredStorage", () => {
 		writeFileSync(join(data, "better-ccflare.db"), "");
 		const env = { HOV_ROUTER_DB_PATH: join(data, "hov-router.db") };
 		expect(findRetiredStorage({ env, home, configBase: base })).toEqual([
-			{ path: join(data, "better-ccflare.db"), replacement: join(data, "hov-router.db") },
+			{
+				path: join(data, "better-ccflare.db"),
+				replacement: join(data, "hov-router.db"),
+			},
 		]);
 		writeFileSync(join(data, "hov-router.db"), "");
+		expect(findRetiredStorage({ env, home, configBase: base })).toEqual([]);
+	});
+
+	it("finds a write-ahead log left behind when only the database was renamed", () => {
+		const { home, base } = scratch();
+		const dir = join(base, "hov-router");
+		mkdirSync(dir);
+		writeFileSync(join(dir, "hov-router.db"), "");
+		writeFileSync(join(dir, "better-ccflare.db-wal"), "");
+		expect(findRetiredStorage({ env: {}, home, configBase: base })).toEqual([
+			{
+				path: join(dir, "better-ccflare.db-wal"),
+				replacement: join(dir, "hov-router.db-wal"),
+			},
+		]);
+	});
+
+	it("accepts an explicit database path that keeps the old file name", () => {
+		// Naming the file outright is a choice, not a fallback; its own log
+		// sits beside it under the same name.
+		const { home, base } = scratch();
+		const data = join(base, "data");
+		mkdirSync(data);
+		writeFileSync(join(data, "better-ccflare.db"), "");
+		writeFileSync(join(data, "better-ccflare.db-wal"), "");
+		const env = { HOV_ROUTER_DB_PATH: join(data, "better-ccflare.db") };
 		expect(findRetiredStorage({ env, home, configBase: base })).toEqual([]);
 	});
 
@@ -124,12 +175,21 @@ describe("findRetiredStorage", () => {
 describe("retiredNamesMessage", () => {
 	it("lists each rename and never a value", () => {
 		const message = retiredNamesMessage(
-			[{ name: "BETTER_CCFLARE_ADMIN_API_KEY", replacement: "HOV_ROUTER_ADMIN_API_KEY" }],
+			[
+				{
+					name: "BETTER_CCFLARE_ADMIN_API_KEY",
+					replacement: "HOV_ROUTER_ADMIN_API_KEY",
+				},
+			],
 			[{ path: "/c/better-ccflare", replacement: "/c/hov-router" }],
 		);
-		expect(message).toContain("BETTER_CCFLARE_ADMIN_API_KEY -> HOV_ROUTER_ADMIN_API_KEY");
+		expect(message).toContain(
+			"BETTER_CCFLARE_ADMIN_API_KEY -> HOV_ROUTER_ADMIN_API_KEY",
+		);
 		expect(message).toContain("/c/better-ccflare -> /c/hov-router");
-		expect(message).toContain('"Renamed in 8.0.0" in docs/hov-router-migration.md');
+		expect(message).toContain(
+			'"Renamed in 8.0.0" in docs/hov-router-migration.md',
+		);
 		expect(RETIRED_NAME_EXIT_CODE).toBe(78);
 	});
 });

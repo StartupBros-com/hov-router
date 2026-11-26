@@ -88,10 +88,10 @@ describe("Dockerfile builds HoV Router from source", () => {
 		);
 	});
 
-	it("runs as the non-root ccflare user with persistent /data", () => {
-		expect(instructions).toContain("USER ccflare");
+	it("runs as the non-root hov-router user with persistent /data", () => {
+		expect(instructions).toContain("USER hov-router");
 		expect(
-			instructions.some((l) => /useradd -u 1000 .* ccflare( |$)/.test(l)),
+			instructions.some((l) => /useradd -u 1000 .* hov-router( |$)/.test(l)),
 		).toBe(true);
 		expect(instructions).toContain('VOLUME ["/data"]');
 		expect(instructions).toContain(
@@ -134,17 +134,26 @@ describe("Docker guide reaches the install's real data volume", () => {
 
 	it("backs up and restores through the fixed container name", () => {
 		// Compose prefixes the volume with the project name, so a bare
-		// `-v hov-router-data:` mounts a new, empty volume instead.
-		expect(guide).not.toMatch(/-v\s+hov-router-data:/);
+		// `-v hov-router-data:` in a backup or restore mounts a new, empty
+		// volume instead. The plain-Docker example names its own volume.
+		const oneOffRuns = guide
+			.split("\n")
+			.filter((line) => line.includes("docker run --rm"));
+		expect(oneOffRuns.length).toBeGreaterThanOrEqual(3);
+		for (const line of oneOffRuns)
+			expect(line).not.toMatch(/-v\s+hov-router-data:/);
 		expect(compose).toContain("container_name: hov-router");
 		const volumesFrom = guide.match(/--volumes-from hov-router /g) ?? [];
 		expect(volumesFrom.length).toBeGreaterThanOrEqual(2);
 		expect(guide).toContain("test -f /data/hov-router.db");
 	});
 
-	it("tells upgraders to keep the old compose project name", () => {
-		expect(guide).toContain("com.docker.compose.project");
-		expect(guide).toContain("COMPOSE_PROJECT_NAME=");
+	it("moves a pre-8.0.0 volume by copying it, never in place", () => {
+		// The volume name changed, so the old one is read-only input and stays
+		// as the rollback copy. The copy refuses to overwrite a database.
+		expect(guide).toContain(":/old:ro");
+		expect(guide).toContain("docker compose create --build");
+		expect(guide).toContain("test ! -e /data/hov-router.db");
 	});
 });
 
@@ -195,7 +204,9 @@ describe("Dockerfile provenance wiring", () => {
 		for (const [env, arg] of wiring) {
 			expect(instructions, env).toContain(`ENV ${env}=\${${arg}}`);
 		}
-		expect(instructions).toContain("ENV HOV_ROUTER_GIT_SHA=${GIT_SHA:-unknown}");
+		expect(instructions).toContain(
+			"ENV HOV_ROUTER_GIT_SHA=${GIT_SHA:-unknown}",
+		);
 		expect(instructions).toContain(
 			"ENV HOV_ROUTER_SOURCE_SHA=${GIT_SHA:-unknown}",
 		);

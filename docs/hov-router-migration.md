@@ -8,46 +8,108 @@ The current [Linux x86_64 binary](reference.md#install-the-linux-x86_64-release)
 
 ## Install without replacing your current executable
 
-Follow the [source quickstart](reference.md#install-from-source). It builds the current fork with `bun install --frozen-lockfile` and `bun run build`, then installs the unchanged `apps/cli/dist/better-ccflare` artifact under **both** executable names in a fresh directory:
+Follow the [source quickstart](reference.md#install-from-source). It builds the current fork with `bun install --frozen-lockfile` and `bun run build`, then installs `apps/cli/dist/hov-router` as `hov-router` in a fresh directory. Coming from a release before 8.0.0, first move its storage and settings as [Renamed in 8.0.0](#renamed-in-800) describes.
 
-- `hov-router` is the preferred command.
-- `better-ccflare` remains a compatible command for the same server.
-- Guides for 3.6.2 through 3.7.1 also installed `wstack-router`. An existing copy or link keeps working, because every name runs the same binary; new installs no longer create it.
-
-Record the current executable location with `command -v` and the command name you use today before changing PATH. Keep that executable. The quickstart changes only the current shell's PATH unless you explicitly make it permanent; it does not replace a global package or repoint a service. Do not run multiple aliases as separate servers against the same database.
-
-## What stays the same
-
-| Surface | Existing contract |
-| --- | --- |
-| Linux/macOS config directory | `$XDG_CONFIG_HOME/better-ccflare`, or `~/.config/better-ccflare` when XDG is unset |
-| Config filename | `better-ccflare.json` in that directory |
-| Windows config directory | `better-ccflare` beneath `LOCALAPPDATA`, then `APPDATA`, then `~/AppData/Local` |
-| Default SQLite database | `better-ccflare.db` in the platform config directory |
-| Config override | `BETTER_CCFLARE_CONFIG_PATH`, with legacy `ccflare_CONFIG_PATH` fallback |
-| Database override | `BETTER_CCFLARE_DB_PATH`; a PostgreSQL `DATABASE_URL` is refused (see [PostgreSQL support removed](#postgresql-support-removed)) |
-| Other integration names | Existing `BETTER_CCFLARE_*`, `CCFLARE_*`, and other environment variables; `x-better-ccflare-*` headers |
-| Default server port | `8080`; existing port overrides and deployment ports remain unchanged |
-| Build/package names | `apps/cli/dist/better-ccflare` and the `better-ccflare` package identity |
-
-There is no new HoV configuration namespace and no config or credential migration. Do not rename storage directories, recovery files, environment variables, headers, or database files to match the product name. Existing deployments keep their paths, service names, and ports.
+Record the current executable location with `command -v` and the command name you use today before changing PATH. Keep that executable. The quickstart changes only the current shell's PATH unless you explicitly make it permanent; it does not replace a global package or repoint a service. Do not run two installs as separate servers against the same database.
 
 `hov-router --show-config` reads configuration without opening the account database or contacting a provider, and tags each value it took from the config file `[Config file]`. `--help` and `--version` alone do not prove that configuration was loaded. When a config file exists, `--show-config` leaves its contents unchanged; when none exists, it creates one holding only the default load-balancing strategy.
+
+## Renamed in 8.0.0
+
+**What changed.** Until 8.0.0 this fork kept the names it inherited from better-ccflare for its command, storage, settings and headers. Release 8.0.0 renames them and reads only the new names:
+
+| Before 8.0.0 | From 8.0.0 |
+| --- | --- |
+| Commands `hov-router` and `better-ccflare`, plus `wstack-router` from the guides for 3.6.2 through 3.7.1 | `hov-router` |
+| Linux/macOS config directory `$XDG_CONFIG_HOME/better-ccflare`, or `~/.config/better-ccflare` when XDG is unset | `$XDG_CONFIG_HOME/hov-router`, or `~/.config/hov-router` |
+| Windows config directory `better-ccflare` beneath `LOCALAPPDATA`, then `APPDATA`, then `~/AppData/Local` | `hov-router` in the same place |
+| Config file `better-ccflare.json` in that directory | `hov-router.json` |
+| Database `better-ccflare.db` in that directory, with its `-wal` and `-shm` files | `hov-router.db`, `hov-router.db-wal` and `hov-router.db-shm` |
+| Agent workspaces `~/.better-ccflare/workspaces.json` | `~/.hov-router/workspaces.json` |
+| Environment variables `BETTER_CCFLARE_*`, `CCFLARE_*` and `ccflare_*`, such as `BETTER_CCFLARE_DB_PATH` | `HOV_ROUTER_*` with the same ending, such as `HOV_ROUTER_DB_PATH` |
+| `BETTER_CCFLARE_GIT_SHA`, the source-build SHA that `/health` reports | `HOV_ROUTER_HEALTH_GIT_SHA` |
+| Request and response headers `x-better-ccflare-*`, such as `x-better-ccflare-account-id` | `x-hov-router-*`, such as `x-hov-router-account-id` |
+| Build output `apps/cli/dist/better-ccflare` | `apps/cli/dist/hov-router` |
+| Release asset `better-ccflare-linux-amd64` | `hov-router-linux-amd64` |
+| systemd unit `ccflare-stack.service` in the [systemd guide](systemd.md) and the deploy script | `hov-router.service` |
+| Docker Compose service and container `better-ccflare`, volume `better-ccflare-data`, image user `ccflare` | `hov-router`, `hov-router-data` and `hov-router`, still uid 1000 |
+
+The rename changes no database schema and no saved data, and the default port stays `8080`.
+
+**Old names are refused.** An old name that was simply ignored would fall back without a word: an ignored database path opens an empty default database, and an ignored account header sends the request into the pool. So:
+
+- The server and every command, including `--version` and `--help`, stop with exit status 78 when an old variable is set, in the environment or in a `.env` file the router reads. They also stop when old storage was not moved: the old config directory with no new one beside it, a `better-ccflare.json` or `better-ccflare.db` where the new file is missing, a `better-ccflare.db-wal` beside the new database, or old agent workspaces with none at the new path. The message lists each old name with its new one and never prints a value.
+- Variables that earlier releases had already stopped reading count too, such as `CCFLARE_CACHE_DIAG` and the PostgreSQL `BETTER_CCFLARE_DB_POOL_MAX`. Delete those instead of renaming them.
+- A request with an `x-better-ccflare-*` header gets a `400` `invalid_request_error` naming the new header, before an account is chosen, so nothing is sent upstream.
+- A file you name with `HOV_ROUTER_DB_PATH` or `HOV_ROUTER_CONFIG_PATH` may keep its old file name.
+
+**Codex prompt cache.** Codex `prompt_cache_key` values now start with `hov-router-` instead of `ccflare-`, so each Codex conversation misses OpenAI's prompt cache once, on its first request after the upgrade.
+
+**Upgrade a binary or source install.** For Docker, follow [Moving an install from before 8.0.0](docker.md#moving-an-install-from-before-800) instead.
+
+1. Stop every router process, including a service and any server started in a terminal. On Linux, `pgrep -af 'better-ccflare|hov-router'` should then print nothing.
+2. Back up the config directory with your usual procedure.
+3. Move the directories and rename the files in them. The block stops before changing anything if the old config directory is missing or a new directory already exists:
+
+   ```bash
+   (
+     set -eu
+     base="${XDG_CONFIG_HOME:-$HOME/.config}"
+     test -d "$base/better-ccflare"
+     test ! -e "$base/hov-router"
+     if [ -e "$HOME/.better-ccflare" ]; then test ! -e "$HOME/.hov-router"; fi
+     mv -T "$base/better-ccflare" "$base/hov-router"
+     cd "$base/hov-router"
+     for f in better-ccflare.*; do
+       if [ -e "$f" ]; then mv -n "$f" "hov-router.${f#better-ccflare.}"; fi
+     done
+     if [ -e "$HOME/.better-ccflare" ]; then mv -T "$HOME/.better-ccflare" "$HOME/.hov-router"; fi
+   )
+   ```
+
+   It renames `better-ccflare.db` together with its `-wal` and `-shm` files, which hold changes SQLite has not yet written into the database file, and with the `.integrity.json` and `.start-reserve` files named after it. On Windows, rename the `better-ccflare` folder to `hov-router` and each `better-ccflare.*` file in it to `hov-router.*` the same way. A database or config file elsewhere, named by `BETTER_CCFLARE_DB_PATH` or `BETTER_CCFLARE_CONFIG_PATH`, can stay where it is once you rename the variable.
+4. Rename the variables wherever you set them: shell profiles, `.env` files in the directory you start the router from or beside its binary, systemd units with their drop-ins and `EnvironmentFile`s, Docker files and CI. Each `BETTER_CCFLARE_`, `CCFLARE_` or `ccflare_` prefix becomes `HOV_ROUTER_`, except that `BETTER_CCFLARE_GIT_SHA` becomes `HOV_ROUTER_HEALTH_GIT_SHA`. This prints the names of any still set in the current shell:
+
+   ```bash
+   env | grep -E '^(BETTER_CCFLARE_|CCFLARE_|ccflare_)' | cut -d= -f1
+   ```
+
+5. Rename the headers in clients, scripts and proxies that send `x-better-ccflare-*` request headers or read the router's `x-better-ccflare-*` response headers.
+6. In a systemd unit, set `RestartPreventExitStatus=143 78`, so a start that refuses an old name stays stopped instead of restarting ([systemd guide](systemd.md)).
+7. Install 8.0.0 as `hov-router` and remove the `better-ccflare` and `wstack-router` commands an earlier guide created, such as the links in `~/.local/bin`: they keep running the release they point at. Start it, and check with `hov-router --show-config` that it reads your moved settings.
+
+**Roll back to 7.0.0.** Stop 8.0.0, run the moves in reverse, then rename the variables and headers back and start 7.0.0. The rename changes no database schema, so 7.0.0 opens the database again unless the 8.0.0 release notes list some other schema change.
+
+```bash
+(
+  set -eu
+  base="${XDG_CONFIG_HOME:-$HOME/.config}"
+  test -d "$base/hov-router"
+  test ! -e "$base/better-ccflare"
+  if [ -e "$HOME/.hov-router" ]; then test ! -e "$HOME/.better-ccflare"; fi
+  mv -T "$base/hov-router" "$base/better-ccflare"
+  cd "$base/better-ccflare"
+  for f in hov-router.*; do
+    if [ -e "$f" ]; then mv -n "$f" "better-ccflare.${f#hov-router.}"; fi
+  done
+  if [ -e "$HOME/.hov-router" ]; then mv -T "$HOME/.hov-router" "$HOME/.better-ccflare"; fi
+)
+```
 
 ## PostgreSQL support removed
 
 **What changed.** HoV Router now runs on SQLite only. Upstream added PostgreSQL support for multi-pod deployments. This fork removed it because no install of this fork uses it and it doubled every schema change.
 
-**What happens now.** If `DATABASE_URL` starts with `postgres://` or `postgresql://`, the server and every command that opens the database stop at startup with a message. Before this change such a URL would have let the router start on an empty SQLite database. `--version`, `--help` and the other commands that never open the database still work. Any other `DATABASE_URL` value is ignored, as before; the SQLite file is chosen by `BETTER_CCFLARE_DB_PATH` or the default.
+**What happens now.** If `DATABASE_URL` starts with `postgres://` or `postgresql://`, the server and every command that opens the database stop at startup with a message. Before this change such a URL would have let the router start on an empty SQLite database. `--version`, `--help` and the other commands that never open the database still work. Any other `DATABASE_URL` value is ignored, as before; the SQLite file is chosen by `HOV_ROUTER_DB_PATH` or the default.
 
 **Ways forward.**
 
 1. Stay on v3.7.1, the last release that supports PostgreSQL ([verify and install it](hov-router-releases.md#verify-release-371)).
-2. Unset `DATABASE_URL` and start fresh on SQLite, at `BETTER_CCFLARE_DB_PATH` or the default `~/.config/better-ccflare/better-ccflare.db`.
+2. Unset `DATABASE_URL` and start fresh on SQLite, at `HOV_ROUTER_DB_PATH` or the default `~/.config/hov-router/hov-router.db`.
 
 There is no PostgreSQL-to-SQLite migration tool, so option 2 starts with an empty database: accounts and history in PostgreSQL are not carried over.
 
-**Environment variables no longer read:** `BETTER_CCFLARE_DB_POOL_MAX`, `BETTER_CCFLARE_DB_IDLE_TIMEOUT`, `BETTER_CCFLARE_DB_STATEMENT_TIMEOUT`, `BETTER_CCFLARE_DB_CLIENT_TIMEOUT`, `BETTER_CCFLARE_DB_PG_PREPARE`, `BETTER_CCFLARE_TEST_POSTGRES_URL`, and the `CCFLARE_REQUIRE_LIVE_PG_*` family. `BETTER_CCFLARE_DB_CLEANUP_BATCH_SIZE` and every SQLite setting still work.
+**Environment variables no longer read:** `BETTER_CCFLARE_DB_POOL_MAX`, `BETTER_CCFLARE_DB_IDLE_TIMEOUT`, `BETTER_CCFLARE_DB_STATEMENT_TIMEOUT`, `BETTER_CCFLARE_DB_CLIENT_TIMEOUT`, `BETTER_CCFLARE_DB_PG_PREPARE`, `BETTER_CCFLARE_TEST_POSTGRES_URL`, and the `CCFLARE_REQUIRE_LIVE_PG_*` family. From 8.0.0 a start with one of them set stops instead ([Renamed in 8.0.0](#renamed-in-800)); delete them. `HOV_ROUTER_DB_CLEANUP_BATCH_SIZE` and every SQLite setting still work.
 
 ## Auto-refresh removed
 
@@ -78,9 +140,9 @@ There is no PostgreSQL-to-SQLite migration tool, so option 2 starts with an empt
 
 **Commands.** `--get-model` and `--set-model` are gone and now exit with status 1 as unknown arguments. `--show-config` still reads the configuration file without writing it.
 
-**Settings now ignored.** These are ignored and left in place:
+**Settings now ignored.** These are ignored and left in place. From 8.0.0, a start with one of the `CCFLARE_*` variables set stops instead ([Renamed in 8.0.0](#renamed-in-800)), so delete them:
 
-- a `default_agent_model` key in `better-ccflare.json` and the `DEFAULT_AGENT_MODEL` environment variable;
+- a `default_agent_model` key in the config file and the `DEFAULT_AGENT_MODEL` environment variable;
 - `CCFLARE_CACHE_DIAG`;
 - the Codex variables for features that are gone:
   - `CCFLARE_CODEX_WS_*`, removed with the WebSocket transport;
@@ -101,7 +163,7 @@ Release 5.0.0 logs one startup warning naming each Codex variable that is still 
 
 **Commands.** Any `--quality-routing-*` flag exits with status 2 and a message saying the commands were removed, without opening the database.
 
-**Settings now ignored.** A leftover `quality_routing_policy` in the config file, or `CCFLARE_QUALITY_ROUTING_POLICY_JSON` in the environment, is ignored and left in place, with one startup warning naming where it was found. Release 7.0.0 drops that warning, because the setting has no effect. It is no longer validated, so a policy that an older release refused no longer stops startup.
+**Settings now ignored.** A leftover `quality_routing_policy` in the config file, or `CCFLARE_QUALITY_ROUTING_POLICY_JSON` in the environment, is ignored and left in place, with one startup warning naming where it was found. Release 7.0.0 drops that warning, because the setting has no effect. From 8.0.0, a start with the variable set stops instead ([Renamed in 8.0.0](#renamed-in-800)); delete it. It is no longer validated, so a policy that an older release refused no longer stops startup.
 
 **History.** Requests the lane served keep their stored quality decision in request history. Its database tables are kept, with no migration.
 
@@ -144,34 +206,34 @@ A dashboard tab left open across the upgrade keeps calling the old paths, so its
 - `GET /api/cache-parity`: `policy` and `driftReport.declaredDefaults` no longer include `cacheKeySessionPercent`, `cacheKeyContinuityPercent`, `cacheKeyPrefixShardPercent`, `codexSettleMs`, `pacingBypassPercent`, `explicitBreakpointPercent`, `explicitBreakpointSuppressedScopes`, `turnStatePercent`, `turnStateObserveOnly` or `webSocketPercent`, so no `driftReport.deviations` entry can name them. `backendCapability` no longer includes `explicitBreakpoint`, which was always `"not_requested"`.
 - `GET /api/debug/cache-pacing` no longer includes `codex_settle_ms`, which was always `0`.
 
-**Kept.** `policy` still reports `promptCacheKeyEnabled`, `cacheKeyMode`, `pacingMs`, `globalKeepaliveTtlMinutes` and `xaiCacheKeepaliveTtlMinutes`, and the verdict, windows and `backendCapability.endpoint` are unchanged. The removed levers' environment variables stay ignored, as listed under [Removed in 5.0.0](#removed-in-500).
+**Kept.** `policy` still reports `promptCacheKeyEnabled`, `cacheKeyMode`, `pacingMs`, `globalKeepaliveTtlMinutes` and `xaiCacheKeepaliveTtlMinutes`, and the verdict, windows and `backendCapability.endpoint` are unchanged. The removed levers' environment variables stay ignored until 8.0.0, which refuses them, as listed under [Removed in 5.0.0](#removed-in-500).
 
 ## Upgrade leftovers removed
 
 Release 7.0.0 no longer copies `~/.ccflare/workspaces.json`. Only the original
 ccflare before v1.2.28 wrote that path. Move it to
-`~/.better-ccflare/workspaces.json` by hand if you still need those workspaces.
+`~/.hov-router/workspaces.json` by hand if you still need those workspaces.
 
 The guard no longer reads `GUARD_ALLOW_LEGACY_POOL_BODY`. Responses without the
 proxy recovery header are forwarded without retrying. Rollback validation now
 requires the guard body limits and systemd policies introduced in 3.6.0.
 
-A first start with no `better-ccflare.db` no longer copies the pre-fork
+A first start with no database no longer copies the pre-fork
 `~/.config/ccflare/ccflare.db` into place. If you are moving from ccflare, stop
 it, then copy the database with SQLite's backup command before the first start.
 A plain file copy can miss changes still held in the `-wal` file beside it.
 
 ```bash
-mkdir -p ~/.config/better-ccflare
-sqlite3 ~/.config/ccflare/ccflare.db ".backup '$HOME/.config/better-ccflare/better-ccflare.db'"
-sqlite3 ~/.config/better-ccflare/better-ccflare.db "PRAGMA integrity_check;"   # prints ok
+mkdir -p ~/.config/hov-router
+sqlite3 ~/.config/ccflare/ccflare.db ".backup '$HOME/.config/hov-router/hov-router.db'"
+sqlite3 ~/.config/hov-router/hov-router.db "PRAGMA integrity_check;"   # prints ok
 ```
 
-`ccflare_DB_PATH` is still read.
+Rename a `ccflare_DB_PATH` setting to `HOV_ROUTER_DB_PATH`.
 
 Pending token rotations saved by releases before 6.0.0 as `.wal` files are no
-longer read; 6.0.0 and later save them as `.slot` files. Before upgrading, run
-`ls ~/.config/better-ccflare/pending-rotations/*.wal`. If it lists a file, keep
+longer read; 6.0.0 and later save them as `.slot` files. Before upgrading from
+6.x, run `ls ~/.config/better-ccflare/pending-rotations/*.wal`. If it lists a file, keep
 6.x running until that account next refreshes its token, which removes the
 file. If you upgrade first and the account then asks you to sign in, log in to
 it again.
@@ -206,9 +268,9 @@ account to keep the old order.
 ## Legacy headers and routes removed
 
 - The `x-anthropic-agent-id` request header no longer names the agent. Send
-  `x-better-ccflare-agent-id`.
+  `x-hov-router-agent-id` (`x-better-ccflare-agent-id` before 8.0.0).
 - The `x-project` request header no longer names the project. Send
-  `x-better-ccflare-project`.
+  `x-hov-router-project` (`x-better-ccflare-project` before 8.0.0).
 - `POST /api/accounts/muse-spark` answers `410 Gone`. Add Meta accounts with
   `POST /api/accounts/meta`. Stored `muse-spark` accounts were already renamed
   to `meta`, and model IDs such as `muse-spark-1.2` keep their names.
@@ -246,13 +308,13 @@ Branded builds do not offer an actionable upstream update. Do not install a regi
    ```
 
    If you have local changes or a diverged branch, stop and resolve them; do not reset or overwrite your work. These are manual maintainer commands, not an auto-updater.
-3. Repeat the [source installation](reference.md#install-from-source) local installation block. It creates another fresh directory instead of overwriting the previous executable. Verify both commands' `--version` and `--git-sha` output before choosing that directory in PATH. Repointing or restarting an existing service is a separate deployment operation, not part of this installation guide.
+3. Repeat the [source installation](reference.md#install-from-source) local installation block. It creates another fresh directory instead of overwriting the previous executable. Verify `hov-router --version` and `--git-sha` output before choosing that directory in PATH. Repointing or restarting an existing service is a separate deployment operation, not part of this installation guide.
 
 ## Roll back the command choice
 
 1. Stop a newly started local server before returning to the prior executable. Do not start a second process against its database.
 2. Remove the new install directory from the shell PATH configuration you added, or open a shell that still uses the previous PATH. You can also invoke the retained previous executable by its absolute path. Keep the new directory until you have verified the rollback; no deletion is needed.
-3. Check `command -v better-ccflare`, then the selected executable's `--version` and `--git-sha`. This verifies command selection, not database downgrade safety. If you ran a version with schema changes, use that version's migration/backup guidance before restarting an older server.
+3. Check `command -v` for the command you use, then the selected executable's `--version` and `--git-sha`. This verifies command selection, not database downgrade safety. If you ran a version with schema changes, use that version's migration/backup guidance before restarting an older server. Going back across 8.0.0 also needs the old names back; see [Renamed in 8.0.0](#renamed-in-800).
 
 ## Maintainer: prepare local release artifacts
 
@@ -264,10 +326,10 @@ bun run apps/cli/prepare-router-artifacts.ts /tmp/hov-router-prep-001
 
 The destination must not already exist; choose a different path for each run. The helper builds the dashboard and reuses the selected-platform CLI builder. Its output directory contains exactly:
 
-- `better-ccflare-linux-amd64` — the compatibility asset name remains unchanged.
+- `hov-router-linux-amd64` — the executable. Releases before 8.0.0 named it `better-ccflare-linux-amd64`.
 - `SHA256SUMS` — the checksum for that executable.
 
-The helper checks a copy under each supported command name with `--help` and `--version` in an isolated environment. These checks do not start a server, exercise provider inference, or prove configuration/database compatibility. Existing all-platform build support remains available; this preparation helper only covers Linux x86_64.
+The helper checks the executable as `hov-router` with `--help` and `--version` in an isolated environment. These checks do not start a server, exercise provider inference, or prove configuration/database compatibility. Existing all-platform build support remains available; this preparation helper only covers Linux x86_64.
 
 Verify the bytes from inside the output directory:
 
@@ -276,7 +338,7 @@ cd /tmp/hov-router-prep-001
 sha256sum -c SHA256SUMS
 ```
 
-Expect `better-ccflare-linux-amd64: OK`. A checksum detects a byte mismatch against the manifest; it does **not** authenticate the publisher. An untagged preparation build has no proven release SHA or distribution identity, even if its version output looks familiar. Do not use its `--git-sha` output as release proof. The updater remains non-actionable.
+Expect `hov-router-linux-amd64: OK`. A checksum detects a byte mismatch against the manifest; it does **not** authenticate the publisher. An untagged preparation build has no proven release SHA or distribution identity, even if its version output looks familiar. Do not use its `--git-sha` output as release proof. The updater remains non-actionable.
 
 The CI counterpart is the separate [artifact preparation](../.github/workflows/prepare-router-artifacts.yml) job for pull requests and manual runs, with read-only repository permissions and no artifact uploads. It is not a publishing workflow: router releases come from `router-release.yml` and `router-release-artifacts.yml` ([release policy](hov-router-releases.md)). Upstream's npm, multi-architecture and SignPath publishers were deleted from this fork on 2026-11-03.
 
@@ -318,5 +380,5 @@ No visibility change; registry/package, image or release publication; tag push; 
 - **Repository not found:** use the current home, `https://github.com/StartupBros-com/hov-router`, and canonical issue links rather than old redirects. Check your network/Git configuration; hovstack is a separate product, not an alternate Router repository.
 - **Missing build artifact:** run `bun run build` from the checkout root before copying. The build includes the dashboard and compiled CLI; do not invoke `prepublish`.
 - **Command not found or old branding:** check PATH order and the printed installation directory with `command -v`; an older global command may still be selected.
-- **Missing accounts/config:** check the existing HOME/XDG and config/database overrides. Do not create a replacement namespace or move credentials to fix a command-name change.
+- **Missing accounts/config:** check HOME, `XDG_CONFIG_HOME` and the `HOV_ROUTER_CONFIG_PATH` and `HOV_ROUTER_DB_PATH` overrides. Coming from a release before 8.0.0, move its storage as [Renamed in 8.0.0](#renamed-in-800) describes; a start that still finds an old name stops and lists it.
 - **Port occupied:** leave the existing server alone and select a different local port, or perform a separate planned service handoff.

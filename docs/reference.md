@@ -45,9 +45,9 @@ This project builds upon the foundation of [snipeship/ccflare](https://github.co
 - **Database Integration** - SQLite for persistent storage and analytics
 
 **Distribution & Updates:**
-- **Local Source Build** - Install the built artifact as `hov-router` and its compatibility command names
+- **Local Source Build** - Install the built artifact as `hov-router`
 - **Manual Updates** - Fetch the current fork and rebuild; branded builds do not offer upstream auto-updates
-- **Compatibility** - Package names, build filenames, environment variables, paths, ports, and headers retain their existing names
+- **Names** - Release 8.0.0 renamed the build output, environment variables, paths and headers inherited from better-ccflare ([Renamed in 8.0.0](hov-router-migration.md#renamed-in-800)); ports are unchanged
 
 **🏢 Production Ready:**
 - **Enterprise Features** - Custom API endpoints, session management, advanced analytics
@@ -211,9 +211,9 @@ Leave the server running, then:
 2. Follow [Configure Claude SDK](#configure-claude-sdk), using this server's origin. A provider credential belongs to the account you just added; a proxy API key, when required, authenticates your client to Router.
 3. After your first client request, open the dashboard's **Requests** tab. Find that request and check its account and status to confirm which account handled it and whether it succeeded. An account appearing in **Accounts** alone does not prove a request routed successfully.
 
-If port 8080 is occupied, choose an unused port and use it consistently for the server, dashboard, CLI routing commands, and client configuration. The compatibility command names remain equivalent. This guide does not change a running service or move existing accounts.
+If port 8080 is occupied, choose an unused port and use it consistently for the server, dashboard, CLI routing commands, and client configuration. This guide does not change a running service or move existing accounts.
 
-See [manual updates, unchanged paths, and rollback](hov-router-migration.md). Report fork issues at [StartupBros-com/hov-router/issues](https://github.com/StartupBros-com/hov-router/issues).
+See [manual updates, renamed paths, and rollback](hov-router-migration.md). Report fork issues at [StartupBros-com/hov-router/issues](https://github.com/StartupBros-com/hov-router/issues).
 
 ### Legacy upstream distributions (not HoV Router)
 
@@ -1137,7 +1137,7 @@ Interactive apply can preview, show exact deltas, require an explicit proposal s
 See [Service-Lifetime Cohort Seal configuration and operator guidance](configuration.md#service-lifetime-cohort-seal) for activation, report and health commands, retention, privacy, and the mandatory pre-transport runtime-safety gate.
 
 ### Developer Tools
-- CLI (`hov-router`, with compatibility command names)
+- CLI (`hov-router`)
 - Web dashboard (`http://localhost:8080/dashboard`)
 - CLI for account management
 - REST API for automation

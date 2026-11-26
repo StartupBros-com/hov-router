@@ -1,34 +1,33 @@
 # Builds HoV Router from this checkout; no prebuilt image is published.
 #   docker compose up -d --build
 services:
-  # Service, container and volume names keep the pre-rename "better-ccflare"
-  # on purpose. Compose names the real volume <project>_better-ccflare-data,
-  # and the project defaults to this directory's name; docs/docker.md covers
-  # moving an existing install. The backup commands rely on the fixed
-  # container name, and a second name would collide on port 8080.
-  better-ccflare:
+  # Compose names the real volume <project>_hov-router-data, and the project
+  # defaults to this directory's name. The backup commands in docs/docker.md
+  # rely on the fixed container name. An install from before 8.0.0 used
+  # better-ccflare names; docs/docker.md covers moving its data.
+  hov-router:
     build: .
     image: hov-router:local
-    container_name: better-ccflare
+    container_name: hov-router
     restart: unless-stopped
     # On stop the server finishes in-flight responses for up to 60 s
-    # (CCFLARE_SHUTDOWN_DRAIN_MS) plus 15 s of cleanup. Docker's default 10 s
+    # (HOV_ROUTER_SHUTDOWN_DRAIN_MS) plus 15 s of cleanup. Docker's default 10 s
     # kills it mid-response; raise this if you raise the drain.
     stop_grace_period: 90s
     ports:
-      # The image sets BETTER_CCFLARE_HOST=0.0.0.0 so this published port
+      # The image sets HOV_ROUTER_HOST=0.0.0.0 so this published port
       # works; do not override it here or in .env for the container. To keep
       # the router off your network, publish on loopback instead:
       #   - "127.0.0.1:8080:8080"
       - "8080:8080"
     volumes:
       # Persist database
-      - better-ccflare-data:/data
+      - hov-router-data:/data
       # Optional: mount custom config
       # - ./config:/app/config:ro
     environment:
       - NODE_ENV=production
-      - BETTER_CCFLARE_DB_PATH=/data/better-ccflare.db
+      - HOV_ROUTER_DB_PATH=/data/hov-router.db
       - XDG_CONFIG_HOME=/data
       # Optional: configure logging
       # - LOG_LEVEL=info
@@ -57,5 +56,5 @@ services:
           memory: 256M
 
 volumes:
-  better-ccflare-data:
+  hov-router-data:
     driver: local

@@ -2,7 +2,7 @@
 
 For a coding agent with computer and terminal access, helping a human connect Claude Code to HoV Router. Choose client-only or new-host setup **before installing anything**. Installation commands live in the [technical reference](reference.md), not here. Finish with a working client request and matching dashboard evidence, directly or with the owner's help; otherwise name the evidence or human step still needed.
 
-Use `hov-router` for current builds; older command names such as `hov-router` remain compatible and run the same product ([migration](hov-router-migration.md#install-without-replacing-your-current-executable)). The public home is `StartupBros-com/hov-router`, repository ID `1278801682` ([repository move](hov-router-migration.md#repository-move)). Use the current home in guide, clone, download, and support URLs. A new clone uses git's default directory, `hov-router`; leave an existing clone's directory name as it is. Release 3.7.0 and later report `HoV Router` through every alias. The earlier 3.6.2 release still reports its original product name; it is the same product, so preserve its [historical verification pins](hov-router-releases.md#verify-the-historical-362-release). HoV Router and hovstack are independent House of Vibe projects; no hovstack installation is needed.
+Use `hov-router`. Release 8.0.0 installs only that command and reads only HoV Router names for storage, settings and headers; an install from before 8.0.0 moves its storage first ([Renamed in 8.0.0](hov-router-migration.md#renamed-in-800)). The public home is `StartupBros-com/hov-router`, repository ID `1278801682` ([repository move](hov-router-migration.md#repository-move)). Use the current home in guide, clone, download, and support URLs. A new clone uses git's default directory, `hov-router`; leave an existing clone's directory name as it is. Release 3.7.0 and later report `HoV Router` under any command name. The earlier 3.6.2 release still reports its original product name; it is the same product, so preserve its [historical verification pins](hov-router-releases.md#verify-the-historical-362-release). HoV Router and hovstack are independent House of Vibe projects; no hovstack installation is needed.
 
 ## 1. Choose the setup path
 
@@ -11,7 +11,7 @@ Inspect the intended Claude Code client, its OS, and relevant non-secret setting
 - **Existing local or shared server:** use [Shared client only](#shared-client-only). One central Router can serve many clients over Tailscale. Do not assume this computer needs to host another instance.
 - **New local host:** inspect server OS/architecture, installed tools, command locations, and local listening ports. Use a separate installation and private state with an unused loopback port. Keep existing executables, services, account data, client settings, and login intact. Continue at [Install without replacing anything](#2-install-without-replacing-anything).
 
-Ask only for choices inspection cannot resolve. Autostart, shell-profile edits, system services, remote exposure, and existing-server changes require a separate decision. Read [migration and rollback](hov-router-migration.md#what-stays-the-same) before changing an existing command selection.
+Ask only for choices inspection cannot resolve. Autostart, shell-profile edits, system services, remote exposure, and existing-server changes require a separate decision. Read [migration and rollback](hov-router-migration.md#renamed-in-800) before changing an existing command selection.
 
 ### Shared client only
 

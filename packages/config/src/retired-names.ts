@@ -77,7 +77,8 @@ export function findRetiredStorage(
 		found.push({ path: oldDir, replacement: newDir });
 	}
 
-	const configPath = env.HOV_ROUTER_CONFIG_PATH || join(newDir, CONFIG_FILENAME);
+	const configPath =
+		env.HOV_ROUTER_CONFIG_PATH || join(newDir, CONFIG_FILENAME);
 	const dbPath = env.HOV_ROUTER_DB_PATH || join(newDir, DB_FILENAME);
 	for (const [current, oldName] of [
 		[configPath, `${RETIRED_FILE_STEM}.json`],
@@ -87,6 +88,12 @@ export function findRetiredStorage(
 		if (!existsSync(current) && existsSync(old)) {
 			found.push({ path: old, replacement: current });
 		}
+	}
+	// SQLite keeps committed pages in the -wal file until a checkpoint. A
+	// database renamed without its log would open without them.
+	const oldWal = join(dirname(dbPath), `${RETIRED_FILE_STEM}.db-wal`);
+	if (oldWal !== `${dbPath}-wal` && existsSync(dbPath) && existsSync(oldWal)) {
+		found.push({ path: oldWal, replacement: `${dbPath}-wal` });
 	}
 
 	const oldWorkspaces = join(home, ".better-ccflare", "workspaces.json");

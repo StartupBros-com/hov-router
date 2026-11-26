@@ -1139,7 +1139,7 @@ validate_effective_systemd_policy() {
 		effective_body_admission_queue_limit=""
 	fi
 	if [[ -z "$effective_body_admission_budget_bytes" || -z "$effective_body_admission_queue_limit" ]]; then
-		echo "effective systemd environment is missing a CCFLARE body-admission setting" >&2
+		echo "effective systemd environment is missing a HOV_ROUTER body-admission setting" >&2
 		return 1
 	else
 		validate_bun_body_admission_policy_values \
