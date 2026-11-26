@@ -43,9 +43,7 @@ import { type HealthVerdict, parseHealthVerdict } from "./lib/health-verdict";
 import { type RedeemResetAnswer, sendRedeemReset } from "./lib/redeem-reset";
 
 // Re-export types with dashboard-specific aliases for backward compatibility
-export type Account = AccountResponse & {
-	/** @deprecated Fallbacks are now merged into modelMappings as arrays */
-};
+export type Account = AccountResponse;
 export type LogEntry = LogEvent;
 export type RequestSummary = RequestResponse;
 

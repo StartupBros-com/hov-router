@@ -101,7 +101,7 @@ Release 5.0.0 logs one startup warning naming each Codex variable that is still 
 
 **Commands.** Any `--quality-routing-*` flag exits with status 2 and a message saying the commands were removed, without opening the database.
 
-**Settings now ignored.** A leftover `quality_routing_policy` in the config file, or `CCFLARE_QUALITY_ROUTING_POLICY_JSON` in the environment, is ignored and left in place, with one startup warning naming where it was found. It is no longer validated, so a policy that an older release refused no longer stops startup.
+**Settings now ignored.** A leftover `quality_routing_policy` in the config file, or `CCFLARE_QUALITY_ROUTING_POLICY_JSON` in the environment, is ignored and left in place, with one startup warning naming where it was found. Release 7.0.0 drops that warning, because the setting has no effect. It is no longer validated, so a policy that an older release refused no longer stops startup.
 
 **History.** Requests the lane served keep their stored quality decision in request history. Its database tables are kept, with no migration.
 
@@ -133,7 +133,7 @@ Release 5.0.0 logs one startup warning naming each Codex variable that is still 
 
 A dashboard tab left open across the upgrade keeps calling the old paths, so its alert list and badge fail until the tab is reloaded. An nginx config copied from an older [deployment guide](deployment.md) matches `insights/alerts` in its event-stream location; change it to `alerts` or the alert stream is buffered again.
 
-**Anomaly alerts.** Release 7.0.0 also removes the anomaly alert sweep. It was off by default and raised `anomaly_token_outlier`, `anomaly_output_blowup`, `anomaly_runaway_loop` and `anomaly_model_misrouting` alerts. Its settings are ignored and left where they are: `ALERT_ANOMALY_ENABLED`, `ALERT_ANOMALY_INTERVAL_MINUTES`, `ALERT_ANOMALY_BASELINE_WINDOW_MINUTES`, `ALERT_ANOMALY_LOOP_MIN_REQUESTS` and the matching `alert_anomaly_*` config-file keys. If the sweep was turned on, startup logs one warning until you delete them. The alert settings that `GET /api/alerts/config` and `POST /api/alerts` return no longer include `anomalyEnabled`, `anomalyIntervalMinutes`, `anomalyBaselineWindowMinutes` or `loopMinRequests`. A `POST` that still sends them succeeds and ignores them. The four `anomaly_*` type names are still accepted in `ALERT_WEBHOOK_TYPES` and `alert_webhook_types`, so a saved allowlist loads and saves as before; nothing raises those types any more.
+**Anomaly alerts.** Release 7.0.0 also removes the anomaly alert sweep. It was off by default and raised `anomaly_token_outlier`, `anomaly_output_blowup`, `anomaly_runaway_loop` and `anomaly_model_misrouting` alerts. Its settings are ignored and left where they are: `ALERT_ANOMALY_ENABLED`, `ALERT_ANOMALY_INTERVAL_MINUTES`, `ALERT_ANOMALY_BASELINE_WINDOW_MINUTES`, `ALERT_ANOMALY_LOOP_MIN_REQUESTS` and the matching `alert_anomaly_*` config-file keys. The alert settings that `GET /api/alerts/config` and `POST /api/alerts` return no longer include `anomalyEnabled`, `anomalyIntervalMinutes`, `anomalyBaselineWindowMinutes` or `loopMinRequests`. A `POST` that still sends them succeeds and ignores them. The four `anomaly_*` type names are still accepted in `ALERT_WEBHOOK_TYPES` and `alert_webhook_types`, so a saved allowlist loads and saves as before; nothing raises those types any more.
 
 **Kept.** Stored alerts are untouched, including any `anomaly_*` alerts.
 

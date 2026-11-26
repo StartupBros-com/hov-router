@@ -1,8 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Logger } from "@better-ccflare/logger";
 import { Config } from "./index";
 
 // The anomaly alert sweep was removed in 7.0.0 (#1012). Any install that saved
@@ -17,7 +16,6 @@ const RETIRED_KEYS = [
 ] as const;
 const savedEnv = process.env[ENV];
 const directories: string[] = [];
-let warn: ReturnType<typeof spyOn>;
 
 function configPath(data: Record<string, unknown>): string {
 	const directory = mkdtempSync(join(tmpdir(), "ccflare-retired-anomaly-"));
@@ -27,28 +25,19 @@ function configPath(data: Record<string, unknown>): string {
 	return path;
 }
 
-function retiredWarnings(): string[] {
-	return warn.mock.calls
-		.map((call) => String(call[0]))
-		.filter((message) => message.includes("anomaly alert sweep"));
-}
-
 beforeEach(() => {
 	delete process.env[ENV];
-	warn = spyOn(Logger.prototype, "warn").mockImplementation(() => {});
 });
 
 afterEach(() => {
-	warn.mockRestore();
 	if (savedEnv === undefined) delete process.env[ENV];
 	else process.env[ENV] = savedEnv;
 	for (const directory of directories.splice(0))
 		rmSync(directory, { recursive: true, force: true });
 });
 
-// The warning is logged once per process, so the silent cases run first.
 describe("retired anomaly alert settings", () => {
-	it("keeps leftover keys out of settings, with no warning, when the sweep was off", () => {
+	it("keeps leftover keys out of settings when the sweep was off", () => {
 		process.env[ENV] = "false";
 		const settings = new Config(
 			configPath({
@@ -61,7 +50,6 @@ describe("retired anomaly alert settings", () => {
 		).getAllSettings();
 		for (const key of RETIRED_KEYS) expect(key in settings).toBe(false);
 		expect(settings.lb_strategy).toBe("session");
-		expect(retiredWarnings()).toEqual([]);
 	});
 
 	it("leaves the leftover keys on disk when other settings are saved", () => {
@@ -74,17 +62,16 @@ describe("retired anomaly alert settings", () => {
 		expect(saved.alert_anomaly_enabled).toBe(false);
 		expect(saved.alert_anomaly_loop_min_requests).toBe(25);
 		expect(saved.alert_cooldown_minutes).toBe(45);
-		expect(retiredWarnings()).toEqual([]);
 	});
 
-	it("warns once, naming both sources, when the sweep was turned on", () => {
-		process.env[ENV] = "1";
-		const path = configPath({ alert_anomaly_enabled: true });
-		new Config(path);
-		new Config(path);
-		const warnings = retiredWarnings();
-		expect(warnings).toHaveLength(1);
-		expect(warnings[0]).toContain("alert_anomaly_enabled in the config file");
-		expect(warnings[0]).toContain(ENV);
+	it("ignores enabled and malformed leftovers without validating them", () => {
+		for (const value of [true, "{not json", { version: 99 }]) {
+			process.env[ENV] = String(value);
+			const config = new Config(
+				configPath(Object.fromEntries(RETIRED_KEYS.map((key) => [key, value]))),
+			);
+			for (const key of RETIRED_KEYS)
+				expect(key in config.getAllSettings()).toBe(false);
+		}
 	});
 });

@@ -5,7 +5,6 @@
 		"packages/cli-commands/src/commands/account.ts#reauthenticateAccount": 1,
 		"packages/cli-commands/src/commands/account.ts#removeAccount": 1,
 		"packages/cli-commands/src/commands/account.ts#removeAccountById": 1,
-		"packages/cli-commands/src/commands/account.ts#removeAccountWithConfirmation": 1,
 		"packages/cli-commands/src/commands/account.ts#setAccountPriority": 1,
 		"packages/cli-commands/src/commands/account.ts#toggleAccountPause": 1,
 		"packages/cli-commands/src/commands/database-repair.ts#repairDatabase": 3,

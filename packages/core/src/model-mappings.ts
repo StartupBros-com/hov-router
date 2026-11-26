@@ -495,10 +495,6 @@ export function resolveCompatibleEndpoint(
 	}
 }
 
-export function createCustomEndpointData(endpoint: string): string {
-	return JSON.stringify({ endpoint });
-}
-
 /**
  * Validate model mappings for storage. Values may be a string or string[].
  */
