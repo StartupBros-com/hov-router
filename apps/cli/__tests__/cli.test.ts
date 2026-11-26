@@ -14,6 +14,123 @@ import { join } from "node:path";
 
 const CLI_PATH = join(process.cwd(), "apps/cli/src/main.ts");
 
+async function reserveServeTestPort(onRequest?: () => void) {
+	const listener = createServer((_request, response) => {
+		onRequest?.();
+		response.end("not the CLI");
+	});
+	await new Promise<void>((resolve, reject) => {
+		listener.once("error", reject);
+		listener.listen(0, "127.0.0.1", resolve);
+	});
+	const address = listener.address();
+	if (!address || typeof address === "string") {
+		listener.close();
+		throw new Error("serve test listener did not bind a TCP port");
+	}
+	return {
+		port: address.port,
+		close: () =>
+			new Promise<void>((resolve, reject) => {
+				listener.close((error) => (error ? reject(error) : resolve()));
+			}),
+	};
+}
+
+async function chooseServeTestPort() {
+	const lease = await reserveServeTestPort();
+	await lease.close();
+	return lease.port;
+}
+
+async function withServingCli(
+	envOverrides: NodeJS.ProcessEnv,
+	verify: (
+		processId: number,
+		dbPath: string,
+		readOutput: () => string,
+	) => Promise<void>,
+	choosePort = chooseServeTestPort,
+) {
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const port = await choosePort();
+		const dir = mkdtempSync(join(tmpdir(), "ccflare-cli-serve-"));
+		const dbPath = join(dir, "serve.db");
+		const proc = spawn(
+			"bun",
+			["run", CLI_PATH, "--serve", "--port", String(port)],
+			{
+				env: {
+					...process.env,
+					NODE_ENV: "test",
+					BETTER_CCFLARE_DB_PATH: dbPath,
+					BETTER_CCFLARE_HOST: "127.0.0.1",
+					XDG_CONFIG_HOME: dir,
+					...envOverrides,
+				},
+			},
+		);
+		let output = "";
+		let exited = false;
+		proc.stdout?.on("data", (data) => {
+			output += data.toString();
+		});
+		proc.stderr?.on("data", (data) => {
+			output += data.toString();
+		});
+		proc.once("error", (error) => {
+			output += String(error);
+		});
+		const closed = new Promise<void>((resolve) => {
+			proc.once("close", () => {
+				exited = true;
+				resolve();
+			});
+		});
+		try {
+			let answered = false;
+			const deadline = performance.now() + 12000;
+			while (!exited && !answered && performance.now() < deadline) {
+				await Bun.sleep(100);
+				// The CLI's earlier "will be available" line is printed before it
+				// binds. Only this child's post-bind banner permits a health poll.
+				if (
+					!output.split("\n").some((line) => line.trim() === `🌐 Port: ${port}`)
+				) {
+					continue;
+				}
+				answered = await fetch(`http://127.0.0.1:${port}/health`, {
+					signal: AbortSignal.timeout(400),
+				})
+					.then((result) => {
+						void result.body?.cancel().catch(() => {});
+						return true;
+					})
+					.catch(() => false);
+			}
+			if (
+				!answered &&
+				attempt === 0 &&
+				exited &&
+				output.includes(`Port ${port} is already in use.`)
+			) {
+				continue;
+			}
+			expect({ answered, output: answered ? "" : output }).toEqual({
+				answered: true,
+				output: "",
+			});
+			if (!proc.pid) throw new Error("serve test child has no pid");
+			await verify(proc.pid, dbPath, () => output);
+			return;
+		} finally {
+			if (!exited) proc.kill();
+			await closed;
+			rmSync(dir, { recursive: true, force: true });
+		}
+	}
+}
+
 // Tracks per-invocation temp databases so afterEach can remove them along
 // with their SQLite WAL/SHM siblings. Each runCLI() below pushes one path
 // here; the suite's afterEach() drains the set after the existing
@@ -639,113 +756,49 @@ describe("CLI Integration Tests", () => {
 		// it reliably. The open order the check guards is settled before the
 		// writer starts, and the next test covers startup with the writer on.
 		it("opens the database with the server's runtime config", async () => {
-			const dir = mkdtempSync(join(tmpdir(), "ccflare-cli-serve-"));
-			const dbPath = join(dir, "serve.db");
-			const port = 20000 + (process.pid % 20000);
-			const proc = spawn(
-				"bun",
-				["run", CLI_PATH, "--serve", "--port", `${port}`],
-				{
-					env: {
-						...process.env,
-						NODE_ENV: "test",
-						BETTER_CCFLARE_DB_PATH: dbPath,
-						XDG_CONFIG_HOME: dir,
-						BETTER_CCFLARE_DB_WRITER_WORKER: "0",
-					},
+			await withServingCli(
+				{ BETTER_CCFLARE_DB_WRITER_WORKER: "0" },
+				async (processId, dbPath) => {
+					// mmap is on only when the configured connection opened the file.
+					// Match the file itself, not its always-mapped -shm sibling.
+					if (process.platform === "linux") {
+						const mapped = readFileSync(`/proc/${processId}/maps`, "utf8")
+							.split("\n")
+							.some((line) => line.endsWith(` ${dbPath}`));
+						expect(mapped).toBe(true);
+					}
 				},
 			);
-			let output = "";
-			proc.stdout?.on("data", (data) => {
-				output += data.toString();
-			});
-			proc.stderr?.on("data", (data) => {
-				output += data.toString();
-			});
-			let exited = false;
-			proc.on("close", () => {
-				exited = true;
-			});
-			try {
-				// Any answer means startup finished; with no accounts it is a 503.
-				let answered = false;
-				for (let i = 0; i < 150 && !exited && !answered; i++) {
-					await Bun.sleep(100);
-					answered = await fetch(`http://127.0.0.1:${port}/health`)
-						.then(() => true)
-						.catch(() => false);
-				}
-				expect({ answered, output: answered ? "" : output }).toEqual({
-					answered: true,
-					output: "",
-				});
-				// mmap is on only when the configured connection opened the file.
-				// Match the file itself, not its always-mapped -shm sibling.
-				if (process.platform === "linux") {
-					const mapped = readFileSync(`/proc/${proc.pid}/maps`, "utf8")
-						.split("\n")
-						.some((line) => line.endsWith(` ${dbPath}`));
-					expect(mapped).toBe(true);
-				}
-			} finally {
-				proc.kill();
-				if (!exited) await new Promise((resolve) => proc.on("close", resolve));
-				rmSync(dir, { recursive: true, force: true });
-			}
 		}, 30000);
 
 		it("starts the SQLite writer thread by default (#676)", async () => {
-			const dir = mkdtempSync(join(tmpdir(), "ccflare-cli-serve-writer-"));
-			const dbPath = join(dir, "serve.db");
-			const port = 40000 + (process.pid % 20000);
-			const env: Record<string, string | undefined> = {
-				...process.env,
-				NODE_ENV: "test",
-				BETTER_CCFLARE_DB_PATH: dbPath,
-				XDG_CONFIG_HOME: dir,
-				LOG_LEVEL: "info",
-			};
-			delete env.BETTER_CCFLARE_DB_WRITER_WORKER;
-			const proc = spawn(
-				"bun",
-				["run", CLI_PATH, "--serve", "--port", `${port}`],
-				{ env },
-			);
-			let output = "";
-			proc.stdout?.on("data", (data) => {
-				output += data.toString();
-			});
-			proc.stderr?.on("data", (data) => {
-				output += data.toString();
-			});
-			let exited = false;
-			proc.on("close", () => {
-				exited = true;
+			let foreignRequests = 0;
+			let portAttempts = 0;
+			// Deliberately collide once: the other listener answers /health but
+			// cannot satisfy this child's readiness and must never receive a poll.
+			const occupied = await reserveServeTestPort(() => {
+				foreignRequests++;
 			});
 			try {
-				let answered = false;
-				for (let i = 0; i < 150 && !exited && !answered; i++) {
-					await Bun.sleep(100);
-					answered = await fetch(`http://127.0.0.1:${port}/health`)
-						.then(() => true)
-						.catch(() => false);
-				}
-				expect({ answered, output: answered ? "" : output }).toEqual({
-					answered: true,
-					output: "",
-				});
-				// The ready line is logged when the worker answers its open.
-				for (
-					let i = 0;
-					i < 50 && !output.includes("Off-thread writer ready");
-					i++
-				)
-					await Bun.sleep(100);
-				expect(output).toContain("Off-thread writer ready");
+				await withServingCli(
+					{ BETTER_CCFLARE_DB_WRITER_WORKER: undefined, LOG_LEVEL: "info" },
+					async (_pid, _dbPath, readOutput) => {
+						for (
+							let i = 0;
+							i < 50 && !readOutput().includes("Off-thread writer ready");
+							i++
+						) {
+							await Bun.sleep(100);
+						}
+						expect(readOutput()).toContain("Off-thread writer ready");
+					},
+					async () =>
+						++portAttempts === 1 ? occupied.port : chooseServeTestPort(),
+				);
+				expect(portAttempts).toBe(2);
+				expect(foreignRequests).toBe(0);
 			} finally {
-				proc.kill();
-				if (!exited) await new Promise((resolve) => proc.on("close", resolve));
-				rmSync(dir, { recursive: true, force: true });
+				await occupied.close();
 			}
 		}, 30000);
 	});
