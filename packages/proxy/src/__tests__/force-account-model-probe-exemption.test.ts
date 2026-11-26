@@ -7,7 +7,7 @@
  *
  * The exemption is keyed on the process-local probe secret and the keepalive
  * marker, so a client that copies a marker header out of a log gets nothing.
- * The `x-better-ccflare-auto-refresh` marker never earns the exemption, even
+ * The `x-hov-router-auto-refresh` marker never earns the exemption, even
  * with the secret.
  */
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
@@ -89,7 +89,7 @@ describe("force_account_model — internal-probe exemption on the request path",
 	it("keeps the setting on for an auto-refresh marker sent with the right secret", async () => {
 		expect(
 			await observeFlag({
-				"x-better-ccflare-auto-refresh": "true",
+				"x-hov-router-auto-refresh": "true",
 				[INTERNAL_PROBE_SECRET_HEADER]: SECRET,
 			}),
 		).toBe(true);
@@ -98,7 +98,7 @@ describe("force_account_model — internal-probe exemption on the request path",
 	it("treats the setting as off for a secret-verified cache-keepalive probe", async () => {
 		expect(
 			await observeFlag({
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-keepalive": "true",
 				[INTERNAL_PROBE_SECRET_HEADER]: SECRET,
 			}),
 		).toBe(false);
@@ -107,14 +107,14 @@ describe("force_account_model — internal-probe exemption on the request path",
 	it("keeps the setting on for a marker sent with the wrong secret", async () => {
 		expect(
 			await observeFlag({
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-keepalive": "true",
 				[INTERNAL_PROBE_SECRET_HEADER]: "not-the-secret",
 			}),
 		).toBe(true);
 	});
 
 	it("keeps the setting on for a marker sent with no secret at all", async () => {
-		expect(await observeFlag({ "x-better-ccflare-keepalive": "true" })).toBe(
+		expect(await observeFlag({ "x-hov-router-keepalive": "true" })).toBe(
 			true,
 		);
 	});
@@ -125,7 +125,7 @@ describe("force_account_model — internal-probe exemption on the request path",
 
 	it("restores the flag once the request is done", async () => {
 		await observeFlag({
-			"x-better-ccflare-keepalive": "true",
+			"x-hov-router-keepalive": "true",
 			[INTERNAL_PROBE_SECRET_HEADER]: SECRET,
 		});
 

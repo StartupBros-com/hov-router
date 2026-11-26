@@ -6,7 +6,7 @@ const root = join(import.meta.dir, "..", "..", "..");
 
 // A command name, or the source-checkout script, followed by its first flag.
 const HINT =
-	/(?:\$\{COMMAND_NAME\}|\$\{LEGACY_COMMAND_NAME\}|\bbun run cli|(?<![\w/.~-])(?:hov-router|better-ccflare))\s+(--[a-z][a-z0-9-]*)/g;
+	/(?:\$\{COMMAND_NAME\}|\$\{LEGACY_COMMAND_NAME\}|\bbun run cli|(?<![\w/.~-])(?:hov-router|hov-router))\s+(--[a-z][a-z0-9-]*)/g;
 
 function runtimeSources(): { path: string; lines: string[] }[] {
 	const paths = [

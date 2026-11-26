@@ -114,7 +114,7 @@ describe("coordinateAnthropicPreCommitRescue", () => {
 
 		expect(response).toBe(original);
 		expect(
-			response.headers.get("x-better-ccflare-precommit-rescue"),
+			response.headers.get("x-hov-router-precommit-rescue"),
 		).toBeNull();
 	});
 
@@ -243,7 +243,7 @@ describe("coordinateAnthropicPreCommitRescue", () => {
 				status: 400,
 				headers: {
 					"content-type": "application/json",
-					"x-better-ccflare-context-overflow": "authoritative",
+					"x-hov-router-context-overflow": "authoritative",
 				},
 			}),
 		);

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { Config } from "./index";
 
 function makeConfig(): { config: Config; cleanup: () => void } {
-	const dir = mkdtempSync(join(tmpdir(), "better-ccflare-config-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-config-"));
 	return {
 		config: new Config(join(dir, "config.json")),
 		cleanup: () => rmSync(dir, { recursive: true, force: true }),
@@ -13,17 +13,17 @@ function makeConfig(): { config: Config; cleanup: () => void } {
 }
 
 describe("combos and combo session fallback settings", () => {
-	const originalDisable = process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK;
+	const originalDisable = process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
 
 	beforeEach(() => {
-		delete process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK;
+		delete process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
 	});
 
 	afterEach(() => {
 		if (originalDisable === undefined) {
-			delete process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK;
+			delete process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
 		} else {
-			process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK = originalDisable;
+			process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = originalDisable;
 		}
 	});
 
@@ -40,7 +40,7 @@ describe("combos and combo session fallback settings", () => {
 	});
 
 	it("keeps both settings owned by the config file", () => {
-		process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK = "true";
+		process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "true";
 		const { config, cleanup } = makeConfig();
 		try {
 			config.setCombosEnabled(false);
@@ -56,7 +56,7 @@ describe("combos and combo session fallback settings", () => {
 
 	describe("adoptLegacyRoutingSettings", () => {
 		it("inverts the old disable-fallback variable into the positive setting", () => {
-			process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK = "true";
+			process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "true";
 			const { config, cleanup } = makeConfig();
 			try {
 				config.adoptLegacyRoutingSettings(false);
@@ -69,7 +69,7 @@ describe("combos and combo session fallback settings", () => {
 
 		it("keeps the permissive spellings the old variable accepted", () => {
 			for (const raw of ["1", "yes", "on", "TRUE"]) {
-				process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK = raw;
+				process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = raw;
 				const { config, cleanup } = makeConfig();
 				try {
 					config.adoptLegacyRoutingSettings(false);
@@ -81,7 +81,7 @@ describe("combos and combo session fallback settings", () => {
 		});
 
 		it("reads an unrecognised value as not disabling, and still records it", () => {
-			process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK = "maybe";
+			process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "maybe";
 			const { config, cleanup } = makeConfig();
 			try {
 				config.adoptLegacyRoutingSettings(false);
@@ -93,7 +93,7 @@ describe("combos and combo session fallback settings", () => {
 		});
 
 		it("ignores an empty variable, which is not an opinion", () => {
-			process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK = "";
+			process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "";
 			const { config, cleanup } = makeConfig();
 			try {
 				config.adoptLegacyRoutingSettings(false);

@@ -4,13 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Config } from "./index";
 
-const ENV_NAME = "CCFLARE_CLAUDE_CODE_BACKGROUND_MERGE_POLICY";
+const ENV_NAME = "HOV_ROUTER_CLAUDE_CODE_BACKGROUND_MERGE_POLICY";
 
 function makeConfig(raw?: Record<string, unknown>): {
 	config: Config;
 	cleanup: () => void;
 } {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-background-merge-policy-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-background-merge-policy-"));
 	const path = join(dir, "config.json");
 	if (raw !== undefined) writeFileSync(path, JSON.stringify(raw), "utf8");
 	return {

@@ -138,8 +138,8 @@ export class LogFileWriter implements Disposable {
 		this.retryDelayMs = this.retryBaseMs;
 		// Use environment variable if set, otherwise use tmp folder
 		this.logDir =
-			process.env.BETTER_CCFLARE_LOG_DIR ||
-			join(tmpdir(), "better-ccflare-logs");
+			process.env.HOV_ROUTER_LOG_DIR ||
+			join(tmpdir(), "hov-router-logs");
 		this.logFile = join(this.logDir, "app.log");
 		this.initStream();
 	}

@@ -80,7 +80,7 @@ describe("createPoolExhaustedResponse — circuit_open", () => {
 
 	// Spec test (2): "Retry-After and the pool-status header are present and
 	// correct."
-	it("sets Retry-After and x-better-ccflare-pool-status for circuit_open", () => {
+	it("sets Retry-After and x-hov-router-pool-status for circuit_open", () => {
 		const accounts = [makeAccount({ name: "account-A" })];
 		const response = createPoolExhaustedResponse(
 			accounts,
@@ -105,7 +105,7 @@ describe("createPoolExhaustedResponse — circuit_open", () => {
 		// its `exhausted` value so existing consumers (dashboard, fleet reaper)
 		// keep treating the response as a transient 503. The cause lives in
 		// `error.type`.
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
 

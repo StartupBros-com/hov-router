@@ -80,7 +80,7 @@ function makeCtx(
 	};
 }
 
-const TEST_CACHE_DIR = join(tmpdir(), "better-ccflare-test-model-catalog");
+const TEST_CACHE_DIR = join(tmpdir(), "hov-router-test-model-catalog");
 
 async function cleanCacheDir() {
 	await fs.rm(TEST_CACHE_DIR, { recursive: true, force: true });
@@ -109,12 +109,12 @@ describe("model-catalog", () => {
 	const originalFetch = global.fetch;
 	// The test preload sets this for the whole process, and bun runs every test
 	// file in one process, so restore it rather than deleting it.
-	const savedCacheDir = process.env.BETTER_CCFLARE_MODELS_CACHE_DIR;
+	const savedCacheDir = process.env.HOV_ROUTER_MODELS_CACHE_DIR;
 
 	beforeEach(async () => {
-		process.env.BETTER_CCFLARE_MODELS_CACHE_DIR = TEST_CACHE_DIR;
-		delete process.env.BETTER_CCFLARE_MODELS_REFRESH_HOURS;
-		delete process.env.BETTER_CCFLARE_MODELS_OFFLINE;
+		process.env.HOV_ROUTER_MODELS_CACHE_DIR = TEST_CACHE_DIR;
+		delete process.env.HOV_ROUTER_MODELS_REFRESH_HOURS;
+		delete process.env.HOV_ROUTER_MODELS_OFFLINE;
 		await cleanCacheDir();
 		resetModelCatalogForTest();
 	});
@@ -122,10 +122,10 @@ describe("model-catalog", () => {
 	afterEach(async () => {
 		global.fetch = originalFetch;
 		if (savedCacheDir === undefined)
-			delete process.env.BETTER_CCFLARE_MODELS_CACHE_DIR;
-		else process.env.BETTER_CCFLARE_MODELS_CACHE_DIR = savedCacheDir;
-		delete process.env.BETTER_CCFLARE_MODELS_REFRESH_HOURS;
-		delete process.env.BETTER_CCFLARE_MODELS_OFFLINE;
+			delete process.env.HOV_ROUTER_MODELS_CACHE_DIR;
+		else process.env.HOV_ROUTER_MODELS_CACHE_DIR = savedCacheDir;
+		delete process.env.HOV_ROUTER_MODELS_REFRESH_HOURS;
+		delete process.env.HOV_ROUTER_MODELS_OFFLINE;
 		await cleanCacheDir();
 		resetModelCatalogForTest();
 	});
@@ -476,7 +476,7 @@ describe("model-catalog", () => {
 				/no active anthropic account/i,
 			);
 			await expect(fetchLiveModels(ctx)).rejects.toThrow(
-				/BETTER_CCFLARE_MODELS_OAUTH_REFRESH/,
+				/HOV_ROUTER_MODELS_OAUTH_REFRESH/,
 			);
 		});
 
@@ -635,8 +635,8 @@ describe("model-catalog", () => {
 			expect(catalog.models[0]?.id).toBe("claude-sonnet-5");
 		});
 
-		it("treats BETTER_CCFLARE_MODELS_OFFLINE=1 as a no-op refresh", async () => {
-			process.env.BETTER_CCFLARE_MODELS_OFFLINE = "1";
+		it("treats HOV_ROUTER_MODELS_OFFLINE=1 as a no-op refresh", async () => {
+			process.env.HOV_ROUTER_MODELS_OFFLINE = "1";
 			const fetchMock = mock(async () => new Response("{}", { status: 200 }));
 			global.fetch = fetchMock as unknown as typeof fetch;
 
@@ -676,7 +676,7 @@ describe("model-catalog", () => {
 			const result = await refreshModelCatalog(ctx, { trigger: "automatic" });
 
 			expect(result.success).toBe(false);
-			expect(result.error).toMatch(/BETTER_CCFLARE_MODELS_OAUTH_REFRESH/);
+			expect(result.error).toMatch(/HOV_ROUTER_MODELS_OAUTH_REFRESH/);
 		});
 
 		it("succeeds an automatic-trigger refresh against an OAuth-only account once the opt-in is enabled", async () => {
@@ -710,7 +710,7 @@ describe("model-catalog", () => {
 		});
 
 		it("persists nextRefreshAt computed from the configured refresh interval", async () => {
-			process.env.BETTER_CCFLARE_MODELS_REFRESH_HOURS = "2";
+			process.env.HOV_ROUTER_MODELS_REFRESH_HOURS = "2";
 			global.fetch = mock(
 				async () =>
 					new Response(JSON.stringify({ data: [], has_more: false }), {
@@ -735,7 +735,7 @@ describe("model-catalog", () => {
 
 	describe("initModelCatalogRefresh", () => {
 		it("disables the scheduler entirely when refresh hours is 0 (no fetch, inert unregister)", async () => {
-			process.env.BETTER_CCFLARE_MODELS_REFRESH_HOURS = "0";
+			process.env.HOV_ROUTER_MODELS_REFRESH_HOURS = "0";
 			const fetchMock = mock(
 				async () =>
 					new Response(JSON.stringify({ data: [], has_more: false }), {
@@ -763,7 +763,7 @@ describe("model-catalog", () => {
 			// Effectively-zero interval (and thus effectively-zero jitter, since
 			// jitter is bounded by the interval) so the derived due time is
 			// "now", deterministically, regardless of jitter randomness.
-			process.env.BETTER_CCFLARE_MODELS_REFRESH_HOURS = "0.0000000001";
+			process.env.HOV_ROUTER_MODELS_REFRESH_HOURS = "0.0000000001";
 			const fetchMock = mock(
 				async () =>
 					new Response(
@@ -821,7 +821,7 @@ describe("model-catalog", () => {
 		});
 
 		it("resumes a refresh from a persisted nextRefreshAt that has already passed", async () => {
-			process.env.BETTER_CCFLARE_MODELS_REFRESH_HOURS = "168";
+			process.env.HOV_ROUTER_MODELS_REFRESH_HOURS = "168";
 			await writeCacheFile({
 				models: [
 					{ id: "old-model", displayName: "Old Model", createdAt: null },
@@ -855,7 +855,7 @@ describe("model-catalog", () => {
 		});
 
 		it("does not refresh before a persisted future nextRefreshAt", async () => {
-			process.env.BETTER_CCFLARE_MODELS_REFRESH_HOURS = "1";
+			process.env.HOV_ROUTER_MODELS_REFRESH_HOURS = "1";
 			await writeCacheFile({
 				models: [
 					{ id: "old-model", displayName: "Old Model", createdAt: null },
@@ -899,7 +899,7 @@ describe("model-catalog", () => {
 			// Effectively-zero interval (and thus effectively-zero jitter, since
 			// jitter is bounded by the interval) so the derived due time is
 			// "now", deterministically, regardless of jitter randomness.
-			process.env.BETTER_CCFLARE_MODELS_REFRESH_HOURS = "0.0000000001";
+			process.env.HOV_ROUTER_MODELS_REFRESH_HOURS = "0.0000000001";
 
 			const fetchMock = mock(
 				async () =>
@@ -927,7 +927,7 @@ describe("model-catalog", () => {
 			// Effectively-zero interval (and thus effectively-zero jitter, since
 			// jitter is bounded by the interval) so the derived due time is
 			// "now", deterministically, regardless of jitter randomness.
-			process.env.BETTER_CCFLARE_MODELS_REFRESH_HOURS = "0.0000000001";
+			process.env.HOV_ROUTER_MODELS_REFRESH_HOURS = "0.0000000001";
 			let fetchCallCount = 0;
 			const gate = deferred<Response>();
 			global.fetch = mock(async () => {
@@ -965,7 +965,7 @@ describe("model-catalog", () => {
 			// Effectively-zero interval (and thus effectively-zero jitter, since
 			// jitter is bounded by the interval) so the derived due time is
 			// "now", deterministically, regardless of jitter randomness.
-			process.env.BETTER_CCFLARE_MODELS_REFRESH_HOURS = "0.0000000001";
+			process.env.HOV_ROUTER_MODELS_REFRESH_HOURS = "0.0000000001";
 			const accounts: Account[] = [];
 			const fetchMock = mock(
 				async () =>
@@ -1157,8 +1157,8 @@ describe("model-catalog", () => {
 			);
 		});
 
-		it("is a no-op when BETTER_CCFLARE_MODELS_OFFLINE=1", async () => {
-			process.env.BETTER_CCFLARE_MODELS_OFFLINE = "1";
+		it("is a no-op when HOV_ROUTER_MODELS_OFFLINE=1", async () => {
+			process.env.HOV_ROUTER_MODELS_OFFLINE = "1";
 
 			await ingestModelsListing(
 				JSON.stringify({

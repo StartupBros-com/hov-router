@@ -324,16 +324,16 @@ describe("production sniffer integration — overloaded_error mid-stream", () =>
 	// Upstream v3.5.44 split 529-overload cooldown away from the generic
 	// no-reset 429 cooldown so an overload can no longer ramp the 429 streak
 	// (upstream commits f68ba838f / a25b8f252 / c168a56bc). The overload path
-	// now reads CCFLARE_OVERLOAD_COOLDOWN_MS instead of
-	// CCFLARE_DEFAULT_COOLDOWN_NO_RESET_MS. This test's two real claims are
+	// now reads HOV_ROUTER_OVERLOAD_COOLDOWN_MS instead of
+	// HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS. This test's two real claims are
 	// unchanged: unrelated quota reset headers are ignored, and the short
 	// overload cooldown is what gets applied.
 	it("ignores unrelated quota reset headers and uses the short overload cooldown", async () => {
 		const now = 1_800_000_000_000;
 		const realDateNow = Date.now;
-		const originalCooldown = process.env.CCFLARE_OVERLOAD_COOLDOWN_MS;
+		const originalCooldown = process.env.HOV_ROUTER_OVERLOAD_COOLDOWN_MS;
 		Date.now = () => now;
-		process.env.CCFLARE_OVERLOAD_COOLDOWN_MS = "15000";
+		process.env.HOV_ROUTER_OVERLOAD_COOLDOWN_MS = "15000";
 		const account = makeAccount({ id: "acct-mid-overload-quota-reset" });
 		const { ctx, calls } = makeCtxWithReason();
 
@@ -359,9 +359,9 @@ describe("production sniffer integration — overloaded_error mid-stream", () =>
 		} finally {
 			Date.now = realDateNow;
 			if (originalCooldown === undefined) {
-				delete process.env.CCFLARE_OVERLOAD_COOLDOWN_MS;
+				delete process.env.HOV_ROUTER_OVERLOAD_COOLDOWN_MS;
 			} else {
-				process.env.CCFLARE_OVERLOAD_COOLDOWN_MS = originalCooldown;
+				process.env.HOV_ROUTER_OVERLOAD_COOLDOWN_MS = originalCooldown;
 			}
 		}
 	});
@@ -792,8 +792,8 @@ describe("forwardToClient — mid-stream keepalive exemption", () => {
 	function makeKeepaliveHeaders(): Headers {
 		return new Headers({
 			"content-type": "application/json",
-			"x-better-ccflare-keepalive": "true",
-			"x-better-ccflare-internal-probe-secret": KEEPALIVE_SECRET,
+			"x-hov-router-keepalive": "true",
+			"x-hov-router-internal-probe-secret": KEEPALIVE_SECRET,
 		});
 	}
 
@@ -881,8 +881,8 @@ describe("forwardToClient — mid-stream keepalive exemption", () => {
 		const ctx = createKeepaliveCtx();
 		const forgedHeaders = new Headers({
 			"content-type": "application/json",
-			"x-better-ccflare-keepalive": "true",
-			// Note: no x-better-ccflare-internal-probe-secret header
+			"x-hov-router-keepalive": "true",
+			// Note: no x-hov-router-internal-probe-secret header
 		});
 
 		const collectorSpy = spyOn(

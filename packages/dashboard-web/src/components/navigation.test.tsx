@@ -20,7 +20,7 @@ import {
 } from "./navigation";
 
 const DEFAULT_GUIDANCE = [
-	"npm install -g better-ccflare@latest",
+	"npm install -g hov-router@latest",
 	"docker pull ghcr.io/tombii/better-ccflare:latest",
 	"https://github.com/tombii/better-ccflare/releases/latest",
 ];
@@ -140,7 +140,7 @@ describe("navigation identity", () => {
 			expect(html).toContain('aria-hidden="true"');
 			expect(html).not.toContain("lucide-shield");
 			expect(html).not.toContain(">wstack Router<");
-			expect(html).not.toContain(">better-ccflare<");
+			expect(html).not.toContain(">hov-router<");
 			// Light mode draws the active item's label in the foreground colour, its icon in orange.
 			expect(html).toContain(
 				"bg-primary/10 text-primary-text hover:bg-primary/20",
@@ -223,14 +223,14 @@ describe("navigation identity", () => {
 			["v1:startupbros-wstack-router-package", "package"],
 		] as const) {
 			const provenance = resolveBuildProvenance({
-				CCFLARE_DISTRIBUTION: token,
-				CCFLARE_VERSION: "1.0.0",
-				CCFLARE_GIT_SHA: sha,
-				CCFLARE_SOURCE_SHA: sha,
-				CCFLARE_GIT_REF: "refs/tags/v1.0.0",
-				CCFLARE_SOURCE_REF: "refs/tags/v1.0.0",
-				CCFLARE_PRODUCER: "startupbros",
-				CCFLARE_ARTIFACT_MODE: mode,
+				HOV_ROUTER_DISTRIBUTION: token,
+				HOV_ROUTER_VERSION: "1.0.0",
+				HOV_ROUTER_GIT_SHA: sha,
+				HOV_ROUTER_SOURCE_SHA: sha,
+				HOV_ROUTER_GIT_REF: "refs/tags/v1.0.0",
+				HOV_ROUTER_SOURCE_REF: "refs/tags/v1.0.0",
+				HOV_ROUTER_PRODUCER: "startupbros",
+				HOV_ROUTER_ARTIFACT_MODE: mode,
 			});
 			expect(provenance).toMatchObject({
 				identity: token,

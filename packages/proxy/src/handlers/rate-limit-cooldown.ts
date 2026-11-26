@@ -28,12 +28,12 @@ const DEFAULT_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS = 3000;
 /**
  * Read the bound (ms) on how long applyRateLimitCooldownAwaitingPersist will
  * await the durable markAccountRateLimited write before falling back to the
- * in-memory-only cooldown. Reads CCFLARE_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS
+ * in-memory-only cooldown. Reads HOV_ROUTER_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS
  * from env. Uses an explicit finite check (not ||) so 0 is a valid override
  * for tests.
  */
 function getRateLimitPersistAwaitTimeoutMs(): number {
-	const raw = Number(process.env.CCFLARE_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS);
+	const raw = Number(process.env.HOV_ROUTER_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS);
 	return Number.isFinite(raw) && raw >= 0
 		? raw
 		: DEFAULT_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS;
@@ -96,7 +96,7 @@ export function getRateLimitProbeAdmission(
 	const existingLease = probeLeases.get(account.id);
 	if (existingLease && existingLease > now) {
 		log.debug(
-			`[ccflare] account=${account.name} cooldown_probe_suppressed lease_until=${new Date(existingLease).toISOString()}`,
+			`[hov-router] account=${account.name} cooldown_probe_suppressed lease_until=${new Date(existingLease).toISOString()}`,
 		);
 		return "suppressed";
 	}
@@ -104,7 +104,7 @@ export function getRateLimitProbeAdmission(
 	const leaseUntil = now + PROBE_LEASE_MS;
 	probeLeases.set(account.id, leaseUntil);
 	log.info(
-		`[ccflare] account=${account.name} cooldown_probe_admitted streak=${account.consecutive_rate_limits} lease_until=${new Date(leaseUntil).toISOString()}`,
+		`[hov-router] account=${account.name} cooldown_probe_admitted streak=${account.consecutive_rate_limits} lease_until=${new Date(leaseUntil).toISOString()}`,
 	);
 	return "admitted";
 }
@@ -147,10 +147,10 @@ export function completeRateLimitProbe(
 	if (!probeLeases.delete(account.id)) return;
 	if (outcome === "recovered") {
 		log.info(
-			`[ccflare] account=${account.name} cooldown_probe_recovery_success`,
+			`[hov-router] account=${account.name} cooldown_probe_recovery_success`,
 		);
 	} else if (outcome === "abandoned") {
-		log.debug(`[ccflare] account=${account.name} cooldown_probe_abandoned`);
+		log.debug(`[hov-router] account=${account.name} cooldown_probe_abandoned`);
 	}
 }
 
@@ -270,11 +270,11 @@ function applyRateLimitCooldownInMemory(
 		completeRateLimitProbe(account, "cooldown_reapplied");
 		if (wasRecoveryProbe) {
 			log.info(
-				`[ccflare] account=${account.name} cooldown_probe_reapplied reason=${reason} until=${new Date(account.rate_limited_until).toISOString()}`,
+				`[hov-router] account=${account.name} cooldown_probe_reapplied reason=${reason} until=${new Date(account.rate_limited_until).toISOString()}`,
 			);
 		}
 		log.warn(
-			`[ccflare] account=${account.name} upstream_overloaded reason=${reason} found longer active cooldown until=${new Date(account.rate_limited_until).toISOString()} — not overwriting with the shorter 529 cooldown (would have been until=${new Date(cooldownUntil).toISOString()})`,
+			`[hov-router] account=${account.name} upstream_overloaded reason=${reason} found longer active cooldown until=${new Date(account.rate_limited_until).toISOString()} — not overwriting with the shorter 529 cooldown (would have been until=${new Date(cooldownUntil).toISOString()})`,
 		);
 		return { cooldownUntil, reason, isOverload, skipped: true };
 	}
@@ -290,7 +290,7 @@ function applyRateLimitCooldownInMemory(
 	completeRateLimitProbe(account, "cooldown_reapplied");
 	if (wasRecoveryProbe) {
 		log.info(
-			`[ccflare] account=${account.name} cooldown_probe_reapplied reason=${reason} until=${new Date(cooldownUntil).toISOString()}`,
+			`[hov-router] account=${account.name} cooldown_probe_reapplied reason=${reason} until=${new Date(cooldownUntil).toISOString()}`,
 		);
 	}
 
@@ -344,7 +344,7 @@ function applyRateLimitCooldownInMemory(
  *
  * @param account - The account that just received a 429/529 (mutated in place).
  * @param rateLimitInfo - For a 429, `resetTime` (if known) is honored as the cooldown target,
- *   bounded above by the safety ceiling (CCFLARE_RATE_LIMIT_MAX_COOLDOWN_MS), see
+ *   bounded above by the safety ceiling (HOV_ROUTER_RATE_LIMIT_MAX_COOLDOWN_MS), see
  *   resolveCooldownUntil. Falls back to the exponential backoff only when no resetTime is
  *   provided. For a 529-with-reset, `resetTime` instead caps via min(resetTime, now + cap) — see
  *   computeOverloadWithResetCapMs. `remaining` is forwarded to the emitted RateLimitError (429
@@ -404,11 +404,11 @@ export function applyRateLimitCooldown(
 		// the same event.
 		if (applied) {
 			log.warn(
-				`[ccflare] account=${account.name} cooldown_applied reason=${reason} until=${new Date(cooldownUntil).toISOString()} consecutive=${persistedCount}`,
+				`[hov-router] account=${account.name} cooldown_applied reason=${reason} until=${new Date(cooldownUntil).toISOString()} consecutive=${persistedCount}`,
 			);
 		} else {
 			log.warn(
-				`[ccflare] account=${account.name} cooldown_write_skipped reason=${reason} candidate_until=${new Date(cooldownUntil).toISOString()} consecutive=${persistedCount} (existing later cooldown or row absent)`,
+				`[hov-router] account=${account.name} cooldown_write_skipped reason=${reason} candidate_until=${new Date(cooldownUntil).toISOString()} consecutive=${persistedCount} (existing later cooldown or row absent)`,
 			);
 		}
 	});
@@ -418,7 +418,7 @@ export function applyRateLimitCooldown(
 		// emitting a RateLimitError here would misdiagnose it as account
 		// exhaustion. Log honestly instead.
 		log.warn(
-			`[ccflare] account=${account.name} upstream_overloaded reason=${reason} until=${new Date(cooldownUntil).toISOString()} (529 — transient, streak untouched)`,
+			`[hov-router] account=${account.name} upstream_overloaded reason=${reason} until=${new Date(cooldownUntil).toISOString()} (529 — transient, streak untouched)`,
 		);
 		return circuitCounted;
 	}
@@ -508,7 +508,7 @@ function observeRateLimitWrite(
 		)
 		.catch((error) => {
 			log.error(
-				`[ccflare] account_id=${accountId} cooldown_persist_bookkeeping_failed`,
+				`[hov-router] account_id=${accountId} cooldown_persist_bookkeeping_failed`,
 				error,
 			);
 		});
@@ -644,7 +644,7 @@ export async function applyRateLimitCooldownAwaitingPersist(
 		);
 	} catch (err) {
 		log.error(
-			`[ccflare] account=${account.name} id=${account.id} cooldown_persist_failed reason=${reason}`,
+			`[hov-router] account=${account.name} id=${account.id} cooldown_persist_failed reason=${reason}`,
 			err,
 		);
 	}
@@ -659,11 +659,11 @@ export async function applyRateLimitCooldownAwaitingPersist(
 		}
 	} else {
 		log.warn(
-			`[ccflare] account=${account.name} cooldown_persist_deferred reason=${reason} -- proceeding with in-memory streak=${account.consecutive_rate_limits}`,
+			`[hov-router] account=${account.name} cooldown_persist_deferred reason=${reason} -- proceeding with in-memory streak=${account.consecutive_rate_limits}`,
 		);
 	}
 	log.warn(
-		`[ccflare] account=${account.name} cooldown_applied reason=${reason} until=${new Date(cooldownUntil).toISOString()} consecutive=${account.consecutive_rate_limits}`,
+		`[hov-router] account=${account.name} cooldown_applied reason=${reason} until=${new Date(cooldownUntil).toISOString()} consecutive=${account.consecutive_rate_limits}`,
 	);
 
 	if (isOverload) {
@@ -671,7 +671,7 @@ export async function applyRateLimitCooldownAwaitingPersist(
 		// emitting a RateLimitError here would misdiagnose it as account
 		// exhaustion. Log honestly instead.
 		log.warn(
-			`[ccflare] account=${account.name} upstream_overloaded reason=${reason} until=${new Date(cooldownUntil).toISOString()} (529 — transient, streak untouched)`,
+			`[hov-router] account=${account.name} upstream_overloaded reason=${reason} until=${new Date(cooldownUntil).toISOString()} (529 — transient, streak untouched)`,
 		);
 		return;
 	}

@@ -40,7 +40,7 @@ const SONNET = "claude-sonnet-4-5";
 const MAPPED_ROUTING_AGENT_ID = "model-first-mapped-routing-agent";
 
 const originalFetch = globalThis.fetch;
-const originalOverloadRetry = process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+const originalOverloadRetry = process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 const cachedUsageAccountIds = new Set<string>();
 let restoreUsageCollector = (): void => {};
 let usageHandleStart = mock(() => undefined);
@@ -208,7 +208,7 @@ function makeAuthorizedMappedRequest(
 		method: "POST",
 		headers: {
 			"content-type": "application/json",
-			"x-better-ccflare-agent-id": MAPPED_ROUTING_AGENT_ID,
+			"x-hov-router-agent-id": MAPPED_ROUTING_AGENT_ID,
 			...extraHeaders,
 		},
 		body: JSON.stringify({
@@ -241,7 +241,7 @@ function makeServerToolRequest(): Request {
 function makeAuthorizedServerToolRequest(): Request {
 	const baseRequest = makeServerToolRequest();
 	const headers = new Headers(baseRequest.headers);
-	headers.set("x-better-ccflare-agent-id", MAPPED_ROUTING_AGENT_ID);
+	headers.set("x-hov-router-agent-id", MAPPED_ROUTING_AGENT_ID);
 	return new Request(baseRequest.url, {
 		method: baseRequest.method,
 		headers,
@@ -494,7 +494,7 @@ async function run(
 beforeEach(() => {
 	resetRateLimitProbeGatesForTests();
 	installUsageCollector();
-	process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = "false";
+	process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = "false";
 });
 
 afterEach(() => {
@@ -505,9 +505,9 @@ afterEach(() => {
 	for (const accountId of cachedUsageAccountIds) usageCache.delete(accountId);
 	cachedUsageAccountIds.clear();
 	if (originalOverloadRetry === undefined) {
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 	} else {
-		process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = originalOverloadRetry;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = originalOverloadRetry;
 	}
 });
 
@@ -690,7 +690,7 @@ describe("global model-first routing", () => {
 
 		const response = await run(
 			ctx,
-			makeRequest({ "x-better-ccflare-account-id": forced.id }),
+			makeRequest({ "x-hov-router-account-id": forced.id }),
 		);
 
 		expect(response.status).toBe(200);
@@ -839,8 +839,8 @@ describe("global model-first routing", () => {
 	});
 
 	it("defers low-confidence capacity to the first requested-family Codex route", async () => {
-		const previousAdmission = process.env.CCFLARE_CONTEXT_ADMISSION;
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		const previousAdmission = process.env.HOV_ROUTER_CONTEXT_ADMISSION;
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		try {
 			const accountA = makeAccount("admission-a", [
 				"gpt-5.3-codex-spark",
@@ -894,16 +894,16 @@ describe("global model-first routing", () => {
 			]);
 		} finally {
 			if (previousAdmission === undefined) {
-				delete process.env.CCFLARE_CONTEXT_ADMISSION;
+				delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 			} else {
-				process.env.CCFLARE_CONTEXT_ADMISSION = previousAdmission;
+				process.env.HOV_ROUTER_CONTEXT_ADMISSION = previousAdmission;
 			}
 		}
 	});
 
 	it("routes a pre-content Codex context overflow to a known larger deferred model", async () => {
-		const previousAdmission = process.env.CCFLARE_CONTEXT_ADMISSION;
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		const previousAdmission = process.env.HOV_ROUTER_CONTEXT_ADMISSION;
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		try {
 			const account = makeAccount("admission-context-fallback", [
 				"gpt-5.3-codex-spark",
@@ -951,16 +951,16 @@ describe("global model-first routing", () => {
 			expect(account.consecutive_rate_limits).toBe(0);
 		} finally {
 			if (previousAdmission === undefined) {
-				delete process.env.CCFLARE_CONTEXT_ADMISSION;
+				delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 			} else {
-				process.env.CCFLARE_CONTEXT_ADMISSION = previousAdmission;
+				process.env.HOV_ROUTER_CONTEXT_ADMISSION = previousAdmission;
 			}
 		}
 	});
 
 	it("preserves a Codex context overflow when no larger model is configured", async () => {
-		const previousAdmission = process.env.CCFLARE_CONTEXT_ADMISSION;
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		const previousAdmission = process.env.HOV_ROUTER_CONTEXT_ADMISSION;
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		try {
 			const account = makeAccount("admission-context-terminal", [
 				"gpt-5.3-codex-spark",
@@ -1005,17 +1005,17 @@ describe("global model-first routing", () => {
 			expect(account.consecutive_rate_limits).toBe(0);
 		} finally {
 			if (previousAdmission === undefined) {
-				delete process.env.CCFLARE_CONTEXT_ADMISSION;
+				delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 			} else {
-				process.env.CCFLARE_CONTEXT_ADMISSION = previousAdmission;
+				process.env.HOV_ROUTER_CONTEXT_ADMISSION = previousAdmission;
 			}
 		}
 	});
 
 	for (const requestedModel of [FABLE, OPUS]) {
 		it(`forwards a large ${requestedModel} combo request to the ChatGPT subscription endpoint`, async () => {
-			const previousAdmission = process.env.CCFLARE_CONTEXT_ADMISSION;
-			process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+			const previousAdmission = process.env.HOV_ROUTER_CONTEXT_ADMISSION;
+			process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 			try {
 				const account = makeAccount(`subscription-${requestedModel}`);
 				account.provider = "codex";
@@ -1059,16 +1059,16 @@ describe("global model-first routing", () => {
 				expect(fetchedBodies[0]).not.toHaveProperty("max_output_tokens");
 			} finally {
 				if (previousAdmission === undefined) {
-					delete process.env.CCFLARE_CONTEXT_ADMISSION;
+					delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 				} else {
-					process.env.CCFLARE_CONTEXT_ADMISSION = previousAdmission;
+					process.env.HOV_ROUTER_CONTEXT_ADMISSION = previousAdmission;
 				}
 			}
 		});
 
 		it(`fails open and keeps the output reserve for a large ${requestedModel} custom-endpoint combo request`, async () => {
-			const previousAdmission = process.env.CCFLARE_CONTEXT_ADMISSION;
-			process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+			const previousAdmission = process.env.HOV_ROUTER_CONTEXT_ADMISSION;
+			process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 			try {
 				const account = makeAccount(`custom-${requestedModel}`);
 				account.provider = "codex";
@@ -1115,9 +1115,9 @@ describe("global model-first routing", () => {
 				expect(fetchedBodies[0]?.max_output_tokens).toBe(50_000);
 			} finally {
 				if (previousAdmission === undefined) {
-					delete process.env.CCFLARE_CONTEXT_ADMISSION;
+					delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 				} else {
-					process.env.CCFLARE_CONTEXT_ADMISSION = previousAdmission;
+					process.env.HOV_ROUTER_CONTEXT_ADMISSION = previousAdmission;
 				}
 			}
 		});
@@ -1130,11 +1130,11 @@ describe("global model-first routing", () => {
 		["codex", true],
 	] as const) {
 		it(`discovers deferred work for provider=${provider} with context admission=${contextAdmissionEnabled ? "on" : "off"}`, async () => {
-			const previousAdmission = process.env.CCFLARE_CONTEXT_ADMISSION;
+			const previousAdmission = process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 			if (contextAdmissionEnabled) {
-				process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+				process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 			} else {
-				delete process.env.CCFLARE_CONTEXT_ADMISSION;
+				delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 			}
 			try {
 				const account = makeAccount(
@@ -1171,9 +1171,9 @@ describe("global model-first routing", () => {
 				expect(response.status).toBe(200);
 			} finally {
 				if (previousAdmission === undefined) {
-					delete process.env.CCFLARE_CONTEXT_ADMISSION;
+					delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 				} else {
-					process.env.CCFLARE_CONTEXT_ADMISSION = previousAdmission;
+					process.env.HOV_ROUTER_CONTEXT_ADMISSION = previousAdmission;
 				}
 			}
 		});
@@ -1408,11 +1408,11 @@ describe("global model-first routing", () => {
 	});
 
 	it("returns context overflow when the rescued deferred route is rejected before transport", async () => {
-		const previousAdmission = process.env.CCFLARE_CONTEXT_ADMISSION;
+		const previousAdmission = process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 		const previousWindow =
-			process.env.CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW;
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
-		process.env.CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW = "64";
+			process.env.HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW;
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW = "64";
 		const estimateSpy = spyOn(
 			providersModule,
 			"estimateAnthropicAdmissionTokens",
@@ -1451,25 +1451,25 @@ describe("global model-first routing", () => {
 		} finally {
 			estimateSpy.mockRestore();
 			if (previousAdmission === undefined) {
-				delete process.env.CCFLARE_CONTEXT_ADMISSION;
+				delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 			} else {
-				process.env.CCFLARE_CONTEXT_ADMISSION = previousAdmission;
+				process.env.HOV_ROUTER_CONTEXT_ADMISSION = previousAdmission;
 			}
 			if (previousWindow === undefined) {
-				delete process.env.CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW;
+				delete process.env.HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW;
 			} else {
-				process.env.CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW =
+				process.env.HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW =
 					previousWindow;
 			}
 		}
 	});
 
 	it("rescues a later probe-suppressed deferred route after a pre-transport admission rejection", async () => {
-		const previousAdmission = process.env.CCFLARE_CONTEXT_ADMISSION;
+		const previousAdmission = process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 		const previousWindow =
-			process.env.CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW;
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
-		process.env.CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW = "64";
+			process.env.HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW;
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW = "64";
 		const estimateSpy = spyOn(
 			providersModule,
 			"estimateAnthropicAdmissionTokens",
@@ -1510,14 +1510,14 @@ describe("global model-first routing", () => {
 		} finally {
 			estimateSpy.mockRestore();
 			if (previousAdmission === undefined) {
-				delete process.env.CCFLARE_CONTEXT_ADMISSION;
+				delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 			} else {
-				process.env.CCFLARE_CONTEXT_ADMISSION = previousAdmission;
+				process.env.HOV_ROUTER_CONTEXT_ADMISSION = previousAdmission;
 			}
 			if (previousWindow === undefined) {
-				delete process.env.CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW;
+				delete process.env.HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW;
 			} else {
-				process.env.CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW =
+				process.env.HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW =
 					previousWindow;
 			}
 		}
@@ -2038,7 +2038,7 @@ describe("global model-first routing", () => {
 		const response = await run(
 			ctx,
 			makeAuthorizedMappedRequest({
-				"x-better-ccflare-exclude-providers": "anthropic-oauth",
+				"x-hov-router-exclude-providers": "anthropic-oauth",
 			}),
 		);
 

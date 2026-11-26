@@ -20,7 +20,7 @@ import {
 
 // Retired in schema 23: the server warns once at startup and nothing reads it.
 const RETIRED_CODEX_CACHE_KEY_SESSION_PERCENT_ENV =
-	"CCFLARE_CODEX_CACHE_KEY_SESSION_PERCENT";
+	"HOV_ROUTER_CODEX_CACHE_KEY_SESSION_PERCENT";
 const RETIRED_CACHE_KEY_FIELDS = [
 	"cache_key_assignment",
 	"cache_key_cohort_id",
@@ -36,7 +36,7 @@ function messagesRequest(
 		"content-type": "application/json",
 		...internalHeaders,
 	});
-	if (requestId) headers.set("x-better-ccflare-request-id", requestId);
+	if (requestId) headers.set("x-hov-router-request-id", requestId);
 	return new Request("https://example.com/v1/messages", {
 		method: "POST",
 		headers,
@@ -192,10 +192,10 @@ describe("Codex trace wiring (integration)", () => {
 				},
 				"req_trace_1",
 				{
-					"x-better-ccflare-attempt-id": "attempt-1",
-					"x-better-ccflare-attempt-ordinal": "2",
-					"x-better-ccflare-attempt-cause": "model_fallback",
-					"x-better-ccflare-final-model": "gpt-5.4-mini",
+					"x-hov-router-attempt-id": "attempt-1",
+					"x-hov-router-attempt-ordinal": "2",
+					"x-hov-router-attempt-cause": "model_fallback",
+					"x-hov-router-final-model": "gpt-5.4-mini",
 				},
 			),
 			undefined,
@@ -237,11 +237,11 @@ describe("Codex trace wiring (integration)", () => {
 		expect(rec.history_function_call_count).toBe(1);
 		expect(rec.history_tool_use_by_name).toEqual({ Task: 1 });
 		for (const header of [
-			"x-better-ccflare-request-id",
-			"x-better-ccflare-attempt-id",
-			"x-better-ccflare-attempt-ordinal",
-			"x-better-ccflare-attempt-cause",
-			"x-better-ccflare-final-model",
+			"x-hov-router-request-id",
+			"x-hov-router-attempt-id",
+			"x-hov-router-attempt-ordinal",
+			"x-hov-router-attempt-cause",
+			"x-hov-router-final-model",
 		]) {
 			expect(transformed.headers.get(header)).toBeNull();
 		}
@@ -261,7 +261,7 @@ describe("Codex trace wiring (integration)", () => {
 				"req_trace_fable_default",
 				{
 					[CODEX_LOGICAL_MODEL_FAMILY_HEADER]: "fable",
-					"x-better-ccflare-final-model": "gpt-5.6-sol",
+					"x-hov-router-final-model": "gpt-5.6-sol",
 				},
 			),
 		);
@@ -583,7 +583,7 @@ describe("Codex trace wiring (integration)", () => {
 		await send("compacted-continuation", compactedMessages);
 
 		await send("descendant", initialMessages, {
-			"x-better-ccflare-attributed-agent": "true",
+			"x-hov-router-attributed-agent": "true",
 		});
 
 		const file = readdirSync(dir).find((f) => f.endsWith(".jsonl")) as string;
@@ -623,12 +623,12 @@ describe("Codex trace wiring (integration)", () => {
 		process.env[CODEX_TRACE_DIR_ENV] = dir;
 		const transformed = await new CodexProvider().transformRequestBody(
 			messagesRequest(SAMPLE, "req_canary", {
-				"x-better-ccflare-pacing-canary": "bypass",
-				"x-better-ccflare-pacing-cohort-id": "0123456789abcdef",
-				"x-better-ccflare-pacing-action": "paced",
-				"x-better-ccflare-pacing-role": "follower",
-				"x-better-ccflare-pacing-wait-ms": "60000",
-				"x-better-ccflare-pacing-release-reason": "cap",
+				"x-hov-router-pacing-canary": "bypass",
+				"x-hov-router-pacing-cohort-id": "0123456789abcdef",
+				"x-hov-router-pacing-action": "paced",
+				"x-hov-router-pacing-role": "follower",
+				"x-hov-router-pacing-wait-ms": "60000",
+				"x-hov-router-pacing-release-reason": "cap",
 			}),
 			undefined,
 		);
@@ -643,18 +643,18 @@ describe("Codex trace wiring (integration)", () => {
 		expect(rec.pacing_wait_ms).toBe(60000);
 		expect(rec.pacing_release_reason).toBe("cap");
 		for (const header of [
-			"x-better-ccflare-pacing-canary",
-			"x-better-ccflare-pacing-cohort-id",
-			"x-better-ccflare-pacing-action",
-			"x-better-ccflare-pacing-role",
-			"x-better-ccflare-pacing-wait-ms",
-			"x-better-ccflare-pacing-release-reason",
+			"x-hov-router-pacing-canary",
+			"x-hov-router-pacing-cohort-id",
+			"x-hov-router-pacing-action",
+			"x-hov-router-pacing-role",
+			"x-hov-router-pacing-wait-ms",
+			"x-hov-router-pacing-release-reason",
 		]) {
 			expect(transformed.headers.get(header)).toBeNull();
 		}
 	});
 
-	test("embeds full bodies only when CCFLARE_CODEX_TRACE_FULL=1", async () => {
+	test("embeds full bodies only when HOV_ROUTER_CODEX_TRACE_FULL=1", async () => {
 		process.env[CODEX_TRACE_DIR_ENV] = dir;
 		process.env[CODEX_TRACE_FULL_ENV] = "1";
 		await new CodexProvider().transformRequestBody(

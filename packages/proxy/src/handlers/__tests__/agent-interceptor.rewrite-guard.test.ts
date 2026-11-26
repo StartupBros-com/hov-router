@@ -23,7 +23,7 @@ import {
 } from "../agent-interceptor";
 
 // The `agentRegistry` singleton used below defaults to persisting workspace
-// state to the real `~/.better-ccflare/workspaces.json`. Redirect it to an
+// state to the real `~/.hov-router/workspaces.json`. Redirect it to an
 // isolated tmp-dir file for the lifetime of this test file so no test here
 // can ever touch the developer's real file.
 let workspacePersistenceTmpDir: string;
@@ -187,7 +187,7 @@ describe("interceptAndModifyRequest - rewrite guard integration", () => {
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-better-ccflare-agent-id": "guard-header-agent" }),
+			new Headers({ "x-hov-router-agent-id": "guard-header-agent" }),
 			{
 				getModelCatalog: async () =>
 					liveCatalog(["claude-3-5-sonnet-20241022"]),
@@ -208,7 +208,7 @@ describe("interceptAndModifyRequest - rewrite guard integration", () => {
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-better-ccflare-agent-id": "guard-header-agent-ok" }),
+			new Headers({ "x-hov-router-agent-id": "guard-header-agent-ok" }),
 			{
 				getModelCatalog: async () =>
 					liveCatalog(["claude-3-5-sonnet-20241022", "claude-opus-model"]),
@@ -292,7 +292,7 @@ describe("interceptAndModifyRequest - rewrite guard integration", () => {
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-better-ccflare-agent-id": "force-header-agent" }),
+			new Headers({ "x-hov-router-agent-id": "force-header-agent" }),
 			{
 				// A catalog that *would* allow the rewrite, so the only thing
 				// stopping it is the setting under test.
@@ -313,7 +313,7 @@ describe("interceptAndModifyRequest - rewrite guard integration", () => {
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-better-ccflare-agent-id": "force-header-agent" }),
+			new Headers({ "x-hov-router-agent-id": "force-header-agent" }),
 			{
 				getModelCatalog: async () =>
 					liveCatalog(["claude-3-5-sonnet-20241022", "claude-opus-model"]),
@@ -452,7 +452,7 @@ describe("interceptAndModifyRequest - forced tool_choice guard", () => {
 			const result = await interceptAndModifyRequest(
 				buffer,
 				dbOps,
-				new Headers({ "x-better-ccflare-agent-id": agentId }),
+				new Headers({ "x-hov-router-agent-id": agentId }),
 				{ getModelCatalog: catalog },
 			);
 			expect(result.agentUsed).toBe(agentId);
@@ -469,7 +469,7 @@ describe("interceptAndModifyRequest - forced tool_choice guard", () => {
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-better-ccflare-agent-id": "forced-header-auto" }),
+			new Headers({ "x-hov-router-agent-id": "forced-header-auto" }),
 			{ getModelCatalog: catalog },
 		);
 		expect(result.appliedModel).toBe(REJECTING);
@@ -482,7 +482,7 @@ describe("interceptAndModifyRequest - forced tool_choice guard", () => {
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-better-ccflare-agent-id": "forced-header-none" }),
+			new Headers({ "x-hov-router-agent-id": "forced-header-none" }),
 			{ getModelCatalog: catalog },
 		);
 		expect(result.appliedModel).toBe(REJECTING);
@@ -495,7 +495,7 @@ describe("interceptAndModifyRequest - forced tool_choice guard", () => {
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-better-ccflare-agent-id": "forced-header-accepting" }),
+			new Headers({ "x-hov-router-agent-id": "forced-header-accepting" }),
 			{ getModelCatalog: catalog },
 		);
 		expect(result.appliedModel).toBe(ACCEPTING);

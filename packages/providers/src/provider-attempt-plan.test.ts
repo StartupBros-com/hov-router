@@ -142,10 +142,10 @@ function customPlan(
 
 describe("materializeProviderAttemptPlan", () => {
 	test("Codex model attempts pair their URL and headers before later file changes", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-plan-identity-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-plan-identity-"));
 		const file = join(dir, "verified.json");
-		const oldPath = process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE;
-		const oldVersion = process.env.CCFLARE_CODEX_CLIENT_VERSION;
+		const oldPath = process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE;
+		const oldVersion = process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 		const record = (version: string) =>
 			JSON.stringify({
 				schemaVersion: 1,
@@ -154,8 +154,8 @@ describe("materializeProviderAttemptPlan", () => {
 				verifiedAt: new Date(Date.now() - 60_000).toISOString(),
 			});
 		try {
-			delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = file;
+			delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = file;
 			writeFileSync(file, record("0.170.0"));
 			const provider = new CodexProvider();
 			const codexContext = context(
@@ -172,7 +172,7 @@ describe("materializeProviderAttemptPlan", () => {
 				new Headers({
 					Version: "client-injected",
 					"User-Agent": "client-injected",
-					"x-better-ccflare-codex-client-version": "999.0.0",
+					"x-hov-router-codex-client-version": "999.0.0",
 				}),
 				"token",
 			);
@@ -184,7 +184,7 @@ describe("materializeProviderAttemptPlan", () => {
 				"codex-cli/0.170.0 (Windows 10.0.26100; x64)",
 			);
 			expect(
-				firstHeaders.get("x-better-ccflare-codex-client-version"),
+				firstHeaders.get("x-hov-router-codex-client-version"),
 			).toBeNull();
 			// materializeProviderAttemptPlan goes through CodexProvider's own
 			// captureAttemptIdentity, which calls resolveCodexClientIdentity()
@@ -204,11 +204,11 @@ describe("materializeProviderAttemptPlan", () => {
 		} finally {
 			setSystemTime();
 			if (oldPath === undefined)
-				delete process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE;
-			else process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = oldPath;
+				delete process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE;
+			else process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = oldPath;
 			if (oldVersion === undefined)
-				delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-			else process.env.CCFLARE_CODEX_CLIENT_VERSION = oldVersion;
+				delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+			else process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = oldVersion;
 			rmSync(dir, { recursive: true, force: true });
 		}
 	});

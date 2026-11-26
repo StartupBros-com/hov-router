@@ -17,7 +17,7 @@ const CLI_PATH = join(process.cwd(), "apps/cli/src/main.ts");
 // Tracks per-invocation temp databases so afterEach can remove them along
 // with their SQLite WAL/SHM siblings. Each runCLI() below pushes one path
 // here; the suite's afterEach() drains the set after the existing
-// tempDir/Ssl-fixture rmSync. Without this the runCLI-routed BETTER_CCFLARE_DB_PATH
+// tempDir/Ssl-fixture rmSync. Without this the runCLI-routed HOV_ROUTER_DB_PATH
 // files accumulate across repeated suite invocations under $TMPDIR.
 const createdDbPaths = new Set<string>();
 
@@ -36,18 +36,18 @@ function runCLI(
 	return new Promise((resolve) => {
 		// Route the spawned CLI's database through the environment's temp dir so
 		// tests pass under any sandbox that blocks writes to ~/.config/. The
-		// CLI honours BETTER_CCFLARE_DB_PATH (see packages/database/src/factory.ts)
+		// CLI honours HOV_ROUTER_DB_PATH (see packages/database/src/factory.ts)
 		// — honouring it here keeps each test run hermetic and removes a
-		// ~/.config/better-ccflare/better-ccflare.db dependency the test never
+		// ~/.config/hov-router/hov-router.db dependency the test never
 		// asked for. Falls back to ~/.config in the unlikely event neither
 		// TMPDIR nor HOME is writable.
-		const cliDbPath = `${process.env.TMPDIR || "/tmp"}/better-ccflare-cli-test-${process.pid}-${Date.now()}.db`;
+		const cliDbPath = `${process.env.TMPDIR || "/tmp"}/hov-router-cli-test-${process.pid}-${Date.now()}.db`;
 		createdDbPaths.add(cliDbPath);
 		const proc = spawn("bun", ["run", CLI_PATH, ...args], {
 			env: {
 				...process.env,
 				NODE_ENV: "test",
-				BETTER_CCFLARE_DB_PATH: cliDbPath,
+				HOV_ROUTER_DB_PATH: cliDbPath,
 				...env,
 			},
 		});
@@ -247,7 +247,7 @@ describe("CLI Integration Tests", () => {
 
 	beforeEach(() => {
 		// Create temp directory for SSL cert tests
-		tempDir = join(tmpdir(), `better-ccflare-test-${Date.now()}`);
+		tempDir = join(tmpdir(), `hov-router-test-${Date.now()}`);
 		mkdirSync(tempDir, { recursive: true });
 		tempSslKeyPath = join(tempDir, "test.key");
 		tempSslCertPath = join(tempDir, "test.crt");
@@ -279,9 +279,9 @@ describe("CLI Integration Tests", () => {
 				const result = await runCLI([flag], {
 					HOME: home,
 					XDG_CONFIG_HOME: join(home, "config"),
-					BETTER_CCFLARE_DB_PATH:
-						"/proc/better-ccflare-must-not-open/identity.db",
-					BETTER_CCFLARE_GIT_SHA: "abcdef1234567890abcdef1234567890abcdef12",
+					HOV_ROUTER_DB_PATH:
+						"/proc/hov-router-must-not-open/identity.db",
+					HOV_ROUTER_HEALTH_GIT_SHA: "abcdef1234567890abcdef1234567890abcdef12",
 				});
 				expect(result.exitCode).toBe(0);
 				expect(result.stderr).toBe("");
@@ -317,8 +317,8 @@ describe("CLI Integration Tests", () => {
 		it("prints only the embedded git SHA before initialization", async () => {
 			const sha = "abcdef1234567890abcdef1234567890abcdef12";
 			const result = await runCLI(["--git-sha"], {
-				BETTER_CCFLARE_GIT_SHA: sha,
-				BETTER_CCFLARE_DB_PATH: "/proc/better-ccflare-must-not-open/version.db",
+				HOV_ROUTER_HEALTH_GIT_SHA: sha,
+				HOV_ROUTER_DB_PATH: "/proc/hov-router-must-not-open/version.db",
 			});
 
 			expect(result.exitCode).toBe(0);
@@ -328,8 +328,8 @@ describe("CLI Integration Tests", () => {
 
 		it("fails the git SHA command when the binary has no embedded SHA", async () => {
 			const result = await runCLI(["--git-sha"], {
-				BETTER_CCFLARE_GIT_SHA: "",
-				BETTER_CCFLARE_DB_PATH: "/proc/better-ccflare-must-not-open/version.db",
+				HOV_ROUTER_HEALTH_GIT_SHA: "",
+				HOV_ROUTER_DB_PATH: "/proc/hov-router-must-not-open/version.db",
 			});
 
 			expect(result.exitCode).toBe(1);
@@ -346,11 +346,11 @@ describe("CLI Integration Tests", () => {
 			expect(result.stdout).toContain("HoV Router");
 			expect(result.stdout).toContain("Usage: hov-router [options]");
 			expect(result.stdout).toContain(
-				"Earlier command names, such as better-ccflare, remain supported aliases",
+				"Earlier command names, such as hov-router, remain supported aliases",
 			);
 			expect(result.stdout).toContain("hov-router --serve");
 			expect(result.stdout).not.toContain("  wstack-router ");
-			expect(result.stdout).not.toContain("  better-ccflare ");
+			expect(result.stdout).not.toContain("  hov-router ");
 			expect(result.stdout).toContain("Usage:");
 			expect(result.stdout).toContain("Options:");
 			expect(result.stdout).toContain("--serve");
@@ -434,8 +434,8 @@ describe("CLI Integration Tests", () => {
 				const result = await runCLI(
 					["routing", "list", "--api-url", server.baseUrl, "--json"],
 					{
-						BETTER_CCFLARE_DB_PATH:
-							"/proc/better-ccflare-must-not-open/routing.db",
+						HOV_ROUTER_DB_PATH:
+							"/proc/hov-router-must-not-open/routing.db",
 					},
 				);
 
@@ -453,7 +453,7 @@ describe("CLI Integration Tests", () => {
 		it("ships preview, reviewed apply, and manual rollback with exact live API writes", async () => {
 			const server = await startRoutingServer();
 			const noDatabase = {
-				BETTER_CCFLARE_DB_PATH: "/proc/better-ccflare-must-not-open/routing.db",
+				HOV_ROUTER_DB_PATH: "/proc/hov-router-must-not-open/routing.db",
 			};
 			try {
 				const preview = await runCLI(
@@ -639,7 +639,7 @@ describe("CLI Integration Tests", () => {
 		// it reliably. The open order the check guards is settled before the
 		// writer starts, and the next test covers startup with the writer on.
 		it("opens the database with the server's runtime config", async () => {
-			const dir = mkdtempSync(join(tmpdir(), "ccflare-cli-serve-"));
+			const dir = mkdtempSync(join(tmpdir(), "hov-router-cli-serve-"));
 			const dbPath = join(dir, "serve.db");
 			const port = 20000 + (process.pid % 20000);
 			const proc = spawn(
@@ -649,9 +649,9 @@ describe("CLI Integration Tests", () => {
 					env: {
 						...process.env,
 						NODE_ENV: "test",
-						BETTER_CCFLARE_DB_PATH: dbPath,
+						HOV_ROUTER_DB_PATH: dbPath,
 						XDG_CONFIG_HOME: dir,
-						BETTER_CCFLARE_DB_WRITER_WORKER: "0",
+						HOV_ROUTER_DB_WRITER_WORKER: "0",
 					},
 				},
 			);
@@ -695,17 +695,17 @@ describe("CLI Integration Tests", () => {
 		}, 30000);
 
 		it("starts the SQLite writer thread by default (#676)", async () => {
-			const dir = mkdtempSync(join(tmpdir(), "ccflare-cli-serve-writer-"));
+			const dir = mkdtempSync(join(tmpdir(), "hov-router-cli-serve-writer-"));
 			const dbPath = join(dir, "serve.db");
 			const port = 40000 + (process.pid % 20000);
 			const env: Record<string, string | undefined> = {
 				...process.env,
 				NODE_ENV: "test",
-				BETTER_CCFLARE_DB_PATH: dbPath,
+				HOV_ROUTER_DB_PATH: dbPath,
 				XDG_CONFIG_HOME: dir,
 				LOG_LEVEL: "info",
 			};
-			delete env.BETTER_CCFLARE_DB_WRITER_WORKER;
+			delete env.HOV_ROUTER_DB_WRITER_WORKER;
 			const proc = spawn(
 				"bun",
 				["run", CLI_PATH, "--serve", "--port", `${port}`],

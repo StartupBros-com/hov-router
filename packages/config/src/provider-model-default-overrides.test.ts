@@ -6,7 +6,7 @@ import { Config, filterEnabledProviderModelDefaultOverrides } from "./index";
 
 describe("provider model default overrides", () => {
 	it("keeps only non-empty provider-family overrides", () => {
-		const directory = mkdtempSync(join(tmpdir(), "ccflare-provider-defaults-"));
+		const directory = mkdtempSync(join(tmpdir(), "hov-router-provider-defaults-"));
 		const path = join(directory, "config.json");
 		try {
 			writeFileSync(
@@ -27,20 +27,20 @@ describe("provider model default overrides", () => {
 	});
 });
 
-describe("provider model default enabled providers (CCFLARE_MODEL_DEFAULTS_PROVIDERS)", () => {
-	const ORIGINAL_ENV = process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS;
+describe("provider model default enabled providers (HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS)", () => {
+	const ORIGINAL_ENV = process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS;
 
 	afterEach(() => {
 		if (ORIGINAL_ENV === undefined) {
-			delete process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS;
+			delete process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS;
 		} else {
-			process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS = ORIGINAL_ENV;
+			process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS = ORIGINAL_ENV;
 		}
 	});
 
 	function makeConfig(initial: Record<string, Record<string, string>> = {}) {
 		const directory = mkdtempSync(
-			join(tmpdir(), "ccflare-provider-defaults-enabled-"),
+			join(tmpdir(), "hov-router-provider-defaults-enabled-"),
 		);
 		const path = join(directory, "config.json");
 		writeFileSync(
@@ -54,7 +54,7 @@ describe("provider model default enabled providers (CCFLARE_MODEL_DEFAULTS_PROVI
 	}
 
 	it("defaults to only codex when the env var is absent or blank", () => {
-		delete process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS;
+		delete process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS;
 		const { config, cleanup } = makeConfig();
 		try {
 			expect(config.getEnabledProviderModelDefaultProviders()).toEqual([
@@ -64,7 +64,7 @@ describe("provider model default enabled providers (CCFLARE_MODEL_DEFAULTS_PROVI
 			cleanup();
 		}
 
-		process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS = "  ,  ";
+		process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS = "  ,  ";
 		const { config: blankConfig, cleanup: cleanupBlank } = makeConfig();
 		try {
 			expect(blankConfig.getEnabledProviderModelDefaultProviders()).toEqual([
@@ -76,7 +76,7 @@ describe("provider model default enabled providers (CCFLARE_MODEL_DEFAULTS_PROVI
 	});
 
 	it("parses a trimmed comma-separated list when the env var is set", () => {
-		process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS = "codex, xai ,qwen";
+		process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS = "codex, xai ,qwen";
 		const { config, cleanup } = makeConfig();
 		try {
 			expect(config.getEnabledProviderModelDefaultProviders()).toEqual([

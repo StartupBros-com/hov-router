@@ -1,6 +1,6 @@
 import { cacheBodyStore, hasCacheControlHint } from "./cache-body-store";
 
-export const CACHE_REPLAY_MODEL_HEADER = "x-better-ccflare-cache-replay-model";
+export const CACHE_REPLAY_MODEL_HEADER = "x-hov-router-cache-replay-model";
 
 export type CacheBodyStagingAction = "stage" | "discard" | "skip";
 
@@ -79,7 +79,7 @@ export function stripCacheControlFromReplayBody(
 }
 
 function isSyntheticInternalRequest(headers: Headers): boolean {
-	return !!headers.get("x-better-ccflare-keepalive");
+	return !!headers.get("x-hov-router-keepalive");
 }
 
 /**

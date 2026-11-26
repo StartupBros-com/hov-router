@@ -39,7 +39,7 @@ Configuration is managed through the `@hov-router/config` package, which provide
 Configuration values are resolved in the following order (highest to lowest priority):
 
 1. **Environment variables** - Always take precedence when set
-2. **Configuration file** - Values from `~/.config/better-ccflare/better-ccflare.json` (or custom path)
+2. **Configuration file** - Values from `~/.config/hov-router/hov-router.json` (or custom path)
 3. **Default values** - Built-in defaults when no other value is specified
 
 ### Special Cases
@@ -52,9 +52,9 @@ Configuration values are resolved in the following order (highest to lowest prio
 
 The configuration file is stored at:
 
-- **Linux/macOS**: `~/.config/better-ccflare/better-ccflare.json` (or `$XDG_CONFIG_HOME/better-ccflare/better-ccflare.json`)
-- **Windows**: `%LOCALAPPDATA%\better-ccflare\better-ccflare.json` (or `%APPDATA%\better-ccflare\better-ccflare.json`)
-- **Custom path**: Set via `BETTER_CCFLARE_CONFIG_PATH` environment variable
+- **Linux/macOS**: `~/.config/hov-router/hov-router.json` (or `$XDG_CONFIG_HOME/hov-router/hov-router.json`)
+- **Windows**: `%LOCALAPPDATA%\hov-router\hov-router.json` (or `%APPDATA%\hov-router\hov-router.json`)
+- **Custom path**: Set via `HOV_ROUTER_CONFIG_PATH` environment variable
 
 ### File Structure
 
@@ -101,7 +101,7 @@ The [available-strategies table](load-balancing.md#available-strategies) is the 
 |----------|------|---------|-------------|
 | `LOG_LEVEL` | string | `"INFO"` | Logging level: `DEBUG`, `INFO`, `WARN`, `ERROR` |
 | `LOG_FORMAT` | string | `"pretty"` | Log format: `"pretty"` or `"json"` |
-| `BETTER_CCFLARE_DEBUG` | string | - | Set to `"1"` to enable debug mode with console output |
+| `HOV_ROUTER_DEBUG` | string | - | Set to `"1"` to enable debug mode with console output |
 
 ## Environment Variables
 
@@ -118,9 +118,9 @@ The [available-strategies table](load-balancing.md#available-strategies) is the 
 | `PORT` | `port` | number | `PORT=3000` |
 | `DATA_RETENTION_DAYS` | `data_retention_days` | number | `DATA_RETENTION_DAYS=3` (payloads) |
 | `REQUEST_RETENTION_DAYS` | `request_retention_days` | number | `REQUEST_RETENTION_DAYS=90` (metadata) |
-| `CCFLARE_EXTERNAL_CODEX_HOMES` | `external_codex_homes` | string (comma-separated paths) | `CCFLARE_EXTERNAL_CODEX_HOMES=/home/me/.codex` |
-| `CCFLARE_EXTERNAL_CODEX_CLOUD_ROOTS` | `external_codex_cloud_roots` | string (comma-separated `account=path`) | `CCFLARE_EXTERNAL_CODEX_CLOUD_ROOTS=codex-main=/srv/codex-cloud/codex` |
-| `BETTER_CCFLARE_CONFIG_PATH` | - | string | `BETTER_CCFLARE_CONFIG_PATH=/etc/better-ccflare.json` |
+| `HOV_ROUTER_EXTERNAL_CODEX_HOMES` | `external_codex_homes` | string (comma-separated paths) | `HOV_ROUTER_EXTERNAL_CODEX_HOMES=/home/me/.codex` |
+| `HOV_ROUTER_EXTERNAL_CODEX_CLOUD_ROOTS` | `external_codex_cloud_roots` | string (comma-separated `account=path`) | `HOV_ROUTER_EXTERNAL_CODEX_CLOUD_ROOTS=codex-main=/srv/codex-cloud/codex` |
+| `HOV_ROUTER_CONFIG_PATH` | - | string | `HOV_ROUTER_CONFIG_PATH=/etc/hov-router.json` |
 
 ### Additional Environment Variables
 
@@ -130,61 +130,61 @@ These environment variables are not stored in the configuration file and must be
 |----------|-------------|---------|---------|
 | `LOG_LEVEL` | Set logging verbosity (DEBUG, INFO, WARN, ERROR) | `INFO` | `LOG_LEVEL=DEBUG` |
 | `LOG_FORMAT` | Set log output format (pretty, json) | `pretty` | `LOG_FORMAT=json` |
-| `BETTER_CCFLARE_DEBUG` | Enable debug mode with console output | - | `BETTER_CCFLARE_DEBUG=1` |
-| `BETTER_CCFLARE_DB_PATH` | Custom database file path | Platform-specific | `BETTER_CCFLARE_DB_PATH=/var/lib/better-ccflare/db.sqlite` |
+| `HOV_ROUTER_DEBUG` | Enable debug mode with console output | - | `HOV_ROUTER_DEBUG=1` |
+| `HOV_ROUTER_DB_PATH` | Custom database file path | Platform-specific | `HOV_ROUTER_DB_PATH=/var/lib/hov-router/db.sqlite` |
 | `DATABASE_URL` | Not used. A value starting with `postgres://` or `postgresql://` is refused at startup (see [PostgreSQL support removed](hov-router-migration.md#postgresql-support-removed)); any other value is ignored. | - | - |
 | `CF_PRICING_REFRESH_HOURS` | Hours between pricing data refreshes | `24` | `CF_PRICING_REFRESH_HOURS=12` |
 | `CF_PRICING_OFFLINE` | Disable online pricing updates | - | `CF_PRICING_OFFLINE=1` |
 | `CF_PRICING_TIMEOUT_MS` | Pricing estimate deadline in milliseconds. Accepts integers from `1` through `60000`; unset or invalid values fall back to `5000` | `5000` | `CF_PRICING_TIMEOUT_MS=10000` |
-| `BETTER_CCFLARE_MODELS_REFRESH_HOURS` | Hours between scheduled model catalog refreshes; `0` disables scheduled refresh entirely | `168` (7 days) | `BETTER_CCFLARE_MODELS_REFRESH_HOURS=48` |
-| `BETTER_CCFLARE_MODELS_OFFLINE` | Disable scheduled/manual model catalog refresh **and** passive `/v1/models` capture | - | `BETTER_CCFLARE_MODELS_OFFLINE=1` |
-| `BETTER_CCFLARE_MODELS_CACHE_DIR` | Directory for the persisted model catalog cache file. Use a persistent directory (not a tmpdir that's wiped on restart) to keep the refresh schedule stable across restarts | Platform tmp dir | `BETTER_CCFLARE_MODELS_CACHE_DIR=/var/lib/better-ccflare` |
-| `BETTER_CCFLARE_MODELS_OAUTH_REFRESH` | Allow OAuth accounts as a fallback source for *scheduled* model catalog refreshes when no console/API-key account is eligible. Same as the `model_catalog_oauth_refresh_enabled` config file field; env var takes precedence. Manual refreshes (`POST /api/models/refresh`) always allow the OAuth fallback regardless of this setting | - (console-only) | `BETTER_CCFLARE_MODELS_OAUTH_REFRESH=1` |
-| `CCFLARE_MODEL_ROUTE_PROFILES_JSON` | Claude Code `/model` route profiles as a strict JSON array; malformed nonblank input prevents startup. Read only until the first start stores the profiles in the database; after that it is ignored and the lanes are edited live | unset (disabled) | See [Claude Code Model Route Profiles](#claude-code-model-route-profiles) |
-| `CCFLARE_MODEL_ROUTE_PROFILES_FILE` | Absolute path to a file holding the same JSON array. A file that cannot be used falls back to the last copy that loaded. Like the JSON variable, read only until the first start stores the profiles in the database. Setting both this and a nonblank `CCFLARE_MODEL_ROUTE_PROFILES_JSON` prevents startup | unset | See [Profiles in a file](#profiles-in-a-file) |
-| `BETTER_CCFLARE_HOST` | Server binding host | `0.0.0.0` | `BETTER_CCFLARE_HOST=127.0.0.1` (localhost-only) |
-| `CCFLARE_SHUTDOWN_DRAIN_MS` | How long, in milliseconds, the server waits on SIGTERM for in-flight responses to finish before closing them; it then has 15 s more for cleanup. Digits only, capped at `900000`; other values fall back to the default. Your service manager's stop timeout must be longer than this value plus 15 s (see [Docker: stopping the container](docker.md#stopping-the-container)) | `60000` | `CCFLARE_SHUTDOWN_DRAIN_MS=120000` |
+| `HOV_ROUTER_MODELS_REFRESH_HOURS` | Hours between scheduled model catalog refreshes; `0` disables scheduled refresh entirely | `168` (7 days) | `HOV_ROUTER_MODELS_REFRESH_HOURS=48` |
+| `HOV_ROUTER_MODELS_OFFLINE` | Disable scheduled/manual model catalog refresh **and** passive `/v1/models` capture | - | `HOV_ROUTER_MODELS_OFFLINE=1` |
+| `HOV_ROUTER_MODELS_CACHE_DIR` | Directory for the persisted model catalog cache file. Use a persistent directory (not a tmpdir that's wiped on restart) to keep the refresh schedule stable across restarts | Platform tmp dir | `HOV_ROUTER_MODELS_CACHE_DIR=/var/lib/hov-router` |
+| `HOV_ROUTER_MODELS_OAUTH_REFRESH` | Allow OAuth accounts as a fallback source for *scheduled* model catalog refreshes when no console/API-key account is eligible. Same as the `model_catalog_oauth_refresh_enabled` config file field; env var takes precedence. Manual refreshes (`POST /api/models/refresh`) always allow the OAuth fallback regardless of this setting | - (console-only) | `HOV_ROUTER_MODELS_OAUTH_REFRESH=1` |
+| `HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON` | Claude Code `/model` route profiles as a strict JSON array; malformed nonblank input prevents startup. Read only until the first start stores the profiles in the database; after that it is ignored and the lanes are edited live | unset (disabled) | See [Claude Code Model Route Profiles](#claude-code-model-route-profiles) |
+| `HOV_ROUTER_MODEL_ROUTE_PROFILES_FILE` | Absolute path to a file holding the same JSON array. A file that cannot be used falls back to the last copy that loaded. Like the JSON variable, read only until the first start stores the profiles in the database. Setting both this and a nonblank `HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON` prevents startup | unset | See [Profiles in a file](#profiles-in-a-file) |
+| `HOV_ROUTER_HOST` | Server binding host | `0.0.0.0` | `HOV_ROUTER_HOST=127.0.0.1` (localhost-only) |
+| `HOV_ROUTER_SHUTDOWN_DRAIN_MS` | How long, in milliseconds, the server waits on SIGTERM for in-flight responses to finish before closing them; it then has 15 s more for cleanup. Digits only, capped at `900000`; other values fall back to the default. Your service manager's stop timeout must be longer than this value plus 15 s (see [Docker: stopping the container](docker.md#stopping-the-container)) | `60000` | `HOV_ROUTER_SHUTDOWN_DRAIN_MS=120000` |
 | `SSL_KEY_PATH` / `SSL_CERT_PATH` | SSL private key / certificate paths for HTTPS | - | `SSL_KEY_PATH=/path/to/key.pem` |
-| `CCFLARE_OVERLOAD_RETRY_ENABLED` | In-place retry of Anthropic 529 "no reset" overloads before falling back to account cooldown | `true` | `CCFLARE_OVERLOAD_RETRY_ENABLED=false` |
-| `CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS` | Total attempts including the original request: a whole number from 1 to 10. A fraction is truncated, a value above 10 is capped at 10, and anything below 1 or not a finite number uses the default. To turn the retry off, set `CCFLARE_OVERLOAD_RETRY_ENABLED=false` | `2` | `CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS=3` |
-| `CCFLARE_OVERLOAD_RETRY_BASE_MS` | Overload retry backoff base in ms; `0` = no sleep | `750` | `CCFLARE_OVERLOAD_RETRY_BASE_MS=500` |
-| `CCFLARE_OVERLOAD_RETRY_MAX_MS` | Overload retry backoff ceiling in ms | `3000` | `CCFLARE_OVERLOAD_RETRY_MAX_MS=5000` |
-| `CCFLARE_OVERLOAD_COOLDOWN_MS` | Fixed per-account cooldown after a 529 (overloaded) response with no Retry-After header. Unlike 429 cooldowns it never ramps with a streak; pairs with a single-flight recovery probe that admits exactly one request once the cooldown expires, as long as another account is available to defer to — if every account in the pool is currently suppressed, the request runs ungated instead | `10000` (10s) | `CCFLARE_OVERLOAD_COOLDOWN_MS=15000` |
-| `CCFLARE_OVERLOAD_WITH_RESET_MAX_MS` | Cap on a 529-with-reset cooldown duration (`min(resetTime, now + cap)`). Guards against a multi-hour quota-window reset header (`anthropic-ratelimit-unified-reset`) being mistaken for a short, real retry-after | `60000` (60s) | `CCFLARE_OVERLOAD_WITH_RESET_MAX_MS=120000` |
-| `CCFLARE_RATE_LIMIT_BACKOFF_BASE_MS` | Base delay for adaptive per-account 429 cooldown backoff | `30000` (30s) | `CCFLARE_RATE_LIMIT_BACKOFF_BASE_MS=15000` |
-| `CCFLARE_RATE_LIMIT_BACKOFF_MAX_MS` | Ceiling for adaptive per-account 429 cooldown backoff | `300000` (5min) | `CCFLARE_RATE_LIMIT_BACKOFF_MAX_MS=600000` |
-| `CCFLARE_RATE_LIMIT_RESET_STABILITY_MS` | Window after which a clean streak resets the consecutive-429 counter | `300000` (5min) | `CCFLARE_RATE_LIMIT_RESET_STABILITY_MS=600000` |
+| `HOV_ROUTER_OVERLOAD_RETRY_ENABLED` | In-place retry of Anthropic 529 "no reset" overloads before falling back to account cooldown | `true` | `HOV_ROUTER_OVERLOAD_RETRY_ENABLED=false` |
+| `HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS` | Total attempts including the original request: a whole number from 1 to 10. A fraction is truncated, a value above 10 is capped at 10, and anything below 1 or not a finite number uses the default. To turn the retry off, set `HOV_ROUTER_OVERLOAD_RETRY_ENABLED=false` | `2` | `HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS=3` |
+| `HOV_ROUTER_OVERLOAD_RETRY_BASE_MS` | Overload retry backoff base in ms; `0` = no sleep | `750` | `HOV_ROUTER_OVERLOAD_RETRY_BASE_MS=500` |
+| `HOV_ROUTER_OVERLOAD_RETRY_MAX_MS` | Overload retry backoff ceiling in ms | `3000` | `HOV_ROUTER_OVERLOAD_RETRY_MAX_MS=5000` |
+| `HOV_ROUTER_OVERLOAD_COOLDOWN_MS` | Fixed per-account cooldown after a 529 (overloaded) response with no Retry-After header. Unlike 429 cooldowns it never ramps with a streak; pairs with a single-flight recovery probe that admits exactly one request once the cooldown expires, as long as another account is available to defer to — if every account in the pool is currently suppressed, the request runs ungated instead | `10000` (10s) | `HOV_ROUTER_OVERLOAD_COOLDOWN_MS=15000` |
+| `HOV_ROUTER_OVERLOAD_WITH_RESET_MAX_MS` | Cap on a 529-with-reset cooldown duration (`min(resetTime, now + cap)`). Guards against a multi-hour quota-window reset header (`anthropic-ratelimit-unified-reset`) being mistaken for a short, real retry-after | `60000` (60s) | `HOV_ROUTER_OVERLOAD_WITH_RESET_MAX_MS=120000` |
+| `HOV_ROUTER_RATE_LIMIT_BACKOFF_BASE_MS` | Base delay for adaptive per-account 429 cooldown backoff | `30000` (30s) | `HOV_ROUTER_RATE_LIMIT_BACKOFF_BASE_MS=15000` |
+| `HOV_ROUTER_RATE_LIMIT_BACKOFF_MAX_MS` | Ceiling for adaptive per-account 429 cooldown backoff | `300000` (5min) | `HOV_ROUTER_RATE_LIMIT_BACKOFF_MAX_MS=600000` |
+| `HOV_ROUTER_RATE_LIMIT_RESET_STABILITY_MS` | Window after which a clean streak resets the consecutive-429 counter | `300000` (5min) | `HOV_ROUTER_RATE_LIMIT_RESET_STABILITY_MS=600000` |
 | `HEALTH_DETAIL_ENABLED` | Expose per-account status on `GET /health?detail=1` | `false` | `HEALTH_DETAIL_ENABLED=true` |
-| `CCFLARE_DISABLE_COMBO_SESSION_FALLBACK` | **Legacy.** The setting now lives in Settings → Advanced → Combo Session Fallback and is read from the config file only. This variable is adopted once at boot when the config field is absent, then ignored. It inverts on adoption because the setting expresses whether fallthrough is *allowed*. Blocking fallthrough is the default for new installs | adopted once, then ignored | `CCFLARE_DISABLE_COMBO_SESSION_FALLBACK=true` |
+| `HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK` | **Legacy.** The setting now lives in Settings → Advanced → Combo Session Fallback and is read from the config file only. This variable is adopted once at boot when the config field is absent, then ignored. It inverts on adoption because the setting expresses whether fallthrough is *allowed*. Blocking fallthrough is the default for new installs | adopted once, then ignored | `HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK=true` |
 | — (no env var) | Whether saved combos take part in routing at all. Config-file-only (`combos_enabled`), default off; the Combos tab remains visible and this switch controls routing only. Manage via Settings → Advanced → Combos or `GET`/`POST /api/config/combos-enabled` | `false` | n/a — config file or API only |
 | — (no env var) | Whether the model requested by a client must be the model sent upstream (`force_account_model`), skipping combos, agent model preferences, and provider default-model mapping | `false` | n/a — config file or API only |
-| `MODEL_SCOPED_CAPACITY_ROUTING` | `off` suppresses family/model snapshots and reactive blockers for ordinary, capability, combo, and fallback lanes; account-wide availability blockers remain, and exact forced routes still fail closed. `exhausted` skips an account for a request when its weekly per-model-family cap (`limits[] kind=weekly_scoped`, e.g. a Fable/Opus/Sonnet-specific quota) is at/above 100% with a future reset AND overage cannot serve the account (`spend`/`extra_usage` signal unavailable; unknown or available fails open). Observed `out_of_credits` 429s additionally sideline the (account, family) pair for 5 minutes to bridge telemetry lag. When the model-scoped filter removes every account from an otherwise non-empty candidate pool, the fork returns retryable HTTP `503` JSON: `type: error`, `error.type: service_unavailable`, `error.code: model_pool_exhausted`. When a finite model recovery is known, the response may also include capped `Retry-After`, `x-better-ccflare-pool-status: exhausted`, and `x-better-ccflare-recovery-scope: model`; `Retry-After` is not guaranteed. Telemetry can lag up to the poll interval; with polling degraded, expect one probe 429 per family every ~5 minutes. Same as the `model_scoped_capacity_routing` config-file field; a valid environment value takes precedence and locks the dashboard setting read-only. | `off` | `MODEL_SCOPED_CAPACITY_ROUTING=exhausted` |
-| `CCFLARE_IMPLICIT_FALLBACK_MODE` | Restart-scoped policy for implicit normal/combo fallback. `observe` reports what enforcement would exclude; `enforce` removes denied route classes. Explicit forced and capability-profile routes are outside this policy | `off` | `CCFLARE_IMPLICIT_FALLBACK_MODE=observe` |
-| `CCFLARE_IMPLICIT_FALLBACK_ALLOWED_CLASSES` | Comma-separated route classes that are explicit exceptions to the active denial set: `oauth-subscription`, `api-key`, `local`, or `cloud-credential` | empty | `CCFLARE_IMPLICIT_FALLBACK_ALLOWED_CLASSES=oauth-subscription,local` |
-| `CCFLARE_IMPLICIT_FALLBACK_DENIED_CLASSES` | Comma-separated route classes to deny for implicit fallback. In `observe`/`enforce`, `api-key` and `cloud-credential` are denied by default unless allowed explicitly | empty (plus active defaults) | `CCFLARE_IMPLICIT_FALLBACK_DENIED_CLASSES=api-key,cloud-credential` |
+| `MODEL_SCOPED_CAPACITY_ROUTING` | `off` suppresses family/model snapshots and reactive blockers for ordinary, capability, combo, and fallback lanes; account-wide availability blockers remain, and exact forced routes still fail closed. `exhausted` skips an account for a request when its weekly per-model-family cap (`limits[] kind=weekly_scoped`, e.g. a Fable/Opus/Sonnet-specific quota) is at/above 100% with a future reset AND overage cannot serve the account (`spend`/`extra_usage` signal unavailable; unknown or available fails open). Observed `out_of_credits` 429s additionally sideline the (account, family) pair for 5 minutes to bridge telemetry lag. When the model-scoped filter removes every account from an otherwise non-empty candidate pool, the fork returns retryable HTTP `503` JSON: `type: error`, `error.type: service_unavailable`, `error.code: model_pool_exhausted`. When a finite model recovery is known, the response may also include capped `Retry-After`, `x-hov-router-pool-status: exhausted`, and `x-hov-router-recovery-scope: model`; `Retry-After` is not guaranteed. Telemetry can lag up to the poll interval; with polling degraded, expect one probe 429 per family every ~5 minutes. Same as the `model_scoped_capacity_routing` config-file field; a valid environment value takes precedence and locks the dashboard setting read-only. | `off` | `MODEL_SCOPED_CAPACITY_ROUTING=exhausted` |
+| `HOV_ROUTER_IMPLICIT_FALLBACK_MODE` | Restart-scoped policy for implicit normal/combo fallback. `observe` reports what enforcement would exclude; `enforce` removes denied route classes. Explicit forced and capability-profile routes are outside this policy | `off` | `HOV_ROUTER_IMPLICIT_FALLBACK_MODE=observe` |
+| `HOV_ROUTER_IMPLICIT_FALLBACK_ALLOWED_CLASSES` | Comma-separated route classes that are explicit exceptions to the active denial set: `oauth-subscription`, `api-key`, `local`, or `cloud-credential` | empty | `HOV_ROUTER_IMPLICIT_FALLBACK_ALLOWED_CLASSES=oauth-subscription,local` |
+| `HOV_ROUTER_IMPLICIT_FALLBACK_DENIED_CLASSES` | Comma-separated route classes to deny for implicit fallback. In `observe`/`enforce`, `api-key` and `cloud-credential` are denied by default unless allowed explicitly | empty (plus active defaults) | `HOV_ROUTER_IMPLICIT_FALLBACK_DENIED_CLASSES=api-key,cloud-credential` |
 | `GUARD_MAX_REQUEST_BODY_BYTES` | Maximum request wire body retained by the front guard before it returns a local 413. Limited requests acquire guard admission before body buffering; valid values are 1 KiB–32 MiB | `33554432` (32 MiB) | `GUARD_MAX_REQUEST_BODY_BYTES=16777216` (16 MiB) |
 | `GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES` | Aggregate weighted reservation budget for guarded request bodies. Must be at least twice `GUARD_MAX_REQUEST_BODY_BYTES` and no more than 256 MiB | `268435456` (256 MiB) | `GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=33554432` (32 MiB; requires request limit ≤16 MiB) |
 | `GUARD_MAX_BODY_READERS` | Maximum concurrent bounded request-body readers. This independent cardinality pool is separate from the aggregate reservation budget and upstream permits, so operators may tune it without weakening byte bounds | `8` (or `2 * GUARD_MAX_ACTIVE`, whichever is larger; hard max 256) | `GUARD_MAX_BODY_READERS=16` |
-| `CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES` | Bun proxy process-local weighted body-admission budget. Valid values are 256 MiB–1 GiB; it is independent of the front guard's encoded-buffer budget. The managed production pin is 1 GiB (`1073741824`) | `268435456` (256 MiB) | `CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=536870912` |
-| `CCFLARE_MAX_BODY_ADMISSION_QUEUE` | Maximum FIFO waiters for Bun proxy body admission. Valid values are 0–5000; `0` rejects immediately when the weighted budget is full | `500` | `CCFLARE_MAX_BODY_ADMISSION_QUEUE=100` |
+| `HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES` | Bun proxy process-local weighted body-admission budget. Valid values are 256 MiB–1 GiB; it is independent of the front guard's encoded-buffer budget. The managed production pin is 1 GiB (`1073741824`) | `268435456` (256 MiB) | `HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=536870912` |
+| `HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE` | Maximum FIFO waiters for Bun proxy body admission. Valid values are 0–5000; `0` rejects immediately when the weighted budget is full | `500` | `HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=100` |
 | `GUARD_REQUEST_DRAIN_TIMEOUT_MS` | Maximum time the guard spends draining a rejected or oversized upload before it destroys the request socket. Prevents stalled clients from pinning file descriptors | `10000` (10s; range 1s-60s) | `GUARD_REQUEST_DRAIN_TIMEOUT_MS=5000` |
-| `CCFLARE_ENABLE_HEADING_PROJECT_ATTRIBUTION` | When project attribution finds no `x-better-ccflare-project` header and no workspace path in the system prompt, it can fall back to the first eligible H1 heading (`# Heading`) in the system prompt. This heading is usually client boilerplate rather than a real project identifier, so this fallback is off by default | `false` | `CCFLARE_ENABLE_HEADING_PROJECT_ATTRIBUTION=true` |
-| `BETTER_CCFLARE_DISCOVER_PLUGIN_AGENTS` | Discover agents distributed by Claude Code plugins (reads `~/.claude/plugins/installed_plugins.json`) | `false` | `BETTER_CCFLARE_DISCOVER_PLUGIN_AGENTS=true` |
+| `HOV_ROUTER_ENABLE_HEADING_PROJECT_ATTRIBUTION` | When project attribution finds no `x-hov-router-project` header and no workspace path in the system prompt, it can fall back to the first eligible H1 heading (`# Heading`) in the system prompt. This heading is usually client boilerplate rather than a real project identifier, so this fallback is off by default | `false` | `HOV_ROUTER_ENABLE_HEADING_PROJECT_ATTRIBUTION=true` |
+| `HOV_ROUTER_DISCOVER_PLUGIN_AGENTS` | Discover agents distributed by Claude Code plugins (reads `~/.claude/plugins/installed_plugins.json`) | `false` | `HOV_ROUTER_DISCOVER_PLUGIN_AGENTS=true` |
 | `STORE_PAYLOADS` | Set to `false` to stop storing request/response bodies (token counts, cost, model, status, and timing are still recorded) | `true` | `STORE_PAYLOADS=false` |
 | `PAYLOAD_ENCRYPTION_KEY` | AES-256-GCM key encrypting `request_payloads` at rest. 64-char hex (32 bytes), generate with `openssl rand -hex 32`. Unset = plaintext storage. Losing the key makes encrypted rows unreadable; read once at process start (and per Bun worker), so rotation needs a re-encrypt migration (not yet built) | - (plaintext) | `PAYLOAD_ENCRYPTION_KEY=$(openssl rand -hex 32)` |
-| `CCFLARE_CODEX_PROMPT_CACHE_KEY` | Enabled by default: attach an OpenAI `prompt_cache_key` to converted Codex requests, per [OpenAI's prompt-caching guidance](https://platform.openai.com/docs/guides/prompt-caching) for GPT-5.6-family models. Only applies when the account's resolved endpoint is OpenAI's own `chatgpt.com` / `api.openai.com` — custom/self-hosted OpenAI-compatible endpoints and native Anthropic accounts are unaffected regardless of this setting. Set to `0` to opt out | `1` | `CCFLARE_CODEX_PROMPT_CACHE_KEY=0` |
-| `CCFLARE_CODEX_AFFINITY_HEADERS` | Enabled by default: send the ChatGPT subscription backend's prompt-cache affinity headers on every converted Codex request — `session-id` and `thread-id` set to the request's `prompt_cache_key`, plus `x-codex-routing-hint: model=<physical model>`. The backend derives cache affinity from the `session-id` header, exactly as the official Codex CLI sends it (openai/codex `core/src/client.rs`); with only the body key, byte-identical continuations on one account measured ~45% zero-cache in Sept 2026 while the CLI stayed above 93%. A native `/v1/responses` client's own `session-id`/`thread-id` are preserved; legacy `/v1/messages` clients cannot supply them. The routing hint always follows the proxy's resolved physical model. Off the exact subscription endpoint the headers are left untouched. Set to `0` to restore pass-through behavior | `1` | `CCFLARE_CODEX_AFFINITY_HEADERS=0` |
-| `CCFLARE_CODEX_CACHE_KEY_MODE` | Cache key granularity when the above is enabled. `conversation` keys off session id + instructions + first input item, stable per conversation turn and distinct per subagent, so concurrent subagent fan-out does not thrash one OpenAI cache machine. A continuation of the session's orchestration root, such as a turn after context compaction, keeps the root's key ([continuity](#codex-cache-key-continuity)). `session` explicitly uses one coarse key per session, shared by all subagents in it. Independent of `LB_STRATEGY`/`SESSION_DURATION_MS`, which pick the upstream *account* for a session rather than the OpenAI-side cache key | `conversation` | `CCFLARE_CODEX_CACHE_KEY_MODE=session` |
-| `CCFLARE_CODEX_CACHE_KEY_CONTINUITY_PERCENT` | Removed: cache-key continuity is always on in conversation mode (see [Codex cache-key continuity](#codex-cache-key-continuity)). The variable is ignored | — | — |
-| `CCFLARE_CODEX_CACHE_KEY_SESSION_PERCENT`, `CCFLARE_CODEX_CACHE_KEY_PREFIX_SHARD_PERCENT`, `CCFLARE_CODEX_CACHE_PACING_SETTLE_MS`, `CCFLARE_CODEX_PACING_BYPASS_PERCENT`, `CCFLARE_CODEX_GPT56_EXPLICIT_CACHE_BREAKPOINT_PERCENT` | Removed Codex cache experiments: session-wide keys, prefix-sharded keys, a hold after Codex response EOF, a pacing-bypass arm, and a GPT-5.6 explicit cache breakpoint. All five were off at `0` in production and none was kept as a parity mechanism (see [Codex cache parity ownership](#codex-cache-parity-ownership)); Codex requests now always get the `0` behavior. The variables are ignored | — | — |
-| `CCFLARE_CODEX_MESSAGES_CONTINUATION` | Opt-in: let the Codex provider retain server-owned Responses continuation (`previous_response_id`) while serving Anthropic `/v1/messages` clients, instead of replaying the full translated conversation history every turn. Requires an authenticated API key, a selected account, and a nonempty prompt cache key; state is partitioned by account, model, authenticated caller, session, and protocol, so a Messages-lane checkpoint can never leak into native `/v1/responses` traffic. Ambiguous, failed, expired, or cancelled turns never create or reuse a checkpoint, a rejected `previous_response_id` triggers a one-time full-history repair rather than looping, and the switch never changes model selection, fallback policy, or `store:false`. See [technical reference](reference.md#codex-messages-lane-continuation-opt-in-off-by-default) for details | unset (off) | `CCFLARE_CODEX_MESSAGES_CONTINUATION=1` |
-| `CCFLARE_CODEX_MESSAGES_CONTINUATION_MODELS` | Restricts the above bridge to an exact, comma-separated allowlist of resolved model names. Unset enables all models (when the switch above is on); an empty string enables none | unset (all models) | `CCFLARE_CODEX_MESSAGES_CONTINUATION_MODELS=gpt-6-astra,gpt-5.6-sol` |
-| `CCFLARE_CODEX_TRACE_DIR` | Directory for Codex trace records, one `codex-trace-YYYY-MM-DD.jsonl` file per UTC day. Records are request and response summaries without prompt content; `CCFLARE_CODEX_TRACE_FULL=1` also embeds full request bodies. Writes are best-effort and never affect the request | unset (tracing off) | `CCFLARE_CODEX_TRACE_DIR=/var/lib/better-ccflare/codex-traces` |
-| `CCFLARE_CODEX_TRACE_RETENTION_DAYS` | Days of Codex trace files to keep. The first record written each UTC day deletes daily trace files dated more than this many days earlier; other files in the directory are left alone. `0` keeps every file; a value that is not a whole number uses the default | `7` | `CCFLARE_CODEX_TRACE_RETENTION_DAYS=30` |
+| `HOV_ROUTER_CODEX_PROMPT_CACHE_KEY` | Enabled by default: attach an OpenAI `prompt_cache_key` to converted Codex requests, per [OpenAI's prompt-caching guidance](https://platform.openai.com/docs/guides/prompt-caching) for GPT-5.6-family models. Only applies when the account's resolved endpoint is OpenAI's own `chatgpt.com` / `api.openai.com` — custom/self-hosted OpenAI-compatible endpoints and native Anthropic accounts are unaffected regardless of this setting. Set to `0` to opt out | `1` | `HOV_ROUTER_CODEX_PROMPT_CACHE_KEY=0` |
+| `HOV_ROUTER_CODEX_AFFINITY_HEADERS` | Enabled by default: send the ChatGPT subscription backend's prompt-cache affinity headers on every converted Codex request — `session-id` and `thread-id` set to the request's `prompt_cache_key`, plus `x-codex-routing-hint: model=<physical model>`. The backend derives cache affinity from the `session-id` header, exactly as the official Codex CLI sends it (openai/codex `core/src/client.rs`); with only the body key, byte-identical continuations on one account measured ~45% zero-cache in Sept 2026 while the CLI stayed above 93%. A native `/v1/responses` client's own `session-id`/`thread-id` are preserved; legacy `/v1/messages` clients cannot supply them. The routing hint always follows the proxy's resolved physical model. Off the exact subscription endpoint the headers are left untouched. Set to `0` to restore pass-through behavior | `1` | `HOV_ROUTER_CODEX_AFFINITY_HEADERS=0` |
+| `HOV_ROUTER_CODEX_CACHE_KEY_MODE` | Cache key granularity when the above is enabled. `conversation` keys off session id + instructions + first input item, stable per conversation turn and distinct per subagent, so concurrent subagent fan-out does not thrash one OpenAI cache machine. A continuation of the session's orchestration root, such as a turn after context compaction, keeps the root's key ([continuity](#codex-cache-key-continuity)). `session` explicitly uses one coarse key per session, shared by all subagents in it. Independent of `LB_STRATEGY`/`SESSION_DURATION_MS`, which pick the upstream *account* for a session rather than the OpenAI-side cache key | `conversation` | `HOV_ROUTER_CODEX_CACHE_KEY_MODE=session` |
+| `HOV_ROUTER_CODEX_CACHE_KEY_CONTINUITY_PERCENT` | Removed: cache-key continuity is always on in conversation mode (see [Codex cache-key continuity](#codex-cache-key-continuity)). The variable is ignored | — | — |
+| `HOV_ROUTER_CODEX_CACHE_KEY_SESSION_PERCENT`, `HOV_ROUTER_CODEX_CACHE_KEY_PREFIX_SHARD_PERCENT`, `HOV_ROUTER_CODEX_CACHE_PACING_SETTLE_MS`, `HOV_ROUTER_CODEX_PACING_BYPASS_PERCENT`, `HOV_ROUTER_CODEX_GPT56_EXPLICIT_CACHE_BREAKPOINT_PERCENT` | Removed Codex cache experiments: session-wide keys, prefix-sharded keys, a hold after Codex response EOF, a pacing-bypass arm, and a GPT-5.6 explicit cache breakpoint. All five were off at `0` in production and none was kept as a parity mechanism (see [Codex cache parity ownership](#codex-cache-parity-ownership)); Codex requests now always get the `0` behavior. The variables are ignored | — | — |
+| `HOV_ROUTER_CODEX_MESSAGES_CONTINUATION` | Opt-in: let the Codex provider retain server-owned Responses continuation (`previous_response_id`) while serving Anthropic `/v1/messages` clients, instead of replaying the full translated conversation history every turn. Requires an authenticated API key, a selected account, and a nonempty prompt cache key; state is partitioned by account, model, authenticated caller, session, and protocol, so a Messages-lane checkpoint can never leak into native `/v1/responses` traffic. Ambiguous, failed, expired, or cancelled turns never create or reuse a checkpoint, a rejected `previous_response_id` triggers a one-time full-history repair rather than looping, and the switch never changes model selection, fallback policy, or `store:false`. See [technical reference](reference.md#codex-messages-lane-continuation-opt-in-off-by-default) for details | unset (off) | `HOV_ROUTER_CODEX_MESSAGES_CONTINUATION=1` |
+| `HOV_ROUTER_CODEX_MESSAGES_CONTINUATION_MODELS` | Restricts the above bridge to an exact, comma-separated allowlist of resolved model names. Unset enables all models (when the switch above is on); an empty string enables none | unset (all models) | `HOV_ROUTER_CODEX_MESSAGES_CONTINUATION_MODELS=gpt-6-astra,gpt-5.6-sol` |
+| `HOV_ROUTER_CODEX_TRACE_DIR` | Directory for Codex trace records, one `codex-trace-YYYY-MM-DD.jsonl` file per UTC day. Records are request and response summaries without prompt content; `HOV_ROUTER_CODEX_TRACE_FULL=1` also embeds full request bodies. Writes are best-effort and never affect the request | unset (tracing off) | `HOV_ROUTER_CODEX_TRACE_DIR=/var/lib/hov-router/codex-traces` |
+| `HOV_ROUTER_CODEX_TRACE_RETENTION_DAYS` | Days of Codex trace files to keep. The first record written each UTC day deletes daily trace files dated more than this many days earlier; other files in the directory are left alone. `0` keeps every file; a value that is not a whole number uses the default | `7` | `HOV_ROUTER_CODEX_TRACE_RETENTION_DAYS=30` |
 
 ### Cache pacing
 
-`CCFLARE_CACHE_PACING_MS` turns on cache pacing for `/v1/messages`. While a request for a session and model is in flight, a later request for the same pair waits before it selects an account, so it can read the cache entry the first one is writing. The first request releases its followers at its first response chunk, whatever provider served it, and immediately on cancellation or error. The setting caps each follower's wait, and a leader slot that never finishes is released after twice the cap. Unset or `0` disables pacing, and internal keepalive requests are never paced. The Codex-only hold after response EOF (`CCFLARE_CODEX_CACHE_PACING_SETTLE_MS`) was removed.
+`HOV_ROUTER_CACHE_PACING_MS` turns on cache pacing for `/v1/messages`. While a request for a session and model is in flight, a later request for the same pair waits before it selects an account, so it can read the cache entry the first one is writing. The first request releases its followers at its first response chunk, whatever provider served it, and immediately on cancellation or error. The setting caps each follower's wait, and a leader slot that never finishes is released after twice the cap. Unset or `0` disables pacing, and internal keepalive requests are never paced. The Codex-only hold after response EOF (`HOV_ROUTER_CODEX_CACHE_PACING_SETTLE_MS`) was removed.
 
 ### Codex cache parity ownership
 
@@ -199,18 +199,18 @@ The response's `driftReport` field diffs the live policy snapshot against the de
 | Bounded orchestration continuity | KEEP | Always on in conversation mode. Applies only after identity or exact tool-lineage admission rejects siblings and unrelated instructions |
 | Source-correct metrics and physical model/account/turn/gap/context reporting | KEEP | Durable additive usage uses `read / (uncached + read + write)`; cache-inclusive traces use `read / total_input` |
 | Pacing role, wait, and release receipts | KEEP | Schema-20 traces classify leader, follower/leader release, follower/cap release, or unknown without changing requests |
-| Explicit GPT-5.6 stable boundary | REMOVED | The ChatGPT subscription endpoint rejected 26/26 Sol and Terra treatments. The treatment, its per-scope suppression, and its marker-free retry are gone, and `CCFLARE_CODEX_GPT56_EXPLICIT_CACHE_BREAKPOINT_PERCENT` is ignored. Re-opening needs new code, once the endpoint accepts the documented marker on naturally initiated Sol and Terra traffic |
+| Explicit GPT-5.6 stable boundary | REMOVED | The ChatGPT subscription endpoint rejected 26/26 Sol and Terra treatments. The treatment, its per-scope suppression, and its marker-free retry are gone, and `HOV_ROUTER_CODEX_GPT56_EXPLICIT_CACHE_BREAKPOINT_PERCENT` is ignored. Re-opening needs new code, once the endpoint accepts the documented marker on naturally initiated Sol and Terra traffic |
 | Backend publication, replica consistency, and cross-thread cache lineage | DEFER | Requires an OpenAI backend change or documented affinity/lineage contract |
 | Session keys, prefix sharding, terminal settle, pacing bypass | REMOVED | Session keys, prefix sharding, and terminal settle measured no better than the KEEP baseline; the pacing bypass was a diagnostic arm with no parity claim. The code is gone and the settings are ignored. Re-open only with a new causal backend contract, not another percentage or shard count |
 | Turn-state replay as parity | REMOVED | Replay was removed; client and upstream headers are still stripped |
-| Active WebSocket locality | REMOVED | Natural traffic measured 75.43% cache reuse, worse than HTTP. The transport and its `CCFLARE_CODEX_WS_*` settings are gone; Codex requests always go over HTTP |
+| Active WebSocket locality | REMOVED | Natural traffic measured 75.43% cache reuse, worse than HTTP. The transport and its `HOV_ROUTER_CODEX_WS_*` settings are gone; Codex requests always go over HTTP |
 | Retry after a successful zero-cache response; Codex CLI compaction/fork/side work | RETIRE | Successful tool-bearing requests are not replay-safe, and Codex CLI is outside this production path |
 
 ### Codex cache-key continuity
 
 In conversation mode on an eligible OpenAI endpoint, a request that continues the session's elected orchestration root keeps the root's cache identity instead of its own derived one, so a turn after context compaction, for example, keeps reading the root's OpenAI cache. Only requests that offer `Agent` or `Task` and are not attributed descendants take part in the election. A request continues the root when its derived identity is one the root already holds (`identity_match`), or when its orchestration instructions are unchanged and its `function_call`/`function_call_output` lineage overlaps the root's (`lineage_match`). Continuity never merges rejected siblings, attributed descendants, unrelated instructions, custom endpoints, or session-mode traffic. The election state is process-local, bounded, and cleared on restart; it is not a durable identity registry and does not authorize cache reuse from a read-only snapshot.
 
-Continuity used to be gated by `CCFLARE_CODEX_CACHE_KEY_CONTINUITY_PERCENT`, which production ran at `100`; that variable is now ignored. Its default was `0`, so an install that never set it ran without continuity and now gets it on upgrade, with nothing logged. To turn continuity off, use one of the existing switches: `CCFLARE_CODEX_CACHE_KEY_MODE=session` (one key per session, no continuity), `CCFLARE_CODEX_PROMPT_CACHE_KEY=0` (no prompt cache key at all), or `CCFLARE_CODEX_SINGLE_ORCHESTRATION_ROOT=0` (no root election, which also turns off orchestration containment). None of the three reproduces the old `0` exactly, since each also changes something else.
+Continuity used to be gated by `HOV_ROUTER_CODEX_CACHE_KEY_CONTINUITY_PERCENT`, which production ran at `100`; that variable is now ignored. Its default was `0`, so an install that never set it ran without continuity and now gets it on upgrade, with nothing logged. To turn continuity off, use one of the existing switches: `HOV_ROUTER_CODEX_CACHE_KEY_MODE=session` (one key per session, no continuity), `HOV_ROUTER_CODEX_PROMPT_CACHE_KEY=0` (no prompt cache key at all), or `HOV_ROUTER_CODEX_SINGLE_ORCHESTRATION_ROOT=0` (no root election, which also turns off orchestration containment). None of the three reproduces the old `0` exactly, since each also changes something else.
 
 The opt-in Codex JSONL trace records categorical continuity evidence plus whether the canonical identity was applied. In conversation mode, `cache_key_continuity_applied` is true whenever the election admits the request as the session's root, and `canonical_conversation_id` is emitted only then. That includes the root's own first turn, whose basis is recorded as `derived`; the outbound key differs from the request's own derived key only when its identity is not the root's. A bounded `continuity_evidence_id` sequences validated turns. The analyzer keeps compaction turns together, counts their key rotations, and reports rows by application (`canonical`, `derived`, or `unknown`), basis, safe model family, observed turn/gap band, cache-read and cache-write measurements, effective-key concentration, joined responses, and unknown measurements. It never adds prompts, instructions, raw call IDs, raw session UUIDs, credentials, or full cache keys to this provenance output. Traces written before continuity was always on can show `lineage_match` turns with `derived` application, from installs that left the old percentage at `0`. Legacy traces without schema-17 application fields remain readable but are conservatively classified as unknown.
 
@@ -222,16 +222,16 @@ The cache-experiment analyzer's top-level `promptKeyConcentration` reports press
 
 | Variable | Description | Default | Example |
 |---|---|---|---|
-| `CCFLARE_CODEX_TURN_STATE_PERCENT`, `CCFLARE_CODEX_TURN_STATE_ACCOUNT_IDS`, `CCFLARE_CODEX_TURN_STATE_MODELS`, `CCFLARE_CODEX_TURN_STATE_COHORT_IDS`, `CCFLARE_CODEX_TURN_STATE_OBSERVE_ONLY`, `CCFLARE_CODEX_TURN_STATE_MAX_ENTRIES`, `CCFLARE_CODEX_TURN_STATE_IDLE_TTL_MS` | Removed: HTTP turn-state replay. Ignored | — | — |
-| `CCFLARE_CODEX_WS_*` | Removed with the Codex WebSocket transport, which measured worse cache reuse than HTTP. Codex requests always go over HTTP. These variables are ignored | — | — |
+| `HOV_ROUTER_CODEX_TURN_STATE_PERCENT`, `HOV_ROUTER_CODEX_TURN_STATE_ACCOUNT_IDS`, `HOV_ROUTER_CODEX_TURN_STATE_MODELS`, `HOV_ROUTER_CODEX_TURN_STATE_COHORT_IDS`, `HOV_ROUTER_CODEX_TURN_STATE_OBSERVE_ONLY`, `HOV_ROUTER_CODEX_TURN_STATE_MAX_ENTRIES`, `HOV_ROUTER_CODEX_TURN_STATE_IDLE_TTL_MS` | Removed: HTTP turn-state replay. Ignored | — | — |
+| `HOV_ROUTER_CODEX_WS_*` | Removed with the Codex WebSocket transport, which measured worse cache reuse than HTTP. Codex requests always go over HTTP. These variables are ignored | — | — |
 | `CF_STREAM_USAGE_BUFFER_KB` | Stream usage buffer size in KB | `64` | `CF_STREAM_USAGE_BUFFER_KB=128` |
-| `CF_STREAM_TIMEOUT_MS` | How long a request's usage state may go without activity before it is dropped as abandoned, in milliseconds. A dropped request never gets its row. Keep it above `GUARD_RESPONSE_IDLE_TIMEOUT_MS` and `CCFLARE_ANTHROPIC_PRECOMMIT_TIMEOUT_MS`, or streams those timers cut lose their rows | `900000` (15 minutes) | `CF_STREAM_TIMEOUT_MS=1800000` |
-| `BETTER_CCFLARE_OUTBOUND_PROXY` | Routes all outbound HTTP(S) traffic through a forward proxy | unset | `BETTER_CCFLARE_OUTBOUND_PROXY=http://127.0.0.1:3636` |
-| `CCFLARE_MODEL_DEFAULTS_PROVIDERS` | Comma-separated list of providers whose model-default map is editable via `POST /api/config/provider-model-defaults` and the dashboard's Advanced Settings card. Gates only the override *surface* — every provider's built-in factory map keeps translating models regardless | `codex` | `CCFLARE_MODEL_DEFAULTS_PROVIDERS=codex,xai,qwen` |
-| `CCFLARE_CODEX_IMPLICIT_ROUTE` | Admits physical Codex model IDs on `/v1/responses` through a request-time Codex capability route, preserving the requested wire model. Enabled by default; only the literal value `0` disables it. Explicit operator profiles take precedence; model discovery and session binding behavior are unchanged. See [Implicit Codex routes](./routing-architecture.md#implicit-codex-routes) | `1` (on) | `CCFLARE_CODEX_IMPLICIT_ROUTE=0` |
-| `CCFLARE_CODEX_CLIENT_VERSION` | Explicit Codex client version (strict `X.Y.Z`) that the Codex provider advertises in inference `Version`/`User-Agent` headers and in the account catalog query. Takes precedence over the verified record below. An invalid value is ignored and resolution falls through to the record and then to the compiled version. The identity then reports `invalid_explicit`, unless a problem with the record takes its place: a missing, invalid or stale record, or a bad path. The effective version and its source (`explicit`, `verified` or `default`) appear as `codexClientIdentity` in `GET /api/config/provider-model-defaults` | unset (the adapter's compiled version) | `CCFLARE_CODEX_CLIENT_VERSION=0.157.1` |
-| `CCFLARE_CODEX_VERIFIED_VERSION_FILE` | Absolute path to a verified Codex CLI version record that a managed updater writes after each verified CLI promotion. The record is a regular file of at most 4 KiB: `{"schemaVersion":1,"packageName":"@openai/codex","version":"X.Y.Z","verifiedAt":"<UTC>Z"}`. It is only read: the proxy never runs the CLI, and a symlink is rejected. It is re-read at most once per second, so a promotion applies without a restart. A record that goes missing or invalid after a valid read keeps the last valid version within the same process. After a restart with the record still missing or invalid, it falls back to the compiled version. One older than 30 days is still used but reported as not fresh. While set, a stale or unreadable record raises `codex_identity_record_stale` (see [Codex catalog alerts](#codex-catalog-alerts)). Ignored when a valid `CCFLARE_CODEX_CLIENT_VERSION` is set; see [systemd](systemd.md#codex-client-identity-drop-in) for the production drop-in | unset | `CCFLARE_CODEX_VERIFIED_VERSION_FILE=/home/<user>/.local/state/codex-update/verified-version.json` |
-| `CCFLARE_XAI_CACHE_NATIVE` | Opt-in: derive a privacy-safe conversation id from the client's Claude session id and attach it as `x-grok-conv-id` on requests to `api.x.ai`, with sticky account affinity so a conversation stays on the account owning its upstream cache partition. Byte-for-byte no-op when unset | unset (off) | `CCFLARE_XAI_CACHE_NATIVE=1` |
+| `CF_STREAM_TIMEOUT_MS` | How long a request's usage state may go without activity before it is dropped as abandoned, in milliseconds. A dropped request never gets its row. Keep it above `GUARD_RESPONSE_IDLE_TIMEOUT_MS` and `HOV_ROUTER_ANTHROPIC_PRECOMMIT_TIMEOUT_MS`, or streams those timers cut lose their rows | `900000` (15 minutes) | `CF_STREAM_TIMEOUT_MS=1800000` |
+| `HOV_ROUTER_OUTBOUND_PROXY` | Routes all outbound HTTP(S) traffic through a forward proxy | unset | `HOV_ROUTER_OUTBOUND_PROXY=http://127.0.0.1:3636` |
+| `HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS` | Comma-separated list of providers whose model-default map is editable via `POST /api/config/provider-model-defaults` and the dashboard's Advanced Settings card. Gates only the override *surface* — every provider's built-in factory map keeps translating models regardless | `codex` | `HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS=codex,xai,qwen` |
+| `HOV_ROUTER_CODEX_IMPLICIT_ROUTE` | Admits physical Codex model IDs on `/v1/responses` through a request-time Codex capability route, preserving the requested wire model. Enabled by default; only the literal value `0` disables it. Explicit operator profiles take precedence; model discovery and session binding behavior are unchanged. See [Implicit Codex routes](./routing-architecture.md#implicit-codex-routes) | `1` (on) | `HOV_ROUTER_CODEX_IMPLICIT_ROUTE=0` |
+| `HOV_ROUTER_CODEX_CLIENT_VERSION` | Explicit Codex client version (strict `X.Y.Z`) that the Codex provider advertises in inference `Version`/`User-Agent` headers and in the account catalog query. Takes precedence over the verified record below. An invalid value is ignored and resolution falls through to the record and then to the compiled version. The identity then reports `invalid_explicit`, unless a problem with the record takes its place: a missing, invalid or stale record, or a bad path. The effective version and its source (`explicit`, `verified` or `default`) appear as `codexClientIdentity` in `GET /api/config/provider-model-defaults` | unset (the adapter's compiled version) | `HOV_ROUTER_CODEX_CLIENT_VERSION=0.157.1` |
+| `HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE` | Absolute path to a verified Codex CLI version record that a managed updater writes after each verified CLI promotion. The record is a regular file of at most 4 KiB: `{"schemaVersion":1,"packageName":"@openai/codex","version":"X.Y.Z","verifiedAt":"<UTC>Z"}`. It is only read: the proxy never runs the CLI, and a symlink is rejected. It is re-read at most once per second, so a promotion applies without a restart. A record that goes missing or invalid after a valid read keeps the last valid version within the same process. After a restart with the record still missing or invalid, it falls back to the compiled version. One older than 30 days is still used but reported as not fresh. While set, a stale or unreadable record raises `codex_identity_record_stale` (see [Codex catalog alerts](#codex-catalog-alerts)). Ignored when a valid `HOV_ROUTER_CODEX_CLIENT_VERSION` is set; see [systemd](systemd.md#codex-client-identity-drop-in) for the production drop-in | unset | `HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE=/home/<user>/.local/state/codex-update/verified-version.json` |
+| `HOV_ROUTER_XAI_CACHE_NATIVE` | Opt-in: derive a privacy-safe conversation id from the client's Claude session id and attach it as `x-grok-conv-id` on requests to `api.x.ai`, with sticky account affinity so a conversation stays on the account owning its upstream cache partition. Byte-for-byte no-op when unset | unset (off) | `HOV_ROUTER_XAI_CACHE_NATIVE=1` |
 | `CODEX_FIVE_HOUR_WINDOW_ENABLED` | Whether Codex accounts on this install still report a 5-hour usage window alongside the weekly one. Defaults to `false`: OpenAI removed the 5-hour limit for Plus, Business and Pro on 2026-07-12 ([announcement](https://x.com/thsottiaux/status/2076365965915467978), never added to the Codex changelog; user-visible report in [openai/codex#32791](https://github.com/openai/codex/issues/32791)), so the `x-codex-*` response headers carry the weekly window alone. With the flag off, Codex session expiry follows whichever usage window the account actually reports; set it to `true` to restore the earlier behaviour, which tracks the 5-hour window specifically and treats a weekly rollover as no rollover at all. The removal was announced as temporary, which is why this is a switch rather than a new built-in assumption. Scope: the flag selects the window the rollover detector watches in the proxy; it does not reach the load-balancer's session expiry, which reads the single `rate_limit_reset` column and cannot tell which window wrote it — so with the flag on and no 5-hour window reported, a session still ends at the weekly boundary. Same as the `codex_five_hour_window_enabled` config file field; env var takes precedence | `false` | `CODEX_FIVE_HOUR_WINDOW_ENABLED=true` |
 
 ## External Codex Usage
@@ -262,7 +262,7 @@ usage. Give the proxy its own `[model_providers.<name>]` block instead (see
 `external_codex_homes`.
 
 When either setting is present, the server scans 30 seconds after startup and every
-5 minutes afterwards. `better-ccflare --scan-external-codex [--json]` runs one scan
+5 minutes afterwards. `hov-router --scan-external-codex [--json]` runs one scan
 and prints the summary plus a per-model, per-account report. A database lease keeps
 the server and the CLI from scanning at the same time. Unchanged files are skipped
 on later scans.
@@ -305,13 +305,13 @@ There is no independent seal flag. A seal receipt follows the existing recorder 
 
 | Setting | Default | Operator contract |
 |---|---:|---|
-| `CCFLARE_CACHE_FLIGHT_RECORDER` | unset (disabled) | `1` enables privacy-safe recorder IDs and turn capture. Other values, including `true`, are disabled |
-| `CCFLARE_XAI_CACHE_NATIVE` | unset (disabled) | `1` enables the native xAI cache path. Other values, including `true`, are disabled |
+| `HOV_ROUTER_CACHE_FLIGHT_RECORDER` | unset (disabled) | `1` enables privacy-safe recorder IDs and turn capture. Other values, including `true`, are disabled |
+| `HOV_ROUTER_XAI_CACHE_NATIVE` | unset (disabled) | `1` enables the native xAI cache path. Other values, including `true`, are disabled |
 | `CACHE_FLIGHT_RECORDER_RETENTION_HOURS` / `cache_flight_recorder_retention_hours` | `72` | Retains recorder evidence for 1–336 hours; the environment value takes precedence and values are clamped to that range |
 | `CACHE_KEEPALIVE_TTL_MINUTES` / `cache_keepalive_ttl_minutes` | `0` | Captured global keepalive input, clamped to 0–60 minutes; `0` is disabled |
-| `CCFLARE_XAI_CACHE_KEEPALIVE_TTL_MINUTES` / `xai_cache_keepalive_ttl_minutes` | `0` | Captured official-xAI override, clamped to 0–60 minutes; a positive value overrides the global TTL for xAI, otherwise xAI inherits a positive global TTL |
+| `HOV_ROUTER_XAI_CACHE_KEEPALIVE_TTL_MINUTES` / `xai_cache_keepalive_ttl_minutes` | `0` | Captured official-xAI override, clamped to 0–60 minutes; a positive value overrides the global TTL for xAI, otherwise xAI inherits a positive global TTL |
 
-A receipt is issued only for a delivered recorder observation when both opt-ins are active, the attempt is for `/v1/messages`, the recorder derived an opaque conversation ID, and the final serving account/provider is xAI on the official xAI endpoint. `CCFLARE_CACHE_FLIGHT_RECORDER=1` can record an otherwise eligible turn while native cache is disabled; that turn remains unsealed. When either opt-in is inactive or the request is ineligible, no seal is issued and the existing provider, routing, cache, and keepalive behavior is unchanged.
+A receipt is issued only for a delivered recorder observation when both opt-ins are active, the attempt is for `/v1/messages`, the recorder derived an opaque conversation ID, and the final serving account/provider is xAI on the official xAI endpoint. `HOV_ROUTER_CACHE_FLIGHT_RECORDER=1` can record an otherwise eligible turn while native cache is disabled; that turn remains unsealed. When either opt-in is inactive or the request is ineligible, no seal is issued and the existing provider, routing, cache, and keepalive behavior is unchanged.
 
 ### Service epochs and observation partitions
 
@@ -343,7 +343,7 @@ The cohort analysis shows:
 
 `crossCohortMetric` and `cachePolicyRecommendation` are explicitly `null` in every report. Cohort output is descriptive evidence: never pool incompatible cohorts or infer a cache-policy change across them.
 
-`--cache-flight-recorder-health` is recorder-wide rather than conversation-specific. Its `enabled` field reflects `CCFLARE_CACHE_FLIGHT_RECORDER`, not the combined seal gate. Count units and persistence ratings are:
+`--cache-flight-recorder-health` is recorder-wide rather than conversation-specific. Its `enabled` field reflects `HOV_ROUTER_CACHE_FLIGHT_RECORDER`, not the combined seal gate. Count units and persistence ratings are:
 
 | Health field | Unit or rule |
 |---|---|
@@ -374,20 +374,20 @@ These guarantees apply to the seal additions. Existing legacy recorder report fi
 ### Runtime verification safety
 
 > [!CAUTION]
-> Current builds treat `x-better-ccflare-account-id` as an exact-account, fail-closed route: a conflicting directive, missing or unavailable target, lookup failure, provider exclusion, or exhausted account/model capacity fails before transport instead of entering ordinary account selection. Verify the runtime build before relying on that contract. For evidence-boundary testing, the header is still only an attribution assertion—not the sole isolation boundary—and does not replace disposable catalog isolation.
+> Current builds treat `x-hov-router-account-id` as an exact-account, fail-closed route: a conflicting directive, missing or unavailable target, lookup failure, provider exclusion, or exhausted account/model capacity fails before transport instead of entering ordinary account selection. Verify the runtime build before relying on that contract. For evidence-boundary testing, the header is still only an attribution assertion—not the sole isolation boundary—and does not replace disposable catalog isolation.
 
 Live runtime verification may proceed only after proving, before startup and before transport, that the **complete disposable account catalog contains exactly one available approved official-xAI non-Anthropic fixture**. Use a disposable database and runtime, never a normal user or production catalog. If any Anthropic account is present, the intended target is unavailable, or no safe official-xAI non-Anthropic fixture exists, skip the smoke test before sending a proxy request.
 
-Only after that preflight may the request carry `x-better-ccflare-account-id` for attribution. Afterward, verify the persisted serving account and provider match the approved fixture, then compare the human and JSON conversation report boundaries and contributors. A force-route header alone is never evidence that the safe account served the request.
+Only after that preflight may the request carry `x-hov-router-account-id` for attribution. Afterward, verify the persisted serving account and provider match the approved fixture, then compare the human and JSON conversation report boundaries and contributors. A force-route header alone is never evidence that the safe account served the request.
 
 ## Claude Code Model Route Profiles
 
-Route profiles (lanes) add operator-defined routes to Claude Code's native `/model` picker. A profile can retain the legacy exact-account behavior or use an additive capability pool that resolves an eligible account at request time. The router keeps them in its database and you edit them live through the API, with no restart or deploy (see [Edit lanes live](#edit-lanes-live)). `CCFLARE_MODEL_ROUTE_PROFILES_JSON` and `CCFLARE_MODEL_ROUTE_PROFILES_FILE` seed them: the first start of a build with database lanes stores what either one holds, and later starts ignore both. With nothing stored and neither variable set, no profiles are configured and `/v1/models` passes through as before. Every set must be valid and conform to the schema below; malformed JSON, unknown fields, duplicate IDs, or invalid values are refused instead of silently disabling an intended route.
+Route profiles (lanes) add operator-defined routes to Claude Code's native `/model` picker. A profile can retain the legacy exact-account behavior or use an additive capability pool that resolves an eligible account at request time. The router keeps them in its database and you edit them live through the API, with no restart or deploy (see [Edit lanes live](#edit-lanes-live)). `HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON` and `HOV_ROUTER_MODEL_ROUTE_PROFILES_FILE` seed them: the first start of a build with database lanes stores what either one holds, and later starts ignore both. With nothing stored and neither variable set, no profiles are configured and `/v1/models` passes through as before. Every set must be valid and conform to the schema below; malformed JSON, unknown fields, duplicate IDs, or invalid values are refused instead of silently disabling an intended route.
 
 The value is a JSON array with at most 32 objects. This example deliberately uses placeholder account and model values:
 
 ```bash
-CCFLARE_MODEL_ROUTE_PROFILES_JSON='[
+HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON='[
   {
     "id": "premium-reasoning",
     "displayName": "Premium reasoning route",
@@ -405,7 +405,7 @@ To let one picker entry use every current and future account that serves the sam
 provider/model capability, omit `accountId` and set `selection` to `capability`:
 
 ```bash
-CCFLARE_MODEL_ROUTE_PROFILES_JSON='[
+HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON='[
   {
     "id": "pro-primary-sol",
     "displayName": "GPT 5.6 Sol pool",
@@ -445,23 +445,23 @@ The lanes live in the router's database as one JSON array with a revision number
 - **Replace.** `PUT /api/route-profiles` with `{"revision": <the revision you read>, "profiles": [...]}` replaces the whole set. Use revision `0` when nothing is stored yet. The set must pass the same checks as at startup and be at most 256 KiB, or the router answers `400` with the reason and changes nothing. If someone saved in between, the answer is `409` with the current revision in `details.revision`: read again and reapply your edit. Send `"profiles": []` to remove every lane.
 - **It takes effect at once.** The next request uses the new lanes, with no restart. `/v1/models` lists them on the next call and `/health` within 2 seconds. A session already bound to a lane follows that lane's new definition on its next request, its subagents included; a session whose lane you deleted gets the usual `model_route_unavailable` answer until it picks another model. A request already in flight finishes on the account it started on; if it binds its session when it completes, it binds the lane as it is now, or nothing if the lane is gone.
 - **Several backends.** During a backend-only deploy the old and new backend share the database. Each one checks the stored revision every 5 seconds, on every `GET`, and when a `PUT` finds the revision moved, so an edit made through either reaches both.
-- **Where they came from.** `/health` reports `routeProfiles` with `source: "database"`, the stored `revision` and the `sha256` of the stored text. When `CCFLARE_MODEL_ROUTE_PROFILES_FILE` or `CCFLARE_MODEL_ROUTE_PROFILES_JSON` is still set, `ignored` names it (`file` or `env`) and the backend log says so at start. That is informational: the variable can stay as a rollback source (see below).
+- **Where they came from.** `/health` reports `routeProfiles` with `source: "database"`, the stored `revision` and the `sha256` of the stored text. When `HOV_ROUTER_MODEL_ROUTE_PROFILES_FILE` or `HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON` is still set, `ignored` names it (`file` or `env`) and the backend log says so at start. That is informational: the variable can stay as a rollback source (see below).
 - **A stored set this build cannot read.** If a newer build stored a field this build does not know, this build refuses to start rather than serve no lanes, so a deploy's health gate rejects it. A running backend that sees such a revision keeps serving the lanes it has and logs the reason.
 
 On the first start of a build with database lanes, a profiles file or JSON variable is copied into the database byte for byte as revision 1, so the `sha256` in `/health` stays the file's. That happens only when the file loaded cleanly; a file served from its last good copy is not stored, and the next start tries again. If two backends start at once, the first to store wins and the other serves what it stored.
 
 ### Profiles in a file
 
-`CCFLARE_MODEL_ROUTE_PROFILES_FILE` names a file holding the same JSON array, as an alternative to `CCFLARE_MODEL_ROUTE_PROFILES_JSON`. Set only one of the two; both at once prevents startup. Since #971 either one only seeds the database on the first start (see [Edit lanes live](#edit-lanes-live)); the rest of this section is how the file behaves until then, and on a build from before #971.
+`HOV_ROUTER_MODEL_ROUTE_PROFILES_FILE` names a file holding the same JSON array, as an alternative to `HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON`. Set only one of the two; both at once prevents startup. Since #971 either one only seeds the database on the first start (see [Edit lanes live](#edit-lanes-live)); the rest of this section is how the file behaves until then, and on a build from before #971.
 
-The backend reads the file each time it starts. Under the production guard that includes a backend-only deploy, so an edit takes effect without a full restart. A value in the service environment, by contrast, reaches the backend only when the whole unit restarts. To load an edit, run `scripts/deploy-ccflare.sh`; with `main` unchanged it rebuilds the same commit and hands off to a new backend. The runner's memory recycle and a deploy rollback also start a backend, so either can load an edit before you deploy.
+The backend reads the file each time it starts. Under the production guard that includes a backend-only deploy, so an edit takes effect without a full restart. A value in the service environment, by contrast, reaches the backend only when the whole unit restarts. To load an edit, run `scripts/deploy-hov-router.sh`; with `main` unchanged it rebuilds the same commit and hands off to a new backend. The runner's memory recycle and a deploy rollback also start a backend, so either can load an edit before you deploy.
 
-- **Path and permissions.** The path must be absolute and must not be a symlink or anything but a regular file. It must be owned by root or by the user the router runs as, and group and others must not be able to write it, since it decides which account traffic goes to. On a systemd host a good choice is `/etc/better-ccflare/model-route-profiles.json`, owned by root with a group the router's user belongs to, mode `0640`, so only root can edit it and the backend can read it. An empty file is an error; write `[]` for no profiles.
-- **Replace it whole.** A backend can start at any moment (a memory recycle), so write the new version beside it and move it into place rather than editing in place: `sudo install -o root -g <router-group> -m 0640 new.json /etc/better-ccflare/model-route-profiles.json`, where `<router-group>` is that group.
+- **Path and permissions.** The path must be absolute and must not be a symlink or anything but a regular file. It must be owned by root or by the user the router runs as, and group and others must not be able to write it, since it decides which account traffic goes to. On a systemd host a good choice is `/etc/hov-router/model-route-profiles.json`, owned by root with a group the router's user belongs to, mode `0640`, so only root can edit it and the backend can read it. An empty file is an error; write `[]` for no profiles.
+- **Replace it whole.** A backend can start at any moment (a memory recycle), so write the new version beside it and move it into place rather than editing in place: `sudo install -o root -g <router-group> -m 0640 new.json /etc/hov-router/model-route-profiles.json`, where `<router-group>` is that group.
 - **A broken edit falls back.** Each load that succeeds keeps a copy at `<config dir>/model-route-profiles.last-good.json`, private to the router's user. If the file is missing, unreadable, wrongly owned or permitted, or invalid, the backend serves that last good copy and logs the reason. If there is no copy for that path, startup fails as with the environment variable. This keeps a typo from taking routing down at the next unattended memory recycle.
-- **Check what is loaded.** The deploy prints a `route profiles:` line after `health: VERIFIED` and warns when the file was not loaded or no fallback copy could be saved; the deploy itself still succeeds. `/health` reports `routeProfiles` with `source` (`database`, `file`, `env` or `none`), `status`, `count`, the `sha256` of the profiles in force, for a file `fallbackReady`, and for the database `revision` and `ignored`. Compare that `sha256` with `sha256sum` of the file. `status: "last_good"` means the file was not used; the reason is in the backend log (`journalctl -u ccflare-stack.service`), not in `/health`, which anyone who can reach the port can read.
-- **Rolling back past database lanes.** A build from before #971 never reads the database table; it reads the file or JSON variable again. Before pinning or rolling back to such a build, write the current lanes into the file (the `data.profiles` array from `GET /api/route-profiles`, installed as above) and keep `CCFLARE_MODEL_ROUTE_PROFILES_FILE` set, then roll back. When you come forward again, the stored lanes win over the file: apply any edit you made to the file meanwhile through the API. A deploy's own automatic rollback after the first deploy of database lanes is safe, because the file still holds what was imported.
-- **Rolling back past this feature.** A build from before #960 ignores `CCFLARE_MODEL_ROUTE_PROFILES_FILE` and starts with no profiles. Before pinning or rolling back to such a build, put the profiles back in `CCFLARE_MODEL_ROUTE_PROFILES_JSON` (the unit's environment file) and restart the whole unit, then roll back. A deploy's own automatic rollback returns to the build it replaced, which reads the file once the switch is made.
+- **Check what is loaded.** The deploy prints a `route profiles:` line after `health: VERIFIED` and warns when the file was not loaded or no fallback copy could be saved; the deploy itself still succeeds. `/health` reports `routeProfiles` with `source` (`database`, `file`, `env` or `none`), `status`, `count`, the `sha256` of the profiles in force, for a file `fallbackReady`, and for the database `revision` and `ignored`. Compare that `sha256` with `sha256sum` of the file. `status: "last_good"` means the file was not used; the reason is in the backend log (`journalctl -u hov-router.service`), not in `/health`, which anyone who can reach the port can read.
+- **Rolling back past database lanes.** A build from before #971 never reads the database table; it reads the file or JSON variable again. Before pinning or rolling back to such a build, write the current lanes into the file (the `data.profiles` array from `GET /api/route-profiles`, installed as above) and keep `HOV_ROUTER_MODEL_ROUTE_PROFILES_FILE` set, then roll back. When you come forward again, the stored lanes win over the file: apply any edit you made to the file meanwhile through the API. A deploy's own automatic rollback after the first deploy of database lanes is safe, because the file still holds what was imported.
+- **Rolling back past this feature.** A build from before #960 ignores `HOV_ROUTER_MODEL_ROUTE_PROFILES_FILE` and starts with no profiles. Before pinning or rolling back to such a build, put the profiles back in `HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON` (the unit's environment file) and restart the whole unit, then roll back. A deploy's own automatic rollback returns to the build it replaced, which reads the file once the switch is made.
 
 ### Catalog-role Codex profiles
 
@@ -471,7 +471,7 @@ names one has to be edited and restarted for every new model generation. Set
 the profile's role in each Codex account's own model catalog:
 
 ```bash
-CCFLARE_MODEL_ROUTE_PROFILES_JSON='[
+HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON='[
   {
     "id": "codex-opus",
     "displayName": "Codex · opus",
@@ -553,7 +553,7 @@ serve Sol started serving Astra with no config change. Set
 instead:
 
 ```bash
-CCFLARE_MODEL_ROUTE_PROFILES_JSON='[
+HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON='[
   {
     "id": "codex-sol",
     "displayName": "Sol pool",
@@ -635,7 +635,7 @@ At startup, HoV Router logs only the configured profile count, never the JSON, a
 
 ### Bounded exact-account profiles
 
-`exclusiveAccount`, `contextWindow`, and `maxOutputTokens` are optional additions to an exact-account profile. `exclusiveAccount` defaults to `false`; it is invalid on capability profiles. When it is `true`, normal routing, combo routing, capability profiles, and public `x-better-ccflare-account-id` force routes cannot reach that account. Only an exact configured route profile that names the account can select it. Manual pause, rate-limit, and capacity checks remain authoritative, so selecting the profile does not bypass an unavailable account.
+`exclusiveAccount`, `contextWindow`, and `maxOutputTokens` are optional additions to an exact-account profile. `exclusiveAccount` defaults to `false`; it is invalid on capability profiles. When it is `true`, normal routing, combo routing, capability profiles, and public `x-hov-router-account-id` force routes cannot reach that account. Only an exact configured route profile that names the account can select it. Manual pause, rate-limit, and capacity checks remain authoritative, so selecting the profile does not bypass an unavailable account.
 
 `contextWindow` and `maxOutputTokens` must either both be absent or both be positive integers, and `maxOutputTokens` must be less than `contextWindow`. Their fixed input limit is derived as `contextWindow - maxOutputTokens`; it is not configured separately. For a bounded profile, HoV Router clamps a larger client `max_tokens` value to `maxOutputTokens` (while preserving a smaller valid value), estimates the complete serialized Anthropic request envelope conservatively, and reserves the full configured output cap. A malformed or unestimable request, an input estimate above the derived limit, or a total above `contextWindow` fails closed before account selection, with no fallback. The nominal context window of a model does not override an operator's profile bound.
 
@@ -644,7 +644,7 @@ Bounded profiles reject requests using deferred custom tools. Use a native Anthr
 For example, the complete environment value for the bounded GLM route is:
 
 ```bash
-CCFLARE_MODEL_ROUTE_PROFILES_JSON='[
+HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON='[
   {
     "id": "glm-5-2-bounded-v1",
     "displayName": "GLM-5.2 Local: 2.5k input, 4k output, no deferred tools",
@@ -667,7 +667,7 @@ This profile has a fixed 2,500-token input limit, a 4,000-token output cap, and 
 An exact-account profile whose account cannot run Claude Code's hosted WebSearch tool refuses every WebSearch helper. When the account uses the built-in OpenAI-compatible adapter, which only converts client function tools, the refusal is permanent: HTTP 400 `server_tool_force_route_unavailable` with `x-should-retry: false`. `webSearchHelper` lets that profile send only its standalone WebSearch helpers to approved first-party Anthropic subscription accounts, while ordinary root and subagent inference stays on the profile's own account:
 
 ```bash
-CCFLARE_MODEL_ROUTE_PROFILES_JSON='[
+HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON='[
   {
     "id": "local-chat",
     "displayName": "Local chat",
@@ -689,7 +689,7 @@ The helper is sent to the approved account with the profile's `logicalModel`, so
 - The router's own usage poll observed it less than 180 seconds ago, the relevant subscription allowance remains, and provider-side extra usage is explicitly disabled. Unknown or enabled extra usage, passive header observations, spend grants and credit-drain settings never admit it.
 - It is available and not excluded or reserved by another profile's `exclusiveAccount`.
 
-Only a fresh standalone helper qualifies: one user text message and one valid `web_search_20250305` declaration, with no client tools and no assistant, search or replay history, both as received and after request rewriting. A public `x-better-ccflare-account-id` header disables the opt-in for that request. When no account qualifies, for example because every subscription account has exhausted its allowance, the helper gets a temporary 503 `route_unavailable`, never a paid fallback, and the response names no account.
+Only a fresh standalone helper qualifies: one user text message and one valid `web_search_20250305` declaration, with no client tools and no assistant, search or replay history, both as received and after request rewriting. A public `x-hov-router-account-id` header disables the opt-in for that request. When no account qualifies, for example because every subscription account has exhausted its allowance, the helper gets a temporary 503 `route_unavailable`, never a paid fallback, and the response names no account.
 
 Helpers from one client session prefer the account that last served that session's helpers, in a lane separate from the session's ordinary inference; every helper still passes the checks above. A revoked candidate can yield to another qualifying account before the send. Once a send starts, the helper is never retried on the same or another account, and an ambiguous outcome returns 502 `server_tool_dispatch_terminal`. An upstream 429 or 529 reaches the client once and puts that account on the usual rate-limit cooldown, so the next helper selects a different account. That rule covers one inbound request; it is not exactly-once execution across client retries. The extra-usage check is an observation, not an atomic provider guarantee. With named accounts, verify extra usage is disabled on every listed account before enabling the option and keep it disabled. With the subscription pool, an account whose poll shows extra usage enabled or unknown is skipped rather than refused outright, so turning extra usage on for one account removes it from the pool instead of making helpers spend.
 
@@ -747,7 +747,7 @@ Gateway discovery can list multiple profiles; Claude Code's custom-model variabl
 
 Selecting a profile on a root agent pins only that authenticated caller's Claude Code session tree. Legacy profiles inherit the exact account. Capability profiles inherit the root capability predicate (provider plus root logical/physical mapping), then use each child request's own model for capacity and dispatch; children cannot broaden the pool to accounts that do not satisfy the root predicate. Other sessions continue through ordinary HoV Router routing. Switching the same root session back to a native Claude model clears its profile binding on the next root request.
 
-Bindings are process-local and bounded. Their TTL matches `session_duration_ms`. A restart restores API-key callers' bindings from recent request history, best-effort; if that read fails or exceeds its 3-second budget, the restart clears every binding. Missing, paused, unavailable, rate-limited, or quota-exhausted exact accounts fail closed; capability profiles fail closed when no matching candidate remains, without falling back outside the profile. Configured provider and physical-model guards also fail closed (including the catalog-role reasons `catalog_role_unavailable` and `catalog_role_mismatch`), as does a conflicting `x-better-ccflare-account-id` header. Matching is exact: an OpenRouter account mapped to `fusion`, for example, does not satisfy a capability profile expecting provider `codex` and physical model `gpt-5.6-sol`. See [Account Routing Architecture](./routing-architecture.md#claude-code-model-route-profiles) for the request flow and inheritance boundary.
+Bindings are process-local and bounded. Their TTL matches `session_duration_ms`. A restart restores API-key callers' bindings from recent request history, best-effort; if that read fails or exceeds its 3-second budget, the restart clears every binding. Missing, paused, unavailable, rate-limited, or quota-exhausted exact accounts fail closed; capability profiles fail closed when no matching candidate remains, without falling back outside the profile. Configured provider and physical-model guards also fail closed (including the catalog-role reasons `catalog_role_unavailable` and `catalog_role_mismatch`), as does a conflicting `x-hov-router-account-id` header. Matching is exact: an OpenRouter account mapped to `fusion`, for example, does not satisfy a capability profile expecting provider `codex` and physical model `gpt-5.6-sol`. See [Account Routing Architecture](./routing-architecture.md#claude-code-model-route-profiles) for the request flow and inheritance boundary.
 
 When retrying the same request cannot succeed, the 503 also carries `x-should-retry: false`, so Claude Code shows the error at once instead of retrying it about ten times, and the message tells the user to choose another model with `/model`. That covers a missing account, an account paused manually, by the failure threshold, or waiting for reauthentication (every candidate, for a pool), an excluded provider, a provider or physical-model guard, `catalog_role_mismatch`, and a conflicting header. It also covers an exact account whose spent usage limit the provider reports as resetting more than 6 hours away, typically a weekly window: the message names the earliest reset time instead, and since an early limit reset can reopen the account sooner, resend after one. Pauses that clear on their own (overage, peak hours, a rate-limit window, or no recorded reason), rate limits, exhausted capacity that resets within 6 hours or at an unknown time, exhausted capacity in a capability pool, a failed lookup and `catalog_role_unavailable` send no retry instruction, and neither does a pool mismatch while another candidate's catalog has not loaded.
 
@@ -765,18 +765,18 @@ Environment values take precedence over the matching configuration-file fields. 
 
 | Environment variable | Configuration-file field | Default | Accepted value or bound |
 |---|---|---:|---|
-| `CCFLARE_ANTHROPIC_DEGRADED_MODE` | `anthropic_degraded_mode` | `off` | `off`, `observe`, or `enforce` |
-| `CCFLARE_ANTHROPIC_DEGRADED_LARGE_REQUEST_TOKENS` | `anthropic_degraded_large_request_tokens` | `100000` | `10000`–`2000000` tokens |
-| `CCFLARE_ANTHROPIC_DEGRADED_LARGE_REQUEST_BYTES` | `anthropic_degraded_large_request_bytes` | `262144` | `65536`–`16777216` bytes |
-| `CCFLARE_ANTHROPIC_DEGRADED_EVIDENCE_WINDOW_MS` | `anthropic_degraded_evidence_window_ms` | `30000` | `5000`–`300000` ms |
-| `CCFLARE_ANTHROPIC_DEGRADED_QUORUM` | `anthropic_degraded_quorum` | `2` | `2`–`8` distinct underlying accounts |
-| `CCFLARE_ANTHROPIC_DEGRADED_RETRY_MIN_MS` | `anthropic_degraded_retry_min_ms` | `5000` | `1000`–`60000` ms |
-| `CCFLARE_ANTHROPIC_DEGRADED_RETRY_FALLBACK_MS` | `anthropic_degraded_retry_fallback_ms` | `10000` | `1000`–`300000` ms |
-| `CCFLARE_ANTHROPIC_DEGRADED_RETRY_MAX_MS` | `anthropic_degraded_retry_max_ms` | `60000` | `5000`–`300000` ms |
-| `CCFLARE_ANTHROPIC_DEGRADED_RECOVERY_WINDOW_MS` | `anthropic_degraded_recovery_window_ms` | `30000` | `5000`–`300000` ms |
-| `CCFLARE_ANTHROPIC_DEGRADED_PROBE_LEASE_MS` | `anthropic_degraded_probe_lease_ms` | `600000` | `60000`–`900000` ms |
-| `CCFLARE_ANTHROPIC_DEGRADED_MAX_COHORTS` | `anthropic_degraded_max_cohorts` | `1024` | `1`–`10000` retained cohorts |
-| `CCFLARE_ANTHROPIC_DEGRADED_DIAGNOSTICS` | `anthropic_degraded_diagnostics_enabled` | `false` | Environment: `true`/`1` or `false`/`0`; file: JSON boolean |
+| `HOV_ROUTER_ANTHROPIC_DEGRADED_MODE` | `anthropic_degraded_mode` | `off` | `off`, `observe`, or `enforce` |
+| `HOV_ROUTER_ANTHROPIC_DEGRADED_LARGE_REQUEST_TOKENS` | `anthropic_degraded_large_request_tokens` | `100000` | `10000`–`2000000` tokens |
+| `HOV_ROUTER_ANTHROPIC_DEGRADED_LARGE_REQUEST_BYTES` | `anthropic_degraded_large_request_bytes` | `262144` | `65536`–`16777216` bytes |
+| `HOV_ROUTER_ANTHROPIC_DEGRADED_EVIDENCE_WINDOW_MS` | `anthropic_degraded_evidence_window_ms` | `30000` | `5000`–`300000` ms |
+| `HOV_ROUTER_ANTHROPIC_DEGRADED_QUORUM` | `anthropic_degraded_quorum` | `2` | `2`–`8` distinct underlying accounts |
+| `HOV_ROUTER_ANTHROPIC_DEGRADED_RETRY_MIN_MS` | `anthropic_degraded_retry_min_ms` | `5000` | `1000`–`60000` ms |
+| `HOV_ROUTER_ANTHROPIC_DEGRADED_RETRY_FALLBACK_MS` | `anthropic_degraded_retry_fallback_ms` | `10000` | `1000`–`300000` ms |
+| `HOV_ROUTER_ANTHROPIC_DEGRADED_RETRY_MAX_MS` | `anthropic_degraded_retry_max_ms` | `60000` | `5000`–`300000` ms |
+| `HOV_ROUTER_ANTHROPIC_DEGRADED_RECOVERY_WINDOW_MS` | `anthropic_degraded_recovery_window_ms` | `30000` | `5000`–`300000` ms |
+| `HOV_ROUTER_ANTHROPIC_DEGRADED_PROBE_LEASE_MS` | `anthropic_degraded_probe_lease_ms` | `600000` | `60000`–`900000` ms |
+| `HOV_ROUTER_ANTHROPIC_DEGRADED_MAX_COHORTS` | `anthropic_degraded_max_cohorts` | `1024` | `1`–`10000` retained cohorts |
+| `HOV_ROUTER_ANTHROPIC_DEGRADED_DIAGNOSTICS` | `anthropic_degraded_diagnostics_enabled` | `false` | Environment: `true`/`1` or `false`/`0`; file: JSON boolean |
 
 The retry values must also satisfy `retry min <= retry fallback <= retry max`. If the mode or any numeric policy setting is malformed, out of range, or violates that relationship, the entire policy resolves atomically to the built-in defaults (including mode `off`) and writes a warning. It never runs with a partially accepted policy. An invalid diagnostic flag separately leaves detailed diagnostics off and writes a warning.
 
@@ -798,7 +798,7 @@ Health never exposes exact request sizes, per-cohort/account/owner identifiers, 
 
 ### Detailed diagnostics
 
-`CCFLARE_ANTHROPIC_DEGRADED_DIAGNOSTICS=true` enables bounded, privacy-safe structured events after the next restart. The default is `false`. Each accepted line is written to stdout as JSON with `event: "anthropic_degraded_mode"` and is captured by journald in the production unit. Event kinds cover request risk, physical attempts, would-suppress/suppress decisions, quorum/probe/owner transitions, and terminal outcomes. Exact bounded byte/token estimates and boot-scoped opaque joins appear only in this stream.
+`HOV_ROUTER_ANTHROPIC_DEGRADED_DIAGNOSTICS=true` enables bounded, privacy-safe structured events after the next restart. The default is `false`. Each accepted line is written to stdout as JSON with `event: "anthropic_degraded_mode"` and is captured by journald in the production unit. Event kinds cover request risk, physical attempts, would-suppress/suppress decisions, quorum/probe/owner transitions, and terminal outcomes. Exact bounded byte/token estimates and boot-scoped opaque joins appear only in this stream.
 
 Detailed events never include prompts, reasoning, tool payloads, response bodies, credentials, raw account or session identifiers, endpoint URLs, or arbitrary serialized errors. Delivery is bounded and nonblocking; dropped events increment `droppedEvents` and cannot affect routing or lease cleanup. The application provides no public HTTP endpoint or queryable history for these records.
 
@@ -825,9 +825,9 @@ Route classes are derived from provider and credential shape, not from secret va
 | `local` | Local Ollama routes. |
 | `cloud-credential` | Cloud-credential routes such as Bedrock or Vertex AI. |
 
-`CCFLARE_IMPLICIT_FALLBACK_ALLOWED_CLASSES` and `CCFLARE_IMPLICIT_FALLBACK_DENIED_CLASSES` accept comma-separated, case-insensitive class names (duplicates are ignored). In an active mode, the conservative default denial set is `api-key,cloud-credential`; an allowed class removes that class from the denial set, and a denied class adds to it. The allowed list is therefore an exception list, not an exclusive allowlist. Malformed modes or class names resolve the entire policy to the built-in `off` policy and write a warning. The equivalent file fields are `implicit_fallback_mode`, `implicit_fallback_allowed_classes`, and `implicit_fallback_denied_classes`; environment values win per field.
+`HOV_ROUTER_IMPLICIT_FALLBACK_ALLOWED_CLASSES` and `HOV_ROUTER_IMPLICIT_FALLBACK_DENIED_CLASSES` accept comma-separated, case-insensitive class names (duplicates are ignored). In an active mode, the conservative default denial set is `api-key,cloud-credential`; an allowed class removes that class from the denial set, and a denied class adds to it. The allowed list is therefore an exception list, not an exclusive allowlist. Malformed modes or class names resolve the entire policy to the built-in `off` policy and write a warning. The equivalent file fields are `implicit_fallback_mode`, `implicit_fallback_allowed_classes`, and `implicit_fallback_denied_classes`; environment values win per field.
 
-The policy applies only to **implicit** normal and combo fallback. An explicit `x-better-ccflare-account-id` route, an exact model route profile, and a capability model route profile retain their own fail-closed admission and bypass this drain policy. This lets an operator stop accidental OpenRouter/API-key spillover while preserving intentional, explicitly selected routes.
+The policy applies only to **implicit** normal and combo fallback. An explicit `x-hov-router-account-id` route, an exact model route profile, and a capability model route profile retain their own fail-closed admission and bypass this drain policy. This lets an operator stop accidental OpenRouter/API-key spillover while preserving intentional, explicitly selected routes.
 
 ### Safe production activation example
 
@@ -835,12 +835,12 @@ For a deployment that should keep OAuth and local routes in the implicit pool wh
 
 ```sh
 # Stage first: no routing behavior changes, only policy observations.
-export CCFLARE_IMPLICIT_FALLBACK_MODE=observe
-export CCFLARE_IMPLICIT_FALLBACK_ALLOWED_CLASSES=oauth-subscription,local
-export CCFLARE_IMPLICIT_FALLBACK_DENIED_CLASSES=api-key,cloud-credential
+export HOV_ROUTER_IMPLICIT_FALLBACK_MODE=observe
+export HOV_ROUTER_IMPLICIT_FALLBACK_ALLOWED_CLASSES=oauth-subscription,local
+export HOV_ROUTER_IMPLICIT_FALLBACK_DENIED_CLASSES=api-key,cloud-credential
 
 # After review, switch the same environment to:
-# export CCFLARE_IMPLICIT_FALLBACK_MODE=enforce
+# export HOV_ROUTER_IMPLICIT_FALLBACK_MODE=enforce
 ```
 
 OpenRouter accounts classify as `api-key` and are consequently excluded from **implicit** fallback in the enforced example. OAuth and local accounts remain eligible. An explicit force route or capability profile can still select its declared route by design.
@@ -851,7 +851,7 @@ After an activation restart, inspect the service journal for the rate-limited te
 
 The front guard exposes its effective body limits and bounded counters at `GET /_guard/health`; monitor root and `runtime.limits` `maxRequestBodyBytes` and `maxBufferedRequestBodyBytes`, plus root `maxBodyReaders`, `requestDrainTimeoutMs`, `active`, `queued`, `bodyReaders`, `draining`, and `counters.oversizedRequestBodies`/`counters.requestDrainTimeouts`. Root `bodyReaders.reservationLimitBytes`, `reservedBytes`, and `reservedBytesPeak` show the aggregate budget, current reservation, and high-water mark. Useful journal terms are `guard_request_body_too_large`, `guard_request_drain_timeout`, `guard_queue_full`, `guard_body_reader_queue_full`, `guard_admission_error`, and `guard_draining`. These records contain bounded metadata only; request bodies and credentials are not logged.
 
-To roll back the drain, set `CCFLARE_IMPLICIT_FALLBACK_MODE=off` in the service environment and **restart** the process (run `systemctl daemon-reload` first if a systemd drop-in changed). Restarting clears the process-local policy snapshot and diagnostics; it does not alter account data or current production state outside that restart.
+To roll back the drain, set `HOV_ROUTER_IMPLICIT_FALLBACK_MODE=off` in the service environment and **restart** the process (run `systemctl daemon-reload` first if a systemd drop-in changed). Restarting clears the process-local policy snapshot and diagnostics; it does not alter account data or current production state outside that restart.
 
 ## Guard Request-Body and Admission Limits
 
@@ -865,7 +865,7 @@ Both limits are restart-scoped in the guard process. Lower `GUARD_MAX_REQUEST_BO
 
 ### Bun Proxy Body Admission
 
-The Bun proxy has a separate, process-local admission controller for authenticated body-bearing proxy routes. `CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES` defaults to **256 MiB** (`268435456` bytes) and accepts only 256 MiB–1 GiB; the managed production deployment pins it to **1 GiB** (`1073741824` bytes). `CCFLARE_MAX_BODY_ADMISSION_QUEUE` defaults to **500** and accepts 0–5000. These settings neither share a reservation nor form a lock with the Node guard's 256 MiB encoded-buffer budget: each process protects its own work independently.
+The Bun proxy has a separate, process-local admission controller for authenticated body-bearing proxy routes. `HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES` defaults to **256 MiB** (`268435456` bytes) and accepts only 256 MiB–1 GiB; the managed production deployment pins it to **1 GiB** (`1073741824` bytes). `HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE` defaults to **500** and accepts 0–5000. These settings neither share a reservation nor form a lock with the Node guard's 256 MiB encoded-buffer budget: each process protects its own work independently.
 
 Before a proxy handler reads a request body, Bun reserves a fixed conservative weight of **8×** a canonical unencoded/`identity` `Content-Length`, up to the 32 MiB request limit. Zero reserves zero. Missing, chunked, malformed, over-limit, compressed, and unknown-encoding metadata — and any caller that must hold the full worst case up front, such as the OpenAI Responses routes while read, decompress, parse, and translate are in flight — instead reserve the worst case: `8 × 32 MiB = 256 MiB`, capped at the configured budget rather than claiming its entirety. At the managed **1 GiB** pin, that worst-case reservation admits four concurrent worst-case requests before a fifth queues; at 24-way concurrency the same 1 GiB budget admits roughly **5.3 MiB** bodies concurrently. The multiplier bounds weighted admitted work, not heap or RSS; it is an admission weight, not a direct measurement. Exact request-size enforcement remains with the downstream body readers.
 
@@ -875,7 +875,7 @@ Admission is FIFO: a request at the head may intentionally block smaller later b
 
 HoV Router can route all of its outbound HTTP(S) traffic — provider requests, OAuth flows, usage polling, and webhooks — through an explicit forward proxy using HTTP CONNECT. This is useful for enterprises that want every egress connection from the router to pass through a security/inspection proxy.
 
-Configure it via the `BETTER_CCFLARE_OUTBOUND_PROXY` environment variable (or the equivalent `outbound_proxy` config file key); env var takes precedence over the config file value, matching the pattern used elsewhere in this doc. A dedicated variable is used instead of the conventional `HTTPS_PROXY`/`HTTP_PROXY` because those affect every process on the machine by convention — a dedicated variable lets operators scope the proxy to just this application (e.g. via MDM/provisioning) without redirecting traffic for every other tool.
+Configure it via the `HOV_ROUTER_OUTBOUND_PROXY` environment variable (or the equivalent `outbound_proxy` config file key); env var takes precedence over the config file value, matching the pattern used elsewhere in this doc. A dedicated variable is used instead of the conventional `HTTPS_PROXY`/`HTTP_PROXY` because those affect every process on the machine by convention — a dedicated variable lets operators scope the proxy to just this application (e.g. via MDM/provisioning) without redirecting traffic for every other tool.
 
 Loopback destinations (`localhost`, `127.0.0.0/8` addresses, `::1`) are always exempt and never routed through the configured proxy, so local testing setups (e.g. a local Ollama or LiteLLM instance) keep working unaffected.
 
@@ -883,7 +883,7 @@ If the forward proxy performs TLS interception (MITM), such as an LLM security/i
 
 This setting operates at the transport layer and is unrelated to a per-account `custom_endpoint`, which is a URL/routing-level override rather than a proxy.
 
-Coverage spans both the running server process and CLI-only commands that never start the server (e.g. `better-ccflare --add-account`, `--reauthenticate`) — account management and OAuth flows invoked directly from the CLI are proxied the same way; the one carve-out is the embedded database-maintenance worker threads, which run in their own global scope outside this wrapper, but they make no outbound HTTP requests themselves so no traffic escapes unproxied through them.
+Coverage spans both the running server process and CLI-only commands that never start the server (e.g. `hov-router --add-account`, `--reauthenticate`) — account management and OAuth flows invoked directly from the CLI are proxied the same way; the one carve-out is the embedded database-maintenance worker threads, which run in their own global scope outside this wrapper, but they make no outbound HTTP requests themselves so no traffic escapes unproxied through them.
 
 ## Alerts
 
@@ -946,7 +946,7 @@ Six alert types report on each Codex account's own model catalog, its family pin
 | `codex_pin_unavailable` | `warning` | A family pinned on the account names a model absent from the account's own fresh catalog; that family's requests on the account may fail until the pin changes | Content-addressed: once per account, family, and pin | Yes |
 | `codex_catalog_stale` | `warning` | The account's last successful own catalog is older than four refresh intervals (one hour at the 15-minute cadence) **and** its latest refresh attempt failed. Routing keeps serving the last-good catalog. An account that never loaded a catalog of its own is not reported. Checked once per refresh cycle | Cooldown bucket per account | Yes |
 | `codex_route_role_unavailable` | `warning` | A catalog-role or line route profile failed closed and refused the request: no own-catalog target exists yet (`catalog_role_unavailable`), or the account's effective mapping pins a different model than the role target, or no own catalog lists the line (`catalog_role_mismatch`) | At most one report per minute per profile, account, and reason, then a cooldown bucket per that scope | Yes |
-| `codex_identity_record_stale` | `warning` | Only when `CCFLARE_CODEX_VERIFIED_VERSION_FILE` is set: the record is older than its 30-day freshness window, missing, unreadable, or the configured path is not absolute, meaning the managed updater has stalled. A valid explicit `CCFLARE_CODEX_CLIENT_VERSION` takes precedence over the record and suppresses this alert. Checked once per refresh cycle | Cooldown bucket per failure kind | Yes |
+| `codex_identity_record_stale` | `warning` | Only when `HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE` is set: the record is older than its 30-day freshness window, missing, unreadable, or the configured path is not absolute, meaning the managed updater has stalled. A valid explicit `HOV_ROUTER_CODEX_CLIENT_VERSION` takes precedence over the record and suppresses this alert. Checked once per refresh cycle | Cooldown bucket per failure kind | Yes |
 
 Content-addressed alerts derive their id from the state itself, so a standing condition is recorded and delivered once rather than on every 15-minute republication; only a change in the fields its Dedup cell lists produces a new alert. An intentional pin is never an error just because a newer model exists: a superseded pin is `info`, and only a pin the catalog no longer offers is a `warning`.
 
@@ -956,7 +956,7 @@ An empty `ALERT_WEBHOOK_TYPES` delivers the four warning types and keeps the two
 
 ### Webhook delivery
 
-Every webhook `POST` carries an explicit `User-Agent: better-ccflare-alerts/1.0` header (some receivers, including Discord, reject generic default user agents). Delivery is fire-and-forget with a ten-second timeout and never fails the request that triggered the alert; a non-2xx response is logged as a warning with the status code but never with the URL, since a webhook URL — Discord's especially — embeds a bearer-equivalent secret token. Network exception text is also omitted because it can contain the URL.
+Every webhook `POST` carries an explicit `User-Agent: hov-router-alerts/1.0` header (some receivers, including Discord, reject generic default user agents). Delivery is fire-and-forget with a ten-second timeout and never fails the request that triggered the alert; a non-2xx response is logged as a warning with the status code but never with the URL, since a webhook URL — Discord's especially — embeds a bearer-equivalent secret token. Network exception text is also omitted because it can contain the URL.
 
 If `ALERT_WEBHOOK_URL` resolves to a Discord webhook endpoint (host `discord.com`, `discordapp.com`, `ptb.discord.com`, or `canary.discord.com`, path starting with `/api/webhooks/`), the body is shaped for Discord instead of the generic form: `{ "content": "...", "allowed_mentions": { "parse": [] } }`. `content` is a human-readable Markdown rendering with bold severity and condition, the affected account/model, impact, action, and guidance for finding evidence in the dashboard or server logs. The original raw observation remains in alert history, subject to best-effort persistence. Discord content is capped at 2000 codepoints (Discord's hard limit); a longer message is cut and the cut point states how many characters were omitted.
 
@@ -1015,18 +1015,18 @@ Replaying production usage windows from 2026-08-24 to 2026-10-28 through these r
 
 ## Database Configuration
 
-HoV Router stores its data in SQLite. No configuration is required: the database is created automatically in the platform-specific directory (`~/.config/better-ccflare/better-ccflare.db`).
+HoV Router stores its data in SQLite. No configuration is required: the database is created automatically in the platform-specific directory (`~/.config/hov-router/hov-router.db`).
 
 ```bash
 # Optional: store database at a custom path
-export BETTER_CCFLARE_DB_PATH=/var/lib/better-ccflare/better-ccflare.db
+export HOV_ROUTER_DB_PATH=/var/lib/hov-router/hov-router.db
 ```
 
 `DATABASE_URL` does not choose the database file. A `DATABASE_URL` starting with `postgres://` or `postgresql://` makes the server stop at startup; see [PostgreSQL support removed](hov-router-migration.md#postgresql-support-removed).
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BETTER_CCFLARE_DB_CLEANUP_BATCH_SIZE` | `200` | Row batch size per DELETE statement during retention cleanup. Lower it if rows are large (e.g. big JSON payloads) and cleanup batches are slow |
+| `HOV_ROUTER_DB_CLEANUP_BATCH_SIZE` | `200` | Row batch size per DELETE statement during retention cleanup. Lower it if rows are large (e.g. big JSON payloads) and cleanup batches are slow |
 
 ## Model Catalog
 
@@ -1038,13 +1038,13 @@ A consumer OAuth account (`claude-oauth` mode) is meant for Claude Code traffic.
 
 The catalog implementation lists models (`/v1/models`), not inference. It prefers an eligible Anthropic Console API-key account over OAuth regardless of priority and excludes paused accounts and custom endpoints. The following describes its existing behavior, not an exception to the [subscription-account usage rule](../AGENTS.md):
 
-- **Scheduled (automatic) refresh**: only console/API-key accounts are eligible, unless `BETTER_CCFLARE_MODELS_OAUTH_REFRESH=1` (or the `model_catalog_oauth_refresh_enabled` config field) opts in to an OAuth fallback.
+- **Scheduled (automatic) refresh**: only console/API-key accounts are eligible, unless `HOV_ROUTER_MODELS_OAUTH_REFRESH=1` (or the `model_catalog_oauth_refresh_enabled` config field) opts in to an OAuth fallback.
 - **Manual refresh** (`POST /api/models/refresh`, human-triggered from the dashboard or `curl`): always allows the OAuth fallback in addition to console accounts, regardless of the scheduled-refresh setting.
 - If no eligible account exists at all, a refresh (scheduled or manual) is a no-op — the existing cached catalog (live or bundled fallback) is left untouched; it's never emptied or errored out.
 
 ### Refresh cadence
 
-When at least one eligible account exists, the catalog refreshes automatically on a schedule controlled by `BETTER_CCFLARE_MODELS_REFRESH_HOURS` (default **168 hours / 7 days**; `0` disables scheduled refresh). To avoid many independently-restarting instances all hitting Anthropic at the same wall-clock moment, each scheduled refresh is smeared with random jitter (up to 24 hours) on top of the configured interval. Every successful catalog write — scheduled, manual, or passive (see below) — recomputes and persists the next scheduled refresh time, so the schedule stays anchored to the most recent real data rather than drifting.
+When at least one eligible account exists, the catalog refreshes automatically on a schedule controlled by `HOV_ROUTER_MODELS_REFRESH_HOURS` (default **168 hours / 7 days**; `0` disables scheduled refresh). To avoid many independently-restarting instances all hitting Anthropic at the same wall-clock moment, each scheduled refresh is smeared with random jitter (up to 24 hours) on top of the configured interval. Every successful catalog write — scheduled, manual, or passive (see below) — recomputes and persists the next scheduled refresh time, so the schedule stays anchored to the most recent real data rather than drifting.
 
 ### Passive capture
 
@@ -1052,7 +1052,7 @@ Any successful `GET /v1/models` response proxied through HoV Router from a conso
 
 ### Bundled fallback
 
-If no live fetch has ever succeeded (fresh install, no eligible account, or `BETTER_CCFLARE_MODELS_OFFLINE=1`), `GET /api/models` serves a static list bundled with HoV Router (`CLAUDE_MODEL_IDS` in `packages/core/src/models.ts`). Its response reports `source: "fallback"` and a `fetchedAt` timestamp equal to the bundled list's snapshot date (`BUNDLED_MODELS_AS_OF`), not the current time — this is an intentional, honest "as of `<date>`" provenance rather than a `Date.now()` that would misleadingly imply the list was just fetched. The dashboard surfaces this distinction next to the model catalog's refresh button ("Live model list · fetched ..." vs. "Bundled model list · as of ...").
+If no live fetch has ever succeeded (fresh install, no eligible account, or `HOV_ROUTER_MODELS_OFFLINE=1`), `GET /api/models` serves a static list bundled with HoV Router (`CLAUDE_MODEL_IDS` in `packages/core/src/models.ts`). Its response reports `source: "fallback"` and a `fetchedAt` timestamp equal to the bundled list's snapshot date (`BUNDLED_MODELS_AS_OF`), not the current time — this is an intentional, honest "as of `<date>`" provenance rather than a `Date.now()` that would misleadingly imply the list was just fetched. The dashboard surfaces this distinction next to the model catalog's refresh button ("Live model list · fetched ..." vs. "Bundled model list · as of ...").
 
 ## Editable Provider Model Defaults
 
@@ -1066,7 +1066,7 @@ combo slot model -> account.model_mappings -> global override -> account listing
 
 The **global override** is an editable layer in between: an operator-set default per provider+family that applies when no combo slot or account mapping specifies a model. It's stored in the config file, applied via an in-memory registry populated at boot and refreshed on every `POST`, and takes effect immediately — no restart required. Overrides are merged per family, so setting `codex.opus` never clears `codex.haiku`. Setting a family to an empty string removes its override rather than mapping it to an empty model.
 
-Only `codex` is editable by default. `xai` and `qwen` use the same mechanism but are gated behind `CCFLARE_MODEL_DEFAULTS_PROVIDERS` (see [Additional Environment Variables](#additional-environment-variables)) since they haven't been exercised against real accounts as extensively. Disabling a provider doesn't discard its stored override — it just stops applying until the provider is re-enabled.
+Only `codex` is editable by default. `xai` and `qwen` use the same mechanism but are gated behind `HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS` (see [Additional Environment Variables](#additional-environment-variables)) since they haven't been exercised against real accounts as extensively. Disabling a provider doesn't discard its stored override — it just stops applying until the provider is re-enabled.
 
 Manage this via the dashboard (Settings → Advanced → Provider Model Defaults) or directly through the API — see [api-http.md](api-http.md#get-apiconfigprovider-model-defaults).
 
@@ -1077,7 +1077,7 @@ Manage this via the dashboard (Settings → Advanced → Provider Model Defaults
 - **Combos are skipped** — no slot model is applied.
 - **Agent model preferences are not applied** — the agent is still attributed, but the rewrite that would send a different model does not happen.
 - **`mapModelName` and `CodexProvider.mapModel` return the model untouched** — the compiled per-provider default map (see [Editable Provider Model Defaults](#editable-provider-model-defaults) above) never substitutes a model, including the global override layer.
-- **Account selection keeps only accounts that can serve the requested model as written.** Codex accounts require their own catalog to list the model; an unprimed catalog does not establish support. Other providers retain their namespace check, since a Claude model id can only travel untranslated to a provider that speaks Claude ids. A request with no eligible account gets a `503` with `error.code: force_account_model_no_account` instead of a substitute — this also applies to a request pinned with `x-better-ccflare-account-id`.
+- **Account selection keeps only accounts that can serve the requested model as written.** Codex accounts require their own catalog to list the model; an unprimed catalog does not establish support. Other providers retain their namespace check, since a Claude model id can only travel untranslated to a provider that speaks Claude ids. A request with no eligible account gets a `503` with `error.code: force_account_model_no_account` instead of a substitute — this also applies to a request pinned with `x-hov-router-account-id`.
 - **Switching accounts to serve the same model is still allowed.** The setting is about the model, not the account, so failover across accounts continues to work.
 
 Verified cache-keepalive probes are exempt: each replays an earlier request to the account that served it, carrying the model that account already resolved, so the switch is treated as off for the lifetime of a verified keepalive request.
@@ -1223,7 +1223,7 @@ Environment variables:
 export PORT=3000
 export LOG_LEVEL=DEBUG
 export LOG_FORMAT=pretty
-export BETTER_CCFLARE_DEBUG=1
+export HOV_ROUTER_DEBUG=1
 export RETRY_ATTEMPTS=5
 ```
 
@@ -1273,17 +1273,17 @@ Configuration for optimizing account usage with automatic fallback to higher pri
 # Setup accounts with auto-fallback for optimal usage
 
 # Add primary account with highest priority and auto-fallback enabled
-better-ccflare --add-account primary-account --mode claude-oauth --priority 0
+hov-router --add-account primary-account --mode claude-oauth --priority 0
 
 # Add secondary accounts with lower priorities
-better-ccflare --add-account secondary-1 --mode claude-oauth --priority 10
-better-ccflare --add-account secondary-2 --mode claude-oauth --priority 20
+hov-router --add-account secondary-1 --mode claude-oauth --priority 10
+hov-router --add-account secondary-2 --mode claude-oauth --priority 20
 
 # Add backup account with lowest priority
-better-ccflare --add-account backup --mode console --priority 50
+hov-router --add-account backup --mode console --priority 50
 
 # Enable auto-fallback on primary account (API call)
-ACCOUNT_ID=$(better-ccflare --list | grep "primary-account" | jq -r '.id')
+ACCOUNT_ID=$(hov-router --list | grep "primary-account" | jq -r '.id')
 curl -X POST http://localhost:8080/api/accounts/$ACCOUNT_ID/auto-fallback \
   -H "Content-Type: application/json" \
   -d '{"enabled": 1}'
@@ -1320,7 +1320,7 @@ echo "Backup account (priority 50): emergency fallback"
 
 ```bash
 # Monitor logs for auto-fallback events
-tail -f ~/.local/share/better-ccflare/logs/better-ccflare.log | grep "Auto-fallback"
+tail -f ~/.local/share/hov-router/logs/hov-router.log | grep "Auto-fallback"
 
 # Check account status
 curl http://localhost:8080/api/accounts | jq '.[] | {name, priority, autoFallbackEnabled, rateLimitStatus}'
@@ -1364,24 +1364,24 @@ If migrating from environment variables to file-based configuration:
 
 1. Create the configuration file:
    ```bash
-   mkdir -p ~/.config/better-ccflare
+   mkdir -p ~/.config/hov-router
    ```
 
 2. Export current configuration:
    ```bash
-   curl http://localhost:8080/api/config > ~/.config/better-ccflare/better-ccflare.json
+   curl http://localhost:8080/api/config > ~/.config/hov-router/hov-router.json
    ```
 
 3. Edit and format the file:
    ```bash
-   jq '.' ~/.config/better-ccflare/better-ccflare.json > temp.json && mv temp.json ~/.config/better-ccflare/better-ccflare.json
+   jq '.' ~/.config/hov-router/hov-router.json > temp.json && mv temp.json ~/.config/hov-router/hov-router.json
    ```
 
 ### From Older Versions
 
 #### Pre-1.0 to Current
 
-1. **Configuration location**: Move from `~/.better-ccflare/config.json` to platform-specific paths
+1. **Configuration location**: Move from `~/.hov-router/config.json` to platform-specific paths
 2. **Field naming**: Update any deprecated field names (none currently deprecated)
 3. **Strategy names**: Use one of the supported lowercase values: `"session"`,
    `"least-used"`, `"session-affinity"`, or the opt-in
@@ -1392,7 +1392,7 @@ If migrating from environment variables to file-based configuration:
 Always backup your configuration before upgrades:
 
 ```bash
-cp ~/.config/better-ccflare/better-ccflare.json ~/.config/better-ccflare/better-ccflare.json.backup
+cp ~/.config/hov-router/hov-router.json ~/.config/hov-router/hov-router.json.backup
 ```
 
 ### Rollback Procedure
@@ -1405,15 +1405,15 @@ If issues occur after configuration changes:
 
 ## Auto quality routing (removed)
 
-The opt-in Auto quality lane was removed. [Auto quality lane removed](hov-router-migration.md#auto-quality-lane-removed) says what a client that still requests it now gets. A leftover `quality_routing_policy` in the config file, or a `CCFLARE_QUALITY_ROUTING_POLICY_JSON` environment variable, configures nothing. It is not validated any more, so a policy that an older release refused no longer stops startup. The value stays in the config file when other settings are saved. Delete it whenever convenient.
+The opt-in Auto quality lane was removed. [Auto quality lane removed](hov-router-migration.md#auto-quality-lane-removed) says what a client that still requests it now gets. A leftover `quality_routing_policy` in the config file, or a `HOV_ROUTER_QUALITY_ROUTING_POLICY_JSON` environment variable, configures nothing. It is not validated any more, so a policy that an older release refused no longer stops startup. The value stays in the config file when other settings are saved. Delete it whenever convenient.
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Configuration not loading**:
-   - Check file permissions: `ls -la ~/.config/better-ccflare/`
-   - Verify JSON syntax: `jq '.' ~/.config/better-ccflare/better-ccflare.json`
+   - Check file permissions: `ls -la ~/.config/hov-router/`
+   - Verify JSON syntax: `jq '.' ~/.config/hov-router/hov-router.json`
    - Check logs for parse errors
 
 2. **Environment variables not working**:
@@ -1431,7 +1431,7 @@ The opt-in Auto quality lane was removed. [Auto quality lane removed](hov-router
 Enable comprehensive debugging:
 
 ```bash
-export BETTER_CCFLARE_DEBUG=1
+export HOV_ROUTER_DEBUG=1
 export LOG_LEVEL=DEBUG
 export LOG_FORMAT=json  # For structured logging
 ```

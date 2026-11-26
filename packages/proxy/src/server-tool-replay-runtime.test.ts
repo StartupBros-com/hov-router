@@ -1209,7 +1209,7 @@ describe("server-tool replay runtime", () => {
 			getServerToolReplayEnvelopeCounterIdentity(runtime.codec),
 		);
 		expect(claims[0]?.counterIdentity).toMatch(
-			/^better-ccflare\.aes-256-gcm\.keyfp\.v1\.[A-Za-z0-9_-]{43}$/u,
+			/^hov-router\.aes-256-gcm\.keyfp\.v1\.[A-Za-z0-9_-]{43}$/u,
 		);
 	});
 

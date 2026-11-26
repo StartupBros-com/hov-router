@@ -926,7 +926,7 @@ describe("Codex transform, sanitized Claude Code planning session regression", (
 		let body: CodexBody;
 		try {
 			body = await sendPlanningSession(provider, compactedMessages, {
-				"x-better-ccflare-request-id": "planning-session-continuation",
+				"x-hov-router-request-id": "planning-session-continuation",
 			});
 			const requestTrace = readTraceRecords(traceDir).find(
 				(record) =>
@@ -999,7 +999,7 @@ describe("Codex transform, sanitized Claude Code planning session regression", (
 		const body = await sendPlanningSession(
 			provider,
 			planningSessionRootMessages(),
-			{ "x-better-ccflare-attributed-agent": "true" },
+			{ "x-hov-router-attributed-agent": "true" },
 		);
 
 		// Current Agent/Task declarations are removed for the attributed

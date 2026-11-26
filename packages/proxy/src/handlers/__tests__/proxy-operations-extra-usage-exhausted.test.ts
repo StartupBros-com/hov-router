@@ -261,12 +261,12 @@ describe("proxyWithAccount — extra_usage_exhausted (issue #293)", () => {
 	});
 
 	it("classifies extra usage returned by an in-place 529 recovery through the shared boundary", async () => {
-		const previousBase = process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS;
-		const previousMax = process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS;
-		const previousAttempts = process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS;
-		process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
+		const previousBase = process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS;
+		const previousMax = process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS;
+		const previousAttempts = process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
 
 		try {
 			let calls = 0;
@@ -333,14 +333,14 @@ describe("proxyWithAccount — extra_usage_exhausted (issue #293)", () => {
 			});
 		} finally {
 			if (previousBase === undefined)
-				delete process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS;
-			else process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = previousBase;
+				delete process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS;
+			else process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = previousBase;
 			if (previousMax === undefined)
-				delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS;
-			else process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = previousMax;
+				delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS;
+			else process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = previousMax;
 			if (previousAttempts === undefined)
-				delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS;
-			else process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = previousAttempts;
+				delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
+			else process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = previousAttempts;
 		}
 	});
 });

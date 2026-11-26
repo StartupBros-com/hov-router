@@ -37,11 +37,11 @@ function requestFor(
 		method: "POST",
 		headers: {
 			"content-type": "application/json",
-			"x-better-ccflare-request-id": "req-1",
-			"x-better-ccflare-attempt-id": "att-1",
-			"x-better-ccflare-attempt-ordinal": "1",
-			"x-better-ccflare-attempt-cause": "initial",
-			"x-better-ccflare-final-model": physicalModel,
+			"x-hov-router-request-id": "req-1",
+			"x-hov-router-attempt-id": "att-1",
+			"x-hov-router-attempt-ordinal": "1",
+			"x-hov-router-attempt-cause": "initial",
+			"x-hov-router-final-model": physicalModel,
 			...extraHeaders,
 		},
 		body: JSON.stringify({

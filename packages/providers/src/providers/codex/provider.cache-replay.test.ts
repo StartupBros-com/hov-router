@@ -91,11 +91,11 @@ function nativeResponseIdRequestFor(params: {
 	} = params;
 	const headers: Record<string, string> = {
 		"content-type": "application/json",
-		"x-better-ccflare-request-id": requestId,
-		"x-better-ccflare-attempt-id": attemptId,
-		"x-better-ccflare-attempt-ordinal": "1",
-		"x-better-ccflare-attempt-cause": "initial",
-		"x-better-ccflare-final-model": physicalModel,
+		"x-hov-router-request-id": requestId,
+		"x-hov-router-attempt-id": attemptId,
+		"x-hov-router-attempt-ordinal": "1",
+		"x-hov-router-attempt-cause": "initial",
+		"x-hov-router-final-model": physicalModel,
 	};
 	if (native) headers[CODEX_NATIVE_RESPONSES_HEADER] = "1";
 	headers[CODEX_AUTHENTICATED_CALLER_HEADER] = callerDigest;
@@ -163,10 +163,10 @@ function completedResponse(params: {
 		status: 200,
 		headers: {
 			"content-type": "text/event-stream",
-			"x-better-ccflare-request-id": requestId,
-			"x-better-ccflare-attempt-id": attemptId,
-			"x-better-ccflare-final-model": physicalModel,
-			"x-better-ccflare-request-stream": stream ? "true" : "false",
+			"x-hov-router-request-id": requestId,
+			"x-hov-router-attempt-id": attemptId,
+			"x-hov-router-final-model": physicalModel,
+			"x-hov-router-request-stream": stream ? "true" : "false",
 		},
 	});
 }
@@ -372,10 +372,10 @@ describe("CodexProvider native response-id continuation (KTD6/KTD7/KTD13)", () =
 				status: 200,
 				headers: {
 					"content-type": "application/json",
-					"x-better-ccflare-request-id": "rid-custom-tools",
-					"x-better-ccflare-attempt-id": "aid-custom-tools",
-					"x-better-ccflare-final-model": physicalModel,
-					"x-better-ccflare-request-stream": "false",
+					"x-hov-router-request-id": "rid-custom-tools",
+					"x-hov-router-attempt-id": "aid-custom-tools",
+					"x-hov-router-final-model": physicalModel,
+					"x-hov-router-request-stream": "false",
 				},
 			},
 		);
@@ -520,10 +520,10 @@ describe("CodexProvider native response-id continuation (KTD6/KTD7/KTD13)", () =
 				status: 200,
 				headers: {
 					"content-type": "text/event-stream",
-					"x-better-ccflare-request-id": "rid-incomplete",
-					"x-better-ccflare-attempt-id": "aid-incomplete",
-					"x-better-ccflare-final-model": physicalModel,
-					"x-better-ccflare-request-stream": "true",
+					"x-hov-router-request-id": "rid-incomplete",
+					"x-hov-router-attempt-id": "aid-incomplete",
+					"x-hov-router-final-model": physicalModel,
+					"x-hov-router-request-stream": "true",
 				},
 			},
 		);

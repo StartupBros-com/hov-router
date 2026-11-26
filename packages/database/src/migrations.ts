@@ -18,7 +18,7 @@ const INTEGER_RE = /^\d+$/;
  * Each backup is a full copy of the DB (multi-GB in practice), so without a
  * cap they accumulate quickly when rapid restarts trigger repeat migrations.
  *
- * Override with `BETTER_CCFLARE_MIGRATION_BACKUP_KEEP`. 0 disables pruning
+ * Override with `HOV_ROUTER_MIGRATION_BACKUP_KEEP`. 0 disables pruning
  * entirely — operators who manage retention externally (e.g. via a separate
  * cron + S3 sync) can opt out without losing the pre-migration safety net.
  *
@@ -27,11 +27,11 @@ const INTEGER_RE = /^\d+$/;
  * a partial parse — `Number.parseInt` is too forgiving for that.
  */
 function getBackupRetention(): number {
-	const raw = process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP;
+	const raw = process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP;
 	if (raw === undefined || raw === "") return DEFAULT_BACKUP_RETENTION;
 	if (!INTEGER_RE.test(raw)) {
 		log.warn(
-			`BETTER_CCFLARE_MIGRATION_BACKUP_KEEP="${raw}" is not a non-negative integer — using default ${DEFAULT_BACKUP_RETENTION}`,
+			`HOV_ROUTER_MIGRATION_BACKUP_KEEP="${raw}" is not a non-negative integer — using default ${DEFAULT_BACKUP_RETENTION}`,
 		);
 		return DEFAULT_BACKUP_RETENTION;
 	}

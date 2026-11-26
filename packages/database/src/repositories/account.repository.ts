@@ -346,7 +346,7 @@ export class AccountRepository extends BaseRepository<Account> {
 				// in rate-limit-cooldown.ts) receives `applied` below and logs the
 				// correct outcome for its own event instead of asserting a cause.
 				log.warn(
-					`[ccflare] account=${accountId} rate_limited_write_skipped reason=${reason} candidate_until=${new Date(until).toISOString()} — guarded write skipped: existing rate_limited_until is later, or the row is absent`,
+					`[hov-router] account=${accountId} rate_limited_write_skipped reason=${reason} candidate_until=${new Date(until).toISOString()} — guarded write skipped: existing rate_limited_until is later, or the row is absent`,
 				);
 			}
 		}

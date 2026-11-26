@@ -12,14 +12,14 @@
  * Defaults are deliberately observability-first for upstream friendliness:
  * warnings are on, enforcement is off until a budget is configured.
  *
- *   CCFLARE_SESSION_WARN_REQUESTS_PER_HOUR   warn threshold (default 300)
- *   CCFLARE_SESSION_MAX_REQUESTS_PER_HOUR    reject threshold (default 0 = off)
+ *   HOV_ROUTER_SESSION_WARN_REQUESTS_PER_HOUR   warn threshold (default 300)
+ *   HOV_ROUTER_SESSION_MAX_REQUESTS_PER_HOUR    reject threshold (default 0 = off)
  *
  * Legitimate heavy sessions (e.g. a bounded 20-agent workflow) burst wide but
  * finish; a recursive storm keeps growing. Budgets should therefore sit well
  * above normal workflow bursts and trip only on sustained volume.
  *
- * State is process-local by design: better-ccflare runs as a single-process
+ * State is process-local by design: hov-router runs as a single-process
  * local proxy. A multi-replica deployment without session-affinity routing
  * would multiply the effective budget by the replica count; that setup needs
  * shared state (or affinity) and is out of scope here.
@@ -30,8 +30,8 @@ import { Logger } from "@hov-router/logger";
 const log = new Logger("SessionGovernor");
 
 export const SESSION_GOVERNOR_WARN_ENV =
-	"CCFLARE_SESSION_WARN_REQUESTS_PER_HOUR";
-export const SESSION_GOVERNOR_MAX_ENV = "CCFLARE_SESSION_MAX_REQUESTS_PER_HOUR";
+	"HOV_ROUTER_SESSION_WARN_REQUESTS_PER_HOUR";
+export const SESSION_GOVERNOR_MAX_ENV = "HOV_ROUTER_SESSION_MAX_REQUESTS_PER_HOUR";
 
 const WINDOW_MS = 60 * 60 * 1000;
 const DEFAULT_WARN_PER_HOUR = 300;
@@ -175,7 +175,7 @@ export function buildSessionRejectResponse(
 				// Marks this as a deliberate policy rejection (not transient
 				// upstream capacity) so fronting proxies pass it to the client
 				// instead of retry-holding it.
-				"x-better-ccflare-governor": "session-budget",
+				"x-hov-router-governor": "session-budget",
 				// Honest hint: when the oldest admitted request leaves the
 				// window, one slot frees up.
 				"retry-after": String(verdict.retryAfterSec ?? 300),

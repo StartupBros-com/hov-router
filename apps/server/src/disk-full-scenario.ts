@@ -638,13 +638,13 @@ class RouterProcess {
 				HOME: join(dir, "home"),
 				XDG_CONFIG_HOME: join(dir, "config"),
 				TMPDIR: join(dir, "tmp"),
-				BETTER_CCFLARE_DB_PATH: join(
+				HOV_ROUTER_DB_PATH: join(
 					dir,
-					"config/better-ccflare/better-ccflare.db",
+					"config/hov-router/hov-router.db",
 				),
 				// Production's runner sets the same level, so the log volume matches.
 				LOG_LEVEL: "warn",
-				CCFLARE_SHUTDOWN_DRAIN_MS: "1000",
+				HOV_ROUTER_SHUTDOWN_DRAIN_MS: "1000",
 				// Keep Bun's own transpiler cache off the full filesystem: the
 				// scenario is about the router's writes, not the runtime's.
 				BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
@@ -732,7 +732,7 @@ async function sendMessage(
 				"content-type": "application/json",
 				authorization: "Bearer scenario",
 				"anthropic-version": "2023-06-01",
-				"x-better-ccflare-account-id": accountId,
+				"x-hov-router-account-id": accountId,
 			},
 			body: JSON.stringify({
 				model: "claude-haiku-4-5",
@@ -1101,14 +1101,14 @@ async function main(): Promise<void> {
 	}
 	const ballast = join(args.dir, "ballast.bin");
 	const spinFile = join(args.dir, "spin.bin");
-	const logFile = join(args.dir, "tmp/better-ccflare-logs/app.log");
-	const dbFile = join(args.dir, "config/better-ccflare/better-ccflare.db");
+	const logFile = join(args.dir, "tmp/hov-router-logs/app.log");
+	const dbFile = join(args.dir, "config/hov-router/hov-router.db");
 	const shmFile = `${dbFile}-shm`;
 	// This process's own measurement reserve (`--start-reserve-bytes`), kept
 	// apart from the reserve the router owns.
 	const reserveFile = `${dbFile}.scenario-reserve`;
 	const routerReserveFile = startReservePath(dbFile);
-	const slotDir = join(args.dir, "config/better-ccflare/pending-rotations");
+	const slotDir = join(args.dir, "config/hov-router/pending-rotations");
 	/** True while a start holds the refill off (`--quiet-start`). */
 	let refillHeld = false;
 	const failures: string[] = [];

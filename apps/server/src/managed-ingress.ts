@@ -12,7 +12,7 @@ import {
 	monotonicNowNs,
 	publishManagedTerminal,
 	verifyManagedTiming,
-} from "../../../scripts/ccflare-managed-timing.mjs";
+} from "../../../scripts/hov-router-managed-timing.mjs";
 
 interface ManagedIngressOptions {
 	enabled?: boolean;
@@ -188,7 +188,7 @@ export function createManagedIngress(options: ManagedIngressOptions) {
 						generation: options.generation,
 						candidateNonce: options.candidateNonce,
 						timingContract: "v1",
-						schemaDigest: process.env.CCFLARE_SCHEMA_DIGEST ?? null,
+						schemaDigest: process.env.HOV_ROUTER_SCHEMA_DIGEST ?? null,
 					},
 				},
 				{ status: response.status, headers: response.headers },
@@ -230,7 +230,7 @@ export function createManagedIngress(options: ManagedIngressOptions) {
 		const signal = AbortSignal.any([original.signal, controller.signal]);
 		const headers = new Headers(original.headers);
 		headers.delete(MANAGED_TIMING_HEADER);
-		headers.delete("x-better-ccflare-timeout-ms");
+		headers.delete("x-hov-router-timeout-ms");
 		const request = new Request(original.url, {
 			method: original.method,
 			headers,

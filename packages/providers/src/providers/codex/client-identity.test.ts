@@ -6,15 +6,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CODEX_VERSION, resolveCodexClientIdentity } from "./client-identity";
 
-const previousPath = process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE;
-const previousVersion = process.env.CCFLARE_CODEX_CLIENT_VERSION;
+const previousPath = process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE;
+const previousVersion = process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 afterEach(() => {
 	if (previousPath === undefined)
-		delete process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE;
-	else process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = previousPath;
+		delete process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE;
+	else process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = previousPath;
 	if (previousVersion === undefined)
-		delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-	else process.env.CCFLARE_CODEX_CLIENT_VERSION = previousVersion;
+		delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+	else process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = previousVersion;
 });
 
 function verified(version: string, verifiedAt: string): string {
@@ -28,15 +28,15 @@ function verified(version: string, verifiedAt: string): string {
 
 describe("verified Codex client identity", () => {
 	test("reuses unchanged reads briefly, then reevaluates freshness and observes replacements", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-identity-cache-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-identity-cache-"));
 		const file = join(dir, "record");
 		const start = Date.now();
 		const verifiedAt = new Date(
 			start - 30 * 24 * 60 * 60_000 + 1_500,
 		).toISOString();
 		const now = { time: start };
-		delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-		process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = file;
+		delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+		process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = file;
 		const open = spyOn(fs, "openSync");
 		const fstat = spyOn(fs, "fstatSync");
 		const read = spyOn(fs, "readSync");
@@ -86,15 +86,15 @@ describe("verified Codex client identity", () => {
 		}
 	});
 	test("validates UTC dates, rejects future and classifies stale without erasing source history", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-identity-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-identity-"));
 		const file = join(dir, "version.json");
 		// A mutable clock: each rewrite below is followed by a >READ_CACHE_MS
 		// advance so the resolve call after it is guaranteed to revalidate
 		// rather than reuse the prior call's memoized outcome.
 		const clock = { time: Date.parse("2026-09-24T12:00:00Z") };
 		const getNow = () => clock.time;
-		delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-		process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = file;
+		delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+		process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = file;
 		try {
 			writeFileSync(file, verified("0.170.0", "2026-09-24T11:00:00Z"));
 			expect(resolveCodexClientIdentity(getNow)).toMatchObject({
@@ -134,7 +134,7 @@ describe("verified Codex client identity", () => {
 				error: "invalid_record",
 			});
 			clock.time += 1_100;
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = join(dir, "missing");
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = join(dir, "missing");
 			expect(resolveCodexClientIdentity(getNow)).toMatchObject({
 				version: CODEX_VERSION,
 				source: "default",
@@ -145,30 +145,30 @@ describe("verified Codex client identity", () => {
 	});
 
 	test("reads only regular files within 4096 bytes, and keeps explicit authority", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-identity-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-identity-"));
 		const file = join(dir, "record");
 		const link = join(dir, "link");
 		const fifo = join(dir, "fifo");
-		delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
+		delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 		try {
 			writeFileSync(file, verified("0.160.0", new Date().toISOString()));
 			symlinkSync(file, link);
 			execFileSync("mkfifo", [fifo]);
 			for (const source of [link, fifo, dir]) {
-				process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = source;
+				process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = source;
 				expect(resolveCodexClientIdentity()).toMatchObject({
 					version: CODEX_VERSION,
 					source: "default",
 					error: "invalid_record",
 				});
 			}
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = file;
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = file;
 			writeFileSync(file, "a".repeat(4097));
 			expect(resolveCodexClientIdentity()).toMatchObject({
 				source: "default",
 				error: "invalid_record",
 			});
-			process.env.CCFLARE_CODEX_CLIENT_VERSION = "0.160.0";
+			process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = "0.160.0";
 			expect(resolveCodexClientIdentity()).toMatchObject({
 				version: "0.160.0",
 				source: "explicit",
@@ -180,16 +180,16 @@ describe("verified Codex client identity", () => {
 	});
 
 	test("observes a valid rollback after a bad replacement and isolates file paths", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-identity-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-identity-"));
 		const first = join(dir, "first");
 		const second = join(dir, "second");
 		// Injected clock so each rewrite below is validated fresh instead of
 		// possibly landing inside the previous call's READ_CACHE_MS window.
 		const clock = { time: Date.now() };
 		const getNow = () => clock.time;
-		delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
+		delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 		try {
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = first;
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = first;
 			writeFileSync(
 				first,
 				verified("0.181.0", new Date(clock.time).toISOString()),
@@ -207,7 +207,7 @@ describe("verified Codex client identity", () => {
 				version: "0.170.0",
 				fresh: true,
 			});
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = second;
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = second;
 			expect(resolveCodexClientIdentity(getNow)).toMatchObject({
 				version: CODEX_VERSION,
 				source: "default",
@@ -218,12 +218,12 @@ describe("verified Codex client identity", () => {
 	});
 
 	test("returns an identical snapshot within the window after the file changes, observing it only once the window elapses", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-identity-window-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-identity-window-"));
 		const file = join(dir, "record");
 		const clock = { time: Date.now() };
 		const getNow = () => clock.time;
-		delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-		process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = file;
+		delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+		process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = file;
 		const open = spyOn(fs, "openSync");
 		const fstat = spyOn(fs, "fstatSync");
 		const read = spyOn(fs, "readSync");
@@ -278,12 +278,12 @@ describe("verified Codex client identity", () => {
 	});
 
 	test("memoizes a missing-file outcome for the window before observing that the file now exists", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-identity-missing-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-identity-missing-"));
 		const file = join(dir, "record");
 		const clock = { time: Date.now() };
 		const getNow = () => clock.time;
-		delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-		process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = file;
+		delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+		process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = file;
 		const open = spyOn(fs, "openSync");
 		try {
 			expect(resolveCodexClientIdentity(getNow)).toMatchObject({
@@ -320,18 +320,18 @@ describe("verified Codex client identity", () => {
 	});
 
 	test("switching the path env to a different file bypasses the other path's window immediately", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-identity-switch-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-identity-switch-"));
 		const fileA = join(dir, "a");
 		const fileB = join(dir, "b");
 		const clock = { time: Date.now() };
 		const getNow = () => clock.time;
-		delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
+		delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 		try {
 			writeFileSync(
 				fileA,
 				verified("0.220.0", new Date(clock.time).toISOString()),
 			);
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = fileA;
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = fileA;
 			expect(resolveCodexClientIdentity(getNow)).toMatchObject({
 				version: "0.220.0",
 				source: "verified",
@@ -341,7 +341,7 @@ describe("verified Codex client identity", () => {
 				fileB,
 				verified("0.221.0", new Date(clock.time).toISOString()),
 			);
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = fileB;
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = fileB;
 			// Same `now`, well inside fileA's window: a different path must not
 			// be blocked by another path's memo.
 			expect(resolveCodexClientIdentity(getNow)).toMatchObject({
@@ -354,12 +354,12 @@ describe("verified Codex client identity", () => {
 	});
 
 	test("an explicit version set inside the window wins over the verified file immediately", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-identity-explicit-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-identity-explicit-"));
 		const file = join(dir, "record");
 		const clock = { time: Date.now() };
 		const getNow = () => clock.time;
-		process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = file;
-		delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
+		process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = file;
+		delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 		try {
 			writeFileSync(
 				file,
@@ -369,7 +369,7 @@ describe("verified Codex client identity", () => {
 				version: "0.230.0",
 				source: "verified",
 			});
-			process.env.CCFLARE_CODEX_CLIENT_VERSION = "9.9.9";
+			process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = "9.9.9";
 			clock.time += 500;
 			expect(resolveCodexClientIdentity(getNow)).toMatchObject({
 				version: "9.9.9",
@@ -377,13 +377,13 @@ describe("verified Codex client identity", () => {
 				fresh: true,
 			});
 		} finally {
-			delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
+			delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 			rmSync(dir, { recursive: true, force: true });
 		}
 	});
 
 	test("a memoized fresh record flips to stale mid-window via pure arithmetic, without a new read", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-identity-stale-window-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-identity-stale-window-"));
 		const file = join(dir, "record");
 		const start = Date.now();
 		const verifiedAt = new Date(
@@ -391,8 +391,8 @@ describe("verified Codex client identity", () => {
 		).toISOString();
 		const clock = { time: start };
 		const getNow = () => clock.time;
-		delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-		process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = file;
+		delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+		process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = file;
 		const open = spyOn(fs, "openSync");
 		try {
 			writeFileSync(file, verified("0.240.0", verifiedAt));
@@ -418,12 +418,12 @@ describe("verified Codex client identity", () => {
 	});
 
 	test("a clock step backwards revalidates instead of extending the memo for the size of the step", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-identity-backwards-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-identity-backwards-"));
 		const file = join(dir, "record");
 		const clock = { time: Date.now() };
 		const getNow = () => clock.time;
-		delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-		process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = file;
+		delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+		process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = file;
 		try {
 			writeFileSync(
 				file,

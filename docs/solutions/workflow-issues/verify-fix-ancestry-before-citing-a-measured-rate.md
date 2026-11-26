@@ -36,7 +36,7 @@ tags:
 
 ## Context
 
-In this repo, merging to `main` never deploys production. Deployment is a separate, manual, operator-run step (`scripts/deploy-ccflare.sh`), which refuses to build or ship any commit that is not an ancestor of `origin/main` — but nothing forces a deploy to happen promptly, or at all, after a merge. So `main` routinely runs ahead of the deployed pin, sometimes by dozens of commits. The systemd pin records exactly which SHA is live, and the health endpoint exposes the same value as `git_sha`.
+In this repo, merging to `main` never deploys production. Deployment is a separate, manual, operator-run step (`scripts/deploy-hov-router.sh`), which refuses to build or ship any commit that is not an ancestor of `origin/main` — but nothing forces a deploy to happen promptly, or at all, after a merge. So `main` routinely runs ahead of the deployed pin, sometimes by dozens of commits. The systemd pin records exactly which SHA is live, and the health endpoint exposes the same value as `git_sha`.
 
 That gap creates a specific trap for any number measured *on the running system*. The measurement is scoped to whatever code that pin happened to contain — not to "the system" in general, and not to current understanding of the bug. Written into permanent documentation or config rationale, it silently inherits an unstated assumption: that nothing relevant has changed since. Where merge and deploy are decoupled, that assumption is frequently false, and nothing about reading the resulting doc later would tell you so.
 

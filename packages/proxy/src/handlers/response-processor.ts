@@ -395,7 +395,7 @@ export async function processProxyResponse(
 		}
 		// Also update metadata for rate-limited responses
 		const bypassSession =
-			requestMeta?.headers?.get("x-better-ccflare-bypass-session") === "true";
+			requestMeta?.headers?.get("x-hov-router-bypass-session") === "true";
 		updateAccountMetadata(account, response, ctx, bypassSession);
 		return true; // Signal rate limit
 	}
@@ -404,7 +404,7 @@ export async function processProxyResponse(
 	if (!skipAccountMetadata) {
 		// Update account metadata in background
 		const bypassSession =
-			requestMeta?.headers?.get("x-better-ccflare-bypass-session") === "true";
+			requestMeta?.headers?.get("x-hov-router-bypass-session") === "true";
 		updateAccountMetadata(account, response, ctx, bypassSession);
 	}
 

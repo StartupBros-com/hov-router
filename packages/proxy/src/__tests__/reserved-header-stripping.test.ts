@@ -8,8 +8,8 @@ import type { UsageCollector } from "../usage-collector";
 const usageCollectorModule = await import("../usage-collector");
 const { handleProxy } = await import("../proxy");
 
-// P1 spoofing (proxy side): x-better-ccflare-pool-status is a reserved,
-// guard-trusted header. The ccflare-guard sitting in front of the proxy
+// P1 spoofing (proxy side): x-hov-router-pool-status is a reserved,
+// guard-trusted header. The hov-router-guard sitting in front of the proxy
 // treats a confirmed value ("exhausted") as sufficient, header-time
 // authorization to retry a 503 (R17). If an upstream PROVIDER response
 // could carry this header through to the client untouched, any upstream
@@ -68,7 +68,7 @@ afterEach(() => {
 });
 
 describe("upstream response header sanitization (P1 spoofing defense)", () => {
-	it("strips a reserved x-better-ccflare-pool-status header set by an upstream provider before it reaches the client", async () => {
+	it("strips a reserved x-hov-router-pool-status header set by an upstream provider before it reaches the client", async () => {
 		const collectorSpy = spyOn(
 			usageCollectorModule,
 			"getUsageCollector",
@@ -145,10 +145,10 @@ describe("upstream response header sanitization (P1 spoofing defense)", () => {
 					status: 503,
 					headers: {
 						"content-type": "application/json",
-						"x-better-ccflare-pool-status": "exhausted",
-						"x-better-ccflare-recovery-scope": "model",
-						"x-better-ccflare-guard-request-id": "must-not-reach-client",
-						"x-better-ccflare-guard-correlation-secret": "must-never-be-http",
+						"x-hov-router-pool-status": "exhausted",
+						"x-hov-router-recovery-scope": "model",
+						"x-hov-router-guard-request-id": "must-not-reach-client",
+						"x-hov-router-guard-correlation-secret": "must-never-be-http",
 					},
 				},
 			);
@@ -158,11 +158,11 @@ describe("upstream response header sanitization (P1 spoofing defense)", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-account-id": "test-account",
-				"x-better-ccflare-future-routing-signal": "must-not-reach-provider",
-				"x-better-ccflare-guard-request-id":
+				"x-hov-router-account-id": "test-account",
+				"x-hov-router-future-routing-signal": "must-not-reach-provider",
+				"x-hov-router-guard-request-id":
 					"v1.76110a75-9e91-4ab9-89a7-3e5d25a318fc.1.spoofed",
-				"x-better-ccflare-guard-correlation-secret": "client-spoof",
+				"x-hov-router-guard-correlation-secret": "client-spoof",
 				"x-public-client-header": "preserved",
 			},
 			body: JSON.stringify({
@@ -176,25 +176,25 @@ describe("upstream response header sanitization (P1 spoofing defense)", () => {
 
 		expect(fetchCalls).toBe(1);
 		expect(response.status).toBe(503);
-		expect(response.headers.has("x-better-ccflare-pool-status")).toBe(false);
-		expect(response.headers.has("x-better-ccflare-recovery-scope")).toBe(false);
-		expect(response.headers.has("x-better-ccflare-guard-request-id")).toBe(
+		expect(response.headers.has("x-hov-router-pool-status")).toBe(false);
+		expect(response.headers.has("x-hov-router-recovery-scope")).toBe(false);
+		expect(response.headers.has("x-hov-router-guard-request-id")).toBe(
 			false,
 		);
 		expect(
-			response.headers.has("x-better-ccflare-guard-correlation-secret"),
+			response.headers.has("x-hov-router-guard-correlation-secret"),
 		).toBe(false);
 		expect(
-			providerRequestHeaders?.has("x-better-ccflare-guard-request-id"),
+			providerRequestHeaders?.has("x-hov-router-guard-request-id"),
 		).toBe(false);
 		expect(
-			providerRequestHeaders?.has("x-better-ccflare-guard-correlation-secret"),
+			providerRequestHeaders?.has("x-hov-router-guard-correlation-secret"),
 		).toBe(false);
-		expect(providerRequestHeaders?.has("x-better-ccflare-account-id")).toBe(
+		expect(providerRequestHeaders?.has("x-hov-router-account-id")).toBe(
 			false,
 		);
 		expect(
-			providerRequestHeaders?.has("x-better-ccflare-future-routing-signal"),
+			providerRequestHeaders?.has("x-hov-router-future-routing-signal"),
 		).toBe(false);
 		expect(providerRequestHeaders?.get("x-public-client-header")).toBe(
 			"preserved",

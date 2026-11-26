@@ -10,7 +10,7 @@ import type {
 } from "@hov-router/types";
 
 export const MODEL_ROUTE_PROFILES_ENV =
-	"CCFLARE_MODEL_ROUTE_PROFILES_JSON" as const;
+	"HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON" as const;
 export const MODEL_ROUTE_PROFILE_MODEL_PREFIX = "claude-bccf-route-" as const;
 
 const MAX_PROFILES = 32;

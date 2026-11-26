@@ -2625,17 +2625,17 @@ export default async function startServer(options?: {
 	});
 
 	const managedIngress = createManagedIngress({
-		enabled: process.env.CCFLARE_MANAGED_TIMING === "1",
+		enabled: process.env.HOV_ROUTER_MANAGED_TIMING === "1",
 		onSecondary: (cause) => log.warn(`Managed request cleanup: ${cause}`),
 		secret: readGuardCorrelationSecret(),
-		generation: Number(process.env.CCFLARE_MANAGED_GENERATION ?? 1),
-		candidateNonce: process.env.CCFLARE_MANAGED_CANDIDATE_NONCE ?? "",
-		ingressNonce: process.env.CCFLARE_MANAGED_INGRESS_NONCE ?? "",
-		sourceSha: process.env.CCFLARE_SOURCE_SHA ?? "",
+		generation: Number(process.env.HOV_ROUTER_MANAGED_GENERATION ?? 1),
+		candidateNonce: process.env.HOV_ROUTER_MANAGED_CANDIDATE_NONCE ?? "",
+		ingressNonce: process.env.HOV_ROUTER_MANAGED_INGRESS_NONCE ?? "",
+		sourceSha: process.env.HOV_ROUTER_SOURCE_SHA ?? "",
 	});
 	// Main server
 	// Build server configuration with optional TLS and hostname binding
-	const hostname = process.env.BETTER_CCFLARE_HOST || "0.0.0.0"; // Allow binding configuration
+	const hostname = process.env.HOV_ROUTER_HOST || "0.0.0.0"; // Allow binding configuration
 	try {
 		const serverConfig = {
 			port: runtime.port,
@@ -3215,7 +3215,7 @@ Available endpoints:
 	void initializeNanoGPTPricingIfAccountsExist(dbOps, pricingLogger);
 
 	// Initialize the live Anthropic model catalog refresh scheduler (weekly by
-	// default, configurable via BETTER_CCFLARE_MODELS_REFRESH_HOURS; a
+	// default, configurable via HOV_ROUTER_MODELS_REFRESH_HOURS; a
 	// "tick-and-check" scheduler that fires an initial check after a random
 	// 30-120s delay, then re-checks every 15 minutes whether a refresh is due,
 	// rather than a single long-lived interval timer).
@@ -3353,7 +3353,7 @@ export function abortInflightStreams(): {
 	};
 }
 
-export const SHUTDOWN_DRAIN_MS_ENV = "CCFLARE_SHUTDOWN_DRAIN_MS";
+export const SHUTDOWN_DRAIN_MS_ENV = "HOV_ROUTER_SHUTDOWN_DRAIN_MS";
 const DEFAULT_SHUTDOWN_DRAIN_MS = 60_000;
 /**
  * Upper clamp for the drain budget: keeps the watchdog setTimeout well

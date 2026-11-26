@@ -306,7 +306,7 @@ async function createAdmissionScenario(): Promise<ScenarioContext> {
 						`Trigger occupancy ${occupiedTokens} did not exceed warmup ${largestWarmup}`,
 					);
 				}
-				process.env.CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW = String(
+				process.env.HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW = String(
 					Math.floor((largestWarmup + occupiedTokens) / 2),
 				);
 			} else if (!summarySeen && !serialized.includes(triggerSentinel)) {
@@ -435,12 +435,12 @@ async function readTranscript(context: ScenarioContext): Promise<string> {
 }
 
 describe("Claude Code 2.1.207 reactive compaction compatibility", () => {
-	compatTest("recovers through actual better-ccflare context admission and a fake Codex upstream", async () => {
+	compatTest("recovers through actual hov-router context admission and a fake Codex upstream", async () => {
 		await assertCompatibleBinary();
-		const savedAdmission = process.env.CCFLARE_CONTEXT_ADMISSION;
-		const savedWindow = process.env.CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW;
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
-		process.env.CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW = String(
+		const savedAdmission = process.env.HOV_ROUTER_CONTEXT_ADMISSION;
+		const savedWindow = process.env.HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW;
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW = String(
 			Number.MAX_SAFE_INTEGER,
 		);
 		try {
@@ -491,10 +491,10 @@ describe("Claude Code 2.1.207 reactive compaction compatibility", () => {
 			expect(hookLog).toContain('"hook_event_name":"PostCompact"');
 			expect(await readTranscript(context)).toContain('"subtype":"compact_boundary"');
 		} finally {
-			if (savedAdmission === undefined) delete process.env.CCFLARE_CONTEXT_ADMISSION;
-			else process.env.CCFLARE_CONTEXT_ADMISSION = savedAdmission;
-			if (savedWindow === undefined) delete process.env.CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW;
-			else process.env.CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW = savedWindow;
+			if (savedAdmission === undefined) delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
+			else process.env.HOV_ROUTER_CONTEXT_ADMISSION = savedAdmission;
+			if (savedWindow === undefined) delete process.env.HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW;
+			else process.env.HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW = savedWindow;
 		}
 	}, 120_000);
 

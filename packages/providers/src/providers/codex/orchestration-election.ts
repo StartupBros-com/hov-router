@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { TIME_CONSTANTS } from "@hov-router/core";
 
 export const CODEX_SINGLE_ORCHESTRATION_ROOT_ENV =
-	"CCFLARE_CODEX_SINGLE_ORCHESTRATION_ROOT";
+	"HOV_ROUTER_CODEX_SINGLE_ORCHESTRATION_ROOT";
 export const ORCHESTRATION_SESSION_TTL_MS =
 	TIME_CONSTANTS.ANTHROPIC_SESSION_DURATION_DEFAULT;
 export const ORCHESTRATION_MAX_SESSIONS = 2_048;
@@ -19,8 +19,8 @@ export const ORCHESTRATION_MAX_LINEAGE_HASHES = 32;
 export const ORCHESTRATION_MIN_CALL_ID_LENGTH = 1;
 export const ORCHESTRATION_MAX_CALL_ID_LENGTH = 512;
 
-const LINEAGE_HASH_DOMAIN = "ccflare.codex.orchestration.lineage.v1";
-const INSTRUCTIONS_HASH_DOMAIN = "ccflare.codex.orchestration.instructions.v1";
+const LINEAGE_HASH_DOMAIN = "hov-router.codex.orchestration.lineage.v1";
+const INSTRUCTIONS_HASH_DOMAIN = "hov-router.codex.orchestration.instructions.v1";
 
 export type OrchestrationAdmission =
 	| "root"

@@ -59,7 +59,7 @@ const MAX_HISTORY_BLOCK_VISITS = 16_384;
 const WEB_SEARCH_PROFILE_PREFIX = "web-search-20250305-v1" as const;
 const OPTION_PROFILE_PREFIX = "server-tool-option-profile-v1.sha256." as const;
 const OPTION_PROFILE_DOMAIN =
-	"better-ccflare/server-tool-option-profile/v1\0" as const;
+	"hov-router/server-tool-option-profile/v1\0" as const;
 const UNKNOWN_TYPED_TOOL = "unknown_typed_tool" as const;
 
 type UnknownRecord = Record<string, unknown>;

@@ -3387,7 +3387,7 @@ export function createAccountAutoFallbackHandler(dbOps: DatabaseOperations) {
 /**
  * Create a Codex credit-drain toggle handler (Codex accounts only).
  *
- * Enabling lets ccflare keep routing to the account after its subscription
+ * Enabling lets the router keep routing to the account after its subscription
  * window is spent, so OpenAI serves it from purchased credits. Routing only
  * honors the flag while fresh poll-verified credit evidence exists.
  */

@@ -540,7 +540,7 @@ export class OffThreadReader {
 	protected budgetSpent(): void {
 		this.budgetSpentAt = this.now();
 		this.warn(
-			`off-thread ${this.label} spawn budget spent; its reads fail for ${Math.round(this.respawnCooldownMs / 1000)}s, then it respawns (BETTER_CCFLARE_DB_READER_WORKER=0 reads on the main thread instead)`,
+			`off-thread ${this.label} spawn budget spent; its reads fail for ${Math.round(this.respawnCooldownMs / 1000)}s, then it respawns (HOV_ROUTER_DB_READER_WORKER=0 reads on the main thread instead)`,
 		);
 	}
 

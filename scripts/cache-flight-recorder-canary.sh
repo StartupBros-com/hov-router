@@ -6,18 +6,18 @@
 # or the `claude` account.
 #
 # Prerequisites:
-#   - better-ccflare listening on CCFLARE_LIVE_XAI_BASE_URL (default :8081)
+#   - hov-router listening on HOV_ROUTER_LIVE_XAI_BASE_URL (default :8081)
 #   - Official xAI account already configured in that process
 #   - Process env includes:
-#         CCFLARE_CACHE_FLIGHT_RECORDER=1
-#         CCFLARE_XAI_CACHE_NATIVE=1
+#         HOV_ROUTER_CACHE_FLIGHT_RECORDER=1
+#         HOV_ROUTER_XAI_CACHE_NATIVE=1
 #
 # Usage:
-#   CCFLARE_LIVE_XAI_CANARY=1 \
-#   CCFLARE_LIVE_XAI_ACCOUNT_ID=<official-xai-account-id> \
-#   CCFLARE_LIVE_XAI_BASE_URL=http://127.0.0.1:8081 \
-#   CCFLARE_LIVE_XAI_AUTH_TOKEN=test \
-#   CCFLARE_LIVE_XAI_DB_PATH=~/.config/better-ccflare/better-ccflare.db \
+#   HOV_ROUTER_LIVE_XAI_CANARY=1 \
+#   HOV_ROUTER_LIVE_XAI_ACCOUNT_ID=<official-xai-account-id> \
+#   HOV_ROUTER_LIVE_XAI_BASE_URL=http://127.0.0.1:8081 \
+#   HOV_ROUTER_LIVE_XAI_AUTH_TOKEN=test \
+#   HOV_ROUTER_LIVE_XAI_DB_PATH=~/.config/hov-router/hov-router.db \
 #   ./scripts/cache-flight-recorder-canary.sh
 #
 # Or via bun tests (same env vars):
@@ -25,18 +25,18 @@
 
 set -euo pipefail
 
-if [[ "${CCFLARE_LIVE_XAI_CANARY:-}" != "1" ]]; then
-  echo "Set CCFLARE_LIVE_XAI_CANARY=1 to run the live official-xAI canary." >&2
+if [[ "${HOV_ROUTER_LIVE_XAI_CANARY:-}" != "1" ]]; then
+  echo "Set HOV_ROUTER_LIVE_XAI_CANARY=1 to run the live official-xAI canary." >&2
   echo "Fixtures remain the merge gate when this path is skipped." >&2
   exit 0
 fi
 
-ACCOUNT_ID="${CCFLARE_LIVE_XAI_ACCOUNT_ID:-}"
-BASE_URL="${CCFLARE_LIVE_XAI_BASE_URL:-http://127.0.0.1:8081}"
-AUTH_TOKEN="${CCFLARE_LIVE_XAI_AUTH_TOKEN:-test}"
+ACCOUNT_ID="${HOV_ROUTER_LIVE_XAI_ACCOUNT_ID:-}"
+BASE_URL="${HOV_ROUTER_LIVE_XAI_BASE_URL:-http://127.0.0.1:8081}"
+AUTH_TOKEN="${HOV_ROUTER_LIVE_XAI_AUTH_TOKEN:-test}"
 
 if [[ -z "${ACCOUNT_ID}" ]]; then
-  echo "CCFLARE_LIVE_XAI_ACCOUNT_ID is required for the live canary." >&2
+  echo "HOV_ROUTER_LIVE_XAI_ACCOUNT_ID is required for the live canary." >&2
   exit 2
 fi
 
@@ -56,7 +56,7 @@ post_turn() {
     -X POST "${BASE_URL}/v1/messages" \
     -H "content-type: application/json" \
     -H "authorization: Bearer ${AUTH_TOKEN}" \
-    -H "x-better-ccflare-account-id: ${ACCOUNT_ID}" \
+    -H "x-hov-router-account-id: ${ACCOUNT_ID}" \
     -d "${body}"
 }
 
@@ -71,10 +71,10 @@ post_turn "$(cat <<EOF
 EOF
 )"
 
-RECORDER_ID="$(awk -F': ' 'tolower($1)=="x-better-ccflare-cache-flight-recorder-id" {gsub(/\r/,"",$2); print $2}' /tmp/cfr-canary-headers.txt | tail -n1)"
+RECORDER_ID="$(awk -F': ' 'tolower($1)=="x-hov-router-cache-flight-recorder-id" {gsub(/\r/,"",$2); print $2}' /tmp/cfr-canary-headers.txt | tail -n1)"
 if [[ -z "${RECORDER_ID}" ]]; then
-  echo "Missing x-better-ccflare-cache-flight-recorder-id response header." >&2
-  echo "Confirm CCFLARE_CACHE_FLIGHT_RECORDER=1 and official-xAI force-route." >&2
+  echo "Missing x-hov-router-cache-flight-recorder-id response header." >&2
+  echo "Confirm HOV_ROUTER_CACHE_FLIGHT_RECORDER=1 and official-xAI force-route." >&2
   exit 1
 fi
 
@@ -93,7 +93,7 @@ post_turn "$(cat <<EOF
 EOF
 )"
 
-RECORDER_ID_2="$(awk -F': ' 'tolower($1)=="x-better-ccflare-cache-flight-recorder-id" {gsub(/\r/,"",$2); print $2}' /tmp/cfr-canary-headers.txt | tail -n1)"
+RECORDER_ID_2="$(awk -F': ' 'tolower($1)=="x-hov-router-cache-flight-recorder-id" {gsub(/\r/,"",$2); print $2}' /tmp/cfr-canary-headers.txt | tail -n1)"
 if [[ "${RECORDER_ID_2}" != "${RECORDER_ID}" ]]; then
   echo "Recorder ID changed across multi-turn conversation: ${RECORDER_ID} -> ${RECORDER_ID_2}" >&2
   exit 1

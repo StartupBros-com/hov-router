@@ -266,32 +266,32 @@ describe("OllamaProvider", () => {
 
 	describe("skill elision", () => {
 		let tmpDir: string;
-		const originalConfigPath = process.env.BETTER_CCFLARE_CONFIG_PATH;
-		const originalBlocked = process.env.CCFLARE_SKILL_ELISION_BLOCKED;
+		const originalConfigPath = process.env.HOV_ROUTER_CONFIG_PATH;
+		const originalBlocked = process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 
 		beforeEach(() => {
 			tmpDir = mkdtempSync(
-				join(tmpdir(), "better-ccflare-skill-elision-ollama-"),
+				join(tmpdir(), "hov-router-skill-elision-ollama-"),
 			);
-			process.env.BETTER_CCFLARE_CONFIG_PATH = join(tmpDir, "config.json");
+			process.env.HOV_ROUTER_CONFIG_PATH = join(tmpDir, "config.json");
 		});
 
 		afterEach(() => {
 			rmSync(tmpDir, { recursive: true, force: true });
 			if (originalConfigPath === undefined) {
-				delete process.env.BETTER_CCFLARE_CONFIG_PATH;
+				delete process.env.HOV_ROUTER_CONFIG_PATH;
 			} else {
-				process.env.BETTER_CCFLARE_CONFIG_PATH = originalConfigPath;
+				process.env.HOV_ROUTER_CONFIG_PATH = originalConfigPath;
 			}
 			if (originalBlocked === undefined) {
-				delete process.env.CCFLARE_SKILL_ELISION_BLOCKED;
+				delete process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 			} else {
-				process.env.CCFLARE_SKILL_ELISION_BLOCKED = originalBlocked;
+				process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED = originalBlocked;
 			}
 		});
 
 		it("replaces a blocked skill bundle with the elision stub", async () => {
-			process.env.CCFLARE_SKILL_ELISION_BLOCKED = "some-skill";
+			process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED = "some-skill";
 			const bundleText = makeSkillText("some-skill", 12_000);
 			const account = makeAccount(null);
 			const body = JSON.stringify({
@@ -312,12 +312,12 @@ describe("OllamaProvider", () => {
 			};
 			const text = result.messages[0].content[0].text;
 
-			expect(text).toContain("[better-ccflare]");
+			expect(text).toContain("[hov-router]");
 			expect(text).not.toContain(bundleText);
 		});
 
 		it("leaves a bundle for a skill not in the blocklist unchanged", async () => {
-			process.env.CCFLARE_SKILL_ELISION_BLOCKED = "other-skill";
+			process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED = "other-skill";
 			const bundleText = makeSkillText("some-skill", 12_000);
 			const account = makeAccount(null);
 			const body = JSON.stringify({

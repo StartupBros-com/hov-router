@@ -155,7 +155,7 @@ describe("forwardToClient usage-collector protocol", () => {
 				const ctx = createCtx(false);
 				ctx.provider.name = "xai";
 				ctx.internalProbeSecret = "fixture-process-secret";
-				const headers = new Headers({ "x-better-ccflare-keepalive": "true" });
+				const headers = new Headers({ "x-hov-router-keepalive": "true" });
 				if (authenticated)
 					headers.set(INTERNAL_PROBE_SECRET_HEADER, ctx.internalProbeSecret);
 				const response = await forwardToClient(
@@ -320,7 +320,7 @@ describe("forwardToClient usage-collector protocol", () => {
 		);
 
 		expect(
-			response.headers.get("x-better-ccflare-cache-flight-recorder-id"),
+			response.headers.get("x-hov-router-cache-flight-recorder-id"),
 		).toBe("cfr_0123456789abcdef0123456789abcdef");
 		expect(starts[0]).toMatchObject({
 			cacheFlightRecorderConversationId: "cfr_0123456789abcdef0123456789abcdef",
@@ -351,7 +351,7 @@ describe("forwardToClient usage-collector protocol", () => {
 		);
 
 		expect(
-			response.headers.get("x-better-ccflare-cache-flight-recorder-id"),
+			response.headers.get("x-hov-router-cache-flight-recorder-id"),
 		).toBeNull();
 		expect(starts[0].cacheFlightRecorderConversationId).toBeUndefined();
 	});
@@ -2220,7 +2220,7 @@ describe("forwardToClient session-account recording", () => {
 		// observed account.
 		await forward(acct("acc-B"), {
 			"x-claude-code-session-id": sid,
-			"x-better-ccflare-keepalive": "true",
+			"x-hov-router-keepalive": "true",
 		});
 		expect(getServedAccount(sid)).toBe("acc-A");
 		clearSession(sid);

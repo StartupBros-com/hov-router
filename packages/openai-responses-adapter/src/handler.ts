@@ -14,7 +14,7 @@ import {
 	RECOVERY_STATUS_HEADER,
 	recoveryScopeForCode,
 } from "@hov-router/types/routing-recovery";
-import { inheritManagedRequest } from "../../../scripts/ccflare-managed-timing.mjs";
+import { inheritManagedRequest } from "../../../scripts/hov-router-managed-timing.mjs";
 import {
 	MAX_RESPONSES_CONTENT_PARTS,
 	MAX_RESPONSES_INPUT_ITEMS,
@@ -33,7 +33,7 @@ const log = new Logger("openai-responses-adapter");
 // Mirrors packages/proxy/src/handlers/proxy-types.ts to avoid an adapter ->
 // proxy dependency. Keep the dedicated header value in sync with that constant.
 const RESPONSES_ADAPTER_SECRET_HEADER =
-	"x-better-ccflare-responses-adapter-secret";
+	"x-hov-router-responses-adapter-secret";
 
 // Mirrors CODEX_CONTINUATION_HEADER in
 // packages/providers/src/providers/codex/provider.ts, to avoid an adapter ->
@@ -43,7 +43,7 @@ const RESPONSES_ADAPTER_SECRET_HEADER =
 // `__hov_router_codex_passthrough` carrier. The Codex provider treats
 // that flag as opt-in only -- it never trusts a client-supplied
 // `previous_response_id` value itself (see the request body handling below).
-const CODEX_CONTINUATION_HEADER = "x-better-ccflare-codex-continuation";
+const CODEX_CONTINUATION_HEADER = "x-hov-router-codex-continuation";
 const CODEX_CONTINUATION_STRATEGY_PREVIOUS_RESPONSE_ID = "previous_response_id";
 
 const TERMINAL_RESPONSE_EVENT_TYPES = new Set([
@@ -91,7 +91,7 @@ function extractTerminalNativeResponse(
 const SESSION_UUID_RE =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RESPONSES_SESSION_ID_DOMAIN =
-	"better-ccflare:responses-session-identity:v1\0";
+	"hov-router:responses-session-identity:v1\0";
 interface ResponsesHandlerOptions {
 	/** Internal test seam; production always uses the canonical request limit. */
 	requestBodyLimit?: number;
@@ -557,7 +557,7 @@ export async function handleResponsesRequest(
 	}
 	// claude-oauth accounts use Claude's OAuth tokens — Anthropic bans them
 	// when used outside Claude CLI. Always exclude from Codex CLI traffic.
-	syntheticHeaders.set("x-better-ccflare-exclude-providers", "anthropic-oauth");
+	syntheticHeaders.set("x-hov-router-exclude-providers", "anthropic-oauth");
 	const adapterSecret =
 		typeof ctx === "object" &&
 		ctx !== null &&
@@ -703,12 +703,12 @@ export async function handleResponsesRequest(
 	// through the Anthropic translator: streaming callers require raw SSE and
 	// non-stream callers require the terminal response object.
 	const responseFormat = anthropicResp.headers.get(
-		"x-better-ccflare-codex-response-format",
+		"x-hov-router-codex-response-format",
 	);
 	if (responseFormat === "responses-api") {
 		if (body.stream) {
 			const headers = new Headers(anthropicResp.headers);
-			headers.delete("x-better-ccflare-codex-response-format");
+			headers.delete("x-hov-router-codex-response-format");
 			return new Response(anthropicResp.body, {
 				status: anthropicResp.status,
 				headers,

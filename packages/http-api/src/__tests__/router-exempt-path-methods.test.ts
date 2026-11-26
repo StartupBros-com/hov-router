@@ -11,9 +11,9 @@ import { join } from "node:path";
 import type { APIContext } from "../types";
 
 // Set isolation before importing modules that can initialize database singletons.
-const scratch = mkdtempSync(join(tmpdir(), "ccflare-exempt-methods-"));
-process.env.BETTER_CCFLARE_DB_PATH = join(scratch, "test.db");
-process.env.BETTER_CCFLARE_CONFIG_PATH = join(scratch, "config.json");
+const scratch = mkdtempSync(join(tmpdir(), "hov-router-exempt-methods-"));
+process.env.HOV_ROUTER_DB_PATH = join(scratch, "test.db");
+process.env.HOV_ROUTER_CONFIG_PATH = join(scratch, "config.json");
 process.env.DATABASE_URL = "";
 const { APIRouter } = await import("../router");
 

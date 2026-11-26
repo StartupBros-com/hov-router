@@ -29,18 +29,18 @@ const originalFetch = globalThis.fetch;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 // A real persisted agent-preference rewrite (mocked dbOps.getAgentPreference
-// resolved for this id, paired with the x-better-ccflare-agent-id header on
+// resolved for this id, paired with the x-hov-router-agent-id header on
 // the request) authorizes traffic to a Codex/provider-default account as
 // deliberate routing intent, distinct from ordinary stock-model traffic.
 const CODEX_ROUTED_AGENT_ID = "pool-exhausted-codex-routed-agent";
 const MEANINGFUL_PROGRESS_ENV =
-	"CCFLARE_ANTHROPIC_MEANINGFUL_PROGRESS_TIMEOUT_MS";
+	"HOV_ROUTER_ANTHROPIC_MEANINGFUL_PROGRESS_TIMEOUT_MS";
 const RESCUE_ACTIVATION_ENV =
-	"CCFLARE_ANTHROPIC_PRECOMMIT_RESCUE_ACTIVATION_MS";
-const RESCUE_PING_ENV = "CCFLARE_ANTHROPIC_PRECOMMIT_RESCUE_PING_INTERVAL_MS";
-const ACCOUNT_SELECTION_TIMEOUT_ENV = "CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS";
+	"HOV_ROUTER_ANTHROPIC_PRECOMMIT_RESCUE_ACTIVATION_MS";
+const RESCUE_PING_ENV = "HOV_ROUTER_ANTHROPIC_PRECOMMIT_RESCUE_PING_INTERVAL_MS";
+const ACCOUNT_SELECTION_TIMEOUT_ENV = "HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS";
 const RATE_LIMIT_PERSIST_TIMEOUT_ENV =
-	"CCFLARE_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS";
+	"HOV_ROUTER_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS";
 const FAST_SUCCESS = [
 	"event: message_start",
 	'data: {"type":"message_start","message":{"id":"msg-pass","type":"message","role":"assistant","content":[],"model":"claude-sonnet-4-5","stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"output_tokens":1}}}',
@@ -222,13 +222,13 @@ let usageStarts: Array<Record<string, unknown>> = [];
 let usageEnds: Array<Record<string, unknown>> = [];
 
 beforeEach(() => {
-	savedPassthrough = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+	savedPassthrough = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	savedMeaningfulProgress = process.env[MEANINGFUL_PROGRESS_ENV];
 	savedRescueActivation = process.env[RESCUE_ACTIVATION_ENV];
 	savedRescuePing = process.env[RESCUE_PING_ENV];
 	savedAccountSelectionTimeout = process.env[ACCOUNT_SELECTION_TIMEOUT_ENV];
 	savedRateLimitPersistTimeout = process.env[RATE_LIMIT_PERSIST_TIMEOUT_ENV];
-	delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+	delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	usageStarts = [];
 	usageEnds = [];
 	const collector = {
@@ -262,9 +262,9 @@ afterEach(() => {
 	usageCache.delete("acc-fable-secondary");
 	usageCache.delete("acc-fable-tertiary");
 	if (savedPassthrough === undefined) {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	} else {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = savedPassthrough;
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = savedPassthrough;
 	}
 	for (const [name, value] of [
 		[MEANINGFUL_PROGRESS_ENV, savedMeaningfulProgress],
@@ -416,7 +416,7 @@ describe("routing terminal — 503 response", () => {
 
 		const responseStartedAt = performance.now();
 		const request = makeRequest({
-			"x-better-ccflare-agent-id": CODEX_ROUTED_AGENT_ID,
+			"x-hov-router-agent-id": CODEX_ROUTED_AGENT_ID,
 		});
 		const response = await handleProxy(request, new URL(request.url), ctx);
 		const elapsed = performance.now() - responseStartedAt;
@@ -428,10 +428,10 @@ describe("routing terminal — 503 response", () => {
 		expect(account.rate_limited_until).toBeGreaterThan(startedAt);
 		expect(elapsed).toBeLessThan(1000);
 		expect(response.status).toBe(503);
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
-		expect(response.headers.get("x-better-ccflare-recovery-scope")).toBe(
+		expect(response.headers.get("x-hov-router-recovery-scope")).toBe(
 			"pool",
 		);
 		const retryAfter = Number(response.headers.get("retry-after"));
@@ -716,7 +716,7 @@ describe("routing terminal — 503 response", () => {
 		);
 
 		expect(response.status).toBe(503);
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBeNull();
+		expect(response.headers.get("x-hov-router-pool-status")).toBeNull();
 	});
 
 	it("returns Content-Type: application/json header", async () => {
@@ -873,7 +873,7 @@ describe("routing terminal — 503 response", () => {
 
 			expect(response.status).toBe(503);
 			expect(response.headers.get("Retry-After")).toBeNull();
-			expect(response.headers.get("x-better-ccflare-pool-status")).toBeNull();
+			expect(response.headers.get("x-hov-router-pool-status")).toBeNull();
 			const payload = (await response.json()) as {
 				error: { code: string };
 			};
@@ -952,7 +952,7 @@ describe("routing terminal — 503 response", () => {
 			);
 
 			expect(response.status).toBe(503);
-			expect(response.headers.get("x-better-ccflare-pool-status")).toBe(
+			expect(response.headers.get("x-hov-router-pool-status")).toBe(
 				"exhausted",
 			);
 			expect(response.headers.get("retry-after")).toBe("60");
@@ -974,8 +974,8 @@ describe("routing terminal — 503 response", () => {
 		// `observeRequest` -- so this also proves beginRequestObservation's
 		// getProvider("codex") fallback resolves the *real*, registered
 		// CodexProvider hook rather than silently no-op'ing.
-		const previousDiagnosticsEnv = process.env.CCFLARE_CODEX_CACHE_DIAGNOSTICS;
-		process.env.CCFLARE_CODEX_CACHE_DIAGNOSTICS = "1";
+		const previousDiagnosticsEnv = process.env.HOV_ROUTER_CODEX_CACHE_DIAGNOSTICS;
+		process.env.HOV_ROUTER_CODEX_CACHE_DIAGNOSTICS = "1";
 		const lifecycleEvents: Array<Record<string, unknown>> = [];
 		const handler = (event: { msg: string; data?: unknown }) => {
 			if (event.msg === "Codex cache observation lifecycle") {
@@ -1033,7 +1033,7 @@ describe("routing terminal — 503 response", () => {
 			// Proves this really is the local-refusal path the fix targets.
 			expect(upstreamAttempts).toBe(0);
 			expect(response.status).toBe(503);
-			expect(response.headers.get("x-better-ccflare-pool-status")).toBe(
+			expect(response.headers.get("x-hov-router-pool-status")).toBe(
 				"exhausted",
 			);
 
@@ -1055,9 +1055,9 @@ describe("routing terminal — 503 response", () => {
 			logBus.off("log", handler);
 			usageCache.delete(secondary.id);
 			if (previousDiagnosticsEnv === undefined) {
-				delete process.env.CCFLARE_CODEX_CACHE_DIAGNOSTICS;
+				delete process.env.HOV_ROUTER_CODEX_CACHE_DIAGNOSTICS;
 			} else {
-				process.env.CCFLARE_CODEX_CACHE_DIAGNOSTICS = previousDiagnosticsEnv;
+				process.env.HOV_ROUTER_CODEX_CACHE_DIAGNOSTICS = previousDiagnosticsEnv;
 			}
 		}
 	});
@@ -1100,9 +1100,9 @@ describe("routing terminal — 503 response", () => {
 	});
 });
 
-describe("pool exhausted — CCFLARE_PASSTHROUGH_ON_EMPTY_POOL=1 escape hatch", () => {
+describe("pool exhausted — HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL=1 escape hatch", () => {
 	it("bounds an unauthenticated pre-header stall with the shared rescue signal", async () => {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		process.env[MEANINGFUL_PROGRESS_ENV] = "80";
 		process.env[RESCUE_ACTIVATION_ENV] = "1";
 		process.env[RESCUE_PING_ENV] = "5";
@@ -1154,7 +1154,7 @@ describe("pool exhausted — CCFLARE_PASSTHROUGH_ON_EMPTY_POOL=1 escape hatch", 
 	});
 
 	it("terminates a structural-only unauthenticated stream before the shared boundary", async () => {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		process.env[MEANINGFUL_PROGRESS_ENV] = "80";
 		process.env[RESCUE_ACTIVATION_ENV] = "1";
 		process.env[RESCUE_PING_ENV] = "5";
@@ -1198,7 +1198,7 @@ describe("pool exhausted — CCFLARE_PASSTHROUGH_ON_EMPTY_POOL=1 escape hatch", 
 	});
 
 	it("forwards a fast meaningful unauthenticated stream byte-for-byte", async () => {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		process.env[MEANINGFUL_PROGRESS_ENV] = "80";
 		process.env[RESCUE_ACTIVATION_ENV] = "40";
 		globalThis.fetch = mock(
@@ -1221,13 +1221,13 @@ describe("pool exhausted — CCFLARE_PASSTHROUGH_ON_EMPTY_POOL=1 escape hatch", 
 		expect(response.status).toBe(200);
 		expect(response.headers.get("x-upstream-fast")).toBe("preserved");
 		expect(
-			response.headers.get("x-better-ccflare-precommit-rescue"),
+			response.headers.get("x-hov-router-precommit-rescue"),
 		).toBeNull();
 		expect(await response.text()).toBe(FAST_SUCCESS);
 	});
 
 	it("propagates rescued downstream cancellation to unauthenticated fetch", async () => {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		process.env[MEANINGFUL_PROGRESS_ENV] = "100";
 		process.env[RESCUE_ACTIVATION_ENV] = "1";
 		process.env[RESCUE_PING_ENV] = "5";
@@ -1265,7 +1265,7 @@ describe("pool exhausted — CCFLARE_PASSTHROUGH_ON_EMPTY_POOL=1 escape hatch", 
 	});
 
 	it("leaves a slow stream:false unauthenticated response native", async () => {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		process.env[MEANINGFUL_PROGRESS_ENV] = "20";
 		process.env[RESCUE_ACTIVATION_ENV] = "1";
 		const expectedBody = JSON.stringify({ passthrough: "native" });
@@ -1291,7 +1291,7 @@ describe("pool exhausted — CCFLARE_PASSTHROUGH_ON_EMPTY_POOL=1 escape hatch", 
 		expect(response.statusText).toBe("Native passthrough");
 		expect(response.headers.get("x-native-passthrough")).toBe("preserved");
 		expect(
-			response.headers.get("x-better-ccflare-precommit-rescue"),
+			response.headers.get("x-hov-router-precommit-rescue"),
 		).toBeNull();
 		expect(await response.text()).toBe(expectedBody);
 	});

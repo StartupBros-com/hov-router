@@ -34,7 +34,7 @@ interface AgentCache {
 
 const CACHE_TTL_MS = 30 * 1000; // 30 seconds
 const DEFAULT_COLOR = "gray";
-const PLUGIN_AGENT_DISCOVERY_ENV = "BETTER_CCFLARE_DISCOVER_PLUGIN_AGENTS";
+const PLUGIN_AGENT_DISCOVERY_ENV = "HOV_ROUTER_DISCOVER_PLUGIN_AGENTS";
 
 const log = new Logger("AgentRegistry");
 
@@ -93,7 +93,7 @@ export class AgentRegistry {
 	 * persistence, before any test can pass a constructor argument — tests
 	 * that exercise that singleton must call this first, pointing it at a
 	 * tmp-dir-backed `WorkspacePersistence`, so they never write to the real
-	 * `~/.better-ccflare/workspaces.json`. Not for production use.
+	 * `~/.hov-router/workspaces.json`. Not for production use.
 	 */
 	setWorkspacePersistenceForTests(persistence: WorkspacePersistence): void {
 		this.workspacePersistence = persistence;

@@ -10,7 +10,7 @@ describe("DatabaseOperations constructor fallback cacheSize", () => {
 	let dbOps: DatabaseOperations;
 
 	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ccflare-cache-size-test-"));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hov-router-cache-size-test-"));
 		dbPath = path.join(tmpDir, "test.db");
 	});
 

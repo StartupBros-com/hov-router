@@ -61,8 +61,8 @@ function matchesPlatform(platform: Platform, selector: string): boolean {
 }
 
 export function platformsForBuild(
-	onlyPlatforms = process.env.CCFLARE_ONLY_PLATFORMS ?? "",
-	skipPlatforms = process.env.CCFLARE_SKIP_PLATFORMS ?? "",
+	onlyPlatforms = process.env.HOV_ROUTER_ONLY_PLATFORMS ?? "",
+	skipPlatforms = process.env.HOV_ROUTER_SKIP_PLATFORMS ?? "",
 ): Platform[] {
 	const only = platformSelectors(onlyPlatforms);
 	const skip = platformSelectors(skipPlatforms);
@@ -72,7 +72,7 @@ export function platformsForBuild(
 	);
 	if (unknown) {
 		throw new Error(
-			`CCFLARE_ONLY_PLATFORMS contains an unknown platform: ${unknown}`,
+			`HOV_ROUTER_ONLY_PLATFORMS contains an unknown platform: ${unknown}`,
 		);
 	}
 	return platforms.filter(
@@ -228,10 +228,10 @@ async function buildPlatform(platform: Platform) {
 
 	// Get version from package.json, optionally suffixed for patched builds
 	const packageJson = await Bun.file("./package.json").json();
-	const suffix = process.env.CCFLARE_BUILD_SUFFIX;
+	const suffix = process.env.HOV_ROUTER_BUILD_SUFFIX;
 	if (suffix && !/^[a-zA-Z0-9._-]+$/.test(suffix)) {
 		throw new Error(
-			"CCFLARE_BUILD_SUFFIX must only contain alphanumeric characters, dots, underscores, and hyphens",
+			"HOV_ROUTER_BUILD_SUFFIX must only contain alphanumeric characters, dots, underscores, and hyphens",
 		);
 	}
 	const version = suffix
@@ -239,9 +239,9 @@ async function buildPlatform(platform: Platform) {
 		: packageJson.version;
 
 	const releaseContext =
-		process.env.CCFLARE_BUILD_PRODUCER === "github-release-binary" ||
-		process.env.CCFLARE_BUILD_PRODUCER === "hov-router-binary"
-			? process.env.CCFLARE_BUILD_PRODUCER
+		process.env.HOV_ROUTER_BUILD_PRODUCER === "github-release-binary" ||
+		process.env.HOV_ROUTER_BUILD_PRODUCER === "hov-router-binary"
+			? process.env.HOV_ROUTER_BUILD_PRODUCER
 			: undefined;
 	const evidence = readTombiiTaggedBuildEvidence(version, releaseContext);
 	const buildArgs = [

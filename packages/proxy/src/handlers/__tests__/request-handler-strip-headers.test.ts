@@ -31,19 +31,19 @@ describe("makeProxyRequest strips internal control headers before provider forwa
 
 	it("does not forward the probe secret or markers on the headers-param path", async () => {
 		const headers = new Headers({
-			"x-better-ccflare-internal-probe-secret": "s3cr3t",
-			"x-better-ccflare-responses-adapter-secret": "s3cr3t",
-			"x-better-ccflare-auto-refresh": "true",
-			"x-better-ccflare-keepalive": "true",
-			"x-better-ccflare-guard-request-id": "signed-envelope",
-			"x-better-ccflare-guard-correlation-secret": "must-never-be-http",
-			"x-better-ccflare-request-id": "req-1",
-			"x-better-ccflare-request-stream": "true",
-			"x-better-ccflare-codex-custom-tools": "true",
-			"x-better-ccflare-native-responses": "true",
-			"x-better-ccflare-authenticated-caller": "apikey-1",
-			"x-better-ccflare-exclude-providers": "codex",
-			"x-better-ccflare-codex-continuation": "1",
+			"x-hov-router-internal-probe-secret": "s3cr3t",
+			"x-hov-router-responses-adapter-secret": "s3cr3t",
+			"x-hov-router-auto-refresh": "true",
+			"x-hov-router-keepalive": "true",
+			"x-hov-router-guard-request-id": "signed-envelope",
+			"x-hov-router-guard-correlation-secret": "must-never-be-http",
+			"x-hov-router-request-id": "req-1",
+			"x-hov-router-request-stream": "true",
+			"x-hov-router-codex-custom-tools": "true",
+			"x-hov-router-native-responses": "true",
+			"x-hov-router-authenticated-caller": "apikey-1",
+			"x-hov-router-exclude-providers": "codex",
+			"x-hov-router-codex-continuation": "1",
 			authorization: "Bearer token",
 			"content-type": "application/json",
 		});
@@ -55,30 +55,30 @@ describe("makeProxyRequest strips internal control headers before provider forwa
 			false,
 		);
 		expect(
-			sentHeaders?.get("x-better-ccflare-internal-probe-secret"),
+			sentHeaders?.get("x-hov-router-internal-probe-secret"),
 		).toBeNull();
 		expect(
-			sentHeaders?.get("x-better-ccflare-responses-adapter-secret"),
+			sentHeaders?.get("x-hov-router-responses-adapter-secret"),
 		).toBeNull();
-		expect(sentHeaders?.get("x-better-ccflare-auto-refresh")).toBeNull();
-		expect(sentHeaders?.get("x-better-ccflare-keepalive")).toBeNull();
-		expect(sentHeaders?.get("x-better-ccflare-guard-request-id")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-auto-refresh")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-keepalive")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-guard-request-id")).toBeNull();
 		expect(
-			sentHeaders?.get("x-better-ccflare-guard-correlation-secret"),
+			sentHeaders?.get("x-hov-router-guard-correlation-secret"),
 		).toBeNull();
-		expect(sentHeaders?.get("x-better-ccflare-request-id")).toBeNull();
-		expect(sentHeaders?.get("x-better-ccflare-request-stream")).toBeNull();
-		expect(sentHeaders?.get("x-better-ccflare-codex-custom-tools")).toBeNull();
-		expect(sentHeaders?.get("x-better-ccflare-native-responses")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-request-id")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-request-stream")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-codex-custom-tools")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-native-responses")).toBeNull();
 		// Regression for the risk the upstream port itself calls out: an
 		// external caller forging this header must never have it reach the
 		// provider either (see CODEX_AUTHENTICATED_CALLER_HEADER's own
 		// "deleted before any outbound transport" contract in provider.ts).
 		expect(
-			sentHeaders?.get("x-better-ccflare-authenticated-caller"),
+			sentHeaders?.get("x-hov-router-authenticated-caller"),
 		).toBeNull();
-		expect(sentHeaders?.get("x-better-ccflare-exclude-providers")).toBeNull();
-		expect(sentHeaders?.get("x-better-ccflare-codex-continuation")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-exclude-providers")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-codex-continuation")).toBeNull();
 		// unrelated headers still forwarded
 		expect(sentHeaders?.get("authorization")).toBe("Bearer token");
 		expect(sentHeaders?.get("content-type")).toBe("application/json");
@@ -102,10 +102,10 @@ describe("makeProxyRequest strips internal control headers before provider forwa
 				method: "POST",
 				body: "unchanged body",
 				headers: {
-					"x-better-ccflare-guard-request-id": "signed-envelope",
-					"x-better-ccflare-guard-correlation-secret": "secret",
-					"x-better-ccflare-request-id": "internal",
-					"x-better-ccflare-internal-probe-secret": "secret",
+					"x-hov-router-guard-request-id": "signed-envelope",
+					"x-hov-router-guard-correlation-secret": "secret",
+					"x-hov-router-request-id": "internal",
+					"x-hov-router-internal-probe-secret": "secret",
 				},
 			});
 			applyPrivateAiTraceContext(
@@ -125,7 +125,7 @@ describe("makeProxyRequest strips internal control headers before provider forwa
 				`00-abcdef01234546789abcdef012345678-${sentHeaders?.get("x-private-ai-attempt-id")}-01`,
 			);
 			for (const name of sentHeaders?.keys() ?? [])
-				expect(name.startsWith("x-better-ccflare-")).toBe(false);
+				expect(name.startsWith("x-hov-router-")).toBe(false);
 		} finally {
 			if (previous === undefined)
 				delete process.env.PRIVATE_AI_TRACE_ROUTES_JSON;
@@ -137,31 +137,31 @@ describe("makeProxyRequest strips internal control headers before provider forwa
 		const req = new Request("https://api.anthropic.com/v1/messages", {
 			method: "POST",
 			headers: {
-				"x-better-ccflare-internal-probe-secret": "s3cr3t",
-				"x-better-ccflare-responses-adapter-secret": "s3cr3t",
-				"x-better-ccflare-keepalive": "true",
-				"x-better-ccflare-guard-request-id": "signed-envelope",
-				"x-better-ccflare-guard-correlation-secret": "must-never-be-http",
-				"x-better-ccflare-request-id": "req-1",
-				"x-better-ccflare-authenticated-caller": "apikey-1",
+				"x-hov-router-internal-probe-secret": "s3cr3t",
+				"x-hov-router-responses-adapter-secret": "s3cr3t",
+				"x-hov-router-keepalive": "true",
+				"x-hov-router-guard-request-id": "signed-envelope",
+				"x-hov-router-guard-correlation-secret": "must-never-be-http",
+				"x-hov-router-request-id": "req-1",
+				"x-hov-router-authenticated-caller": "apikey-1",
 				authorization: "Bearer token",
 			},
 		});
 		await makeProxyRequest(req);
 		expect(
-			sentHeaders?.get("x-better-ccflare-internal-probe-secret"),
+			sentHeaders?.get("x-hov-router-internal-probe-secret"),
 		).toBeNull();
 		expect(
-			sentHeaders?.get("x-better-ccflare-responses-adapter-secret"),
+			sentHeaders?.get("x-hov-router-responses-adapter-secret"),
 		).toBeNull();
-		expect(sentHeaders?.get("x-better-ccflare-keepalive")).toBeNull();
-		expect(sentHeaders?.get("x-better-ccflare-guard-request-id")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-keepalive")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-guard-request-id")).toBeNull();
 		expect(
-			sentHeaders?.get("x-better-ccflare-guard-correlation-secret"),
+			sentHeaders?.get("x-hov-router-guard-correlation-secret"),
 		).toBeNull();
-		expect(sentHeaders?.get("x-better-ccflare-request-id")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-request-id")).toBeNull();
 		expect(
-			sentHeaders?.get("x-better-ccflare-authenticated-caller"),
+			sentHeaders?.get("x-hov-router-authenticated-caller"),
 		).toBeNull();
 		expect(sentHeaders?.get("authorization")).toBe("Bearer token");
 	});

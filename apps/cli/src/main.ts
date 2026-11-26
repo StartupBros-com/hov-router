@@ -411,9 +411,9 @@ function displayConfigInfo(parsed: ParsedArgs, config: Config): void {
 
 	configItems.push({
 		name: "Host",
-		value: process.env.BETTER_CCFLARE_HOST || "0.0.0.0",
-		source: process.env.BETTER_CCFLARE_HOST
-			? "Environment (BETTER_CCFLARE_HOST)"
+		value: process.env.HOV_ROUTER_HOST || "0.0.0.0",
+		source: process.env.HOV_ROUTER_HOST
+			? "Environment (HOV_ROUTER_HOST)"
 			: "Default",
 		description: "Server binding host",
 	});
@@ -443,9 +443,9 @@ function displayConfigInfo(parsed: ParsedArgs, config: Config): void {
 	// Database Configuration
 	configItems.push({
 		name: "Database Path",
-		value: process.env.BETTER_CCFLARE_DB_PATH || resolveDbPath(),
-		source: process.env.BETTER_CCFLARE_DB_PATH
-			? "Environment (BETTER_CCFLARE_DB_PATH)"
+		value: process.env.HOV_ROUTER_DB_PATH || resolveDbPath(),
+		source: process.env.HOV_ROUTER_DB_PATH
+			? "Environment (HOV_ROUTER_DB_PATH)"
 			: "Default",
 		description: "SQLite database file path",
 	});
@@ -1156,7 +1156,7 @@ export async function convertFamilyPolicyAliasesViaLocalControl(options: {
 			redirect: "error",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-local-control-secret": options.localControlSecret,
+				"x-hov-router-local-control-secret": options.localControlSecret,
 			},
 			...(body === undefined ? {} : { body: JSON.stringify(body) }),
 		});
@@ -1640,7 +1640,7 @@ async function main() {
 				// For API key accounts, get the API key from environment or prompt
 				let apiKey =
 					process.env[
-						`BETTER_CCFLARE_API_KEY_${parsed.addAccount.toUpperCase()}`
+						`HOV_ROUTER_API_KEY_${parsed.addAccount.toUpperCase()}`
 					] ||
 					process.env[`API_KEY_${parsed.addAccount.toUpperCase()}`] ||
 					"";

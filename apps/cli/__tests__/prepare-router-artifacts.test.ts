@@ -250,12 +250,12 @@ writeFileSync("dist/better-ccflare-linux-amd64", "#!/bin/sh\\nprintf 'invalid sm
 			const destination = join(home, "output");
 			const sentinel = join(home, "must-not-initialize.json");
 			const result = prepare([destination], home, {
-				CCFLARE_ONLY_PLATFORMS: "bun-windows-x64",
-				CCFLARE_SKIP_PLATFORMS: "bun-linux-amd64",
-				CCFLARE_BUILD_SUFFIX: "must-not-appear",
-				CCFLARE_BUILD_PRODUCER: "github-release-binary",
-				CCFLARE_VERSION: "0.0.0-must-not-appear",
-				BETTER_CCFLARE_CONFIG_PATH: sentinel,
+				HOV_ROUTER_ONLY_PLATFORMS: "bun-windows-x64",
+				HOV_ROUTER_SKIP_PLATFORMS: "bun-linux-amd64",
+				HOV_ROUTER_BUILD_SUFFIX: "must-not-appear",
+				HOV_ROUTER_BUILD_PRODUCER: "github-release-binary",
+				HOV_ROUTER_VERSION: "0.0.0-must-not-appear",
+				HOV_ROUTER_CONFIG_PATH: sentinel,
 				DATABASE_URL: "postgresql://synthetic.invalid/never-connect",
 				ANTHROPIC_API_KEY: "synthetic-never-forward",
 			});

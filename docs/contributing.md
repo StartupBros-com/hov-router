@@ -1,6 +1,6 @@
 # Contributing to HoV Router
 
-Welcome to HoV Router (formerly better-ccflare)! We're thrilled that you're interested in contributing to our Claude load balancer project. This document provides guidelines and instructions for contributing to the project.
+Welcome to HoV Router (formerly hov-router)! We're thrilled that you're interested in contributing to our Claude load balancer project. This document provides guidelines and instructions for contributing to the project.
 
 ## Table of Contents
 
@@ -179,7 +179,7 @@ To bump, in one PR:
 5. Run `bun test tests/bun-toolchain-pin.test.ts packages/core/src/dockerfile-provenance.test.ts`.
    They fail unless every pin agrees.
 
-The merge gate on that PR is the proof the new version passes. `scripts/deploy-ccflare.sh` then
+The merge gate on that PR is the proof the new version passes. `scripts/deploy-hov-router.sh` then
 refuses any build whose toolchain or embedded runtime (`BUN_BE_BUN=1 <binary> --version`)
 differs from `.bun-version`. Never restore `bun-version: latest` in a workflow: the pin test
 fails the gate if it comes back.
@@ -195,7 +195,7 @@ When contributing, document major architectural changes or new patterns in `AGEN
 HoV Router is organized as a Bun monorepo with clear separation of concerns:
 
 ```
-better-ccflare/
+hov-router/
 ├── apps/                    # Deployable applications
 │   ├── cli/                # Command-line interface
 │   └── server/            # Main HTTP server
@@ -699,7 +699,7 @@ The CLI functionality provides explicit commands for all operations. Use `bun ru
 ```bash
 # If the hov-router command is not installed globally, use:
 # bun run cli [options]
-# or build and run with: bun run better-ccflare
+# or build and run with: bun run hov-router
 
 # Add a new account
 bun run cli --add-account <name> --mode <claude-oauth|console|zai|openai-compatible> --priority <number>
@@ -762,7 +762,7 @@ bun run build:dashboard
 # Run the CLI application
 bun run cli
 # or (builds first, then runs)
-bun run better-ccflare
+bun run hov-router
 
 # Build the CLI
 bun run build:cli

@@ -38,8 +38,8 @@ describe("CLI xAI account import", () => {
 		grokAuthPath = join(homeDir, ".grok", "auth.json");
 		mkdirSync(join(homeDir, ".grok"), { recursive: true });
 
-		previousGrokAuthPath = process.env.BETTER_CCFLARE_GROK_AUTH_PATH;
-		process.env.BETTER_CCFLARE_GROK_AUTH_PATH = grokAuthPath;
+		previousGrokAuthPath = process.env.HOV_ROUTER_GROK_AUTH_PATH;
+		process.env.HOV_ROUTER_GROK_AUTH_PATH = grokAuthPath;
 
 		DatabaseFactory.initialize(dbPath);
 		dbOps = DatabaseFactory.getInstance();
@@ -48,9 +48,9 @@ describe("CLI xAI account import", () => {
 	afterEach(async () => {
 		await DatabaseFactory.reset();
 		if (previousGrokAuthPath === undefined) {
-			delete process.env.BETTER_CCFLARE_GROK_AUTH_PATH;
+			delete process.env.HOV_ROUTER_GROK_AUTH_PATH;
 		} else {
-			process.env.BETTER_CCFLARE_GROK_AUTH_PATH = previousGrokAuthPath;
+			process.env.HOV_ROUTER_GROK_AUTH_PATH = previousGrokAuthPath;
 		}
 		for (const path of [dbPath, `${dbPath}-shm`, `${dbPath}-wal`, homeDir]) {
 			if (existsSync(path)) {

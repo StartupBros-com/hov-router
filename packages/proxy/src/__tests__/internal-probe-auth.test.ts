@@ -187,9 +187,9 @@ describe("internal auto-refresh authentication", () => {
 
 		const headers = new Headers({
 			"content-type": "application/json",
-			"x-better-ccflare-account-id": account.id,
-			"x-better-ccflare-auto-refresh": "true",
-			"x-better-ccflare-bypass-session": "true",
+			"x-hov-router-account-id": account.id,
+			"x-hov-router-auto-refresh": "true",
+			"x-hov-router-bypass-session": "true",
 		});
 		stampInternalSchedulerAuth(headers);
 		const request = makeRequest(headers);
@@ -199,7 +199,7 @@ describe("internal auto-refresh authentication", () => {
 		expect(response.status).toBe(503);
 		expect(fetchMock).not.toHaveBeenCalled();
 		expect(request.headers.has(INTERNAL_SCHEDULER_AUTH_HEADER)).toBe(false);
-		expect(request.headers.has("x-better-ccflare-auto-refresh")).toBe(false);
+		expect(request.headers.has("x-hov-router-auto-refresh")).toBe(false);
 	});
 
 	it("routes the auto-refresh marker plus a valid private credential like any client request and forwards neither", async () => {
@@ -218,9 +218,9 @@ describe("internal auto-refresh authentication", () => {
 
 		const headers = new Headers({
 			"content-type": "application/json",
-			"x-better-ccflare-account-id": account.id,
-			"x-better-ccflare-auto-refresh": "true",
-			"x-better-ccflare-bypass-session": "true",
+			"x-hov-router-account-id": account.id,
+			"x-hov-router-auto-refresh": "true",
+			"x-hov-router-bypass-session": "true",
 		});
 		stampInternalSchedulerAuth(headers);
 		const request = makeRequest(headers);
@@ -229,13 +229,13 @@ describe("internal auto-refresh authentication", () => {
 
 		expect(response.status).toBe(200);
 		expect(request.headers.has(INTERNAL_SCHEDULER_AUTH_HEADER)).toBe(false);
-		expect(request.headers.has("x-better-ccflare-auto-refresh")).toBe(false);
+		expect(request.headers.has("x-hov-router-auto-refresh")).toBe(false);
 		expect(preparedHeaders[0]?.has(INTERNAL_SCHEDULER_AUTH_HEADER)).toBe(false);
-		expect(preparedHeaders[0]?.has("x-better-ccflare-auto-refresh")).toBe(
+		expect(preparedHeaders[0]?.has("x-hov-router-auto-refresh")).toBe(
 			false,
 		);
 		expect(upstreamHeaders?.has(INTERNAL_SCHEDULER_AUTH_HEADER)).toBe(false);
-		expect(upstreamHeaders?.has("x-better-ccflare-auto-refresh")).toBe(false);
+		expect(upstreamHeaders?.has("x-hov-router-auto-refresh")).toBe(false);
 	});
 
 	it("admits a valid cache-keepalive replay and never forwards the credential", async () => {
@@ -254,9 +254,9 @@ describe("internal auto-refresh authentication", () => {
 
 		const headers = new Headers({
 			"content-type": "application/json",
-			"x-better-ccflare-account-id": account.id,
-			"x-better-ccflare-keepalive": "true",
-			"x-better-ccflare-bypass-session": "true",
+			"x-hov-router-account-id": account.id,
+			"x-hov-router-keepalive": "true",
+			"x-hov-router-bypass-session": "true",
 		});
 		stampInternalSchedulerAuth(headers);
 		const request = makeRequest(headers);
@@ -298,9 +298,9 @@ describe("internal auto-refresh authentication", () => {
 
 		const headers = new Headers({
 			"content-type": "application/json",
-			"x-better-ccflare-account-id": account.id,
-			"x-better-ccflare-bypass-session": "true",
-			"x-better-ccflare-keepalive": "true",
+			"x-hov-router-account-id": account.id,
+			"x-hov-router-bypass-session": "true",
+			"x-hov-router-keepalive": "true",
 			[CACHE_REPLAY_MODEL_HEADER]: "physical-fallback-model",
 		});
 		stampInternalSchedulerAuth(headers);
@@ -358,9 +358,9 @@ describe("internal auto-refresh authentication", () => {
 
 		const headers = new Headers({
 			"content-type": "application/json",
-			"x-better-ccflare-account-id": account.id,
-			"x-better-ccflare-bypass-session": "true",
-			"x-better-ccflare-keepalive": "true",
+			"x-hov-router-account-id": account.id,
+			"x-hov-router-bypass-session": "true",
+			"x-hov-router-keepalive": "true",
 			[CACHE_REPLAY_MODEL_HEADER]: "physical-fallback-model",
 		});
 		stampInternalSchedulerAuth(headers);
@@ -385,9 +385,9 @@ describe("internal auto-refresh authentication", () => {
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 		const headers = new Headers({
 			"content-type": "application/json",
-			"x-better-ccflare-account-id": account.id,
-			"x-better-ccflare-bypass-session": "true",
-			"x-better-ccflare-keepalive": "true",
+			"x-hov-router-account-id": account.id,
+			"x-hov-router-bypass-session": "true",
+			"x-hov-router-keepalive": "true",
 			[CACHE_REPLAY_MODEL_HEADER]: "physical-fallback-model",
 		});
 		stampInternalSchedulerAuth(headers);
@@ -425,9 +425,9 @@ describe("internal auto-refresh authentication", () => {
 		const request = makeRequest(
 			new Headers({
 				"content-type": "application/json",
-				"x-better-ccflare-account-id": account.id,
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-account-id": account.id,
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-keepalive": "true",
 				[CACHE_REPLAY_MODEL_HEADER]: "caller-chosen-model",
 			}),
 		);
@@ -453,9 +453,9 @@ describe("internal auto-refresh authentication", () => {
 		const request = makeRequest(
 			new Headers({
 				"content-type": "application/json",
-				"x-better-ccflare-account-id": account.id,
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-account-id": account.id,
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-keepalive": "true",
 			}),
 			"claude-haiku-4-5",
 			{ metadata: { user_id: "forged-keepalive-pacing-session" } },
@@ -465,7 +465,7 @@ describe("internal auto-refresh authentication", () => {
 		await response.text();
 
 		expect(response.status).toBe(200);
-		expect(request.headers.has("x-better-ccflare-keepalive")).toBe(false);
+		expect(request.headers.has("x-hov-router-keepalive")).toBe(false);
 		expect(getCachePacingStats().anthropic?.leaders).toBe(1);
 	});
 
@@ -483,9 +483,9 @@ describe("internal auto-refresh authentication", () => {
 		) as unknown as typeof fetch;
 		const headers = new Headers({
 			"content-type": "application/json",
-			"x-better-ccflare-account-id": account.id,
-			"x-better-ccflare-bypass-session": "true",
-			"x-better-ccflare-auto-refresh": "true",
+			"x-hov-router-account-id": account.id,
+			"x-hov-router-bypass-session": "true",
+			"x-hov-router-auto-refresh": "true",
 		});
 		stampInternalSchedulerAuth(headers);
 		const request = makeRequest(headers, "claude-haiku-4-5", {
@@ -513,9 +513,9 @@ describe("internal auto-refresh authentication", () => {
 		) as unknown as typeof fetch;
 		const headers = new Headers({
 			"content-type": "application/json",
-			"x-better-ccflare-account-id": account.id,
-			"x-better-ccflare-bypass-session": "true",
-			"x-better-ccflare-keepalive": "true",
+			"x-hov-router-account-id": account.id,
+			"x-hov-router-bypass-session": "true",
+			"x-hov-router-keepalive": "true",
 		});
 		stampInternalSchedulerAuth(headers);
 		const request = makeRequest(headers, "claude-haiku-4-5", {
@@ -544,9 +544,9 @@ describe("internal auto-refresh authentication", () => {
 		const request = makeRequest(
 			new Headers({
 				"content-type": "application/json",
-				"x-better-ccflare-account-id": account.id,
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-account-id": account.id,
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-keepalive": "true",
 			}),
 			"claude-haiku-4-5",
 			{
@@ -563,7 +563,7 @@ describe("internal auto-refresh authentication", () => {
 		const response = await handleProxy(request, new URL(request.url), ctx);
 
 		expect(response.status).toBe(200);
-		expect(request.headers.has("x-better-ccflare-keepalive")).toBe(false);
+		expect(request.headers.has("x-hov-router-keepalive")).toBe(false);
 		expect(stageSpy).toHaveBeenCalledTimes(1);
 		stageSpy.mockRestore();
 	});
@@ -588,9 +588,9 @@ describe("internal auto-refresh authentication", () => {
 		const forgedRequest = makeRequest(
 			new Headers({
 				"content-type": "application/json",
-				"x-better-ccflare-account-id": account.id,
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-account-id": account.id,
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-keepalive": "true",
 			}),
 		);
 
@@ -602,13 +602,13 @@ describe("internal auto-refresh authentication", () => {
 
 		expect(forgedResponse.status).toBe(503);
 		expect(fetchMock).not.toHaveBeenCalled();
-		expect(forgedRequest.headers.has("x-better-ccflare-keepalive")).toBe(false);
+		expect(forgedRequest.headers.has("x-hov-router-keepalive")).toBe(false);
 
 		const trustedHeaders = new Headers({
 			"content-type": "application/json",
-			"x-better-ccflare-account-id": account.id,
-			"x-better-ccflare-bypass-session": "true",
-			"x-better-ccflare-keepalive": "true",
+			"x-hov-router-account-id": account.id,
+			"x-hov-router-bypass-session": "true",
+			"x-hov-router-keepalive": "true",
 		});
 		stampInternalSchedulerAuth(trustedHeaders);
 		const trustedRequest = makeRequest(trustedHeaders);
@@ -620,7 +620,7 @@ describe("internal auto-refresh authentication", () => {
 
 		expect(trustedResponse.status).toBe(200);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
-		expect(trustedRequest.headers.get("x-better-ccflare-keepalive")).toBe(
+		expect(trustedRequest.headers.get("x-hov-router-keepalive")).toBe(
 			"true",
 		);
 	});
@@ -633,9 +633,9 @@ describe("internal auto-refresh authentication", () => {
 		const request = makeRequest(
 			new Headers({
 				"content-type": "application/json",
-				"x-better-ccflare-account-id": account.id,
-				"x-better-ccflare-auto-refresh": "true",
-				"x-better-ccflare-bypass-session": "true",
+				"x-hov-router-account-id": account.id,
+				"x-hov-router-auto-refresh": "true",
+				"x-hov-router-bypass-session": "true",
 				[INTERNAL_SCHEDULER_AUTH_HEADER]: "caller-controlled",
 			}),
 		);
@@ -645,6 +645,6 @@ describe("internal auto-refresh authentication", () => {
 		expect(response.status).toBe(503);
 		expect(fetchMock).not.toHaveBeenCalled();
 		expect(request.headers.has(INTERNAL_SCHEDULER_AUTH_HEADER)).toBe(false);
-		expect(request.headers.has("x-better-ccflare-auto-refresh")).toBe(false);
+		expect(request.headers.has("x-hov-router-auto-refresh")).toBe(false);
 	});
 });

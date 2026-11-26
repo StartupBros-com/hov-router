@@ -79,11 +79,11 @@ describe("the exit status of a start that failed", () => {
 
 	it("is the status the runner and the transaction module wait on", () => {
 		const runner = readFileSync(
-			join(repoRoot, "scripts/run-ccflare-stack.sh"),
+			join(repoRoot, "scripts/run-hov-router.sh"),
 			"utf8",
 		);
 		const transaction = readFileSync(
-			join(repoRoot, "scripts/ccflare-deployment-transaction.mjs"),
+			join(repoRoot, "scripts/hov-router-deployment-transaction.mjs"),
 			"utf8",
 		);
 

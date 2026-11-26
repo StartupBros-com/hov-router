@@ -52,8 +52,8 @@ function runCli(
 		XDG_CONFIG_HOME: join(home, "config"),
 	};
 	delete env.DATABASE_URL;
-	delete env.BETTER_CCFLARE_DB_PATH;
-	delete env.ccflare_DB_PATH;
+	delete env.HOV_ROUTER_DB_PATH;
+	delete env.HOV_ROUTER_DB_PATH;
 	if (options.databaseUrl !== undefined) env.DATABASE_URL = options.databaseUrl;
 
 	return new Promise((resolve) => {
@@ -84,7 +84,7 @@ function runCli(
 function databaseFiles(): string[] {
 	return readdirSync(home, { recursive: true })
 		.map(String)
-		.filter((name) => /better-ccflare\.db/.test(name));
+		.filter((name) => /hov-router\.db/.test(name));
 }
 
 function expectRefused(result: CliResult): void {
@@ -161,7 +161,7 @@ describe("CLI refuses a PostgreSQL DATABASE_URL", () => {
 			writeFileSync(join(work, ".env"), `DATABASE_URL=${POSTGRES_URL}\n`);
 			const result = await runCli(["--list"], { cwd: work });
 			expectRefused(result);
-			expect(existsSync(join(work, "better-ccflare.db"))).toBe(false);
+			expect(existsSync(join(work, "hov-router.db"))).toBe(false);
 		},
 		TIMEOUT_MS + 5_000,
 	);

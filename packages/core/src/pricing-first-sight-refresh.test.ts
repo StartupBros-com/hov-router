@@ -24,7 +24,7 @@ import {
 	warmPricingCatalog,
 } from "./pricing";
 
-const DISK_CACHE_PATH = join(tmpdir(), "better-ccflare", "models.dev.json");
+const DISK_CACHE_PATH = join(tmpdir(), "hov-router", "models.dev.json");
 const MODELS_DEV_URL = "https://models.dev/api.json";
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;

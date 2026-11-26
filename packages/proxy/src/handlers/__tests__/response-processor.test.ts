@@ -421,8 +421,8 @@ describe("processProxyResponse — 529 overload reason", () => {
 		);
 		const requestMeta = {
 			headers: new Headers({
-				"x-better-ccflare-keepalive": "true",
-				"x-better-ccflare-internal-probe-secret": "test-secret",
+				"x-hov-router-keepalive": "true",
+				"x-hov-router-internal-probe-secret": "test-secret",
 			}),
 		};
 
@@ -467,8 +467,8 @@ describe("processProxyResponse — 529 overload reason", () => {
 			ctx,
 			{
 				headers: new Headers({
-					"x-better-ccflare-keepalive": "true",
-					"x-better-ccflare-internal-probe-secret": "test-secret",
+					"x-hov-router-keepalive": "true",
+					"x-hov-router-internal-probe-secret": "test-secret",
 				}),
 			},
 			(observation) => observations.push(observation),

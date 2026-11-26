@@ -12,7 +12,7 @@ import { computePoolStatus, createHealthHandler } from "../health";
  * carried `Retry-After: 60`, which (combined with CLAUDE_CODE_MAX_RETRIES=5)
  * killed clients in 300s — measured 300.4-300.6s across seven agents. To stop
  * the outage from being invisible, `routable` now honors usage telemetry:
- * accounts whose 100% utilization is visible to ccflare are no longer
+ * accounts whose 100% utilization is visible to the router are no longer
  * counted as routable. `usage_exhausted` keeps its diagnostic-overlay role
  * (pre-usage-aware isAccountAvailable gate), so dashboards and alerting can
  * still isolate "why is this pool empty?".

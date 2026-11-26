@@ -566,8 +566,8 @@ describe("explicit subscription WebSearch helper selection", () => {
 	});
 
 	it("refuses an empty approved pool even with ordinary passthrough enabled", async () => {
-		const previous = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		const previous = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		let sends = 0;
 		globalThis.fetch = (async () => {
 			sends++;
@@ -579,8 +579,8 @@ describe("explicit subscription WebSearch helper selection", () => {
 			expect(sends).toBe(0);
 		} finally {
 			if (previous === undefined)
-				delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-			else process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = previous;
+				delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+			else process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = previous;
 		}
 	});
 
@@ -1072,11 +1072,11 @@ describe("explicit subscription WebSearch helper selection", () => {
 		const { meta, ctx } = fixture();
 		if (!meta.headers || !ctx.modelRouteSessionRegistry)
 			throw new Error("incomplete fixture");
-		meta.headers.set("x-better-ccflare-exclude-providers", "anthropic");
+		meta.headers.set("x-hov-router-exclude-providers", "anthropic");
 		await expect(
 			selectAccountsForRequest(meta, ctx, body.model),
 		).rejects.toThrow();
-		meta.headers.delete("x-better-ccflare-exclude-providers");
+		meta.headers.delete("x-hov-router-exclude-providers");
 		const existing = ctx.modelRouteSessionRegistry.getProfiles();
 		const reserved = parseModelRouteProfiles(
 			JSON.stringify([
@@ -1295,8 +1295,8 @@ describe("subscription pool WebSearch helper selection", () => {
 	it("refuses without sending or spilling when every subscription account is exhausted", async () => {
 		await poll({ enabled: false }, undefined, id, 100);
 		await poll({ enabled: false }, undefined, "helper-sibling", 100);
-		const previous = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		const previous = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		let sends = 0;
 		globalThis.fetch = (async () => {
 			sends++;
@@ -1309,8 +1309,8 @@ describe("subscription pool WebSearch helper selection", () => {
 			expect(sends).toBe(0);
 		} finally {
 			if (previous === undefined)
-				delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-			else process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = previous;
+				delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+			else process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = previous;
 		}
 	});
 

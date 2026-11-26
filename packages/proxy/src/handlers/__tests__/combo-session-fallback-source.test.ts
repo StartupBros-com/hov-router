@@ -15,7 +15,7 @@ function ctxWith(fallbackAllowed?: boolean): ProxyContext {
 }
 
 afterEach(() => {
-	delete process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK;
+	delete process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
 });
 
 describe("isComboSessionFallbackDisabled", () => {
@@ -25,14 +25,14 @@ describe("isComboSessionFallbackDisabled", () => {
 	});
 
 	it("ignores the legacy environment variable at request time", () => {
-		process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK = "true";
+		process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "true";
 		expect(isComboSessionFallbackDisabled(ctxWith(true))).toBe(false);
 	});
 
 	it("leaves a context without a config on the historical behaviour", () => {
 		// No config means no operator to ask. Applying the new default there
 		// would change what happens for callers who never chose it.
-		process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK = "true";
+		process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "true";
 		expect(isComboSessionFallbackDisabled(ctxWith())).toBe(false);
 	});
 });

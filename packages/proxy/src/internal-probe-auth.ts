@@ -5,11 +5,11 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
  * localhost proxy listener. Public probe/session headers are routing hints, not
  * authorization, and must never grant access to a paused or cooling account.
  *
- * The wire value keeps its old auto-refresh wording: `x-better-ccflare-*`
+ * The wire value keeps its old auto-refresh wording: `x-hov-router-*`
  * headers are protected names (AGENTS.md).
  */
 export const INTERNAL_SCHEDULER_AUTH_HEADER =
-	"x-better-ccflare-internal-auto-refresh-token";
+	"x-hov-router-internal-auto-refresh-token";
 
 // Generated once per process. A restart invalidates every previously observed
 // value, and the value is never exported or written to logs/configuration.

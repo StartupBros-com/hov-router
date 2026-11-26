@@ -104,7 +104,7 @@ export abstract class BaseProvider implements Provider {
 		newHeaders.delete("host");
 		// Strip internal proxy headers — never forward to upstream providers
 		for (const key of [...newHeaders.keys()]) {
-			if (key.startsWith("x-better-ccflare-")) {
+			if (key.startsWith("x-hov-router-")) {
 				newHeaders.delete(key);
 			}
 		}

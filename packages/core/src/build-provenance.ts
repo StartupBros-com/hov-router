@@ -18,47 +18,47 @@ function embeddedString(value: string | undefined): string | undefined {
 }
 
 const EMBEDDED_BUILD_PROVENANCE = Object.freeze({
-	CCFLARE_VERSION: embeddedString(
+	HOV_ROUTER_VERSION: embeddedString(
 		typeof __HOV_ROUTER_BUILD_PROVENANCE_VERSION__ === "undefined"
 			? undefined
 			: __HOV_ROUTER_BUILD_PROVENANCE_VERSION__,
 	),
-	CCFLARE_DISTRIBUTION: embeddedString(
+	HOV_ROUTER_DISTRIBUTION: embeddedString(
 		typeof __HOV_ROUTER_BUILD_PROVENANCE_DISTRIBUTION__ === "undefined"
 			? undefined
 			: __HOV_ROUTER_BUILD_PROVENANCE_DISTRIBUTION__,
 	),
-	CCFLARE_PRODUCER: embeddedString(
+	HOV_ROUTER_PRODUCER: embeddedString(
 		typeof __HOV_ROUTER_BUILD_PROVENANCE_PRODUCER__ === "undefined"
 			? undefined
 			: __HOV_ROUTER_BUILD_PROVENANCE_PRODUCER__,
 	),
-	CCFLARE_ARTIFACT_MODE: embeddedString(
+	HOV_ROUTER_ARTIFACT_MODE: embeddedString(
 		typeof __HOV_ROUTER_BUILD_PROVENANCE_ARTIFACT_MODE__ === "undefined"
 			? undefined
 			: __HOV_ROUTER_BUILD_PROVENANCE_ARTIFACT_MODE__,
 	),
-	CCFLARE_UPDATE_CHANNEL: embeddedString(
+	HOV_ROUTER_UPDATE_CHANNEL: embeddedString(
 		typeof __HOV_ROUTER_BUILD_PROVENANCE_UPDATE_CHANNEL__ === "undefined"
 			? undefined
 			: __HOV_ROUTER_BUILD_PROVENANCE_UPDATE_CHANNEL__,
 	),
-	CCFLARE_GIT_SHA: embeddedString(
+	HOV_ROUTER_GIT_SHA: embeddedString(
 		typeof __HOV_ROUTER_BUILD_PROVENANCE_GIT_SHA__ === "undefined"
 			? undefined
 			: __HOV_ROUTER_BUILD_PROVENANCE_GIT_SHA__,
 	),
-	CCFLARE_GIT_REF: embeddedString(
+	HOV_ROUTER_GIT_REF: embeddedString(
 		typeof __HOV_ROUTER_BUILD_PROVENANCE_GIT_REF__ === "undefined"
 			? undefined
 			: __HOV_ROUTER_BUILD_PROVENANCE_GIT_REF__,
 	),
-	CCFLARE_SOURCE_SHA: embeddedString(
+	HOV_ROUTER_SOURCE_SHA: embeddedString(
 		typeof __HOV_ROUTER_BUILD_PROVENANCE_SOURCE_SHA__ === "undefined"
 			? undefined
 			: __HOV_ROUTER_BUILD_PROVENANCE_SOURCE_SHA__,
 	),
-	CCFLARE_SOURCE_REF: embeddedString(
+	HOV_ROUTER_SOURCE_REF: embeddedString(
 		typeof __HOV_ROUTER_BUILD_PROVENANCE_SOURCE_REF__ === "undefined"
 			? undefined
 			: __HOV_ROUTER_BUILD_PROVENANCE_SOURCE_REF__,
@@ -66,11 +66,11 @@ const EMBEDDED_BUILD_PROVENANCE = Object.freeze({
 });
 
 function hasRuntimeDistribution(env: Env): boolean {
-	return env.CCFLARE_DISTRIBUTION !== undefined;
+	return env.HOV_ROUTER_DISTRIBUTION !== undefined;
 }
 
 function hasEmbeddedDistribution(): boolean {
-	return EMBEDDED_BUILD_PROVENANCE.CCFLARE_DISTRIBUTION !== undefined;
+	return EMBEDDED_BUILD_PROVENANCE.HOV_ROUTER_DISTRIBUTION !== undefined;
 }
 
 function runtimeOrEmbedded(
@@ -89,13 +89,13 @@ function provenanceVersion(env: Env): string {
 	// A runtime distribution must carry its own version, and an embedded release
 	// tuple must use its embedded version. Neither may blend mutable fields into
 	// the other; source builds retain their established runtime fallback chain.
-	if (hasRuntimeDistribution(env)) return env.CCFLARE_VERSION ?? "unknown";
+	if (hasRuntimeDistribution(env)) return env.HOV_ROUTER_VERSION ?? "unknown";
 	if (hasEmbeddedDistribution()) {
-		return EMBEDDED_BUILD_PROVENANCE.CCFLARE_VERSION ?? "unknown";
+		return EMBEDDED_BUILD_PROVENANCE.HOV_ROUTER_VERSION ?? "unknown";
 	}
 	return (
-		env.CCFLARE_VERSION ??
-		env.BETTER_CCFLARE_VERSION ??
+		env.HOV_ROUTER_VERSION ??
+		env.HOV_ROUTER_VERSION ??
 		env.npm_package_version ??
 		"unknown"
 	);
@@ -309,18 +309,18 @@ function invalid(
 export function resolveBuildProvenance(
 	env: Env = process.env,
 ): ResolvedDistributionProvenance {
-	const raw = runtimeOrEmbedded(env, "CCFLARE_DISTRIBUTION");
+	const raw = runtimeOrEmbedded(env, "HOV_ROUTER_DISTRIBUTION");
 	const identity = parseDistributionIdentity(raw);
 	if (!identity) return invalid(raw, "unknown_distribution");
 
 	const version = provenanceVersion(env);
-	const sourceSha = runtimeOrEmbedded(env, "CCFLARE_GIT_SHA");
-	const sourceRef = runtimeOrEmbedded(env, "CCFLARE_GIT_REF");
-	const sourceEvidenceSha = runtimeOrEmbedded(env, "CCFLARE_SOURCE_SHA");
-	const sourceEvidenceRef = runtimeOrEmbedded(env, "CCFLARE_SOURCE_REF");
-	const producer = runtimeOrEmbedded(env, "CCFLARE_PRODUCER");
-	const artifactMode = runtimeOrEmbedded(env, "CCFLARE_ARTIFACT_MODE");
-	const updateChannel = runtimeOrEmbedded(env, "CCFLARE_UPDATE_CHANNEL");
+	const sourceSha = runtimeOrEmbedded(env, "HOV_ROUTER_GIT_SHA");
+	const sourceRef = runtimeOrEmbedded(env, "HOV_ROUTER_GIT_REF");
+	const sourceEvidenceSha = runtimeOrEmbedded(env, "HOV_ROUTER_SOURCE_SHA");
+	const sourceEvidenceRef = runtimeOrEmbedded(env, "HOV_ROUTER_SOURCE_REF");
+	const producer = runtimeOrEmbedded(env, "HOV_ROUTER_PRODUCER");
+	const artifactMode = runtimeOrEmbedded(env, "HOV_ROUTER_ARTIFACT_MODE");
+	const updateChannel = runtimeOrEmbedded(env, "HOV_ROUTER_UPDATE_CHANNEL");
 	if (sourceSha === undefined)
 		return invalid(raw, "missing_source_sha", identity);
 	if (!FULL_LOWERCASE_SHA.test(sourceSha)) {
@@ -390,9 +390,9 @@ export function readDockerBuildProvenance(
 	const version = provenanceVersion(env);
 	return {
 		version,
-		git_sha: rawOrUnknown(runtimeOrEmbedded(env, "CCFLARE_GIT_SHA")),
-		git_ref: rawOrUnknown(runtimeOrEmbedded(env, "CCFLARE_GIT_REF")),
-		build_date: rawOrUnknown(env.CCFLARE_BUILD_DATE),
+		git_sha: rawOrUnknown(runtimeOrEmbedded(env, "HOV_ROUTER_GIT_SHA")),
+		git_ref: rawOrUnknown(runtimeOrEmbedded(env, "HOV_ROUTER_GIT_REF")),
+		build_date: rawOrUnknown(env.HOV_ROUTER_BUILD_DATE),
 		distribution: resolveBuildProvenance(env),
 	};
 }

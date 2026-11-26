@@ -610,7 +610,7 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 		if (
 			resolvedPath !== ":memory:" &&
 			!["0", "false", "off"].includes(
-				process.env.BETTER_CCFLARE_DB_READER_WORKER?.toLowerCase() ?? "",
+				process.env.HOV_ROUTER_DB_READER_WORKER?.toLowerCase() ?? "",
 			)
 		) {
 			const readerOptions = {
@@ -680,7 +680,7 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 	 * main connection is `query_only`, so call this after startup maintenance
 	 * that writes through the raw handle (bootstrapAutoVacuum). Needs WAL:
 	 * without it the two connections lock each other out on every commit.
-	 * Opt out with BETTER_CCFLARE_DB_WRITER_WORKER=0. Returns whether writes
+	 * Opt out with HOV_ROUTER_DB_WRITER_WORKER=0. Returns whether writes
 	 * now run off-thread.
 	 */
 	startWriterThread(): boolean {
@@ -690,7 +690,7 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 		if (this.closing || !db || !dbPath || dbPath === ":memory:") return false;
 		if (
 			["0", "false", "off"].includes(
-				process.env.BETTER_CCFLARE_DB_WRITER_WORKER?.toLowerCase() ?? "",
+				process.env.HOV_ROUTER_DB_WRITER_WORKER?.toLowerCase() ?? "",
 			)
 		)
 			return false;
@@ -1022,7 +1022,7 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 	 */
 	generateRecoveryInstructions(): string {
 		const dbPath =
-			this.resolvedDbPath ?? "~/.config/better-ccflare/better-ccflare.db";
+			this.resolvedDbPath ?? "~/.config/hov-router/hov-router.db";
 		return `
 DATABASE RECOVERY INSTRUCTIONS
 

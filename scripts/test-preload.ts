@@ -24,8 +24,8 @@ process.env.TMPDIR = dir;
 process.env.TEMP = dir;
 process.env.TMP = dir;
 process.env.XDG_CONFIG_HOME = join(dir, "config");
-process.env.BETTER_CCFLARE_LOG_DIR = join(dir, "logs");
-process.env.BETTER_CCFLARE_MODELS_CACHE_DIR = join(dir, "models-cache");
+process.env.HOV_ROUTER_LOG_DIR = join(dir, "logs");
+process.env.HOV_ROUTER_MODELS_CACHE_DIR = join(dir, "models-cache");
 
 function cleanup(): void {
 	try {

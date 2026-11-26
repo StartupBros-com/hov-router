@@ -46,7 +46,7 @@ describe("start reserve", () => {
 	let dbPath: string;
 
 	beforeEach(() => {
-		dir = mkdtempSync(join(tmpdir(), "better-ccflare-start-reserve-"));
+		dir = mkdtempSync(join(tmpdir(), "hov-router-start-reserve-"));
 		dbPath = join(dir, "router.db");
 	});
 

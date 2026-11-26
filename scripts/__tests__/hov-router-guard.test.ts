@@ -45,7 +45,7 @@ import {
 	createGuardAbortOwner,
 	drainRequest,
 	planRecoveryAction,
-} from "../ccflare-guard.mjs";
+} from "../hov-router-guard.mjs";
 
 const servers: Server[] = [];
 const children: ChildProcess[] = [];
@@ -87,20 +87,20 @@ async function startProductionNodeGuard(
 	runtimePrelude = "",
 ) {
 	const guardPath = fileURLToPath(
-		new URL("../ccflare-guard.mjs", import.meta.url),
+		new URL("../hov-router-guard.mjs", import.meta.url),
 	);
 	const nodeArgs = runtimePrelude
 		? [
 				"--input-type=module",
 				"--eval",
-				`${runtimePrelude}; process.argv[1] = ${JSON.stringify(guardPath)}; await import(${JSON.stringify(new URL("../ccflare-guard.mjs", import.meta.url).href)});`,
+				`${runtimePrelude}; process.argv[1] = ${JSON.stringify(guardPath)}; await import(${JSON.stringify(new URL("../hov-router-guard.mjs", import.meta.url).href)});`,
 			]
 		: [guardPath];
 	const child = spawn(process.env.GUARD_NODE_BIN || "node", nodeArgs, {
 		cwd: process.platform === "win32" ? process.env.SystemRoot : undefined,
 		env: {
 			...process.env,
-			CCFLARE_UPSTREAM: upstreamBase,
+			HOV_ROUTER_UPSTREAM: upstreamBase,
 			GUARD_HOST: "127.0.0.1",
 			GUARD_PORT: "0",
 			GUARD_MAX_ACTIVE: "1",
@@ -180,7 +180,7 @@ function productionFixturePrelude(handlerBody: string) {
 		${handlerBody}
 	});
 	await new Promise(resolve => fixture.listen(0, "127.0.0.1", resolve));
-	process.env.CCFLARE_UPSTREAM = "http://127.0.0.1:" + fixture.address().port;`;
+	process.env.HOV_ROUTER_UPSTREAM = "http://127.0.0.1:" + fixture.address().port;`;
 }
 
 async function waitForChildExit(
@@ -441,17 +441,17 @@ describe("source-controlled guard", () => {
 		const health = await response.json();
 
 		expect(response.status).toBe(200);
-		expect(DEFAULT_GUARD_SOURCE_ID).toBe("better-ccflare-source-guard-v1");
+		expect(DEFAULT_GUARD_SOURCE_ID).toBe("hov-router-source-guard-v1");
 		expect(health).toMatchObject({
 			status: "ok",
 			sourceId: "test-source-sha",
 			policyId: "test-policy",
 		});
 		const guardPath = realpathSync(
-			fileURLToPath(new URL("../ccflare-guard.mjs", import.meta.url)),
+			fileURLToPath(new URL("../hov-router-guard.mjs", import.meta.url)),
 		);
 		const policyPath = realpathSync(
-			fileURLToPath(new URL("../ccflare-guard-policy.mjs", import.meta.url)),
+			fileURLToPath(new URL("../hov-router-guard-policy.mjs", import.meta.url)),
 		);
 		expect(health.runtime).toMatchObject({
 			artifacts: {
@@ -946,8 +946,8 @@ describe("source-controlled guard", () => {
 						{
 							status: 503,
 							headers: {
-								"x-better-ccflare-pool-status": "exhausted",
-								"x-better-ccflare-recovery-scope": "pool",
+								"x-hov-router-pool-status": "exhausted",
+								"x-hov-router-recovery-scope": "pool",
 							},
 						},
 					);
@@ -1090,7 +1090,7 @@ describe("source-controlled guard", () => {
 						"x-request-id": "req_safe",
 						[GUARD_REQUEST_ID_HEADER]: "must-not-reach-client",
 						[GUARD_CORRELATION_SECRET_HEADER]: "must-never-be-http",
-						"x-better-ccflare-request-id":
+						"x-hov-router-request-id":
 							"derived-correlation-must-not-reach-client",
 					},
 				});
@@ -1108,7 +1108,7 @@ describe("source-controlled guard", () => {
 		expect(response.headers.get("x-request-id")).toBe("req_safe");
 		expect(response.headers.get(GUARD_REQUEST_ID_HEADER)).toBeNull();
 		expect(response.headers.get(GUARD_CORRELATION_SECRET_HEADER)).toBeNull();
-		expect(response.headers.get("x-better-ccflare-request-id")).toBeNull();
+		expect(response.headers.get("x-hov-router-request-id")).toBeNull();
 		expect(fetchCalls).toBe(1);
 	});
 
@@ -2406,7 +2406,7 @@ describe("source-controlled guard", () => {
 				if (fetchCalls === 1) {
 					return new Response("retry-body-that-must-not-leak", {
 						status: 503,
-						headers: { "x-better-ccflare-pool-status": "exhausted" },
+						headers: { "x-hov-router-pool-status": "exhausted" },
 					});
 				}
 				return new Response("ok", { status: 200 });
@@ -2438,7 +2438,7 @@ describe("source-controlled guard", () => {
 				if (attempts === 1) {
 					res.writeHead(503, {
 						"content-type": "application/json",
-						"x-better-ccflare-pool-status": "exhausted",
+						"x-hov-router-pool-status": "exhausted",
 					});
 					res.end(
 						JSON.stringify({
@@ -2492,8 +2492,8 @@ describe("source-controlled guard", () => {
 				res.writeHead(503, {
 					"content-type": "application/json",
 					"retry-after": "0.01",
-					"x-better-ccflare-pool-status": "exhausted",
-					"x-better-ccflare-recovery-scope": "pool",
+					"x-hov-router-pool-status": "exhausted",
+					"x-hov-router-recovery-scope": "pool",
 				});
 				res.end(responseBody);
 			}),
@@ -2512,7 +2512,7 @@ describe("source-controlled guard", () => {
 
 		expect(response.status).toBe(503);
 		expect(response.headers.get("retry-after")).toBe("0.01");
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
 		expect(await response.text()).toBe(responseBody);
@@ -2607,7 +2607,7 @@ describe("source-controlled guard", () => {
 				attempts += 1;
 				res.writeHead(503, {
 					"content-type": "application/json",
-					"x-better-ccflare-pool-status": "exhausted",
+					"x-hov-router-pool-status": "exhausted",
 				});
 				res.end(JSON.stringify({ error: { type: "pool_exhausted" } }));
 			}),
@@ -3166,7 +3166,7 @@ describe("source-controlled guard", () => {
 					if (aAttempts === 1) {
 						res.writeHead(503, {
 							"content-type": "application/json",
-							"x-better-ccflare-pool-status": "exhausted",
+							"x-hov-router-pool-status": "exhausted",
 						});
 						res.end(
 							JSON.stringify({
@@ -3221,8 +3221,8 @@ describe("source-controlled guard", () => {
 					const delayMs = id === "A" ? 500 : 20;
 					res.writeHead(503, {
 						"content-type": "application/json",
-						"x-better-ccflare-pool-status": "exhausted",
-						"x-better-ccflare-recovery-scope": "model",
+						"x-hov-router-pool-status": "exhausted",
+						"x-hov-router-recovery-scope": "model",
 					});
 					res.end(
 						JSON.stringify({
@@ -3313,9 +3313,9 @@ describe("source-controlled guard", () => {
 				if (attempts === 1) {
 					res.writeHead(503, {
 						"content-type": "application/json",
-						"x-better-ccflare-pool-status": "exhausted",
-						"x-better-ccflare-recovery-scope": "route",
-						"x-better-ccflare-route-status": "circuit-open",
+						"x-hov-router-pool-status": "exhausted",
+						"x-hov-router-recovery-scope": "route",
+						"x-hov-router-route-status": "circuit-open",
 						"retry-after": "1",
 					});
 					res.end(
@@ -3357,8 +3357,8 @@ describe("source-controlled guard", () => {
 			http.createServer((_req, res) => {
 				res.writeHead(503, {
 					"content-type": "application/json",
-					"x-better-ccflare-pool-status": "exhausted",
-					"x-better-ccflare-recovery-scope": "pool",
+					"x-hov-router-pool-status": "exhausted",
+					"x-hov-router-recovery-scope": "pool",
 				});
 				res.end(
 					JSON.stringify({
@@ -3520,7 +3520,7 @@ describe("source-controlled guard", () => {
 				attempts += 1;
 				res.writeHead(503, {
 					"content-type": "application/json",
-					"x-better-ccflare-pool-status": "exhausted",
+					"x-hov-router-pool-status": "exhausted",
 				});
 				res.end(
 					JSON.stringify({
@@ -3546,7 +3546,7 @@ describe("source-controlled guard", () => {
 
 		expect(response.status).toBe(503);
 		expect(response.headers.get("retry-after")).toBeNull();
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBeNull();
+		expect(response.headers.get("x-hov-router-pool-status")).toBeNull();
 		expect(await response.json()).toMatchObject({
 			error: { type: "guard_retry_attempts_exhausted" },
 		});
@@ -3912,7 +3912,7 @@ describe("source-controlled guard", () => {
 					"content-type": "application/json",
 					"content-encoding": "gzip",
 					"content-length": body.length,
-					"x-better-ccflare-pool-status": "exhausted",
+					"x-hov-router-pool-status": "exhausted",
 				});
 				res.end(body);
 			}),
@@ -4116,7 +4116,7 @@ describe("source-controlled guard", () => {
 					res.writeHead(503, {
 						"content-type": "application/json",
 						"retry-after": "1",
-						"x-better-ccflare-pool-status": "exhausted",
+						"x-hov-router-pool-status": "exhausted",
 					});
 					res.write(body.slice(0, 64));
 					setTimeout(() => res.end(body.slice(64)), 20);
@@ -4141,7 +4141,7 @@ describe("source-controlled guard", () => {
 
 		expect(response.status).toBe(503);
 		expect(response.headers.get("retry-after")).toBe("1");
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
 		expect(await response.text()).toBe(body);
@@ -4234,8 +4234,8 @@ describe("source-controlled guard", () => {
 					res.writeHead(503, {
 						"content-type": "application/json",
 						"retry-after": "300",
-						"x-better-ccflare-pool-status": "exhausted",
-						"x-better-ccflare-recovery-scope": "model",
+						"x-hov-router-pool-status": "exhausted",
+						"x-hov-router-recovery-scope": "model",
 					});
 					heldResponse.response = res;
 					res.write(modelBody);
@@ -4260,7 +4260,7 @@ describe("source-controlled guard", () => {
 		});
 		expect(response.status).toBe(503);
 		expect(response.headers.get("retry-after")).toBe("300");
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
 		expect(attempts).toBe(1);
@@ -4305,7 +4305,7 @@ describe("source-controlled guard", () => {
 					res.writeHead(503, {
 						"content-type": "application/json",
 						"retry-after": "1",
-						"x-better-ccflare-pool-status": "exhausted",
+						"x-hov-router-pool-status": "exhausted",
 					});
 					res.end(
 						JSON.stringify({
@@ -4382,8 +4382,8 @@ describe("source-controlled guard", () => {
 							});
 				res.writeHead(503, {
 					"content-type": "application/json",
-					"x-better-ccflare-pool-status": "exhausted",
-					"x-better-ccflare-recovery-scope": "model",
+					"x-hov-router-pool-status": "exhausted",
+					"x-hov-router-recovery-scope": "model",
 				});
 				res.end(recoveryBody);
 			}),
@@ -4421,7 +4421,7 @@ describe("source-controlled guard", () => {
 				res.writeHead(503, {
 					"content-type": "application/json",
 					"retry-after": "1",
-					"x-better-ccflare-pool-status": "exhausted",
+					"x-hov-router-pool-status": "exhausted",
 				});
 				res.end(body);
 			}),
@@ -4439,7 +4439,7 @@ describe("source-controlled guard", () => {
 
 		expect(response.status).toBe(503);
 		expect(response.headers.get("retry-after")).toBe("1");
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
 		expect(await response.text()).toBe(body);
@@ -4466,7 +4466,7 @@ describe("source-controlled guard", () => {
 				if (attempts === 1) {
 					res.writeHead(503, {
 						"content-type": "application/json",
-						"x-better-ccflare-pool-status": "exhausted",
+						"x-hov-router-pool-status": "exhausted",
 					});
 					res.end(body);
 					return;
@@ -4517,7 +4517,7 @@ describe("source-controlled guard", () => {
 				if (attempts === 1) {
 					res.writeHead(503, {
 						"content-type": "application/json",
-						"x-better-ccflare-pool-status": "exhausted",
+						"x-hov-router-pool-status": "exhausted",
 					});
 					res.end(
 						JSON.stringify({
@@ -4572,7 +4572,7 @@ describe("source-controlled guard", () => {
 					res.writeHead(503, {
 						"content-type": "application/json",
 						"retry-after": "1",
-						"x-better-ccflare-pool-status": "exhausted",
+						"x-hov-router-pool-status": "exhausted",
 					});
 					res.end(
 						JSON.stringify({
@@ -4620,7 +4620,7 @@ describe("source-controlled guard", () => {
 					res.writeHead(503, {
 						"content-type": "application/json",
 						"retry-after": "1",
-						"x-better-ccflare-pool-status": "exhausted",
+						"x-hov-router-pool-status": "exhausted",
 					});
 					res.write('{"error":{"type":"pool_exhausted"}');
 					return;
@@ -4666,7 +4666,7 @@ describe("source-controlled guard", () => {
 				res.writeHead(503, {
 					"content-type": "text/plain",
 					"retry-after": "1",
-					"x-better-ccflare-pool-status": "exhausted",
+					"x-hov-router-pool-status": "exhausted",
 				});
 				res.write("partial-prefix");
 				setTimeout(() => {
@@ -4692,7 +4692,7 @@ describe("source-controlled guard", () => {
 		expect(response.status).toBe(503);
 		expect(response.headers.get("content-type")).toBe("text/plain");
 		expect(response.headers.get("retry-after")).toBe("1");
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
 		expect(await response.text()).toBe(body);
@@ -4722,7 +4722,7 @@ describe("source-controlled guard", () => {
 				attempts += 1;
 				res.writeHead(503, {
 					"content-type": "application/json",
-					"x-better-ccflare-pool-status": "exhausted",
+					"x-hov-router-pool-status": "exhausted",
 				});
 				for (let offset = 0; offset < body.length; offset += 8 * 1_024) {
 					res.write(body.slice(offset, offset + 8 * 1_024));
@@ -4761,7 +4761,7 @@ describe("source-controlled guard", () => {
 				if (attempts === 1) {
 					res.writeHead(503, {
 						"content-type": "application/json",
-						"x-better-ccflare-pool-status": "exhausted",
+						"x-hov-router-pool-status": "exhausted",
 					});
 					res.write('{"error":{"type":"pool_exhausted"}');
 					// Never completes within the test's lifetime; the socket is
@@ -4801,7 +4801,7 @@ describe("source-controlled guard", () => {
 				}
 				res.writeHead(503, {
 					"content-type": "application/json",
-					"x-better-ccflare-pool-status": "exhausted",
+					"x-hov-router-pool-status": "exhausted",
 				});
 				res.end(
 					JSON.stringify({

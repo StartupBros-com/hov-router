@@ -85,7 +85,7 @@ const ROUTE_ACCOUNT_ID = "route-account-secret";
 const SECOND_PROFILE_MODEL = "claude-bccf-route-second-route";
 const SECOND_ROUTE_ACCOUNT_ID = "second-route-secret";
 const ADAPTER_SECRET = "profile-test-process-secret";
-const ADAPTER_SECRET_HEADER = "x-better-ccflare-responses-adapter-secret";
+const ADAPTER_SECRET_HEADER = "x-hov-router-responses-adapter-secret";
 const originalFetch = globalThis.fetch;
 let restoreUsageCollector = (): void => {};
 let usageHandleStart = mock(
@@ -216,7 +216,7 @@ describe("exact profile private WebSearch authorization", () => {
 					PROFILE_MODEL,
 					{
 						"x-claude-code-session-id": "forced-helper",
-						"x-better-ccflare-account-id": empty ? "" : ROUTE_ACCOUNT_ID,
+						"x-hov-router-account-id": empty ? "" : ROUTE_ACCOUNT_ID,
 					},
 					{ tools: [{ type: "web_search_20250305", name: "web_search" }] },
 				),
@@ -465,7 +465,7 @@ function makeContext(
 		runtime: { port: 8080, clientId: "test" },
 		config: {
 			getCodexImplicitRouteEnabled: () =>
-				process.env.CCFLARE_CODEX_IMPLICIT_ROUTE !== "0",
+				process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE !== "0",
 			getUsageThrottlingFiveHourEnabled: () => false,
 			getUsageThrottlingWeeklyEnabled: () => false,
 			getSystemPromptCacheTtl1h: () => false,
@@ -689,8 +689,8 @@ describe("Claude Code gateway model route profiles", () => {
 		"catalog discovery",
 		"resolver self-expiry",
 	] as const)("returns a retryable selection timeout when implicit route %s exceeds its deadline", async (phase) => {
-		const previous = process.env.CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS;
-		process.env.CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS = "5";
+		const previous = process.env.HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS;
+		process.env.HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS = "5";
 		const codex = makeAccount("implicit-timeout-codex");
 		codex.provider = "codex";
 		codex.api_key = null;
@@ -758,14 +758,14 @@ describe("Claude Code gateway model route profiles", () => {
 				await ensureCodexModelDefaults(codex, harness.ctx);
 			}
 			if (previous === undefined)
-				delete process.env.CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS;
-			else process.env.CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS = previous;
+				delete process.env.HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS;
+			else process.env.HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS = previous;
 		}
 	});
 
 	it("leaves ordinary routing active when the implicit route kill switch is off", async () => {
-		const previous = process.env.CCFLARE_CODEX_IMPLICIT_ROUTE;
-		process.env.CCFLARE_CODEX_IMPLICIT_ROUTE = "0";
+		const previous = process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE;
+		process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE = "0";
 		try {
 			const harness = makeContext();
 			const { requests } = installJsonUpstream();
@@ -791,8 +791,8 @@ describe("Claude Code gateway model route profiles", () => {
 			});
 		} finally {
 			if (previous === undefined)
-				delete process.env.CCFLARE_CODEX_IMPLICIT_ROUTE;
-			else process.env.CCFLARE_CODEX_IMPLICIT_ROUTE = previous;
+				delete process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE;
+			else process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE = previous;
 		}
 	});
 
@@ -857,7 +857,7 @@ describe("Claude Code gateway model route profiles", () => {
 	});
 
 	it("leaves model discovery byte-identical with the implicit route enabled or disabled", async () => {
-		const previous = process.env.CCFLARE_CODEX_IMPLICIT_ROUTE;
+		const previous = process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE;
 		try {
 			const harness = makeContext(makeCapabilityRegistry());
 			const { fetchMock } = installJsonUpstream();
@@ -865,9 +865,9 @@ describe("Claude Code gateway model route profiles", () => {
 				const request = new Request("https://proxy.local/v1/models");
 				return handleProxy(request, new URL(request.url), harness.ctx, "key-1");
 			};
-			process.env.CCFLARE_CODEX_IMPLICIT_ROUTE = "0";
+			process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE = "0";
 			const before = await discover();
-			process.env.CCFLARE_CODEX_IMPLICIT_ROUTE = "1";
+			process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE = "1";
 			const after = await discover();
 
 			expect(before.status).toBe(200);
@@ -877,8 +877,8 @@ describe("Claude Code gateway model route profiles", () => {
 			expect(fetchMock).toHaveBeenCalledTimes(0);
 		} finally {
 			if (previous === undefined)
-				delete process.env.CCFLARE_CODEX_IMPLICIT_ROUTE;
-			else process.env.CCFLARE_CODEX_IMPLICIT_ROUTE = previous;
+				delete process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE;
+			else process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE = previous;
 		}
 	});
 
@@ -2190,7 +2190,7 @@ describe("Claude Code gateway model route profiles", () => {
 		const child = apiRequest("/v1/messages", PROFILE_MODEL, {
 			...session,
 			"x-claude-code-agent-id": "claude-code-child",
-			"x-better-ccflare-agent-id": "preferred-header-agent",
+			"x-hov-router-agent-id": "preferred-header-agent",
 		});
 		expect(
 			(await handleProxy(child, new URL(child.url), harness.ctx, "key-1"))
@@ -2224,7 +2224,7 @@ describe("Claude Code gateway model route profiles", () => {
 		const child = apiRequest("/v1/messages", CHILD_MODEL, {
 			...session,
 			"x-claude-code-agent-id": "effective-same-picker-child",
-			"x-better-ccflare-agent-id": "same-picker-preference",
+			"x-hov-router-agent-id": "same-picker-preference",
 		});
 		expect(
 			(await handleProxy(child, new URL(child.url), harness.ctx, "key-1"))
@@ -2257,7 +2257,7 @@ describe("Claude Code gateway model route profiles", () => {
 		const child = apiRequest("/v1/messages", CHILD_MODEL, {
 			...session,
 			"x-claude-code-agent-id": "effective-conflicting-picker-child",
-			"x-better-ccflare-agent-id": "conflicting-picker-preference",
+			"x-hov-router-agent-id": "conflicting-picker-preference",
 		});
 		const response = await handleProxy(
 			child,
@@ -2298,7 +2298,7 @@ describe("Claude Code gateway model route profiles", () => {
 		const child = apiRequest("/v1/messages", CHILD_MODEL, {
 			...session,
 			"x-claude-code-agent-id": "effective-unknown-picker-child",
-			"x-better-ccflare-agent-id": "unknown-picker-preference",
+			"x-hov-router-agent-id": "unknown-picker-preference",
 		});
 		const response = await handleProxy(
 			child,
@@ -2340,7 +2340,7 @@ describe("Claude Code gateway model route profiles", () => {
 		harness.getAgentPreference.mockResolvedValue({ model: PROFILE_MODEL });
 		const nativeRoot = apiRequest("/v1/messages", CHILD_MODEL, {
 			...session,
-			"x-better-ccflare-agent-id": "injected-picker-preference",
+			"x-hov-router-agent-id": "injected-picker-preference",
 		});
 		const rejected = await handleProxy(
 			nativeRoot,
@@ -2383,7 +2383,7 @@ describe("Claude Code gateway model route profiles", () => {
 		};
 		const root = apiRequest("/v1/messages", PROFILE_MODEL, {
 			...session,
-			"x-better-ccflare-agent-id": "native-rewrite-preference",
+			"x-hov-router-agent-id": "native-rewrite-preference",
 		});
 		expect(
 			(await handleProxy(root, new URL(root.url), harness.ctx, "key-1")).status,
@@ -2799,7 +2799,7 @@ describe("Claude Code gateway model route profiles", () => {
 		const harness = makeContext(makeRegistry());
 		const { fetchMock } = installJsonUpstream();
 		const request = apiRequest("/v1/messages", PROFILE_MODEL, {
-			"x-better-ccflare-account-id": "some-other-account",
+			"x-hov-router-account-id": "some-other-account",
 		});
 		const response = await handleProxy(
 			request,
@@ -2994,7 +2994,7 @@ describe("Claude Code gateway model route profiles", () => {
 		const harness = makeContext(makeRegistry());
 		const { fetchMock } = installJsonUpstream();
 		const request = apiRequest("/v1/messages", CHILD_MODEL, {
-			"x-better-ccflare-account-id": "public-missing-account",
+			"x-hov-router-account-id": "public-missing-account",
 		});
 		const response = await handleProxy(
 			request,
@@ -3340,7 +3340,7 @@ describe("Claude Code gateway model route profiles", () => {
 			},
 		});
 		expect(
-			firstChildResponse.headers.get("x-better-ccflare-route-fallback"),
+			firstChildResponse.headers.get("x-hov-router-route-fallback"),
 		).toBe("profile_requested_model");
 		const firstChildUrl = requests[1]?.url;
 		expect(firstChildUrl).toBeString();
@@ -3901,14 +3901,14 @@ describe("catalog-role Codex route profiles", () => {
 			);
 			expect(racing.response.status, racing.text).toBe(200);
 			expect(
-				racing.response.headers.get("x-better-ccflare-route-fallback"),
+				racing.response.headers.get("x-hov-router-route-fallback"),
 			).toBe("profile_root_model");
 
 			// The refreshed catalog governs the next descendant request.
 			const later = await send(harness.ctx, CHILD_MODEL, child);
 			expect(later.response.status, later.text).toBe(200);
 			expect(
-				later.response.headers.get("x-better-ccflare-route-fallback"),
+				later.response.headers.get("x-hov-router-route-fallback"),
 			).toBe("profile_root_model");
 
 			expect(await upstreamModels(upstream.responses)).toEqual([
@@ -3939,7 +3939,7 @@ describe("catalog-role Codex route profiles", () => {
 
 			expect(racing.response.status, racing.text).toBe(200);
 			expect(
-				racing.response.headers.get("x-better-ccflare-route-fallback"),
+				racing.response.headers.get("x-hov-router-route-fallback"),
 			).toBe("profile_requested_model");
 			expect(await upstreamModels(upstream.responses)).toEqual([
 				"gpt-7-nova",
@@ -3979,7 +3979,7 @@ describe("catalog-role Codex route profiles", () => {
 
 			expect(global.response.status, global.text).toBe(200);
 			expect(
-				global.response.headers.get("x-better-ccflare-route-fallback"),
+				global.response.headers.get("x-hov-router-route-fallback"),
 			).toBe("global_requested_model");
 			expect(upstream.responses).toHaveLength(2);
 			expect(new URL(upstream.responses[0]?.url ?? "").pathname).toEndWith(
@@ -4053,7 +4053,7 @@ describe("catalog-role Codex route profiles", () => {
 		const failed = await send(harness.ctx, ROLE_PICKER);
 
 		expect(failed.response.status).toBe(503);
-		expect(failed.response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(failed.response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		expect(failed.response.headers.get("x-should-retry")).toBe(shouldRetry);
@@ -4308,9 +4308,9 @@ describe("catalog-role Codex route profiles", () => {
 		] as const)("sends the line's model, not the sonnet slot, with context admission $admission", async ({
 			admission,
 		}) => {
-			const previous = process.env.CCFLARE_CONTEXT_ADMISSION;
-			if (admission === "on") process.env.CCFLARE_CONTEXT_ADMISSION = "1";
-			else delete process.env.CCFLARE_CONTEXT_ADMISSION;
+			const previous = process.env.HOV_ROUTER_CONTEXT_ADMISSION;
+			if (admission === "on") process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
+			else delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 			try {
 				const account = makeRoleAccount(`line-pool-admission-${admission}`);
 				const harness = makeLineContext([account]);
@@ -4331,8 +4331,8 @@ describe("catalog-role Codex route profiles", () => {
 				]);
 			} finally {
 				if (previous === undefined)
-					delete process.env.CCFLARE_CONTEXT_ADMISSION;
-				else process.env.CCFLARE_CONTEXT_ADMISSION = previous;
+					delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
+				else process.env.HOV_ROUTER_CONTEXT_ADMISSION = previous;
 			}
 		});
 
@@ -4522,14 +4522,14 @@ describe("catalog-role Codex route profiles", () => {
 			timeoutMs: string,
 			run: () => Promise<T>,
 		): Promise<T> {
-			const previous = process.env.CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS;
-			process.env.CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS = timeoutMs;
+			const previous = process.env.HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS;
+			process.env.HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS = timeoutMs;
 			try {
 				return await run();
 			} finally {
 				if (previous === undefined)
-					delete process.env.CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS;
-				else process.env.CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS = previous;
+					delete process.env.HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS;
+				else process.env.HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS = previous;
 			}
 		}
 

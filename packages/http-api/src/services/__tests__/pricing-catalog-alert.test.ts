@@ -32,7 +32,7 @@ import {
 const NOW = Date.parse("2026-11-10T03:00:00Z");
 const DAY = 24 * 60 * 60 * 1000;
 const RECENT = new Date(NOW - 2 * DAY).toISOString().slice(0, 10);
-const DISK_CACHE_PATH = join(tmpdir(), "better-ccflare", "models.dev.json");
+const DISK_CACHE_PATH = join(tmpdir(), "hov-router", "models.dev.json");
 
 function makeConfig(): Config {
 	const store = new Map<string, string | number | boolean>();

@@ -74,11 +74,11 @@ const readTraceRecords = (dir: string): Array<Record<string, unknown>> => {
 
 describe("Codex verified client identity", () => {
 	it("resolves explicit, verified, stale, rollback and path-isolated defaults", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-identity-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-identity-"));
 		const record = join(dir, "verified.json");
 		const other = join(dir, "other.json");
-		const oldPath = process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE;
-		const oldVersion = process.env.CCFLARE_CODEX_CLIENT_VERSION;
+		const oldPath = process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE;
+		const oldVersion = process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 		// Injected clock for every direct resolveCodexClientIdentity() call
 		// below: the resolver now memoizes a source-path read for READ_CACHE_MS,
 		// so a same-path rewrite must be followed by an advance past that
@@ -92,8 +92,8 @@ describe("Codex verified client identity", () => {
 		const clock = { time: Date.now() };
 		const getNow = () => clock.time;
 		try {
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = record;
-			delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = record;
+			delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 			writeFileSync(
 				record,
 				JSON.stringify({
@@ -114,12 +114,12 @@ describe("Codex verified client identity", () => {
 			expect(
 				new CodexProvider().prepareHeaders(new Headers()).get("User-Agent"),
 			).toContain("codex-cli/0.160.0");
-			process.env.CCFLARE_CODEX_CLIENT_VERSION = "0.161.0";
+			process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = "0.161.0";
 			expect(resolveCodexClientIdentity(getNow)).toMatchObject({
 				version: "0.161.0",
 				source: "explicit",
 			});
-			delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
+			delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 			writeFileSync(record, "{partial");
 			clock.time += 1_100;
 			expect(resolveCodexClientIdentity(getNow)).toMatchObject({
@@ -141,7 +141,7 @@ describe("Codex verified client identity", () => {
 				version: "0.159.0",
 				fresh: true,
 			});
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = other;
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = other;
 			expect(resolveCodexClientIdentity(getNow)).toMatchObject({
 				version: CODEX_VERSION,
 				source: "default",
@@ -201,11 +201,11 @@ describe("Codex verified client identity", () => {
 			});
 		} finally {
 			if (oldPath === undefined)
-				delete process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE;
-			else process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = oldPath;
+				delete process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE;
+			else process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = oldPath;
 			if (oldVersion === undefined)
-				delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-			else process.env.CCFLARE_CODEX_CLIENT_VERSION = oldVersion;
+				delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+			else process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = oldVersion;
 			rmSync(dir, { recursive: true, force: true });
 		}
 	});
@@ -319,9 +319,9 @@ describe("CodexProvider selected account identity", () => {
 // Retired cache-key canary settings. The server warns once at startup when
 // one is set, and nothing reads them.
 const RETIRED_CODEX_CACHE_KEY_ENVS = [
-	"CCFLARE_CODEX_CACHE_KEY_CONTINUITY_PERCENT",
-	"CCFLARE_CODEX_CACHE_KEY_SESSION_PERCENT",
-	"CCFLARE_CODEX_CACHE_KEY_PREFIX_SHARD_PERCENT",
+	"HOV_ROUTER_CODEX_CACHE_KEY_CONTINUITY_PERCENT",
+	"HOV_ROUTER_CODEX_CACHE_KEY_SESSION_PERCENT",
+	"HOV_ROUTER_CODEX_CACHE_KEY_PREFIX_SHARD_PERCENT",
 ] as const;
 
 afterEach(() => {
@@ -329,7 +329,7 @@ afterEach(() => {
 	delete process.env[CODEX_CACHE_KEY_MODE_ENV];
 	for (const key of RETIRED_CODEX_CACHE_KEY_ENVS) delete process.env[key];
 	delete process.env[CODEX_SINGLE_ORCHESTRATION_ROOT_ENV];
-	delete process.env.CCFLARE_CODEX_REASONING_RETENTION;
+	delete process.env.HOV_ROUTER_CODEX_REASONING_RETENTION;
 	delete process.env[CODEX_TRACE_DIR_ENV];
 	delete process.env[CODEX_TRACE_HMAC_KEY_ENV];
 	resetOrchestrationElectionForTest();
@@ -370,8 +370,8 @@ describe("CodexProvider header isolation and abandoned attempts", () => {
 					method: "POST",
 					headers: {
 						"content-type": "application/json",
-						"x-better-ccflare-request-id": id,
-						"x-better-ccflare-attempt-id": attempt,
+						"x-hov-router-request-id": id,
+						"x-hov-router-attempt-id": attempt,
 					},
 					body: JSON.stringify({
 						model: "gpt-5.4",
@@ -415,8 +415,8 @@ describe("CodexProvider header isolation and abandoned attempts", () => {
 					method: "POST",
 					headers: {
 						"content-type": "application/json",
-						"x-better-ccflare-request-id": "request-dispatched",
-						"x-better-ccflare-attempt-id": "attempt-dispatched",
+						"x-hov-router-request-id": "request-dispatched",
+						"x-hov-router-attempt-id": "attempt-dispatched",
 					},
 					body: JSON.stringify({
 						model: "gpt-5.4",
@@ -460,7 +460,7 @@ describe("CodexProvider header isolation and abandoned attempts", () => {
 						status: 200,
 						headers: {
 							"content-type": "text/event-stream",
-							"x-better-ccflare-request-stream": "false",
+							"x-hov-router-request-stream": "false",
 							"x-codex-turn-state": "private-turn-state",
 						},
 					},
@@ -837,32 +837,32 @@ describe("CodexProvider request conversion", () => {
 		}
 
 		let tmpDir: string;
-		const originalConfigPath = process.env.BETTER_CCFLARE_CONFIG_PATH;
-		const originalBlocked = process.env.CCFLARE_SKILL_ELISION_BLOCKED;
+		const originalConfigPath = process.env.HOV_ROUTER_CONFIG_PATH;
+		const originalBlocked = process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 
 		beforeEach(() => {
 			tmpDir = mkdtempSync(
-				join(tmpdir(), "better-ccflare-skill-elision-codex-"),
+				join(tmpdir(), "hov-router-skill-elision-codex-"),
 			);
-			process.env.BETTER_CCFLARE_CONFIG_PATH = join(tmpDir, "config.json");
+			process.env.HOV_ROUTER_CONFIG_PATH = join(tmpDir, "config.json");
 		});
 
 		afterEach(() => {
 			rmSync(tmpDir, { recursive: true, force: true });
 			if (originalConfigPath === undefined) {
-				delete process.env.BETTER_CCFLARE_CONFIG_PATH;
+				delete process.env.HOV_ROUTER_CONFIG_PATH;
 			} else {
-				process.env.BETTER_CCFLARE_CONFIG_PATH = originalConfigPath;
+				process.env.HOV_ROUTER_CONFIG_PATH = originalConfigPath;
 			}
 			if (originalBlocked === undefined) {
-				delete process.env.CCFLARE_SKILL_ELISION_BLOCKED;
+				delete process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 			} else {
-				process.env.CCFLARE_SKILL_ELISION_BLOCKED = originalBlocked;
+				process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED = originalBlocked;
 			}
 		});
 
 		it("elides a blocked skill bundle before Codex input conversion", async () => {
-			process.env.CCFLARE_SKILL_ELISION_BLOCKED = "ce-plan";
+			process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED = "ce-plan";
 			const bundleText = makeSkillText("ce-plan", 12_000);
 			const provider = new CodexProvider();
 			const request = new Request("https://example.com/v1/messages", {
@@ -888,11 +888,11 @@ describe("CodexProvider request conversion", () => {
 			const serializedInput = JSON.stringify(body.input);
 
 			expect(serializedInput).not.toContain(bundleText);
-			expect(serializedInput).toContain("[better-ccflare]");
+			expect(serializedInput).toContain("[hov-router]");
 		});
 
 		it("elides the skill bundle text while still firing the Skill continuation nudge", async () => {
-			process.env.CCFLARE_SKILL_ELISION_BLOCKED = "ce-plan";
+			process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED = "ce-plan";
 			const bundleText = makeSkillText("ce-plan", 12_000);
 			const provider = new CodexProvider();
 			const request = new Request("https://example.com/v1/messages", {
@@ -948,7 +948,7 @@ describe("CodexProvider request conversion", () => {
 			});
 			const serializedInput = JSON.stringify(body.input);
 			expect(serializedInput).not.toContain(bundleText);
-			expect(serializedInput).toContain("[better-ccflare]");
+			expect(serializedInput).toContain("[hov-router]");
 		});
 	});
 
@@ -1172,7 +1172,7 @@ describe("CodexProvider request conversion", () => {
 	});
 
 	it("restores legacy request behavior when reasoning retention is disabled", async () => {
-		process.env.CCFLARE_CODEX_REASONING_RETENTION = "0";
+		process.env.HOV_ROUTER_CODEX_REASONING_RETENTION = "0";
 		const provider = new CodexProvider();
 		const request = new Request("https://example.com/v1/messages", {
 			method: "POST",
@@ -1475,7 +1475,7 @@ describe("CodexProvider request conversion", () => {
 					headers: {
 						"content-type": "application/json",
 						[CODEX_LOGICAL_MODEL_FAMILY_HEADER]: "fable",
-						"x-better-ccflare-final-model": "gpt-6-wide",
+						"x-hov-router-final-model": "gpt-6-wide",
 					},
 					body: JSON.stringify({
 						model: "claude-fable-5",
@@ -1568,7 +1568,7 @@ describe("CodexProvider request conversion", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-final-model": finalModel,
+				"x-hov-router-final-model": finalModel,
 			},
 			body: JSON.stringify({
 				model: "claude-sonnet-4-5",
@@ -1592,7 +1592,7 @@ describe("CodexProvider request conversion", () => {
 				headers: {
 					"content-type": "application/json",
 					[CODEX_LOGICAL_MODEL_FAMILY_HEADER]: "fable",
-					"x-better-ccflare-final-model": finalModel,
+					"x-hov-router-final-model": finalModel,
 				},
 				body: JSON.stringify({
 					model: "claude-fable-5",
@@ -1891,13 +1891,13 @@ describe("CodexProvider request conversion", () => {
 		const transformed = await provider.transformRequestBody(request);
 		const body = await transformed.json();
 
-		expect(transformed.headers.get("x-better-ccflare-synthetic-response")).toBe(
+		expect(transformed.headers.get("x-hov-router-synthetic-response")).toBe(
 			"true",
 		);
-		expect(transformed.headers.get("x-better-ccflare-synthetic-status")).toBe(
+		expect(transformed.headers.get("x-hov-router-synthetic-status")).toBe(
 			"400",
 		);
-		expect(transformed.url).toBe("https://better-ccflare.local/codex/response");
+		expect(transformed.url).toBe("https://hov-router.local/codex/response");
 		expect(body).toEqual({
 			type: "error",
 			error: {
@@ -1922,10 +1922,10 @@ describe("CodexProvider request conversion", () => {
 		const transformed = await provider.transformRequestBody(request);
 		const body = await transformed.json();
 
-		expect(transformed.headers.get("x-better-ccflare-synthetic-response")).toBe(
+		expect(transformed.headers.get("x-hov-router-synthetic-response")).toBe(
 			"true",
 		);
-		expect(transformed.headers.get("x-better-ccflare-synthetic-status")).toBe(
+		expect(transformed.headers.get("x-hov-router-synthetic-status")).toBe(
 			"400",
 		);
 		expect(body).toEqual({
@@ -2361,7 +2361,7 @@ describe("CodexProvider.processResponse", () => {
 		it(`transfers the exact drain transport through the ${contentType ?? "missing content-type"} streaming transform`, async () => {
 			const provider = new CodexProvider();
 			const headers = new Headers({
-				"x-better-ccflare-request-stream": "true",
+				"x-hov-router-request-stream": "true",
 			});
 			if (contentType) headers.set("content-type", contentType);
 			const upstream = new Response(
@@ -3499,7 +3499,7 @@ describe("CodexProvider.processResponse", () => {
 	});
 
 	it("restores legacy response behavior when reasoning retention is disabled", async () => {
-		process.env.CCFLARE_CODEX_REASONING_RETENTION = "0";
+		process.env.HOV_ROUTER_CODEX_REASONING_RETENTION = "0";
 		const provider = new CodexProvider();
 		const upstreamBody = sseBody([
 			...eventLine("response.created", {
@@ -3915,7 +3915,7 @@ describe("CodexProvider.processResponse", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-request-id": requestId,
+				"x-hov-router-request-id": requestId,
 			},
 			body: JSON.stringify({
 				model: "claude-sonnet-4-5",
@@ -3949,8 +3949,8 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-id": requestId,
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-id": requestId,
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -4036,7 +4036,7 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-id": "req_crlf_1",
+				"x-hov-router-request-id": "req_crlf_1",
 			},
 		});
 
@@ -4061,7 +4061,7 @@ describe("CodexProvider.processResponse", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-request-id": requestId,
+				"x-hov-router-request-id": requestId,
 			},
 			body: JSON.stringify({
 				model: "claude-sonnet-4-5",
@@ -4107,8 +4107,8 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-id": requestId,
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-id": requestId,
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -4151,7 +4151,7 @@ describe("CodexProvider.processResponse", () => {
 					method: "POST",
 					headers: {
 						"content-type": "application/json",
-						"x-better-ccflare-request-id": requestId,
+						"x-hov-router-request-id": requestId,
 					},
 					body: JSON.stringify({
 						model: "claude-sonnet-4-5",
@@ -4190,8 +4190,8 @@ describe("CodexProvider.processResponse", () => {
 					status: 200,
 					headers: {
 						"content-type": "text/event-stream",
-						"x-better-ccflare-request-id": requestId,
-						"x-better-ccflare-request-stream": "false",
+						"x-hov-router-request-id": requestId,
+						"x-hov-router-request-stream": "false",
 					},
 				}),
 				null,
@@ -4210,7 +4210,7 @@ describe("CodexProvider.processResponse", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-request-id": requestId,
+				"x-hov-router-request-id": requestId,
 			},
 			body: JSON.stringify({
 				model: "claude-sonnet-4-5",
@@ -4262,8 +4262,8 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-id": requestId,
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-id": requestId,
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -4290,7 +4290,7 @@ describe("CodexProvider.processResponse", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-request-id": requestId,
+				"x-hov-router-request-id": requestId,
 			},
 			body: JSON.stringify({
 				model: "claude-sonnet-4-5",
@@ -4342,8 +4342,8 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-id": requestId,
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-id": requestId,
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -4369,7 +4369,7 @@ describe("CodexProvider.processResponse", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-request-id": requestId,
+				"x-hov-router-request-id": requestId,
 			},
 			body: JSON.stringify({
 				model: "claude-sonnet-4-5",
@@ -4428,8 +4428,8 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-id": requestId,
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-id": requestId,
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -4455,7 +4455,7 @@ describe("CodexProvider.processResponse", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-request-id": requestId,
+				"x-hov-router-request-id": requestId,
 			},
 			body: JSON.stringify({
 				model: "claude-sonnet-4-5",
@@ -4519,8 +4519,8 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-id": requestId,
-				"x-better-ccflare-request-stream": "true",
+				"x-hov-router-request-id": requestId,
+				"x-hov-router-request-stream": "true",
 			},
 		});
 
@@ -4566,7 +4566,7 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-id": "req_never_registered_null_strip",
+				"x-hov-router-request-id": "req_never_registered_null_strip",
 			},
 		});
 
@@ -4584,7 +4584,7 @@ describe("CodexProvider.processResponse", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-request-id": requestId,
+				"x-hov-router-request-id": requestId,
 			},
 			body: JSON.stringify({
 				model: "claude-sonnet-4-5",
@@ -4635,8 +4635,8 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-id": requestId,
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-id": requestId,
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -4697,7 +4697,7 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-id": "req_never_registered_cache_miss",
+				"x-hov-router-request-id": "req_never_registered_cache_miss",
 			},
 		});
 
@@ -4716,7 +4716,7 @@ describe("CodexProvider.processResponse", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-request-id": requestId,
+				"x-hov-router-request-id": requestId,
 			},
 			body: JSON.stringify({
 				model: "claude-sonnet-4-5",
@@ -4769,8 +4769,8 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-id": requestId,
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-id": requestId,
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -4941,7 +4941,7 @@ describe("CodexProvider.processResponse", () => {
 				status: 200,
 				headers: {
 					"content-type": "text/event-stream",
-					"x-better-ccflare-request-stream": "false",
+					"x-hov-router-request-stream": "false",
 				},
 			}),
 			null,
@@ -4952,8 +4952,8 @@ describe("CodexProvider.processResponse", () => {
 		expect(payload.usage.cache_read_input_tokens).toBe(8);
 	});
 
-	it("reports the effective context window when CCFLARE_CODEX_EFFECTIVE_CONTEXT=1", async () => {
-		process.env.CCFLARE_CODEX_EFFECTIVE_CONTEXT = "1";
+	it("reports the effective context window when HOV_ROUTER_CODEX_EFFECTIVE_CONTEXT=1", async () => {
+		process.env.HOV_ROUTER_CODEX_EFFECTIVE_CONTEXT = "1";
 		try {
 			const provider = new CodexProvider();
 			const upstreamBody = sseBody([
@@ -4982,7 +4982,7 @@ describe("CodexProvider.processResponse", () => {
 			// 872000 * 95% effective = 828400
 			expect(messageDeltaLine).toContain('"context_window_size":828400');
 		} finally {
-			delete process.env.CCFLARE_CODEX_EFFECTIVE_CONTEXT;
+			delete process.env.HOV_ROUTER_CODEX_EFFECTIVE_CONTEXT;
 		}
 	});
 
@@ -5448,8 +5448,8 @@ describe("CodexProvider.processResponse", () => {
 			const response = new Response(upstreamBody, {
 				status: 200,
 				headers: {
-					"x-better-ccflare-request-id": requestId,
-					"x-better-ccflare-request-stream": "true",
+					"x-hov-router-request-id": requestId,
+					"x-hov-router-request-stream": "true",
 				},
 			});
 
@@ -5486,8 +5486,8 @@ describe("CodexProvider.processResponse", () => {
 			const response = new Response(upstreamBody, {
 				status: 200,
 				headers: {
-					"x-better-ccflare-request-id": requestId,
-					"x-better-ccflare-request-stream": "false",
+					"x-hov-router-request-id": requestId,
+					"x-hov-router-request-stream": "false",
 				},
 			});
 
@@ -5542,7 +5542,7 @@ describe("CodexProvider.processResponse", () => {
 
 		const response = new Response(upstreamBody, {
 			status: 200,
-			headers: { "x-better-ccflare-request-stream": "false" },
+			headers: { "x-hov-router-request-stream": "false" },
 		});
 
 		const transformed = await provider.processResponse(response, null);
@@ -5655,7 +5655,7 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -5719,7 +5719,7 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -5754,7 +5754,7 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -5785,7 +5785,7 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -5817,7 +5817,7 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -5847,7 +5847,7 @@ describe("CodexProvider.processResponse", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -6034,8 +6034,8 @@ describe("CodexProvider.processResponse", () => {
 				status: 200,
 				headers: {
 					"content-type": "text/event-stream",
-					"x-better-ccflare-request-id": "logical-abrupt",
-					"x-better-ccflare-attempt-id": "attempt-abrupt",
+					"x-hov-router-request-id": "logical-abrupt",
+					"x-hov-router-attempt-id": "attempt-abrupt",
 				},
 			});
 
@@ -6077,9 +6077,9 @@ describe("CodexProvider.processResponse", () => {
 				status: 200,
 				headers: {
 					"content-type": "text/event-stream",
-					"x-better-ccflare-request-id": "logical-empty",
-					"x-better-ccflare-attempt-id": "attempt-empty",
-					"x-better-ccflare-final-model": "gpt-5.4-mini",
+					"x-hov-router-request-id": "logical-empty",
+					"x-hov-router-attempt-id": "attempt-empty",
+					"x-hov-router-final-model": "gpt-5.4-mini",
 				},
 			});
 
@@ -6127,8 +6127,8 @@ describe("CodexProvider.processResponse", () => {
 			const upstreamResponse = new Response(upstream, {
 				headers: {
 					"content-type": "text/event-stream",
-					"x-better-ccflare-request-id": "logical-cancel",
-					"x-better-ccflare-attempt-id": "attempt-cancel",
+					"x-hov-router-request-id": "logical-cancel",
+					"x-hov-router-attempt-id": "attempt-cancel",
 				},
 			});
 			const transportAbort = new AbortController();
@@ -6182,8 +6182,8 @@ describe("CodexProvider.processResponse", () => {
 						status: 200,
 						headers: {
 							"content-type": "text/event-stream",
-							"x-better-ccflare-request-id": "logical-race",
-							"x-better-ccflare-attempt-id": "attempt-race",
+							"x-hov-router-request-id": "logical-race",
+							"x-hov-router-attempt-id": "attempt-race",
 						},
 					},
 				),
@@ -6232,8 +6232,8 @@ describe("CodexProvider.processResponse", () => {
 			new Response(upstream, {
 				headers: {
 					"content-type": "text/event-stream",
-					"x-better-ccflare-request-id": "logical-backpressure",
-					"x-better-ccflare-attempt-id": "attempt-backpressure",
+					"x-hov-router-request-id": "logical-backpressure",
+					"x-hov-router-attempt-id": "attempt-backpressure",
 				},
 			}),
 			null,
@@ -6266,8 +6266,8 @@ describe("CodexProvider.processResponse", () => {
 				new Response(upstream, {
 					headers: {
 						"content-type": "text/event-stream",
-						"x-better-ccflare-request-id": "logical-read-error",
-						"x-better-ccflare-attempt-id": "attempt-read-error",
+						"x-hov-router-request-id": "logical-read-error",
+						"x-hov-router-attempt-id": "attempt-read-error",
 					},
 				}),
 				null,
@@ -6578,7 +6578,7 @@ describe("codexEventCommitsOutput", () => {
 			response: new Response(stream, {
 				headers: {
 					"content-type": "text/event-stream",
-					"x-better-ccflare-request-id": "commit-predicate-corpus",
+					"x-hov-router-request-id": "commit-predicate-corpus",
 				},
 			}),
 			push: (lines: string[]) => {
@@ -7209,7 +7209,7 @@ describe("CodexProvider upstream error code classification", () => {
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -7291,7 +7291,7 @@ describe("CodexProvider upstream error code classification", () => {
 			statusText: `Upstream ${transportStatus}`,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-stream": "false",
+				"x-hov-router-request-stream": "false",
 			},
 		});
 
@@ -7320,7 +7320,7 @@ describe("CodexProvider upstream error code classification", () => {
 				status: 200,
 				headers: {
 					"content-type": "text/event-stream",
-					"x-better-ccflare-request-stream": "false",
+					"x-hov-router-request-stream": "false",
 				},
 			},
 		);
@@ -7400,10 +7400,10 @@ describe("CodexProvider.transformRequestBody", () => {
 		expect(transformed.headers.get("content-type")).toContain(
 			"application/json",
 		);
-		expect(transformed.headers.get("x-better-ccflare-synthetic-response")).toBe(
+		expect(transformed.headers.get("x-hov-router-synthetic-response")).toBe(
 			"true",
 		);
-		expect(transformed.headers.get("x-better-ccflare-synthetic-status")).toBe(
+		expect(transformed.headers.get("x-hov-router-synthetic-status")).toBe(
 			"200",
 		);
 		expect(body.input_tokens).toBeNumber();
@@ -7435,9 +7435,9 @@ describe("CodexProvider.transformRequestBody", () => {
 			const body = await transformed.json();
 
 			expect(
-				transformed.headers.get("x-better-ccflare-synthetic-response"),
+				transformed.headers.get("x-hov-router-synthetic-response"),
 			).toBe("true");
-			expect(transformed.headers.get("x-better-ccflare-synthetic-status")).toBe(
+			expect(transformed.headers.get("x-hov-router-synthetic-status")).toBe(
 				"501",
 			);
 			expect(body).toEqual({
@@ -7445,7 +7445,7 @@ describe("CodexProvider.transformRequestBody", () => {
 				error: {
 					type: "not_implemented_error",
 					message:
-						"Codex does not support count_tokens; synthetic estimates are disabled (CCFLARE_CODEX_SYNTHETIC_COUNT_TOKENS=0).",
+						"Codex does not support count_tokens; synthetic estimates are disabled (HOV_ROUTER_CODEX_SYNTHETIC_COUNT_TOKENS=0).",
 				},
 			});
 		} finally {
@@ -7478,7 +7478,7 @@ describe("CodexProvider.transformRequestBody", () => {
 			);
 			const body = await transformed.json();
 
-			expect(transformed.headers.get("x-better-ccflare-synthetic-status")).toBe(
+			expect(transformed.headers.get("x-hov-router-synthetic-status")).toBe(
 				"200",
 			);
 			expect(body.input_tokens).toBeNumber();
@@ -7523,10 +7523,10 @@ describe("CodexProvider.transformRequestBody", () => {
 		const transformed = await provider.transformRequestBody(request, undefined);
 		const body = await transformed.json();
 
-		expect(transformed.headers.get("x-better-ccflare-synthetic-response")).toBe(
+		expect(transformed.headers.get("x-hov-router-synthetic-response")).toBe(
 			"true",
 		);
-		expect(transformed.headers.get("x-better-ccflare-synthetic-status")).toBe(
+		expect(transformed.headers.get("x-hov-router-synthetic-status")).toBe(
 			"400",
 		);
 		expect(body).toEqual({
@@ -7550,10 +7550,10 @@ describe("CodexProvider.transformRequestBody", () => {
 		const transformed = await provider.transformRequestBody(request, undefined);
 		const body = await transformed.json();
 
-		expect(transformed.headers.get("x-better-ccflare-synthetic-response")).toBe(
+		expect(transformed.headers.get("x-hov-router-synthetic-response")).toBe(
 			"true",
 		);
-		expect(transformed.headers.get("x-better-ccflare-synthetic-status")).toBe(
+		expect(transformed.headers.get("x-hov-router-synthetic-status")).toBe(
 			"400",
 		);
 		expect(body.error.message).toBe(
@@ -7894,7 +7894,7 @@ describe("CodexProvider.transformRequestBody", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-attributed-agent": "true",
+				"x-hov-router-attributed-agent": "true",
 			},
 			body: JSON.stringify({
 				model: "claude-opus-4-8",
@@ -7936,7 +7936,7 @@ describe("CodexProvider.transformRequestBody", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-attributed-agent": "true",
+				"x-hov-router-attributed-agent": "true",
 			},
 			body: JSON.stringify({
 				model: "claude-opus-4-8",
@@ -8170,7 +8170,7 @@ describe("CodexProvider.transformRequestBody", () => {
 		};
 		try {
 			compacted = await send(compactedMessages, {
-				"x-better-ccflare-request-id": "compacted-follow-up",
+				"x-hov-router-request-id": "compacted-follow-up",
 			});
 			const requestTrace = readTraceRecords(traceDir).find(
 				(record) =>
@@ -8303,7 +8303,7 @@ describe("CodexProvider.transformRequestBody", () => {
 		let sibling: { tools: Array<{ name: string }> };
 		try {
 			sibling = await send(siblingMessages, {
-				"x-better-ccflare-request-id": "unrelated-sibling",
+				"x-hov-router-request-id": "unrelated-sibling",
 			});
 			const requestTrace = readTraceRecords(traceDir).find(
 				(record) =>
@@ -8406,7 +8406,7 @@ describe("CodexProvider.transformRequestBody", () => {
 					headers: {
 						"content-type": "application/json",
 						...(attributed
-							? { "x-better-ccflare-attributed-agent": "true" }
+							? { "x-hov-router-attributed-agent": "true" }
 							: {}),
 					},
 					body: JSON.stringify(payload),
@@ -8428,8 +8428,8 @@ describe("CodexProvider.transformRequestBody", () => {
 					method: "POST",
 					headers: {
 						"content-type": "application/json",
-						"x-better-ccflare-attributed-agent": "true",
-						"x-better-ccflare-request-id": "descendant-trace",
+						"x-hov-router-attributed-agent": "true",
+						"x-hov-router-request-id": "descendant-trace",
 					},
 					body: JSON.stringify(payload),
 				}),
@@ -8452,7 +8452,7 @@ describe("CodexProvider.transformRequestBody", () => {
 		}
 		const descendantBody = await descendant.json();
 		expect(
-			descendant.headers.get("x-better-ccflare-attributed-agent"),
+			descendant.headers.get("x-hov-router-attributed-agent"),
 		).toBeNull();
 		expect(
 			descendantBody.tools.map((tool: { name: string }) => tool.name),
@@ -8487,7 +8487,7 @@ describe("CodexProvider.transformRequestBody", () => {
 					headers: {
 						"content-type": "application/json",
 						...(attributed
-							? { "x-better-ccflare-attributed-agent": "true" }
+							? { "x-hov-router-attributed-agent": "true" }
 							: {}),
 					},
 					body: JSON.stringify({
@@ -8531,7 +8531,7 @@ describe("CodexProvider.transformRequestBody", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-attributed-agent": "true",
+				"x-hov-router-attributed-agent": "true",
 			},
 			body: JSON.stringify({
 				model: "claude-opus-4-8",
@@ -8595,9 +8595,9 @@ describe("CodexProvider.transformRequestBody", () => {
 				{},
 				CODEX_DEFAULT_ENDPOINT,
 			);
-			process.env.CCFLARE_CODEX_CACHE_KEY_SESSION_PERCENT = "100";
-			process.env.CCFLARE_CODEX_CACHE_KEY_PREFIX_SHARD_PERCENT = "100";
-			process.env.CCFLARE_CODEX_CACHE_KEY_CONTINUITY_PERCENT = "0";
+			process.env.HOV_ROUTER_CODEX_CACHE_KEY_SESSION_PERCENT = "100";
+			process.env.HOV_ROUTER_CODEX_CACHE_KEY_PREFIX_SHARD_PERCENT = "100";
+			process.env.HOV_ROUTER_CODEX_CACHE_KEY_CONTINUITY_PERCENT = "0";
 			expect(await transform(sessionA)).toEqual(baseline);
 			expect(
 				await transform(
@@ -8612,14 +8612,14 @@ describe("CodexProvider.transformRequestBody", () => {
 				),
 			).toEqual(officialBaseline);
 			expect(officialBaseline.prompt_cache_key).toMatch(
-				/^ccflare-convo-[0-9a-f]{48}$/,
+				/^hov-router-convo-[0-9a-f]{48}$/,
 			);
 		});
 
 		it("reuses and traces the canonical root key for compaction continuations", async () => {
 			process.env[CODEX_PROMPT_CACHE_KEY_ENV] = "1";
 			// Continuity is always on: the retired percentage cannot turn it off.
-			process.env.CCFLARE_CODEX_CACHE_KEY_CONTINUITY_PERCENT = "0";
+			process.env.HOV_ROUTER_CODEX_CACHE_KEY_CONTINUITY_PERCENT = "0";
 			const traceDir = mkdtempSync(join(tmpdir(), "codex-continuity-trace-"));
 			process.env[CODEX_TRACE_DIR_ENV] = traceDir;
 			const tools = [{ name: "Agent", input_schema: { type: "object" } }];
@@ -8651,7 +8651,7 @@ describe("CodexProvider.transformRequestBody", () => {
 					rootMessages,
 					undefined,
 					tools,
-					{ "x-better-ccflare-request-id": "continuity-root" },
+					{ "x-hov-router-request-id": "continuity-root" },
 				);
 				const compacted = await transform(
 					sessionA,
@@ -8660,7 +8660,7 @@ describe("CodexProvider.transformRequestBody", () => {
 					compactedMessages,
 					undefined,
 					tools,
-					{ "x-better-ccflare-request-id": "continuity-compacted" },
+					{ "x-hov-router-request-id": "continuity-compacted" },
 				);
 				expect(compacted.prompt_cache_key).toBe(root.prompt_cache_key);
 				const records = readTraceRecords(traceDir).filter(
@@ -8703,7 +8703,7 @@ describe("CodexProvider.transformRequestBody", () => {
 					undefined,
 					tools,
 				);
-				expect(unmatched.prompt_cache_key).toMatch(/^ccflare-convo-/);
+				expect(unmatched.prompt_cache_key).toMatch(/^hov-router-convo-/);
 				expect(unmatched.prompt_cache_key).not.toBe(root.prompt_cache_key);
 			} finally {
 				delete process.env[CODEX_TRACE_DIR_ENV];
@@ -8724,9 +8724,9 @@ describe("CodexProvider.transformRequestBody", () => {
 					undefined,
 					undefined,
 					undefined,
-					{ "x-better-ccflare-request-id": "session-mode" },
+					{ "x-hov-router-request-id": "session-mode" },
 				);
-				expect(body.prompt_cache_key).toMatch(/^ccflare-session-/);
+				expect(body.prompt_cache_key).toMatch(/^hov-router-session-/);
 				const trace = readTraceRecords(traceDir).find(
 					(record) => record.request_id === "session-mode",
 				);
@@ -8746,7 +8746,7 @@ describe("CodexProvider.transformRequestBody", () => {
 		it("falls back to the session key when there is no input", async () => {
 			process.env[CODEX_PROMPT_CACHE_KEY_ENV] = "1";
 			const body = await transform(sessionA, "", "shared system prompt", []);
-			expect(body.prompt_cache_key).toMatch(/^ccflare-session-/);
+			expect(body.prompt_cache_key).toMatch(/^hov-router-session-/);
 		});
 
 		it("attaches the key only at OpenAI prompt-cache endpoints", async () => {
@@ -8801,8 +8801,8 @@ describe("CodexProvider.transformRequestBody", () => {
 				{},
 				lookalikeEndpoint,
 			);
-			expect(official.prompt_cache_key).toMatch(/^ccflare-convo-[0-9a-f]{48}$/);
-			expect(api.prompt_cache_key).toMatch(/^ccflare-convo-[0-9a-f]{48}$/);
+			expect(official.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
+			expect(api.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
 			expect(custom.prompt_cache_key).toBeUndefined();
 			expect(lookalike.prompt_cache_key).toBeUndefined();
 
@@ -8820,7 +8820,7 @@ describe("CodexProvider.transformRequestBody", () => {
 						CODEX_DEFAULT_ENDPOINT,
 					)
 				).prompt_cache_key,
-			).toMatch(/^ccflare-session-[0-9a-f]{48}$/);
+			).toMatch(/^hov-router-session-[0-9a-f]{48}$/);
 		});
 
 		it("re-evaluates endpoint eligibility for the selected account", async () => {
@@ -8836,7 +8836,7 @@ describe("CodexProvider.transformRequestBody", () => {
 				undefined,
 				customAccount,
 			);
-			expect(eligible.prompt_cache_key).toMatch(/^ccflare-convo-/);
+			expect(eligible.prompt_cache_key).toMatch(/^hov-router-convo-/);
 			expect(ineligible.prompt_cache_key).toBeUndefined();
 		});
 
@@ -8865,7 +8865,7 @@ describe("CodexProvider.transformRequestBody", () => {
 
 		const transformed = await provider.transformRequestBody(request);
 		const body = await transformed.json();
-		expect(body.prompt_cache_key).toMatch(/^ccflare-convo-[0-9a-f]{48}$/);
+		expect(body.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
 	});
 
 	it("rotates only an official subscription cache key for a cache-lane rescue", async () => {
@@ -8891,10 +8891,10 @@ describe("CodexProvider.transformRequestBody", () => {
 				method: "POST",
 				headers: {
 					"content-type": "application/json",
-					"x-better-ccflare-request-id": requestId,
-					"x-better-ccflare-attempt-id": `${cause}-attempt`,
-					"x-better-ccflare-attempt-ordinal": cause === "initial" ? "1" : "2",
-					"x-better-ccflare-attempt-cause": cause,
+					"x-hov-router-request-id": requestId,
+					"x-hov-router-attempt-id": `${cause}-attempt`,
+					"x-hov-router-attempt-ordinal": cause === "initial" ? "1" : "2",
+					"x-hov-router-attempt-cause": cause,
 				},
 				body: payload,
 			});
@@ -8917,9 +8917,9 @@ describe("CodexProvider.transformRequestBody", () => {
 			"logical-request-b",
 		);
 
-		expect(initial.prompt_cache_key).toMatch(/^ccflare-convo-[0-9a-f]{48}$/);
+		expect(initial.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
 		expect(repeatedInitial.prompt_cache_key).toBe(initial.prompt_cache_key);
-		expect(rescue.prompt_cache_key).toMatch(/^ccflare-rescue-[0-9a-f]{48}$/);
+		expect(rescue.prompt_cache_key).toMatch(/^hov-router-rescue-[0-9a-f]{48}$/);
 		expect(rescue.prompt_cache_key).not.toBe(initial.prompt_cache_key);
 		expect(repeatedRescue.prompt_cache_key).toBe(rescue.prompt_cache_key);
 		expect(otherRequestRescue.prompt_cache_key).not.toBe(
@@ -8947,10 +8947,10 @@ describe("CodexProvider.transformRequestBody", () => {
 				method: "POST",
 				headers: {
 					"content-type": "application/json",
-					"x-better-ccflare-request-id": "logical-rescue",
-					"x-better-ccflare-attempt-id": "physical-rescue",
-					"x-better-ccflare-attempt-ordinal": "2",
-					"x-better-ccflare-attempt-cause": "cache_lane_rescue",
+					"x-hov-router-request-id": "logical-rescue",
+					"x-hov-router-attempt-id": "physical-rescue",
+					"x-hov-router-attempt-ordinal": "2",
+					"x-hov-router-attempt-cause": "cache_lane_rescue",
 				},
 				body: JSON.stringify({
 					model: "claude-opus-4-8",
@@ -9003,10 +9003,10 @@ describe("CodexProvider.transformRequestBody", () => {
 				method: "POST",
 				headers: {
 					"content-type": "application/json",
-					"x-better-ccflare-request-id": "logical-sse-retry",
-					"x-better-ccflare-attempt-id": attemptId,
-					"x-better-ccflare-attempt-ordinal": cause === "initial" ? "1" : "2",
-					"x-better-ccflare-attempt-cause": cause,
+					"x-hov-router-request-id": "logical-sse-retry",
+					"x-hov-router-attempt-id": attemptId,
+					"x-hov-router-attempt-ordinal": cause === "initial" ? "1" : "2",
+					"x-hov-router-attempt-cause": cause,
 				},
 				body: payload,
 			});
@@ -9024,8 +9024,8 @@ describe("CodexProvider.transformRequestBody", () => {
 				"physical-sse-retry",
 			);
 
-			expect(initial.prompt_cache_key).toMatch(/^ccflare-convo-[0-9a-f]{48}$/);
-			expect(retry.prompt_cache_key).toMatch(/^ccflare-rescue-[0-9a-f]{48}$/);
+			expect(initial.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
+			expect(retry.prompt_cache_key).toMatch(/^hov-router-rescue-[0-9a-f]{48}$/);
 			expect(retry.prompt_cache_key).not.toBe(initial.prompt_cache_key);
 			const retryRecord = readTraceRecords(traceDir).find(
 				(candidate) => candidate.attempt_id === "physical-sse-retry",
@@ -9118,7 +9118,7 @@ describe("CodexProvider.transformRequestBody", () => {
 		const repeated = await transform("11111111-1111-4111-8111-111111111111");
 		const different = await transform("22222222-2222-4222-8222-222222222222");
 
-		expect(first.prompt_cache_key).toMatch(/^ccflare-convo-[0-9a-f]{48}$/);
+		expect(first.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
 		expect(repeated.prompt_cache_key).toBe(first.prompt_cache_key);
 		expect(different.prompt_cache_key).not.toBe(first.prompt_cache_key);
 		expect(first.prompt_cache_key).not.toContain("11111111");
@@ -9170,7 +9170,7 @@ describe("CodexProvider.transformRequestBody", () => {
 			messages: [{ role: "user", content: "task A" }],
 		});
 
-		expect(turn1.prompt_cache_key).toMatch(/^ccflare-convo-[0-9a-f]{48}$/);
+		expect(turn1.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
 		expect(turn2.prompt_cache_key).toBe(turn1.prompt_cache_key);
 		expect(sibling.prompt_cache_key).not.toBe(turn1.prompt_cache_key);
 		expect(otherAgent.prompt_cache_key).not.toBe(turn1.prompt_cache_key);
@@ -9202,7 +9202,7 @@ describe("CodexProvider.transformRequestBody", () => {
 		const first = await transform("task A");
 		const other = await transform("completely different task");
 
-		expect(first.prompt_cache_key).toMatch(/^ccflare-session-[0-9a-f]{48}$/);
+		expect(first.prompt_cache_key).toMatch(/^hov-router-session-[0-9a-f]{48}$/);
 		expect(other.prompt_cache_key).toBe(first.prompt_cache_key);
 	});
 
@@ -9371,10 +9371,10 @@ describe("parseCodexUsageHeaders reset-after handling", () => {
 describe("fetchCodexUsageOnDemand", () => {
 	it("uses the resolved explicit identity for both version and user agent", async () => {
 		const originalFetch = globalThis.fetch;
-		const previous = process.env.CCFLARE_CODEX_CLIENT_VERSION;
+		const previous = process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 		let headers: Headers | undefined;
 		try {
-			process.env.CCFLARE_CODEX_CLIENT_VERSION = "0.171.0";
+			process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = "0.171.0";
 			globalThis.fetch = (async (input, init) => {
 				headers = new Request(input, init).headers;
 				return new Response(null, { status: 200 });
@@ -9387,8 +9387,8 @@ describe("fetchCodexUsageOnDemand", () => {
 		} finally {
 			globalThis.fetch = originalFetch;
 			if (previous === undefined)
-				delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-			else process.env.CCFLARE_CODEX_CLIENT_VERSION = previous;
+				delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+			else process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = previous;
 		}
 	});
 	let originalFetch: typeof fetch;
@@ -9825,7 +9825,7 @@ describe("CodexProvider.observeRequest", () => {
 		const observation = provider.observeRequest?.(new Headers(), false);
 		const refusalResponse = new Response("refused", {
 			status: 503,
-			headers: { "x-better-ccflare-pool-status": "exhausted" },
+			headers: { "x-hov-router-pool-status": "exhausted" },
 		});
 		const observed = observation?.response(refusalResponse);
 		expect(observed).toBe(refusalResponse);
@@ -9846,7 +9846,7 @@ describe("CodexProvider.observeRequest", () => {
 			exhausted?.response(
 				new Response(null, {
 					status: 503,
-					headers: { "x-better-ccflare-pool-status": "exhausted" },
+					headers: { "x-hov-router-pool-status": "exhausted" },
 				}),
 			);
 

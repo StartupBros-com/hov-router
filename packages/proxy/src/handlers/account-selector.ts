@@ -1816,7 +1816,7 @@ function saveCapacityContext(
 		exclusions,
 		now,
 		approachingThreshold: poolFloorApproachingThreshold(
-			process.env.CCFLARE_POOL_FLOOR_THRESHOLD,
+			process.env.HOV_ROUTER_POOL_FLOOR_THRESHOLD,
 		),
 	});
 }
@@ -2332,7 +2332,7 @@ function getExcludedProviders(
 ): readonly string[] {
 	const excluded =
 		meta.headers
-			?.get("x-better-ccflare-exclude-providers")
+			?.get("x-hov-router-exclude-providers")
 			?.split(",")
 			.map((provider) => provider.trim())
 			.filter(Boolean) ?? [];
@@ -3458,7 +3458,7 @@ export function isWebSearchHelperCandidateAdmitted(
 		) ||
 		// Presence, not value: any public force header, even an empty one,
 		// keeps the subscription helper off (#645 fail-closed opt-in).
-		meta.headers?.has("x-better-ccflare-account-id") ||
+		meta.headers?.has("x-hov-router-account-id") ||
 		!isWebSearchHelperAccountInScope(scope, account.id) ||
 		!isAccountAvailable(account) ||
 		!isFirstPartyAnthropicAccount(account) ||
@@ -4089,7 +4089,7 @@ async function selectAccountsForRequestInternal(
 		const skipped = accounts.length - filtered.length;
 		if (skipped > 0) {
 			log.warn(
-				`Skipping ${skipped} account(s) excluded for this request type by x-better-ccflare-exclude-providers`,
+				`Skipping ${skipped} account(s) excluded for this request type by x-hov-router-exclude-providers`,
 			);
 		}
 		return filtered;
@@ -4616,7 +4616,7 @@ async function selectAccountsForRequestInternal(
 						setComboSlotInfo(meta, { comboName: combo.name, slots: [] });
 						meta.comboName = combo.name;
 						log.warn(
-							`All ${resolution.members.length} combo candidates unavailable for ${combo.name}, session fallback disabled by CCFLARE_DISABLE_COMBO_SESSION_FALLBACK`,
+							`All ${resolution.members.length} combo candidates unavailable for ${combo.name}, session fallback disabled by HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK`,
 						);
 						if (meta.serverToolRequirements) {
 							throwServerToolCapabilityPoolError(meta);

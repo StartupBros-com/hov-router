@@ -44,7 +44,7 @@ describe("AgentRegistry — model parsing and empty-prompt guard", () => {
 	> {
 		const registry = new AgentRegistry(
 			undefined,
-			// Never touch the real ~/.better-ccflare/workspaces.json from tests.
+			// Never touch the real ~/.hov-router/workspaces.json from tests.
 			new WorkspacePersistence({
 				workspacesFile: path.join(tmpDir, "test-workspaces.json"),
 			}),
@@ -176,7 +176,7 @@ describe("AgentRegistry — model parsing and empty-prompt guard", () => {
 			);
 			const registry = new AgentRegistry(
 				undefined,
-				// Never touch the real ~/.better-ccflare/workspaces.json from tests.
+				// Never touch the real ~/.hov-router/workspaces.json from tests.
 				new WorkspacePersistence({
 					workspacesFile: path.join(tmpDir, "test-workspaces.json"),
 				}),
@@ -204,7 +204,7 @@ describe("AgentRegistry — model parsing and empty-prompt guard", () => {
 			);
 			const registry = new AgentRegistry(
 				undefined,
-				// Never touch the real ~/.better-ccflare/workspaces.json from tests.
+				// Never touch the real ~/.hov-router/workspaces.json from tests.
 				new WorkspacePersistence({
 					workspacesFile: path.join(tmpDir, "test-workspaces.json"),
 				}),
@@ -228,7 +228,7 @@ describe("AgentRegistry — model parsing and empty-prompt guard", () => {
 			);
 			const registry = new AgentRegistry(
 				undefined,
-				// Never touch the real ~/.better-ccflare/workspaces.json from tests.
+				// Never touch the real ~/.hov-router/workspaces.json from tests.
 				new WorkspacePersistence({
 					workspacesFile: path.join(tmpDir, "test-workspaces.json"),
 				}),
@@ -254,7 +254,7 @@ describe("AgentRegistry — model parsing and empty-prompt guard", () => {
 			);
 			const registry = new AgentRegistry(
 				undefined,
-				// Never touch the real ~/.better-ccflare/workspaces.json from tests.
+				// Never touch the real ~/.hov-router/workspaces.json from tests.
 				new WorkspacePersistence({
 					workspacesFile: path.join(tmpDir, "test-workspaces.json"),
 				}),
@@ -283,7 +283,7 @@ describe("AgentRegistry — model parsing and empty-prompt guard", () => {
 			);
 			const registry = new AgentRegistry(
 				undefined,
-				// Never touch the real ~/.better-ccflare/workspaces.json from tests.
+				// Never touch the real ~/.hov-router/workspaces.json from tests.
 				new WorkspacePersistence({
 					workspacesFile: path.join(tmpDir, "test-workspaces.json"),
 				}),
@@ -324,7 +324,7 @@ describe("AgentRegistry — model parsing and empty-prompt guard", () => {
 				fs.writeFileSync(path.join(agentsDir, "agent-crlf-edit.md"), content);
 				const registry = new AgentRegistry(
 					undefined,
-					// Never touch the real ~/.better-ccflare/workspaces.json from tests.
+					// Never touch the real ~/.hov-router/workspaces.json from tests.
 					new WorkspacePersistence({
 						workspacesFile: path.join(tmpDir, "test-workspaces.json"),
 					}),

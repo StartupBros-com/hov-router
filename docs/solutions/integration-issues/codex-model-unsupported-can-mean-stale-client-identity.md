@@ -25,7 +25,7 @@ tags:
 
 ## Problem
 
-A newer installed Codex CLI advertised GPT-6 Sol and Luna, but better-ccflare's
+A newer installed Codex CLI advertised GPT-6 Sol and Luna, but hov-router's
 older outbound client identity received model-unsupported errors. The error looked
 like an account entitlement restriction; changing the proxy's client identity
 allowed the same account to serve the same minimal requests.
@@ -62,8 +62,8 @@ and deployment verification are recorded in [issue #378](https://github.com/Star
   `CODEX_VERSION` and derived `CODEX_USER_AGENT`
   (`packages/providers/src/providers/codex/client-identity.ts:4-5`), and it never runs
   the installed CLI.
-  - Since #384, the identity resolves from an explicit `CCFLARE_CODEX_CLIENT_VERSION`,
-    then a verified-version record named by `CCFLARE_CODEX_VERIFIED_VERSION_FILE`, then
+  - Since #384, the identity resolves from an explicit `HOV_ROUTER_CODEX_CLIENT_VERSION`,
+    then a verified-version record named by `HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE`, then
     that compiled default (`client-identity.ts:186-240`).
   - The verified CLI updater from the operator's harness writes that record after each verified
     promotion, and production has pointed the variable at it since 2026-09-26. Without
@@ -145,11 +145,11 @@ post-deployment routing.
    explicit authorization for a bounded comparison on a non-Anthropic account;
    never replay customer conversations or treat an exhausted probe budget as reusable.
 5. Keep automation separate from this static compatibility repair.
-   [better-ccflare #370](https://github.com/StartupBros-com/better-ccflare/issues/370)
+   [hov-router #370](https://github.com/StartupBros-com/better-ccflare/issues/370)
    shipped the proxy side in #384: one resolved identity is shared by inference and
    catalog negotiation, fed by a verified-version record.
    An updater in the operator's harness writes that record after each verified CLI
-   promotion; it was activated on 2026-09-26. Production sets `CCFLARE_CODEX_VERIFIED_VERSION_FILE` in a
+   promotion; it was activated on 2026-09-26. Production sets `HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE` in a
    systemd drop-in, and reports source `verified` for the promoted 0.157.1.
    - The resolver re-reads the record at most once a second, so a later promotion reaches
      the proxy without a restart.
@@ -159,7 +159,7 @@ post-deployment routing.
    - While the variable is set, a stalled updater raises `codex_identity_record_stale`
      (`packages/proxy/src/codex-model-catalog.ts:753-775`).
    - An install without the updater still stays at the compiled default, where a version
-     bump needs `CCFLARE_CODEX_CLIENT_VERSION` or a code change.
+     bump needs `HOV_ROUTER_CODEX_CLIENT_VERSION` or a code change.
    A new identity still does not prove support for arbitrary new protocol fields or
    hosted tools.
 

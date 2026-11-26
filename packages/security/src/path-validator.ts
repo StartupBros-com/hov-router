@@ -223,12 +223,12 @@ export function getDefaultAllowedBasePaths(forceRefresh = false): string[] {
 					process.env.LOCALAPPDATA ??
 					process.env.APPDATA ??
 					join(home, "AppData", "Local");
-				configDir = join(baseDir, "better-ccflare");
+				configDir = join(baseDir, "hov-router");
 			} else {
 				// Linux/macOS: Follow XDG Base Directory specification
 				const xdgConfig = process.env.XDG_CONFIG_HOME;
 				const baseDir = xdgConfig ?? join(home, ".config");
-				configDir = join(baseDir, "better-ccflare");
+				configDir = join(baseDir, "hov-router");
 			}
 			paths.push(configDir);
 		}
@@ -275,7 +275,7 @@ export function getDefaultAllowedBasePaths(forceRefresh = false): string[] {
  * - **Cross-platform**: Handles both Unix (/) and Windows (\) path separators
  *
  * **Production Security Warning:**
- * The default allowed paths (better-ccflare config directory, current directory, temp directory)
+ * The default allowed paths (hov-router config directory, current directory, temp directory)
  * may still be too permissive for some production environments. Always specify explicit
  * `additionalAllowedPaths` in production for maximum security.
  *

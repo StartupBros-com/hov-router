@@ -66,7 +66,7 @@ function alertConfig(): Config {
 }
 
 beforeEach(async () => {
-	dir = mkdtempSync(join(tmpdir(), "ccflare-off-thread-equivalence-"));
+	dir = mkdtempSync(join(tmpdir(), "hov-router-off-thread-equivalence-"));
 	db = new DatabaseOperations(join(dir, "test.db"), { synchronous: "OFF" });
 	db.getAdapter().setOffThreadReader(undefined);
 	db.getAdapter().setOffThreadReader(undefined, "interactive");
@@ -701,10 +701,10 @@ describe("heavy read result equivalence", () => {
 				.queryOffThread("SELECT 7 AS n", [], "interactive"),
 		).toEqual([{ n: 7 }]);
 		expect(mainQuery).not.toHaveBeenCalled();
-		const saved = process.env.BETTER_CCFLARE_DB_READER_WORKER;
+		const saved = process.env.HOV_ROUTER_DB_READER_WORKER;
 		try {
 			for (const value of ["0", "false", "off"]) {
-				process.env.BETTER_CCFLARE_DB_READER_WORKER = value;
+				process.env.HOV_ROUTER_DB_READER_WORKER = value;
 				const disabled = new DatabaseOperations(join(dir, "test.db"));
 				others.push(disabled);
 				const query = spyOn(disabled.getAdapter(), "queryMain");
@@ -722,8 +722,8 @@ describe("heavy read result equivalence", () => {
 			}
 		} finally {
 			if (saved === undefined)
-				delete process.env.BETTER_CCFLARE_DB_READER_WORKER;
-			else process.env.BETTER_CCFLARE_DB_READER_WORKER = saved;
+				delete process.env.HOV_ROUTER_DB_READER_WORKER;
+			else process.env.HOV_ROUTER_DB_READER_WORKER = saved;
 		}
 	});
 	it("keeps interactive reads off a busy bulk reader in a wired database", async () => {

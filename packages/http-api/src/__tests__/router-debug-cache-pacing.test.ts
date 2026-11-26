@@ -10,9 +10,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { APIContext } from "../types";
 
-const scratch = mkdtempSync(join(tmpdir(), "ccflare-debug-cache-pacing-"));
-process.env.BETTER_CCFLARE_DB_PATH = join(scratch, "test.db");
-process.env.BETTER_CCFLARE_CONFIG_PATH = join(scratch, "config.json");
+const scratch = mkdtempSync(join(tmpdir(), "hov-router-debug-cache-pacing-"));
+process.env.HOV_ROUTER_DB_PATH = join(scratch, "test.db");
+process.env.HOV_ROUTER_CONFIG_PATH = join(scratch, "config.json");
 process.env.DATABASE_URL = "";
 
 const { APIRouter } = await import("../router");

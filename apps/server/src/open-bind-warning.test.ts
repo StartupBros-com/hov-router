@@ -95,7 +95,7 @@ describe("openBindWarning", () => {
 		const key = message?.indexOf(
 			`${COMMAND_NAME} --generate-api-key <name> --admin`,
 		);
-		const host = message?.indexOf("BETTER_CCFLARE_HOST=127.0.0.1");
+		const host = message?.indexOf("HOV_ROUTER_HOST=127.0.0.1");
 		expect(key).toBeGreaterThan(-1);
 		expect(host).toBeGreaterThan(key ?? Number.POSITIVE_INFINITY);
 		expect(message).not.toContain("\n");

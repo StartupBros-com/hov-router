@@ -13,7 +13,7 @@ applies_when:
 symptoms:
   - A forced request to a drain-enabled account returns 200 but credits_balance does not move
   - wham reports used_percent 100 with allowed true and limitReached false, then flips both after one more request
-  - A kept account's credits_balance falls while no ccflare request reaches it
+  - A kept account's credits_balance falls while no router request reaches it
   - A spent drain-off Codex account is admitted right after a restart or while usage polls are failing
 root_cause: missing_workflow_step
 resolution_type: workflow_improvement
@@ -34,7 +34,7 @@ tags:
 
 ## Context
 
-A ChatGPT Pro (Codex) account can hold purchased OpenAI credits. Once its plan windows are spent, OpenAI keeps serving it and bills the credits instead. ccflare used to refuse every such account at 100%.
+A ChatGPT Pro (Codex) account can hold purchased OpenAI credits. Once its plan windows are spent, OpenAI keeps serving it and bills the credits instead. The router used to refuse every such account at 100%.
 
 PR #421 (issue #419, deployed 2026-10-03) added a per-account opt-in, `accounts.codex_credit_drain_enabled`. Two ways to set it:
 - the Accounts page's **Drain credits** switch (`packages/dashboard-web/src/components/accounts/AccountListItem.tsx:129`);
@@ -42,7 +42,7 @@ PR #421 (issue #419, deployed 2026-10-03) added a per-account opt-in, `accounts.
 
 An opted-in account with fresh credit evidence keeps serving client traffic past its spent windows. Every other account is still refused once a fresh usage reading shows a spent window; §3 covers the gaps where that reading is missing.
 
-The code and unit tests prove the gate. They don't show how to prove *billing*, how OpenAI's own flags behave at the boundary, or how credits can leave a kept account without passing through ccflare. Live validation on 2026-10-03 answered those questions. It used force-routed `gpt-6-astra` requests sent with `x-better-ccflare-account-id`, with all three Codex Pro accounts at 100% of `seven_day`. Codex's adversarial review of the implementation also caught one way the drain could spend credits nobody asked it to (session history).
+The code and unit tests prove the gate. They don't show how to prove *billing*, how OpenAI's own flags behave at the boundary, or how credits can leave a kept account without passing through the router. Live validation on 2026-10-03 answered those questions. It used force-routed `gpt-6-astra` requests sent with `x-hov-router-account-id`, with all three Codex Pro accounts at 100% of `seven_day`. Codex's adversarial review of the implementation also caught one way the drain could spend credits nobody asked it to (session history).
 
 ## Guidance
 
@@ -60,11 +60,11 @@ The balance changes only on the next wham poll, so re-read after one poll interv
 | Short forced request (16-token output cap), right after enabling | on | 200 | 0 |
 | 1,276 output tokens, wham still `allowed:true` | on | 200 | −0.5205, then wham flipped to `allowed:false`, `limitReached:true` |
 | 1,282 output tokens, sent while `limitReached:true` | on | 200 | −1.612 |
-| Short forced request to a drain-off account | off | 503, `x-better-ccflare-force-route: unavailable`, `account_capacity_exhausted` | none |
+| Short forced request to a drain-off account | off | 503, `x-hov-router-force-route: unavailable`, `account_capacity_exhausted` | none |
 
 The first 200 billed nothing: a 200 shows only that the gate admitted the request, not that credits paid for it. The third row is the only clean credits-only rate, about 1.6 credits for about 1.3k output tokens on that model. The second row's 0.52 credits may be the last of the plan allowance spilling into credits, but that is an inference; it wasn't measured.
 
-Attribute a delta before trusting it. Any other client logged into the same ChatGPT account moves `credits_balance` too (§5). During the measurements above, the local Codex CLI was logged into a different account, and the requests table showed no other ccflare request to the measured one. Spending from other machines was not ruled out.
+Attribute a delta before trusting it. Any other client logged into the same ChatGPT account moves `credits_balance` too (§5). During the measurements above, the local Codex CLI was logged into a different account, and the requests table showed no other router request to the measured one. Spending from other machines was not ruled out.
 
 Routing never reads the balance. Credit evidence is `has_credits === true || unlimited === true`, and `balance` is used only for display (`packages/providers/src/providers/codex/api-usage.ts:185-203`).
 
@@ -102,7 +102,7 @@ That evidence comes only from the account's own wham poll. It is `null` when mis
   3. A refused account gets no responses, so its snapshot goes stale as well.
   4. The gate then admits it again, until an admitted response's headers refresh the snapshot.
 
-  So during a poll outage a kept account can spend credits through ccflare. This is the gate's general stale-evidence behaviour, not something drain added.
+  So during a poll outage a kept account can spend credits through the router. This is the gate's general stale-evidence behaviour, not something drain added.
 - **Internal probes never drain.** Verified cache-keepalive probes keep the spent-window gate (`syntheticProbe` in `evaluateCandidateCapacity`, `packages/proxy/src/handlers/account-selector.ts`). Codex's adversarial review of PR #421 found that an earlier revision let an auto-refresh probe for an opted-in account spend credits (session history). The auto-refresh probes have since been removed, and their marker header now earns a request no exemption.
 
 ### 4. Know which routes drain
@@ -116,14 +116,14 @@ That evidence comes only from the account's own wham poll. It is `null` when mis
   Drain skips only the session and weekly-all windows. It does not lift per-model weekly caps (`usage-throttling.ts:775`), which bind wherever model-scoped capacity is enforced: on force routes, or when model-scoped capacity routing is set to `exhausted` (`account-selector.ts:1315-1322`).
 - **Auto quality routes** never read the toggle and used `evaluateAutoCapacity` instead. PR #825 removed them on 2026-11-15 (#816).
 
-### 5. Look outside ccflare when kept credits fall
+### 5. Look outside the router when kept credits fall
 
-The toggle governs only traffic ccflare routes. A Codex CLI on the same host calls OpenAI directly and bills whichever account it is logged into when both of these hold in `~/.codex/config.toml`:
+The toggle governs only traffic the router routes. A Codex CLI on the same host calls OpenAI directly and bills whichever account it is logged into when both of these hold in `~/.codex/config.toml`:
 - it uses ChatGPT auth (`preferred_auth_method = "chatgpt"`);
-- no top-level `model_provider` selects the ccflare provider block.
+- no top-level `model_provider` selects the router's provider block.
 
 What happened on 2026-10-03:
-- A kept account lost about 160 credits between 21:15 and 21:24Z. The requests table shows no ccflare-routed request to it from 21:18:40Z.
+- A kept account lost about 160 credits between 21:15 and 21:24Z. The requests table shows no hov-router-routed request to it from 21:18:40Z.
 - The local CLI was logged into that account, and the balance stopped falling once the CLI was logged into a different one.
 - The CLI is the likely source. The start of the decline predates the CLI's credit snapshots, so that part remains unattributed.
 
@@ -135,17 +135,17 @@ To attribute spending without reading secrets:
 
 ## Why This Matters
 
-- **Misread status codes.** Taking a 200 as proof of billing lets a drain "pass" when plan allowance actually paid. A balance drop that another client caused lets it pass when ccflare billed nothing.
+- **Misread status codes.** Taking a 200 as proof of billing lets a drain "pass" when plan allowance actually paid. A balance drop that another client caused lets it pass when the router billed nothing.
 - **Assuming the refusal fails closed.** The spent-window refusal needs a fresh usage reading. It has none right after a restart or during a poll outage, and in those gaps a kept account can still be admitted and billed.
 - **Spending protected credits.** Relaxing the gate to trust `allowed:true` would quietly spend credits on exactly the accounts the operator chose to protect, and no code comment says why the margin exists.
-- **Misdiagnosis.** Credit loss from a direct CLI login looks like a ccflare routing bug. Hours go into the proxy when the cause sits in `~/.codex`.
+- **Misdiagnosis.** Credit loss from a direct CLI login looks like a router routing bug. Hours go into the proxy when the cause sits in `~/.codex`.
 
 ## When to Apply
 
 - Before claiming a credit drain works.
 - When a drain-enabled account returns 503, or a drain-off account loses credits.
 - Before touching `evaluateHardCapacity`'s 100% threshold, or wiring wham's `allowed` / `limit_reached` into routing.
-- When ccflare has just restarted or its usage polls are failing, and a kept account must not spend credits.
+- When the router has just restarted or its usage polls are failing, and a kept account must not spend credits.
 
 ## Examples
 
@@ -153,12 +153,12 @@ A live check that proves billing and never touches Anthropic-backed accounts (se
 
 1. Rule out other spenders. Confirm the local Codex CLI is logged into a different account (Guidance §5), and that nothing else uses the target account during the test.
 2. Read `GET /api/accounts` and record the target account's `credits_balance`, `codex_subscription` flags and `codexCreditDrainActive`. If a drain-on account at 100% shows `codexCreditDrainActive: false`, there is no fresh credit evidence yet; wait one poll.
-3. Send a request force-routed with `x-better-ccflare-account-id: <codex account id>`, with output large enough to move the balance (about 1k tokens).
+3. Send a request force-routed with `x-hov-router-account-id: <codex account id>`, with output large enough to move the balance (about 1k tokens).
 4. Re-read after one poll interval (about 90 s). The check passes only if both of these hold:
    - `credits_balance` fell;
-   - the requests table shows no other ccflare request to that account in the interval.
+   - the requests table shows no other router request to that account in the interval.
 5. Control: send a short request (16-token cap) to a drain-off account at 100%.
-   - It must return 503 with `x-better-ccflare-force-route: unavailable` (`packages/proxy/src/proxy.ts:268`) and reason `account_capacity_exhausted` (`account-selector.ts:3204`).
+   - It must return 503 with `x-hov-router-force-route: unavailable` (`packages/proxy/src/proxy.ts:268`) and reason `account_capacity_exhausted` (`account-selector.ts:3204`).
    - A 200 means that account's snapshot was missing or stale (§3), and the request may have billed its credits. Keep the request short for that reason.
 6. If a kept account's balance moves during step 4, check which account the local Codex CLI is logged into (Guidance §5) before suspecting routing.
 

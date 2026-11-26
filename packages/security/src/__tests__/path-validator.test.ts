@@ -9,7 +9,7 @@ import {
 } from "../path-validator";
 
 // Test directory setup - using os.tmpdir() for cross-platform compatibility
-const TEST_DIR = join(tmpdir(), "better-ccflare-security-tests");
+const TEST_DIR = join(tmpdir(), "hov-router-security-tests");
 const SAFE_DIR = join(TEST_DIR, "safe");
 const UNSAFE_DIR = join(tmpdir(), "unsafe-dir");
 
@@ -414,7 +414,7 @@ describe("Path Validator - Core Security Tests", () => {
 			const result = validatePath(
 				join(
 					tmpdir(),
-					"better-ccflare-test/workspace/.claude/agents/my-agent.md",
+					"hov-router-test/workspace/.claude/agents/my-agent.md",
 				),
 				{
 					description: "agent file path",

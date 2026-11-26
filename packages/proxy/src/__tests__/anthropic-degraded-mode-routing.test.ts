@@ -301,7 +301,7 @@ function makeLargeHandleRequest(
 		"content-type": "application/json",
 	});
 	if (options.forceAccountId !== undefined) {
-		headers.set("x-better-ccflare-account-id", options.forceAccountId);
+		headers.set("x-hov-router-account-id", options.forceAccountId);
 	}
 	return new Request("https://proxy.local/v1/messages", {
 		method: "POST",
@@ -324,20 +324,20 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 	const originalFetch = globalThis.fetch;
 
 	beforeEach(() => {
-		process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	});
 
 	afterEach(() => {
 		globalThis.fetch = originalFetch;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	});
 
 	it("observes the second-account 529 before denying its in-place resend without draining the trusted response", async () => {
@@ -897,7 +897,7 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 	});
 
 	it("excludes force-routed overload evidence but still suppresses a protected force route", async () => {
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "1";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "1";
 		const coordinator = new AnthropicDegradedModeCoordinator({
 			config: {
 				...ANTHROPIC_DEGRADED_MODE_DEFAULTS,
@@ -1061,12 +1061,12 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 				transformRequestBody: (request: Request) => Promise<Request>;
 			}
 		).transformRequestBody = async (request) =>
-			new Request("https://better-ccflare.local/synthetic", {
+			new Request("https://hov-router.local/synthetic", {
 				method: request.method,
 				headers: {
 					...Object.fromEntries(request.headers.entries()),
-					"x-better-ccflare-synthetic-response": "true",
-					"x-better-ccflare-synthetic-status": "200",
+					"x-hov-router-synthetic-response": "true",
+					"x-hov-router-synthetic-status": "200",
 				},
 				body: await request.clone().arrayBuffer(),
 			});
@@ -1221,9 +1221,9 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 			expect(fetchCount).toBe(MAX_REQUEST_PHYSICAL_ATTEMPTS);
 			expect(response.status).toBe(503);
 			expect(response.headers.get("retry-after")).toBeNull();
-			expect(response.headers.get("x-better-ccflare-pool-status")).toBeNull();
+			expect(response.headers.get("x-hov-router-pool-status")).toBeNull();
 			expect(
-				response.headers.get("x-better-ccflare-recovery-scope"),
+				response.headers.get("x-hov-router-recovery-scope"),
 			).toBeNull();
 			expect(response.headers.get("x-should-retry")).toBeNull();
 			expect(await response.json()).toEqual({
@@ -1309,7 +1309,7 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 		}
 		expect(coordinator.getCohortState(cohortKey).state).toBe("open");
 
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		let fetchCount = 0;
 		globalThis.fetch = mock(async () => {
 			fetchCount += 1;
@@ -1365,7 +1365,7 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 	});
 
 	it("denies pre-existing probing and recovering empty-pool cohorts without mutating them", async () => {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		let fetchCount = 0;
 		globalThis.fetch = mock(async () => {
 			fetchCount += 1;
@@ -1484,7 +1484,7 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 			distinctAccounts: 1,
 		});
 
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		let fetchCount = 0;
 		globalThis.fetch = mock(async () => {
 			fetchCount += 1;
@@ -1563,7 +1563,7 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 			});
 		}
 
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		const largeContent = "x".repeat(64 * 1024);
 		for (const testCase of [
 			{
@@ -1834,7 +1834,7 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 	});
 
 	it("treats an empty force-route header as normal-pool evidence while preserving resolved force routes", async () => {
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "1";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "1";
 
 		const emptyHeaderCoordinator = new AnthropicDegradedModeCoordinator({
 			config: {
@@ -1897,7 +1897,7 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 	});
 
 	it("keeps the real owner overlay inert for off, force-routed, and observe-only overloads", async () => {
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "1";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "1";
 
 		for (const testCase of [
 			{ label: "off", mode: "off" as const, forceRouted: false },
@@ -2647,7 +2647,7 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 					"x-request-id": "safe-upstream-id",
 					"set-cookie": "secret=1",
 					authorization: "Bearer secret",
-					"x-better-ccflare-guard-request-id": "internal",
+					"x-hov-router-guard-request-id": "internal",
 					connection: "keep-alive",
 				},
 			});
@@ -2672,7 +2672,7 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 		for (const forbiddenHeader of [
 			"set-cookie",
 			"authorization",
-			"x-better-ccflare-guard-request-id",
+			"x-hov-router-guard-request-id",
 			"connection",
 		]) {
 			expect(response.headers.get(forbiddenHeader)).toBeNull();
@@ -2681,7 +2681,7 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 	});
 
 	it("rebuilds a retained-ledger 529 before a later protected reservation is suppressed", async () => {
-		process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = "false";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = "false";
 		const coordinator = new AnthropicDegradedModeCoordinator({
 			config: {
 				...ANTHROPIC_DEGRADED_MODE_DEFAULTS,
@@ -2711,7 +2711,7 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 					"x-request-id": "retained-safe-id",
 					"set-cookie": "secret=1",
 					authorization: "Bearer secret",
-					"x-better-ccflare-guard-request-id": "internal",
+					"x-hov-router-guard-request-id": "internal",
 				},
 			});
 		}) as unknown as typeof fetch;
@@ -2734,7 +2734,7 @@ describe("Anthropic degraded-mode physical-send admission", () => {
 		for (const forbiddenHeader of [
 			"set-cookie",
 			"authorization",
-			"x-better-ccflare-guard-request-id",
+			"x-hov-router-guard-request-id",
 		]) {
 			expect(response.headers.get(forbiddenHeader)).toBeNull();
 		}

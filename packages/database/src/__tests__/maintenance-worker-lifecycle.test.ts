@@ -83,7 +83,7 @@ function fixture(
 		spawnFails?: number;
 	} = {},
 ) {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-maintenance-owner-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-maintenance-owner-"));
 	const workers: FakeWorker[] = [];
 	const spawnOptions: (WorkerOptions | undefined)[] = [];
 	const events: string[] = [];
@@ -143,7 +143,7 @@ async function turns() {
 
 describe("database maintenance worker ownership", () => {
 	it("closes promptly under an unrelated SQLite writer after owned maintenance retires", async () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-close-busy-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-close-busy-"));
 		const file = join(dir, "test.db");
 		const db = new DatabaseOperations(file);
 		const holder = new Database(file);
@@ -188,7 +188,7 @@ describe("database maintenance worker ownership", () => {
 			revoked++;
 			nativeRevoke(url);
 		};
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-real-maintenance-owner-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-real-maintenance-owner-"));
 		const db = new DatabaseOperations(
 			join(dir, "test.db"),
 			undefined,
@@ -211,7 +211,7 @@ describe("database maintenance worker ownership", () => {
 		}
 	});
 	it("owns the manual full-VACUUM worker through confirmed database close", async () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-compact-owner-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-compact-owner-"));
 		const db = new DatabaseOperations(join(dir, "test.db"));
 		try {
 			expect((await db.compact()).vacuumed).toBe(true);

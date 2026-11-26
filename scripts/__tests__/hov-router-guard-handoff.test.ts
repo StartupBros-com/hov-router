@@ -11,7 +11,7 @@ import {
 	createGuard,
 	isDrainAdmissibleRead,
 	matchesPinnedSourceId,
-} from "../ccflare-guard.mjs";
+} from "../hov-router-guard.mjs";
 import { resolveNodeExecutable } from "./node-runtime";
 
 const sourceSha = "0123456789abcdef0123456789abcdef01234567";
@@ -60,7 +60,7 @@ async function fixture(options: Record<string, unknown> = {}) {
 	const upstream = http.createServer((req, res) => {
 		calls.push(req.url!);
 		signatures.push(
-			String(req.headers["x-better-ccflare-guard-request-id"] || ""),
+			String(req.headers["x-hov-router-guard-request-id"] || ""),
 		);
 		if (req.url?.includes("hold")) {
 			hold = res;
@@ -135,8 +135,8 @@ async function overlapFixture(options: Record<string, unknown> = {}) {
 				return new Response("{}", {
 					status: 503,
 					headers: {
-						"x-better-ccflare-pool-status": "exhausted",
-						"x-better-ccflare-recovery-scope": "pool",
+						"x-hov-router-pool-status": "exhausted",
+						"x-hov-router-recovery-scope": "pool",
 						"retry-after": "0.3",
 					},
 				});
@@ -406,7 +406,7 @@ test("terminal shutdown while fenced never releases waiters onto the unverified 
 test("fence retires the Node connection pool so a quiesced backend's keep-alive sockets never carry replacement traffic", async () => {
 	// Worst case: the old backend keeps idle and in-flight keep-alive
 	// connections open after closing its listener, and answers "old" on them.
-	const source = new URL("../ccflare-guard.mjs", import.meta.url).href;
+	const source = new URL("../hov-router-guard.mjs", import.meta.url).href;
 	const script = `
 import http from 'node:http';
 import net from 'node:net';
@@ -696,7 +696,7 @@ test("terminal shutdown fences an in-flight replacement verification", async () 
 });
 
 test("private control authenticates commands and generation without exposing credentials", async () => {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-control-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-control-"));
 	cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
 	const path = join(dir, "control.sock");
 	const f = await fixture({ controlSocketPath: path, controlSecret: secret });
@@ -728,7 +728,7 @@ test("private control authenticates commands and generation without exposing cre
 });
 
 test("private control fences and retires a generation", async () => {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-control-fence-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-control-fence-"));
 	cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
 	const path = join(dir, "control.sock");
 	const f = await fixture({ controlSocketPath: path, controlSecret: secret });
@@ -791,7 +791,7 @@ test("preexisting concurrency queue stays fenced until replacement without readi
 });
 
 test("native Node body receipt timeout cannot preempt the finite paused-upload deadline", async () => {
-	const source = new URL("../ccflare-guard.mjs", import.meta.url).href;
+	const source = new URL("../hov-router-guard.mjs", import.meta.url).href;
 	const script = `
  import http from 'node:http';
  const original = http.createServer;
@@ -909,13 +909,13 @@ test("replacement signer uses the new backend credential before releasing waiter
 	const [version, id, ordinal, signature] = f.signatures[0].split(".");
 	expect(version).toBe("v1");
 	const expected = createHmac("sha256", Buffer.from(nextSecret, "base64url"))
-		.update(`better-ccflare/guard-correlation/v1\n${id}\n${ordinal}`)
+		.update(`hov-router/guard-correlation/v1\n${id}\n${ordinal}`)
 		.digest("base64url");
 	expect(signature).toBe(expected);
 });
 
 test("trickled unauthenticated control input cannot pin all command slots", async () => {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-control-deadline-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-control-deadline-"));
 	cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
 	const path = join(dir, "control.sock");
 	const f = await fixture({ controlSocketPath: path, controlSecret: secret });
@@ -965,8 +965,8 @@ test("productive response chunks cannot renew the new accepted-work ceiling", as
 	});
 	const response = await fetch(`${f.base}/hold`, {
 		headers: {
-			"x-better-ccflare-managed-timing": "forged",
-			"x-better-ccflare-timeout-ms": "1800000",
+			"x-hov-router-managed-timing": "forged",
+			"x-hov-router-timeout-ms": "1800000",
 		},
 	});
 	const outcome = response.text().catch(() => "accepted-cutoff");

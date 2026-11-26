@@ -7,7 +7,7 @@ problem_type: tooling_decision
 component: proxy
 severity: medium
 applies_when:
-  - "Choosing main-conversation and worker cache TTLs for Claude Code through better-ccflare"
+  - "Choosing main-conversation and worker cache TTLs for Claude Code through hov-router"
   - "Interpreting Anthropic cache markers on OpenAI-compatible or Codex routes"
 tags: [claude-code, prompt-cache, cache-ttl, codex, gateway, configuration]
 ---

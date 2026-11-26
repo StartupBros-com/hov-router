@@ -18,7 +18,7 @@ import { describe, expect, it } from "bun:test";
 import type { DatabaseOperations } from "@hov-router/database";
 import { AuthService } from "../auth-service";
 
-const INTERNAL_PROBE_SECRET_HEADER = "x-better-ccflare-internal-probe-secret";
+const INTERNAL_PROBE_SECRET_HEADER = "x-hov-router-internal-probe-secret";
 const SECRET = "test-internal-probe-secret";
 
 function makeDbOpsWithApiKeys(): DatabaseOperations {
@@ -45,7 +45,7 @@ describe("AuthService — internal probe exemption (#216)", () => {
 			const auth = new AuthService(makeDbOpsWithApiKeys(), SECRET);
 			const req = makeRequest("/v1/messages", {
 				[INTERNAL_PROBE_SECRET_HEADER]: SECRET,
-				"x-better-ccflare-auto-refresh": "true",
+				"x-hov-router-auto-refresh": "true",
 			});
 
 			const result = await auth.authenticateRequest(
@@ -63,7 +63,7 @@ describe("AuthService — internal probe exemption (#216)", () => {
 			const auth = new AuthService(makeDbOpsWithApiKeys(), SECRET);
 			const req = makeRequest("/v1/messages", {
 				[INTERNAL_PROBE_SECRET_HEADER]: SECRET,
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-keepalive": "true",
 			});
 
 			const result = await auth.authenticateRequest(
@@ -79,7 +79,7 @@ describe("AuthService — internal probe exemption (#216)", () => {
 			const auth = new AuthService(makeDbOpsWithApiKeys(), SECRET);
 			const req = makeRequest("/v1/messages/count_tokens", {
 				[INTERNAL_PROBE_SECRET_HEADER]: SECRET,
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-keepalive": "true",
 			});
 
 			const result = await auth.authenticateRequest(
@@ -96,7 +96,7 @@ describe("AuthService — internal probe exemption (#216)", () => {
 			for (const path of ["/v1", "/messages", "/v1beta", "/messages-legacy"]) {
 				const req = makeRequest(path, {
 					[INTERNAL_PROBE_SECRET_HEADER]: SECRET,
-					"x-better-ccflare-keepalive": "true",
+					"x-hov-router-keepalive": "true",
 				});
 				expect(
 					(await auth.authenticateRequest(req, path, "POST")).isAuthenticated,
@@ -110,7 +110,7 @@ describe("AuthService — internal probe exemption (#216)", () => {
 			const auth = new AuthService(makeDbOpsWithApiKeys(), SECRET);
 			const req = makeRequest("/v1/messages", {
 				[INTERNAL_PROBE_SECRET_HEADER]: "wrong-secret",
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-keepalive": "true",
 			});
 
 			const result = await auth.authenticateRequest(
@@ -125,7 +125,7 @@ describe("AuthService — internal probe exemption (#216)", () => {
 		it("rejects when the secret header is missing entirely", async () => {
 			const auth = new AuthService(makeDbOpsWithApiKeys(), SECRET);
 			const req = makeRequest("/v1/messages", {
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-keepalive": "true",
 			});
 
 			const result = await auth.authenticateRequest(
@@ -156,7 +156,7 @@ describe("AuthService — internal probe exemption (#216)", () => {
 			const auth = new AuthService(makeDbOpsWithApiKeys(), undefined);
 			const req = makeRequest("/v1/messages", {
 				[INTERNAL_PROBE_SECRET_HEADER]: "anything",
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-keepalive": "true",
 			});
 
 			const result = await auth.authenticateRequest(
@@ -172,7 +172,7 @@ describe("AuthService — internal probe exemption (#216)", () => {
 			const auth = new AuthService(makeDbOpsWithApiKeys(), SECRET);
 			const req = makeRequest("/api/accounts", {
 				[INTERNAL_PROBE_SECRET_HEADER]: SECRET,
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-keepalive": "true",
 			});
 
 			const result = await auth.authenticateRequest(
@@ -186,7 +186,7 @@ describe("AuthService — internal probe exemption (#216)", () => {
 	});
 
 	describe("local-control-secret exemption for CLI notify endpoints", () => {
-		const LOCAL_CONTROL_SECRET_HEADER = "x-better-ccflare-local-control-secret";
+		const LOCAL_CONTROL_SECRET_HEADER = "x-hov-router-local-control-secret";
 		const CONTROL_SECRET = "test-local-control-secret";
 
 		it("exempts /api/accounts/:id/reload with a matching local-control-secret", async () => {

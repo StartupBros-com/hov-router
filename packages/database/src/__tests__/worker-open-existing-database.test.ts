@@ -46,7 +46,7 @@ describe("maintenance workers open an existing database only (#668)", () => {
 	let dbPath: string;
 
 	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ccflare-open-existing-"));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hov-router-open-existing-"));
 		dbPath = path.join(tmpDir, "test.db");
 	});
 

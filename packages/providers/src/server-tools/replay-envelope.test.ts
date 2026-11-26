@@ -619,7 +619,7 @@ describe("server-tool replay envelope", () => {
 			{ counterIdentity: expectedIdentity, issuedAtMs: FIXED_NOW_MS },
 		]);
 		expect(expectedIdentity).toMatch(
-			/^better-ccflare\.aes-256-gcm\.keyfp\.v1\.[A-Za-z0-9_-]{43}$/u,
+			/^hov-router\.aes-256-gcm\.keyfp\.v1\.[A-Za-z0-9_-]{43}$/u,
 		);
 		expect(expectedIdentity).not.toContain("bccf2");
 		expect(expectedIdentity).not.toContain("A256GCM");

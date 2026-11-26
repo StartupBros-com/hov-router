@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 #
-# deploy-ccflare.sh — deploy better-ccflare to the production systemd stack.
+# deploy-hov-router.sh — deploy hov-router to the production systemd stack.
 #
 # WHY THIS SCRIPT EXISTS
 #   Production has historically been deployed by hand: build whatever branch
 #   happens to be checked out, hand-type a short hash into the binary
 #   filename, hand-edit the root-owned systemd pin, restart. Nothing forced
 #   deployed code to actually be on `main` — see the pile of hand-named
-#   binaries (better-ccflare-v*-drill-*, -logfix-*, -progate-*, ...) in
-#   /home/will/.config/better-ccflare. This script replaces that process
+#   binaries (hov-router-v*-drill-*, -logfix-*, -progate-*, ...) in
+#   /home/will/.config/hov-router. This script replaces that process
 #   with one command, and — the actual point — it only ever ships the freshly
 #   fetched origin/main tip. Run it from any checkout of the repository: that
 #   checkout's branch, HEAD and uncommitted files are never built, and the
 #   deploy itself runs origin/main's own copy of this script.
 #
 # USAGE
-#   scripts/deploy-ccflare.sh            Build, deploy, restart, verify.
-#   scripts/deploy-ccflare.sh --no-prune  Deploy normally, but preserve all old
+#   scripts/deploy-hov-router.sh            Build, deploy, restart, verify.
+#   scripts/deploy-hov-router.sh --no-prune  Deploy normally, but preserve all old
 #                                        binaries, guards, runners and pin
 #                                        backups (including recovery backups).
 #                                        Skips only step 8; all gates still run.
-#   scripts/deploy-ccflare.sh --check    Run the source gate, then report what
+#   scripts/deploy-hov-router.sh --check    Run the source gate, then report what
 #                                        a deploy would do: the target SHA, the
 #                                        live git_sha, and "backend-only",
 #                                        "full restart: <first differing
@@ -45,14 +45,14 @@
 #      a `bun` on PATH, or a built binary's embedded runtime, that differs
 #      from the snapshot's .bun-version.
 #   3. Copy the binary to
-#      /home/will/.config/better-ccflare/better-ccflare-v<version>-<short-sha>
+#      /home/will/.config/hov-router/hov-router-v<version>-<short-sha>
 #      and install the source-controlled guard + policy as an immutable pair
 #      under guards/<full-sha>/.
 #   4. Back up, then atomically replace the deploy-owned systemd pin
-#      (/etc/systemd/system/ccflare-stack.service.d/50-pinned-build.conf).
+#      (/etc/systemd/system/hov-router.service.d/50-pinned-build.conf).
 #      Operator policy must live in a later drop-in such as
 #      90-operator-policy.conf.
-#   5. `systemctl daemon-reload && systemctl restart ccflare-stack.service`,
+#   5. `systemctl daemon-reload && systemctl restart hov-router.service`,
 #      unless the running runner, guard, policy, timing and transaction
 #      modules match the candidate byte for byte and the schema digest is
 #      unchanged: then only the backend is replaced (backend-only handoff).
@@ -70,11 +70,11 @@ set -Eeuo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-# shellcheck source=deploy-ccflare-lib.sh
-source "$REPO_ROOT/scripts/deploy-ccflare-lib.sh"
+# shellcheck source=deploy-hov-router-lib.sh
+source "$REPO_ROOT/scripts/deploy-hov-router-lib.sh"
 
-DEST="/home/will/.config/better-ccflare"
-PIN="/etc/systemd/system/ccflare-stack.service.d/50-pinned-build.conf"
+DEST="/home/will/.config/hov-router"
+PIN="/etc/systemd/system/hov-router.service.d/50-pinned-build.conf"
 HEALTH_URL="http://127.0.0.1:8788/health"
 GUARD_HEALTH_URL="http://127.0.0.1:8788/_guard/health"
 HEALTH_WAIT_SECS=60
@@ -123,7 +123,7 @@ verify_service_process_identity() {
 		return 2
 	fi
 	local guard_json="$1" expected_runner="$2" main_pid health_runner_pid
-	main_pid="$(systemctl show ccflare-stack.service --property MainPID --value)" || return 1
+	main_pid="$(systemctl show hov-router.service --property MainPID --value)" || return 1
 	health_runner_pid="$(
 		node -e '
 			try {
@@ -168,11 +168,11 @@ report_deploy_plan() {
 	fi
 	verdict="$(
 		backend_handoff_eligible user "$HANDOFF_DIR/runtime.json" \
-			"$REPO_ROOT/scripts/run-ccflare-stack.sh" \
-			"$REPO_ROOT/scripts/ccflare-guard.mjs" \
-			"$REPO_ROOT/scripts/ccflare-guard-policy.mjs" \
-			"$REPO_ROOT/scripts/ccflare-managed-timing.mjs" \
-			"$REPO_ROOT/scripts/ccflare-deployment-transaction.mjs" \
+			"$REPO_ROOT/scripts/run-hov-router.sh" \
+			"$REPO_ROOT/scripts/hov-router-guard.mjs" \
+			"$REPO_ROOT/scripts/hov-router-guard-policy.mjs" \
+			"$REPO_ROOT/scripts/hov-router-managed-timing.mjs" \
+			"$REPO_ROOT/scripts/hov-router-deployment-transaction.mjs" \
 			"$schema"
 	)" || verdict_status=$?
 	case "$verdict_status" in
@@ -219,13 +219,13 @@ rollback_on_failure() {
 	[[ -n "$PIN_RENDERED" && -f "$PIN_RENDERED" ]] && rm -f "$PIN_RENDERED"
 	if [[ -n "$GUARD_STAGE_DIR" && -d "$GUARD_STAGE_DIR" ]]; then
 		rm -f \
-			"$GUARD_STAGE_DIR/ccflare-guard.mjs" \
-			"$GUARD_STAGE_DIR/ccflare-guard-policy.mjs" \
-			"$GUARD_STAGE_DIR/ccflare-managed-timing.mjs"
+			"$GUARD_STAGE_DIR/hov-router-guard.mjs" \
+			"$GUARD_STAGE_DIR/hov-router-guard-policy.mjs" \
+			"$GUARD_STAGE_DIR/hov-router-managed-timing.mjs"
 		rmdir "$GUARD_STAGE_DIR" 2>/dev/null
 	fi
 	if [[ -n "$RUNNER_STAGE_DIR" && -d "$RUNNER_STAGE_DIR" ]]; then
-		rm -f "$RUNNER_STAGE_DIR/run-ccflare-stack.sh" "$RUNNER_STAGE_DIR/ccflare-deployment-transaction.mjs"
+		rm -f "$RUNNER_STAGE_DIR/run-hov-router.sh" "$RUNNER_STAGE_DIR/hov-router-deployment-transaction.mjs"
 		rmdir "$RUNNER_STAGE_DIR" 2>/dev/null
 	fi
 
@@ -246,7 +246,7 @@ rollback_on_failure() {
 		fi
 		if [[ "$SERVICE_RESTART_ATTEMPTED" == "0" ]]; then
 			echo "==> Restored prior pin before any service restart; live process was left untouched." >&2
-		elif ! sudo systemctl restart ccflare-stack.service \
+		elif ! sudo systemctl restart hov-router.service \
 			|| ! poll_stack_health \
 			|| ! restored_runner_path="$(
 				node -e '
@@ -294,13 +294,13 @@ done
 #    the Git repository: its branch, HEAD and working tree are never built,
 #    and its copy of this script (possibly older or edited) never deploys.
 # ---------------------------------------------------------------------------
-if [[ -z "${CCFLARE_DEPLOY_BOOTSTRAP_SHA:-}" ]]; then
+if [[ -z "${HOV_ROUTER_DEPLOY_BOOTSTRAP_SHA:-}" ]]; then
 	echo "==> Fetching refs/heads/main from origin…"
 	git fetch origin refs/heads/main:refs/remotes/origin/main --quiet
 	BOOTSTRAP_SHA="$(git rev-parse refs/remotes/origin/main)"
 	CALLER_REF="$(git symbolic-ref -q --short HEAD 2>/dev/null || echo "detached HEAD") at $(git rev-parse --short HEAD)"
 	echo "==> Target: refs/remotes/origin/main at ${BOOTSTRAP_SHA:0:12}. This checkout ($CALLER_REF) and its uncommitted files are not what ships."
-	BOOTSTRAP_PARENT="$(mktemp -d "${TMPDIR:-/tmp}/better-ccflare-deploy-bootstrap.XXXXXX")"
+	BOOTSTRAP_PARENT="$(mktemp -d "${TMPDIR:-/tmp}/hov-router-deploy-bootstrap.XXXXXX")"
 	BOOTSTRAP_ROOT="$(cd "$BOOTSTRAP_PARENT" && pwd -P)/source"
 	create_verified_source_snapshot "$REPO_ROOT" "$BOOTSTRAP_ROOT" "$BOOTSTRAP_SHA"
 	# The deploy owns interrupts. Ctrl-C reaches it directly through the
@@ -312,7 +312,7 @@ if [[ -z "${CCFLARE_DEPLOY_BOOTSTRAP_SHA:-}" ]]; then
 	# asynchronous child, and <&0 keeps the caller's stdin. The snapshot runs
 	# detached in a temporary directory, so the checkout and branch this was
 	# started from travel with it for the deploy lock's holder record.
-	export CCFLARE_DEPLOY_CALLER_REF="$CALLER_REF" CCFLARE_DEPLOY_CALLER_DIR="$REPO_ROOT"
+	export HOV_ROUTER_DEPLOY_CALLER_REF="$CALLER_REF" HOV_ROUTER_DEPLOY_CALLER_DIR="$REPO_ROOT"
 	BOOTSTRAP_PID=""
 	BOOTSTRAP_SIGNALLED=0
 	forward_to_deploy() {
@@ -324,8 +324,8 @@ if [[ -z "${CCFLARE_DEPLOY_BOOTSTRAP_SHA:-}" ]]; then
 	trap 'forward_to_deploy TERM' TERM
 	trap 'forward_to_deploy HUP' HUP
 	trap 'forward_to_deploy ""' INT
-	CCFLARE_DEPLOY_BOOTSTRAP_SHA="$BOOTSTRAP_SHA" CCFLARE_DEPLOY_BOOTSTRAP_ROOT="$BOOTSTRAP_ROOT" \
-		env --default-signal=INT,QUIT bash "$BOOTSTRAP_ROOT/scripts/deploy-ccflare.sh" "$@" <&0 &
+	HOV_ROUTER_DEPLOY_BOOTSTRAP_SHA="$BOOTSTRAP_SHA" HOV_ROUTER_DEPLOY_BOOTSTRAP_ROOT="$BOOTSTRAP_ROOT" \
+		env --default-signal=INT,QUIT bash "$BOOTSTRAP_ROOT/scripts/deploy-hov-router.sh" "$@" <&0 &
 	BOOTSTRAP_PID=$!
 	# wait returns early (status > 128) whenever a trap runs, so wait again
 	# until the deploy has exited.
@@ -345,8 +345,8 @@ if [[ -z "${CCFLARE_DEPLOY_BOOTSTRAP_SHA:-}" ]]; then
 	fi
 	exit "$BOOTSTRAP_STATUS"
 fi
-if [[ "$(pwd -P)" != "${CCFLARE_DEPLOY_BOOTSTRAP_ROOT:-}" ]]; then
-	echo "refusing to deploy: CCFLARE_DEPLOY_BOOTSTRAP_SHA is set, but this script is not running from the bootstrap snapshot named by CCFLARE_DEPLOY_BOOTSTRAP_ROOT" >&2
+if [[ "$(pwd -P)" != "${HOV_ROUTER_DEPLOY_BOOTSTRAP_ROOT:-}" ]]; then
+	echo "refusing to deploy: HOV_ROUTER_DEPLOY_BOOTSTRAP_SHA is set, but this script is not running from the bootstrap snapshot named by HOV_ROUTER_DEPLOY_BOOTSTRAP_ROOT" >&2
 	exit 1
 fi
 
@@ -370,7 +370,7 @@ if validate_main_deploy_source \
 	"$CURRENT_BRANCH_REF" \
 	"$HEAD_SHA" \
 	"$ORIGIN_MAIN_SHA" \
-	"$CCFLARE_DEPLOY_BOOTSTRAP_SHA"; then
+	"$HOV_ROUTER_DEPLOY_BOOTSTRAP_SHA"; then
 	MAIN_SOURCE_OK=1
 fi
 
@@ -454,16 +454,16 @@ fi
 # The winner records who it is beside the lock, and a refusal prints that
 # record, so a second deploy learns who holds the lock without asking around.
 # A deploy started from an older checkout's script passes no caller.
-DEPLOY_LOCK="${XDG_RUNTIME_DIR:-/tmp}/better-ccflare-deploy-${UID}.lock"
+DEPLOY_LOCK="${XDG_RUNTIME_DIR:-/tmp}/hov-router-deploy-${UID}.lock"
 DEPLOY_LOCK_HOLDER="${DEPLOY_LOCK}.holder"
 exec 9>"$DEPLOY_LOCK"
 if ! flock -n 9; then
-	echo "refusing to deploy: another better-ccflare deployment holds $DEPLOY_LOCK" >&2
+	echo "refusing to deploy: another hov-router deployment holds $DEPLOY_LOCK" >&2
 	describe_deploy_lock_holder "$DEPLOY_LOCK_HOLDER" >&2 || true
 	exit 75
 fi
 write_deploy_lock_holder "$DEPLOY_LOCK_HOLDER" "$HEAD_SHA" \
-	"${CCFLARE_DEPLOY_CALLER_REF:-unknown}" "${CCFLARE_DEPLOY_CALLER_DIR:-unknown}" \
+	"${HOV_ROUTER_DEPLOY_CALLER_REF:-unknown}" "${HOV_ROUTER_DEPLOY_CALLER_DIR:-unknown}" \
 	|| echo "WARNING: could not record this deploy as the lock holder in $DEPLOY_LOCK_HOLDER" >&2
 
 # Validate ownership before an expensive build or any host artifact/systemd
@@ -476,7 +476,7 @@ validate_deploy_owned_systemd_pin "$PIN"
 # 2) Build
 # ---------------------------------------------------------------------------
 BUILD_SNAPSHOT_PARENT="$(
-	mktemp -d "${TMPDIR:-/tmp}/better-ccflare-deploy-${SHORT}.XXXXXX"
+	mktemp -d "${TMPDIR:-/tmp}/hov-router-deploy-${SHORT}.XXXXXX"
 )"
 BUILD_SOURCE_ROOT="$BUILD_SNAPSHOT_PARENT/source"
 create_verified_source_snapshot "$REPO_ROOT" "$BUILD_SOURCE_ROOT" "$HEAD_SHA"
@@ -484,20 +484,20 @@ BUILD_SOURCE_REGISTERED=1
 
 GUARDS_ROOT="${DEST}/guards"
 GUARD_DIR="${GUARDS_ROOT}/${HEAD_SHA}"
-GUARD_SCRIPT="${GUARD_DIR}/ccflare-guard.mjs"
-GUARD_POLICY="${GUARD_DIR}/ccflare-guard-policy.mjs"
-GUARD_TIMING="${GUARD_DIR}/ccflare-managed-timing.mjs"
+GUARD_SCRIPT="${GUARD_DIR}/hov-router-guard.mjs"
+GUARD_POLICY="${GUARD_DIR}/hov-router-guard-policy.mjs"
+GUARD_TIMING="${GUARD_DIR}/hov-router-managed-timing.mjs"
 RUNNERS_ROOT="${DEST}/runners"
 RUNNER_DIR="${RUNNERS_ROOT}/${HEAD_SHA}"
-RUNNER_SCRIPT="${RUNNER_DIR}/run-ccflare-stack.sh"
+RUNNER_SCRIPT="${RUNNER_DIR}/run-hov-router.sh"
 GUARD_SOURCE_ID="$HEAD_SHA"
-SOURCE_GUARD="$BUILD_SOURCE_ROOT/scripts/ccflare-guard.mjs"
-SOURCE_GUARD_POLICY="$BUILD_SOURCE_ROOT/scripts/ccflare-guard-policy.mjs"
-SOURCE_GUARD_TIMING="$BUILD_SOURCE_ROOT/scripts/ccflare-managed-timing.mjs"
-SOURCE_RUNNER="$BUILD_SOURCE_ROOT/scripts/run-ccflare-stack.sh"
-SOURCE_TRANSACTION="$BUILD_SOURCE_ROOT/scripts/ccflare-deployment-transaction.mjs"
+SOURCE_GUARD="$BUILD_SOURCE_ROOT/scripts/hov-router-guard.mjs"
+SOURCE_GUARD_POLICY="$BUILD_SOURCE_ROOT/scripts/hov-router-guard-policy.mjs"
+SOURCE_GUARD_TIMING="$BUILD_SOURCE_ROOT/scripts/hov-router-managed-timing.mjs"
+SOURCE_RUNNER="$BUILD_SOURCE_ROOT/scripts/run-hov-router.sh"
+SOURCE_TRANSACTION="$BUILD_SOURCE_ROOT/scripts/hov-router-deployment-transaction.mjs"
 
-echo "==> Building better-ccflare v${VERSION} (${SHORT}) from verified source snapshot…"
+echo "==> Building hov-router v${VERSION} (${SHORT}) from verified source snapshot…"
 # The same toolchain gate CI applies after setup-bun.
 validate_bun_runtime_version "build toolchain" bun "$BUILD_SOURCE_ROOT/.bun-version"
 (
@@ -506,7 +506,7 @@ validate_bun_runtime_version "build toolchain" bun "$BUILD_SOURCE_ROOT/.bun-vers
 	bun run build
 )
 
-BUILT_BIN="$BUILD_SOURCE_ROOT/apps/cli/dist/better-ccflare"
+BUILT_BIN="$BUILD_SOURCE_ROOT/apps/cli/dist/hov-router"
 if [[ ! -f "$BUILT_BIN" ]]; then
 	echo "ERROR: build did not produce $BUILT_BIN" >&2
 	exit 1
@@ -556,11 +556,11 @@ if [[ -d "$GUARD_DIR" ]]; then
 else
 	GUARD_STAGE_DIR="${GUARD_DIR}.tmp-$$"
 	mkdir "$GUARD_STAGE_DIR"
-	cp "$SOURCE_GUARD" "$GUARD_STAGE_DIR/ccflare-guard.mjs"
-	cp "$SOURCE_GUARD_POLICY" "$GUARD_STAGE_DIR/ccflare-guard-policy.mjs"
-	cp "$SOURCE_GUARD_TIMING" "$GUARD_STAGE_DIR/ccflare-managed-timing.mjs"
-	chmod 0555 "$GUARD_STAGE_DIR/ccflare-guard.mjs"
-	chmod 0444 "$GUARD_STAGE_DIR/ccflare-guard-policy.mjs" "$GUARD_STAGE_DIR/ccflare-managed-timing.mjs"
+	cp "$SOURCE_GUARD" "$GUARD_STAGE_DIR/hov-router-guard.mjs"
+	cp "$SOURCE_GUARD_POLICY" "$GUARD_STAGE_DIR/hov-router-guard-policy.mjs"
+	cp "$SOURCE_GUARD_TIMING" "$GUARD_STAGE_DIR/hov-router-managed-timing.mjs"
+	chmod 0555 "$GUARD_STAGE_DIR/hov-router-guard.mjs"
+	chmod 0444 "$GUARD_STAGE_DIR/hov-router-guard-policy.mjs" "$GUARD_STAGE_DIR/hov-router-managed-timing.mjs"
 	mv "$GUARD_STAGE_DIR" "$GUARD_DIR"
 	GUARD_STAGE_DIR=""
 	echo "==> Installed immutable guard pair $GUARD_DIR"
@@ -568,7 +568,7 @@ fi
 
 mkdir -p "$RUNNERS_ROOT"
 if [[ -d "$RUNNER_DIR" ]]; then
-	if ! cmp -s "$SOURCE_RUNNER" "$RUNNER_SCRIPT" || ! cmp -s "$SOURCE_TRANSACTION" "$RUNNER_DIR/ccflare-deployment-transaction.mjs"; then
+	if ! cmp -s "$SOURCE_RUNNER" "$RUNNER_SCRIPT" || ! cmp -s "$SOURCE_TRANSACTION" "$RUNNER_DIR/hov-router-deployment-transaction.mjs"; then
 		echo "ERROR: immutable runner directory $RUNNER_DIR does not match deployed source" >&2
 		exit 1
 	fi
@@ -576,10 +576,10 @@ if [[ -d "$RUNNER_DIR" ]]; then
 else
 	RUNNER_STAGE_DIR="${RUNNER_DIR}.tmp-$$"
 	mkdir "$RUNNER_STAGE_DIR"
-	cp "$SOURCE_RUNNER" "$RUNNER_STAGE_DIR/run-ccflare-stack.sh"
-	cp "$SOURCE_TRANSACTION" "$RUNNER_STAGE_DIR/ccflare-deployment-transaction.mjs"
-	chmod 0555 "$RUNNER_STAGE_DIR/run-ccflare-stack.sh"
-	chmod 0444 "$RUNNER_STAGE_DIR/ccflare-deployment-transaction.mjs"
+	cp "$SOURCE_RUNNER" "$RUNNER_STAGE_DIR/run-hov-router.sh"
+	cp "$SOURCE_TRANSACTION" "$RUNNER_STAGE_DIR/hov-router-deployment-transaction.mjs"
+	chmod 0555 "$RUNNER_STAGE_DIR/run-hov-router.sh"
+	chmod 0444 "$RUNNER_STAGE_DIR/hov-router-deployment-transaction.mjs"
 	mv "$RUNNER_STAGE_DIR" "$RUNNER_DIR"
 	RUNNER_STAGE_DIR=""
 	echo "==> Installed immutable runner $RUNNER_DIR"
@@ -593,7 +593,7 @@ for digest_pair in \
 	"$(sha256_file "$SOURCE_GUARD"):$GUARD_SHA256:guard" \
 	"$(sha256_file "$SOURCE_GUARD_POLICY"):$POLICY_SHA256:policy" \
 	"$(sha256_file "$SOURCE_GUARD_TIMING"):$(sha256_file "$GUARD_TIMING"):timing" \
-	"$(sha256_file "$SOURCE_TRANSACTION"):$(sha256_file "$RUNNER_DIR/ccflare-deployment-transaction.mjs"):transaction"; do
+	"$(sha256_file "$SOURCE_TRANSACTION"):$(sha256_file "$RUNNER_DIR/hov-router-deployment-transaction.mjs"):transaction"; do
 	IFS=: read -r source_digest installed_digest artifact_name <<<"$digest_pair"
 	if [[ "$source_digest" != "$installed_digest" ]]; then
 		echo "ERROR: installed $artifact_name digest differs from source" >&2
@@ -664,7 +664,7 @@ CONFIGURED_BODY_ADMISSION_QUEUE_LIMIT="$(deployment_timing_value "$CONFIGURED_DE
 CONFIGURED_STOP_TIMEOUT_MS="$(deployment_timing_value "$CONFIGURED_DEPLOYMENT_TIMING" stop_timeout_ms)"
 
 if ((BACKEND_DEPLOYMENT)); then
-	request_backend_handoff "$HANDOFF_DIR" "$(dirname "$RUNNER_SCRIPT")/ccflare-deployment-transaction.mjs" "$DEST_BIN" "$HEAD_SHA" "$PIN_RENDERED" "$SCHEMA_DIGEST"
+	request_backend_handoff "$HANDOFF_DIR" "$(dirname "$RUNNER_SCRIPT")/hov-router-deployment-transaction.mjs" "$DEST_BIN" "$HEAD_SHA" "$PIN_RENDERED" "$SCHEMA_DIGEST"
 	await_backend_handoff_phase "$HANDOFF_DIR" candidate_verified 800 || { echo "ERROR: candidate verification failed or timed out" >&2; exit 70; }
 fi
 if ((!BACKEND_DEPLOYMENT)); then
@@ -683,14 +683,14 @@ rm -f "$PIN_RENDERED"
 PIN_RENDERED=""
 
 for expected_line in \
-	"Environment=CCFLARE_BIN=${DEST_BIN}" \
-	"Environment=CCFLARE_DISTRIBUTION=v1:startupbros-managed-source" \
-	"Environment=CCFLARE_PRODUCER=startupbros" \
-	"Environment=CCFLARE_ARTIFACT_MODE=managed-source" \
-	"Environment=CCFLARE_GIT_SHA=${HEAD_SHA}" \
-	"Environment=CCFLARE_GIT_REF=refs/heads/main" \
-	"Environment=CCFLARE_SOURCE_SHA=${HEAD_SHA}" \
-	"Environment=CCFLARE_SOURCE_REF=refs/heads/main" \
+	"Environment=HOV_ROUTER_BIN=${DEST_BIN}" \
+	"Environment=HOV_ROUTER_DISTRIBUTION=v1:startupbros-managed-source" \
+	"Environment=HOV_ROUTER_PRODUCER=startupbros" \
+	"Environment=HOV_ROUTER_ARTIFACT_MODE=managed-source" \
+	"Environment=HOV_ROUTER_GIT_SHA=${HEAD_SHA}" \
+	"Environment=HOV_ROUTER_GIT_REF=refs/heads/main" \
+	"Environment=HOV_ROUTER_SOURCE_SHA=${HEAD_SHA}" \
+	"Environment=HOV_ROUTER_SOURCE_REF=refs/heads/main" \
 	"Environment=GUARD_SCRIPT=${GUARD_SCRIPT}" \
 	"Environment=GUARD_SOURCE_ID=${GUARD_SOURCE_ID}" \
 	"Environment=GUARD_POLICY_ID=${GUARD_POLICY_ID}" \
@@ -699,8 +699,8 @@ for expected_line in \
 	"Environment=RUNNER_SHA256=${RUNNER_SHA256}" \
 	"Environment=GUARD_MAX_REQUEST_BODY_BYTES=33554432" \
 	"Environment=GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456" \
-	"Environment=CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=1073741824" \
-	"Environment=CCFLARE_MAX_BODY_ADMISSION_QUEUE=500" \
+	"Environment=HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=1073741824" \
+	"Environment=HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500" \
 	"Environment=RUNNER_RSS_THRESHOLD_BYTES=4294967296" \
 	"Environment=RUNNER_RSS_POLL_INTERVAL_MS=60000" \
 	"Environment=RUNNER_RSS_MIN_UPTIME_MS=1800000" \
@@ -728,7 +728,7 @@ EFFECTIVE_DEPLOYMENT_TIMING="$(
 	reload_validate_or_restore_systemd_policy \
 		"$PIN" \
 		"$PIN_BACKUP" \
-		ccflare-stack.service
+		hov-router.service
 )" \
 	|| PRE_RESTART_POLICY_STATUS="$?"
 if [[ "$PRE_RESTART_POLICY_STATUS" -ne 0 ]]; then
@@ -749,12 +749,12 @@ CONFIGURED_BODY_ADMISSION_QUEUE_LIMIT="$(deployment_timing_value "$EFFECTIVE_DEP
 CONFIGURED_STOP_TIMEOUT_MS="$(deployment_timing_value "$EFFECTIVE_DEPLOYMENT_TIMING" stop_timeout_ms)"
 
 if ((BACKEND_DEPLOYMENT)); then
-	commit_backend_handoff "$HANDOFF_DIR" "$(dirname "$RUNNER_SCRIPT")/ccflare-deployment-transaction.mjs"
+	commit_backend_handoff "$HANDOFF_DIR" "$(dirname "$RUNNER_SCRIPT")/hov-router-deployment-transaction.mjs"
 	await_backend_handoff_phase "$HANDOFF_DIR" attached 60 || { echo "ERROR: committed candidate did not attach" >&2; exit 70; }
 else
-	echo "==> Restarting ccflare-stack.service (bootstrap lifecycle/schema change)…"
+	echo "==> Restarting hov-router.service (bootstrap lifecycle/schema change)…"
 	SERVICE_RESTART_ATTEMPTED=1
-	sudo systemctl restart ccflare-stack.service
+	sudo systemctl restart hov-router.service
 fi
 
 # ---------------------------------------------------------------------------
@@ -855,8 +855,8 @@ if ! validate_deploy_health \
 	echo "ERROR: deployment health identity verification failed" >&2
 	exit 1
 fi
-EXPECTED_ACCEPTED_CAP="$(systemd_environment_text_value "$(sudo systemctl show ccflare-stack.service --property=Environment --value)" GUARD_ACCEPTED_CAP_MS)"
-node - "$PROXY_HEALTH_JSON" "$GUARD_HEALTH_JSON" "$HEAD_SHA" "$GUARD_SOURCE_ID" "$SCHEMA_DIGEST" "$EXPECTED_ACCEPTED_CAP" "$(readlink -f "$(dirname "$GUARD_SCRIPT")/ccflare-managed-timing.mjs")" "$(sha256_file "$SOURCE_GUARD_TIMING")" "$(readlink -f "$(dirname "$RUNNER_SCRIPT")/ccflare-deployment-transaction.mjs")" "$(sha256_file "$SOURCE_TRANSACTION")" <<'NODE'
+EXPECTED_ACCEPTED_CAP="$(systemd_environment_text_value "$(sudo systemctl show hov-router.service --property=Environment --value)" GUARD_ACCEPTED_CAP_MS)"
+node - "$PROXY_HEALTH_JSON" "$GUARD_HEALTH_JSON" "$HEAD_SHA" "$GUARD_SOURCE_ID" "$SCHEMA_DIGEST" "$EXPECTED_ACCEPTED_CAP" "$(readlink -f "$(dirname "$GUARD_SCRIPT")/hov-router-managed-timing.mjs")" "$(sha256_file "$SOURCE_GUARD_TIMING")" "$(readlink -f "$(dirname "$RUNNER_SCRIPT")/hov-router-deployment-transaction.mjs")" "$(sha256_file "$SOURCE_TRANSACTION")" <<'NODE'
 const [proxyJson,guardJson,backendSource,ingressSource,schema,cap,timingPath,timingHash,transactionPath,transactionHash]=process.argv.slice(2);const proxy=JSON.parse(proxyJson),guard=JSON.parse(guardJson);const timing=guard.runtime.artifacts.timing,transaction=guard.runtime.artifacts.transaction;if(guard.sourceId!==ingressSource || guard.backendSourceSha!==backendSource || guard.acceptedCapMs!==Number(cap) || guard.timingContract!=="v1" || proxy.managedIngress?.schemaDigest!==schema || proxy.managedIngress?.timingContract!=="v1" || !Number.isSafeInteger(proxy.managedIngress?.generation) || timing?.path!==timingPath || timing?.sha256!==timingHash || transaction?.path!==transactionPath || transaction?.sha256!==transactionHash)process.exit(1);
 NODE
 echo "==> Verified backend and ingress sources, timing/transaction artifacts, schema, process identity and effective guard limits."
@@ -882,17 +882,17 @@ PROTECTED_RUNNER_DIRS=("$RUNNER_DIR")
 for reference_pin in "${PIN_REFERENCE_FILES[@]:-}"; do
 	while IFS= read -r referenced_binary; do
 		[[ -n "$referenced_binary" ]] && PROTECTED_BINARIES+=("$referenced_binary")
-	done < <(sed -n 's/^Environment=CCFLARE_BIN=//p' "$reference_pin")
+	done < <(sed -n 's/^Environment=HOV_ROUTER_BIN=//p' "$reference_pin")
 	while IFS= read -r referenced_guard; do
 		[[ -n "$referenced_guard" ]] && PROTECTED_GUARD_DIRS+=("$(dirname "$referenced_guard")")
 	done < <(sed -n 's/^Environment=GUARD_SCRIPT=//p' "$reference_pin")
 	while IFS= read -r referenced_runner; do
 		[[ -n "$referenced_runner" ]] && PROTECTED_RUNNER_DIRS+=("$(dirname "$referenced_runner")")
-	done < <(sed -n 's/^ExecStart=\([^[:space:]].*run-ccflare-stack\.sh\)$/\1/p' "$reference_pin")
+	done < <(sed -n 's/^ExecStart=\([^[:space:]].*run-hov-router\.sh\)$/\1/p' "$reference_pin")
 done
 
 mapfile -t OLD_BINS < <(
-	find "$DEST" -maxdepth 1 -type f -name 'better-ccflare-v*' -printf '%T@ %p\n' 2>/dev/null \
+	find "$DEST" -maxdepth 1 -type f -name 'hov-router-v*' -printf '%T@ %p\n' 2>/dev/null \
 		| sort -rn \
 		| awk '{print $2}' \
 		| tail -n "+$((KEEP_BINARIES + 1))"
@@ -912,15 +912,15 @@ mapfile -t OLD_GUARD_DIRS < <(
 for guard_dir in "${OLD_GUARD_DIRS[@]:-}"; do
 	[[ -n "$guard_dir" ]] || continue
 	if [[ "$guard_dir" != "$GUARDS_ROOT/"* ]] || ! {
-		artifact_module_set_matches "$guard_dir" ccflare-guard.mjs ccflare-guard-policy.mjs ccflare-managed-timing.mjs
+		artifact_module_set_matches "$guard_dir" hov-router-guard.mjs hov-router-guard-policy.mjs hov-router-managed-timing.mjs
 	}; then
 		echo "    skipped non-standard guard directory $guard_dir" >&2
 		continue
 	fi
 	rm -f \
-		"$guard_dir/ccflare-guard.mjs" \
-		"$guard_dir/ccflare-guard-policy.mjs" \
-		"$guard_dir/ccflare-managed-timing.mjs"
+		"$guard_dir/hov-router-guard.mjs" \
+		"$guard_dir/hov-router-guard-policy.mjs" \
+		"$guard_dir/hov-router-managed-timing.mjs"
 	rmdir "$guard_dir"
 	echo "    removed $guard_dir"
 done
@@ -931,12 +931,12 @@ mapfile -t OLD_RUNNER_DIRS < <(
 for runner_dir in "${OLD_RUNNER_DIRS[@]:-}"; do
 	[[ -n "$runner_dir" ]] || continue
 	if [[ "$runner_dir" != "$RUNNERS_ROOT/"* ]] || ! {
-		artifact_module_set_matches "$runner_dir" run-ccflare-stack.sh ccflare-deployment-transaction.mjs
+		artifact_module_set_matches "$runner_dir" run-hov-router.sh hov-router-deployment-transaction.mjs
 	}; then
 		echo "    skipped non-standard runner directory $runner_dir" >&2
 		continue
 	fi
-	rm -f "$runner_dir/run-ccflare-stack.sh" "$runner_dir/ccflare-deployment-transaction.mjs"
+	rm -f "$runner_dir/run-hov-router.sh" "$runner_dir/hov-router-deployment-transaction.mjs"
 	rmdir "$runner_dir"
 	echo "    removed $runner_dir"
 done
@@ -974,7 +974,7 @@ echo "binary:        $DEST_BIN"
 echo "runner:        $RUNNER_SCRIPT"
 echo "guard:         $GUARD_SCRIPT"
 echo "pin:           $PIN"
-echo "  CCFLARE_BIN= $DEST_BIN"
+echo "  HOV_ROUTER_BIN= $DEST_BIN"
 echo "  ExecStart=   $RUNNER_SCRIPT"
 echo "  GUARD_SCRIPT=$GUARD_SCRIPT"
 echo "source id:     $GUARD_SOURCE_ID"

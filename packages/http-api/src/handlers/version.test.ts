@@ -43,7 +43,7 @@ describe("update status service", () => {
 			adapters: { npm: adapter, ghcr: adapter, "github-releases": adapter },
 		});
 		expect((await service.check()).action?.value).toBe(
-			"npm install -g better-ccflare@latest",
+			"npm install -g hov-router@latest",
 		);
 		expect((await service.check()).cache).toBe("hit");
 		for (const [token, mode] of [
@@ -54,14 +54,14 @@ describe("update status service", () => {
 			["v1:startupbros-wstack-router-package", "package"],
 		] as const) {
 			const branded = resolveBuildProvenance({
-				CCFLARE_DISTRIBUTION: token,
-				CCFLARE_VERSION: "1.0.0",
-				CCFLARE_GIT_SHA: sha,
-				CCFLARE_SOURCE_SHA: sha,
-				CCFLARE_GIT_REF: "refs/tags/v1.0.0",
-				CCFLARE_SOURCE_REF: "refs/tags/v1.0.0",
-				CCFLARE_PRODUCER: "startupbros",
-				CCFLARE_ARTIFACT_MODE: mode,
+				HOV_ROUTER_DISTRIBUTION: token,
+				HOV_ROUTER_VERSION: "1.0.0",
+				HOV_ROUTER_GIT_SHA: sha,
+				HOV_ROUTER_SOURCE_SHA: sha,
+				HOV_ROUTER_GIT_REF: "refs/tags/v1.0.0",
+				HOV_ROUTER_SOURCE_REF: "refs/tags/v1.0.0",
+				HOV_ROUTER_PRODUCER: "startupbros",
+				HOV_ROUTER_ARTIFACT_MODE: mode,
 			});
 			expect(branded).toMatchObject({
 				identity: token,
@@ -166,7 +166,7 @@ describe("update status service", () => {
 		});
 		const npmFirst = await service.check();
 		const npmSecond = await service.check();
-		expect(npmFirst.action?.value).toBe("npm install -g better-ccflare@latest");
+		expect(npmFirst.action?.value).toBe("npm install -g hov-router@latest");
 		expect(npmSecond.cache).toBe("hit");
 		expect(npmCalls).toBe(1);
 		expect(ghcrCalls).toBe(0);
@@ -234,29 +234,29 @@ describe("update status service", () => {
 	it("does no lookup for every resolved managed or malformed provenance shape", async () => {
 		let calls = 0;
 		const managed = {
-			CCFLARE_DISTRIBUTION: "v1:startupbros-managed-source",
-			CCFLARE_GIT_SHA: sha,
-			CCFLARE_GIT_REF: "refs/heads/main",
-			CCFLARE_SOURCE_SHA: sha,
-			CCFLARE_SOURCE_REF: "refs/heads/main",
-			CCFLARE_PRODUCER: "startupbros",
-			CCFLARE_ARTIFACT_MODE: "managed-source",
+			HOV_ROUTER_DISTRIBUTION: "v1:startupbros-managed-source",
+			HOV_ROUTER_GIT_SHA: sha,
+			HOV_ROUTER_GIT_REF: "refs/heads/main",
+			HOV_ROUTER_SOURCE_SHA: sha,
+			HOV_ROUTER_SOURCE_REF: "refs/heads/main",
+			HOV_ROUTER_PRODUCER: "startupbros",
+			HOV_ROUTER_ARTIFACT_MODE: "managed-source",
 		} as const;
 		for (const env of [
 			managed,
 			{},
-			{ ...managed, CCFLARE_DISTRIBUTION: "v1:arbitrary:tuple" },
-			{ ...managed, CCFLARE_DISTRIBUTION: " v1:startupbros-managed-source" },
-			{ ...managed, CCFLARE_GIT_SHA: "short" },
-			{ ...managed, CCFLARE_GIT_SHA: sha.toUpperCase() },
-			{ ...managed, CCFLARE_GIT_REF: "refs/tags/v1.0.0" },
-			{ ...managed, CCFLARE_SOURCE_SHA: "forged" },
-			{ ...managed, CCFLARE_UPDATE_CHANNEL: "" },
-			{ ...managed, CCFLARE_PRODUCER: "tombii" },
+			{ ...managed, HOV_ROUTER_DISTRIBUTION: "v1:arbitrary:tuple" },
+			{ ...managed, HOV_ROUTER_DISTRIBUTION: " v1:startupbros-managed-source" },
+			{ ...managed, HOV_ROUTER_GIT_SHA: "short" },
+			{ ...managed, HOV_ROUTER_GIT_SHA: sha.toUpperCase() },
+			{ ...managed, HOV_ROUTER_GIT_REF: "refs/tags/v1.0.0" },
+			{ ...managed, HOV_ROUTER_SOURCE_SHA: "forged" },
+			{ ...managed, HOV_ROUTER_UPDATE_CHANNEL: "" },
+			{ ...managed, HOV_ROUTER_PRODUCER: "tombii" },
 			{
-				CCFLARE_DISTRIBUTION: "v1:startupbros-docker-image",
-				CCFLARE_GIT_SHA: sha,
-				CCFLARE_GIT_REF: "refs/heads/main",
+				HOV_ROUTER_DISTRIBUTION: "v1:startupbros-docker-image",
+				HOV_ROUTER_GIT_SHA: sha,
+				HOV_ROUTER_GIT_REF: "refs/heads/main",
 			},
 		] as const) {
 			const result = await createUpdateStatusService({

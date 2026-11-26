@@ -787,7 +787,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 		pacer?: CleanupPacer,
 	): Promise<number> {
 		// The covering index idx_requests_cleanup makes each batch faster.
-		// Batch size is configurable via BETTER_CCFLARE_DB_CLEANUP_BATCH_SIZE
+		// Batch size is configurable via HOV_ROUTER_DB_CLEANUP_BATCH_SIZE
 		// (default 200) — lower it if rows are large and batches are timing
 		// out against statement_timeout (#412).
 		const BATCH_SIZE = getCleanupBatchSize();
@@ -810,7 +810,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 		// DELETE here can run too long once the table is large.
 		// LEFT JOIN instead of NOT IN (SELECT ...) avoids the slow anti-join plan
 		// NOT IN produces against a large subquery on SQLite.
-		// Batch size is configurable via BETTER_CCFLARE_DB_CLEANUP_BATCH_SIZE
+		// Batch size is configurable via HOV_ROUTER_DB_CLEANUP_BATCH_SIZE
 		// (default 200) — lower it if rows are large (#412).
 		const BATCH_SIZE = getCleanupBatchSize();
 		return deleteInBatches(
@@ -835,7 +835,7 @@ export class RequestRepository extends BaseRepository<RequestData> {
 		pacer?: CleanupPacer,
 	): Promise<number> {
 		// The covering index idx_request_payloads_cleanup makes each batch faster.
-		// Batch size is configurable via BETTER_CCFLARE_DB_CLEANUP_BATCH_SIZE
+		// Batch size is configurable via HOV_ROUTER_DB_CLEANUP_BATCH_SIZE
 		// (default 200) — lower it if rows are large (e.g. TOASTed payload JSON)
 		// and batches are timing out against statement_timeout (#412).
 		const BATCH_SIZE = getCleanupBatchSize();

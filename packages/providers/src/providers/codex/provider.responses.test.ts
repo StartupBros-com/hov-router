@@ -50,15 +50,15 @@ test("preserves custom tool calls in labeled Codex SSE", async () => {
 	const response = new Response(stream, {
 		headers: {
 			"content-type": "text/event-stream",
-			"x-better-ccflare-request-stream": "true",
-			"x-better-ccflare-codex-custom-tools": "true",
+			"x-hov-router-request-stream": "true",
+			"x-hov-router-codex-custom-tools": "true",
 		},
 	});
 
 	const transformed = await provider.processResponse(response, null);
 
 	expect(
-		transformed.headers.get("x-better-ccflare-codex-response-format"),
+		transformed.headers.get("x-hov-router-codex-response-format"),
 	).toBe("responses-api");
 	expect(await transformed.text()).toBe(stream);
 });
@@ -79,15 +79,15 @@ test("passes custom-tool streams through without waiting for upstream EOF", asyn
 	const response = new Response(body, {
 		headers: {
 			"content-type": "text/event-stream",
-			"x-better-ccflare-request-stream": "true",
-			"x-better-ccflare-codex-custom-tools": "true",
+			"x-hov-router-request-stream": "true",
+			"x-hov-router-codex-custom-tools": "true",
 		},
 	});
 
 	const transformed = await provider.processResponse(response, null);
 
 	expect(
-		transformed.headers.get("x-better-ccflare-codex-response-format"),
+		transformed.headers.get("x-hov-router-codex-response-format"),
 	).toBe("responses-api");
 	const reader = transformed.body?.getReader();
 	if (!reader) throw new Error("expected a streaming body");
@@ -103,7 +103,7 @@ test("labels Responses Lite additional tools as native passthrough", async () =>
 		method: "POST",
 		headers: {
 			"content-type": "application/json",
-			"x-better-ccflare-request-id": requestId,
+			"x-hov-router-request-id": requestId,
 		},
 		body: JSON.stringify({
 			model: "claude-opus-4-8",
@@ -135,14 +135,14 @@ test("labels Responses Lite additional tools as native passthrough", async () =>
 	const response = new Response(stream, {
 		headers: {
 			"content-type": "text/event-stream",
-			"x-better-ccflare-request-id": requestId,
+			"x-hov-router-request-id": requestId,
 		},
 	});
 
 	const transformed = await provider.processResponse(response, null);
 
 	expect(
-		transformed.headers.get("x-better-ccflare-codex-response-format"),
+		transformed.headers.get("x-hov-router-codex-response-format"),
 	).toBe("responses-api");
 	expect(await transformed.text()).toBe(stream);
 });
@@ -158,15 +158,15 @@ test("streams straight through without buffering when no custom tools were decla
 	const response = new Response(stream, {
 		headers: {
 			"content-type": "text/event-stream",
-			"x-better-ccflare-request-stream": "true",
-			"x-better-ccflare-codex-custom-tools": "false",
+			"x-hov-router-request-stream": "true",
+			"x-hov-router-codex-custom-tools": "false",
 		},
 	});
 
 	const transformed = await provider.processResponse(response, null);
 
 	expect(
-		transformed.headers.get("x-better-ccflare-codex-response-format"),
+		transformed.headers.get("x-hov-router-codex-response-format"),
 	).not.toBe("responses-api");
 });
 
@@ -174,7 +174,7 @@ test("surfaces malformed Codex model-list responses as an error instead of an em
 	const provider = new CodexProvider();
 	const response = new Response("not json", {
 		status: 200,
-		headers: { "x-better-ccflare-request-path": "/v1/models" },
+		headers: { "x-hov-router-request-path": "/v1/models" },
 	});
 
 	const transformed = await provider.processResponse(response, null);
@@ -188,7 +188,7 @@ test("passes through non-2xx Codex model-list responses unchanged", async () => 
 	const provider = new CodexProvider();
 	const response = new Response("upstream down", {
 		status: 503,
-		headers: { "x-better-ccflare-request-path": "/v1/models" },
+		headers: { "x-hov-router-request-path": "/v1/models" },
 	});
 
 	const transformed = await provider.processResponse(response, null);

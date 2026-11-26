@@ -982,7 +982,7 @@ test("release version bump changes only the CLI version line in bun.lock", () =>
       "version": "0.0.1",
     },
     "apps/cli": {
-      "name": "better-ccflare",
+      "name": "hov-router",
       "version": "6.2.2",
       "dependencies": {
         "dotenv": "^17.4.2",

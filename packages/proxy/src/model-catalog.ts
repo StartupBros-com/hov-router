@@ -111,8 +111,8 @@ const DEFAULT_TICK_SECONDS = 15 * 60;
 
 function getCacheDir(): string {
 	return (
-		process.env.BETTER_CCFLARE_MODELS_CACHE_DIR ||
-		join(tmpdir(), "better-ccflare")
+		process.env.HOV_ROUTER_MODELS_CACHE_DIR ||
+		join(tmpdir(), "hov-router")
 	);
 }
 
@@ -121,14 +121,14 @@ function getCachePath(): string {
 }
 
 function getRefreshHours(): number {
-	const raw = process.env.BETTER_CCFLARE_MODELS_REFRESH_HOURS;
+	const raw = process.env.HOV_ROUTER_MODELS_REFRESH_HOURS;
 	if (raw === undefined) return 168;
 	const parsed = Number(raw);
 	return Number.isFinite(parsed) && parsed >= 0 ? parsed : 168;
 }
 
 function isOffline(): boolean {
-	return process.env.BETTER_CCFLARE_MODELS_OFFLINE === "1";
+	return process.env.HOV_ROUTER_MODELS_OFFLINE === "1";
 }
 
 function fallbackCatalog(): ModelCatalog {
@@ -284,7 +284,7 @@ async function acquireNativeCatalog(
 		throw new Error(
 			allowOAuth
 				? "No active anthropic account available to fetch models"
-				: "No active anthropic account available to fetch models (console/API-key accounts only; set BETTER_CCFLARE_MODELS_OAUTH_REFRESH=1 or use a manual refresh to allow an OAuth account fallback)",
+				: "No active anthropic account available to fetch models (console/API-key accounts only; set HOV_ROUTER_MODELS_OAUTH_REFRESH=1 or use a manual refresh to allow an OAuth account fallback)",
 		);
 	}
 
@@ -407,7 +407,7 @@ export async function refreshModelCatalog(
 		return {
 			success: false,
 			error:
-				"Model catalog refresh is disabled (BETTER_CCFLARE_MODELS_OFFLINE=1)",
+				"Model catalog refresh is disabled (HOV_ROUTER_MODELS_OFFLINE=1)",
 			catalog,
 		};
 	}
@@ -518,7 +518,7 @@ const MODEL_CATALOG_REFRESH_INTERVAL_ID = "model-catalog-refresh";
  * on (re)start: adopt the persisted `nextRefreshAt` if present and still
  * within the current interval's bounds; otherwise derive one from the
  * cached `fetchedAt` + interval + jitter (clamping a stale, longer-interval
- * `nextRefreshAt` down if `BETTER_CCFLARE_MODELS_REFRESH_HOURS` was lowered
+ * `nextRefreshAt` down if `HOV_ROUTER_MODELS_REFRESH_HOURS` was lowered
  * since it was computed); `null` means "due immediately".
  */
 async function deriveInitialNextRefreshAt(
@@ -553,7 +553,7 @@ async function deriveInitialNextRefreshAt(
  *  4. On a failed refresh, retries sooner (`min(interval, 6h)`) rather than
  *     waiting out the full interval, so e.g. a newly-added console account
  *     is picked up promptly.
- * Set `BETTER_CCFLARE_MODELS_REFRESH_HOURS=0` to disable entirely.
+ * Set `HOV_ROUTER_MODELS_REFRESH_HOURS=0` to disable entirely.
  * `testOverrides` lets tests replace the random initial delay and the
  * 15-minute heartbeat cadence with near-instant values. Returns an
  * unregister function.

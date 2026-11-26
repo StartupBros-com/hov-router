@@ -649,7 +649,7 @@ describe("AlertService Codex catalog alerts", () => {
 				expect(text).not.toContain(REFRESH_TOKEN);
 				expect(text).not.toContain("@");
 				expect(text).not.toContain("/");
-				expect(text).not.toContain("CCFLARE_CODEX");
+				expect(text).not.toContain("HOV_ROUTER_CODEX");
 			}
 		});
 	});

@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-This guide helps you diagnose and resolve common issues with HoV Router (formerly better-ccflare).
+This guide helps you diagnose and resolve common issues with HoV Router (formerly hov-router).
 
 ## Table of Contents
 
@@ -29,15 +29,15 @@ This guide helps you diagnose and resolve common issues with HoV Router (formerl
 **Solutions**:
 1. Check if the access token has expired:
    ```bash
-   better-ccflare --list
+   hov-router --list
    ```
    Look for accounts with expired tokens (expires_at in the past)
 
 2. Refresh the token manually:
    - Remove and re-add the account:
      ```bash
-     better-ccflare --remove <account-name>
-     better-ccflare --add-account <account-name> --mode <mode> --priority <number>
+     hov-router --remove <account-name>
+     hov-router --add-account <account-name> --mode <mode> --priority <number>
      ```
 
 3. Verify the refresh token is still valid in your Anthropic console
@@ -97,10 +97,10 @@ HoV Router detects rate limits through response headers and HTTP status codes:
 **How to Check Rate Limit Status**:
 ```bash
 # View account status including rate limits
-better-ccflare --list
+hov-router --list
 
 # Check logs for rate limit messages
-cat /tmp/better-ccflare-logs/app.log | grep "rate limited"
+cat /tmp/hov-router-logs/app.log | grep "rate limited"
 
 # View rate limit reset times in the dashboard
 curl http://localhost:8080/api/accounts | jq '.[] | {name, rate_limit_status, rate_limit_reset}'
@@ -116,7 +116,7 @@ curl http://localhost:8080/api/accounts | jq '.[] | {name, rate_limit_status, ra
 **Manual recovery steps**:
 1. Add more accounts to your pool:
    ```bash
-   better-ccflare --add-account account2 --mode claude-oauth --priority 10
+   hov-router --add-account account2 --mode claude-oauth --priority 10
    ```
 
 2. Check rate limit reset times in the dashboard:
@@ -127,14 +127,14 @@ curl http://localhost:8080/api/accounts | jq '.[] | {name, rate_limit_status, ra
 3. Monitor account-specific rate limits:
    ```bash
    # View rate limit details for each account
-   better-ccflare --list
+   hov-router --list
    # Look for rate_limit_status and rate_limit_reset columns
    ```
 
 4. Pause/resume accounts as needed:
    ```bash
-   better-ccflare --pause <account-name>
-   better-ccflare --resume <account-name>
+   hov-router --pause <account-name>
+   hov-router --resume <account-name>
    ```
 
 ## Connection Problems
@@ -234,12 +234,12 @@ mix and an idle-vs-traffic RSS comparison on an issue.
 **Solutions**:
 1. Check log file size (auto-rotates at 10MB):
    ```bash
-   ls -lh /tmp/better-ccflare-logs/app.log
+   ls -lh /tmp/hov-router-logs/app.log
    ```
 
 2. Clear request history:
    ```bash
-   better-ccflare --clear-history
+   hov-router --clear-history
    ```
 
 3. Restart the server to clear in-memory caches:
@@ -248,7 +248,7 @@ mix and an idle-vs-traffic RSS comparison on an issue.
    # Then restart
    bun start
    # Or
-   better-ccflare --serve
+   hov-router --serve
    ```
 
 ## Account Management Issues
@@ -260,7 +260,7 @@ mix and an idle-vs-traffic RSS comparison on an issue.
 **Check**:
 1. Account status:
    ```bash
-   better-ccflare --list
+   hov-router --list
    # Look for: paused, rate_limited, or expired
    ```
 
@@ -271,7 +271,7 @@ mix and an idle-vs-traffic RSS comparison on an issue.
 **Solutions**:
 1. Resume the account if paused:
    ```bash
-   better-ccflare --resume <account-name>
+   hov-router --resume <account-name>
    ```
 2. Wait for rate limit to reset
 3. Re-add the account if expired
@@ -311,9 +311,9 @@ Or set `LB_STRATEGY=session-affinity` / `"lb_strategy": "session-affinity"` in t
 ### Config File Location
 
 Default locations by platform:
-- **macOS**: `~/.config/better-ccflare/better-ccflare.json`
-- **Linux**: `~/.config/better-ccflare/better-ccflare.json`
-- **Windows**: `%LOCALAPPDATA%\better-ccflare\better-ccflare.json` or `%APPDATA%\better-ccflare\better-ccflare.json`
+- **macOS**: `~/.config/hov-router/hov-router.json`
+- **Linux**: `~/.config/hov-router/hov-router.json`
+- **Windows**: `%LOCALAPPDATA%\hov-router\hov-router.json` or `%APPDATA%\hov-router\hov-router.json`
 
 ### Invalid Configuration
 
@@ -326,15 +326,15 @@ Default locations by platform:
 **Solutions**:
 1. Validate JSON syntax:
    ```bash
-   cat ~/.config/better-ccflare/better-ccflare.json | jq .
+   cat ~/.config/hov-router/hov-router.json | jq .
    ```
 
 2. Reset to defaults:
    ```bash
    # Backup current config
-   cp ~/.config/better-ccflare/better-ccflare.json ~/.config/better-ccflare/config.backup.json
+   cp ~/.config/hov-router/hov-router.json ~/.config/hov-router/config.backup.json
    # Remove corrupted config
-   rm ~/.config/better-ccflare/better-ccflare.json
+   rm ~/.config/hov-router/hov-router.json
    # Restart server to create new config
    bun start
    ```
@@ -376,8 +376,8 @@ Environment variables override config file settings:
 2. If repair succeeds but issues persist, backup and reset:
    ```bash
    # Backup existing database (VACUUM INTO is safe while the server is running)
-   sqlite3 ~/.config/better-ccflare/better-ccflare.db ".timeout 30000" \
-     "VACUUM INTO '$HOME/.config/better-ccflare/better-ccflare.db.backup-$(date +%Y%m%d-%H%M%S)'"
+   sqlite3 ~/.config/hov-router/hov-router.db ".timeout 30000" \
+     "VACUUM INTO '$HOME/.config/hov-router/hov-router.db.backup-$(date +%Y%m%d-%H%M%S)'"
 
    # Reset stats (preserves accounts)
    bun run cli --reset-stats
@@ -386,7 +386,7 @@ Environment variables override config file settings:
 3. For severe corruption, recreate the database:
    ```bash
    # Backup first!
-   mv ~/.config/better-ccflare/better-ccflare.db ~/.config/better-ccflare/better-ccflare.db.old
+   mv ~/.config/hov-router/hov-router.db ~/.config/hov-router/hov-router.db.old
 
    # Restart server to create fresh database
    bun start
@@ -403,7 +403,7 @@ Environment variables override config file settings:
 
 ### Disk Full
 
-**Symptom**: The disk holding `~/.config/better-ccflare` (or `/tmp`, where the log file lives) has no space left
+**Symptom**: The disk holding `~/.config/hov-router` (or `/tmp`, where the log file lives) has no space left
 
 **What the router does**:
 - It keeps answering requests. Lines it cannot write to the log file are dropped and counted; console output (stdout and stderr) still works.
@@ -411,8 +411,8 @@ Environment variables override config file settings:
 - A start that cannot open the database for lack of space exits with status 28. Under the managed systemd unit, the runner then logs `start failed for lack of disk space; waiting for space instead of opening the restart circuit` and tries again until space returns, so the service comes back without anyone restarting it ([systemd](systemd.md#restart-policy-best-practices)).
 
 **Never delete these two kinds of file**, even though they look like spare data during a cleanup:
-- `~/.config/better-ccflare/better-ccflare.db.start-reserve` (64 KiB). The router removes it itself when a start on a full disk needs room to open the database, and writes it back once space returns. Deleting it takes away the margin the next start on a full disk depends on.
-- `~/.config/better-ccflare/pending-rotations/*.slot` (64 KiB each, one per OAuth account whose provider rotates refresh tokens). A slot can hold a rotated refresh token that is not in the database yet, and deleting it then costs that account its sign-in. Slots are the only pending-rotation files the router reads or writes.
+- `~/.config/hov-router/hov-router.db.start-reserve` (64 KiB). The router removes it itself when a start on a full disk needs room to open the database, and writes it back once space returns. Deleting it takes away the margin the next start on a full disk depends on.
+- `~/.config/hov-router/pending-rotations/*.slot` (64 KiB each, one per OAuth account whose provider rotates refresh tokens). A slot can hold a rotated refresh token that is not in the database yet, and deleting it then costs that account its sign-in. Slots are the only pending-rotation files the router reads or writes.
 
 **Solutions**:
 1. Free space on that disk. Nothing in the router's own directory needs removing for this.
@@ -436,24 +436,24 @@ Environment variables override config file settings:
 1. Check database file permissions:
    ```bash
    # macOS/Linux
-   ls -la ~/.config/better-ccflare/better-ccflare.db
+   ls -la ~/.config/hov-router/hov-router.db
 
    # Windows
-   dir %LOCALAPPDATA%\better-ccflare\better-ccflare.db
+   dir %LOCALAPPDATA%\hov-router\hov-router.db
    ```
 
 2. Create the directory if it doesn't exist:
    ```bash
    # macOS/Linux
-   mkdir -p ~/.config/better-ccflare
+   mkdir -p ~/.config/hov-router
 
    # Windows
-   mkdir %LOCALAPPDATA%\better-ccflare
+   mkdir %LOCALAPPDATA%\hov-router
    ```
 
 3. Use a custom database path:
    ```bash
-   export BETTER_CCFLARE_DB_PATH=/path/to/custom/better-ccflare.db
+   export HOV_ROUTER_DB_PATH=/path/to/custom/hov-router.db
    bun start
    ```
 
@@ -471,17 +471,17 @@ Environment variables override config file settings:
 2. If migrations fail repeatedly:
    ```bash
    # Backup existing database
-   sqlite3 ~/.config/better-ccflare/better-ccflare.db ".timeout 30000" \
-     "VACUUM INTO '$HOME/.config/better-ccflare/better-ccflare.db.backup-$(date +%Y%m%d-%H%M%S)'"
+   sqlite3 ~/.config/hov-router/hov-router.db ".timeout 30000" \
+     "VACUUM INTO '$HOME/.config/hov-router/hov-router.db.backup-$(date +%Y%m%d-%H%M%S)'"
    
    # Remove and let it recreate
-   rm ~/.config/better-ccflare/better-ccflare.db
+   rm ~/.config/hov-router/hov-router.db
    bun start
    ```
 
 3. Check for database corruption:
    ```bash
-   sqlite3 ~/.config/better-ccflare/better-ccflare.db "PRAGMA integrity_check;"
+   sqlite3 ~/.config/hov-router/hov-router.db "PRAGMA integrity_check;"
    ```
 
 ### Async Database Writer Issues
@@ -497,7 +497,7 @@ Environment variables override config file settings:
 2. During shutdown, ensure graceful termination (Ctrl+C) to flush pending writes
 3. Check logs for async writer errors:
    ```bash
-   grep "async-db-writer" /tmp/better-ccflare-logs/app.log
+   grep "async-db-writer" /tmp/hov-router-logs/app.log
    ```
 
 ### Database Lock Errors
@@ -512,18 +512,18 @@ Environment variables override config file settings:
 1. Ensure only one instance of HoV Router is running:
    ```bash
    ps aux | grep "bun start" | grep -v grep
-   ps aux | grep "better-ccflare --serve" | grep -v grep
+   ps aux | grep "hov-router --serve" | grep -v grep
    ```
 
 2. Kill any zombie processes:
    ```bash
    pkill -f "bun start"
-   pkill -f "better-ccflare --serve"
+   pkill -f "hov-router --serve"
    ```
 
 3. Check for hanging database connections:
    ```bash
-   lsof ~/.config/better-ccflare/better-ccflare.db
+   lsof ~/.config/hov-router/hov-router.db
    ```
 
 ## Streaming and Analytics Issues
@@ -543,7 +543,7 @@ Environment variables override config file settings:
 3. Check if streaming is working:
    ```bash
    # Look for streaming response logs
-   grep "Streaming response" /tmp/better-ccflare-logs/app.log
+   grep "Streaming response" /tmp/hov-router-logs/app.log
    ```
 
 ### Analytics Data Issues
@@ -558,7 +558,7 @@ Environment variables override config file settings:
 1. Check if requests are being recorded:
    ```bash
    # Count recent requests in database
-   sqlite3 ~/.config/better-ccflare/better-ccflare.db "SELECT COUNT(*) FROM requests WHERE timestamp > strftime('%s', 'now', '-1 hour') * 1000;"
+   sqlite3 ~/.config/hov-router/hov-router.db "SELECT COUNT(*) FROM requests WHERE timestamp > strftime('%s', 'now', '-1 hour') * 1000;"
    ```
 
 2. Verify analytics endpoint:
@@ -569,12 +569,12 @@ Environment variables override config file settings:
 
 3. Clear and rebuild analytics data:
    ```bash
-   better-ccflare --clear-history
+   hov-router --clear-history
    ```
 
 4. Reset account statistics without clearing history:
    ```bash
-   better-ccflare --reset-stats
+   hov-router --reset-stats
    ```
 
 ### Usage Tracking Problems
@@ -585,13 +585,13 @@ Environment variables override config file settings:
 1. The usage collector reads token counts once per request, from the reply body or its stream events. A reply that carries no usage stores none.
 2. Check what it recorded: start the server with `DEBUG=true LOG_LEVEL=DEBUG` and look for its per-request line:
    ```bash
-   grep "Usage for request" /tmp/better-ccflare-logs/app.log
+   grep "Usage for request" /tmp/hov-router-logs/app.log
    ```
 
 3. Verify model pricing data:
    ```bash
    # Pricing updates every 24 hours by default
-   grep "Fetching latest pricing" /tmp/better-ccflare-logs/app.log
+   grep "Fetching latest pricing" /tmp/hov-router-logs/app.log
    ```
 
 4. Force offline pricing mode:
@@ -605,14 +605,14 @@ Environment variables override config file settings:
 ### Log File Locations
 
 Logs are stored in the system's temporary directory:
-- **All platforms**: `/tmp/better-ccflare-logs/app.log`
-- **Windows**: `%TEMP%\better-ccflare-logs\app.log`
+- **All platforms**: `/tmp/hov-router-logs/app.log`
+- **Windows**: `%TEMP%\hov-router-logs\app.log`
 
 ### Enabling Debug Mode
 
 **Method 1: Environment Variable**
 ```bash
-export BETTER_CCFLARE_DEBUG=1
+export HOV_ROUTER_DEBUG=1
 export LOG_LEVEL=DEBUG
 bun start
 ```
@@ -620,7 +620,7 @@ bun start
 **Method 2: Verbose Logging**
 ```bash
 # View real-time logs
-tail -f /tmp/better-ccflare-logs/app.log
+tail -f /tmp/hov-router-logs/app.log
 ```
 
 ### Log Formats
@@ -641,19 +641,19 @@ bun start
 **Filter by log level**:
 ```bash
 # View only errors
-grep "ERROR" /tmp/better-ccflare-logs/app.log
+grep "ERROR" /tmp/hov-router-logs/app.log
 
 # View warnings and errors
-grep -E "WARN|ERROR" /tmp/better-ccflare-logs/app.log
+grep -E "WARN|ERROR" /tmp/hov-router-logs/app.log
 ```
 
 **Filter by component**:
 ```bash
 # View only proxy logs
-grep "\[Proxy\]" /tmp/better-ccflare-logs/app.log
+grep "\[Proxy\]" /tmp/hov-router-logs/app.log
 
 # View only server logs
-grep "\[Server\]" /tmp/better-ccflare-logs/app.log
+grep "\[Server\]" /tmp/hov-router-logs/app.log
 ```
 
 ## Common Error Messages
@@ -665,7 +665,7 @@ grep "\[Server\]" /tmp/better-ccflare-logs/app.log
 
 **Solution**: 
 - Add new accounts or wait for rate limits to reset
-- Check account status: `better-ccflare --list`
+- Check account status: `hov-router --list`
 - Requests will be forwarded without authentication (may fail)
 
 #### "Refresh promise not found for account"
@@ -769,7 +769,7 @@ grep "\[Server\]" /tmp/better-ccflare-logs/app.log
 **Solutions**:
 1. Check if database is accessible
 2. Verify time range parameters
-3. Clear history if data is corrupted: `better-ccflare --clear-history`
+3. Clear history if data is corrupted: `hov-router --clear-history`
 
 ### Configuration Errors
 
@@ -777,7 +777,7 @@ grep "\[Server\]" /tmp/better-ccflare-logs/app.log
 **Meaning**: JSON syntax error in config file
 
 **Solutions**:
-1. Validate JSON syntax: `cat ~/.config/better-ccflare/better-ccflare.json | jq .`
+1. Validate JSON syntax: `cat ~/.config/hov-router/hov-router.json | jq .`
 2. Check for trailing commas or missing quotes
 3. Reset to defaults by deleting config file
 
@@ -836,7 +836,7 @@ grep "\[Server\]" /tmp/better-ccflare-logs/app.log
 **Solutions**:
 1. Check directory permissions
 2. Ensure parent directory exists
-3. Use custom path: `export BETTER_CCFLARE_DB_PATH=/custom/path/db.db`
+3. Use custom path: `export HOV_ROUTER_DB_PATH=/custom/path/db.db`
 
 ## Environment Variables Reference
 
@@ -856,14 +856,14 @@ grep "\[Server\]" /tmp/better-ccflare-logs/app.log
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `BETTER_CCFLARE_CONFIG_PATH` | Custom config file location | Platform-specific | `/opt/better-ccflare/config.json` |
-| `BETTER_CCFLARE_DB_PATH` | Custom database location | Platform-specific | `/opt/better-ccflare/data.db` |
+| `HOV_ROUTER_CONFIG_PATH` | Custom config file location | Platform-specific | `/opt/hov-router/config.json` |
+| `HOV_ROUTER_DB_PATH` | Custom database location | Platform-specific | `/opt/hov-router/data.db` |
 
 ### Logging and Debugging
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `BETTER_CCFLARE_DEBUG` | Enable debug mode | `0` | `1` |
+| `HOV_ROUTER_DEBUG` | Enable debug mode | `0` | `1` |
 | `LOG_LEVEL` | Log level | `INFO` | `DEBUG`, `WARN`, `ERROR` |
 | `LOG_FORMAT` | Log format | `pretty` | `json` |
 
@@ -886,14 +886,14 @@ grep "\[Server\]" /tmp/better-ccflare-logs/app.log
 
 ```bash
 # Development setup with debug logging
-export BETTER_CCFLARE_DEBUG=1
+export HOV_ROUTER_DEBUG=1
 export LOG_LEVEL=DEBUG
 export LOG_FORMAT=json
 bun start
 
 # Production setup with custom paths
-export BETTER_CCFLARE_CONFIG_PATH=/etc/better-ccflare/config.json
-export BETTER_CCFLARE_DB_PATH=/var/lib/better-ccflare/data.db
+export HOV_ROUTER_CONFIG_PATH=/etc/hov-router/config.json
+export HOV_ROUTER_DB_PATH=/var/lib/hov-router/data.db
 export PORT=3000
 bun start
 
@@ -910,7 +910,7 @@ Use this procedure only for an authorized check against a test instance. It does
 
 1. Identify the test server and the database/configuration it actually uses. In that instance's dashboard or authenticated `GET /api/accounts`, verify an available account whose provider is `openrouter`. Record its nonempty ID. Do not look it up in the default production database for a different server.
 2. Read OpenRouter's [current model catalog](https://openrouter.ai/api/v1/models). Choose a currently available `:free` model and check its pricing; do not reuse an old slug or substitute its paid variant when it is unavailable.
-3. Send a small `POST /v1/messages` to that test instance with its API key, the selected model, a short message, `max_tokens: 10`, and `x-better-ccflare-account-id` set to the verified ID. Stop before sending if the ID or free-model choice is missing. Do not retry without the force-route header or against a different provider.
+3. Send a small `POST /v1/messages` to that test instance with its API key, the selected model, a short message, `max_tokens: 10`, and `x-hov-router-account-id` set to the verified ID. Stop before sending if the ID or free-model choice is missing. Do not retry without the force-route header or against a different provider.
 4. Check the matching Requests row for the intended account/model and a successful outcome. For a streaming check, add `stream: true` and require a completed stream ending in `message_stop`; HTTP 200 or partial bytes alone are not enough.
 
 An empty account lookup can leave a request unpinned. Verifying the account on the target instance is part of this check, not an optional convenience. For native Claude Code checks, follow [agent setup](agent-setup.md#claude-automation-and-credentials) instead.
@@ -944,8 +944,8 @@ Expected response:
 ### Q: How do I backup my accounts?
 
 **A**: The account data is stored in the SQLite database. Backup locations:
-- **macOS/Linux**: `~/.config/better-ccflare/better-ccflare.db`
-- **Windows**: `%LOCALAPPDATA%\better-ccflare\better-ccflare.db` or `%APPDATA%\better-ccflare\better-ccflare.db`
+- **macOS/Linux**: `~/.config/hov-router/hov-router.db`
+- **Windows**: `%LOCALAPPDATA%\hov-router\hov-router.db` or `%APPDATA%\hov-router\hov-router.db`
 
 ### Q: What happens during a graceful shutdown?
 
@@ -960,8 +960,8 @@ Expected response:
 ### Q: How do I migrate to a new machine?
 
 **A**: Copy these files to the new machine:
-1. Database file (`better-ccflare.db`)
-2. Config file (`better-ccflare.json`)
+1. Database file (`hov-router.db`)
+2. Config file (`hov-router.json`)
 3. Set the same CLIENT_ID environment variable
 4. Ensure Bun is installed on the new machine
 
@@ -971,7 +971,7 @@ Expected response:
 1. Streaming responses are only captured up to 1MB
 2. Database writes are async and may be delayed
 3. Usage data depends on response headers from Anthropic
-4. Check if requests are being recorded: `sqlite3 ~/.config/better-ccflare/better-ccflare.db "SELECT COUNT(*) FROM requests;"`
+4. Check if requests are being recorded: `sqlite3 ~/.config/hov-router/hov-router.db "SELECT COUNT(*) FROM requests;"`
 
 ### Q: How do I handle rate limits effectively?
 
@@ -999,7 +999,7 @@ Expected response:
 2. **Rate Limited**: Temporarily unavailable due to rate limits
 3. **Expired Token**: Needs re-authentication
 4. **Session**: Account may have an active session
-5. Check status: `better-ccflare --list`
+5. Check status: `hov-router --list`
 
 ### Q: How do I troubleshoot slow responses?
 
@@ -1011,11 +1011,11 @@ Expected response:
 5. Check network latency to Anthropic API
 6. Monitor database performance
 
-### Q: What's the difference between running with bun start vs better-ccflare --serve?
+### Q: What's the difference between running with bun start vs hov-router --serve?
 
 **A**: Both commands start the server:
 - `bun start`: Runs the server using the npm script
-- `better-ccflare --serve`: Runs the server directly via the CLI binary
+- `hov-router --serve`: Runs the server directly via the CLI binary
 - Both are functionally equivalent
 
 ## Getting Help
@@ -1034,13 +1034,13 @@ When reporting issues, include:
 2. **Error Logs**:
    ```bash
    # Last 100 lines of logs
-   tail -n 100 /tmp/better-ccflare-logs/app.log
+   tail -n 100 /tmp/hov-router-logs/app.log
    ```
 
 3. **Configuration** (sanitized):
    ```bash
    # Remove sensitive data before sharing
-   cat ~/.config/better-ccflare/better-ccflare.json | jq 'del(.client_id)'
+   cat ~/.config/hov-router/hov-router.json | jq 'del(.client_id)'
    ```
 
 4. **Steps to Reproduce**:
@@ -1053,7 +1053,7 @@ When reporting issues, include:
 Save this as `debug-info.sh`:
 ```bash
 #!/bin/bash
-echo "=== better-ccflare Debug Info ==="
+echo "=== hov-router Debug Info ==="
 echo "Date: $(date)"
 echo "System: $(uname -a)"
 echo "Bun Version: $(bun --version)"
@@ -1061,11 +1061,11 @@ echo "Node Version: $(node --version 2>/dev/null || echo 'Node not installed')"
 echo ""
 
 echo "=== Environment Variables ==="
-env | grep -E "better-ccflare|CLIENT_ID|PORT|LB_STRATEGY|LOG_|PROXY" | sort
+env | grep -E "hov-router|CLIENT_ID|PORT|LB_STRATEGY|LOG_|PROXY" | sort
 echo ""
 
 echo "=== Process Info ==="
-ps aux | grep -E "bun start|better-ccflare" | grep -v grep
+ps aux | grep -E "bun start|hov-router" | grep -v grep
 echo ""
 
 echo "=== Port Check ==="
@@ -1073,33 +1073,33 @@ lsof -i :${PORT:-8080} 2>/dev/null || echo "Port ${PORT:-8080} not in use"
 echo ""
 
 echo "=== Database Info ==="
-if [ -f "$HOME/.config/better-ccflare/better-ccflare.db" ]; then
-    echo "Database size: $(du -h "$HOME/.config/better-ccflare/better-ccflare.db" | cut -f1)"
-    echo "Request count: $(sqlite3 "$HOME/.config/better-ccflare/better-ccflare.db" "SELECT COUNT(*) FROM requests;" 2>/dev/null || echo "Could not query")"
-    echo "Account count: $(sqlite3 "$HOME/.config/better-ccflare/better-ccflare.db" "SELECT COUNT(*) FROM accounts;" 2>/dev/null || echo "Could not query")"
+if [ -f "$HOME/.config/hov-router/hov-router.db" ]; then
+    echo "Database size: $(du -h "$HOME/.config/hov-router/hov-router.db" | cut -f1)"
+    echo "Request count: $(sqlite3 "$HOME/.config/hov-router/hov-router.db" "SELECT COUNT(*) FROM requests;" 2>/dev/null || echo "Could not query")"
+    echo "Account count: $(sqlite3 "$HOME/.config/hov-router/hov-router.db" "SELECT COUNT(*) FROM accounts;" 2>/dev/null || echo "Could not query")"
 else
     echo "Database not found at default location"
 fi
 echo ""
 
 echo "=== Recent Errors (last 24h) ==="
-if [ -f "/tmp/better-ccflare-logs/app.log" ]; then
-    grep "ERROR" /tmp/better-ccflare-logs/app.log | tail -20
+if [ -f "/tmp/hov-router-logs/app.log" ]; then
+    grep "ERROR" /tmp/hov-router-logs/app.log | tail -20
 else
     echo "Log file not found"
 fi
 echo ""
 
 echo "=== Recent Rate Limits ==="
-if [ -f "/tmp/better-ccflare-logs/app.log" ]; then
-    grep -E "rate.?limit" /tmp/better-ccflare-logs/app.log | tail -10
+if [ -f "/tmp/hov-router-logs/app.log" ]; then
+    grep -E "rate.?limit" /tmp/hov-router-logs/app.log | tail -10
 else
     echo "Log file not found"
 fi
 echo ""
 
 echo "=== Account Status ==="
-better-ccflare --list 2>/dev/null || echo "Could not get account list"
+hov-router --list 2>/dev/null || echo "Could not get account list"
 echo ""
 
 echo "=== API Health Check ==="
@@ -1142,7 +1142,7 @@ curl "http://localhost:8080/api/analytics?range=7d" | jq .
 curl "http://localhost:8080/api/analytics?range=1h&model=claude-3-opus&status=success" | jq .
 
 # Monitor real-time logs
-tail -f /tmp/better-ccflare-logs/app.log | grep -E "INFO|WARN|ERROR"
+tail -f /tmp/hov-router-logs/app.log | grep -E "INFO|WARN|ERROR"
 ```
 
 ### Quick Troubleshooting Checklist
@@ -1156,17 +1156,17 @@ When experiencing issues, check these in order:
 
 2. **Account Status**
    ```bash
-   better-ccflare --list
+   hov-router --list
    ```
 
 3. **Recent Errors**
    ```bash
-   grep ERROR /tmp/better-ccflare-logs/app.log | tail -20
+   grep ERROR /tmp/hov-router-logs/app.log | tail -20
    ```
 
 4. **Rate Limits**
    ```bash
-   grep "rate.?limit" /tmp/better-ccflare-logs/app.log | tail -10
+   grep "rate.?limit" /tmp/hov-router-logs/app.log | tail -10
    ```
 
 5. **Network Connectivity**
@@ -1176,19 +1176,19 @@ When experiencing issues, check these in order:
 
 6. **Database Health**
    ```bash
-   sqlite3 ~/.config/better-ccflare/better-ccflare.db "PRAGMA integrity_check;"
+   sqlite3 ~/.config/hov-router/hov-router.db "PRAGMA integrity_check;"
    ```
 
 ### Common Quick Fixes
 
 | Problem | Quick Fix |
 |---------|-----------|
-| All accounts rate limited | Add more accounts: `better-ccflare --add-account newaccount --mode claude-oauth --priority 10` |
-| Token expired | Re-authenticate: dashboard Accounts page → **Re-authenticate**, or `better-ccflare --reauthenticate <name>` for Anthropic, Qwen and xAI ([guide](oauth-reauthentication.md)) |
+| All accounts rate limited | Add more accounts: `hov-router --add-account newaccount --mode claude-oauth --priority 10` |
+| Token expired | Re-authenticate: dashboard Accounts page → **Re-authenticate**, or `hov-router --reauthenticate <name>` for Anthropic, Qwen and xAI ([guide](oauth-reauthentication.md)) |
 | Database locked | Kill duplicate processes: `pkill -f "bun start"` |
 | Port in use | Use different port: `PORT=3000 bun start` |
-| Config corrupted | Reset config: `rm ~/.config/better-ccflare/better-ccflare.json` |
-| Analytics missing | Clear history: `better-ccflare --clear-history` |
+| Config corrupted | Reset config: `rm ~/.config/hov-router/hov-router.json` |
+| Analytics missing | Clear history: `hov-router --clear-history` |
 | Slow responses | Check session duration settings (default 5 hours) |
 
-Remember: Most issues can be resolved by checking logs, verifying account status, and ensuring proper network connectivity. When in doubt, restart the service with debug logging enabled: `BETTER_CCFLARE_DEBUG=1 LOG_LEVEL=DEBUG bun start`
+Remember: Most issues can be resolved by checking logs, verifying account status, and ensuring proper network connectivity. When in doubt, restart the service with debug logging enabled: `HOV_ROUTER_DEBUG=1 LOG_LEVEL=DEBUG bun start`

@@ -273,7 +273,7 @@ describe("handleProxy — multi-account all-suppressed pool forwards a terminal 
 			// Before the delta2-1 fix: returnRateLimitedResponseOnExhaustion was
 			// hard-coded false for accounts.length > 1, so this terminal 529 was
 			// swallowed into a generic 503 service_unavailable_error instead of
-			// being forwarded — the client saw a ccflare pool failure instead of
+			// being forwarded — the client saw a router pool failure instead of
 			// Anthropic's own overloaded_error body.
 			expect(response.status).toBe(529);
 		} finally {
@@ -478,8 +478,8 @@ describe("handleProxy — front candidate attempted, later candidate suppressed 
 		// retry fetch before the (still 529) response reaches the terminal
 		// check, which is legitimate existing behavior but not what this
 		// regression test is about.
-		const realOverloadRetryEnabled = process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
-		process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = "false";
+		const realOverloadRetryEnabled = process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = "false";
 		let fetchCallCount = 0;
 		globalThis.fetch = mock(async () => {
 			fetchCallCount++;
@@ -542,9 +542,9 @@ describe("handleProxy — front candidate attempted, later candidate suppressed 
 		} finally {
 			globalThis.fetch = realFetch;
 			if (realOverloadRetryEnabled === undefined) {
-				delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+				delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 			} else {
-				process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = realOverloadRetryEnabled;
+				process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = realOverloadRetryEnabled;
 			}
 			collectorSpy.mockRestore();
 		}

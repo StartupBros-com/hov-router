@@ -183,7 +183,7 @@ const documentedReleases = [
 const earlierGuideAliases = [
 	"hov-router",
 	"wstack-router",
-	"better-ccflare",
+	"hov-router",
 ] as const;
 const homes: string[] = [];
 afterEach(() => {

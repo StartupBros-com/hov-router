@@ -48,7 +48,7 @@ const actions: Record<TrustedUpdateChannel, UpdateAction> = {
 		kind: "command",
 		value: "docker pull ghcr.io/tombii/better-ccflare:latest",
 	},
-	npm: { kind: "command", value: "npm install -g better-ccflare@latest" },
+	npm: { kind: "command", value: "npm install -g hov-router@latest" },
 	"github-releases": {
 		kind: "url",
 		value: "https://github.com/tombii/better-ccflare/releases/latest",
@@ -80,7 +80,7 @@ function isNewer(latest: string, current: string): boolean {
 
 async function fetchNpmLatest(): Promise<string> {
 	const response = await fetch(
-		"https://registry.npmjs.org/better-ccflare/latest",
+		"https://registry.npmjs.org/hov-router/latest",
 	);
 	if (!response.ok)
 		throw new Error(`npm registry returned status ${response.status}`);

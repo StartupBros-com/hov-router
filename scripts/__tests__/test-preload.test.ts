@@ -22,8 +22,8 @@ describe("bun test preload", () => {
 
 	test("log and model-cache overrides resolve under the per-process dir", () => {
 		const root = tmpdir() + sep;
-		expect(process.env.BETTER_CCFLARE_LOG_DIR?.startsWith(root)).toBe(true);
-		expect(process.env.BETTER_CCFLARE_MODELS_CACHE_DIR?.startsWith(root)).toBe(
+		expect(process.env.HOV_ROUTER_LOG_DIR?.startsWith(root)).toBe(true);
+		expect(process.env.HOV_ROUTER_MODELS_CACHE_DIR?.startsWith(root)).toBe(
 			true,
 		);
 		expect(join(tmpdir(), "x").startsWith(root)).toBe(true);
@@ -32,11 +32,11 @@ describe("bun test preload", () => {
 	test("the default config directory and database resolve under the per-process dir", () => {
 		const root = tmpdir() + sep;
 		const saved = {
-			BETTER_CCFLARE_DB_PATH: process.env.BETTER_CCFLARE_DB_PATH,
-			ccflare_DB_PATH: process.env.ccflare_DB_PATH,
+			HOV_ROUTER_DB_PATH: process.env.HOV_ROUTER_DB_PATH,
+			HOV_ROUTER_DB_PATH: process.env.HOV_ROUTER_DB_PATH,
 		};
-		delete process.env.BETTER_CCFLARE_DB_PATH;
-		delete process.env.ccflare_DB_PATH;
+		delete process.env.HOV_ROUTER_DB_PATH;
+		delete process.env.HOV_ROUTER_DB_PATH;
 		try {
 			expect(process.env.XDG_CONFIG_HOME?.startsWith(root)).toBe(true);
 			if (process.platform !== "win32") {

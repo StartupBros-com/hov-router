@@ -295,15 +295,15 @@ function addSensitivePersistenceHeaders(request: Request): Request {
 	request.headers.set("cookie", "session=client-secret");
 	request.headers.set("x-api-key", "client-secret");
 	request.headers.set(
-		"x-better-ccflare-guard-request-id",
+		"x-hov-router-guard-request-id",
 		"v1.00000000-0000-4000-8000-000000000001.1.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
 	);
 	request.headers.set(
-		"x-better-ccflare-guard-correlation-secret",
+		"x-hov-router-guard-correlation-secret",
 		"spoofed-guard-secret",
 	);
 	request.headers.set(
-		"x-better-ccflare-internal-probe-secret",
+		"x-hov-router-internal-probe-secret",
 		"spoofed-probe-secret",
 	);
 	request.headers.set("x-client-visible", "kept");
@@ -381,8 +381,8 @@ describe("routing observations", () => {
 describe("combo fallback disabled terminal persistence", () => {
 	it("sanitizes request headers when no combo slot is available", async () => {
 		const previousFallbackSetting =
-			process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK;
-		process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK = "true";
+			process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
+		process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "true";
 		const handleStart = installUsageCollector();
 		const unavailable = makeAccount("unavailable-combo-account");
 		unavailable.rate_limited_until = Date.now() + 60_000;
@@ -422,9 +422,9 @@ describe("combo fallback disabled terminal persistence", () => {
 			expectSanitizedComboTerminalHeaders(handleStart);
 		} finally {
 			if (previousFallbackSetting === undefined) {
-				delete process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK;
+				delete process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
 			} else {
-				process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK =
+				process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK =
 					previousFallbackSetting;
 			}
 		}
@@ -432,8 +432,8 @@ describe("combo fallback disabled terminal persistence", () => {
 
 	it("sanitizes request headers after every combo slot fails", async () => {
 		const previousFallbackSetting =
-			process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK;
-		process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK = "true";
+			process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
+		process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK = "true";
 		const handleStart = installUsageCollector();
 		const account = makeAccount("failed-combo-account");
 		const combo: ComboWithSlots = {
@@ -476,9 +476,9 @@ describe("combo fallback disabled terminal persistence", () => {
 			expectSanitizedComboTerminalHeaders(handleStart);
 		} finally {
 			if (previousFallbackSetting === undefined) {
-				delete process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK;
+				delete process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK;
 			} else {
-				process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK =
+				process.env.HOV_ROUTER_DISABLE_COMBO_SESSION_FALLBACK =
 					previousFallbackSetting;
 			}
 		}
@@ -1056,8 +1056,8 @@ describe("post-combo normal fallback", () => {
 			);
 		}) as unknown as typeof fetch;
 
-		const previousRetrySetting = process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
-		process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = "false";
+		const previousRetrySetting = process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = "false";
 		try {
 			const request = makeProxyRequest("claude-opus-4-5");
 			const response = await handleProxy(request, new URL(request.url), ctx);
@@ -1071,9 +1071,9 @@ describe("post-combo normal fallback", () => {
 			});
 		} finally {
 			if (previousRetrySetting === undefined) {
-				delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+				delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 			} else {
-				process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = previousRetrySetting;
+				process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = previousRetrySetting;
 			}
 		}
 	});
@@ -1210,8 +1210,8 @@ describe("post-combo normal fallback", () => {
 			);
 		}) as unknown as typeof fetch;
 
-		const previousRetrySetting = process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
-		process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = "false";
+		const previousRetrySetting = process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = "false";
 		try {
 			const request = makeProxyRequest("claude-opus-4-5");
 			const response = await handleProxy(request, new URL(request.url), ctx);
@@ -1235,9 +1235,9 @@ describe("post-combo normal fallback", () => {
 			).toBe(0);
 		} finally {
 			if (previousRetrySetting === undefined) {
-				delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+				delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 			} else {
-				process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = previousRetrySetting;
+				process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = previousRetrySetting;
 			}
 		}
 	});
@@ -1396,11 +1396,11 @@ describe("implicit fallback policy integration", () => {
 
 	it("returns a zero-attempt terminal when every implicit candidate is policy-denied", async () => {
 		const restoreProviders = installMockRoutingProviders(["openrouter"]);
-		const previousPassthrough = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		const previousPassthrough = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		// The enforce policy must close the legacy passthrough escape hatch too;
 		// otherwise a paid route can still receive the request after selection
 		// reports policy_excluded.
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		try {
 			const openRouter = makeOpenRouterAccount("openrouter-only-denied");
 			const combo: ComboWithSlots = {
@@ -1458,9 +1458,9 @@ describe("implicit fallback policy integration", () => {
 		} finally {
 			restoreProviders();
 			if (previousPassthrough === undefined) {
-				delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+				delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 			} else {
-				process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = previousPassthrough;
+				process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = previousPassthrough;
 			}
 		}
 	});
@@ -1689,11 +1689,11 @@ describe("native quota wait execution", () => {
 				expect(
 					Number(secondResponse.headers.get("retry-after")),
 				).toBeLessThanOrEqual(60);
-				expect(secondResponse.headers.has("x-better-ccflare-pool-status")).toBe(
+				expect(secondResponse.headers.has("x-hov-router-pool-status")).toBe(
 					false,
 				);
 				expect(
-					secondResponse.headers.has("x-better-ccflare-recovery-scope"),
+					secondResponse.headers.has("x-hov-router-recovery-scope"),
 				).toBe(false);
 				expect(calls).toHaveLength(2);
 			} finally {
@@ -1781,7 +1781,7 @@ describe("native quota wait execution", () => {
 				error: { code: "native_quota_wait", reason: "shared_capacity" },
 			});
 			expect(response.headers.get("x-should-retry")).toBe("true");
-			expect(response.headers.has("x-better-ccflare-pool-status")).toBe(false);
+			expect(response.headers.has("x-hov-router-pool-status")).toBe(false);
 		} finally {
 			restore();
 		}
@@ -1840,13 +1840,13 @@ describe("native quota wait execution", () => {
 		try {
 			const request = makeProxyRequest("claude-fable-5");
 			request.headers.set(
-				"x-better-ccflare-exclude-providers",
+				"x-hov-router-exclude-providers",
 				"anthropic-oauth",
 			);
 			const response = await handleProxy(request, new URL(request.url), ctx);
 			expect(response.status).toBe(hold === "quota" ? 429 : 529);
 			expect(transport).not.toHaveBeenCalled();
-			expect(response.headers.has("x-better-ccflare-pool-status")).toBe(false);
+			expect(response.headers.has("x-hov-router-pool-status")).toBe(false);
 		} finally {
 			restore();
 		}
@@ -1881,7 +1881,7 @@ describe("native quota wait execution", () => {
 			expect(transport).not.toHaveBeenCalled();
 			expect(response.headers.get("retry-after")).toBeNull();
 			expect(response.headers.get("x-should-retry")).toBeNull();
-			expect(response.headers.has("x-better-ccflare-pool-status")).toBe(false);
+			expect(response.headers.has("x-hov-router-pool-status")).toBe(false);
 		} finally {
 			restore();
 		}
@@ -1917,7 +1917,7 @@ describe("native quota wait execution", () => {
 			expect(Number(response.headers.get("retry-after"))).toBeLessThanOrEqual(
 				30,
 			);
-			expect(response.headers.has("x-better-ccflare-pool-status")).toBe(false);
+			expect(response.headers.has("x-hov-router-pool-status")).toBe(false);
 		} finally {
 			restore();
 		}
@@ -1952,7 +1952,7 @@ describe("native quota wait execution", () => {
 			expect(response.status).toBe(529);
 			expect(transport).not.toHaveBeenCalled();
 			expect(response.headers.get("retry-after")).toBe("30");
-			expect(response.headers.has("x-better-ccflare-pool-status")).toBe(false);
+			expect(response.headers.has("x-hov-router-pool-status")).toBe(false);
 		} finally {
 			clock.mockRestore();
 			restore();
@@ -2070,8 +2070,8 @@ describe("native quota wait execution", () => {
 				deniedClasses: ["oauth-subscription"],
 			};
 		}
-		const previous = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		const previous = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		const transport = mock(async () =>
 			Response.json({ type: "message", content: [] }),
 		);
@@ -2079,7 +2079,7 @@ describe("native quota wait execution", () => {
 		try {
 			const request = makeProxyRequest("claude-fable-5");
 			if (denial !== "implicit")
-				request.headers.set("x-better-ccflare-exclude-providers", denial);
+				request.headers.set("x-hov-router-exclude-providers", denial);
 			const response = await handleProxy(request, new URL(request.url), ctx);
 			expect(transport).not.toHaveBeenCalled();
 			expect(response.status).toBe(503);
@@ -2088,8 +2088,8 @@ describe("native quota wait execution", () => {
 		} finally {
 			restore();
 			if (previous === undefined)
-				delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-			else process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = previous;
+				delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+			else process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = previous;
 		}
 	});
 
@@ -2123,7 +2123,7 @@ describe("native quota wait execution", () => {
 				denied = true;
 				if (denial === "provider")
 					meta?.headers?.set(
-						"x-better-ccflare-exclude-providers",
+						"x-hov-router-exclude-providers",
 						"anthropic-oauth",
 					);
 				if (denial === "implicit")
@@ -2337,10 +2337,10 @@ describe("native quota wait execution", () => {
 				false,
 			);
 			if (publicForce)
-				request.headers.set("x-better-ccflare-account-id", accounts[0].id);
+				request.headers.set("x-hov-router-account-id", accounts[0].id);
 			if (excluded)
 				request.headers.set(
-					"x-better-ccflare-exclude-providers",
+					"x-hov-router-exclude-providers",
 					"anthropic-oauth",
 				);
 			const response = await handleProxy(request, new URL(request.url), ctx);
@@ -2756,7 +2756,7 @@ describe("native quota wait execution", () => {
 			expect(response.headers.get("retry-after")).toBe("10");
 			expect(response.headers.get("x-should-retry")).toBe("true");
 			expect(
-				response.headers.get("x-better-ccflare-recovery-scope"),
+				response.headers.get("x-hov-router-recovery-scope"),
 			).toBeNull();
 			const body = (await response.json()) as {
 				error: { type: string; code: string; family: string };
@@ -2802,8 +2802,8 @@ describe("native quota wait execution", () => {
 		ctx.dbOps.getAllAccounts = mock(async () => {
 			throw new Error("offline account database failure");
 		});
-		const previous = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		const previous = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		const transport = mock(async () => {
 			throw new Error(
 				"native account read failure cannot authorize passthrough",
@@ -2819,8 +2819,8 @@ describe("native quota wait execution", () => {
 		} finally {
 			restore();
 			if (previous === undefined)
-				delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-			else process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = previous;
+				delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+			else process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = previous;
 		}
 	});
 
@@ -2936,8 +2936,8 @@ describe("native quota wait execution", () => {
 	it("returns native 429 for shared five-hour exhaustion without passthrough or guard authorization", async () => {
 		const { accounts, ctx, restore, handleStart } = nativePool();
 		for (const account of accounts) putUsage(account, 20, 100);
-		const previous = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		const previous = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		const transport = mock(async () => {
 			throw new Error("offline transport must remain unused");
 		});
@@ -2958,8 +2958,8 @@ describe("native quota wait execution", () => {
 			expect(Number(response.headers.get("retry-after"))).toBeLessThanOrEqual(
 				60,
 			);
-			expect(response.headers.has("x-better-ccflare-pool-status")).toBe(false);
-			expect(response.headers.has("x-better-ccflare-recovery-scope")).toBe(
+			expect(response.headers.has("x-hov-router-pool-status")).toBe(false);
+			expect(response.headers.has("x-hov-router-recovery-scope")).toBe(
 				false,
 			);
 			expect(
@@ -2973,8 +2973,8 @@ describe("native quota wait execution", () => {
 		} finally {
 			restore();
 			if (previous === undefined)
-				delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-			else process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = previous;
+				delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+			else process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = previous;
 		}
 	});
 
@@ -3079,7 +3079,7 @@ describe("native quota wait execution", () => {
 				"claude-fable-5",
 				"claude-fable-5",
 			]);
-			expect(response.headers.has("x-better-ccflare-pool-status")).toBe(false);
+			expect(response.headers.has("x-hov-router-pool-status")).toBe(false);
 		} finally {
 			restore();
 		}
@@ -3171,7 +3171,7 @@ describe("native quota wait execution", () => {
 			const response = await handleProxy(request, new URL(request.url), ctx);
 			expect(transport).not.toHaveBeenCalled();
 			expect([429, 529]).not.toContain(response.status);
-			expect(response.headers.has("x-better-ccflare-pool-status")).toBe(false);
+			expect(response.headers.has("x-hov-router-pool-status")).toBe(false);
 		} finally {
 			restore();
 		}
@@ -3531,7 +3531,7 @@ describe("adapter-authorized physical routing", () => {
 			headers: {
 				"content-type": "application/json",
 				[RESPONSES_ADAPTER_SECRET_HEADER]: "physical-route-test-secret",
-				"x-better-ccflare-exclude-providers": "anthropic-oauth",
+				"x-hov-router-exclude-providers": "anthropic-oauth",
 			},
 			body: JSON.stringify({
 				model: "claude-sonnet-5",
@@ -3640,7 +3640,7 @@ describe("windowless 429 across a plain pool (#916)", () => {
 		expect(calls).toEqual(["plain-a"]);
 		expect(response.status).toBe(503);
 		expect(response.headers.get("retry-after")).toBeNull();
-		expect(response.headers.get("x-better-ccflare-recovery-scope")).toBeNull();
+		expect(response.headers.get("x-hov-router-recovery-scope")).toBeNull();
 		const body = (await response.json()) as { error: { code: string } };
 		expect(body.error.code).toBe("route_unavailable");
 		for (const account of accounts) {

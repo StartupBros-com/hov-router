@@ -787,7 +787,7 @@ async function transformHostedRequest(
 	const projectedHeaders = new Headers(request.headers);
 	projectedHeaders.delete("content-length");
 	projectedHeaders.set(
-		"x-better-ccflare-final-model",
+		"x-hov-router-final-model",
 		context.physicalModel ?? CODEX_SERVER_TOOL_MODEL,
 	);
 	const ordinary = await delegates.transformOrdinaryRequest(

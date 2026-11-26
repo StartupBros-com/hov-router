@@ -113,7 +113,7 @@ without a line outlived its promise by a major release.
 
 - **A 410 entry in `packages/http-api/src/removed-endpoints.ts`.** It serves nothing old.
   An unmatched `/api/*` path is not refused: it falls through to the inference proxy
-  ([never poll an unknown path](never-poll-an-unknown-path-against-a-local-ccflare.md)),
+  ([never poll an unknown path](never-poll-an-unknown-path-against-a-local-router.md)),
   which can forward it upstream on a real account. So every retired or moved route gets
   an entry naming its replacement. A removed response field needs nothing.
 - **The operational names in `AGENTS.md` ("Names that must NOT be renamed").** The
@@ -180,7 +180,7 @@ answers every method on the old path with 410 and `Cache-Control: no-store`.
 
 ## Related
 
-- [Never poll an unknown HTTP path against a local ccflare](never-poll-an-unknown-path-against-a-local-ccflare.md): why an unmatched `/api/*` path reaches the proxy.
+- [Never poll an unknown HTTP path against a local router](never-poll-an-unknown-path-against-a-local-router.md): why an unmatched `/api/*` path reaches the proxy.
 - [Typecheck does not cover test call sites](typecheck-does-not-cover-test-call-sites.md): grep the test call sites when removing a field from a shared type.
 - `docs/hov-router-migration.md`: "Removed in 5.0.0" and "Codex lever fields removed".
 - Issues #749, #788, #1012; PRs #735, #789, #792, #796, #1015, #1027, #1037.

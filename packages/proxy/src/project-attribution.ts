@@ -160,7 +160,7 @@ const SLUG_SHAPE_RE = /^[\w.][\w .-]{0,63}$/;
  * hex/base32/base64-ish token (16+ chars), a credential-labeled value
  * ("api-key-..."), a customer/incident/ticket label, or free-form
  * sentence/incident text. Accepts ordinary repo-name-shaped labels
- * (e.g. "better-ccflare", "Harness", "eval-suite", "My Project").
+ * (e.g. "hov-router", "Harness", "eval-suite", "My Project").
  */
 export function isLowRiskProjectSlug(value: string): boolean {
 	// biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
@@ -324,7 +324,7 @@ const HEADING_RE = /^#\s+([^\n\r]{1,100})/gm;
  */
 function isHeadingProjectAttributionEnabled(): boolean {
 	return /^(1|true|yes|on)$/i.test(
-		process.env.CCFLARE_ENABLE_HEADING_PROJECT_ATTRIBUTION ?? "",
+		process.env.HOV_ROUTER_ENABLE_HEADING_PROJECT_ATTRIBUTION ?? "",
 	);
 }
 
@@ -334,10 +334,10 @@ function isHeadingProjectAttributionEnabled(): boolean {
  * `Record<string, string>` header map.
  *
  * Precedence:
- *  1. `x-better-ccflare-project` header.
+ *  1. `x-hov-router-project` header.
  *  2. Workspace path embedded in the system prompt.
  *  3. First eligible non-Claude, low-risk-slug H1 heading in the system
- *     prompt — only when `CCFLARE_ENABLE_HEADING_PROJECT_ATTRIBUTION` is set
+ *     prompt — only when `HOV_ROUTER_ENABLE_HEADING_PROJECT_ATTRIBUTION` is set
  *     (off by default, #413: this source is prompt boilerplate far more
  *     often than a real project name).
  *  4. No project.
@@ -351,7 +351,7 @@ export function extractProjectAttribution(
 	// below. A client fully controls its own request headers, so this path
 	// needs the same secret/slug validation as attacker-influenced system
 	// prompt text (#373).
-	const rawNamespaced = getHeader("x-better-ccflare-project");
+	const rawNamespaced = getHeader("x-hov-router-project");
 	if (rawNamespaced && isLowRiskProjectSlug(rawNamespaced)) {
 		const namespacedHeader = sanitizeProjectName(rawNamespaced);
 		if (namespacedHeader) {

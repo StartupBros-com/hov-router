@@ -11,7 +11,7 @@ describe("GET /api/config session duration", () => {
 	const tmpDirs: string[] = [];
 
 	function configWith(contents: Record<string, unknown>): Config {
-		const dir = mkdtempSync(join(tmpdir(), "better-ccflare-config-session-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-config-session-"));
 		tmpDirs.push(dir);
 		const path = join(dir, "config.json");
 		writeFileSync(path, JSON.stringify(contents));

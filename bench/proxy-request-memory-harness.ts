@@ -1054,8 +1054,8 @@ export async function runProxyRequestBodyWorkload(
 					method: "POST",
 					headers: {
 						"content-type": "application/json",
-						"x-better-ccflare-keepalive": "true",
-						"x-better-ccflare-internal-probe-secret": "memory-loopback-secret",
+						"x-hov-router-keepalive": "true",
+						"x-hov-router-internal-probe-secret": "memory-loopback-secret",
 					},
 					body: generated,
 				});

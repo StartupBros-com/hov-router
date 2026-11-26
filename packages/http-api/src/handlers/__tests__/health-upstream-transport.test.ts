@@ -11,8 +11,8 @@ import { createHealthHandler } from "../health";
  * "Unable to connect" (the host could not open new outbound TCP connections),
  * while /health answered 200 `ok` with all ten accounts routable. The
  * runtime.upstreamTransport block makes that visible. It must not change the
- * status code: the guard's replacement readiness probe, deploy-ccflare.sh and
- * run-ccflare-stack.sh all require 200, so a network outage turning /health
+ * status code: the guard's replacement readiness probe, deploy-hov-router.sh and
+ * run-hov-router.sh all require 200, so a network outage turning /health
  * into 503 would also block deploys and recycles of a working router.
  */
 

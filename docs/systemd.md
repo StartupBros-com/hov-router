@@ -6,7 +6,7 @@ Production deployment of HoV Router as a systemd service on Linux.
 
 ```ini
 [Unit]
-Description=better-ccflare proxy
+Description=hov-router proxy
 After=network-online.target
 Wants=network-online.target
 
@@ -16,19 +16,19 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-User=better-ccflare
-Group=better-ccflare
+User=hov-router
+Group=hov-router
 
 # --- Environment ---
 Environment=PORT=8889
 Environment=BUN_JSC_forceRAMSize=2147483648
 
 # --- Preflight: strip invalid BUN_JSC_* vars before Bun starts ---
-ExecStartPre=/opt/better-ccflare/scripts/preflight-env.sh
+ExecStartPre=/opt/hov-router/scripts/preflight-env.sh
 
 # --- Main process ---
 # --smol enables aggressive GC (the correct way to reduce memory usage)
-ExecStart=/usr/bin/better-ccflare --smol --serve --port 8889
+ExecStart=/usr/bin/hov-router --smol --serve --port 8889
 
 # --- Optional resource-limit hardening example ---
 # Uncomment only after measuring this deployment under its expected load, and
@@ -46,13 +46,13 @@ RestartPreventExitStatus=143
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/better-ccflare
+ReadWritePaths=/var/lib/hov-router
 PrivateTmp=true
 
 # --- Logging ---
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=better-ccflare
+SyslogIdentifier=hov-router
 
 [Install]
 WantedBy=multi-user.target
@@ -60,44 +60,44 @@ WantedBy=multi-user.target
 
 ## Managed Request-Body Policies
 
-The production `ccflare-stack.service` deployment renders its build pin at `/etc/systemd/system/ccflare-stack.service.d/50-pinned-build.conf`. It pins the Node front guard and Bun proxy separately:
+The production `hov-router.service` deployment renders its build pin at `/etc/systemd/system/hov-router.service.d/50-pinned-build.conf`. It pins the Node front guard and Bun proxy separately:
 
 ```ini
 Environment=GUARD_MAX_REQUEST_BODY_BYTES=33554432
 Environment=GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456
-Environment=CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=1073741824
-Environment=CCFLARE_MAX_BODY_ADMISSION_QUEUE=500
+Environment=HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=1073741824
+Environment=HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500
 ```
 
 `GUARD_MAX_REQUEST_BODY_BYTES` is the 32 MiB request wire limit. `GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES` is the Node guard's 256 MiB **encoded-buffer** reservation budget; it must be no greater than 256 MiB and at least twice the wire limit. At the defaults it admits four worst-case 32 MiB bodies because each reserves 64 MiB. The managed pin intentionally does **not** set `GUARD_MAX_BODY_READERS`: reader cardinality is independent of weighted byte reservations, so an operator override/default remains effective.
 
 A valid guard `Content-Length` reserves twice its declared number of bytes before buffering. Missing, chunked, invalid, or misleading length reserves twice the full 32 MiB limit. Guard reader admission is FIFO, and the independent `GUARD_MAX_BODY_READERS` limit caps active readers.
 
-`CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES` is a separate **Bun-process weighted-work** admission budget, valid from 256 MiB through 1 GiB; the managed pin sets it to **1 GiB** (`1073741824`). `CCFLARE_MAX_BODY_ADMISSION_QUEUE` controls its FIFO queue, valid from 0 through 5000. Bun reserves 8× a canonical unencoded/`identity` `Content-Length` (zero reserves zero), up to the 32 MiB request limit. Missing, chunked, malformed, over-limit, compressed, and unknown-encoding metadata — and any handler that must hold the full worst case, such as the OpenAI Responses routes during translation — instead reserve the worst case, `8 × 32 MiB = 256 MiB`, capped at the configured budget rather than the budget's entirety. At the managed 1 GiB pin that combination admits four concurrent worst-case requests before a fifth queues, and roughly 5.3 MiB bodies at 24-way concurrency. This 8× value is conservative admission weighting bounding weighted admitted work, not an exact heap or RSS measurement; downstream readers remain the exact size authority. The Node guard and Bun controller are independent process budgets—there is no bypass header or circular lock.
+`HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES` is a separate **Bun-process weighted-work** admission budget, valid from 256 MiB through 1 GiB; the managed pin sets it to **1 GiB** (`1073741824`). `HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE` controls its FIFO queue, valid from 0 through 5000. Bun reserves 8× a canonical unencoded/`identity` `Content-Length` (zero reserves zero), up to the 32 MiB request limit. Missing, chunked, malformed, over-limit, compressed, and unknown-encoding metadata — and any handler that must hold the full worst case, such as the OpenAI Responses routes during translation — instead reserve the worst case, `8 × 32 MiB = 256 MiB`, capped at the configured budget rather than the budget's entirety. At the managed 1 GiB pin that combination admits four concurrent worst-case requests before a fifth queues, and roughly 5.3 MiB bodies at 24-way concurrency. This 8× value is conservative admission weighting bounding weighted admitted work, not an exact heap or RSS measurement; downstream readers remain the exact size authority. The Node guard and Bun controller are independent process budgets—there is no bypass header or circular lock.
 
 Bun rejects queue-full body requests locally with `503` and `Retry-After: 1` before proxy/provider work. It removes aborted queued requests, and a restart clears active leases and queue state. Its response lifetime can outlast handler return, so a reservation releases only when the response body closes, errors, or cancels (or shutdown aborts it).
 
-`deploy-ccflare.sh` validates the rendered pin and, after `systemctl daemon-reload`, validates the **effective merged** `Environment` from systemd. A later operator drop-in can override the values, but missing, partial, non-integer, out-of-range, or incompatible effective values restore the prior managed pin and prevent the service restart. Legacy rollback accepts an older pin only when both Bun admission variables are absent.
+`deploy-hov-router.sh` validates the rendered pin and, after `systemctl daemon-reload`, validates the **effective merged** `Environment` from systemd. A later operator drop-in can override the values, but missing, partial, non-integer, out-of-range, or incompatible effective values restore the prior managed pin and prevent the service restart. Legacy rollback accepts an older pin only when both Bun admission variables are absent.
 
 After a restart, inspect `GET /_guard/health` and `GET /health` on naturally arriving authorized traffic; do not generate synthetic traffic against Anthropic-backed accounts. Guard root and `runtime.limits` must both report `maxRequestBodyBytes` and `maxBufferedRequestBodyBytes`. Root `bodyReaders.reservationLimitBytes`, `reservedBytes`, and `reservedBytesPeak` show the guard aggregate budget, current reservation, and high-water mark. Bun's `runtime.bodyAdmission` reports aggregate configuration, current/peak reservations, active/queued counts, and counters only; it never includes body data, paths, accounts, sessions, or request IDs. The OpenAI Responses endpoint also applies the 32 MiB limit separately to encoded and decoded `gzip`, `deflate`, and `zstd` request bodies.
 
 ## Codex Client Identity Drop-In
 
-By default the Codex provider advertises its compiled client version. To have it follow a managed Codex CLI updater, set `CCFLARE_CODEX_VERIFIED_VERSION_FILE` to the updater's verified-version record. Put it in its own operator drop-in that sorts after the deploy-owned pin:
+By default the Codex provider advertises its compiled client version. To have it follow a managed Codex CLI updater, set `HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE` to the updater's verified-version record. Put it in its own operator drop-in that sorts after the deploy-owned pin:
 
 ```ini
-# /etc/systemd/system/ccflare-stack.service.d/80-codex-verified-version.conf
+# /etc/systemd/system/hov-router.service.d/80-codex-verified-version.conf
 [Service]
-Environment=CCFLARE_CODEX_VERIFIED_VERSION_FILE=/home/<user>/.local/state/codex-update/verified-version.json
+Environment=HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE=/home/<user>/.local/state/codex-update/verified-version.json
 ```
 
-`deploy-ccflare.sh` replaces only `50-pinned-build.conf`, so this drop-in survives deploys. The service user must be able to read the record.
+`deploy-hov-router.sh` replaces only `50-pinned-build.conf`, so this drop-in survives deploys. The service user must be able to read the record.
 
 - **Apply:** run `systemctl daemon-reload` and restart once. Later record updates take effect without a restart.
 - **Confirm:** `GET /api/config/provider-model-defaults` reports `codexClientIdentity.source` as `verified`.
 - **Revert:** removing the drop-in, reloading and restarting returns the service to the compiled version.
 
-The record format and fallback rules are in [configuration](configuration.md) under `CCFLARE_CODEX_VERIFIED_VERSION_FILE`.
+The record format and fallback rules are in [configuration](configuration.md) under `HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE`.
 
 ## Memory Management
 
@@ -106,7 +106,7 @@ The record format and fallback rules are in [configuration](configuration.md) un
 The `--smol` CLI flag is Bun's **supported** mechanism for reducing memory usage. It enables aggressive garbage collection and is safe for production use:
 
 ```ini
-ExecStart=/usr/bin/better-ccflare --smol --serve --port 8889
+ExecStart=/usr/bin/hov-router --smol --serve --port 8889
 ```
 
 This is equivalent to JavaScriptCore's "small heap" mode but exposed through Bun's stable CLI interface.
@@ -144,8 +144,8 @@ The `scripts/preflight-env.sh` script strips invalid `BUN_JSC_*` environment var
 ### Wiring as ExecStartPre
 
 ```ini
-ExecStartPre=/opt/better-ccflare/scripts/preflight-env.sh
-ExecStart=/usr/bin/better-ccflare --smol --serve --port 8889
+ExecStartPre=/opt/hov-router/scripts/preflight-env.sh
+ExecStart=/usr/bin/hov-router --smol --serve --port 8889
 ```
 
 systemd runs `ExecStartPre` before the main process. If a stale or invalid `BUN_JSC_*` variable exists in the environment (from a previous configuration, an inherited environment, or a mistake in the unit file), the preflight script catches it.
@@ -155,19 +155,19 @@ systemd runs `ExecStartPre` before the main process. If a stale or invalid `BUN_
 When running HoV Router outside systemd, source the script before starting:
 
 ```sh
-. /opt/better-ccflare/scripts/preflight-env.sh
-exec bun run better-ccflare --smol --serve
+. /opt/hov-router/scripts/preflight-env.sh
+exec bun run hov-router --smol --serve
 ```
 
 ## Resource Limits
 
 ### Memory
 
-Limits and protection do different jobs. A limit (`MemoryMax`, `MemoryHigh`) bounds the router. Protection (`MemoryLow`) keeps the kernel from reclaiming the router's memory while something else on the host fills RAM. The live managed `ccflare-stack.service` deployment sets no limit; since 2026-11-09 it sets protection, as described below.
+Limits and protection do different jobs. A limit (`MemoryMax`, `MemoryHigh`) bounds the router. Protection (`MemoryLow`) keeps the kernel from reclaiming the router's memory while something else on the host fills RAM. The live managed `hov-router.service` deployment sets no limit; since 2026-11-09 it sets protection, as described below.
 
 #### Limits
 
-Measure before you set one. systemd logs a unit's peak when it stops (`journalctl -u better-ccflare | grep 'memory peak'`), and `memory.peak` in the unit's cgroup holds the peak since it started. Both include page cache. The managed deployment's unit peaked between 2.2 and 4.7 GB a run from 2026-11-04 to 2026-11-09, so no fixed number fits every deployment:
+Measure before you set one. systemd logs a unit's peak when it stops (`journalctl -u hov-router | grep 'memory peak'`), and `memory.peak` in the unit's cgroup holds the peak since it started. Both include page cache. The managed deployment's unit peaked between 2.2 and 4.7 GB a run from 2026-11-04 to 2026-11-09, so no fixed number fits every deployment:
 
 ```ini
 MemoryMax=<peak plus headroom>   # hard limit: the OOM killer ends the process above it
@@ -182,7 +182,7 @@ The router's own limits do nothing for it when another workload on the host fill
 
 ```sh
 sudo systemctl set-property system.slice MemoryLow=4G
-sudo systemctl set-property better-ccflare.service MemoryLow=3G
+sudo systemctl set-property hov-router.service MemoryLow=3G
 ```
 
 Both are needed because the kernel caps a cgroup's protection at what its ancestors allow ([cgroup v2, `memory.low`](https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files)), and `system.slice` has none by default. On its own, the service's `MemoryLow` protects nothing. Set the service's value to about its working set under normal load. Set the slice's value to at least the sum of the `MemoryLow` values of the services in it. Unless cgroup2 is mounted with `memory_recursiveprot` (check `/proc/mounts`), a service in the slice without its own `MemoryLow` gets none of the slice's protection.
@@ -215,7 +215,7 @@ This means:
   circuit-open exits, but does not restart an intentional SIGTERM exit (143)
 - It waits 5 seconds between restart attempts
 - If the process fails 5 times within 300 seconds, systemd stops trying and marks the unit as failed
-- After a `StartLimitBurst` failure, manual intervention is required: `systemctl reset-failed better-ccflare && systemctl start better-ccflare`
+- After a `StartLimitBurst` failure, manual intervention is required: `systemctl reset-failed hov-router && systemctl start hov-router`
 
 The managed stack runner exits with status 75 when its internal restart circuit
 opens. That keeps systemd from reporting an active service while the proxy and
@@ -247,10 +247,10 @@ left on the disk` line in the journal gives the bytes that were available.
 
 The runner keeps two sockets and the deploy credential in one control
 directory, made once per runner and kept until the runner stops. The managed
-drop-in sets `RuntimeDirectory=ccflare-stack` and `RuntimeDirectoryMode=0700`,
-so that directory is `/run/ccflare-stack/ccflare-control.*`: `/run` is not on
+drop-in sets `RuntimeDirectory=hov-router` and `RuntimeDirectoryMode=0700`,
+so that directory is `/run/hov-router/hov-router-control.*`: `/run` is not on
 the disk, and a runner started while the disk is full can still make it.
-systemd creates `/run/ccflare-stack` for the unit's user before each start and
+systemd creates `/run/hov-router` for the unit's user before each start and
 removes it at each stop. A runner that is given no runtime directory uses
 `TMPDIR` (`/tmp` by default), as every runner did before.
 
@@ -262,7 +262,7 @@ record the deploy listener` once and waits for space, while the stack keeps
 serving. Until the record is written a deploy finds no listener and does a full
 restart.
 
-For unexpected child failures, `scripts/run-ccflare-stack.sh` uses a separate
+For unexpected child failures, `scripts/run-hov-router.sh` uses a separate
 aggregate cleanup budget: `RUNNER_FAILURE_STOP_BUDGET_MS` defaults to 30 seconds
 and is bounded to 1--120 seconds. It limits how long a stubborn child can delay
 the next restart or circuit decision. This budget applies only to failure
@@ -319,14 +319,14 @@ Without the preflight script, an invalid `BUN_JSC_*` variable would burn through
 
 ```sh
 # Check journal for the crash
-journalctl -u better-ccflare --no-pager -n 20
+journalctl -u hov-router --no-pager -n 20
 
 # Reset the failed state
-systemctl reset-failed better-ccflare
+systemctl reset-failed hov-router
 
 # Fix the unit file, then reload and start
 systemctl daemon-reload
-systemctl start better-ccflare
+systemctl start hov-router
 ```
 
 ### Forgetting daemon-reload
@@ -335,12 +335,12 @@ After editing a unit file, you must run `systemctl daemon-reload` before restart
 
 ### Running as root
 
-The reference unit file uses a dedicated `better-ccflare` user. Create it:
+The reference unit file uses a dedicated `hov-router` user. Create it:
 
 ```sh
-useradd --system --no-create-home --shell /usr/sbin/nologin better-ccflare
-mkdir -p /var/lib/better-ccflare
-chown better-ccflare:better-ccflare /var/lib/better-ccflare
+useradd --system --no-create-home --shell /usr/sbin/nologin hov-router
+mkdir -p /var/lib/hov-router
+chown hov-router:hov-router /var/lib/hov-router
 ```
 
 ### Database path permissions
@@ -348,14 +348,14 @@ chown better-ccflare:better-ccflare /var/lib/better-ccflare
 If using the default SQLite database, ensure the service user has write access:
 
 ```sh
-mkdir -p /var/lib/better-ccflare
-chown better-ccflare:better-ccflare /var/lib/better-ccflare
+mkdir -p /var/lib/hov-router
+chown hov-router:hov-router /var/lib/hov-router
 ```
 
 Set the database path in the unit file:
 
 ```ini
-Environment=BETTER_CCFLARE_DB_PATH=/var/lib/better-ccflare/better-ccflare.db
+Environment=HOV_ROUTER_DB_PATH=/var/lib/hov-router/hov-router.db
 ```
 
 ## Anthropic Degraded Mode Rollout
@@ -364,7 +364,7 @@ Anthropic degraded mode is restart-scoped and `off` by default. Read [Configurat
 
 ### Topology gate
 
-`enforce` is supported only when all affected traffic reaches one HoV Router server process and therefore one in-memory coordinator. The standard `ccflare-stack.service` runner starts one guard and one upstream server, which satisfies the process boundary only if no other stack, worker, pod, or replica also receives the traffic.
+`enforce` is supported only when all affected traffic reaches one HoV Router server process and therefore one in-memory coordinator. The standard `hov-router.service` runner starts one guard and one upstream server, which satisfies the process boundary only if no other stack, worker, pod, or replica also receives the traffic.
 
 Before enforcement:
 
@@ -376,7 +376,7 @@ Before enforcement:
 The local process check is useful but does not replace the fleet inventory:
 
 ```sh
-systemctl show ccflare-stack.service \
+systemctl show hov-router.service \
   --property=ActiveState \
   --property=SubState \
   --property=MainPID
@@ -387,15 +387,15 @@ systemctl show ccflare-stack.service \
 Set these values in the existing service environment or configuration file:
 
 ```ini
-Environment=CCFLARE_ANTHROPIC_DEGRADED_MODE=off
-Environment=CCFLARE_ANTHROPIC_DEGRADED_DIAGNOSTICS=false
+Environment=HOV_ROUTER_ANTHROPIC_DEGRADED_MODE=off
+Environment=HOV_ROUTER_ANTHROPIC_DEGRADED_DIAGNOSTICS=false
 ```
 
 Then restart the complete stack:
 
 ```sh
 sudo systemctl daemon-reload
-sudo systemctl restart ccflare-stack.service
+sudo systemctl restart hov-router.service
 
 curl -fsS http://127.0.0.1:8788/health |
   jq '{status, git_sha, anthropicDegraded: .runtime.anthropicDegraded}'
@@ -415,7 +415,7 @@ namei -l /var/log/journal /run/log/journal 2>/dev/null
 getfacl -p /var/log/journal /run/log/journal 2>/dev/null
 OPERATOR_USER=alice
 sudo -u "$OPERATOR_USER" journalctl \
-  -u ccflare-stack.service --since -5min --no-pager
+  -u hov-router.service --since -5min --no-pager
 ```
 
 Review the effective journald policy, not only one source file:
@@ -430,7 +430,7 @@ Confirm the active storage mode and explicit site-appropriate size and time boun
 Inspect detailed records in place instead of creating an unmanaged export:
 
 ```sh
-journalctl -u ccflare-stack.service --since -15min -o cat |
+journalctl -u hov-router.service --since -15min -o cat |
   jq -Rc 'fromjson? | select(.event == "anthropic_degraded_mode")'
 ```
 
@@ -441,8 +441,8 @@ These records contain only bounded estimates and boot-scoped opaque identifiers,
 After the baseline and journal checks, set:
 
 ```ini
-Environment=CCFLARE_ANTHROPIC_DEGRADED_MODE=observe
-Environment=CCFLARE_ANTHROPIC_DEGRADED_DIAGNOSTICS=true
+Environment=HOV_ROUTER_ANTHROPIC_DEGRADED_MODE=observe
+Environment=HOV_ROUTER_ANTHROPIC_DEGRADED_DIAGNOSTICS=true
 ```
 
 Perform another full-stack restart and confirm a new boot ID, `mode: "observe"`, and `diagnosticsEnabled: true`. Observation starts with empty shadow state; no state from the off baseline is reused.
@@ -465,8 +465,8 @@ Detailed events should reconcile each logical request to its physical attempts, 
 Enable `enforce` only after the topology gate and observation criteria pass. Leave diagnostics off unless a separately approved bounded journal window is still active:
 
 ```ini
-Environment=CCFLARE_ANTHROPIC_DEGRADED_MODE=enforce
-Environment=CCFLARE_ANTHROPIC_DEGRADED_DIAGNOSTICS=false
+Environment=HOV_ROUTER_ANTHROPIC_DEGRADED_MODE=enforce
+Environment=HOV_ROUTER_ANTHROPIC_DEGRADED_DIAGNOSTICS=false
 ```
 
 Restart the complete stack and verify the expected SHA, a new boot ID, `mode: "enforce"`, and the intended diagnostic state. The fresh coordinator does not inherit observe evidence. During a real matching overload, monitor cohort state, active probes, send/suppression decisions, terminal outcomes, guard attempts, drops, and saturation. A protected 529 is terminal at the guard and must not produce a guard body replay.
@@ -474,13 +474,13 @@ Restart the complete stack and verify the expected SHA, a new boot ID, `mode: "e
 Rollback is configuration-only:
 
 ```ini
-Environment=CCFLARE_ANTHROPIC_DEGRADED_MODE=off
-Environment=CCFLARE_ANTHROPIC_DEGRADED_DIAGNOSTICS=false
+Environment=HOV_ROUTER_ANTHROPIC_DEGRADED_MODE=off
+Environment=HOV_ROUTER_ANTHROPIC_DEGRADED_DIAGNOSTICS=false
 ```
 
 ```sh
 sudo systemctl daemon-reload
-sudo systemctl restart ccflare-stack.service
+sudo systemctl restart hov-router.service
 ```
 
 Verify a new boot ID with `mode: "off"` and `diagnosticsEnabled: false`. The restart clears cohorts, leases, retained/shadow owners, and detailed joins. No database cleanup is required.
@@ -498,10 +498,10 @@ Codex routing allows one orchestration-capable conversation per identified Claud
 Containment is enabled by default. For emergency rollback only:
 
 ```ini
-Environment=CCFLARE_CODEX_SINGLE_ORCHESTRATION_ROOT=0
+Environment=HOV_ROUTER_CODEX_SINGLE_ORCHESTRATION_ROOT=0
 ```
 
-This switch disables root election only. Trusted descendant filtering and `CCFLARE_SESSION_MAX_REQUESTS_PER_HOUR` remain active. Remove the override to restore containment.
+This switch disables root election only. Trusted descendant filtering and `HOV_ROUTER_SESSION_MAX_REQUESTS_PER_HOUR` remain active. Remove the override to restore containment.
 
 ### Codex prompt cache keys
 
@@ -509,13 +509,13 @@ Prompt cache keys are enabled by default for OpenAI-owned `chatgpt.com` and `api
 
 Configuration precedence is:
 
-1. `CCFLARE_CODEX_PROMPT_CACHE_KEY=0` is the explicit global opt-out. Unset or other values leave prompt cache keys enabled by default.
+1. `HOV_ROUTER_CODEX_PROMPT_CACHE_KEY=0` is the explicit global opt-out. Unset or other values leave prompt cache keys enabled by default.
 2. The account selected for the transform must resolve to OpenAI's `chatgpt.com` or `api.openai.com` endpoint. Other endpoints are ineligible and emit no key.
 3. Missing or malformed Claude session metadata remains ineligible and emits no key.
-4. `CCFLARE_CODEX_CACHE_KEY_MODE=session` is an explicit all-session override: one key per session, shared by all of its subagents, with no continuity.
+4. `HOV_ROUTER_CODEX_CACHE_KEY_MODE=session` is an explicit all-session override: one key per session, shared by all of its subagents, with no continuity.
 5. Otherwise requests use conversation keys. Empty transformed input keeps the session-key fallback.
 
-The session-key canary that compared the two modes was removed. `CCFLARE_CODEX_CACHE_KEY_SESSION_PERCENT` is ignored, so delete it from the drop-in.
+The session-key canary that compared the two modes was removed. `HOV_ROUTER_CODEX_CACHE_KEY_SESSION_PERCENT` is ignored, so delete it from the drop-in.
 
 #### Trace schema and analysis
 
@@ -543,7 +543,7 @@ Attempt-inclusive cache stats therefore measure every unambiguous physical trans
 
 These trace fields hold only bounded digests, enum values, and physical-attempt identifiers. They never store raw session IDs, prompt material, or outbound cache keys. Internal routing metadata is stripped before upstream transport. Cache token counts and serialized prefix-boundary byte lengths are different units, so trace analysis must not claim an exact provider token-cache boundary from HMAC boundary telemetry.
 
-Prefix retention and instruction/tool stability require `CCFLARE_CODEX_TRACE_HMAC_KEY`, because summaries written without that key intentionally contain no HMACs. Those comparisons are reported as unavailable rather than changed when HMACs are absent. With a dedicated trace key, traces include bounded cumulative prefix-boundary HMACs and byte lengths, allowing an earlier full input to be compared with the corresponding prefix of a later turn. Old boundaries outside the bounded retention window are also reported as unavailable. The key itself is never written to the trace. Rotate or remove it after the observation window.
+Prefix retention and instruction/tool stability require `HOV_ROUTER_CODEX_TRACE_HMAC_KEY`, because summaries written without that key intentionally contain no HMACs. Those comparisons are reported as unavailable rather than changed when HMACs are absent. With a dedicated trace key, traces include bounded cumulative prefix-boundary HMACs and byte lengths, allowing an earlier full input to be compared with the corresponding prefix of a later turn. Old boundaries outside the bounded retention window are also reported as unavailable. The key itself is never written to the trace. Rotate or remove it after the observation window.
 
 Accounts with mature repeated 429 streaks use process-local single-flight recovery probes after cooldown expiry. Journal events are `cooldown_probe_admitted`, `cooldown_probe_suppressed`, `cooldown_probe_recovery_success`, and `cooldown_probe_reapplied`. The upstream reset time remains authoritative; probe gating prevents concurrent re-entry without imposing a longer fixed cooldown.
 
@@ -575,7 +575,7 @@ this boundary. Failed replacements remain fenced while the existing bounded
 restart circuit applies. Terminal TERM/INT still shuts the entire stack down.
 
 Memory recycling always drains the old upstream first. A compatible backend-only
-deployment through `scripts/deploy-ccflare.sh` also keeps the guard. When the
+deployment through `scripts/deploy-hov-router.sh` also keeps the guard. When the
 running backend supports it, the deployment quiesces the old upstream instead of
 draining it: the old process releases its port and finishes its streams while the
 replacement serves (see

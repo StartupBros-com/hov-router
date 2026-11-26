@@ -57,9 +57,9 @@ interface SessionAccountEntry {
 }
 
 export interface SessionModelObservation {
-	/** Client/request model before ccflare policy rewrites, when available. */
+	/** Client/request model before router policy rewrites, when available. */
 	requestedModel: string | null;
-	/** Model after ccflare policy rewrites, before provider transport mapping. */
+	/** Model after router policy rewrites, before provider transport mapping. */
 	appliedModel: string | null;
 	/** Concrete model sent to the successful upstream provider. */
 	upstreamModel: string;
@@ -234,7 +234,7 @@ const observer = new SessionAccountObserver();
  * return) guarding synthetic traffic identically.
  */
 export function sessionIdForObservation(headers: Headers): string | null {
-	if (headers.get("x-better-ccflare-keepalive") === "true") {
+	if (headers.get("x-hov-router-keepalive") === "true") {
 		return null;
 	}
 	return headers.get("x-claude-code-session-id");
