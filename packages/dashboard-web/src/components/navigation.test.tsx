@@ -20,7 +20,7 @@ import {
 } from "./navigation";
 
 const DEFAULT_GUIDANCE = [
-	"npm install -g hov-router@latest",
+	"npm install -g better-ccflare@latest",
 	"docker pull ghcr.io/tombii/better-ccflare:latest",
 	"https://github.com/tombii/better-ccflare/releases/latest",
 ];
@@ -140,7 +140,7 @@ describe("navigation identity", () => {
 			expect(html).toContain('aria-hidden="true"');
 			expect(html).not.toContain("lucide-shield");
 			expect(html).not.toContain(">wstack Router<");
-			expect(html).not.toContain(">hov-router<");
+			expect(html).not.toContain(">better-ccflare<");
 			// Light mode draws the active item's label in the foreground colour, its icon in orange.
 			expect(html).toContain(
 				"bg-primary/10 text-primary-text hover:bg-primary/20",

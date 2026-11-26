@@ -43,7 +43,7 @@ describe("update status service", () => {
 			adapters: { npm: adapter, ghcr: adapter, "github-releases": adapter },
 		});
 		expect((await service.check()).action?.value).toBe(
-			"npm install -g hov-router@latest",
+			"npm install -g better-ccflare@latest",
 		);
 		expect((await service.check()).cache).toBe("hit");
 		for (const [token, mode] of [
@@ -166,7 +166,7 @@ describe("update status service", () => {
 		});
 		const npmFirst = await service.check();
 		const npmSecond = await service.check();
-		expect(npmFirst.action?.value).toBe("npm install -g hov-router@latest");
+		expect(npmFirst.action?.value).toBe("npm install -g better-ccflare@latest");
 		expect(npmSecond.cache).toBe("hit");
 		expect(npmCalls).toBe(1);
 		expect(ghcrCalls).toBe(0);
@@ -408,6 +408,34 @@ function expectLookupFailure(
 	expect(result.cache).toBe("not-applicable");
 	expect(result.reason).toStartWith("lookup_failed:");
 }
+
+describe("fixed npm update adapter", () => {
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	it("asks the registry for upstream's package, which this fork does not publish", async () => {
+		const requests: Array<{ url: string; init?: RequestInit }> = [];
+		installFetchFixture([jsonResponse({ version: "1.4.0" })], requests);
+
+		const result = await createUpdateStatusService({
+			currentVersion: () => "1.0.0",
+			readProvenance: () => provenance(),
+		}).check();
+
+		expect(requests.map((request) => request.url)).toEqual([
+			"https://registry.npmjs.org/better-ccflare/latest",
+		]);
+		expect(result).toMatchObject({
+			availability: "available",
+			latestVersion: "1.4.0",
+			action: {
+				kind: "command",
+				value: "npm install -g better-ccflare@latest",
+			},
+		});
+	});
+});
 
 describe("fixed GHCR update adapter", () => {
 	afterEach(() => {

@@ -586,7 +586,7 @@ host removes every recognizable section/paragraph marker, the gateway cannot
 distinguish it from foreground instructions. This policy neither grants merge
 authorization nor changes repository hooks, review gates, or session authority.
 Offline payload tests establish delivery and preservation, not model compliance.
-The [2026-10-03 rollout](https://github.com/StartupBros-com/better-ccflare/pull/414)
+The [2026-10-03 rollout](https://github.com/StartupBros-com/hov-router/pull/414)
 also verified the live compatibility rejection and a fresh, no-tool,
 Codex-routed background session reporting that authorized PR merges were
 conditionally permitted. These smoke checks did not execute a merge and do not

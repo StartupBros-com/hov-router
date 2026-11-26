@@ -38,6 +38,10 @@ const DIGEST_KEY_HKDF_INFO = "bccf2.A256GCM.replay-envelope.visible-fields.v1";
 const LOCATOR_KEY_HKDF_SALT =
 	"bccf2.A256GCM.replay-envelope.locator-key.salt.v1";
 const LOCATOR_KEY_HKDF_INFO = "bccf2.A256GCM.replay-envelope.source-locator.v1";
+// These two labels keep the name inherited from better-ccflare on purpose. The
+// fingerprint is the counter_identity row that counts how many envelopes one
+// key has sealed; a new label would restart that count at zero for a key
+// already in use and defeat the rotation and exhaustion limits below.
 const FLEET_FINGERPRINT_DOMAIN =
 	"better-ccflare.server-tool-replay.aes-256-gcm.fleet-key-fingerprint.v1\0";
 const FLEET_FINGERPRINT_PREFIX = "better-ccflare.aes-256-gcm.keyfp.v1.";

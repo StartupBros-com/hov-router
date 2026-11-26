@@ -54,7 +54,7 @@ requested model and the coupled `Version`/`User-Agent` version fields varied:
 After the fix was deployed, an independent read-only observation found **27/27
 ordinary Sol requests successful and stream-complete on a different account**.
 No natural Luna requests appeared in that observation window. The dated evidence
-and deployment verification are recorded in [issue #378](https://github.com/StartupBros-com/better-ccflare/issues/378#issuecomment-5818899985).
+and deployment verification are recorded in [issue #378](https://github.com/StartupBros-com/hov-router/issues/378#issuecomment-5818899985).
 
 ## What Didn't Work
 
@@ -88,7 +88,7 @@ and deployment verification are recorded in [issue #378](https://github.com/Star
 
 ## Solution
 
-[PR #377](https://github.com/StartupBros-com/better-ccflare/pull/377) advanced the
+[PR #377](https://github.com/StartupBros-com/hov-router/pull/377) advanced the
 existing shared compatibility constant:
 
 ```diff
@@ -145,7 +145,7 @@ post-deployment routing.
    explicit authorization for a bounded comparison on a non-Anthropic account;
    never replay customer conversations or treat an exhausted probe budget as reusable.
 5. Keep automation separate from this static compatibility repair.
-   [hov-router #370](https://github.com/StartupBros-com/better-ccflare/issues/370)
+   [hov-router #370](https://github.com/StartupBros-com/hov-router/issues/370)
    shipped the proxy side in #384: one resolved identity is shared by inference and
    catalog negotiation, fed by a verified-version record.
    An updater in the operator's harness writes that record after each verified CLI
@@ -165,7 +165,7 @@ post-deployment routing.
 
 ## Related Issues
 
-- [Fix and regression coverage: #376](https://github.com/StartupBros-com/better-ccflare/issues/376).
+- [Fix and regression coverage: #376](https://github.com/StartupBros-com/hov-router/issues/376).
 - [Cache affinity needs a session-id header](codex-cache-affinity-needs-session-id-header.md):
   another wire-metadata problem, but a different cause and remedy; do not replace
   its cache evidence with this model-availability result.

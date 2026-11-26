@@ -678,7 +678,7 @@ excess tokens per pair. Query 2's 307 rows are 5.01 per 1,000.
 ### Where the remaps came from
 
 The full attribution is in the
-[#516 comment](https://github.com/StartupBros-com/better-ccflare/issues/516#issuecomment-6203127045),
+[#516 comment](https://github.com/StartupBros-com/hov-router/issues/516#issuecomment-6203127045),
 with every query. It adds a restart timeline from the journal, burst detection and the
 router's own banding to Query 3's split, and assigns each row to the first class it matches.
 

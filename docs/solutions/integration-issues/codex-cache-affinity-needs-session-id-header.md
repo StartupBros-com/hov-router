@@ -66,7 +66,7 @@ The exact-prefix, same-account/key/effort cohorts show that prefix drift, accoun
 
 ### Initial natural-traffic check (historical observation)
 
-[PR #367](https://github.com/StartupBros-com/better-ccflare/pull/367) deployed as `c184709ceeff81161e27de188c87fd651d6498e4` at **2026-09-24T01:27:53Z**. The recorded check ended at **02:12:37Z** and covered **one account**, not the whole fleet:
+[PR #367](https://github.com/StartupBros-com/hov-router/pull/367) deployed as `c184709ceeff81161e27de188c87fd651d6498e4` at **2026-09-24T01:27:53Z**. The recorded check ended at **02:12:37Z** and covered **one account**, not the whole fleet:
 
 | Measured cohort | Successful requests | Token-weighted cache-read share |
 |---|---:|---:|
@@ -78,7 +78,7 @@ The strict 370-request cohort had **3 zero-hit results**; that is not an overall
 
 Persisted usage and joined response traces agreed on **33,429,888 cache-read tokens / 36,154,272 total input tokens** for the 431-request cohort. Persisted `requests.input_tokens` is uncached/additive, so its denominator is `input_tokens + cache_read_input_tokens + cache_creation_input_tokens`. Raw Codex response-trace `input_tokens` already includes cached tokens: divide trace `cache_read_input_tokens` by that inclusive total, without adding cache reads again. The upstream Responses field supplying cache reads is `input_tokens_details.cached_tokens`. Durable usage describes logical-final requests; traces describe physical attempts. The agreement was for the matched successful measured sample, not a license to mix unjoined populations or count error/unmatched trace records as successes.
 
-All 431 measured attempts recorded derived affinity identity and a routing hint. This is an initial observed recovery, **not** a randomized causal test, sustained validation, or a multi-account guarantee. It does not close [issue #174](https://github.com/StartupBros-com/better-ccflare/issues/174): the [original parity plan](../../plans/2026-08-20-0549-perf-openai-cache-parity-plan.md#success-criteria) still requires a qualified rolling seven-day follow-up cohort at >=96% weighted reuse, >=99% positive hits, <=1% zero hits, and its other model/comparison/regression gates.
+All 431 measured attempts recorded derived affinity identity and a routing hint. This is an initial observed recovery, **not** a randomized causal test, sustained validation, or a multi-account guarantee. It does not close [issue #174](https://github.com/StartupBros-com/hov-router/issues/174): the [original parity plan](../../plans/2026-08-20-0549-perf-openai-cache-parity-plan.md#success-criteria) still requires a qualified rolling seven-day follow-up cohort at >=96% weighted reuse, >=99% positive hits, <=1% zero hits, and its other model/comparison/regression gates.
 
 ### Repeatable checks (natural traffic only)
 
@@ -103,7 +103,7 @@ All 431 measured attempts recorded derived affinity identity and a routing hint.
   | gpt-6-astra | 32.0% | 65.9% |
   | gpt-5.6-sol | 40.7% | 26.9% |
 
-  Read short-window recovery separately from sustained parity. The pre-collapse router baseline on this formula was 74-90% weighted per hour (Sept 16, both accounts), below the direct CLI's 93-94%. Recovery toward or above that range supports remediation but does not close the residual gap, identify granularity as its cause, or satisfy the seven-day parity contract. The later [cache-health alerts (PR #369)](https://github.com/StartupBros-com/better-ccflare/pull/369) use a 90% warning threshold for degradation detection, not a replacement for the 96% parity floor. Confirm the wire carried the headers with `jq -r 'select(.phase=="request") | .affinity_session_identity' codex-trace-<date>.jsonl | sort | uniq -c` (expect `derived` for Claude Code traffic). If weighted share stays in the 30-40% band while `derived` is present, the header is not the whole contract; roll back with `HOV_ROUTER_CODEX_AFFINITY_HEADERS=0` and compare.
+  Read short-window recovery separately from sustained parity. The pre-collapse router baseline on this formula was 74-90% weighted per hour (Sept 16, both accounts), below the direct CLI's 93-94%. Recovery toward or above that range supports remediation but does not close the residual gap, identify granularity as its cause, or satisfy the seven-day parity contract. The later [cache-health alerts (PR #369)](https://github.com/StartupBros-com/hov-router/pull/369) use a 90% warning threshold for degradation detection, not a replacement for the 96% parity floor. Confirm the wire carried the headers with `jq -r 'select(.phase=="request") | .affinity_session_identity' codex-trace-<date>.jsonl | sort | uniq -c` (expect `derived` for Claude Code traffic). If weighted share stays in the 30-40% band while `derived` is present, the header is not the whole contract; roll back with `HOV_ROUTER_CODEX_AFFINITY_HEADERS=0` and compare.
 
 ## Prevention
 

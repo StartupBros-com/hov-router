@@ -72,4 +72,4 @@ For an approved policy change, verify native settings first, disable injection t
 - [Codex affinity needs the session-id header](codex-cache-affinity-needs-session-id-header.md): affinity is distinct from TTL intent.
 - [Diagnose cache alerts by context mix and sample support](../observability/diagnose-new-model-cache-alerts-by-context-mix-and-sample-support.md): descriptive reuse is not causal evidence.
 - [Codex trace input is cache-inclusive](../observability/codex-trace-input-tokens-are-cache-inclusive.md): use source-correct denominators.
-- [Cache parity](../../../CONCEPTS.md#cache-parity) and [issue #174](https://github.com/StartupBros-com/better-ccflare/issues/174): their separate sustained-validation obligation is not completed by this settings change.
+- [Cache parity](../../../CONCEPTS.md#cache-parity) and [issue #174](https://github.com/StartupBros-com/hov-router/issues/174): their separate sustained-validation obligation is not completed by this settings change.

@@ -229,7 +229,7 @@ hov-router/
 - Apps: Simple names (e.g., `server`, `cli`)
 - Packages: Prefixed with `@hov-router/` (e.g., `@hov-router/core`, `@hov-router/database`)
 
-New names use HoV Router naming. Do not add a `ccflare` name; the remaining ones are being renamed in [#1056](https://github.com/StartupBros-com/hov-router/issues/1056).
+New names use HoV Router naming: `hov-router`, `HOV_ROUTER_*`, `x-hov-router-*` and `@hov-router/*`. Do not add a `ccflare` name. Release 8.0.0 renamed the inherited ones ([#1056](https://github.com/StartupBros-com/hov-router/issues/1056)) and refuses them at startup.
 
 ## Coding Standards
 

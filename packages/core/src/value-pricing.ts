@@ -1,6 +1,6 @@
 /**
  * Era-versioned list-price module for the Window Value Ledger
- * (github.com/StartupBros-com/better-ccflare issue #252).
+ * (github.com/StartupBros-com/hov-router issue #252).
  *
  * Window-over-window "API-equivalent value" comparisons need CONSTANT,
  * dated pricing. The live models.dev catalogue (see ./pricing.ts) drifts

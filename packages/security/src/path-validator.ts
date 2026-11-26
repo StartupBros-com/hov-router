@@ -212,7 +212,7 @@ export function getDefaultAllowedBasePaths(forceRefresh = false): string[] {
 
 	const paths: string[] = [];
 
-	// Better-ccflare config directory (OS-independent)
+	// HoV Router config directory (OS-independent)
 	try {
 		const home = homedir();
 		if (home) {

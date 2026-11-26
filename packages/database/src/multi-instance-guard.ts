@@ -99,7 +99,7 @@ export class MultiInstanceRefusedError extends Error {
 	readonly peers: HeartbeatRecord[];
 	constructor(peers: HeartbeatRecord[]) {
 		super(
-			`ccflare startup refused: ${peers.length} other live instance(s) ` +
+			`HoV Router startup refused: ${peers.length} other live instance(s) ` +
 				`share this database (set HOV_ROUTER_MULTI_INSTANCE=warn to override)`,
 		);
 		this.name = "MultiInstanceRefusedError";
@@ -385,7 +385,7 @@ export function formatGuardMessage(peers: HeartbeatRecord[]): string {
 		.join("\n");
 
 	return [
-		`Multi-instance guard: ${peers.length} other live ccflare process(es) share this database.`,
+		`Multi-instance guard: ${peers.length} other live HoV Router process(es) share this database.`,
 		`The database holds durable state, but each instance keeps the following in-process and they DIVERGE silently:`,
 		`  1. SessionAffinityStrategy — sticky client→account map`,
 		`  2. LeastUsedStrategy / SessionDrainSoonestStrategy — recency-penalty Map`,

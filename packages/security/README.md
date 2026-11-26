@@ -124,7 +124,7 @@ The `validatePath()` function implements 7 validation layers:
 
 By default, paths are allowed within:
 
-- Better-ccflare config directory (`~/.config/hov-router` on Linux/macOS, `AppData/Local/hov-router` on Windows)
+- HoV Router config directory (`~/.config/hov-router` on Linux/macOS, `AppData/Local/hov-router` on Windows)
 - Current working directory (`process.cwd()`)
 - Temp directory (cross-platform: `/tmp` on Unix, `C:\temp` on Windows)
 

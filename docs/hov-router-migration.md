@@ -29,6 +29,7 @@ Record the current executable location with `command -v` and the command name yo
 | Environment variables `BETTER_CCFLARE_*`, `CCFLARE_*` and `ccflare_*`, such as `BETTER_CCFLARE_DB_PATH` | `HOV_ROUTER_*` with the same ending, such as `HOV_ROUTER_DB_PATH` |
 | `BETTER_CCFLARE_GIT_SHA`, the source-build SHA that `/health` reports | `HOV_ROUTER_HEALTH_GIT_SHA` |
 | Request and response headers `x-better-ccflare-*`, such as `x-better-ccflare-account-id` | `x-hov-router-*`, such as `x-hov-router-account-id` |
+| Default log directory `better-ccflare-logs` in the system temp directory | `hov-router-logs` |
 | Build output `apps/cli/dist/better-ccflare` | `apps/cli/dist/hov-router` |
 | Release asset `better-ccflare-linux-amd64` | `hov-router-linux-amd64` |
 | systemd unit `ccflare-stack.service` in the [systemd guide](systemd.md) and the deploy script | `hov-router.service` |
