@@ -20,7 +20,7 @@
 #      better-ccflare.* files hov-router.* and sets handoff/ aside as
 #      handoff.pre-8.0.0, so the first deploy is a full restart;
 #   3. moves /etc/better-ccflare to /etc/hov-router and renames the keys in each
-#      *.env there, keeping the original as *.env.pre-8.0.0;
+#      loaded EnvironmentFile there, keeping each original with .pre-8.0.0 appended;
 #   4. moves ~/.better-ccflare to ~/.hov-router;
 #   5. writes hov-router.service and its drop-ins from the old ones with keys and
 #      paths renamed, plus a seed pin that the deploy replaces, then disables the
@@ -297,6 +297,10 @@ stage_files() {
 	while IFS= read -r file; do
 		if [[ "$file" == "$OLD_ETC"/* ]]; then
 			[[ -f "$file" ]] || continue
+			local reserved
+			for reserved in "$file$ENV_BACKUP_SUFFIX" "$file.cutover-tmp"; do
+				[[ ! -e "$reserved" && ! -L "$reserved" ]] || refuse "$reserved already exists"
+			done
 			printf '%s\n' "${file#"$OLD_ETC"/}" >>"$stage/env-files"
 			sudo -n cat "$file" | rename_names env "${file##*/}" >/dev/null 2>>"$report" || status=1
 		elif sudo -n grep -q -E '^[[:space:]]*(export[[:space:]]+)?(BETTER_CCFLARE_|CCFLARE_|ccflare_)' "$file" 2>/dev/null; then
@@ -472,7 +476,7 @@ start_detached() {
 	((PREBUILD)) || args+=(--no-prebuild)
 	setsid -f bash "$SCRIPT_PATH" "${args[@]}" </dev/null >>"$LOG" 2>&1
 	echo "==> Started. Log: $LOG"
-	echo "    The outcome is the first line of $RESULT: ok, reverted or revert-failed."
+	echo "    The outcome is the first line of $RESULT: ok, failed, reverted or revert-failed."
 }
 
 prebuild() {
@@ -501,7 +505,9 @@ on_apply_exit() {
 	local status=$?
 	trap - EXIT
 	trap '' INT TERM HUP
-	if [[ -e "$STARTED" && ! -s "$RESULT" ]]; then
+	if [[ ! -e "$STARTED" && "$status" != 0 ]]; then
+		write_result "failed: $CURRENT_STEP (exit $status); cutover did not stop $OLD_UNIT"
+	elif [[ -e "$STARTED" && ! -s "$RESULT" ]]; then
 		log "the cutover failed while ${CURRENT_STEP} (exit $status); reverting"
 		if revert_host; then
 			write_result "reverted: the cutover failed while ${CURRENT_STEP}; $OLD_UNIT serves again"
@@ -524,14 +530,18 @@ run_apply() {
 	exec 8>"$STATE_DIR/lock"
 	flock -n 8 || refuse "another cutover holds $STATE_DIR/lock"
 	[[ ! -e "$STARTED" ]] || refuse "$STATE_DIR already records a cutover; read $LOG"
-	rm -rf "$stage"
-	preflight "$stage"
-	health_git_sha >"$PRIOR_SHA_FILE" 2>/dev/null || : >"$PRIOR_SHA_FILE"
-	((PREBUILD == 0)) || prebuild
-
+	CURRENT_STEP=preflight
 	trap on_apply_exit EXIT
 	trap 'log "interrupted"; exit 130' INT TERM
 	trap '' HUP
+	rm -f "$RESULT" # A foreground retry can follow a failed preflight or prebuild.
+	rm -rf "$stage"
+	preflight "$stage"
+	health_git_sha >"$PRIOR_SHA_FILE" 2>/dev/null || : >"$PRIOR_SHA_FILE"
+	if ((PREBUILD)); then
+		CURRENT_STEP=prebuild
+		prebuild
+	fi
 	: >"$STARTED"
 
 	CURRENT_STEP="stopping $OLD_UNIT"
@@ -654,11 +664,12 @@ revert_host() {
 
 	etc_dir="$NEW_ETC"
 	[[ -d "$etc_dir" ]] || etc_dir="$OLD_ETC"
-	for file in "$etc_dir"/*.env"$ENV_BACKUP_SUFFIX"; do
-		[[ -f "$file" ]] || continue
-		sudo -n rm -f "${file%"$ENV_BACKUP_SUFFIX"}.cutover-tmp" || return 1
-		sudo -n mv -f "$file" "${file%"$ENV_BACKUP_SUFFIX"}" || return 1
-	done
+	while IFS= read -r name; do
+		file="$etc_dir/$name"
+		[[ -f "$file$ENV_BACKUP_SUFFIX" ]] || continue
+		sudo -n rm -f "$file.cutover-tmp" || return 1
+		sudo -n mv -f "$file$ENV_BACKUP_SUFFIX" "$file" || return 1
+	done <"$STATE_DIR/stage/env-files" || return 1
 
 	cfg="$NEW_CFG"
 	[[ -d "$cfg" ]] || cfg="$OLD_CFG"
@@ -718,6 +729,7 @@ case "$MODE" in
 		mkdir -p "$STATE_DIR"
 		exec 8>"$STATE_DIR/lock"
 		flock -n 8 || refuse "a cutover holds $STATE_DIR/lock"
+		[[ -e "$STARTED" ]] || refuse "the cutover did not start changing the host; nothing to revert"
 		if revert_host; then
 			write_result "reverted: by --revert; $OLD_UNIT serves again"
 		else

@@ -6,7 +6,9 @@ import { unknownArgumentLines } from "./unknown-argument";
 // Source runs retain the script-directory fallback. Compiled startup has already
 // loaded the same fallbacks using its physical executable, before app imports.
 loadCliDotenv(process.argv[1]);
-refuseRetiredNames();
+// The compiled entry refuses before importing this module. Importing CLI helpers
+// is not startup and must not inspect the caller's storage or terminate it.
+if (import.meta.main) refuseRetiredNames();
 
 import type { CreatedAccountIdentity } from "@hov-router/cli-commands";
 import { getManagedRoutingHelpText } from "@hov-router/cli-commands/help";

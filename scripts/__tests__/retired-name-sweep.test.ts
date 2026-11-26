@@ -56,6 +56,8 @@ const CODE_EXEMPTIONS: Record<string, string> = {
 		"key-derivation label for data already sealed",
 	"packages/providers/src/server-tools/replay-envelope.test.ts":
 		"key-derivation label for data already sealed",
+	"packages/proxy/src/server-tool-replay-runtime.test.ts":
+		"counter identity for data already sealed",
 	"packages/database/src/repositories/__tests__/server-tool-replay-issuance.repository.test.ts":
 		"key-derivation label for data already sealed",
 	"packages/proxy/src/handlers/pending-rotation-slots.ts":

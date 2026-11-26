@@ -1026,6 +1026,54 @@ describe("CLI Security Tests", () => {
 });
 
 describe("CLI retired names", () => {
+	it("allows importing helpers without starting the CLI or inspecting host storage", () => {
+		const home = mkdtempSync(join(tmpdir(), "hov-router-cli-import-"));
+		const oldWorkspaces = join(home, ".better-ccflare", "workspaces.json");
+		const db = join(home, "test.db");
+		mkdirSync(join(home, ".better-ccflare"));
+		writeFileSync(oldWorkspaces, "[]");
+		const env = {
+			...process.env,
+			HOME: home,
+			XDG_CONFIG_HOME: join(home, "config"),
+			HOV_ROUTER_DB_PATH: db,
+			BETTER_CCFLARE_ADMIN_API_KEY: "retired-value-must-not-print",
+		};
+		try {
+			const imported = Bun.spawnSync(
+				[
+					process.execPath,
+					"--eval",
+					`await import(${JSON.stringify(CLI_PATH)}); console.log("CLI imported");`,
+				],
+				{ cwd: home, env, stdout: "pipe", stderr: "pipe" },
+			);
+			expect(imported.exitCode).toBe(0);
+			expect(imported.stdout.toString()).toContain("CLI imported");
+			expect(imported.stderr.toString()).not.toContain(
+				"retired-value-must-not-print",
+			);
+			expect(existsSync(db)).toBe(false);
+			expect(readFileSync(oldWorkspaces, "utf8")).toBe("[]");
+
+			// Executing the same file must still refuse before it opens storage.
+			const executed = Bun.spawnSync(
+				[process.execPath, "run", CLI_PATH, "--version"],
+				{ cwd: home, env, stdout: "pipe", stderr: "pipe" },
+			);
+			expect(executed.exitCode).toBe(78);
+			expect(executed.stderr.toString()).toContain(
+				"BETTER_CCFLARE_ADMIN_API_KEY -> HOV_ROUTER_ADMIN_API_KEY",
+			);
+			expect(executed.stderr.toString()).not.toContain(
+				"retired-value-must-not-print",
+			);
+			expect(existsSync(db)).toBe(false);
+		} finally {
+			rmSync(home, { recursive: true, force: true });
+		}
+	}, 20_000);
+
 	it("exits 78 for an old environment name and prints names, not values", async () => {
 		const result = await runCLI(["--version"], {
 			BETTER_CCFLARE_ADMIN_API_KEY: "retired-value-must-not-print",

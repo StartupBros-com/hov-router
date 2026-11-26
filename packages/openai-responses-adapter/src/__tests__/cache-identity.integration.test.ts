@@ -134,7 +134,7 @@ describe("Responses cache identity protocol bridge", () => {
 		const codexOther = await codexCacheKey(
 			request({ prompt_cache_key: other }),
 		);
-		expect(codexFirst).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
+		expect(codexFirst).toMatch(/^hov-router-convo-[0-9a-f]{47}$/);
 		expect(codexRepeated).toBe(codexFirst);
 		expect(codexOther).not.toBe(codexFirst);
 

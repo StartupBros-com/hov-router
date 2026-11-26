@@ -67,6 +67,7 @@ const STUBS: Record<string, string> = {
 set -u
 [[ "\${1:-}" == "-n" ]] && shift
 printf '%s\\n' "$*" >>"$STUB_STATE/sudo.log"
+if [[ -n "\${STUB_FAIL_WORKER_PREFLIGHT:-}" && "$1" == true && -e "$HOV_ROUTER_CUTOVER_STATE_DIR/lock" ]]; then exit 1; fi
 if [[ -n "\${STUB_FAIL_SUDO:-}" && "$*" == *"$STUB_FAIL_SUDO"* ]]; then
 	echo "stub sudo: injected failure" >&2
 	exit 1
@@ -395,6 +396,13 @@ function log(host: Host, name: string): string[] {
 	return existsSync(path) ? readFileSync(path, "utf8").trim().split("\n") : [];
 }
 
+function addLoadedFiles(host: Host) {
+	const dir = join(host.etc, "better-ccflare");
+	write(join(host.dropins, "60-extra.conf"), `[Service]\nEnvironmentFile=${dir}/secrets\nEnvironmentFile=${dir}/nested/router.conf\n`);
+	for (const name of ["secrets", "nested/router.conf"]) write(join(dir, name), "CCFLARE_PORT=9000\n", 0o600);
+	write(join(dir, "unloaded.env.pre-8.0.0"), "operator backup\n");
+}
+
 function result(host: Host): string {
 	return readFileSync(join(host.state, "result"), "utf8").trim();
 }
@@ -482,6 +490,18 @@ describe("cutover --check", () => {
 			expect(check.stdout + check.stderr).not.toContain("fixture-dotenv-secret");
 			expect(tree(host)).toEqual(before);
 		}
+	});
+
+	test("refuses to overwrite an existing backup for a loaded file", () => {
+		const host = createHost();
+		addLoadedFiles(host);
+		const path = join(host.etc, "better-ccflare/secrets.pre-8.0.0");
+		write(path, "operator backup\n");
+		const before = tree(host);
+		const check = run(host, ["--check"]);
+		expect(check.exitCode).toBe(1);
+		expect(check.stderr).toContain(path);
+		expect(tree(host)).toEqual(before);
 	});
 
 	test("refuses when a renamed path already exists", () => {
@@ -697,6 +717,7 @@ describe("cutover --apply", () => {
 	for (const failure of failures) {
 		test(`a failure in ${failure.name} puts the 7.x host back`, () => {
 			const host = createHost();
+			addLoadedFiles(host);
 			const before = tree(host);
 			const apply = run(host, ["--apply", "--foreground", "--no-prebuild"], failure.env);
 			expect(apply.exitCode).not.toBe(0);
@@ -742,11 +763,30 @@ describe("cutover --apply", () => {
 		expect(apply.exitCode).toBe(1);
 		expect(apply.stderr).toContain("the build of origin/main failed");
 		expect(existsSync(join(host.state, "started"))).toBe(false);
-		expect(existsSync(join(host.state, "result"))).toBe(false);
+		expect(result(host)).toStartWith("failed: prebuild");
+		expect(run(host, ["--revert"]).exitCode).toBe(1);
 		expect(units(host)).toEqual({ oldActive: true, oldEnabled: true, newActive: false, newEnabled: false });
 		expect(log(host, "systemctl.log").filter((line) => !/^(show|is-active) /.test(line))).toEqual([]);
 		expect(tree(host)).toEqual(before);
 	});
+
+	for (const [flag, step, reason] of [
+		["STUB_FAIL_WORKER_PREFLIGHT", "preflight", "sudo needs a password"],
+		["STUB_FAIL_BUN", "prebuild", "the build of origin/main failed"],
+	] as const) {
+		test(`detached ${step} failure reports without changing the host`, async () => {
+			const host = createHost();
+			const before = tree(host);
+			const apply = run(host, ["--apply"], { [flag]: "1" });
+			expect(apply.exitCode).toBe(0);
+			for (let i = 0; i < 100 && !existsSync(join(host.state, "result")); i++) await Bun.sleep(50);
+			expect(readFileSync(join(host.state, "cutover.log"), "utf8")).toContain(reason);
+			expect(result(host)).toStartWith(`failed: ${step}`);
+			expect(existsSync(join(host.state, "started"))).toBe(false);
+			expect(log(host, "systemctl.log").filter((line) => !/^(show|is-active) /.test(line))).toEqual([]);
+			expect(tree(host)).toEqual(before);
+		}, 15_000);
+	}
 
 	test("runs detached and reports through the result file", async () => {
 		const host = createHost();
@@ -779,8 +819,12 @@ describe("cutover --apply", () => {
 describe("cutover --revert", () => {
 	test("puts a moved host back, and a second run changes nothing", () => {
 		const host = createHost();
+		addLoadedFiles(host);
 		const before = tree(host);
 		expect(run(host, ["--apply", "--foreground", "--no-prebuild"]).exitCode).toBe(0);
+		for (const name of ["secrets", "nested/router.conf"]) {
+			expect(readFileSync(join(host.etc, "hov-router", name), "utf8")).toBe("HOV_ROUTER_PORT=9000\n");
+		}
 
 		const revert = run(host, ["--revert"]);
 		expect(revert.exitCode).toBe(0);

@@ -19,7 +19,11 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resetOrchestrationElectionForTest } from "./orchestration-election";
-import { CODEX_PROMPT_CACHE_KEY_ENV, CodexProvider } from "./provider";
+import {
+	CODEX_CACHE_KEY_MODE_ENV,
+	CODEX_PROMPT_CACHE_KEY_ENV,
+	CodexProvider,
+} from "./provider";
 import { CODEX_TRACE_DIR_ENV } from "./trace";
 
 const CONTINUATION_NUDGE = "Continue the user's original request now";
@@ -107,6 +111,7 @@ function taskTurn(
 
 afterEach(() => {
 	delete process.env[CODEX_PROMPT_CACHE_KEY_ENV];
+	delete process.env[CODEX_CACHE_KEY_MODE_ENV];
 	resetOrchestrationElectionForTest();
 });
 
@@ -500,6 +505,57 @@ describe("Codex transform, prompt_cache_key hygiene", () => {
 		expect(typeof body.prompt_cache_key).toBe("string");
 		expect((body.prompt_cache_key as string).length).toBeLessThanOrEqual(64);
 	});
+
+	for (const mode of ["session", "conversation"] as const) {
+		for (const longIdentity of [false, true]) {
+			for (const rescue of [false, true]) {
+				test(`${mode}, rescue=${rescue}, long input=${longIdentity}: key fits 64 chars`, async () => {
+					process.env[CODEX_PROMPT_CACHE_KEY_ENV] = "1";
+					process.env[CODEX_CACHE_KEY_MODE_ENV] = mode;
+					const payload = {
+						model: "claude-opus-4-8",
+						max_tokens: 10,
+						metadata: {
+							user_id: JSON.stringify({
+								session_id: "123e4567-e89b-42d3-a456-426614174000",
+							}),
+						},
+						system: longIdentity ? "instructions".repeat(1000) : "instructions",
+						messages: [
+							{
+								role: "user",
+								content: longIdentity ? "hello".repeat(1000) : "hello",
+							},
+						],
+					};
+					const request = new Request(
+						"https://chatgpt.com/backend-api/codex/responses",
+						makeRequest(payload),
+					);
+					if (rescue) {
+						request.headers.set("x-hov-router-request-id", "length-regression");
+						request.headers.set(
+							"x-hov-router-attempt-cause",
+							"cache_lane_rescue",
+						);
+					}
+					const response = await new CodexProvider().transformRequestBody(
+						request,
+						undefined,
+					);
+					const body = (await response.json()) as CodexBody;
+					expect(body.prompt_cache_key).toStartWith(
+						rescue
+							? "hov-router-rescue-"
+							: mode === "session"
+								? "hov-router-session-"
+								: "hov-router-convo-",
+					);
+					expect(body.prompt_cache_key?.length).toBeLessThanOrEqual(64);
+				});
+			}
+		}
+	}
 
 	test("UUID casing is normalized to a single key", async () => {
 		process.env[CODEX_PROMPT_CACHE_KEY_ENV] = "1";

@@ -224,6 +224,17 @@ export const CODEX_SYNTHETIC_COUNT_TOKENS_ENV =
 const CODEX_CACHE_LANE_RESCUE_DOMAIN =
 	"hov-router:codex-cache-lane-rescue:v1\0";
 const CODEX_CACHE_LANE_RESCUE_SALT_MAX_CHARS = 128;
+
+/** OpenAI bounds the whole prompt_cache_key, including its descriptive prefix. */
+const CODEX_PROMPT_CACHE_KEY_MAX_CHARS = 64;
+function boundedPromptCacheKey(
+	prefix: "hov-router-session-" | "hov-router-convo-" | "hov-router-rescue-",
+	digest: string,
+): string {
+	return (
+		prefix + digest.slice(0, CODEX_PROMPT_CACHE_KEY_MAX_CHARS - prefix.length)
+	);
+}
 // Structured (non-text) tool_result blocks larger than this are replaced with
 // a size marker: replaying megabyte payloads (e.g. base64 documents) into
 // every subsequent turn bloats context and destroys prompt-cache reuse.
@@ -3470,21 +3481,26 @@ export class CodexProvider extends BaseProvider {
 				: conversationIdentity;
 		let key =
 			effectiveMode === "session"
-				? `hov-router-session-${createHash("sha256")
-						.update(sessionId)
-						.digest("hex")
-						.slice(0, 48)}`
+				? boundedPromptCacheKey(
+						"hov-router-session-",
+						createHash("sha256").update(sessionId).digest("hex"),
+					)
 				: selectedConversationIdentity
-					? `hov-router-convo-${selectedConversationIdentity.slice(0, 48)}`
+					? boundedPromptCacheKey(
+							"hov-router-convo-",
+							selectedConversationIdentity,
+						)
 					: null;
 		if (key && cacheLaneRescueSalt) {
-			key = `hov-router-rescue-${createHash("sha256")
-				.update(CODEX_CACHE_LANE_RESCUE_DOMAIN)
-				.update(key)
-				.update("\0")
-				.update(cacheLaneRescueSalt)
-				.digest("hex")
-				.slice(0, 48)}`;
+			key = boundedPromptCacheKey(
+				"hov-router-rescue-",
+				createHash("sha256")
+					.update(CODEX_CACHE_LANE_RESCUE_DOMAIN)
+					.update(key)
+					.update("\0")
+					.update(cacheLaneRescueSalt)
+					.digest("hex"),
+			);
 		}
 
 		return {

@@ -8,7 +8,7 @@ import {
 	codexAffinityHeadersEnabled,
 } from "./affinity-headers";
 
-const KEY = "hov-router-convo-0123456789abcdef0123456789abcdef0123456789abcdef";
+const KEY = "hov-router-convo-0123456789abcdef0123456789abcdef0123456789abcde";
 
 function base(
 	overrides: Partial<Parameters<typeof applyCodexAffinityHeaders>[1]> = {},

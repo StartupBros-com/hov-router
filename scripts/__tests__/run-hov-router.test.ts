@@ -20,6 +20,9 @@ import { resolveNodeExecutable } from "./node-runtime";
 
 const repoRoot = join(import.meta.dir, "..", "..");
 const runnerScript = join(repoRoot, "scripts", "run-hov-router.sh");
+// The runner owns PATH; an env-based shebang would select its toolchain shim,
+// whose trust state is unavailable under the fixture's isolated HOME.
+const nodeExecutable = resolveNodeExecutable();
 const tempDirs: string[] = [];
 
 afterEach(() => {
@@ -57,7 +60,7 @@ function writeFixturePrograms(dir: string): {
 	writeFileSync(
 		upstream,
 		[
-			"#!/usr/bin/env node",
+			`#!${nodeExecutable}`,
 			'import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";',
 			'import http from "node:http";',
 			'const portIndex = process.argv.indexOf("--port");',
@@ -141,7 +144,7 @@ function writeStubbornGuardFixture(dir: string): {
 	writeFileSync(
 		programs.upstream,
 		[
-			"#!/usr/bin/env node",
+			`#!${nodeExecutable}`,
 			'import http from "node:http";',
 			'const portIndex = process.argv.indexOf("--port");',
 			"const port = Number(process.argv[portIndex + 1]);",
@@ -213,7 +216,7 @@ function writeOptionalTunnelFixture(dir: string): string {
 	writeFileSync(
 		tunnel,
 		[
-			"#!/usr/bin/env node",
+			`#!${nodeExecutable}`,
 			'import { existsSync, unlinkSync } from "node:fs";',
 			'import http from "node:http";',
 			"const exitFile = process.env.TUNNEL_EXIT_FILE;",
@@ -1066,7 +1069,7 @@ describe("run-hov-router retired names", () => {
 		writeFileSync(
 			programs.upstream,
 			[
-				"#!/usr/bin/env node",
+				`#!${nodeExecutable}`,
 				'import { appendFileSync } from "node:fs";',
 				"appendFileSync(`${process.env.CAPTURE_DIR}/lifecycle.log`, `upstream-start ${process.pid}\\n`);",
 				"process.exit(78);",
@@ -1413,7 +1416,6 @@ describe("persistent guard memory replacement (real Node guard, mock upstream on
 		// a 1.5 s injected delay, so headroom is added on top of the delay. The
 		// callers' 30 s test timeouts cover this window, the handoff, and the reap.
 		const readyTimeoutMs = guardStartupDelayMs + 10_000;
-		const nodeExecutable = resolveNodeExecutable();
 		const dir = tempDir("hov-router-persistent-fixture-");
 		const programs = writeFixturePrograms(dir);
 		const startupDelayModule = join(dir, "guard-start-delay.mjs");
@@ -1422,8 +1424,6 @@ describe("persistent guard memory replacement (real Node guard, mock upstream on
 			`if (process.argv[1] === ${JSON.stringify(join(repoRoot, "scripts/hov-router-guard.mjs"))}) await new Promise(resolve => setTimeout(resolve, ${guardStartupDelayMs}));`,
 		);
 		let source = readFileSync(programs.upstream, "utf8");
-		// The runner owns PATH; pin this mock to the same verified native runtime.
-		source = source.replace("#!/usr/bin/env node", `#!${nodeExecutable}`);
 		source = source.replace(
 			"res.end('{}');",
 			"res.end(JSON.stringify({git_sha:existsSync(`${process.env.CAPTURE_DIR}/bad-health`) ? 'wrong-sha' : '01234567'}));",

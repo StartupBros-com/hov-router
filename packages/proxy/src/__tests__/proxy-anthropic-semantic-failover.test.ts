@@ -1095,8 +1095,8 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		]);
 		expect(outboundBodies).toHaveLength(2);
 		const [first, retry] = outboundBodies;
-		expect(first.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
-		expect(retry.prompt_cache_key).toMatch(/^hov-router-rescue-[0-9a-f]{48}$/);
+		expect(first.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{47}$/);
+		expect(retry.prompt_cache_key).toMatch(/^hov-router-rescue-[0-9a-f]{46}$/);
 		expect(retry.prompt_cache_key).not.toBe(first.prompt_cache_key);
 		const { prompt_cache_key: _firstKey, ...firstPayload } = first;
 		const { prompt_cache_key: _retryKey, ...retryPayload } = retry;
@@ -1431,8 +1431,8 @@ describe("downstream Anthropic Messages SSE routing", () => {
 
 		expect(response.status).toBe(200);
 		expect(outboundKeys).toHaveLength(2);
-		expect(outboundKeys[0]).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
-		expect(outboundKeys[1]).toMatch(/^hov-router-rescue-[0-9a-f]{48}$/);
+		expect(outboundKeys[0]).toMatch(/^hov-router-convo-[0-9a-f]{47}$/);
+		expect(outboundKeys[1]).toMatch(/^hov-router-rescue-[0-9a-f]{46}$/);
 		expect(outboundKeys[1]).not.toBe(outboundKeys[0]);
 		expect(outboundModels[1]).toBe(outboundModels[0]);
 		expect(body).toContain('"text":"codex recovered"');

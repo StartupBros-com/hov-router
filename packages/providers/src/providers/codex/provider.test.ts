@@ -8604,7 +8604,7 @@ describe("CodexProvider.transformRequestBody", () => {
 				),
 			).toEqual(officialBaseline);
 			expect(officialBaseline.prompt_cache_key).toMatch(
-				/^hov-router-convo-[0-9a-f]{48}$/,
+				/^hov-router-convo-[0-9a-f]{47}$/,
 			);
 		});
 
@@ -8794,9 +8794,9 @@ describe("CodexProvider.transformRequestBody", () => {
 				lookalikeEndpoint,
 			);
 			expect(official.prompt_cache_key).toMatch(
-				/^hov-router-convo-[0-9a-f]{48}$/,
+				/^hov-router-convo-[0-9a-f]{47}$/,
 			);
-			expect(api.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
+			expect(api.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{47}$/);
 			expect(custom.prompt_cache_key).toBeUndefined();
 			expect(lookalike.prompt_cache_key).toBeUndefined();
 
@@ -8814,7 +8814,7 @@ describe("CodexProvider.transformRequestBody", () => {
 						CODEX_DEFAULT_ENDPOINT,
 					)
 				).prompt_cache_key,
-			).toMatch(/^hov-router-session-[0-9a-f]{48}$/);
+			).toMatch(/^hov-router-session-[0-9a-f]{45}$/);
 		});
 
 		it("re-evaluates endpoint eligibility for the selected account", async () => {
@@ -8859,7 +8859,7 @@ describe("CodexProvider.transformRequestBody", () => {
 
 		const transformed = await provider.transformRequestBody(request);
 		const body = await transformed.json();
-		expect(body.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
+		expect(body.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{47}$/);
 	});
 
 	it("rotates only an official subscription cache key for a cache-lane rescue", async () => {
@@ -8911,9 +8911,9 @@ describe("CodexProvider.transformRequestBody", () => {
 			"logical-request-b",
 		);
 
-		expect(initial.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
+		expect(initial.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{47}$/);
 		expect(repeatedInitial.prompt_cache_key).toBe(initial.prompt_cache_key);
-		expect(rescue.prompt_cache_key).toMatch(/^hov-router-rescue-[0-9a-f]{48}$/);
+		expect(rescue.prompt_cache_key).toMatch(/^hov-router-rescue-[0-9a-f]{46}$/);
 		expect(rescue.prompt_cache_key).not.toBe(initial.prompt_cache_key);
 		expect(repeatedRescue.prompt_cache_key).toBe(rescue.prompt_cache_key);
 		expect(otherRequestRescue.prompt_cache_key).not.toBe(
@@ -9019,10 +9019,10 @@ describe("CodexProvider.transformRequestBody", () => {
 			);
 
 			expect(initial.prompt_cache_key).toMatch(
-				/^hov-router-convo-[0-9a-f]{48}$/,
+				/^hov-router-convo-[0-9a-f]{47}$/,
 			);
 			expect(retry.prompt_cache_key).toMatch(
-				/^hov-router-rescue-[0-9a-f]{48}$/,
+				/^hov-router-rescue-[0-9a-f]{46}$/,
 			);
 			expect(retry.prompt_cache_key).not.toBe(initial.prompt_cache_key);
 			const retryRecord = readTraceRecords(traceDir).find(
@@ -9116,7 +9116,7 @@ describe("CodexProvider.transformRequestBody", () => {
 		const repeated = await transform("11111111-1111-4111-8111-111111111111");
 		const different = await transform("22222222-2222-4222-8222-222222222222");
 
-		expect(first.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
+		expect(first.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{47}$/);
 		expect(repeated.prompt_cache_key).toBe(first.prompt_cache_key);
 		expect(different.prompt_cache_key).not.toBe(first.prompt_cache_key);
 		expect(first.prompt_cache_key).not.toContain("11111111");
@@ -9168,7 +9168,7 @@ describe("CodexProvider.transformRequestBody", () => {
 			messages: [{ role: "user", content: "task A" }],
 		});
 
-		expect(turn1.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
+		expect(turn1.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{47}$/);
 		expect(turn2.prompt_cache_key).toBe(turn1.prompt_cache_key);
 		expect(sibling.prompt_cache_key).not.toBe(turn1.prompt_cache_key);
 		expect(otherAgent.prompt_cache_key).not.toBe(turn1.prompt_cache_key);
@@ -9200,7 +9200,7 @@ describe("CodexProvider.transformRequestBody", () => {
 		const first = await transform("task A");
 		const other = await transform("completely different task");
 
-		expect(first.prompt_cache_key).toMatch(/^hov-router-session-[0-9a-f]{48}$/);
+		expect(first.prompt_cache_key).toMatch(/^hov-router-session-[0-9a-f]{45}$/);
 		expect(other.prompt_cache_key).toBe(first.prompt_cache_key);
 	});
 
