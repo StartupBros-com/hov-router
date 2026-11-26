@@ -56,8 +56,8 @@ They described levers that no longer existed. From there:
   line for them.
 - #796, a docs PR about install pointers, widened the wording to "until the next major
   release".
-- The fields shipped through 6.0.0–6.4.0, and #1037 removed them on main. 7.0.0, which
-  carries the removal, is unpublished as of this writing (release PR #995).
+- The fields shipped through 6.0.0–6.4.0, and #1037 removed them. 7.0.0 is the first
+  release without them.
 - `backendCapability.explicitBreakpoint`, reported as `"not_requested"` in every 5.x and
   6.x release, never had a promise at all.
 
@@ -154,7 +154,7 @@ without a line outlived its promise by a major release.
 #788:         Kept for a later release: ... webSocketPercent: 0 and codex_settle_ms: 0   (closed, no follow-up)
 5.1.0 note:   Until the next major release, ...                                          (#796)
 6.0.0-6.4.0:  fields still shipped
-main:         removed by #1037, ships in 7.0.0
+7.0.0:        removed by #1037
 ```
 
 **The same cycle's tracked keep (auto-refresh):**
