@@ -113,9 +113,7 @@ describe("coordinateAnthropicPreCommitRescue", () => {
 		});
 
 		expect(response).toBe(original);
-		expect(
-			response.headers.get("x-hov-router-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 	});
 
 	it("keeps a slow sequential recovery alive with protocol pings and exposes only the gated winner", async () => {

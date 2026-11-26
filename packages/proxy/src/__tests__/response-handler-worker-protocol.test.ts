@@ -319,9 +319,9 @@ describe("forwardToClient usage-collector protocol", () => {
 			ctx,
 		);
 
-		expect(
-			response.headers.get("x-hov-router-cache-flight-recorder-id"),
-		).toBe("cfr_0123456789abcdef0123456789abcdef");
+		expect(response.headers.get("x-hov-router-cache-flight-recorder-id")).toBe(
+			"cfr_0123456789abcdef0123456789abcdef",
+		);
 		expect(starts[0]).toMatchObject({
 			cacheFlightRecorderConversationId: "cfr_0123456789abcdef0123456789abcdef",
 			cacheFlightRecorderEligible: true,

@@ -16,7 +16,7 @@
 // HOME is pinned for children only: Bun caches os.homedir() at startup, so
 // in-process code still sees the real home. A spawned CLI or server would
 // otherwise read the developer's home directory, and since 8.0.0 refuses to
-// start where it finds an unmoved ~/.better-ccflare.
+// start where it finds a directory with a pre-8.0.0 name.
 import { afterAll } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

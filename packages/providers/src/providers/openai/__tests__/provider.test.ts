@@ -547,9 +547,7 @@ describe("OpenAICompatibleProvider", () => {
 		const originalBlocked = process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 
 		beforeEach(() => {
-			tmpDir = mkdtempSync(
-				join(tmpdir(), "hov-router-skill-elision-openai-"),
-			);
+			tmpDir = mkdtempSync(join(tmpdir(), "hov-router-skill-elision-openai-"));
 			process.env.HOV_ROUTER_CONFIG_PATH = join(tmpDir, "config.json");
 		});
 

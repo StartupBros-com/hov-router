@@ -638,10 +638,7 @@ class RouterProcess {
 				HOME: join(dir, "home"),
 				XDG_CONFIG_HOME: join(dir, "config"),
 				TMPDIR: join(dir, "tmp"),
-				HOV_ROUTER_DB_PATH: join(
-					dir,
-					"config/hov-router/hov-router.db",
-				),
+				HOV_ROUTER_DB_PATH: join(dir, "config/hov-router/hov-router.db"),
 				// Production's runner sets the same level, so the log volume matches.
 				LOG_LEVEL: "warn",
 				HOV_ROUTER_SHUTDOWN_DRAIN_MS: "1000",

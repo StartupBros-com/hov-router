@@ -1094,9 +1094,9 @@ describe("proxyWithAccount: verified Codex 429 recovery provenance", () => {
 		expect(terminal.response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
-		expect(
-			terminal.response.headers.get("x-hov-router-recovery-scope"),
-		).toBe("pool");
+		expect(terminal.response.headers.get("x-hov-router-recovery-scope")).toBe(
+			"pool",
+		);
 
 		const followUpCtx = makeProxyContext();
 		followUpCtx.dbOps.getAllAccounts = mock(async () => [

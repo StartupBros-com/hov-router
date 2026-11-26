@@ -3,8 +3,8 @@
 services:
   # Compose names the real volume <project>_hov-router-data, and the project
   # defaults to this directory's name. The backup commands in docs/docker.md
-  # rely on the fixed container name. An install from before 8.0.0 used
-  # better-ccflare names; docs/docker.md covers moving its data.
+  # rely on the fixed container name. An install from before 8.0.0 used the
+  # old names; docs/docker.md covers moving its data.
   hov-router:
     build: .
     image: hov-router:local

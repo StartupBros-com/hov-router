@@ -270,9 +270,7 @@ describe("OllamaProvider", () => {
 		const originalBlocked = process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 
 		beforeEach(() => {
-			tmpDir = mkdtempSync(
-				join(tmpdir(), "hov-router-skill-elision-ollama-"),
-			);
+			tmpDir = mkdtempSync(join(tmpdir(), "hov-router-skill-elision-ollama-"));
 			process.env.HOV_ROUTER_CONFIG_PATH = join(tmpDir, "config.json");
 		});
 

@@ -6,7 +6,9 @@ import { Config, filterEnabledProviderModelDefaultOverrides } from "./index";
 
 describe("provider model default overrides", () => {
 	it("keeps only non-empty provider-family overrides", () => {
-		const directory = mkdtempSync(join(tmpdir(), "hov-router-provider-defaults-"));
+		const directory = mkdtempSync(
+			join(tmpdir(), "hov-router-provider-defaults-"),
+		);
 		const path = join(directory, "config.json");
 		try {
 			writeFileSync(

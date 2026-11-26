@@ -32,8 +32,7 @@ const log = new Logger("openai-responses-adapter");
 
 // Mirrors packages/proxy/src/handlers/proxy-types.ts to avoid an adapter ->
 // proxy dependency. Keep the dedicated header value in sync with that constant.
-const RESPONSES_ADAPTER_SECRET_HEADER =
-	"x-hov-router-responses-adapter-secret";
+const RESPONSES_ADAPTER_SECRET_HEADER = "x-hov-router-responses-adapter-secret";
 
 // Mirrors CODEX_CONTINUATION_HEADER in
 // packages/providers/src/providers/codex/provider.ts, to avoid an adapter ->

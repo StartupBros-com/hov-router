@@ -29,10 +29,7 @@ import {
 	resolveFamilyAliasModel,
 	shutdown,
 } from "@hov-router/core";
-import {
-	COMMAND_NAME,
-	PRODUCT_NAME,
-} from "@hov-router/core/product-identity";
+import { COMMAND_NAME, PRODUCT_NAME } from "@hov-router/core/product-identity";
 import { container, SERVICE_KEYS } from "@hov-router/core-di";
 import type { DatabaseOperations } from "@hov-router/database";
 import { Logger } from "@hov-router/logger";

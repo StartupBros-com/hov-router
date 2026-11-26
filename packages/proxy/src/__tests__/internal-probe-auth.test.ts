@@ -231,9 +231,7 @@ describe("internal auto-refresh authentication", () => {
 		expect(request.headers.has(INTERNAL_SCHEDULER_AUTH_HEADER)).toBe(false);
 		expect(request.headers.has("x-hov-router-auto-refresh")).toBe(false);
 		expect(preparedHeaders[0]?.has(INTERNAL_SCHEDULER_AUTH_HEADER)).toBe(false);
-		expect(preparedHeaders[0]?.has("x-hov-router-auto-refresh")).toBe(
-			false,
-		);
+		expect(preparedHeaders[0]?.has("x-hov-router-auto-refresh")).toBe(false);
 		expect(upstreamHeaders?.has(INTERNAL_SCHEDULER_AUTH_HEADER)).toBe(false);
 		expect(upstreamHeaders?.has("x-hov-router-auto-refresh")).toBe(false);
 	});
@@ -620,9 +618,7 @@ describe("internal auto-refresh authentication", () => {
 
 		expect(trustedResponse.status).toBe(200);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
-		expect(trustedRequest.headers.get("x-hov-router-keepalive")).toBe(
-			"true",
-		);
+		expect(trustedRequest.headers.get("x-hov-router-keepalive")).toBe("true");
 	});
 
 	it("rejects forged public and private probe headers before any upstream call", async () => {

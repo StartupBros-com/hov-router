@@ -259,9 +259,9 @@ describe("routing terminal responses", () => {
 		expect(terminal.response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
-		expect(
-			terminal.response.headers.get("x-hov-router-recovery-scope"),
-		).toBe("route");
+		expect(terminal.response.headers.get("x-hov-router-recovery-scope")).toBe(
+			"route",
+		);
 		const parsed = await body(terminal.response);
 		expect(parsed.error.code).toBe("route_unavailable");
 		expect(parsed.error.next_available_at).toBe(
@@ -493,9 +493,9 @@ describe("routing terminal responses", () => {
 		expect(terminal.response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
-		expect(
-			terminal.response.headers.get("x-hov-router-recovery-scope"),
-		).toBe("model");
+		expect(terminal.response.headers.get("x-hov-router-recovery-scope")).toBe(
+			"model",
+		);
 		const parsed = await body(terminal.response);
 		expect(parsed.type).toBe("error");
 		expect(parsed.error.type).toBe("service_unavailable");
@@ -560,12 +560,8 @@ describe("routing terminal responses", () => {
 		});
 
 		expect(response.headers.get("retry-after")).toBe("46");
-		expect(response.headers.get("x-hov-router-pool-status")).toBe(
-			"exhausted",
-		);
-		expect(response.headers.get("x-hov-router-recovery-scope")).toBe(
-			"model",
-		);
+		expect(response.headers.get("x-hov-router-pool-status")).toBe("exhausted");
+		expect(response.headers.get("x-hov-router-recovery-scope")).toBe("model");
 		const parsed = await body(response);
 		expect(parsed.error.next_available_at).toBe(
 			new Date(recoveryAt).toISOString(),
@@ -633,9 +629,9 @@ describe("routing terminal responses", () => {
 		expect(terminal.response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
-		expect(
-			terminal.response.headers.get("x-hov-router-recovery-scope"),
-		).toBe("model");
+		expect(terminal.response.headers.get("x-hov-router-recovery-scope")).toBe(
+			"model",
+		);
 		expect("attempted_routes" in parsed.error).toBe(false);
 		expect("routing_diagnostics" in parsed.error).toBe(false);
 	});
@@ -800,9 +796,9 @@ describe("routing terminal responses", () => {
 		expect(terminal.response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
-		expect(
-			terminal.response.headers.get("x-hov-router-recovery-scope"),
-		).toBe("pool");
+		expect(terminal.response.headers.get("x-hov-router-recovery-scope")).toBe(
+			"pool",
+		);
 		const parsed = await body(terminal.response);
 		expect(parsed.error.type).toBe("pool_exhausted");
 		expect(parsed.error.code).toBe("pool_exhausted");

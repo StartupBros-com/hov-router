@@ -57,9 +57,9 @@ test("preserves custom tool calls in labeled Codex SSE", async () => {
 
 	const transformed = await provider.processResponse(response, null);
 
-	expect(
-		transformed.headers.get("x-hov-router-codex-response-format"),
-	).toBe("responses-api");
+	expect(transformed.headers.get("x-hov-router-codex-response-format")).toBe(
+		"responses-api",
+	);
 	expect(await transformed.text()).toBe(stream);
 });
 
@@ -86,9 +86,9 @@ test("passes custom-tool streams through without waiting for upstream EOF", asyn
 
 	const transformed = await provider.processResponse(response, null);
 
-	expect(
-		transformed.headers.get("x-hov-router-codex-response-format"),
-	).toBe("responses-api");
+	expect(transformed.headers.get("x-hov-router-codex-response-format")).toBe(
+		"responses-api",
+	);
 	const reader = transformed.body?.getReader();
 	if (!reader) throw new Error("expected a streaming body");
 	const { value } = await reader.read();
@@ -141,9 +141,9 @@ test("labels Responses Lite additional tools as native passthrough", async () =>
 
 	const transformed = await provider.processResponse(response, null);
 
-	expect(
-		transformed.headers.get("x-hov-router-codex-response-format"),
-	).toBe("responses-api");
+	expect(transformed.headers.get("x-hov-router-codex-response-format")).toBe(
+		"responses-api",
+	);
 	expect(await transformed.text()).toBe(stream);
 });
 

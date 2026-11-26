@@ -61,11 +61,7 @@ describe("WorkspacePersistence — injected path isolation", () => {
 	});
 
 	it("does not create or touch the default (real) workspaces file", async () => {
-		const realHome = path.join(
-			os.homedir(),
-			".hov-router",
-			"workspaces.json",
-		);
+		const realHome = path.join(os.homedir(), ".hov-router", "workspaces.json");
 		const realFileExistedBefore = fs.existsSync(realHome);
 		const realContentBefore = realFileExistedBefore
 			? fs.readFileSync(realHome, "utf-8")

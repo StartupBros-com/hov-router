@@ -93,11 +93,7 @@ function provenanceVersion(env: Env): string {
 	if (hasEmbeddedDistribution()) {
 		return EMBEDDED_BUILD_PROVENANCE.HOV_ROUTER_VERSION ?? "unknown";
 	}
-	return (
-		env.HOV_ROUTER_VERSION ??
-		env.npm_package_version ??
-		"unknown"
-	);
+	return env.HOV_ROUTER_VERSION ?? env.npm_package_version ?? "unknown";
 }
 
 export type DistributionProducer = "startupbros" | "tombii";

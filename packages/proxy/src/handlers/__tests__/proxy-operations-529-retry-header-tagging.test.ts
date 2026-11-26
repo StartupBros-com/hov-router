@@ -118,12 +118,8 @@ function makeProxyContext(seen: SeenHeaders[]): ProxyContext {
 			processResponse: async (response: Response) => {
 				seen.push({
 					requestId: response.headers.get("x-hov-router-request-id"),
-					requestStream: response.headers.get(
-						"x-hov-router-request-stream",
-					),
-					customTools: response.headers.get(
-						"x-hov-router-codex-custom-tools",
-					),
+					requestStream: response.headers.get("x-hov-router-request-stream"),
+					customTools: response.headers.get("x-hov-router-codex-custom-tools"),
 					status: response.status,
 				});
 				return response;

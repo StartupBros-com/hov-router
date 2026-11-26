@@ -4359,9 +4359,9 @@ describe("downstream Anthropic Messages SSE routing", () => {
 			);
 
 			expect(claude.response.status).toBe(200);
-			expect(
-				claude.response.headers.get("x-hov-router-precommit-rescue"),
-			).toBe("active");
+			expect(claude.response.headers.get("x-hov-router-precommit-rescue")).toBe(
+				"active",
+			);
 			expect(claude.body).toContain("survived-180s");
 			expect(claude.body).not.toContain(ANTHROPIC_PRECOMMIT_RESCUE_ERROR_FRAME);
 			expect(claude.body).toContain(
@@ -4481,9 +4481,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		expect(strategySelect).toHaveBeenCalledTimes(1);
 		expect(first).toBeInstanceOf(Response);
 		if (!(first instanceof Response)) return;
-		expect(first.headers.get("x-hov-router-precommit-rescue")).toBe(
-			"active",
-		);
+		expect(first.headers.get("x-hov-router-precommit-rescue")).toBe("active");
 		expect(providerFetch).not.toHaveBeenCalled();
 		const reader = first.body?.getReader();
 		const ping = await reader?.read();
@@ -4520,9 +4518,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		expect(response.status).toBe(202);
 		expect(response.statusText).toBe("Selection completed");
 		expect(response.headers.get("x-selection-path")).toBe("preserved");
-		expect(
-			response.headers.get("x-hov-router-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(await response.text()).toBe(expectedBody);
 	});
 
@@ -4551,9 +4547,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		expect(response.status).toBe(202);
 		expect(response.statusText).toBe("Slow response preserved");
 		expect(response.headers.get("x-slow-non-stream")).toBe("preserved");
-		expect(
-			response.headers.get("x-hov-router-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(await response.text()).toBe(expectedBody);
 	});
 
@@ -4596,9 +4590,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		expect(response.status).toBe(207);
 		expect(response.statusText).toBe("Route preserved");
 		expect(response.headers.get("x-non-messages-path")).toBe("preserved");
-		expect(
-			response.headers.get("x-hov-router-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(await response.text()).toBe(expectedBody);
 	});
 
@@ -5225,9 +5217,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 
 		expect(fetchCount).toBe(1);
 		expect(body).toContain('"text":"commit xai"');
-		expect(
-			response.headers.get("x-hov-router-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(reportCandidateFailure).not.toHaveBeenCalled();
 		expect(reportCandidateSuccess).toHaveBeenCalledTimes(1);
 		expect(reportCandidateSuccess.mock.calls[0][1]).toEqual({
@@ -5479,12 +5469,8 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		// what lets the guard hold this request for the advertised reopen delay
 		// instead of failing it once. "route" scope keeps the claim narrower than
 		// whole-pool exhaustion.
-		expect(response.headers.get("x-hov-router-pool-status")).toBe(
-			"exhausted",
-		);
-		expect(response.headers.get("x-hov-router-recovery-scope")).toBe(
-			"route",
-		);
+		expect(response.headers.get("x-hov-router-pool-status")).toBe("exhausted");
+		expect(response.headers.get("x-hov-router-recovery-scope")).toBe("route");
 		expect(payload.error).toMatchObject({
 			code: "route_unavailable",
 			next_available_at: new Date(retryAt).toISOString(),
@@ -5644,9 +5630,9 @@ describe("downstream Anthropic Messages SSE routing", () => {
 			);
 		}
 		expect(outcome.response.status).toBe(200);
-		expect(
-			outcome.response.headers.get("x-hov-router-precommit-rescue"),
-		).toBe("active");
+		expect(outcome.response.headers.get("x-hov-router-precommit-rescue")).toBe(
+			"active",
+		);
 		const reader = outcome.response.body?.getReader();
 		expect(decoder.decode((await reader?.read())?.value)).toBe(
 			ANTHROPIC_PRECOMMIT_RESCUE_PING_FRAME,
@@ -5713,9 +5699,9 @@ describe("downstream Anthropic Messages SSE routing", () => {
 			);
 		}
 		expect(outcome.response.status).toBe(200);
-		expect(
-			outcome.response.headers.get("x-hov-router-precommit-rescue"),
-		).toBe("active");
+		expect(outcome.response.headers.get("x-hov-router-precommit-rescue")).toBe(
+			"active",
+		);
 		const reader = outcome.response.body?.getReader();
 		expect(decoder.decode((await reader?.read())?.value)).toBe(
 			ANTHROPIC_PRECOMMIT_RESCUE_PING_FRAME,
@@ -5981,9 +5967,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		const request = makeRequest();
 		const response = await handleProxy(request, new URL(request.url), ctx);
 
-		expect(
-			response.headers.get("x-hov-router-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(response.headers.get("x-upstream-fast")).toBe("preserved");
 		expect(await response.text()).toBe(SUCCESS);
 	});
@@ -6022,9 +6006,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 			"application/json; charset=utf-8",
 		);
 		expect(response.headers.get("x-upstream-non-stream")).toBe("preserved");
-		expect(
-			response.headers.get("x-hov-router-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(await response.text()).toBe(expectedBody);
 		expect(reportCandidateFailure).not.toHaveBeenCalled();
 		expect(reportCandidateSuccess).not.toHaveBeenCalled();
@@ -6108,9 +6090,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 
 		const response = await handleProxy(request, new URL(request.url), ctx);
 
-		expect(
-			response.headers.get("x-hov-router-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(response.headers.get("x-non-native")).toBe("unchanged");
 		expect(await response.text()).toContain('"text":"recovered"');
 	});

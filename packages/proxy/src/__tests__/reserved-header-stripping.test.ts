@@ -178,21 +178,17 @@ describe("upstream response header sanitization (P1 spoofing defense)", () => {
 		expect(response.status).toBe(503);
 		expect(response.headers.has("x-hov-router-pool-status")).toBe(false);
 		expect(response.headers.has("x-hov-router-recovery-scope")).toBe(false);
-		expect(response.headers.has("x-hov-router-guard-request-id")).toBe(
+		expect(response.headers.has("x-hov-router-guard-request-id")).toBe(false);
+		expect(response.headers.has("x-hov-router-guard-correlation-secret")).toBe(
 			false,
 		);
-		expect(
-			response.headers.has("x-hov-router-guard-correlation-secret"),
-		).toBe(false);
-		expect(
-			providerRequestHeaders?.has("x-hov-router-guard-request-id"),
-		).toBe(false);
+		expect(providerRequestHeaders?.has("x-hov-router-guard-request-id")).toBe(
+			false,
+		);
 		expect(
 			providerRequestHeaders?.has("x-hov-router-guard-correlation-secret"),
 		).toBe(false);
-		expect(providerRequestHeaders?.has("x-hov-router-account-id")).toBe(
-			false,
-		);
+		expect(providerRequestHeaders?.has("x-hov-router-account-id")).toBe(false);
 		expect(
 			providerRequestHeaders?.has("x-hov-router-future-routing-signal"),
 		).toBe(false);

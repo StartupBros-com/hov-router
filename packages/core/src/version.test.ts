@@ -297,7 +297,8 @@ describe("distribution identity", () => {
 		}
 
 		expect(
-			resolveBuildProvenance({ ...valid, HOV_ROUTER_UPDATE_CHANNEL: "" }).reason,
+			resolveBuildProvenance({ ...valid, HOV_ROUTER_UPDATE_CHANNEL: "" })
+				.reason,
 		).toBe("unexpected_update_channel");
 		expect(
 			resolveBuildProvenance({
@@ -321,7 +322,10 @@ describe("distribution identity", () => {
 			{ HOV_ROUTER_GIT_SHA: sourceSha, HOV_ROUTER_UPDATE_CHANNEL: "npm" },
 			{ HOV_ROUTER_GIT_SHA: sourceSha, HOV_ROUTER_UPDATE_CHANNEL: "" },
 			{ HOV_ROUTER_GIT_SHA: sourceSha, HOV_ROUTER_SOURCE_SHA: "forged" },
-			{ HOV_ROUTER_GIT_SHA: sourceSha, HOV_ROUTER_SOURCE_REF: "refs/tags/v1.0.0" },
+			{
+				HOV_ROUTER_GIT_SHA: sourceSha,
+				HOV_ROUTER_SOURCE_REF: "refs/tags/v1.0.0",
+			},
 		]) {
 			const result = resolveBuildProvenance({
 				HOV_ROUTER_DISTRIBUTION: "v1:startupbros-managed-source",
@@ -365,7 +369,10 @@ describe("distribution identity", () => {
 			{ HOV_ROUTER_VERSION: "1.2.4" },
 			{ HOV_ROUTER_VERSION: "v1.2.3", HOV_ROUTER_GIT_REF: "refs/tags/v1.2.3" },
 			{ HOV_ROUTER_VERSION: "1.2", HOV_ROUTER_GIT_REF: "refs/tags/v1.2" },
-			{ HOV_ROUTER_VERSION: "unknown", HOV_ROUTER_GIT_REF: "refs/tags/vunknown" },
+			{
+				HOV_ROUTER_VERSION: "unknown",
+				HOV_ROUTER_GIT_REF: "refs/tags/vunknown",
+			},
 			{ HOV_ROUTER_GIT_REF: "refs/tags/V1.2.3" },
 			{ HOV_ROUTER_GIT_REF: "refs/tags/v1.2.3 " },
 			{ HOV_ROUTER_PRODUCER: "startupbros" },

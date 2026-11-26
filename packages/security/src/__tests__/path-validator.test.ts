@@ -412,10 +412,7 @@ describe("Path Validator - Core Security Tests", () => {
 
 		test("should handle complex real-world paths", () => {
 			const result = validatePath(
-				join(
-					tmpdir(),
-					"hov-router-test/workspace/.claude/agents/my-agent.md",
-				),
+				join(tmpdir(), "hov-router-test/workspace/.claude/agents/my-agent.md"),
 				{
 					description: "agent file path",
 				},

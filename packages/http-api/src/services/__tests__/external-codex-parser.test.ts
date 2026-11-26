@@ -313,9 +313,7 @@ test("first-line session_meta model_provider is carried; absent or non-string st
 	const provider = async (lines: string[]) =>
 		(await parseCodexLines(lines)).modelProvider;
 	expect(await provider([withProvider("openai")])).toBe("openai");
-	expect(await provider([withProvider(" hov_router ")])).toBe(
-		"hov_router",
-	);
+	expect(await provider([withProvider(" hov_router ")])).toBe("hov_router");
 	expect(await provider([withProvider()])).toBeNull();
 	expect(await provider([withProvider(42)])).toBeNull();
 	// Only the first line is session metadata.

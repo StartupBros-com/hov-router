@@ -340,7 +340,8 @@ describe("proxyWithAccount — extra_usage_exhausted (issue #293)", () => {
 			else process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = previousMax;
 			if (previousAttempts === undefined)
 				delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
-			else process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = previousAttempts;
+			else
+				process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = previousAttempts;
 		}
 	});
 });

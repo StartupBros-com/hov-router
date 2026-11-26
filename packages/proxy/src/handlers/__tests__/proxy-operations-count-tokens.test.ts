@@ -223,12 +223,8 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 		// synthetic-response markers onto the client-facing Response, not just
 		// content-type/cache-control, so downstream consumers can tell the count
 		// is a local estimate rather than an authoritative upstream value.
-		expect(result?.headers.get("x-hov-router-synthetic-response")).toBe(
-			"true",
-		);
-		expect(result?.headers.get("x-hov-router-synthetic-status")).toBe(
-			"200",
-		);
+		expect(result?.headers.get("x-hov-router-synthetic-response")).toBe("true");
+		expect(result?.headers.get("x-hov-router-synthetic-status")).toBe("200");
 		const payload = await result?.json();
 		expect(payload.input_tokens).toBeNumber();
 		expect(payload.input_tokens).toBeGreaterThan(0);
@@ -382,9 +378,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 				0,
 				makeProxyContext(),
 			);
-			expect(
-				response?.headers.get("x-hov-router-guard-request-id"),
-			).toBeNull();
+			expect(response?.headers.get("x-hov-router-guard-request-id")).toBeNull();
 		} finally {
 			collectorSpy.mockRestore();
 		}
@@ -1972,9 +1966,9 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 		expect(transformedHeaders?.get("x-hov-router-pacing-wait-ms")).toBe(
 			"60000",
 		);
-		expect(
-			transformedHeaders?.get("x-hov-router-pacing-release-reason"),
-		).toBe("cap");
+		expect(transformedHeaders?.get("x-hov-router-pacing-release-reason")).toBe(
+			"cap",
+		);
 		for (const header of [
 			"x-hov-router-pacing-role",
 			"x-hov-router-pacing-wait-ms",

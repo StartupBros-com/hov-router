@@ -126,9 +126,7 @@ export class CodexCacheDiagnostics {
 		const conversation =
 			suppliedDigest("x-hov-router-conversation-digest") ??
 			callerIdentity("x-hov-router-conversation-id");
-		const ordinal = context.headers?.get(
-			"x-hov-router-gateway-attempt-number",
-		);
+		const ordinal = context.headers?.get("x-hov-router-gateway-attempt-number");
 		const metadata: Facts = {
 			event: "prepared",
 			ts_ms: now,

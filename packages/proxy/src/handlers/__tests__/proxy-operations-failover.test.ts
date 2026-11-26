@@ -614,7 +614,8 @@ describe("proxyWithAccount — immutable provider attempt plans", () => {
 	beforeEach(() => {
 		originalFetch = globalThis.fetch;
 		originalOverloadEnabled = process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
-		originalOverloadAttempts = process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
+		originalOverloadAttempts =
+			process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
 		originalOverloadBaseMs = process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS;
 		originalOverloadMaxMs = process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS;
 	});

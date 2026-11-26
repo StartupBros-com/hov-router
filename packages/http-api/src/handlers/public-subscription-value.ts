@@ -220,8 +220,7 @@ export function createPublicSubscriptionValueHandler(
 	} = {},
 ) {
 	const getConfig =
-		options.getConfig ??
-		(() => process.env.HOV_ROUTER_PUBLIC_SUBSCRIPTIONS);
+		options.getConfig ?? (() => process.env.HOV_ROUTER_PUBLIC_SUBSCRIPTIONS);
 	const now = options.now ?? Date.now;
 	const getGeneration =
 		options.getRosterGeneration ?? getPublicRosterGeneration;

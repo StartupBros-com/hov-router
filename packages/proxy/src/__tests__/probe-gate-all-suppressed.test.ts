@@ -478,7 +478,8 @@ describe("handleProxy — front candidate attempted, later candidate suppressed 
 		// retry fetch before the (still 529) response reaches the terminal
 		// check, which is legitimate existing behavior but not what this
 		// regression test is about.
-		const realOverloadRetryEnabled = process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
+		const realOverloadRetryEnabled =
+			process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 		process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = "false";
 		let fetchCallCount = 0;
 		globalThis.fetch = mock(async () => {
@@ -544,7 +545,8 @@ describe("handleProxy — front candidate attempted, later candidate suppressed 
 			if (realOverloadRetryEnabled === undefined) {
 				delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 			} else {
-				process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = realOverloadRetryEnabled;
+				process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED =
+					realOverloadRetryEnabled;
 			}
 			collectorSpy.mockRestore();
 		}

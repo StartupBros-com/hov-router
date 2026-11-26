@@ -841,9 +841,7 @@ describe("CodexProvider request conversion", () => {
 		const originalBlocked = process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 
 		beforeEach(() => {
-			tmpDir = mkdtempSync(
-				join(tmpdir(), "hov-router-skill-elision-codex-"),
-			);
+			tmpDir = mkdtempSync(join(tmpdir(), "hov-router-skill-elision-codex-"));
 			process.env.HOV_ROUTER_CONFIG_PATH = join(tmpDir, "config.json");
 		});
 
@@ -7434,9 +7432,9 @@ describe("CodexProvider.transformRequestBody", () => {
 			);
 			const body = await transformed.json();
 
-			expect(
-				transformed.headers.get("x-hov-router-synthetic-response"),
-			).toBe("true");
+			expect(transformed.headers.get("x-hov-router-synthetic-response")).toBe(
+				"true",
+			);
 			expect(transformed.headers.get("x-hov-router-synthetic-status")).toBe(
 				"501",
 			);
@@ -8405,9 +8403,7 @@ describe("CodexProvider.transformRequestBody", () => {
 					method: "POST",
 					headers: {
 						"content-type": "application/json",
-						...(attributed
-							? { "x-hov-router-attributed-agent": "true" }
-							: {}),
+						...(attributed ? { "x-hov-router-attributed-agent": "true" } : {}),
 					},
 					body: JSON.stringify(payload),
 				}),
@@ -8451,9 +8447,7 @@ describe("CodexProvider.transformRequestBody", () => {
 			rmSync(traceDir, { recursive: true, force: true });
 		}
 		const descendantBody = await descendant.json();
-		expect(
-			descendant.headers.get("x-hov-router-attributed-agent"),
-		).toBeNull();
+		expect(descendant.headers.get("x-hov-router-attributed-agent")).toBeNull();
 		expect(
 			descendantBody.tools.map((tool: { name: string }) => tool.name),
 		).toEqual(["Read"]);
@@ -8486,9 +8480,7 @@ describe("CodexProvider.transformRequestBody", () => {
 					method: "POST",
 					headers: {
 						"content-type": "application/json",
-						...(attributed
-							? { "x-hov-router-attributed-agent": "true" }
-							: {}),
+						...(attributed ? { "x-hov-router-attributed-agent": "true" } : {}),
 					},
 					body: JSON.stringify({
 						model: "claude-opus-4-8",
@@ -8801,7 +8793,9 @@ describe("CodexProvider.transformRequestBody", () => {
 				{},
 				lookalikeEndpoint,
 			);
-			expect(official.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
+			expect(official.prompt_cache_key).toMatch(
+				/^hov-router-convo-[0-9a-f]{48}$/,
+			);
 			expect(api.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
 			expect(custom.prompt_cache_key).toBeUndefined();
 			expect(lookalike.prompt_cache_key).toBeUndefined();
@@ -9024,8 +9018,12 @@ describe("CodexProvider.transformRequestBody", () => {
 				"physical-sse-retry",
 			);
 
-			expect(initial.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{48}$/);
-			expect(retry.prompt_cache_key).toMatch(/^hov-router-rescue-[0-9a-f]{48}$/);
+			expect(initial.prompt_cache_key).toMatch(
+				/^hov-router-convo-[0-9a-f]{48}$/,
+			);
+			expect(retry.prompt_cache_key).toMatch(
+				/^hov-router-rescue-[0-9a-f]{48}$/,
+			);
 			expect(retry.prompt_cache_key).not.toBe(initial.prompt_cache_key);
 			const retryRecord = readTraceRecords(traceDir).find(
 				(candidate) => candidate.attempt_id === "physical-sse-retry",

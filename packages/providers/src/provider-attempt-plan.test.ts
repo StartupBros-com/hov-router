@@ -183,9 +183,7 @@ describe("materializeProviderAttemptPlan", () => {
 			expect(firstHeaders.get("User-Agent")).toBe(
 				"codex-cli/0.170.0 (Windows 10.0.26100; x64)",
 			);
-			expect(
-				firstHeaders.get("x-hov-router-codex-client-version"),
-			).toBeNull();
+			expect(firstHeaders.get("x-hov-router-codex-client-version")).toBeNull();
 			// materializeProviderAttemptPlan goes through CodexProvider's own
 			// captureAttemptIdentity, which calls resolveCodexClientIdentity()
 			// with no injectable clock (always the real Date.now()). The

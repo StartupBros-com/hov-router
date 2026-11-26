@@ -114,9 +114,7 @@ describe("force_account_model — internal-probe exemption on the request path",
 	});
 
 	it("keeps the setting on for a marker sent with no secret at all", async () => {
-		expect(await observeFlag({ "x-hov-router-keepalive": "true" })).toBe(
-			true,
-		);
+		expect(await observeFlag({ "x-hov-router-keepalive": "true" })).toBe(true);
 	});
 
 	it("keeps the setting on for ordinary client traffic", async () => {

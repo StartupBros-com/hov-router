@@ -3815,10 +3815,7 @@ export async function proxyWithAccount(
 				),
 			};
 			currentTransportAttemptId = crypto.randomUUID();
-			attemptHeaders.set(
-				"x-hov-router-attempt-id",
-				currentTransportAttemptId,
-			);
+			attemptHeaders.set("x-hov-router-attempt-id", currentTransportAttemptId);
 			attemptHeaders.set(
 				"x-hov-router-attempt-ordinal",
 				String(transportAttemptOrdinal),
@@ -3890,10 +3887,7 @@ export async function proxyWithAccount(
 					);
 				}
 				if (requestMeta.codexPacingRole) {
-					prepared.set(
-						"x-hov-router-pacing-role",
-						requestMeta.codexPacingRole,
-					);
+					prepared.set("x-hov-router-pacing-role", requestMeta.codexPacingRole);
 				}
 				if (
 					typeof requestMeta.codexPacingWaitMs === "number" &&
@@ -4717,10 +4711,7 @@ export async function proxyWithAccount(
 				traceHeaders.set("x-hov-router-request-stream", "false");
 				traceHeaders.set("x-hov-router-attempt-id", attemptId);
 				if (currentTransportModel) {
-					traceHeaders.set(
-						"x-hov-router-final-model",
-						currentTransportModel,
-					);
+					traceHeaders.set("x-hov-router-final-model", currentTransportModel);
 				}
 				const processed = await attemptPlan.processResponse(
 					new Response(discarded.clone().body, {
@@ -7044,22 +7035,13 @@ export async function proxyWithAccount(
 		const responseHeaders = new Headers(rawResponse.headers);
 		responseHeaders.set("x-hov-router-request-id", requestMeta.id);
 		if (currentTransportAttemptId) {
-			responseHeaders.set(
-				"x-hov-router-attempt-id",
-				currentTransportAttemptId,
-			);
+			responseHeaders.set("x-hov-router-attempt-id", currentTransportAttemptId);
 		}
 		if (currentTransportModel) {
-			responseHeaders.set(
-				"x-hov-router-final-model",
-				currentTransportModel,
-			);
+			responseHeaders.set("x-hov-router-final-model", currentTransportModel);
 		}
 		if (internalRequestStream === "true" || internalRequestStream === "false") {
-			responseHeaders.set(
-				"x-hov-router-request-stream",
-				internalRequestStream,
-			);
+			responseHeaders.set("x-hov-router-request-stream", internalRequestStream);
 		}
 		const internalCustomTools = transformedRequest.headers.get(
 			"x-hov-router-codex-custom-tools",
@@ -7242,10 +7224,7 @@ export async function proxyWithAccount(
 						// map fallback behind them has a 30s TTL a long backoff can
 						// outlive — the request ID alone is not enough.
 						const retryTaggedHeaders = new Headers(retryRaw.headers);
-						retryTaggedHeaders.set(
-							"x-hov-router-request-id",
-							requestMeta.id,
-						);
+						retryTaggedHeaders.set("x-hov-router-request-id", requestMeta.id);
 						if (currentTransportAttemptId) {
 							retryTaggedHeaders.set(
 								"x-hov-router-attempt-id",
@@ -7678,10 +7657,7 @@ export async function proxyWithAccount(
 					if (isScopedFailure(rawFailureClassification)) return null;
 
 					const rescueResponseHeaders = new Headers(rawResponse.headers);
-					rescueResponseHeaders.set(
-						"x-hov-router-request-id",
-						requestMeta.id,
-					);
+					rescueResponseHeaders.set("x-hov-router-request-id", requestMeta.id);
 					if (currentTransportAttemptId) {
 						rescueResponseHeaders.set(
 							"x-hov-router-attempt-id",

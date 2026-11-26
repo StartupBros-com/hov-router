@@ -33,7 +33,9 @@ const DEFAULT_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS = 3000;
  * for tests.
  */
 function getRateLimitPersistAwaitTimeoutMs(): number {
-	const raw = Number(process.env.HOV_ROUTER_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS);
+	const raw = Number(
+		process.env.HOV_ROUTER_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS,
+	);
 	return Number.isFinite(raw) && raw >= 0
 		? raw
 		: DEFAULT_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS;

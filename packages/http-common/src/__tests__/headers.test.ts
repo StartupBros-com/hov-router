@@ -82,9 +82,9 @@ describe("sanitizeProxyHeaders", () => {
 			"x-hov-router-pool-status": "available",
 		});
 
-		expect(
-			sanitizeProxyHeaders(original).has("x-hov-router-pool-status"),
-		).toBe(false);
+		expect(sanitizeProxyHeaders(original).has("x-hov-router-pool-status")).toBe(
+			false,
+		);
 	});
 
 	test("strips a mixed-case logical-family carrier from raw upstream responses", () => {
@@ -145,9 +145,7 @@ describe("withSanitizedProxyHeaders", () => {
 		const sanitized = withSanitizedProxyHeaders(upstream);
 
 		expect(sanitized.headers.has("x-hov-router-pool-status")).toBe(false);
-		expect(sanitized.headers.has("x-hov-router-recovery-scope")).toBe(
-			false,
-		);
+		expect(sanitized.headers.has("x-hov-router-recovery-scope")).toBe(false);
 		expect(sanitized.status).toBe(503);
 	});
 });

@@ -1378,7 +1378,8 @@ describe("implicit fallback policy integration", () => {
 
 	it("returns a zero-attempt terminal when every implicit candidate is policy-denied", async () => {
 		const restoreProviders = installMockRoutingProviders(["openrouter"]);
-		const previousPassthrough = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+		const previousPassthrough =
+			process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		// The enforce policy must close the legacy passthrough escape hatch too;
 		// otherwise a paid route can still receive the request after selection
 		// reports policy_excluded.
@@ -1674,9 +1675,9 @@ describe("native quota wait execution", () => {
 				expect(secondResponse.headers.has("x-hov-router-pool-status")).toBe(
 					false,
 				);
-				expect(
-					secondResponse.headers.has("x-hov-router-recovery-scope"),
-				).toBe(false);
+				expect(secondResponse.headers.has("x-hov-router-recovery-scope")).toBe(
+					false,
+				);
 				expect(calls).toHaveLength(2);
 			} finally {
 				staleSnapshot?.mockRestore();
@@ -1821,10 +1822,7 @@ describe("native quota wait execution", () => {
 		globalThis.fetch = transport as typeof fetch;
 		try {
 			const request = makeProxyRequest("claude-fable-5");
-			request.headers.set(
-				"x-hov-router-exclude-providers",
-				"anthropic-oauth",
-			);
+			request.headers.set("x-hov-router-exclude-providers", "anthropic-oauth");
 			const response = await handleProxy(request, new URL(request.url), ctx);
 			expect(response.status).toBe(hold === "quota" ? 429 : 529);
 			expect(transport).not.toHaveBeenCalled();
@@ -2737,9 +2735,7 @@ describe("native quota wait execution", () => {
 			expect(response.status).toBe(529);
 			expect(response.headers.get("retry-after")).toBe("10");
 			expect(response.headers.get("x-should-retry")).toBe("true");
-			expect(
-				response.headers.get("x-hov-router-recovery-scope"),
-			).toBeNull();
+			expect(response.headers.get("x-hov-router-recovery-scope")).toBeNull();
 			const body = (await response.json()) as {
 				error: { type: string; code: string; family: string };
 			};
@@ -2941,9 +2937,7 @@ describe("native quota wait execution", () => {
 				60,
 			);
 			expect(response.headers.has("x-hov-router-pool-status")).toBe(false);
-			expect(response.headers.has("x-hov-router-recovery-scope")).toBe(
-				false,
-			);
+			expect(response.headers.has("x-hov-router-recovery-scope")).toBe(false);
 			expect(
 				handleStart.mock.calls.some(
 					(call) =>

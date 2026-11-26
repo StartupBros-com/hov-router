@@ -383,7 +383,9 @@ describe("verified Codex client identity", () => {
 	});
 
 	test("a memoized fresh record flips to stale mid-window via pure arithmetic, without a new read", () => {
-		const dir = mkdtempSync(join(tmpdir(), "hov-router-identity-stale-window-"));
+		const dir = mkdtempSync(
+			join(tmpdir(), "hov-router-identity-stale-window-"),
+		);
 		const file = join(dir, "record");
 		const start = Date.now();
 		const verifiedAt = new Date(

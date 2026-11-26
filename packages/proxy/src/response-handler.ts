@@ -270,8 +270,7 @@ const MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024;
 const MODEL_REWRITE_HEADER = "x-hov-router-model-rewrite";
 const ROUTE_FALLBACK_HEADER = "x-hov-router-route-fallback";
 const ROUTED_MODEL_HEADER = "x-hov-router-routed-model";
-const CACHE_FLIGHT_RECORDER_HEADER =
-	"x-hov-router-cache-flight-recorder-id";
+const CACHE_FLIGHT_RECORDER_HEADER = "x-hov-router-cache-flight-recorder-id";
 
 /**
  * Builds a Headers copy with the model-rewrite header set when an

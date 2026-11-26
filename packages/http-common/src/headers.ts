@@ -4,8 +4,7 @@ import {
 } from "@hov-router/types/routing-recovery";
 
 /** Private hop-by-hop request correlation installed by hov-router-guard. */
-export const GUARD_REQUEST_ID_HEADER =
-	"x-hov-router-guard-request-id" as const;
+export const GUARD_REQUEST_ID_HEADER = "x-hov-router-guard-request-id" as const;
 
 /**
  * Reserved defense-in-depth name for the env-only guard credential.

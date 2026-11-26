@@ -37,7 +37,8 @@ const MEANINGFUL_PROGRESS_ENV =
 	"HOV_ROUTER_ANTHROPIC_MEANINGFUL_PROGRESS_TIMEOUT_MS";
 const RESCUE_ACTIVATION_ENV =
 	"HOV_ROUTER_ANTHROPIC_PRECOMMIT_RESCUE_ACTIVATION_MS";
-const RESCUE_PING_ENV = "HOV_ROUTER_ANTHROPIC_PRECOMMIT_RESCUE_PING_INTERVAL_MS";
+const RESCUE_PING_ENV =
+	"HOV_ROUTER_ANTHROPIC_PRECOMMIT_RESCUE_PING_INTERVAL_MS";
 const ACCOUNT_SELECTION_TIMEOUT_ENV = "HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS";
 const RATE_LIMIT_PERSIST_TIMEOUT_ENV =
 	"HOV_ROUTER_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS";
@@ -428,12 +429,8 @@ describe("routing terminal — 503 response", () => {
 		expect(account.rate_limited_until).toBeGreaterThan(startedAt);
 		expect(elapsed).toBeLessThan(1000);
 		expect(response.status).toBe(503);
-		expect(response.headers.get("x-hov-router-pool-status")).toBe(
-			"exhausted",
-		);
-		expect(response.headers.get("x-hov-router-recovery-scope")).toBe(
-			"pool",
-		);
+		expect(response.headers.get("x-hov-router-pool-status")).toBe("exhausted");
+		expect(response.headers.get("x-hov-router-recovery-scope")).toBe("pool");
 		const retryAfter = Number(response.headers.get("retry-after"));
 		expect(retryAfter).toBeGreaterThan(0);
 		expect(retryAfter).toBeLessThanOrEqual(120);
@@ -974,7 +971,8 @@ describe("routing terminal — 503 response", () => {
 		// `observeRequest` -- so this also proves beginRequestObservation's
 		// getProvider("codex") fallback resolves the *real*, registered
 		// CodexProvider hook rather than silently no-op'ing.
-		const previousDiagnosticsEnv = process.env.HOV_ROUTER_CODEX_CACHE_DIAGNOSTICS;
+		const previousDiagnosticsEnv =
+			process.env.HOV_ROUTER_CODEX_CACHE_DIAGNOSTICS;
 		process.env.HOV_ROUTER_CODEX_CACHE_DIAGNOSTICS = "1";
 		const lifecycleEvents: Array<Record<string, unknown>> = [];
 		const handler = (event: { msg: string; data?: unknown }) => {
@@ -1220,9 +1218,7 @@ describe("pool exhausted — HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL=1 escape hatch
 
 		expect(response.status).toBe(200);
 		expect(response.headers.get("x-upstream-fast")).toBe("preserved");
-		expect(
-			response.headers.get("x-hov-router-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(await response.text()).toBe(FAST_SUCCESS);
 	});
 
@@ -1290,9 +1286,7 @@ describe("pool exhausted — HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL=1 escape hatch
 		expect(response.status).toBe(202);
 		expect(response.statusText).toBe("Native passthrough");
 		expect(response.headers.get("x-native-passthrough")).toBe("preserved");
-		expect(
-			response.headers.get("x-hov-router-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(await response.text()).toBe(expectedBody);
 	});
 });

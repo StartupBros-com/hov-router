@@ -195,8 +195,7 @@ const OPENAI_PROMPT_CACHE_HOSTS = new Set(["chatgpt.com", "api.openai.com"]);
 export const CODEX_PING_MODEL = "gpt-5.6-sol";
 const CODEX_SYNTHETIC_COUNT_TOKENS_URL =
 	"https://hov-router.local/codex/count_tokens";
-const CODEX_SYNTHETIC_RESPONSE_URL =
-	"https://hov-router.local/codex/response";
+const CODEX_SYNTHETIC_RESPONSE_URL = "https://hov-router.local/codex/response";
 export const CODEX_PROMPT_CACHE_KEY_ENV = "HOV_ROUTER_CODEX_PROMPT_CACHE_KEY";
 // The Codex CLI's turn-state header must never be forwarded to the subscription backend.
 const CODEX_CLIENT_TURN_STATE_HEADER = "x-codex-turn-state";
@@ -1095,8 +1094,7 @@ export const CODEX_CONTINUATION_HEADER = "x-hov-router-codex-continuation";
  * server-verified check (`isResponsesAdapterRequest`), never trusted from a
  * raw client header. Deleted before any outbound transport.
  */
-export const CODEX_NATIVE_RESPONSES_HEADER =
-	"x-hov-router-native-responses";
+export const CODEX_NATIVE_RESPONSES_HEADER = "x-hov-router-native-responses";
 /**
  * Internal-only caller-identity digest, stamped by proxy-operations.ts from
  * the already-authenticated API key id for *this* physical request. Never
@@ -2876,9 +2874,7 @@ export class CodexProvider extends BaseProvider {
 					? (cacheKeyDecision.selectedConversationIdentity?.slice(0, 16) ??
 						null)
 					: null,
-				pacingCohortId: request.headers.get(
-					"x-hov-router-pacing-cohort-id",
-				),
+				pacingCohortId: request.headers.get("x-hov-router-pacing-cohort-id"),
 				pacingRole: request.headers.get("x-hov-router-pacing-role"),
 				pacingWaitMs: request.headers.get("x-hov-router-pacing-wait-ms"),
 				pacingReleaseReason: request.headers.get(
@@ -4302,12 +4298,9 @@ export class CodexProvider extends BaseProvider {
 
 	private async transformSseResponseToJson(
 		response: Response,
-		requestId = response.headers.get("x-hov-router-request-id") ??
-			"unknown",
-		attemptId = response.headers.get("x-hov-router-attempt-id") ??
-			undefined,
-		finalModel = response.headers.get("x-hov-router-final-model") ??
-			undefined,
+		requestId = response.headers.get("x-hov-router-request-id") ?? "unknown",
+		attemptId = response.headers.get("x-hov-router-attempt-id") ?? undefined,
+		finalModel = response.headers.get("x-hov-router-final-model") ?? undefined,
 		drainAbort?: AbortController,
 		accountId?: string,
 		modelContextSnapshot: CodexModelContextSnapshot = accountId
@@ -4550,12 +4543,9 @@ export class CodexProvider extends BaseProvider {
 
 	private transformStreamingResponse(
 		response: Response,
-		requestId = response.headers.get("x-hov-router-request-id") ??
-			"unknown",
-		attemptId = response.headers.get("x-hov-router-attempt-id") ??
-			undefined,
-		finalModel = response.headers.get("x-hov-router-final-model") ??
-			"unknown",
+		requestId = response.headers.get("x-hov-router-request-id") ?? "unknown",
+		attemptId = response.headers.get("x-hov-router-attempt-id") ?? undefined,
+		finalModel = response.headers.get("x-hov-router-final-model") ?? "unknown",
 		drainAbort?: AbortController,
 		accountId?: string,
 		modelContextSnapshot: CodexModelContextSnapshot = accountId

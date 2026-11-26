@@ -188,7 +188,9 @@ describe("database maintenance worker ownership", () => {
 			revoked++;
 			nativeRevoke(url);
 		};
-		const dir = mkdtempSync(join(tmpdir(), "hov-router-real-maintenance-owner-"));
+		const dir = mkdtempSync(
+			join(tmpdir(), "hov-router-real-maintenance-owner-"),
+		);
 		const db = new DatabaseOperations(
 			join(dir, "test.db"),
 			undefined,

@@ -10,7 +10,9 @@ function makeConfig(raw?: Record<string, unknown>): {
 	config: Config;
 	cleanup: () => void;
 } {
-	const dir = mkdtempSync(join(tmpdir(), "hov-router-background-merge-policy-"));
+	const dir = mkdtempSync(
+		join(tmpdir(), "hov-router-background-merge-policy-"),
+	);
 	const path = join(dir, "config.json");
 	if (raw !== undefined) writeFileSync(path, JSON.stringify(raw), "utf8");
 	return {

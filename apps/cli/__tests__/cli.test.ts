@@ -279,8 +279,7 @@ describe("CLI Integration Tests", () => {
 				const result = await runCLI([flag], {
 					HOME: home,
 					XDG_CONFIG_HOME: join(home, "config"),
-					HOV_ROUTER_DB_PATH:
-						"/proc/hov-router-must-not-open/identity.db",
+					HOV_ROUTER_DB_PATH: "/proc/hov-router-must-not-open/identity.db",
 					HOV_ROUTER_HEALTH_GIT_SHA: "abcdef1234567890abcdef1234567890abcdef12",
 				});
 				expect(result.exitCode).toBe(0);
@@ -432,8 +431,7 @@ describe("CLI Integration Tests", () => {
 				const result = await runCLI(
 					["routing", "list", "--api-url", server.baseUrl, "--json"],
 					{
-						HOV_ROUTER_DB_PATH:
-							"/proc/hov-router-must-not-open/routing.db",
+						HOV_ROUTER_DB_PATH: "/proc/hov-router-must-not-open/routing.db",
 					},
 				);
 

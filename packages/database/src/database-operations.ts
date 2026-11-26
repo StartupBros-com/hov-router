@@ -1021,8 +1021,7 @@ export class DatabaseOperations implements StrategyStore, Disposable {
 	 * Generate manual recovery instructions for corrupted database
 	 */
 	generateRecoveryInstructions(): string {
-		const dbPath =
-			this.resolvedDbPath ?? "~/.config/hov-router/hov-router.db";
+		const dbPath = this.resolvedDbPath ?? "~/.config/hov-router/hov-router.db";
 		return `
 DATABASE RECOVERY INSTRUCTIONS
 

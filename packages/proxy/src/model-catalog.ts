@@ -111,8 +111,7 @@ const DEFAULT_TICK_SECONDS = 15 * 60;
 
 function getCacheDir(): string {
 	return (
-		process.env.HOV_ROUTER_MODELS_CACHE_DIR ||
-		join(tmpdir(), "hov-router")
+		process.env.HOV_ROUTER_MODELS_CACHE_DIR || join(tmpdir(), "hov-router")
 	);
 }
 
@@ -406,8 +405,7 @@ export async function refreshModelCatalog(
 		const catalog = await getModelCatalog();
 		return {
 			success: false,
-			error:
-				"Model catalog refresh is disabled (HOV_ROUTER_MODELS_OFFLINE=1)",
+			error: "Model catalog refresh is disabled (HOV_ROUTER_MODELS_OFFLINE=1)",
 			catalog,
 		};
 	}

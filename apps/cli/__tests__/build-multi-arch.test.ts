@@ -264,7 +264,8 @@ describe("Router build provenance", () => {
 				}),
 			).toEqual(embedded);
 			expect(
-				runCompiledFixture(defines, { HOV_ROUTER_DISTRIBUTION: token }).provenance,
+				runCompiledFixture(defines, { HOV_ROUTER_DISTRIBUTION: token })
+					.provenance,
 			).toMatchObject({ proven: false, reason: "missing_source_sha" });
 			expect(
 				runCompiledFixture(defines, {

@@ -54,9 +54,7 @@ describe("makeProxyRequest strips internal control headers before provider forwa
 			undefined,
 			false,
 		);
-		expect(
-			sentHeaders?.get("x-hov-router-internal-probe-secret"),
-		).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-internal-probe-secret")).toBeNull();
 		expect(
 			sentHeaders?.get("x-hov-router-responses-adapter-secret"),
 		).toBeNull();
@@ -74,9 +72,7 @@ describe("makeProxyRequest strips internal control headers before provider forwa
 		// external caller forging this header must never have it reach the
 		// provider either (see CODEX_AUTHENTICATED_CALLER_HEADER's own
 		// "deleted before any outbound transport" contract in provider.ts).
-		expect(
-			sentHeaders?.get("x-hov-router-authenticated-caller"),
-		).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-authenticated-caller")).toBeNull();
 		expect(sentHeaders?.get("x-hov-router-exclude-providers")).toBeNull();
 		expect(sentHeaders?.get("x-hov-router-codex-continuation")).toBeNull();
 		// unrelated headers still forwarded
@@ -148,9 +144,7 @@ describe("makeProxyRequest strips internal control headers before provider forwa
 			},
 		});
 		await makeProxyRequest(req);
-		expect(
-			sentHeaders?.get("x-hov-router-internal-probe-secret"),
-		).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-internal-probe-secret")).toBeNull();
 		expect(
 			sentHeaders?.get("x-hov-router-responses-adapter-secret"),
 		).toBeNull();
@@ -160,9 +154,7 @@ describe("makeProxyRequest strips internal control headers before provider forwa
 			sentHeaders?.get("x-hov-router-guard-correlation-secret"),
 		).toBeNull();
 		expect(sentHeaders?.get("x-hov-router-request-id")).toBeNull();
-		expect(
-			sentHeaders?.get("x-hov-router-authenticated-caller"),
-		).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-authenticated-caller")).toBeNull();
 		expect(sentHeaders?.get("authorization")).toBe("Bearer token");
 	});
 });

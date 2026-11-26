@@ -35,11 +35,7 @@ function fixture(
 		method: "POST",
 		body: "{}",
 		headers: {
-			"x-hov-router-managed-timing": signManagedTiming(
-				timing,
-				binding,
-				secret,
-			),
+			"x-hov-router-managed-timing": signManagedTiming(timing, binding, secret),
 		},
 	});
 	const ingress = createManagedIngress({

@@ -76,7 +76,9 @@ describe("integrity-check worker: low-memory PRAGMAs", () => {
 	let dbPath: string;
 
 	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hov-router-integrity-mem-"));
+		tmpDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), "hov-router-integrity-mem-"),
+		);
 		dbPath = path.join(tmpDir, "test.db");
 		seedDb(dbPath);
 	});

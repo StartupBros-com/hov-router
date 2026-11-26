@@ -82,7 +82,9 @@ describe("DatabaseOperations.bootstrapAutoVacuum", () => {
 	let tmpDir: string;
 
 	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hov-router-bootstrap-test-"));
+		tmpDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), "hov-router-bootstrap-test-"),
+		);
 		dbPath = path.join(tmpDir, "test.db");
 	});
 

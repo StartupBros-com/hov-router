@@ -472,12 +472,8 @@ describe("handleResponsesRequest", () => {
 		expect(poolBody.error.type).toBe("pool_exhausted");
 		expect(poolBody.error.code).toBe("pool_exhausted");
 		expect(poolResp.headers.get("retry-after")).toBe("60");
-		expect(poolResp.headers.get("x-hov-router-pool-status")).toBe(
-			"exhausted",
-		);
-		expect(poolResp.headers.get("x-hov-router-recovery-scope")).toBe(
-			"pool",
-		);
+		expect(poolResp.headers.get("x-hov-router-pool-status")).toBe("exhausted");
+		expect(poolResp.headers.get("x-hov-router-recovery-scope")).toBe("pool");
 
 		const modelResp = await handleResponsesRequest(
 			request(),
@@ -512,12 +508,8 @@ describe("handleResponsesRequest", () => {
 		expect(modelBody.error.type).toBe("service_unavailable");
 		expect(modelBody.error.code).toBe("model_pool_exhausted");
 		expect(modelResp.headers.get("retry-after")).toBe("60");
-		expect(modelResp.headers.get("x-hov-router-pool-status")).toBe(
-			"exhausted",
-		);
-		expect(modelResp.headers.get("x-hov-router-recovery-scope")).toBe(
-			"model",
-		);
+		expect(modelResp.headers.get("x-hov-router-pool-status")).toBe("exhausted");
+		expect(modelResp.headers.get("x-hov-router-recovery-scope")).toBe("model");
 
 		for (const { code, headers: invalidHeaders } of [
 			{
@@ -757,9 +749,7 @@ describe("handleResponsesRequest", () => {
 		);
 
 		expect(resp.headers.get("content-type")).toContain("text/event-stream");
-		expect(
-			resp.headers.get("x-hov-router-codex-response-format"),
-		).toBeNull();
+		expect(resp.headers.get("x-hov-router-codex-response-format")).toBeNull();
 		const rawBody = await resp.text();
 		expect(rawBody).toBe(nativeSseBody);
 	});

@@ -721,8 +721,7 @@ describe("heavy read result equivalence", () => {
 				expect(query).toHaveBeenCalledTimes(2);
 			}
 		} finally {
-			if (saved === undefined)
-				delete process.env.HOV_ROUTER_DB_READER_WORKER;
+			if (saved === undefined) delete process.env.HOV_ROUTER_DB_READER_WORKER;
 			else process.env.HOV_ROUTER_DB_READER_WORKER = saved;
 		}
 	});

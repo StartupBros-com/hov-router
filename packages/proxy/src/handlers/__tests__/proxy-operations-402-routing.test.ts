@@ -295,7 +295,8 @@ afterEach(() => {
 	if (originalDefaultCooldown === undefined) {
 		delete process.env.HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS;
 	} else {
-		process.env.HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS = originalDefaultCooldown;
+		process.env.HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS =
+			originalDefaultCooldown;
 	}
 });
 
@@ -648,7 +649,8 @@ describe("raw upstream HTTP 402 routing", () => {
 	it("handles a raw 402 returned by an in-place 529 retry before provider processing", async () => {
 		const savedRetryBase = process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS;
 		const savedRetryMax = process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS;
-		const savedRetryAttempts = process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
+		const savedRetryAttempts =
+			process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
 		const savedRetryEnabled = process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
 		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";

@@ -3339,9 +3339,9 @@ describe("Claude Code gateway model route profiles", () => {
 				homeAction: "initial_commit",
 			},
 		});
-		expect(
-			firstChildResponse.headers.get("x-hov-router-route-fallback"),
-		).toBe("profile_requested_model");
+		expect(firstChildResponse.headers.get("x-hov-router-route-fallback")).toBe(
+			"profile_requested_model",
+		);
 		const firstChildUrl = requests[1]?.url;
 		expect(firstChildUrl).toBeString();
 		if (firstChildUrl?.includes(`/${ROUTE_ACCOUNT_ID}/`)) {
@@ -3900,16 +3900,16 @@ describe("catalog-role Codex route profiles", () => {
 				() => send(harness.ctx, CHILD_MODEL, child),
 			);
 			expect(racing.response.status, racing.text).toBe(200);
-			expect(
-				racing.response.headers.get("x-hov-router-route-fallback"),
-			).toBe("profile_root_model");
+			expect(racing.response.headers.get("x-hov-router-route-fallback")).toBe(
+				"profile_root_model",
+			);
 
 			// The refreshed catalog governs the next descendant request.
 			const later = await send(harness.ctx, CHILD_MODEL, child);
 			expect(later.response.status, later.text).toBe(200);
-			expect(
-				later.response.headers.get("x-hov-router-route-fallback"),
-			).toBe("profile_root_model");
+			expect(later.response.headers.get("x-hov-router-route-fallback")).toBe(
+				"profile_root_model",
+			);
 
 			expect(await upstreamModels(upstream.responses)).toEqual([
 				"gpt-7-nova",
@@ -3938,9 +3938,9 @@ describe("catalog-role Codex route profiles", () => {
 			);
 
 			expect(racing.response.status, racing.text).toBe(200);
-			expect(
-				racing.response.headers.get("x-hov-router-route-fallback"),
-			).toBe("profile_requested_model");
+			expect(racing.response.headers.get("x-hov-router-route-fallback")).toBe(
+				"profile_requested_model",
+			);
 			expect(await upstreamModels(upstream.responses)).toEqual([
 				"gpt-7-nova",
 				// Sonnet's role in the live catalog, never the carried opus target.
@@ -3978,9 +3978,9 @@ describe("catalog-role Codex route profiles", () => {
 			const global = await send(harness.ctx, CHILD_MODEL, child);
 
 			expect(global.response.status, global.text).toBe(200);
-			expect(
-				global.response.headers.get("x-hov-router-route-fallback"),
-			).toBe("global_requested_model");
+			expect(global.response.headers.get("x-hov-router-route-fallback")).toBe(
+				"global_requested_model",
+			);
 			expect(upstream.responses).toHaveLength(2);
 			expect(new URL(upstream.responses[0]?.url ?? "").pathname).toEndWith(
 				"/codex/responses",

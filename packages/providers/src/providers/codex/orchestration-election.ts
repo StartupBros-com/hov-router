@@ -20,7 +20,8 @@ export const ORCHESTRATION_MIN_CALL_ID_LENGTH = 1;
 export const ORCHESTRATION_MAX_CALL_ID_LENGTH = 512;
 
 const LINEAGE_HASH_DOMAIN = "hov-router.codex.orchestration.lineage.v1";
-const INSTRUCTIONS_HASH_DOMAIN = "hov-router.codex.orchestration.instructions.v1";
+const INSTRUCTIONS_HASH_DOMAIN =
+	"hov-router.codex.orchestration.instructions.v1";
 
 export type OrchestrationAdmission =
 	| "root"

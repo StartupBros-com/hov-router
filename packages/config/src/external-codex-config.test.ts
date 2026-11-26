@@ -45,7 +45,8 @@ test("env source settings override persisted sources, including explicit empty d
 	const c = config();
 	c.setExternalCodexHomes(["/saved"]);
 	process.env.HOV_ROUTER_EXTERNAL_CODEX_HOMES = " /one, /two ,";
-	process.env.HOV_ROUTER_EXTERNAL_CODEX_CLOUD_ROOTS = "main=/cloud=1,alt=/other";
+	process.env.HOV_ROUTER_EXTERNAL_CODEX_CLOUD_ROOTS =
+		"main=/cloud=1,alt=/other";
 	expect(c.getExternalCodexHomes()).toEqual(["/one", "/two"]);
 	expect(c.getExternalCodexCloudRoots()).toEqual([
 		{ accountName: "main", path: "/cloud=1" },

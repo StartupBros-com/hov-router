@@ -70,11 +70,7 @@ describe("AgentRegistry — injected workspace persistence", () => {
 	});
 
 	it("never touches the real workspaces file when constructed with injected persistence", async () => {
-		const realHome = path.join(
-			os.homedir(),
-			".hov-router",
-			"workspaces.json",
-		);
+		const realHome = path.join(os.homedir(), ".hov-router", "workspaces.json");
 		const realFileExistedBefore = fs.existsSync(realHome);
 		const realContentBefore = realFileExistedBefore
 			? fs.readFileSync(realHome, "utf-8")

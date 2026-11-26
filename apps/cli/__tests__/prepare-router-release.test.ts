@@ -165,7 +165,9 @@ function syntheticRelease(mode = "clean", hasPrevious = false) {
 	const forbidden = [
 		...Object.keys(hostile).filter(
 			(key) =>
-				!["HOV_ROUTER_BUILD_PRODUCER", "HOV_ROUTER_ONLY_PLATFORMS"].includes(key),
+				!["HOV_ROUTER_BUILD_PRODUCER", "HOV_ROUTER_ONLY_PLATFORMS"].includes(
+					key,
+				),
 		),
 		"DOTENV_SENTINEL",
 	];

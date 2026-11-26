@@ -105,9 +105,7 @@ describe("createPoolExhaustedResponse — circuit_open", () => {
 		// its `exhausted` value so existing consumers (dashboard, fleet reaper)
 		// keep treating the response as a transient 503. The cause lives in
 		// `error.type`.
-		expect(response.headers.get("x-hov-router-pool-status")).toBe(
-			"exhausted",
-		);
+		expect(response.headers.get("x-hov-router-pool-status")).toBe("exhausted");
 
 		// Content-Type is the same as pool_exhausted — JSON, no surprises for
 		// downstream parsers.

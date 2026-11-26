@@ -696,7 +696,7 @@ export function ensureSchema(db: Database): void {
 	`);
 
 	// Index for efficient age-based payload cleanup — only if column exists
-	// (may not exist if table was inherited from a legacy ccflare database)
+	// (may not exist if table was inherited from a snipeship/ccflare database)
 	const payloadCols = (
 		db.prepare("PRAGMA table_info(request_payloads)").all() as Array<{
 			name: string;
@@ -2707,7 +2707,7 @@ export function runMigrations(db: Database, dbPath?: string): void {
 		}
 
 		// Release 7.0.0 retires upstream_429_no_reset_default_5h, last written by
-		// ccflare 3.5.x. The probe-cooldown reason is classified the same way: a
+		// 3.5.x builds. The probe-cooldown reason is classified the same way: a
 		// circuit failure and an account-wide cooldown.
 		const legacyFiveHourReasons = db
 			.prepare(

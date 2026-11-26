@@ -281,10 +281,7 @@ writeFileSync("dist/hov-router-linux-amd64", "#!/bin/sh\\nprintf 'invalid smoke 
 			).version;
 			for (const alias of COMMAND_NAMES) {
 				const executable = join(home, "smoke", alias);
-				copyFileSync(
-					join(destination, "hov-router-linux-amd64"),
-					executable,
-				);
+				copyFileSync(join(destination, "hov-router-linux-amd64"), executable);
 				for (const flag of ["--help", "--version"]) {
 					const smoke = spawnSync(executable, [flag], {
 						cwd,

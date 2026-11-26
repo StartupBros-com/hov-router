@@ -159,7 +159,9 @@ export function prepareArtifacts(
 				env: {
 					...env,
 					HOV_ROUTER_ONLY_PLATFORMS: "bun-linux-amd64",
-					...(release ? { HOV_ROUTER_BUILD_PRODUCER: "hov-router-binary" } : {}),
+					...(release
+						? { HOV_ROUTER_BUILD_PRODUCER: "hov-router-binary" }
+						: {}),
 				},
 				stdio: "inherit",
 				timeout: 600_000,
