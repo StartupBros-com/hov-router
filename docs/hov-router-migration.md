@@ -157,9 +157,17 @@ proxy recovery header are forwarded without retrying. Rollback validation now
 requires the guard body limits and systemd policies introduced in 3.6.0.
 
 A first start with no `better-ccflare.db` no longer copies the pre-fork
-`~/.config/ccflare/ccflare.db` into place. Copy it to
-`~/.config/better-ccflare/better-ccflare.db` by hand before the first start if
-you are moving from ccflare. `ccflare_DB_PATH` is still read.
+`~/.config/ccflare/ccflare.db` into place. If you are moving from ccflare, stop
+it, then copy the database with SQLite's backup command before the first start.
+A plain file copy can miss changes still held in the `-wal` file beside it.
+
+```bash
+mkdir -p ~/.config/better-ccflare
+sqlite3 ~/.config/ccflare/ccflare.db ".backup '$HOME/.config/better-ccflare/better-ccflare.db'"
+sqlite3 ~/.config/better-ccflare/better-ccflare.db "PRAGMA integrity_check;"   # prints ok
+```
+
+`ccflare_DB_PATH` is still read.
 
 Pending token rotations saved by releases before 6.0.0 as `.wal` files are no
 longer read; 6.0.0 and later save them as `.slot` files. Before upgrading, run
