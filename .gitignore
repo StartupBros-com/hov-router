@@ -5,12 +5,8 @@ node_modules/
 .claude/
 .planning/
 .codex
-ccflare.db
-ccflare.db-wal
-ccflare.db-shm
-better-ccflare.db
-better-ccflare.db-wal
-better-ccflare.db-shm
+# SQLite databases hold account credentials, under any name an install used.
+*.db
 apps/*/dist/
 packages/dashboard-web/dist/
 .DS_Store
@@ -24,8 +20,9 @@ packages/database/src/inline-incremental-vacuum-worker.ts
 !.github/scripts/*.sh
 !scripts/*.sh
 
-# Build artifacts and test files
-better-ccflare-*
+# Build artifacts and test files. Anchored: tracked docs and scripts also
+# start with hov-router-.
+/hov-router-*
 config.json
 ssl-cert-snakeoil.key
 ssl-cert-snakeoil.pem

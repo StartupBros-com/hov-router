@@ -613,19 +613,20 @@ describe("proxyWithAccount — immutable provider attempt plans", () => {
 
 	beforeEach(() => {
 		originalFetch = globalThis.fetch;
-		originalOverloadEnabled = process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
-		originalOverloadAttempts = process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS;
-		originalOverloadBaseMs = process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS;
-		originalOverloadMaxMs = process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS;
+		originalOverloadEnabled = process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
+		originalOverloadAttempts =
+			process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
+		originalOverloadBaseMs = process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS;
+		originalOverloadMaxMs = process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS;
 	});
 
 	afterEach(() => {
 		globalThis.fetch = originalFetch;
 		for (const [key, value] of [
-			["CCFLARE_OVERLOAD_RETRY_ENABLED", originalOverloadEnabled],
-			["CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS", originalOverloadAttempts],
-			["CCFLARE_OVERLOAD_RETRY_BASE_MS", originalOverloadBaseMs],
-			["CCFLARE_OVERLOAD_RETRY_MAX_MS", originalOverloadMaxMs],
+			["HOV_ROUTER_OVERLOAD_RETRY_ENABLED", originalOverloadEnabled],
+			["HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS", originalOverloadAttempts],
+			["HOV_ROUTER_OVERLOAD_RETRY_BASE_MS", originalOverloadBaseMs],
+			["HOV_ROUTER_OVERLOAD_RETRY_MAX_MS", originalOverloadMaxMs],
 		] as const) {
 			if (value === undefined) delete process.env[key];
 			else process.env[key] = value;
@@ -893,10 +894,10 @@ describe("proxyWithAccount — immutable provider attempt plans", () => {
 	});
 
 	it("captures one ordinary legacy plan for in-place retry and response finalization", async () => {
-		process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = "true";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
-		process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = "true";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";
 		let planningCount = 0;
 		let sourceProviderHookCalls = 0;
 		const hookPlans: Array<{ hook: string; plan: ProviderAttemptPlan }> = [];
@@ -2697,7 +2698,7 @@ describe("proxyWithAccount — 529 failover", () => {
 		// mock.module("../discard-body-cancel", ...) call above) so counts
 		// below reflect only this test's request.
 		discardedResponses.length = 0;
-		// CCFLARE_OVERLOAD_RETRY_ENABLED defaults to true (core/src/constants.ts),
+		// HOV_ROUTER_OVERLOAD_RETRY_ENABLED defaults to true (core/src/constants.ts),
 		// so the 529 in-place retry loop also runs here and discards its own
 		// superseded `response` via a *different* call site (proxy-operations.ts
 		// line ~4817) before this test's target call site (the
@@ -2788,18 +2789,18 @@ describe("proxyWithAccount — 529 in-place retry", () => {
 	beforeEach(() => {
 		originalFetch = globalThis.fetch;
 		// Zero-delay backoff so tests don't sleep
-		process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = "0";
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
 	});
 
 	afterEach(() => {
 		globalThis.fetch = originalFetch;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
 	});
 
 	function make529NoResetCtx() {
@@ -2832,7 +2833,7 @@ describe("proxyWithAccount — 529 in-place retry", () => {
 			});
 		});
 
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
 		const ctx = make529NoResetCtx();
 		const bodyBuffer = makeRequestBody();
 		const attemptLedger = new RoutingAttemptLedger();
@@ -2882,7 +2883,7 @@ describe("proxyWithAccount — 529 in-place retry", () => {
 				}),
 		);
 
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
 		const ctx = make529NoResetCtx();
 		const bodyBuffer = makeRequestBody();
 		const result = await proxyWithAccount(
@@ -2904,7 +2905,7 @@ describe("proxyWithAccount — 529 in-place retry", () => {
 		expect(result).toBeNull();
 	});
 
-	it("skips in-place retry when CCFLARE_OVERLOAD_RETRY_ENABLED=false", async () => {
+	it("skips in-place retry when HOV_ROUTER_OVERLOAD_RETRY_ENABLED=false", async () => {
 		let callCount = 0;
 		globalThis.fetch = mock(async () => {
 			callCount++;
@@ -2914,7 +2915,7 @@ describe("proxyWithAccount — 529 in-place retry", () => {
 			});
 		});
 
-		process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = "false";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = "false";
 		const ctx = make529NoResetCtx();
 		const bodyBuffer = makeRequestBody();
 		await proxyWithAccount(
@@ -2946,7 +2947,7 @@ describe("proxyWithAccount — 529 in-place retry", () => {
 			});
 		});
 
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
 		const ctx = make529NoResetCtx();
 		const bodyBuffer = makeRequestBody();
 		const keepaliveReq = new Request("https://proxy.local/v1/messages", {
@@ -2954,8 +2955,8 @@ describe("proxyWithAccount — 529 in-place retry", () => {
 			body: bodyBuffer,
 			headers: {
 				"Content-Type": "application/json",
-				"x-better-ccflare-keepalive": "true",
-				"x-better-ccflare-internal-probe-secret": "test-secret",
+				"x-hov-router-keepalive": "true",
+				"x-hov-router-internal-probe-secret": "test-secret",
 			},
 		});
 		await proxyWithAccount(
@@ -2994,19 +2995,19 @@ describe("proxyWithAccount — non-codex 529 in-place retry releases superseded 
 			cancelReasons.push(String(reason));
 			return originalStreamCancel.call(this, reason);
 		};
-		process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 	});
 
 	afterEach(() => {
 		globalThis.fetch = originalFetch;
 		ReadableStream.prototype.cancel = originalStreamCancel;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 	});
 
 	it("cancels both superseded 529 response bodies for a non-codex (anthropic) account, and still forwards the eventual success to the client", async () => {
@@ -3071,18 +3072,18 @@ describe("proxyWithAccount: Codex 529 in-place retry drains discarded streaming 
 		originalFetch = globalThis.fetch;
 		// Zero-delay backoff so tests don't sleep, matching the generic
 		// "529 in-place retry" describe block above.
-		process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 	});
 
 	afterEach(() => {
 		globalThis.fetch = originalFetch;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 	});
 
 	/**
@@ -3288,12 +3289,12 @@ describe("proxyWithAccount: Codex 529 rate-limited failover does not hang on aba
 		// Retries disabled so the 529 falls straight through to
 		// processProxyResponse -> rate_limited_failover instead of the
 		// in-place retry loop, keeping the repro minimal and deterministic.
-		process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = "false";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = "false";
 	});
 
 	afterEach(() => {
 		globalThis.fetch = originalFetch;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 	});
 
 	/**
@@ -3432,20 +3433,20 @@ describe("proxyWithAccount: Codex 529 in-place retry drain is bounded by a timeo
 
 	beforeEach(() => {
 		originalFetch = globalThis.fetch;
-		process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
-		process.env.CCFLARE_IN_PLACE_RETRY_DRAIN_TIMEOUT_MS = "50";
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
+		process.env.HOV_ROUTER_IN_PLACE_RETRY_DRAIN_TIMEOUT_MS = "50";
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 	});
 
 	afterEach(() => {
 		globalThis.fetch = originalFetch;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS;
-		delete process.env.CCFLARE_IN_PLACE_RETRY_DRAIN_TIMEOUT_MS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
+		delete process.env.HOV_ROUTER_IN_PLACE_RETRY_DRAIN_TIMEOUT_MS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 	});
 
 	/**

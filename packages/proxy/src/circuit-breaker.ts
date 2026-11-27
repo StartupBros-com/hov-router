@@ -33,7 +33,7 @@
  * No real timers in unit tests.
  *
  * **Bootstrap ordering — IMPORTANT.** `getDefaultCircuitBreaker()` reads
- * `CCFLARE_CIRCUIT_BREAKER` exactly once at first construction (it is a
+ * `HOV_ROUTER_CIRCUIT_BREAKER` exactly once at first construction (it is a
  * lazy singleton). If anything that calls into this module runs before
  * process.env is populated, the kill-switch is silently ignored. The
  * supported escape hatch is `resetDefaultCircuitBreaker()` — call it
@@ -61,7 +61,7 @@ export function circuitKeyFor(account: Account): CircuitKey {
 	return { provider: account.provider, accountId: account.id };
 }
 
-export const CIRCUIT_BREAKER_ENV = "CCFLARE_CIRCUIT_BREAKER";
+export const CIRCUIT_BREAKER_ENV = "HOV_ROUTER_CIRCUIT_BREAKER";
 
 /**
  * Defaults — chosen to fail fast on a real overload while leaving room for
@@ -188,10 +188,10 @@ interface CircuitEntry {
 /**
  * THE critical predicate: should this failure trip the circuit?
  *
- * `model_fallback_429` is recorded by ccflare when an account has
+ * `model_fallback_429` is recorded by the router when an account has
  * `modelMappings` and is 429ed on ONE of its mapped models but can still
  * serve others — the upstream is not exhausted, the account is not
- * unhealthy, only that one model is rate-limited. ccflare's client-side
+ * unhealthy, only that one model is rate-limited. The router's client-side
  * model fallback (the rewrite-to-another-model path on the same account)
  * is the recovery mechanism for exactly this case. If the breaker opens
  * the circuit here it destroys that fallback path — the request is
@@ -261,7 +261,7 @@ export function shouldCountAsCircuitFailure(kind: FailureKind): boolean {
 }
 
 function readEnabledFlag(envValue: string | undefined): boolean {
-	// Default ON. CCFLARE_CIRCUIT_BREAKER=0 (or "false") disables. Anything
+	// Default ON. HOV_ROUTER_CIRCUIT_BREAKER=0 (or "false") disables. Anything
 	// else (unset, empty, "1", "true") keeps it on.
 	if (envValue === undefined || envValue === "") return true;
 	const v = envValue.trim().toLowerCase();
@@ -602,7 +602,7 @@ export class CircuitBreaker {
 
 let _default: CircuitBreaker | null = null;
 
-/** Lazily-constructed default breaker; reads CCFLARE_CIRCUIT_BREAKER at first use. */
+/** Lazily-constructed default breaker; reads HOV_ROUTER_CIRCUIT_BREAKER at first use. */
 export function getDefaultCircuitBreaker(): CircuitBreaker {
 	if (!_default) _default = new CircuitBreaker();
 	return _default;

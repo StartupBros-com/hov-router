@@ -358,7 +358,7 @@ describe("per-(provider, accountId) isolation", () => {
 });
 
 describe("env kill-switch", () => {
-	test("CCFLARE_CIRCUIT_BREAKER=0 makes the breaker a pass-through", () => {
+	test("HOV_ROUTER_CIRCUIT_BREAKER=0 makes the breaker a pass-through", () => {
 		process.env[CIRCUIT_BREAKER_ENV] = "0";
 		const cb = new CircuitBreaker();
 		expect(cb.isEnabled()).toBe(false);
@@ -369,7 +369,7 @@ describe("env kill-switch", () => {
 		expect(cb.shouldAllow(KEY_A, T0 + 200)).toBe(true);
 	});
 
-	test("CCFLARE_CIRCUIT_BREAKER=false also disables", () => {
+	test("HOV_ROUTER_CIRCUIT_BREAKER=false also disables", () => {
 		process.env[CIRCUIT_BREAKER_ENV] = "false";
 		const cb = new CircuitBreaker();
 		expect(cb.isEnabled()).toBe(false);

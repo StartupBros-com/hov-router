@@ -123,7 +123,7 @@ curl -s http://localhost:8080/health | jq .runtime.upstreamTransport
 }
 ```
 
-The `status` field and the HTTP status ignore this block on purpose. The guard's readiness probe, `scripts/deploy-ccflare.sh` and `scripts/run-ccflare-stack.sh` all require a 200 from `/health`, so letting a network outage turn it into a 503 would also block deploys and recycles of a router that is working. The dashboard's System Status shows a warning instead. Labels are provider names and the failure code is a short token, never a host or an error message.
+The `status` field and the HTTP status ignore this block on purpose. The guard's readiness probe, `scripts/deploy-hov-router.sh` and `scripts/run-hov-router.sh` all require a 200 from `/health`, so letting a network outage turn it into a 503 would also block deploys and recycles of a router that is working. The dashboard's System Status shows a warning instead. Labels are provider names and the failure code is a short token, never a host or an error message.
 
 **Retention job telemetry**
 
@@ -775,7 +775,7 @@ curl -X POST http://localhost:8080/api/accounts/uuid-here/redeem-reset \
 
 #### POST /api/accounts/:accountId/public-value
 
-Publish or unpublish an account on the public subscription value feed (`GET /api/public/subscription-value`) when the server runs with `BETTER_CCFLARE_PUBLIC_SUBSCRIPTIONS=accounts`. Requires admin authentication like other account routes (`401` while an API key is active and the caller is unauthenticated). The default is unpublished. The feed answers `schemaVersion: 2`; its shape is in [docs/reference.md](reference.md#optional-public-subscription-value-feed).
+Publish or unpublish an account on the public subscription value feed (`GET /api/public/subscription-value`) when the server runs with `HOV_ROUTER_PUBLIC_SUBSCRIPTIONS=accounts`. Requires admin authentication like other account routes (`401` while an API key is active and the caller is unauthenticated). The default is unpublished. The feed answers `schemaVersion: 2`; its shape is in [docs/reference.md](reference.md#optional-public-subscription-value-feed).
 
 **Request Body:**
 ```json
@@ -1157,7 +1157,7 @@ curl http://localhost:8080/api/strategies
 
 #### GET /api/config/provider-model-defaults
 
-Get the editable override layer sitting between account model mappings and each provider's compiled default model map (see [configuration.md](configuration.md#editable-provider-model-defaults)). Only providers enabled via `CCFLARE_MODEL_DEFAULTS_PROVIDERS` (default: `codex` only) are listed.
+Get the editable override layer sitting between account model mappings and each provider's compiled default model map (see [configuration.md](configuration.md#editable-provider-model-defaults)). Only providers enabled via `HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS` (default: `codex` only) are listed.
 
 **Response:**
 ```json
@@ -1511,7 +1511,7 @@ curl -X PATCH http://localhost:8080/api/agents/agent-uuid \
 
 #### GET /api/models
 
-Return the cached Anthropic model catalog used to populate model dropdowns (dashboard agent/default-model selects). Returns the live catalog if a successful fetch has occurred (scheduled refresh, manual refresh, or passive capture from a proxied `GET /v1/models`); otherwise the bundled static fallback shipped with better-ccflare.
+Return the cached Anthropic model catalog used to populate model dropdowns (dashboard agent/default-model selects). Returns the live catalog if a successful fetch has occurred (scheduled refresh, manual refresh, or passive capture from a proxied `GET /v1/models`); otherwise the bundled static fallback shipped with hov-router.
 
 **Response:**
 ```json
@@ -1580,7 +1580,7 @@ curl -X POST http://localhost:8080/api/models/preview \
 
 #### POST /api/models/refresh
 
-Force an immediate live model catalog refresh, bypassing the scheduled interval. Prefers a console/API-key account and allows an OAuth fallback regardless of `BETTER_CCFLARE_MODELS_OAUTH_REFRESH`; that flag controls scheduled refreshes only. This lists models, not inference. The offline switch still prevents the refresh. Never throws — always returns `200` with the outcome, even on failure (e.g. no eligible account, network error).
+Force an immediate live model catalog refresh, bypassing the scheduled interval. Prefers a console/API-key account and allows an OAuth fallback regardless of `HOV_ROUTER_MODELS_OAUTH_REFRESH`; that flag controls scheduled refreshes only. This lists models, not inference. The offline switch still prevents the refresh. Never throws — always returns `200` with the outcome, even on failure (e.g. no eligible account, network error).
 
 **Response:**
 ```json
@@ -1793,17 +1793,17 @@ HoV Router can be configured using the following environment variables:
 - `RETRY_ATTEMPTS` - Number of retry attempts for failed requests (default: 3)
 - `RETRY_DELAY_MS` - Initial delay between retries in milliseconds (default: 1000)
 - `RETRY_BACKOFF` - Exponential backoff multiplier for retries (default: 2)
-- `BETTER_CCFLARE_MODELS_REFRESH_HOURS` - Hours between scheduled model catalog refreshes, 0 disables scheduled refresh (default: 168 / 7 days). See [Model Catalog](configuration.md#model-catalog).
-- `BETTER_CCFLARE_MODELS_OFFLINE` - Disable scheduled/manual model catalog refresh and passive `/v1/models` capture (default: unset)
-- `BETTER_CCFLARE_MODELS_CACHE_DIR` - Directory for the persisted model catalog cache file (default: platform config dir)
-- `BETTER_CCFLARE_MODELS_OAUTH_REFRESH` - Allow OAuth accounts as a fallback source for scheduled model catalog refreshes (default: unset / console-only). Manual refreshes allow the fallback regardless of this setting.
+- `HOV_ROUTER_MODELS_REFRESH_HOURS` - Hours between scheduled model catalog refreshes, 0 disables scheduled refresh (default: 168 / 7 days). See [Model Catalog](configuration.md#model-catalog).
+- `HOV_ROUTER_MODELS_OFFLINE` - Disable scheduled/manual model catalog refresh and passive `/v1/models` capture (default: unset)
+- `HOV_ROUTER_MODELS_CACHE_DIR` - Directory for the persisted model catalog cache file (default: platform config dir)
+- `HOV_ROUTER_MODELS_OAUTH_REFRESH` - Allow OAuth accounts as a fallback source for scheduled model catalog refreshes (default: unset / console-only). Manual refreshes allow the fallback regardless of this setting.
 
 ### Configuration File
 
 In addition to environment variables, HoV Router supports configuration through a JSON file. The config file location varies by platform:
-- macOS: `~/Library/Application Support/better-ccflare/config.json`
-- Linux: `~/.config/better-ccflare/config.json`
-- Windows: `%APPDATA%\better-ccflare\config.json`
+- macOS: `~/Library/Application Support/hov-router/config.json`
+- Linux: `~/.config/hov-router/config.json`
+- Windows: `%APPDATA%\hov-router\config.json`
 
 **Supported Configuration Keys:**
 ```json

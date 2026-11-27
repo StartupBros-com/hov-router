@@ -16,7 +16,7 @@ import {
 	RECOVERY_STATUS_EXHAUSTED,
 	RECOVERY_STATUS_HEADER,
 	recoveryHeaderStatus,
-} from "../ccflare-guard-policy.mjs";
+} from "../hov-router-guard-policy.mjs";
 
 const NOW = Date.parse("2026-07-17T12:00:00.000Z");
 
@@ -84,7 +84,7 @@ describe("poolHeaderStatus", () => {
 		expect(
 			poolHeaderStatus({
 				status: 503,
-				headers: new Headers({ "x-better-ccflare-pool-status": "exhausted" }),
+				headers: new Headers({ "x-hov-router-pool-status": "exhausted" }),
 			}),
 		).toBe("confirmed");
 	});
@@ -93,7 +93,7 @@ describe("poolHeaderStatus", () => {
 		expect(
 			poolHeaderStatus({
 				status: 503,
-				headers: new Headers({ "x-better-ccflare-pool-status": "available" }),
+				headers: new Headers({ "x-hov-router-pool-status": "available" }),
 			}),
 		).toBe("denied");
 	});
@@ -108,7 +108,7 @@ describe("poolHeaderStatus", () => {
 		expect(
 			poolHeaderStatus({
 				status: 500,
-				headers: new Headers({ "x-better-ccflare-pool-status": "exhausted" }),
+				headers: new Headers({ "x-hov-router-pool-status": "exhausted" }),
 			}),
 		).toBe("not_applicable");
 	});
@@ -122,8 +122,8 @@ describe("recoveryHeaderStatus", () => {
 				recoveryHeaderStatus({
 					status: 503,
 					headers: new Headers({
-						"x-better-ccflare-pool-status": "exhausted",
-						"x-better-ccflare-recovery-scope": scope,
+						"x-hov-router-pool-status": "exhausted",
+						"x-hov-router-recovery-scope": scope,
 					}),
 				}),
 			).toEqual({ kind: "confirmed", scope });
@@ -135,7 +135,7 @@ describe("recoveryHeaderStatus", () => {
 			recoveryHeaderStatus({
 				status: 503,
 				headers: new Headers({
-					"x-better-ccflare-pool-status": "exhausted",
+					"x-hov-router-pool-status": "exhausted",
 				}),
 			}),
 		).toEqual({ kind: "confirmed", scope: "legacy" });
@@ -146,8 +146,8 @@ describe("recoveryHeaderStatus", () => {
 			recoveryHeaderStatus({
 				status: 503,
 				headers: new Headers({
-					"x-better-ccflare-pool-status": "exhausted",
-					"x-better-ccflare-recovery-scope": "provider",
+					"x-hov-router-pool-status": "exhausted",
+					"x-hov-router-recovery-scope": "provider",
 				}),
 			}),
 		).toEqual({ kind: "denied", scope: null });
@@ -158,7 +158,7 @@ describe("recoveryHeaderStatus", () => {
 			recoveryHeaderStatus({
 				status: 503,
 				headers: new Headers({
-					"x-better-ccflare-recovery-scope": "model",
+					"x-hov-router-recovery-scope": "model",
 				}),
 			}),
 		).toEqual({ kind: "denied", scope: null });
@@ -175,9 +175,9 @@ describe("evaluateGuardRetry", () => {
 	test("holds a route-scoped terminal for its advertised reopen delay", () => {
 		const decision = evaluate({
 			headers: {
-				"x-better-ccflare-pool-status": "exhausted",
-				"x-better-ccflare-recovery-scope": "route",
-				"x-better-ccflare-route-status": "circuit-open",
+				"x-hov-router-pool-status": "exhausted",
+				"x-hov-router-recovery-scope": "route",
+				"x-hov-router-route-status": "circuit-open",
 				"retry-after": "15",
 			},
 		});
@@ -194,8 +194,8 @@ describe("evaluateGuardRetry", () => {
 	test("reports the trusted model recovery scope", () => {
 		const decision = evaluate({
 			headers: {
-				"x-better-ccflare-pool-status": "exhausted",
-				"x-better-ccflare-recovery-scope": "model",
+				"x-hov-router-pool-status": "exhausted",
+				"x-hov-router-recovery-scope": "model",
 				"retry-after": "5",
 			},
 		});
@@ -210,7 +210,7 @@ describe("evaluateGuardRetry", () => {
 	test("retries an explicitly exhausted whole pool with Retry-After", () => {
 		const decision = evaluate({
 			headers: {
-				"x-better-ccflare-pool-status": "exhausted",
+				"x-hov-router-pool-status": "exhausted",
 				"retry-after": "5",
 			},
 		});
@@ -226,7 +226,7 @@ describe("evaluateGuardRetry", () => {
 
 	test("uses the earliest finite future body recovery signal", () => {
 		const decision = evaluate({
-			headers: { "x-better-ccflare-pool-status": "exhausted" },
+			headers: { "x-hov-router-pool-status": "exhausted" },
 			body: {
 				type: "error",
 				error: {
@@ -250,7 +250,7 @@ describe("evaluateGuardRetry", () => {
 	test("treats Retry-After as a minimum while allowing a later body blocker", () => {
 		const earlierBody = evaluate({
 			headers: {
-				"x-better-ccflare-pool-status": "exhausted",
+				"x-hov-router-pool-status": "exhausted",
 				"retry-after": "5",
 			},
 			body: {
@@ -267,7 +267,7 @@ describe("evaluateGuardRetry", () => {
 
 		const laterBody = evaluate({
 			headers: {
-				"x-better-ccflare-pool-status": "exhausted",
+				"x-hov-router-pool-status": "exhausted",
 				"retry-after": "5",
 			},
 			body: {
@@ -283,13 +283,13 @@ describe("evaluateGuardRetry", () => {
 		});
 	});
 
-	// R17: the guard's stable x-better-ccflare-pool-status: exhausted header is
+	// R17: the guard's stable x-hov-router-pool-status: exhausted header is
 	// the primary, sufficient signal. Header confirmation alone is authoritative:
 	// the guard no longer
 	// requires a parseable, type-matching body once the header confirms.
 	test("a confirmed header retries even with a malformed body", () => {
 		const decision = evaluate({
-			headers: { "x-better-ccflare-pool-status": "exhausted" },
+			headers: { "x-hov-router-pool-status": "exhausted" },
 			body: "not-json",
 		});
 		expect(decision).toMatchObject({
@@ -300,7 +300,7 @@ describe("evaluateGuardRetry", () => {
 
 	test("a confirmed header retries even with no body at all", () => {
 		const decision = evaluate({
-			headers: { "x-better-ccflare-pool-status": "exhausted" },
+			headers: { "x-hov-router-pool-status": "exhausted" },
 			body: "",
 		});
 		expect(decision).toMatchObject({
@@ -312,7 +312,7 @@ describe("evaluateGuardRetry", () => {
 	test("a confirmed header retries even when the body disagrees, falling back to no delay", () => {
 		const decision = evaluate({
 			headers: {
-				"x-better-ccflare-pool-status": "exhausted",
+				"x-hov-router-pool-status": "exhausted",
 				"retry-after": "0",
 			},
 			body: {
@@ -333,8 +333,8 @@ describe("evaluateGuardRetry", () => {
 	test("never retries a physical-attempt budget terminal even if recovery-shaped metadata is present", () => {
 		const decision = evaluate({
 			headers: {
-				"x-better-ccflare-pool-status": "exhausted",
-				"x-better-ccflare-recovery-scope": "pool",
+				"x-hov-router-pool-status": "exhausted",
+				"x-hov-router-recovery-scope": "pool",
 				"retry-after": "5",
 			},
 			body: {
@@ -374,7 +374,7 @@ describe("evaluateGuardRetry", () => {
 		expect(
 			evaluate({
 				headers: {
-					"x-better-ccflare-pool-status": "available",
+					"x-hov-router-pool-status": "available",
 					"retry-after": "5",
 				},
 			}).retry,
@@ -416,7 +416,7 @@ describe("evaluateGuardRetry", () => {
 				evaluate({
 					status,
 					headers: {
-						"x-better-ccflare-pool-status": "exhausted",
+						"x-hov-router-pool-status": "exhausted",
 						"retry-after": "5",
 					},
 				}).retry,

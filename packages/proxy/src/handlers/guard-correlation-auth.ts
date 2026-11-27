@@ -12,7 +12,7 @@ import { GUARD_REQUEST_ID_HEADER } from "@hov-router/http-common";
 export const GUARD_CORRELATION_VERSION = "v1" as const;
 export const MAX_GUARD_ATTEMPT_ORDINAL = 1_000_000;
 
-const SIGNING_DOMAIN = "better-ccflare/guard-correlation/v1";
+const SIGNING_DOMAIN = "hov-router/guard-correlation/v1";
 const UUID_V4_PATTERN =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const ORDINAL_PATTERN = /^[1-9]\d{0,6}$/;

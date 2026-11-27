@@ -55,7 +55,7 @@ function publicCodexCapabilities(
 /**
  * Where a listed model id came from — the whole point of the endpoint.
  *
- *  - "builtin"   ccflare itself knows this model for that provider (it is in
+ *  - "builtin"   the router itself knows this model for that provider (it is in
  *                the provider adapter's own table). Strongest signal there is.
  *  - "catalog"   the provider's own live listing (Anthropic /v1/models),
  *                fetched with a real account's credentials.
@@ -85,19 +85,19 @@ export interface ProviderModelEntry {
 }
 
 /**
- * ccflare provider name -> models.dev top-level section. Only names that
+ * Router provider name -> models.dev top-level section. Only names that
  * differ need an entry; anything else falls through to the provider name
  * itself, which models.dev uses verbatim for "anthropic", "zai", "minimax",
  * and friends.
  */
 const MODELS_DEV_SECTION_BY_PROVIDER: Record<string, string> = {
 	// Intentionally empty for providers that answer with a listing of their
-	// own. Add an entry only for a provider whose models ccflare cannot ask
+	// own. Add an entry only for a provider whose models the router cannot ask
 	// for — the catalogue is the fallback of last resort, not a second opinion.
 };
 
 /**
- * Model ids ccflare ships knowledge of, per provider.
+ * Model ids the router ships knowledge of, per provider.
  *
  * Empty for codex on purpose: the account's own listing supersedes anything
  * compiled in, and the compiled list contained `gpt-5.3-codex`, which a
@@ -123,7 +123,7 @@ function isAnthropicProvider(provider: string): boolean {
  * so existing callers keep working. Explicit provider/account queries use the
  * stricter entitlement-aware response below.
  *
- * For every other provider the answer is the union of what ccflare knows
+ * For every other provider the answer is the union of what the router knows
  * built in and what the public models.dev catalogue lists, deduplicated by
  * id with the stronger marking winning, builtin entries first. A failed or
  * unavailable catalogue fetch degrades to the builtin list plus a warning —

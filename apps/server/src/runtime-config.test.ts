@@ -17,7 +17,7 @@ describe("buildServerRuntimeConfig", () => {
 	let savedSessionDuration: string | undefined;
 
 	beforeEach(() => {
-		dir = mkdtempSync(join(tmpdir(), "better-ccflare-server-runtime-"));
+		dir = mkdtempSync(join(tmpdir(), "hov-router-server-runtime-"));
 		configPath = join(dir, "config.json");
 		savedAttempts = process.env.RETRY_ATTEMPTS;
 		delete process.env.RETRY_ATTEMPTS;

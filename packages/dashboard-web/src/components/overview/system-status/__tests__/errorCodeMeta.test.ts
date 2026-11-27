@@ -348,12 +348,12 @@ describe("getErrorMeta", () => {
 		// doesn't assume this code is only about a headerless HTTP 529.
 		expect(meta.description).toContain("mid-stream");
 		// This path is the 10s single-flight probe cooldown
-		// (CCFLARE_OVERLOAD_COOLDOWN_MS), not the 429 no-reset default
-		// (CCFLARE_DEFAULT_COOLDOWN_NO_RESET_MS, 60s) — a prior revision named
+		// (HOV_ROUTER_OVERLOAD_COOLDOWN_MS), not the 429 no-reset default
+		// (HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS, 60s) — a prior revision named
 		// the wrong env var and duration here.
-		expect(meta.suggestion).toContain("CCFLARE_OVERLOAD_COOLDOWN_MS");
+		expect(meta.suggestion).toContain("HOV_ROUTER_OVERLOAD_COOLDOWN_MS");
 		expect(meta.suggestion).not.toContain(
-			"CCFLARE_DEFAULT_COOLDOWN_NO_RESET_MS",
+			"HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS",
 		);
 	});
 

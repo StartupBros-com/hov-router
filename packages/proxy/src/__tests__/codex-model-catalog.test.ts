@@ -335,10 +335,10 @@ describe("codexClientCatalogResponse", () => {
 
 describe("getCodexModels", () => {
 	it("pairs catalog version and user agent across credential awaits", async () => {
-		const oldVersion = process.env.CCFLARE_CODEX_CLIENT_VERSION;
+		const oldVersion = process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 		const requests: Request[] = [];
 		try {
-			process.env.CCFLARE_CODEX_CLIENT_VERSION = "0.171.0";
+			process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = "0.171.0";
 			globalThis.fetch = (async (input, init) => {
 				requests.push(new Request(input, init));
 				return Response.json(LIVE_BODY);
@@ -346,7 +346,7 @@ describe("getCodexModels", () => {
 			const pending = getCodexModels("acc-codex", makeCtx(makeAccount()));
 			// Allow the account lookup to complete; fetchLive snapshots before its token await.
 			await Promise.resolve();
-			process.env.CCFLARE_CODEX_CLIENT_VERSION = "0.172.0";
+			process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = "0.172.0";
 			await pending;
 			expect(new URL(requests[0].url).searchParams.get("client_version")).toBe(
 				"0.171.0",
@@ -357,8 +357,8 @@ describe("getCodexModels", () => {
 			expect(requests[0].headers.get("originator")).toBe("codex_cli_rs");
 		} finally {
 			if (oldVersion === undefined)
-				delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-			else process.env.CCFLARE_CODEX_CLIENT_VERSION = oldVersion;
+				delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+			else process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = oldVersion;
 		}
 	});
 	it("uses the current inference version when discovering Sol and Luna", async () => {
@@ -1699,8 +1699,8 @@ describe("Codex catalog alert events", () => {
 	});
 
 	describe("verified Codex CLI version record", () => {
-		const previousPath = process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE;
-		const previousVersion = process.env.CCFLARE_CODEX_CLIENT_VERSION;
+		const previousPath = process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE;
+		const previousVersion = process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 		let dir: string;
 
 		function writeRecord(name: string, verifiedAt: string): string {
@@ -1718,18 +1718,18 @@ describe("Codex catalog alert events", () => {
 		}
 
 		beforeEach(() => {
-			dir = mkdtempSync(join(tmpdir(), "ccflare-codex-identity-alert-"));
-			delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-			delete process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE;
+			dir = mkdtempSync(join(tmpdir(), "hov-router-codex-identity-alert-"));
+			delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+			delete process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE;
 		});
 
 		afterEach(() => {
 			if (previousPath === undefined)
-				delete process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE;
-			else process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = previousPath;
+				delete process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE;
+			else process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = previousPath;
 			if (previousVersion === undefined)
-				delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-			else process.env.CCFLARE_CODEX_CLIENT_VERSION = previousVersion;
+				delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+			else process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = previousVersion;
 			rmSync(dir, { recursive: true, force: true });
 		});
 
@@ -1739,7 +1739,7 @@ describe("Codex catalog alert events", () => {
 		});
 
 		it("stays silent while a configured record is fresh", () => {
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = writeRecord(
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = writeRecord(
 				"fresh",
 				new Date(Date.now() - 24 * 60 * 60_000).toISOString(),
 			);
@@ -1752,7 +1752,7 @@ describe("Codex catalog alert events", () => {
 				Date.now() - 40 * 24 * 60 * 60_000,
 			).toISOString();
 			const file = writeRecord("stale", verifiedAt);
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = file;
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = file;
 
 			evaluateCodexClientIdentityRecord();
 
@@ -1769,7 +1769,7 @@ describe("Codex catalog alert events", () => {
 
 		it("reports a configured record that is missing", () => {
 			const file = join(dir, "missing");
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = file;
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = file;
 
 			evaluateCodexClientIdentityRecord();
 
@@ -1783,14 +1783,14 @@ describe("Codex catalog alert events", () => {
 		});
 
 		it("defers to an explicit client version", () => {
-			process.env.CCFLARE_CODEX_CLIENT_VERSION = "0.200.0";
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = join(dir, "missing");
+			process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = "0.200.0";
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = join(dir, "missing");
 			evaluateCodexClientIdentityRecord();
 			expect(collected.events).toEqual([]);
 		});
 
 		it("is evaluated once per refresh cycle by the heartbeat, never per tick", async () => {
-			process.env.CCFLARE_CODEX_VERIFIED_VERSION_FILE = join(dir, "missing");
+			process.env.HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE = join(dir, "missing");
 			const ctx = makeCtx(null);
 			ctx.dbOps.getAllAccounts = async () => [];
 			const stop = initCodexModelCatalogRefresh(ctx, {

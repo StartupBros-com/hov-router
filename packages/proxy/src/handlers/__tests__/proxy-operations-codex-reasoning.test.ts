@@ -489,7 +489,7 @@ describe("filterCodexReasoningBlocks", () => {
 describe("proxyWithAccount Codex reasoning recovery", () => {
 	it("retries once without retained reasoning while preserving siblings and the physical route", async () => {
 		const originalFetch = globalThis.fetch;
-		const previousTraceDirectory = process.env.CCFLARE_CODEX_TRACE_DIR;
+		const previousTraceDirectory = process.env.HOV_ROUTER_CODEX_TRACE_DIR;
 		const traceDirectory = mkdtempSync(
 			join(tmpdir(), "codex-reasoning-retry-"),
 		);
@@ -505,7 +505,7 @@ describe("proxyWithAccount Codex reasoning recovery", () => {
 		} as never);
 
 		try {
-			process.env.CCFLARE_CODEX_TRACE_DIR = traceDirectory;
+			process.env.HOV_ROUTER_CODEX_TRACE_DIR = traceDirectory;
 			globalThis.fetch = mock(async (input: RequestInfo | URL) => {
 				const request =
 					input instanceof Request ? input : new Request(String(input));
@@ -616,9 +616,9 @@ describe("proxyWithAccount Codex reasoning recovery", () => {
 		} finally {
 			globalThis.fetch = originalFetch;
 			if (previousTraceDirectory === undefined) {
-				delete process.env.CCFLARE_CODEX_TRACE_DIR;
+				delete process.env.HOV_ROUTER_CODEX_TRACE_DIR;
 			} else {
-				process.env.CCFLARE_CODEX_TRACE_DIR = previousTraceDirectory;
+				process.env.HOV_ROUTER_CODEX_TRACE_DIR = previousTraceDirectory;
 			}
 			rmSync(traceDirectory, { recursive: true, force: true });
 			usageCollector.mockRestore();
@@ -690,14 +690,14 @@ describe("proxyWithAccount Codex reasoning recovery", () => {
 	});
 
 	it("keeps reasoning stripped through a following cache-control retry", async () => {
-		const previousTraceDirectory = process.env.CCFLARE_CODEX_TRACE_DIR;
+		const previousTraceDirectory = process.env.HOV_ROUTER_CODEX_TRACE_DIR;
 		const traceDirectory = mkdtempSync(
 			join(tmpdir(), "codex-reasoning-cache-control-retry-"),
 		);
 		const requestId = "codex-reasoning-cache-control-retry";
 
 		try {
-			process.env.CCFLARE_CODEX_TRACE_DIR = traceDirectory;
+			process.env.HOV_ROUTER_CODEX_TRACE_DIR = traceDirectory;
 			const scenario = await runCodexRecoveryScenario(
 				requestId,
 				(attempt) => {
@@ -738,16 +738,16 @@ describe("proxyWithAccount Codex reasoning recovery", () => {
 			expect(traces.map((trace) => trace.attempt_ordinal)).toEqual([1, 2, 3]);
 		} finally {
 			if (previousTraceDirectory === undefined) {
-				delete process.env.CCFLARE_CODEX_TRACE_DIR;
+				delete process.env.HOV_ROUTER_CODEX_TRACE_DIR;
 			} else {
-				process.env.CCFLARE_CODEX_TRACE_DIR = previousTraceDirectory;
+				process.env.HOV_ROUTER_CODEX_TRACE_DIR = previousTraceDirectory;
 			}
 			rmSync(traceDirectory, { recursive: true, force: true });
 		}
 	});
 	it("keeps reasoning stripped when a model fallback follows the retry", async () => {
 		const originalFetch = globalThis.fetch;
-		const previousTraceDirectory = process.env.CCFLARE_CODEX_TRACE_DIR;
+		const previousTraceDirectory = process.env.HOV_ROUTER_CODEX_TRACE_DIR;
 		const traceDirectory = mkdtempSync(
 			join(tmpdir(), "codex-reasoning-fallback-"),
 		);
@@ -763,7 +763,7 @@ describe("proxyWithAccount Codex reasoning recovery", () => {
 		} as never);
 
 		try {
-			process.env.CCFLARE_CODEX_TRACE_DIR = traceDirectory;
+			process.env.HOV_ROUTER_CODEX_TRACE_DIR = traceDirectory;
 			// 1: reasoning-verification 400 -> strip+retry.
 			// 2: the stripped retry is rate-limited -> model fallback.
 			// 3: the fallback candidate must NOT carry the stripped block back.
@@ -854,9 +854,9 @@ describe("proxyWithAccount Codex reasoning recovery", () => {
 		} finally {
 			globalThis.fetch = originalFetch;
 			if (previousTraceDirectory === undefined) {
-				delete process.env.CCFLARE_CODEX_TRACE_DIR;
+				delete process.env.HOV_ROUTER_CODEX_TRACE_DIR;
 			} else {
-				process.env.CCFLARE_CODEX_TRACE_DIR = previousTraceDirectory;
+				process.env.HOV_ROUTER_CODEX_TRACE_DIR = previousTraceDirectory;
 			}
 			rmSync(traceDirectory, { recursive: true, force: true });
 			usageCollector.mockRestore();

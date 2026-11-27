@@ -193,19 +193,19 @@ describe("proxyWithAccount — reset-less 529 in-place retry gate", () => {
 	let originalFetch: typeof globalThis.fetch;
 	const savedEnv: Record<string, string | undefined> = {};
 	const ENV_KEYS = [
-		"CCFLARE_OVERLOAD_RETRY_ENABLED",
-		"CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS",
-		"CCFLARE_OVERLOAD_RETRY_BASE_MS",
-		"CCFLARE_OVERLOAD_RETRY_MAX_MS",
+		"HOV_ROUTER_OVERLOAD_RETRY_ENABLED",
+		"HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS",
+		"HOV_ROUTER_OVERLOAD_RETRY_BASE_MS",
+		"HOV_ROUTER_OVERLOAD_RETRY_MAX_MS",
 	];
 
 	beforeEach(() => {
 		originalFetch = globalThis.fetch;
 		for (const key of ENV_KEYS) savedEnv[key] = process.env[key];
-		process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = "true";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
-		process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = "true";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";
 	});
 
 	afterEach(() => {
@@ -226,7 +226,7 @@ describe("proxyWithAccount — reset-less 529 in-place retry gate", () => {
 	});
 
 	it("honors the full retry budget on persistent reset-less 529s", async () => {
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
 		let fetchCount = 0;
 		await run(zaiLikeProvider(), async () => {
 			fetchCount++;

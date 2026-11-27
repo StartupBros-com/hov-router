@@ -178,8 +178,8 @@ beforeEach(() => {
 		requiredCollectorSpy.mockRestore();
 		optionalCollectorSpy.mockRestore();
 	};
-	savedPassthrough = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-	delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+	savedPassthrough = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+	delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	SESSION_ID = `clear-wiring-session-${++sessionCounter}`;
 	// Seed a stale association (from an OLDER request, version 1) so each exit's
 	// clear — stamped with the current request's later timestamp — supersedes it.
@@ -192,9 +192,9 @@ afterEach(() => {
 	clearSession(SESSION_ID);
 	usageCache.delete("acc-throttled");
 	if (savedPassthrough === undefined) {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	} else {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = savedPassthrough;
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = savedPassthrough;
 	}
 });
 
@@ -279,13 +279,13 @@ describe("KTD-5: clearSession on no-account-served exits", () => {
 		}
 	});
 
-	it("clears on the CCFLARE_PASSTHROUGH_ON_EMPTY_POOL passthrough (even when it throws)", async () => {
-		// With an empty pool and the passthrough flag on, no better-ccflare account
+	it("clears on the HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL passthrough (even when it throws)", async () => {
+		// With an empty pool and the passthrough flag on, no hov-router account
 		// serves the request. The clear runs BEFORE proxyUnauthenticated, so even
 		// when the passthrough throws (no real upstream here) the stale mapping is
 		// still cleared — the gap a thrown proxyUnauthenticated would otherwise
 		// leave by bypassing forwardToClient's null-account branch (KTD-5).
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		expect(getServedAccount(SESSION_ID)).toBe("stale-account");
 
 		try {
@@ -308,7 +308,7 @@ describe("KTD-5: clearSession on no-account-served exits", () => {
 		recordServedAccount(SESSION_ID, "healthy-account", 100);
 		expect(getServedAccount(SESSION_ID)).toBe("healthy-account");
 
-		const request = makeRequest({ "x-better-ccflare-keepalive": "true" });
+		const request = makeRequest({ "x-hov-router-keepalive": "true" });
 		stampInternalSchedulerAuth(request.headers);
 
 		await handleProxy(
@@ -325,7 +325,7 @@ describe("KTD-5: clearSession on no-account-served exits", () => {
 		expect(getServedAccount(SESSION_ID)).toBe("stale-account");
 
 		await handleProxy(
-			makeRequest({ "x-better-ccflare-keepalive": "true" }),
+			makeRequest({ "x-hov-router-keepalive": "true" }),
 			new URL("https://proxy.local/v1/messages"),
 			makeContext([]),
 		);
@@ -356,7 +356,7 @@ describe("KTD-5: clearSession on no-account-served exits", () => {
 		expect(getServedAccount(SESSION_ID)).toBe("stale-account");
 
 		const response = await handleProxy(
-			makeRequest({ "x-better-ccflare-account-id": account.id }),
+			makeRequest({ "x-hov-router-account-id": account.id }),
 			new URL("https://proxy.local/v1/messages"),
 			ctx,
 		);

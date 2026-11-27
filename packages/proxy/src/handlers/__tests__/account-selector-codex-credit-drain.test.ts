@@ -140,7 +140,7 @@ describe("selectAccountsForRequest — Codex credit drain", () => {
 		});
 		await ownedPoll(account.id, CREDITS);
 		const result = await selectAccountsForRequest(
-			makeMeta({ "x-better-ccflare-account-id": account.id }),
+			makeMeta({ "x-hov-router-account-id": account.id }),
 			makeCtx([account]),
 			MODEL,
 		);
@@ -152,7 +152,7 @@ describe("selectAccountsForRequest — Codex credit drain", () => {
 		await ownedPoll(account.id, CREDITS);
 		await expect(
 			selectAccountsForRequest(
-				makeMeta({ "x-better-ccflare-account-id": account.id }),
+				makeMeta({ "x-hov-router-account-id": account.id }),
 				makeCtx([account]),
 				MODEL,
 			),
@@ -167,8 +167,8 @@ describe("selectAccountsForRequest — Codex credit drain", () => {
 		await ownedPoll(account.id, CREDITS);
 		const result = await selectAccountsForRequest(
 			makeMeta({
-				"x-better-ccflare-account-id": account.id,
-				"x-better-ccflare-auto-refresh": "true",
+				"x-hov-router-account-id": account.id,
+				"x-hov-router-auto-refresh": "true",
 			}),
 			makeCtx([account]),
 			MODEL,
@@ -184,7 +184,7 @@ describe("selectAccountsForRequest — Codex credit drain", () => {
 		await ownedPoll(account.id, CREDITS);
 		await expect(
 			selectAccountsForRequest(
-				makeMeta({ "x-better-ccflare-account-id": account.id }),
+				makeMeta({ "x-hov-router-account-id": account.id }),
 				makeCtx([account]),
 				MODEL,
 				{ syntheticProbe: true },

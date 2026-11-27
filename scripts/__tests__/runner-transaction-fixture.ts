@@ -1,5 +1,5 @@
 /**
- * The runner (scripts/run-ccflare-stack.sh) started the way the unit starts
+ * The runner (scripts/run-hov-router.sh) started the way the unit starts
  * it: with the deployment transaction on, the repo's own guard and
  * transaction module, and cwd "/". Only the backend is a stub. It answers
  * /health and exits when a test tells it to.
@@ -27,10 +27,10 @@ export const repoRoot = join(import.meta.dir, "..", "..");
 export const transactionModule = join(
 	repoRoot,
 	"scripts",
-	"ccflare-deployment-transaction.mjs",
+	"hov-router-deployment-transaction.mjs",
 );
-const runnerScript = join(repoRoot, "scripts", "run-ccflare-stack.sh");
-const READY = "ccflare stack ready";
+const runnerScript = join(repoRoot, "scripts", "run-hov-router.sh");
+const READY = "hov-router stack ready";
 
 export interface RunnerLayout {
 	/** The stub programs and what they record. Never on the filesystem under test. */
@@ -249,15 +249,15 @@ export async function startRunner(
 		HOME: home,
 		USER: "fixture",
 		NODE_BIN: nodeWrapper,
-		CCFLARE_BIN: backend,
-		GUARD_SCRIPT: join(repoRoot, "scripts", "ccflare-guard.mjs"),
+		HOV_ROUTER_BIN: backend,
+		GUARD_SCRIPT: join(repoRoot, "scripts", "hov-router-guard.mjs"),
 		GUARD_SOURCE_ID: "a".repeat(40),
-		CCFLARE_SOURCE_SHA: "a".repeat(40),
-		CCFLARE_GIT_SHA: "a".repeat(40),
-		CCFLARE_SCHEMA_DIGEST: "c".repeat(64),
-		CCFLARE_PIN_PATH: pin,
-		CCFLARE_TRANSACTION_DIR: handoff,
-		CCFLARE_UPSTREAM_PORT: String(upstreamPort),
+		HOV_ROUTER_SOURCE_SHA: "a".repeat(40),
+		HOV_ROUTER_GIT_SHA: "a".repeat(40),
+		HOV_ROUTER_SCHEMA_DIGEST: "c".repeat(64),
+		HOV_ROUTER_PIN_PATH: pin,
+		HOV_ROUTER_TRANSACTION_DIR: handoff,
+		HOV_ROUTER_UPSTREAM_PORT: String(upstreamPort),
 		GUARD_PORT: String(guardPort),
 		GUARD_TOTAL_DEADLINE_MS: "10000",
 		GUARD_RETRY_ATTEMPT_HEADROOM_MS: "1",
@@ -279,7 +279,7 @@ export async function startRunner(
 		RUNNER_PERSISTENT_GUARD: undefined,
 		RUNNER_CIRCUIT_HOLD: undefined,
 		LOG_LEVEL: undefined,
-		CCFLARE_DEPLOYMENT_RUNTIME: undefined,
+		HOV_ROUTER_DEPLOYMENT_RUNTIME: undefined,
 		RUNTIME_DIRECTORY: layout.runtimeDirectory,
 		...extraEnv,
 	};

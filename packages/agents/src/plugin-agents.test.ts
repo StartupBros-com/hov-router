@@ -130,19 +130,19 @@ describe("parsePluginManifest", () => {
 
 describe("AgentRegistry plugin agent discovery", () => {
 	let tmpDir: string;
-	const originalEnv = process.env.BETTER_CCFLARE_DISCOVER_PLUGIN_AGENTS;
+	const originalEnv = process.env.HOV_ROUTER_DISCOVER_PLUGIN_AGENTS;
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "bcf-agents-test-"));
-		delete process.env.BETTER_CCFLARE_DISCOVER_PLUGIN_AGENTS;
+		delete process.env.HOV_ROUTER_DISCOVER_PLUGIN_AGENTS;
 	});
 
 	afterEach(() => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 		if (originalEnv !== undefined) {
-			process.env.BETTER_CCFLARE_DISCOVER_PLUGIN_AGENTS = originalEnv;
+			process.env.HOV_ROUTER_DISCOVER_PLUGIN_AGENTS = originalEnv;
 		} else {
-			delete process.env.BETTER_CCFLARE_DISCOVER_PLUGIN_AGENTS;
+			delete process.env.HOV_ROUTER_DISCOVER_PLUGIN_AGENTS;
 		}
 	});
 
@@ -155,7 +155,7 @@ describe("AgentRegistry plugin agent discovery", () => {
 	});
 
 	it("loads plugin agents when env var is set to 'true' and manifest is valid", async () => {
-		process.env.BETTER_CCFLARE_DISCOVER_PLUGIN_AGENTS = "true";
+		process.env.HOV_ROUTER_DISCOVER_PLUGIN_AGENTS = "true";
 
 		// Create plugin install under tmpDir (which is under os.tmpdir() — an allowed path)
 		const installPath = path.join(tmpDir, "plugin-install");
@@ -228,7 +228,7 @@ describe("AgentRegistry plugin agent discovery", () => {
 		// workspace agents, so a workspace named "myplugin" with agent "my-agent"
 		// would silently swallow plugin "myplugin" agent "my-agent" because both
 		// produced the key "myplugin:my-agent". Plugin dedup now uses its own set.
-		process.env.BETTER_CCFLARE_DISCOVER_PLUGIN_AGENTS = "true";
+		process.env.HOV_ROUTER_DISCOVER_PLUGIN_AGENTS = "true";
 
 		const installPath = path.join(tmpDir, "plugin-install");
 		const agentsDir = path.join(installPath, "agents");
@@ -258,7 +258,7 @@ describe("AgentRegistry plugin agent discovery", () => {
 	});
 
 	it("updateAgent rejects plugin-managed agents to prevent overwriting plugin source files", async () => {
-		process.env.BETTER_CCFLARE_DISCOVER_PLUGIN_AGENTS = "true";
+		process.env.HOV_ROUTER_DISCOVER_PLUGIN_AGENTS = "true";
 
 		const installPath = path.join(tmpDir, "plugin-install");
 		const agentsDir = path.join(installPath, "agents");

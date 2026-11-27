@@ -23,11 +23,11 @@ import {
 import { ensureSchema, runMigrations } from "../migrations";
 
 /**
- * better-ccflare.db stores api_key, refresh_token and access_token as plaintext
+ * hov-router.db stores api_key, refresh_token and access_token as plaintext
  * TEXT, so the database, its sidecars and every VACUUM INTO backup must be
  * readable by the owner only.
  *
- * Ported from SijanC147/better-ccflare db-file-mode.test.ts and
+ * Ported from SijanC147/hov-router db-file-mode.test.ts and
  * backup-file-modes.test.ts (aa6787355, 2f4b3eb3b).
  *
  * The umask is pinned at 022 and every fixture is chmodded to 0644 explicitly:
@@ -82,7 +82,7 @@ describe("restrictDbFile", () => {
 
 describe("restrictDbFiles", () => {
 	it("restricts the database, every sidecar and the backups in one call", () => {
-		const db = join(dir, "better-ccflare.db");
+		const db = join(dir, "hov-router.db");
 		const paths = [
 			db,
 			`${db}-wal`,
@@ -102,8 +102,8 @@ describe("restrictDbFiles", () => {
 		// -wal, -shm and -journal after the target, so sweeping the alias's
 		// suffixed paths would find nothing and leave the real ones 0644.
 		mkdirSync(join(dir, "data"));
-		const real = join(dir, "data", "better-ccflare.db");
-		const alias = join(dir, "better-ccflare.db");
+		const real = join(dir, "data", "hov-router.db");
+		const alias = join(dir, "hov-router.db");
 		const sidecars = [`${real}-wal`, `${real}-shm`, `${real}-journal`];
 		seedWorldReadable(real);
 		for (const path of sidecars) seedWorldReadable(path);
@@ -121,8 +121,8 @@ describe("restrictDbFiles", () => {
 		// beside the alias; a database once configured by its real path has
 		// them beside the target.
 		mkdirSync(join(dir, "data"));
-		const real = join(dir, "data", "better-ccflare.db");
-		const alias = join(dir, "better-ccflare.db");
+		const real = join(dir, "data", "hov-router.db");
+		const alias = join(dir, "hov-router.db");
 		const backups = [`${alias}.backup.1`, `${real}.backup.2`];
 		seedWorldReadable(real);
 		for (const path of backups) seedWorldReadable(path);
@@ -134,7 +134,7 @@ describe("restrictDbFiles", () => {
 	});
 
 	it("gives a WAL created afterwards 0600 because the database is restricted first", () => {
-		const p = join(dir, "better-ccflare.db");
+		const p = join(dir, "hov-router.db");
 		const db = new Database(p, { create: true });
 		try {
 			expect(mode(p)).toBe(0o644);
@@ -158,7 +158,7 @@ describe("restrictDbBackups", () => {
 	it("restricts a backup's own -wal, -shm and .partial", () => {
 		// These carry database pages too. The .partial is what a SIGTERM during
 		// VACUUM INTO leaves behind.
-		const db = join(dir, "better-ccflare.db");
+		const db = join(dir, "hov-router.db");
 		const siblings = [
 			`${db}.backup.1779028256026-wal`,
 			`${db}.backup.1779028256026-shm`,
@@ -173,7 +173,7 @@ describe("restrictDbBackups", () => {
 	});
 
 	it("restricts a hand-renamed backup the pruner would skip", () => {
-		const db = join(dir, "better-ccflare.db");
+		const db = join(dir, "hov-router.db");
 		const kept = `${db}.backup.keep-before-the-migration`;
 		seedWorldReadable(db);
 		seedWorldReadable(kept);
@@ -184,7 +184,7 @@ describe("restrictDbBackups", () => {
 	});
 
 	it("leaves another database's backup and unrelated files alone", () => {
-		const db = join(dir, "better-ccflare.db");
+		const db = join(dir, "hov-router.db");
 		const ours = `${db}.backup.1`;
 		const theirs = join(dir, "other.db.backup.1");
 		const notes = `${db}.notes`;
@@ -198,7 +198,7 @@ describe("restrictDbBackups", () => {
 	});
 
 	it("does not throw when the directory does not exist", () => {
-		const missing = join(dir, "gone", "better-ccflare.db");
+		const missing = join(dir, "gone", "hov-router.db");
 		expect(() => restrictDbBackups(missing)).not.toThrow();
 	});
 });
@@ -206,7 +206,7 @@ describe("restrictDbBackups", () => {
 describe("ensurePrivateDir", () => {
 	it("creates a missing directory 0700 and leaves created parents at the umask default", () => {
 		const parent = join(dir, "xdg");
-		const leaf = join(parent, "better-ccflare");
+		const leaf = join(parent, "hov-router");
 
 		ensurePrivateDir(leaf);
 
@@ -234,7 +234,7 @@ describe("VACUUM INTO backups written by runMigrations", () => {
 	it("writes the .backup.<ts> as 0600", () => {
 		// A legacy account_tier column is one of runMigrations' destructive
 		// triggers, so it takes a backup first.
-		const p = join(dir, "better-ccflare.db");
+		const p = join(dir, "hov-router.db");
 		const db = new Database(p, { create: true });
 		ensureSchema(db);
 		db.prepare(
@@ -251,7 +251,7 @@ describe("VACUUM INTO backups written by runMigrations", () => {
 		}
 
 		const backups = readdirSync(dir).filter((f) =>
-			f.startsWith("better-ccflare.db.backup."),
+			f.startsWith("hov-router.db.backup."),
 		);
 		expect(backups.length).toBeGreaterThan(0);
 		for (const b of backups) {

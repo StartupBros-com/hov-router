@@ -34,6 +34,11 @@ const releaseDigest =
 const releaseUrl =
 	"https://github.com/StartupBros-com/hov-router/releases/download/v7.0.0/better-ccflare-linux-amd64";
 const sourceSha = "385efd9d8ad4465bea60dfe59e82f0466c8ac48e";
+/** 8.0.0 renamed the release asset; a published bundle keeps its signed name. */
+function releaseAssetName(tag: string): string {
+	const major = Number(tag.slice(1).split(".")[0]);
+	return major >= 8 ? "hov-router-linux-amd64" : "better-ccflare-linux-amd64";
+}
 const release640Sha = "94500eef95863210467676080581e3781f9eed11";
 const release621Sha = "786722ba026b7095e31aef91ca62f34bda79d490";
 const historicalDigest =
@@ -178,13 +183,17 @@ const documentedReleases = [
 	...tableReleases,
 	...orgTableReleases,
 ];
-// Guides for 3.6.2 through 3.7.1 created all three names; new installs create
-// COMMAND_NAMES only, and upgrades repoint an existing wstack-router link.
+// Guides for 3.6.2 through 3.7.1 created all three names, and the 6.4.0 and
+// 7.0.0 guides created hov-router and better-ccflare. New installs create
+// COMMAND_NAMES only; upgrades repoint an existing wstack-router or
+// better-ccflare link and never create one.
 const earlierGuideAliases = [
 	"hov-router",
 	"wstack-router",
 	"better-ccflare",
 ] as const;
+const previousGuideAliases = ["hov-router", "better-ccflare"] as const;
+const retiredAliases = ["wstack-router", "better-ccflare"] as const;
 const homes: string[] = [];
 afterEach(() => {
 	for (const home of homes.splice(0))
@@ -310,7 +319,7 @@ printf '%s  %s\\n' "$digest" "$subject" | sha256sum --check --strict -
 				symlinkSync(historicalBinary, join(binDir, name));
 		},
 		// Plant the layout that the 6.4.0 version of this guide produced.
-		installPrevious(aliases: readonly string[] = COMMAND_NAMES) {
+		installPrevious(aliases: readonly string[] = previousGuideAliases) {
 			mkdirSync(dirname(previousBinary), { recursive: true });
 			writeFileSync(previousBinary, previousPayload, { mode: 0o755 });
 			mkdirSync(binDir, { recursive: true });
@@ -548,7 +557,7 @@ describe("documented binary install (synthetic downloads)", () => {
 			expect(readlinkSync(join(f.binDir, name))).toBe(f.historicalBinary);
 	});
 
-	it("creates both optional command aliases to the same verified binary without running it", () => {
+	it("creates the optional command link to the verified binary without running it", () => {
 		const f = fixture();
 		expect(f.run("router-release-install").status).toBe(0);
 		expect(f.run("router-release-path").status).toBe(0);
@@ -557,7 +566,8 @@ describe("documented binary install (synthetic downloads)", () => {
 			expect(readFileSync(join(f.binDir, name), "utf8")).toBe(payload);
 		}
 		expect(readdirSync(f.binDir).sort()).toEqual([...COMMAND_NAMES].sort());
-		expect(() => lstatSync(join(f.binDir, "wstack-router"))).toThrow();
+		for (const retired of retiredAliases)
+			expect(() => lstatSync(join(f.binDir, retired))).toThrow();
 		for (const profile of [".profile", ".bashrc", ".zshrc"])
 			expect(readFileSync(join(f.home, profile), "utf8")).toBe(
 				"keep profile\n",
@@ -585,7 +595,7 @@ describe("documented binary install (synthetic downloads)", () => {
 		expect(reference).toContain("HoV Router 7.0.0, like the earlier 6.4.0, ");
 	});
 
-	it("reports the release display and source SHA through both installed aliases (fixture)", () => {
+	it("reports the release display and source SHA through the installed command (fixture)", () => {
 		expect(reference).toContain("HoV Router v7.0.0");
 		const f = fixture();
 		expect(f.run("router-release-install").status).toBe(0);
@@ -706,23 +716,25 @@ describe("documented upgrade of an earlier binary install (synthetic)", () => {
 		const upgraded = f.run("router-release-upgrade");
 		expect(upgraded.status, upgraded.stderr).toBe(0);
 		expect(upgraded.stderr).toBe("");
-		for (const name of COMMAND_NAMES)
+		for (const name of previousGuideAliases)
 			expect(readlinkSync(join(f.binDir, name))).toBe(f.binary);
-		expect(readdirSync(f.binDir).sort()).toEqual([...COMMAND_NAMES].sort());
+		expect(readdirSync(f.binDir).sort()).toEqual(
+			[...previousGuideAliases].sort(),
+		);
 		expect(() => lstatSync(join(f.binDir, "wstack-router"))).toThrow();
 		expect(readFileSync(f.previousBinary, "utf8")).toBe(previousPayload);
 		expect(existsSync(join(f.home, "executed"))).toBe(false);
 
 		const rolledBack = f.run("router-release-upgrade", toPrevious);
 		expect(rolledBack.status, rolledBack.stderr).toBe(0);
-		for (const name of COMMAND_NAMES)
+		for (const name of previousGuideAliases)
 			expect(readlinkSync(join(f.binDir, name))).toBe(f.previousBinary);
 		// The guide's rollback example names the path this rollback used, not
 		// that of a release before it.
 		expect(reference).toContain(`such as \`${previousBinaryPath}\` or`);
 	});
 
-	it("creates missing aliases while repointing the rest, but never creates wstack-router", () => {
+	it("repoints the command but never creates a retired alias", () => {
 		const f = fixture();
 		f.installHistorical([COMMAND_NAMES[0]]);
 		expect(f.run("router-release-install").status).toBe(0);
@@ -731,7 +743,18 @@ describe("documented upgrade of an earlier binary install (synthetic)", () => {
 		for (const name of COMMAND_NAMES)
 			expect(readlinkSync(join(f.binDir, name))).toBe(f.binary);
 		expect(readdirSync(f.binDir).sort()).toEqual([...COMMAND_NAMES].sort());
-		expect(() => lstatSync(join(f.binDir, "wstack-router"))).toThrow();
+		for (const retired of retiredAliases)
+			expect(() => lstatSync(join(f.binDir, retired))).toThrow();
+	});
+
+	it("creates hov-router when an earlier install linked only better-ccflare", () => {
+		const f = fixture();
+		f.installPrevious(["better-ccflare"]);
+		expect(f.run("router-release-install").status).toBe(0);
+		const upgraded = f.run("router-release-upgrade");
+		expect(upgraded.status, upgraded.stderr).toBe(0);
+		for (const name of previousGuideAliases)
+			expect(readlinkSync(join(f.binDir, name))).toBe(f.binary);
 	});
 
 	it("refuses before the new release is installed", () => {
@@ -992,7 +1015,7 @@ describe("documented provenance from committed bundles (synthetic policy fixture
 				expect(statement.predicateType).toBe("https://slsa.dev/provenance/v1");
 				expect(statement.subject).toEqual([
 					{
-						name: "better-ccflare-linux-amd64",
+						name: releaseAssetName(release.tag),
 						digest: { sha256: release.digest },
 					},
 					{
@@ -1202,7 +1225,7 @@ function describeTable(table: {
 					expect(sha256(bytes)).toBe(row.bundleSha);
 					const statement = statementOf(row.tag);
 					expect(statement.subject[0]).toEqual({
-						name: "better-ccflare-linux-amd64",
+						name: releaseAssetName(row.tag),
 						digest: { sha256: row.digest },
 					});
 					const build = statement.predicate.buildDefinition;
@@ -1269,7 +1292,7 @@ describeTable({
 			expect(pending.length).toBeLessThanOrEqual(1);
 			for (const tag of pending) {
 				const statement = statementOf(tag);
-				expect(statement.subject[0].name).toBe("better-ccflare-linux-amd64");
+				expect(statement.subject[0].name).toBe(releaseAssetName(tag));
 				expect(
 					statement.predicate.buildDefinition.externalParameters.workflow,
 				).toEqual({

@@ -2,15 +2,15 @@ import { afterEach, describe, expect, it, mock } from "bun:test";
 import { handleProxy } from "../proxy";
 
 const ENV_KEYS = [
-	"CCFLARE_DISTRIBUTION",
-	"CCFLARE_VERSION",
-	"CCFLARE_GIT_SHA",
-	"CCFLARE_GIT_REF",
-	"CCFLARE_SOURCE_SHA",
-	"CCFLARE_SOURCE_REF",
-	"CCFLARE_PRODUCER",
-	"CCFLARE_ARTIFACT_MODE",
-	"CCFLARE_UPDATE_CHANNEL",
+	"HOV_ROUTER_DISTRIBUTION",
+	"HOV_ROUTER_VERSION",
+	"HOV_ROUTER_GIT_SHA",
+	"HOV_ROUTER_GIT_REF",
+	"HOV_ROUTER_SOURCE_SHA",
+	"HOV_ROUTER_SOURCE_REF",
+	"HOV_ROUTER_PRODUCER",
+	"HOV_ROUTER_ARTIFACT_MODE",
+	"HOV_ROUTER_UPDATE_CHANNEL",
 ] as const;
 const originalFetch = globalThis.fetch;
 const savedEnv = Object.fromEntries(
@@ -44,13 +44,13 @@ describe("/api/system/package-manager", () => {
 			[
 				"valid managed evidence",
 				{
-					CCFLARE_DISTRIBUTION: "v1:startupbros-managed-source",
-					CCFLARE_GIT_SHA: "abcdef1234567890abcdef1234567890abcdef12",
-					CCFLARE_GIT_REF: "refs/heads/main",
-					CCFLARE_SOURCE_SHA: "abcdef1234567890abcdef1234567890abcdef12",
-					CCFLARE_SOURCE_REF: "refs/heads/main",
-					CCFLARE_PRODUCER: "startupbros",
-					CCFLARE_ARTIFACT_MODE: "managed-source",
+					HOV_ROUTER_DISTRIBUTION: "v1:startupbros-managed-source",
+					HOV_ROUTER_GIT_SHA: "abcdef1234567890abcdef1234567890abcdef12",
+					HOV_ROUTER_GIT_REF: "refs/heads/main",
+					HOV_ROUTER_SOURCE_SHA: "abcdef1234567890abcdef1234567890abcdef12",
+					HOV_ROUTER_SOURCE_REF: "refs/heads/main",
+					HOV_ROUTER_PRODUCER: "startupbros",
+					HOV_ROUTER_ARTIFACT_MODE: "managed-source",
 				},
 				{
 					identity: "v1:startupbros-managed-source",
@@ -74,9 +74,9 @@ describe("/api/system/package-manager", () => {
 			[
 				"invalid evidence",
 				{
-					CCFLARE_DISTRIBUTION: "v1:tombii-ghcr-docker",
-					CCFLARE_GIT_SHA: "short",
-					CCFLARE_GIT_REF: "refs/tags/v1.0.0",
+					HOV_ROUTER_DISTRIBUTION: "v1:tombii-ghcr-docker",
+					HOV_ROUTER_GIT_SHA: "short",
+					HOV_ROUTER_GIT_REF: "refs/tags/v1.0.0",
 				},
 				{
 					identity: "v1:tombii-ghcr-docker",

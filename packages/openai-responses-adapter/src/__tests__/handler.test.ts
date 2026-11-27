@@ -25,7 +25,7 @@ describe("handleResponsesRequest", () => {
 		"",
 		undefined,
 	])("overwrites a client-supplied adapter marker with the process secret %s", async (internalProbeSecret) => {
-		const marker = "x-better-ccflare-responses-adapter-secret";
+		const marker = "x-hov-router-responses-adapter-secret";
 		let forwardedHeaders: Headers | undefined;
 		const mockHandleProxy: HandleProxyFn = async (request) => {
 			forwardedHeaders = request.headers;
@@ -236,7 +236,7 @@ describe("handleResponsesRequest", () => {
 				headers: {
 					"Content-Type": "application/json",
 					...(headerValue !== undefined
-						? { "x-better-ccflare-codex-continuation": headerValue }
+						? { "x-hov-router-codex-continuation": headerValue }
 						: {}),
 				},
 			});
@@ -459,8 +459,8 @@ describe("handleResponsesRequest", () => {
 						headers: {
 							"content-type": "application/json",
 							"retry-after": "60",
-							"x-better-ccflare-pool-status": "exhausted",
-							"x-better-ccflare-recovery-scope": "pool",
+							"x-hov-router-pool-status": "exhausted",
+							"x-hov-router-recovery-scope": "pool",
 						},
 					},
 				),
@@ -472,12 +472,8 @@ describe("handleResponsesRequest", () => {
 		expect(poolBody.error.type).toBe("pool_exhausted");
 		expect(poolBody.error.code).toBe("pool_exhausted");
 		expect(poolResp.headers.get("retry-after")).toBe("60");
-		expect(poolResp.headers.get("x-better-ccflare-pool-status")).toBe(
-			"exhausted",
-		);
-		expect(poolResp.headers.get("x-better-ccflare-recovery-scope")).toBe(
-			"pool",
-		);
+		expect(poolResp.headers.get("x-hov-router-pool-status")).toBe("exhausted");
+		expect(poolResp.headers.get("x-hov-router-recovery-scope")).toBe("pool");
 
 		const modelResp = await handleResponsesRequest(
 			request(),
@@ -499,8 +495,8 @@ describe("handleResponsesRequest", () => {
 							// The proxy's reserved marker pair makes this finite
 							// request-compatible model-pool recovery authoritative.
 							"retry-after": "60",
-							"x-better-ccflare-pool-status": "exhausted",
-							"x-better-ccflare-recovery-scope": "model",
+							"x-hov-router-pool-status": "exhausted",
+							"x-hov-router-recovery-scope": "model",
 						},
 					},
 				),
@@ -512,60 +508,56 @@ describe("handleResponsesRequest", () => {
 		expect(modelBody.error.type).toBe("service_unavailable");
 		expect(modelBody.error.code).toBe("model_pool_exhausted");
 		expect(modelResp.headers.get("retry-after")).toBe("60");
-		expect(modelResp.headers.get("x-better-ccflare-pool-status")).toBe(
-			"exhausted",
-		);
-		expect(modelResp.headers.get("x-better-ccflare-recovery-scope")).toBe(
-			"model",
-		);
+		expect(modelResp.headers.get("x-hov-router-pool-status")).toBe("exhausted");
+		expect(modelResp.headers.get("x-hov-router-recovery-scope")).toBe("model");
 
 		for (const { code, headers: invalidHeaders } of [
 			{
 				code: "model_pool_exhausted",
 				headers: {
 					"retry-after": "0",
-					"x-better-ccflare-pool-status": "exhausted",
-					"x-better-ccflare-recovery-scope": "model",
+					"x-hov-router-pool-status": "exhausted",
+					"x-hov-router-recovery-scope": "model",
 				},
 			},
 			{ code: "model_pool_exhausted", headers: { "retry-after": "60" } },
 			{
 				code: "model_pool_exhausted",
 				headers: {
-					"x-better-ccflare-pool-status": "exhausted",
-					"x-better-ccflare-recovery-scope": "model",
+					"x-hov-router-pool-status": "exhausted",
+					"x-hov-router-recovery-scope": "model",
 				},
 			},
 			{
 				code: "model_pool_exhausted",
 				headers: {
 					"retry-after": "60",
-					"x-better-ccflare-pool-status": "exhausted",
-					"x-better-ccflare-recovery-scope": "pool",
+					"x-hov-router-pool-status": "exhausted",
+					"x-hov-router-recovery-scope": "pool",
 				},
 			},
 			{
 				code: "model_pool_exhausted",
 				headers: {
 					"retry-after": "01",
-					"x-better-ccflare-pool-status": "exhausted",
-					"x-better-ccflare-recovery-scope": "model",
+					"x-hov-router-pool-status": "exhausted",
+					"x-hov-router-recovery-scope": "model",
 				},
 			},
 			{
 				code: "model_pool_exhausted",
 				headers: {
 					"retry-after": "9007199254741",
-					"x-better-ccflare-pool-status": "exhausted",
-					"x-better-ccflare-recovery-scope": "model",
+					"x-hov-router-pool-status": "exhausted",
+					"x-hov-router-recovery-scope": "model",
 				},
 			},
 			{
 				code: "route_unavailable",
 				headers: {
 					"retry-after": "60",
-					"x-better-ccflare-pool-status": "exhausted",
-					"x-better-ccflare-recovery-scope": "model",
+					"x-hov-router-pool-status": "exhausted",
+					"x-hov-router-recovery-scope": "model",
 				},
 			},
 		]) {
@@ -588,10 +580,10 @@ describe("handleResponsesRequest", () => {
 			);
 			expect(invalidModelResp.headers.get("retry-after")).toBeNull();
 			expect(
-				invalidModelResp.headers.get("x-better-ccflare-pool-status"),
+				invalidModelResp.headers.get("x-hov-router-pool-status"),
 			).toBeNull();
 			expect(
-				invalidModelResp.headers.get("x-better-ccflare-recovery-scope"),
+				invalidModelResp.headers.get("x-hov-router-recovery-scope"),
 			).toBeNull();
 		}
 
@@ -612,16 +604,16 @@ describe("handleResponsesRequest", () => {
 						headers: {
 							"content-type": "application/json",
 							"retry-after": "60",
-							"x-better-ccflare-pool-status": "exhausted",
-							"x-better-ccflare-recovery-scope": "model",
+							"x-hov-router-pool-status": "exhausted",
+							"x-hov-router-recovery-scope": "model",
 						},
 					},
 				),
 			{},
 		);
 		expect(non503.headers.get("retry-after")).toBeNull();
-		expect(non503.headers.get("x-better-ccflare-pool-status")).toBeNull();
-		expect(non503.headers.get("x-better-ccflare-recovery-scope")).toBeNull();
+		expect(non503.headers.get("x-hov-router-pool-status")).toBeNull();
+		expect(non503.headers.get("x-hov-router-recovery-scope")).toBeNull();
 	});
 
 	test("Test 4: streaming path → returns a text/event-stream response", async () => {
@@ -729,7 +721,7 @@ describe("handleResponsesRequest", () => {
 				status: 200,
 				headers: {
 					"Content-Type": "text/event-stream",
-					"x-better-ccflare-codex-response-format": "responses-api",
+					"x-hov-router-codex-response-format": "responses-api",
 				},
 			});
 
@@ -757,9 +749,7 @@ describe("handleResponsesRequest", () => {
 		);
 
 		expect(resp.headers.get("content-type")).toContain("text/event-stream");
-		expect(
-			resp.headers.get("x-better-ccflare-codex-response-format"),
-		).toBeNull();
+		expect(resp.headers.get("x-hov-router-codex-response-format")).toBeNull();
 		const rawBody = await resp.text();
 		expect(rawBody).toBe(nativeSseBody);
 	});
@@ -785,7 +775,7 @@ describe("handleResponsesRequest", () => {
 				status: 200,
 				headers: {
 					"Content-Type": "text/event-stream",
-					"x-better-ccflare-codex-response-format": "responses-api",
+					"x-hov-router-codex-response-format": "responses-api",
 				},
 			});
 
@@ -838,7 +828,7 @@ describe("handleResponsesRequest", () => {
 					status: 200,
 					headers: {
 						"Content-Type": "text/event-stream",
-						"x-better-ccflare-codex-response-format": "responses-api",
+						"x-hov-router-codex-response-format": "responses-api",
 					},
 				},
 			);
@@ -889,7 +879,7 @@ describe("handleResponsesRequest", () => {
 				status: 200,
 				headers: {
 					"Content-Type": "text/event-stream",
-					"x-better-ccflare-codex-response-format": "responses-api",
+					"x-hov-router-codex-response-format": "responses-api",
 				},
 			});
 		const req = new Request("http://localhost/v1/responses", {
@@ -933,7 +923,7 @@ describe("handleResponsesRequest", () => {
 				status: 200,
 				headers: {
 					"Content-Type": "text/event-stream",
-					"x-better-ccflare-codex-response-format": "responses-api",
+					"x-hov-router-codex-response-format": "responses-api",
 				},
 			});
 		const req = new Request("http://localhost/v1/responses", {

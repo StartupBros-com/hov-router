@@ -24,7 +24,7 @@ type VacuumResult = {
 };
 
 function makeTempDir(): string {
-	return fs.mkdtempSync(path.join(os.tmpdir(), "ccflare-incvac-sync-test-"));
+	return fs.mkdtempSync(path.join(os.tmpdir(), "hov-router-incvac-sync-test-"));
 }
 
 function spawnWorker(): Worker {

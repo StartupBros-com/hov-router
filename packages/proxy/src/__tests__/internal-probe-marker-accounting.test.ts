@@ -126,19 +126,19 @@ describe("proxy-operations — cache-body staging policy", () => {
 	it("preserves truthy keepalive-header semantics", () => {
 		expect(
 			getCacheBodyStagingAction(
-				new Headers({ "x-better-ccflare-keepalive": "1" }),
+				new Headers({ "x-hov-router-keepalive": "1" }),
 				"anthropic",
 			),
 		).toBe("skip");
 		expect(
 			getCacheBodyStagingAction(
-				new Headers({ "x-better-ccflare-keepalive": "" }),
+				new Headers({ "x-hov-router-keepalive": "" }),
 				"anthropic",
 			),
 		).toBe("stage");
 		expect(
 			getCacheBodyStagingAction(
-				new Headers({ "x-better-ccflare-keepalive": "true" }),
+				new Headers({ "x-hov-router-keepalive": "true" }),
 				"codex",
 			),
 		).toBe("discard");
@@ -148,7 +148,7 @@ describe("proxy-operations — cache-body staging policy", () => {
 		for (const value of ["true", "false", "1"]) {
 			expect(
 				getCacheBodyStagingAction(
-					new Headers({ "x-better-ccflare-auto-refresh": value }),
+					new Headers({ "x-hov-router-auto-refresh": value }),
 					"anthropic",
 				),
 			).toBe("stage");
@@ -224,8 +224,8 @@ describe("response-handler — shouldProcessRequest keeps requests carrying the 
 		});
 
 		const requestHeaders = new Headers({
-			"x-better-ccflare-auto-refresh": "true",
-			"x-better-ccflare-internal-probe-secret": "test-secret",
+			"x-hov-router-auto-refresh": "true",
+			"x-hov-router-internal-probe-secret": "test-secret",
 		});
 
 		await forwardToClient(
@@ -298,15 +298,15 @@ describe("proxy.ts — pool-exhausted path records requests carrying the auto-re
 	let savedPassthrough: string | undefined;
 
 	beforeEach(() => {
-		savedPassthrough = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		savedPassthrough = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	});
 
 	afterEach(() => {
 		if (savedPassthrough === undefined) {
-			delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+			delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		} else {
-			process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = savedPassthrough;
+			process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = savedPassthrough;
 		}
 	});
 
@@ -353,7 +353,7 @@ describe("proxy.ts — pool-exhausted path records requests carrying the auto-re
 
 		const probeHeaders = new Headers({
 			"Content-Type": "application/json",
-			"x-better-ccflare-auto-refresh": "true",
+			"x-hov-router-auto-refresh": "true",
 		});
 		stampInternalSchedulerAuth(probeHeaders);
 		const probeRequest = new Request("https://proxy.local/v1/messages", {

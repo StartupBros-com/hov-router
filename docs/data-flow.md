@@ -57,7 +57,7 @@ The request lifecycle in HoV Router follows these main stages:
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Server as better-ccflare Server
+    participant Server as hov-router Server
     participant Router as API Router
     participant LoadBalancer as Load Balancer
     participant Proxy

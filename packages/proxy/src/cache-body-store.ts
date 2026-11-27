@@ -71,7 +71,7 @@ export interface CachedRequestEntry {
 
 // Strip sensitive and internal headers before storing.
 // Auth headers are injected by prepareHeaders() from account credentials.
-// Internal x-better-ccflare-* headers are injected fresh by the scheduler.
+// Internal x-hov-router-* headers are injected fresh by the scheduler.
 const STRIP_HEADERS = new Set([
 	"authorization",
 	"x-api-key",
@@ -79,11 +79,11 @@ const STRIP_HEADERS = new Set([
 	"x-goog-api-key",
 	"x-amz-security-token",
 	"cookie",
-	"x-better-ccflare-account-id",
-	"x-better-ccflare-bypass-session",
-	"x-better-ccflare-skip-cache",
-	"x-better-ccflare-keepalive",
-	"x-better-ccflare-internal-probe-secret",
+	"x-hov-router-account-id",
+	"x-hov-router-bypass-session",
+	"x-hov-router-skip-cache",
+	"x-hov-router-keepalive",
+	"x-hov-router-internal-probe-secret",
 	"content-length",
 	"transfer-encoding",
 	"accept-encoding",
@@ -219,7 +219,7 @@ class CacheBodyStore {
 			const normalizedKey = key.toLowerCase();
 			if (
 				!STRIP_HEADERS.has(normalizedKey) &&
-				!normalizedKey.startsWith("x-better-ccflare-")
+				!normalizedKey.startsWith("x-hov-router-")
 			) {
 				sanitizedHeaders[key] = value;
 			}

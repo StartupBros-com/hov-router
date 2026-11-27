@@ -57,7 +57,7 @@ export const MINIMAX_TOKEN_PLAN_KNOWN_FAILURE_STATUS_CODES: ReadonlySet<number> 
  */
 const MINIMAX_USAGE_REQUEST_TIMEOUT_MS = 5000;
 
-/** Model class we surface in ccflare utilization. */
+/** Model class we surface in router utilization. */
 const TEXT_INFERENCE_MODEL_NAME = "general";
 
 /**
@@ -127,7 +127,7 @@ function toRemainingPercent(value: unknown): number | null {
 }
 
 /**
- * Invert the API's REMAINING percent into ccflare's UTILIZATION percent.
+ * Invert the API's REMAINING percent into the router's UTILIZATION percent.
  * `utilization = 100 - remaining_percent`. Forgetting to invert would
  * report healthy accounts as exhausted and vice versa (gotcha #2).
  */

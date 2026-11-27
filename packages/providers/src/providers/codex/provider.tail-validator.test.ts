@@ -416,11 +416,11 @@ describe("CodexProvider KTD7 tail validator (Defect 2) -- integration through pr
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-request-id": requestId,
-				"x-better-ccflare-attempt-id": attemptId,
-				"x-better-ccflare-attempt-ordinal": "1",
-				"x-better-ccflare-attempt-cause": "initial",
-				"x-better-ccflare-final-model": physicalModel,
+				"x-hov-router-request-id": requestId,
+				"x-hov-router-attempt-id": attemptId,
+				"x-hov-router-attempt-ordinal": "1",
+				"x-hov-router-attempt-cause": "initial",
+				"x-hov-router-final-model": physicalModel,
 				[CODEX_NATIVE_RESPONSES_HEADER]: "1",
 				[CODEX_AUTHENTICATED_CALLER_HEADER]: callerDigest,
 			},
@@ -485,10 +485,10 @@ describe("CodexProvider KTD7 tail validator (Defect 2) -- integration through pr
 		await seedRequest.json();
 
 		const upstream = controllableUpstream({
-			"x-better-ccflare-request-id": requestId,
-			"x-better-ccflare-attempt-id": attemptId,
-			"x-better-ccflare-final-model": physicalModel,
-			"x-better-ccflare-request-stream": "true",
+			"x-hov-router-request-id": requestId,
+			"x-hov-router-attempt-id": attemptId,
+			"x-hov-router-final-model": physicalModel,
+			"x-hov-router-request-stream": "true",
 		});
 		const transformed = await provider.processResponse(upstream.response, null);
 
@@ -617,10 +617,10 @@ describe("CodexProvider KTD7 tail validator (Defect 2) -- integration through pr
 			status: 200,
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-request-id": requestId,
-				"x-better-ccflare-attempt-id": attemptId,
-				"x-better-ccflare-final-model": physicalModel,
-				"x-better-ccflare-request-stream": "true",
+				"x-hov-router-request-id": requestId,
+				"x-hov-router-attempt-id": attemptId,
+				"x-hov-router-final-model": physicalModel,
+				"x-hov-router-request-stream": "true",
 			},
 		});
 

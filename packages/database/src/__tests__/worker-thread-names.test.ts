@@ -16,7 +16,7 @@ afterEach(async () => {
 });
 
 function tempDir(): string {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-thread-names-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-thread-names-"));
 	cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
 	return dir;
 }

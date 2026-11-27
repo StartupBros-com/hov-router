@@ -7,11 +7,11 @@ import { Logger } from "@hov-router/logger";
 /**
  * Periodic integrity scheduler. Two probes run on independent timers:
  *
- *  - **quick** (`PRAGMA quick_check`) every `CCFLARE_INTEGRITY_CHECK_INTERVAL`
+ *  - **quick** (`PRAGMA quick_check`) every `HOV_ROUTER_INTEGRITY_CHECK_INTERVAL`
  *    hours (default 6). Catches page-structure corruption and most
  *    freelist issues.
  *  - **full** (`PRAGMA integrity_check` + `PRAGMA foreign_key_check`) every
- *    `CCFLARE_FULL_INTEGRITY_CHECK_INTERVAL` hours (default 24). Catches
+ *    `HOV_ROUTER_FULL_INTEGRITY_CHECK_INTERVAL` hours (default 24). Catches
  *    the silent-wrong-results class that `quick_check` misses (index/table
  *    cross-checks, UNIQUE/CHECK, foreign-key violations).
  *
@@ -45,7 +45,7 @@ const DEFAULT_FULL_INTERVAL_HOURS = 24;
  * worker timeout (a 27 GiB DB times out), so the scheduler skips it and runs a
  * `quick_check` instead. A timeout is NOT corruption — recording one as such
  * lights a false cross-dashboard "integrity check failed" banner. Override via
- * `CCFLARE_FULL_INTEGRITY_MAX_DB_BYTES` (0 = no limit / never skip).
+ * `HOV_ROUTER_FULL_INTEGRITY_MAX_DB_BYTES` (0 = no limit / never skip).
  */
 const DEFAULT_FULL_INTEGRITY_MAX_DB_BYTES = 16 * 1024 * 1024 * 1024; // 16 GiB
 const QUICK_INITIAL_DELAY_MS = 30 * TIME_CONSTANTS.SECOND;
@@ -99,18 +99,18 @@ function parseIntervalEnv(
 /**
  * Resolve the max DB size (bytes) above which the full integrity check is
  * skipped in favour of a quick check. Reads
- * `CCFLARE_FULL_INTEGRITY_MAX_DB_BYTES`: unset/empty → default; positive
+ * `HOV_ROUTER_FULL_INTEGRITY_MAX_DB_BYTES`: unset/empty → default; positive
  * integer → that value; `0` → no limit (never skip, returns +Infinity);
  * anything else → warn + default.
  */
 function resolveMaxFullIntegrityBytes(logger: Logger): number {
-	const raw = process.env.CCFLARE_FULL_INTEGRITY_MAX_DB_BYTES;
+	const raw = process.env.HOV_ROUTER_FULL_INTEGRITY_MAX_DB_BYTES;
 	if (raw === undefined || raw === "")
 		return DEFAULT_FULL_INTEGRITY_MAX_DB_BYTES;
 	const parsed = Number(raw);
 	if (!Number.isInteger(parsed) || parsed < 0) {
 		logger.warn(
-			`Invalid CCFLARE_FULL_INTEGRITY_MAX_DB_BYTES="${raw}", using default ${DEFAULT_FULL_INTEGRITY_MAX_DB_BYTES}`,
+			`Invalid HOV_ROUTER_FULL_INTEGRITY_MAX_DB_BYTES="${raw}", using default ${DEFAULT_FULL_INTEGRITY_MAX_DB_BYTES}`,
 		);
 		return DEFAULT_FULL_INTEGRITY_MAX_DB_BYTES;
 	}
@@ -143,13 +143,13 @@ export function startIntegrityScheduler(
 
 	const quickInterval = resolveOverrideOrEnv(
 		overrides?.quickIntervalHours,
-		"CCFLARE_INTEGRITY_CHECK_INTERVAL",
+		"HOV_ROUTER_INTEGRITY_CHECK_INTERVAL",
 		DEFAULT_QUICK_INTERVAL_HOURS,
 	);
 
 	const fullInterval = resolveOverrideOrEnv(
 		overrides?.fullIntervalHours,
-		"CCFLARE_FULL_INTEGRITY_CHECK_INTERVAL",
+		"HOV_ROUTER_FULL_INTEGRITY_CHECK_INTERVAL",
 		DEFAULT_FULL_INTERVAL_HOURS,
 	);
 
@@ -244,7 +244,7 @@ export function startIntegrityScheduler(
 		);
 	} else {
 		logger.info(
-			"Quick integrity check disabled (CCFLARE_INTEGRITY_CHECK_INTERVAL=0)",
+			"Quick integrity check disabled (HOV_ROUTER_INTEGRITY_CHECK_INTERVAL=0)",
 		);
 	}
 
@@ -259,7 +259,7 @@ export function startIntegrityScheduler(
 		);
 	} else {
 		logger.info(
-			"Full integrity check disabled (CCFLARE_FULL_INTEGRITY_CHECK_INTERVAL=0)",
+			"Full integrity check disabled (HOV_ROUTER_FULL_INTEGRITY_CHECK_INTERVAL=0)",
 		);
 	}
 
@@ -284,7 +284,7 @@ export function startIntegrityScheduler(
  *
  * Skip semantics (neither is corruption, so both keep the dashboard healthy):
  *  - **Size threshold**: when a `full` check is requested but the DB is over
- *    `CCFLARE_FULL_INTEGRITY_MAX_DB_BYTES`, the full `integrity_check` can't
+ *    `HOV_ROUTER_FULL_INTEGRITY_MAX_DB_BYTES`, the full `integrity_check` can't
  *    finish inside the worker timeout, so we record the full probe as skipped
  *    and run a `quick_check` instead, recording ITS result normally.
  *  - **Worker timeout**: a `!ok && timedOut` worker result is a hung
@@ -331,7 +331,7 @@ async function runCheckLocked(
 					sizeBytes / 1024 / 1024 / 1024
 				).toFixed(1)} GB (> ${(maxBytes / 1024 / 1024 / 1024).toFixed(
 					1,
-				)} GB threshold, CCFLARE_FULL_INTEGRITY_MAX_DB_BYTES); ran quick_check instead`;
+				)} GB threshold, HOV_ROUTER_FULL_INTEGRITY_MAX_DB_BYTES); ran quick_check instead`;
 				logger.warn(reason);
 
 				const quickResult = await runIntegrityCheckInWorker(dbPath, {

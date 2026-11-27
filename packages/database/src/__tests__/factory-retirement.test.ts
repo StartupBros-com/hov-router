@@ -9,7 +9,7 @@ afterEach(async () => {
 });
 describe("database factory retirement", () => {
 	it("holds the singleton registration until asynchronous retirement completes", async () => {
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-factory-retirement-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-factory-retirement-"));
 		DatabaseFactory.initialize(join(dir, "test.db"));
 		const db = DatabaseFactory.getInstance();
 		const realClose = db.close.bind(db);

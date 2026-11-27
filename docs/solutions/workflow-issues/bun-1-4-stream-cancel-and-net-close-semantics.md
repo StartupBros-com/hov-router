@@ -14,10 +14,10 @@ applies_when:
   - A fixture carries a hard-coded `verifiedAt` / `revalidateAfter` window
 symptoms:
   - "claude-code-ping-compat: expect(cancelled).toHaveBeenCalledWith('client gone') fails only on Bun 1.4.0"
-  - "deploy-ccflare gateway probes time out at 5s/15s on Bun 1.4.0 (and Node); server.close() never calls back"
+  - "deploy-hov-router gateway probes time out at 5s/15s on Bun 1.4.0 (and Node); server.close() never calls back"
   - "process-response: getReaderCalls is 0 on Bun 1.4.0, 1 on Bun 1.3.14"
   - "server-tool-capabilities throws 'Invalid provider server-tool capability decision' on every Bun version from 2026-09-04"
-  - "run-ccflare-stack 'never triggers from a stale PID' logs 'RSS recycle trigger' in CI but passes locally"
+  - "run-hov-router 'never triggers from a stale PID' logs 'RSS recycle trigger' in CI but passes locally"
 root_cause: runtime_semantics_change
 resolution_type: test_fix
 related_components:
@@ -99,7 +99,7 @@ The OpenAI JSON drain test counted `getReader()` on that instance and read 0.
 - `server-tool-capabilities` shared a proof fixture with `revalidateAfter: "2026-09-04T00:00:00Z"`
   and one test let `materializeProviderServerToolCapabilityDecision` default `now` to the wall
   clock. Green on 2026-09-01, red on 2026-09-04, on every Bun version.
-- `run-ccflare-stack` "never triggers from a stale PID" raced the watchdog: `rss_watchdog` read
+- `run-hov-router` "never triggers from a stale PID" raced the watchdog: `rss_watchdog` read
   the `/proc` start-time identity, then several subshells later read `VmRSS`. A stale identity
   written between the two reads was charged with the new RSS. Seen once in CI (run 33838897966),
   never locally.
@@ -143,10 +143,10 @@ on a loaded WSL2 box against a 15s timeout on either version).
 ```bash
 for v in 1.3.14 1.4.0; do B=~/.local/share/mise/installs/bun/$v/bin/bun
   $B test packages/proxy/src/__tests__/claude-code-ping-compat.test.ts
-  $B test scripts/__tests__/deploy-ccflare.test.ts
+  $B test scripts/__tests__/deploy-hov-router.test.ts
   $B test packages/providers/src/providers/openai/__tests__/process-response.test.ts
   $B test packages/providers/src/server-tool-capabilities.test.ts
-  $B test scripts/__tests__/run-ccflare-stack.test.ts
+  $B test scripts/__tests__/run-hov-router.test.ts
 done
 ```
 

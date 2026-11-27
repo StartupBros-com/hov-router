@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { Config } from "./index";
 
 function makeConfig(): { config: Config; cleanup: () => void } {
-	const dir = mkdtempSync(join(tmpdir(), "better-ccflare-config-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-config-"));
 	return {
 		config: new Config(join(dir, "config.json")),
 		cleanup: () => rmSync(dir, { recursive: true, force: true }),
@@ -13,17 +13,17 @@ function makeConfig(): { config: Config; cleanup: () => void } {
 }
 
 describe("getForceAccountModel / setForceAccountModel", () => {
-	const originalEnv = process.env.CCFLARE_FORCE_ACCOUNT_MODEL;
+	const originalEnv = process.env.HOV_ROUTER_FORCE_ACCOUNT_MODEL;
 
 	beforeEach(() => {
-		delete process.env.CCFLARE_FORCE_ACCOUNT_MODEL;
+		delete process.env.HOV_ROUTER_FORCE_ACCOUNT_MODEL;
 	});
 
 	afterEach(() => {
 		if (originalEnv === undefined) {
-			delete process.env.CCFLARE_FORCE_ACCOUNT_MODEL;
+			delete process.env.HOV_ROUTER_FORCE_ACCOUNT_MODEL;
 		} else {
-			process.env.CCFLARE_FORCE_ACCOUNT_MODEL = originalEnv;
+			process.env.HOV_ROUTER_FORCE_ACCOUNT_MODEL = originalEnv;
 		}
 	});
 
@@ -41,7 +41,7 @@ describe("getForceAccountModel / setForceAccountModel", () => {
 		// Shipped without an environment variable on purpose. One that could
 		// override would force the UI to draw a control that accepts a click and
 		// does nothing — see ConfigFlagDialog.
-		process.env.CCFLARE_FORCE_ACCOUNT_MODEL = "true";
+		process.env.HOV_ROUTER_FORCE_ACCOUNT_MODEL = "true";
 		const { config, cleanup } = makeConfig();
 		try {
 			expect(config.getForceAccountModel()).toBe(false);

@@ -1,6 +1,6 @@
 # HoV Router CLI Documentation
 
-The HoV Router CLI provides a command-line interface for managing accounts, monitoring usage statistics, and controlling the load balancer. Use `hov-router`; older command names such as `better-ccflare` remain equivalent, and existing `BETTER_CCFLARE_*` configuration names remain unchanged.
+The HoV Router CLI provides a command-line interface for managing accounts, monitoring usage statistics, and controlling the load balancer. Use `hov-router`; older command names such as `hov-router` remain equivalent, and existing `HOV_ROUTER_*` configuration names remain unchanged.
 
 ## Table of Contents
 
@@ -32,7 +32,7 @@ The examples below assume you completed the optional [PATH setup](reference.md#o
 
 1. Start the server before adding an account, and leave it running:
 ```bash
-BETTER_CCFLARE_HOST=127.0.0.1 hov-router --serve --port 8080
+HOV_ROUTER_HOST=127.0.0.1 hov-router --serve --port 8080
 ```
 
 2. In another terminal, add your first OAuth account against that server:
@@ -47,7 +47,7 @@ Use the same local user and database configuration in both terminals. Account cr
 hov-router routing list --api-url http://127.0.0.1:8080
 ```
 
-The explicit `--api-url` matters: managed-routing commands otherwise default to `http://127.0.0.1:8788` unless `BETTER_CCFLARE_API_URL` is set. If port 8080 is occupied, choose an unused port and use it consistently for the server, account review, routing commands, dashboard, and client. If API authentication is enabled, see [Managed Routing](#managed-routing-live-server) for `BETTER_CCFLARE_ADMIN_API_KEY` setup.
+The explicit `--api-url` matters: managed-routing commands otherwise default to `http://127.0.0.1:8788` unless `HOV_ROUTER_API_URL` is set. If port 8080 is occupied, choose an unused port and use it consistently for the server, account review, routing commands, dashboard, and client. If API authentication is enabled, see [Managed Routing](#managed-routing-live-server) for `HOV_ROUTER_ADMIN_API_KEY` setup.
 
 A failed post-create routing review does **not** undo account creation. If the CLI printed a created account ID before reporting failure or incomplete routing, keep that ID rather than adding the account again. Once the server is reachable and authentication is configured, inspect it with:
 ```bash
@@ -82,7 +82,7 @@ Current source builds use this format, with the installed version in the heading
 🎯 HoV Router v<version> - Load Balancer for Claude
 
 Usage: hov-router [options]
-Earlier command names, such as better-ccflare, remain supported aliases.
+Earlier command names, such as hov-router, remain supported aliases.
 
 Options:
   --serve              Start API server with dashboard
@@ -274,12 +274,12 @@ hov-router routing manual <family> --yes [--api-url <loopback-url>] [--json]
 The CLI calls the running management API instead of opening the local database or reimplementing capability and precedence rules. The API origin resolves in this order:
 
 1. `--api-url <loopback-url>`;
-2. `BETTER_CCFLARE_API_URL`;
+2. `HOV_ROUTER_API_URL`;
 3. `http://127.0.0.1:8788`.
 
 Only an HTTP or HTTPS loopback origin is accepted. A URL with a non-loopback host, credentials, path, query, or fragment is rejected. `--api-url` is valid only with a `routing` command or the packaged `--add-account` post-create workflow.
 
-If API authentication is configured, set `BETTER_CCFLARE_ADMIN_API_KEY` in the process environment. There is deliberately no admin-key CLI flag. Use a Router admin key, not a provider credential or API-only key. The client sends it as `x-api-key`, redacts it from text/JSON/errors, and rejects redirects instead of forwarding a credentialed request.
+If API authentication is configured, set `HOV_ROUTER_ADMIN_API_KEY` in the process environment. There is deliberately no admin-key CLI flag. Use a Router admin key, not a provider credential or API-only key. The client sends it as `x-api-key`, redacts it from text/JSON/errors, and rejects redirects instead of forwarding a credentialed request.
 
 #### Read and preview commands
 
@@ -351,7 +351,7 @@ Do not send a replacement assignment or clear the combo, rules, Managed model, M
 #### Safe automation
 
 - Keep the server target on loopback; the managed-routing client rejects non-loopback hosts and credential-bearing URLs.
-- Supply the admin key through `BETTER_CCFLARE_ADMIN_API_KEY`, never a command-line argument that can leak through process listings or shell history.
+- Supply the admin key through `HOV_ROUTER_ADMIN_API_KEY`, never a command-line argument that can leak through process listings or shell history.
 - Treat JSON as a redacted reporting format; it must not include credentials, model mappings containing secrets, or raw authentication material.
 - Use `--json` with `routing` commands only; `--add-account --json` is rejected before creating an account.
 - Automate list, detail, and preview freely, but require explicit reviewed identifiers and confirmation for apply.
@@ -439,7 +439,7 @@ bun run cli --repair-db
 
 **Example output:**
 ```
-🔧 BETTER-CCFLARE DATABASE REPAIR
+🔧 HOV ROUTER DATABASE REPAIR
 ══════════════════════════════════════════════════
 
 🔍 Checking database integrity...
@@ -607,22 +607,22 @@ HoV Router stores its configuration in the existing platform-specific directorie
 
 #### macOS/Linux
 ```
-~/.config/better-ccflare/better-ccflare.json
+~/.config/hov-router/hov-router.json
 ```
 
 Or if `XDG_CONFIG_HOME` is set:
 ```
-$XDG_CONFIG_HOME/better-ccflare/better-ccflare.json
+$XDG_CONFIG_HOME/hov-router/hov-router.json
 ```
 
 #### Windows
 ```
-%LOCALAPPDATA%\better-ccflare\better-ccflare.json
+%LOCALAPPDATA%\hov-router\hov-router.json
 ```
 
 Or fallback to:
 ```
-%APPDATA%\better-ccflare\better-ccflare.json
+%APPDATA%\hov-router\hov-router.json
 ```
 
 ### Configuration Structure
@@ -642,8 +642,8 @@ Or fallback to:
 ### Database Location
 
 The SQLite database follows the same directory structure:
-- **macOS/Linux**: `~/.config/better-ccflare/better-ccflare.db`
-- **Windows**: `%LOCALAPPDATA%\better-ccflare\better-ccflare.db`
+- **macOS/Linux**: `~/.config/hov-router/hov-router.db`
+- **Windows**: `%LOCALAPPDATA%\hov-router\hov-router.db`
 
 ## Environment Variables
 
@@ -651,12 +651,12 @@ The SQLite database follows the same directory structure:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `BETTER_CCFLARE_CONFIG_PATH` | Override config file location | Platform default |
-| `BETTER_CCFLARE_DB_PATH` | Override database location | Platform default |
+| `HOV_ROUTER_CONFIG_PATH` | Override config file location | Platform default |
+| `HOV_ROUTER_DB_PATH` | Override database location | Platform default |
 | `PORT` | Server port | 8080 |
 | `CLIENT_ID` | OAuth client ID | 9d1c250a-e61b-44d9-88ed-5944d1962f5e |
-| `BETTER_CCFLARE_API_URL` | Loopback origin for live managed-routing CLI operations | `http://127.0.0.1:8788` |
-| `BETTER_CCFLARE_ADMIN_API_KEY` | Admin API key for live-server managed-routing CLI operations when authentication is enabled | Unset |
+| `HOV_ROUTER_API_URL` | Loopback origin for live managed-routing CLI operations | `http://127.0.0.1:8788` |
+| `HOV_ROUTER_ADMIN_API_KEY` | Admin API key for live-server managed-routing CLI operations when authentication is enabled | Unset |
 
 ### Load Balancing
 
@@ -684,7 +684,7 @@ The SQLite database follows the same directory structure:
 |----------|-------------|---------|
 | `LOG_LEVEL` | Log verbosity (DEBUG/INFO/WARN/ERROR) | INFO |
 | `LOG_FORMAT` | Output format (pretty/json) | pretty |
-| `BETTER_CCFLARE_DEBUG` | Enable debug mode (1/0) - enables console output | 0 |
+| `HOV_ROUTER_DEBUG` | Enable debug mode (1/0) - enables console output | 0 |
 
 ### Pricing and Features
 
@@ -735,8 +735,8 @@ The SQLite database follows the same directory structure:
 2. Check file permissions on database
 3. Backup and recreate if corrupted:
    ```bash
-   cp ~/.config/better-ccflare/better-ccflare.db ~/.config/better-ccflare/better-ccflare.db.backup
-   rm ~/.config/better-ccflare/better-ccflare.db
+   cp ~/.config/hov-router/hov-router.db ~/.config/hov-router/hov-router.db.backup
+   rm ~/.config/hov-router/hov-router.db
    ```
 
 ### Debug Mode
@@ -745,7 +745,7 @@ Enable detailed logging for troubleshooting:
 
 ```bash
 # Enable debug logging
-export BETTER_CCFLARE_DEBUG=1
+export HOV_ROUTER_DEBUG=1
 export LOG_LEVEL=DEBUG
 
 # Run with verbose output

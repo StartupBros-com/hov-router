@@ -2,11 +2,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 export const MANAGED_TIMING_VERSION = "v1";
-export const MANAGED_TIMING_HEADER = "x-better-ccflare-managed-timing";
-export const CLIENT_TIMEOUT_HEADER = "x-better-ccflare-timeout-ms";
+export const MANAGED_TIMING_HEADER = "x-hov-router-managed-timing";
+export const CLIENT_TIMEOUT_HEADER = "x-hov-router-timeout-ms";
 export const DEFAULT_ACCEPTED_CAP_MS = 1_470_000;
 export const DEFAULT_CLEANUP_RESERVE_MS = 30_000;
-const DOMAIN = "better-ccflare/managed-timing/v1";
+const DOMAIN = "hov-router/managed-timing/v1";
 const NS_PER_MS = 1_000_000n;
 let boot;
 // Bun 1.4.2 hrtime is process-relative, unlike Node. /proc/uptime is the

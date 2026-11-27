@@ -18,7 +18,7 @@ const INTEGER_RE = /^\d+$/;
  * Each backup is a full copy of the DB (multi-GB in practice), so without a
  * cap they accumulate quickly when rapid restarts trigger repeat migrations.
  *
- * Override with `BETTER_CCFLARE_MIGRATION_BACKUP_KEEP`. 0 disables pruning
+ * Override with `HOV_ROUTER_MIGRATION_BACKUP_KEEP`. 0 disables pruning
  * entirely — operators who manage retention externally (e.g. via a separate
  * cron + S3 sync) can opt out without losing the pre-migration safety net.
  *
@@ -27,11 +27,11 @@ const INTEGER_RE = /^\d+$/;
  * a partial parse — `Number.parseInt` is too forgiving for that.
  */
 function getBackupRetention(): number {
-	const raw = process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP;
+	const raw = process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP;
 	if (raw === undefined || raw === "") return DEFAULT_BACKUP_RETENTION;
 	if (!INTEGER_RE.test(raw)) {
 		log.warn(
-			`BETTER_CCFLARE_MIGRATION_BACKUP_KEEP="${raw}" is not a non-negative integer — using default ${DEFAULT_BACKUP_RETENTION}`,
+			`HOV_ROUTER_MIGRATION_BACKUP_KEEP="${raw}" is not a non-negative integer — using default ${DEFAULT_BACKUP_RETENTION}`,
 		);
 		return DEFAULT_BACKUP_RETENTION;
 	}
@@ -696,7 +696,7 @@ export function ensureSchema(db: Database): void {
 	`);
 
 	// Index for efficient age-based payload cleanup — only if column exists
-	// (may not exist if table was inherited from a legacy ccflare database)
+	// (may not exist if table was inherited from a snipeship/ccflare database)
 	const payloadCols = (
 		db.prepare("PRAGMA table_info(request_payloads)").all() as Array<{
 			name: string;
@@ -2707,7 +2707,7 @@ export function runMigrations(db: Database, dbPath?: string): void {
 		}
 
 		// Release 7.0.0 retires upstream_429_no_reset_default_5h, last written by
-		// ccflare 3.5.x. The probe-cooldown reason is classified the same way: a
+		// 3.5.x builds. The probe-cooldown reason is classified the same way: a
 		// circuit failure and an account-wide cooldown.
 		const legacyFiveHourReasons = db
 			.prepare(

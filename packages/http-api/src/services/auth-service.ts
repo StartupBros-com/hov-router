@@ -75,15 +75,15 @@ function isSessionAccountPath(path: string): boolean {
  * Mirrors packages/proxy/src/handlers/proxy-types.ts INTERNAL_PROBE_SECRET_HEADER —
  * duplicated here (rather than imported) to avoid a http-api -> proxy package
  * dependency; the string value MUST stay in sync with that file. */
-const INTERNAL_PROBE_SECRET_HEADER = "x-better-ccflare-internal-probe-secret";
+const INTERNAL_PROBE_SECRET_HEADER = "x-hov-router-internal-probe-secret";
 
-/** Header carrying the persisted local-control secret used by the better-ccflare
+/** Header carrying the persisted local-control secret used by the hov-router
  * CLI to notify its own locally-running server of DB-side changes (token
  * reload, force-reset-rate-limit) when API-key auth is enabled. Unlike the
  * internal-probe secret (minted fresh per server process), this secret is
  * persisted in the config file so the separate, short-lived CLI process can
  * read it too. See packages/config Config#getLocalControlSecret. */
-const LOCAL_CONTROL_SECRET_HEADER = "x-better-ccflare-local-control-secret";
+const LOCAL_CONTROL_SECRET_HEADER = "x-hov-router-local-control-secret";
 
 /** Paths where a valid local-control-secret is honored. Intentionally a small,
  * explicit allowlist — these are exact authenticated local routing mutations
@@ -162,7 +162,7 @@ export class AuthService {
 		const provided = headers.get(INTERNAL_PROBE_SECRET_HEADER);
 		if (!provided || !timingSafeStringEqual(provided, this.internalProbeSecret))
 			return false;
-		return headers.get("x-better-ccflare-keepalive") === "true";
+		return headers.get("x-hov-router-keepalive") === "true";
 	}
 
 	/**

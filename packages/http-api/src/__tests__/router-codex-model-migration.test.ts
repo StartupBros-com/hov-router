@@ -38,7 +38,7 @@ describe("APIRouter — Codex model migration routes", () => {
 				acknowledgeAlert: async () => true,
 				acknowledgeAll: async () => {},
 			},
-			// What the server passes after validating CCFLARE_MODEL_ROUTE_PROFILES_JSON.
+			// What the server passes after validating HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON.
 			modelRouteProfiles: parseModelRouteProfiles(
 				JSON.stringify([
 					{

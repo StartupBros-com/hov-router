@@ -203,7 +203,7 @@ export function resolveReasoningEffort(
 
 /**
  * Resolve Anthropic's official effort field while retaining compatibility with
- * the legacy better-ccflare reasoning field. Matching dual values are safe;
+ * the legacy hov-router reasoning field. Matching dual values are safe;
  * conflicting values are rejected instead of silently changing caller intent.
  */
 export function resolveAnthropicReasoningEffort(

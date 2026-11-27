@@ -11,11 +11,14 @@
 // XDG_CONFIG_HOME is pinned for the same reason: the default config directory,
 // and the default database inside it, is production's on this host, and a test
 // that forgets to set its own DB or config path would otherwise open it.
-// getPlatformConfigDir() reads XDG_CONFIG_HOME on every call. HOME is not
-// pinned because Bun caches os.homedir() at startup, so setting it here would
-// change nothing in-process.
+// getPlatformConfigDir() reads XDG_CONFIG_HOME on every call.
+//
+// HOME is pinned for children only: Bun caches os.homedir() at startup, so
+// in-process code still sees the real home. A spawned CLI or server would
+// otherwise read the developer's home directory, and since 8.0.0 refuses to
+// start where it finds a directory with a pre-8.0.0 name.
 import { afterAll } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -24,8 +27,10 @@ process.env.TMPDIR = dir;
 process.env.TEMP = dir;
 process.env.TMP = dir;
 process.env.XDG_CONFIG_HOME = join(dir, "config");
-process.env.BETTER_CCFLARE_LOG_DIR = join(dir, "logs");
-process.env.BETTER_CCFLARE_MODELS_CACHE_DIR = join(dir, "models-cache");
+process.env.HOME = join(dir, "home");
+mkdirSync(process.env.HOME);
+process.env.HOV_ROUTER_LOG_DIR = join(dir, "logs");
+process.env.HOV_ROUTER_MODELS_CACHE_DIR = join(dir, "models-cache");
 
 function cleanup(): void {
 	try {

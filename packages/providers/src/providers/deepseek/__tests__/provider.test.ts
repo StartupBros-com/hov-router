@@ -244,7 +244,7 @@ describe("DeepseekProvider", () => {
 			// No model_mappings configured — DeepSeek's own Anthropic-compatible
 			// endpoint auto-remaps claude-opus*->deepseek-v4-pro and
 			// claude-haiku*/claude-sonnet*->deepseek-v4-flash server-side, so
-			// better-ccflare must NOT rewrite the model name in this default case.
+			// hov-router must NOT rewrite the model name in this default case.
 			const accountWithoutMapping: Account = {
 				...mockAccount,
 				model_mappings: null,

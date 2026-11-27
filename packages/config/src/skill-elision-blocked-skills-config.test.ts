@@ -4,13 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Config, parseSkillElisionBlockedSkills } from "./index";
 
-const ENV_NAME = "CCFLARE_SKILL_ELISION_BLOCKED";
+const ENV_NAME = "HOV_ROUTER_SKILL_ELISION_BLOCKED";
 
 function makeConfig(raw?: Record<string, unknown>): {
 	config: Config;
 	cleanup: () => void;
 } {
-	const dir = mkdtempSync(join(tmpdir(), "better-ccflare-skill-elision-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-skill-elision-"));
 	const configPath = join(dir, "config.json");
 	if (raw) writeFileSync(configPath, JSON.stringify(raw), "utf8");
 	return {

@@ -654,7 +654,7 @@ function createRouteUnavailableResponse(options: {
 				clampFiniteRoutingRecoveryRetryAfterSeconds(effectiveRetryAt, now),
 			),
 		);
-		headers.set("x-better-ccflare-route-status", "circuit-open");
+		headers.set("x-hov-router-route-status", "circuit-open");
 		// Every candidate on this lane is circuit-open with a positively known
 		// reopen time, so this terminal is finitely recoverable and the guard may
 		// hold the request instead of failing it once. Emitting Retry-After alone
@@ -975,7 +975,7 @@ export function filterRequestCompatibleAccounts(
 ): Account[] {
 	const excluded =
 		headers
-			.get("x-better-ccflare-exclude-providers")
+			.get("x-hov-router-exclude-providers")
 			?.split(",")
 			.map((provider) => provider.trim())
 			.filter(Boolean) ?? [];

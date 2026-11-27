@@ -1,6 +1,6 @@
 /**
  * The real runner on a filesystem with no free block (#827). Started by
- * run-ccflare-stack-full-disk.test.ts inside a private mount namespace:
+ * run-hov-router-full-disk.test.ts inside a private mount namespace:
  *
  *   bun run <this file> --dir <mount> --scratch <dir> \
  *     --variant <runtime-directory|fallback> --deadline-ms <n> \
@@ -63,10 +63,10 @@ import {
 	startRunner,
 } from "./runner-transaction-fixture";
 
-const READY = "ccflare stack ready";
+const READY = "hov-router stack ready";
 const WAITING = "waiting for space instead of opening the restart circuit";
 const CIRCUIT_OPEN = "restart circuit open";
-const CHILD_EXITED = "ccflare stack child exited";
+const CHILD_EXITED = "hov-router stack child exited";
 const LISTENER_WAITING = "no space to record the deploy listener";
 const LISTENER_RECORDED = "the deploy listener is recorded";
 const OUT_OF_SPACE_EXIT_STATUS = 28;
@@ -199,7 +199,7 @@ const owner = (runner: RunnerFixture) =>
 		pid: number;
 	};
 const controlDirs = (dir: string) =>
-	readdirSync(dir).filter((name) => name.startsWith("ccflare-control."));
+	readdirSync(dir).filter((name) => name.startsWith("hov-router-control."));
 const backendStarts = (runner: RunnerFixture) => {
 	const path = join(runner.capture, "lifecycle.log");
 	return existsSync(path)
@@ -359,7 +359,7 @@ function listenersAmong(pids: number[]): number[] {
 			const args = readFileSync(`/proc/${pid}/cmdline`, "utf8").split("\0");
 			return (
 				args.includes("serve") &&
-				args.some((arg) => arg.endsWith("ccflare-deployment-transaction.mjs"))
+				args.some((arg) => arg.endsWith("hov-router-deployment-transaction.mjs"))
 			);
 		} catch {
 			// Gone already.

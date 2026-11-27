@@ -2,7 +2,7 @@
  * Multi-instance guard — startup-time detection that warns the operator
  * when more than one live process shares this database.
  *
- * Background: ccflare is designed for single-instance ownership of its
+ * Background: The router is designed for single-instance ownership of its
  * database. A second instance pointing at the same DB will share durable
  * state (accounts, requests, oauth_sessions) but NOT seven categories of
  * in-process coordination state that diverge silently across instances:
@@ -30,8 +30,8 @@
  *   - Detection at startup scans for other rows whose `last_heartbeat` is
  *     within the expiry window.
  *   - Default behaviour is WARN (log + continue). The operator may opt
- *     into hard-failure with the BETTER_CCFLARE_MULTI_INSTANCE=refuse env
- *     var, matching ccflare's existing pattern of opt-in strictness.
+ *     into hard-failure with the HOV_ROUTER_MULTI_INSTANCE=refuse env
+ *     var, matching the router's existing pattern of opt-in strictness.
  *
  * Schema: the `instance_heartbeats` table is added in `migrations.ts`.
  */
@@ -91,7 +91,7 @@ export interface MultiInstanceScanResult {
  *  - "warn" (default): log a warning and continue startup.
  *  - "refuse": throw MultiInstanceRefusedError to abort startup.
  *
- * Driven by the env var BETTER_CCFLARE_MULTI_INSTANCE.
+ * Driven by the env var HOV_ROUTER_MULTI_INSTANCE.
  */
 export type MultiInstanceMode = "warn" | "refuse";
 
@@ -99,8 +99,8 @@ export class MultiInstanceRefusedError extends Error {
 	readonly peers: HeartbeatRecord[];
 	constructor(peers: HeartbeatRecord[]) {
 		super(
-			`ccflare startup refused: ${peers.length} other live instance(s) ` +
-				`share this database (set BETTER_CCFLARE_MULTI_INSTANCE=warn to override)`,
+			`HoV Router startup refused: ${peers.length} other live instance(s) ` +
+				`share this database (set HOV_ROUTER_MULTI_INSTANCE=warn to override)`,
 		);
 		this.name = "MultiInstanceRefusedError";
 		this.peers = peers;
@@ -112,14 +112,14 @@ export class MultiInstanceRefusedError extends Error {
  * upgrade does not break existing deployments.
  */
 export function readMultiInstanceMode(): MultiInstanceMode {
-	const raw = (process.env.BETTER_CCFLARE_MULTI_INSTANCE ?? "warn")
+	const raw = (process.env.HOV_ROUTER_MULTI_INSTANCE ?? "warn")
 		.trim()
 		.toLowerCase();
 	if (raw === "refuse") return "refuse";
 	if (raw === "warn" || raw === "") return "warn";
 	// Unknown values: be loud but don't refuse.
 	log.warn(
-		`Unknown BETTER_CCFLARE_MULTI_INSTANCE value "${raw}"; defaulting to "warn"`,
+		`Unknown HOV_ROUTER_MULTI_INSTANCE value "${raw}"; defaulting to "warn"`,
 	);
 	return "warn";
 }
@@ -385,7 +385,7 @@ export function formatGuardMessage(peers: HeartbeatRecord[]): string {
 		.join("\n");
 
 	return [
-		`Multi-instance guard: ${peers.length} other live ccflare process(es) share this database.`,
+		`Multi-instance guard: ${peers.length} other live HoV Router process(es) share this database.`,
 		`The database holds durable state, but each instance keeps the following in-process and they DIVERGE silently:`,
 		`  1. SessionAffinityStrategy — sticky client→account map`,
 		`  2. LeastUsedStrategy / SessionDrainSoonestStrategy — recency-penalty Map`,
@@ -399,7 +399,7 @@ export function formatGuardMessage(peers: HeartbeatRecord[]): string {
 		peerLines,
 		``,
 		`To silence: ensure only one instance owns this database.`,
-		`To hard-fail instead of warn: set BETTER_CCFLARE_MULTI_INSTANCE=refuse.`,
+		`To hard-fail instead of warn: set HOV_ROUTER_MULTI_INSTANCE=refuse.`,
 		`See tombii/better-ccflare#351 for the full analysis.`,
 	].join("\n");
 }

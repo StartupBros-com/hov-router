@@ -176,7 +176,7 @@ The dashboard and CLI always show what an alias currently resolves to alongside 
 **Rollback caveat:** a binary built before family-alias support does not know how to resolve the alias literal — it would treat the stored word as a real (and nonsensical) model ID. Before rolling production back to a pre-alias-feature binary, run:
 
 ```bash
-better-ccflare --resolve-family-policy-aliases
+hov-router --resolve-family-policy-aliases
 ```
 
 This idempotent maintenance sweep rewrites every stored alias — in both the family's `managed_model` policy field and any Manual slot's `model` field, across every family — to its currently-resolved concrete model, so the older binary only ever sees concrete IDs.
@@ -210,16 +210,16 @@ The **Accounts** page uses the server's coherent account-routing overview. A low
 The managed-routing CLI workflow uses the running server's same effective, family/account preview and apply, and rollback contracts. It does not open the local database or run a second resolver. Read-only listing and preview are safe reporting operations; mutation requires explicit reviewed identifiers and confirmation. Use the dashboard or management API for account exclusion and restore.
 
 ```bash
-better-ccflare routing list [--api-url <loopback-url>] [--json]
-better-ccflare routing detail <account-id> [--api-url <loopback-url>] [--json]
-better-ccflare routing preview <family> [--managed-model <model>] [--api-url <loopback-url>] [--json]
-better-ccflare routing apply <family> --preview-id <id> --proposal-id <id> --managed-model <model> --yes [--api-url <loopback-url>] [--json]
-better-ccflare routing manual <family> --yes [--api-url <loopback-url>] [--json]
+hov-router routing list [--api-url <loopback-url>] [--json]
+hov-router routing detail <account-id> [--api-url <loopback-url>] [--json]
+hov-router routing preview <family> [--managed-model <model>] [--api-url <loopback-url>] [--json]
+hov-router routing apply <family> --preview-id <id> --proposal-id <id> --managed-model <model> --yes [--api-url <loopback-url>] [--json]
+hov-router routing manual <family> --yes [--api-url <loopback-url>] [--json]
 ```
 
 `<family>` is `fable`, `opus`, `sonnet`, or `haiku`. Interactive apply may omit the tuple and `--yes`: the CLI prints the full preview, requires explicit proposal selection, and asks for confirmation. Non-TTY and JSON mutations never auto-select; apply requires the complete displayed preview/proposal/model tuple plus `--yes`, and Manual rollback requires `--yes`.
 
-`--api-url` accepts only a loopback HTTP(S) origin. The optional admin key is environment-only through `BETTER_CCFLARE_ADMIN_API_KEY`; there is no credential flag. `--add-account --json` is rejected before creation, while the five `routing` commands retain `--json`. Non-TTY text account creation prints the persisted immutable ID and follow-up detail/preview commands without requesting a routing preview or sending a routing write.
+`--api-url` accepts only a loopback HTTP(S) origin. The optional admin key is environment-only through `HOV_ROUTER_ADMIN_API_KEY`; there is no credential flag. `--add-account --json` is rejected before creation, while the five `routing` commands retain `--json`. Non-TTY text account creation prints the persisted immutable ID and follow-up detail/preview commands without requesting a routing preview or sending a routing write.
 
 After interactive account creation, the CLI prints the initial persisted-account previews and requires an explicit proposal-or-skip choice. It then processes selected families sequentially. Before each write it requests and displays a fresh family preview, verifies the selected proposal is still present and materially unchanged, and asks for confirmation. This refresh is required because each policy write advances the global routing revision. Missing or changed proposals and unavailable API/review/apply steps fail closed. If an earlier family already succeeded, the CLI reports those results honestly as `partial`, names the stopped family/reason, and neither retries nor automatically rolls back the reviewed write.
 
@@ -386,7 +386,7 @@ Recoverable local quota evidence produces HTTP **429** with `type: "error"`, `er
 
 An authoritative temporary 429 or 529 can retain its existing meaning. A synthetic **529** with `overloaded_error` is appropriate only for proven temporary same-family pre-byte failures. Structural, authentication, billing, unsupported-model, and permanent failures do not become quota retries. The proxy does not hold an HTTP request until quota reset, add a background scheduler, or replay a response after commitment. Unattended waiting requires a client that keeps retrying capacity errors. In Claude Code, enable `CLAUDE_CODE_RETRY_WATCHDOG=1`; its capacity retry branch handles these repeated 429/529 responses. Without that watchdog, ordinary client retries remain finite. A running chat must already have the watchdog enabled; changing a setting is not proof that an existing process received it.
 
-Native 429/529 presentations carry no trusted `x-better-ccflare-pool-status` or `x-better-ccflare-recovery-scope` authorization. The guard forwards them to the client. Its existing special replay authorization and bounded waiting remain limited to qualified 503 responses, and legacy terminal classification is unchanged.
+Native 429/529 presentations carry no trusted `x-hov-router-pool-status` or `x-hov-router-recovery-scope` authorization. The guard forwards them to the client. Its existing special replay authorization and bounded waiting remain limited to qualified 503 responses, and legacy terminal classification is unchanged.
 
 ### Activation and rollback
 

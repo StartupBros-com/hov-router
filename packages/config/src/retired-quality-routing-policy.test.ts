@@ -6,7 +6,7 @@ import { Config } from "./index";
 
 // The Auto quality lane was removed (#816). Installs that enrolled it still
 // carry its policy in the config file or the environment; both must be inert.
-const ENV = "CCFLARE_QUALITY_ROUTING_POLICY_JSON";
+const ENV = "HOV_ROUTER_QUALITY_ROUTING_POLICY_JSON";
 const savedEnv = process.env[ENV];
 const directories: string[] = [];
 
@@ -30,7 +30,7 @@ const leftoverPolicy = {
 };
 
 function configPath(data: Record<string, unknown>): string {
-	const directory = mkdtempSync(join(tmpdir(), "ccflare-retired-quality-"));
+	const directory = mkdtempSync(join(tmpdir(), "hov-router-retired-quality-"));
 	directories.push(directory);
 	const path = join(directory, "config.json");
 	writeFileSync(path, JSON.stringify(data));

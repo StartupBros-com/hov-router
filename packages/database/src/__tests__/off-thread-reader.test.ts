@@ -23,7 +23,7 @@ afterEach(async () => {
 });
 const sourceUrl = new URL("../reader-worker.ts", import.meta.url).href;
 function realFixture() {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-reader-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-reader-"));
 	const dbPath = join(dir, "test.db");
 	const db = new Database(dbPath, { create: true });
 	db.exec(

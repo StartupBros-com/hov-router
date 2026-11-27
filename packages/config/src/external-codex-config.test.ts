@@ -4,16 +4,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Config } from "./index";
 
-const originalHomes = process.env.CCFLARE_EXTERNAL_CODEX_HOMES;
-const originalCloud = process.env.CCFLARE_EXTERNAL_CODEX_CLOUD_ROOTS;
+const originalHomes = process.env.HOV_ROUTER_EXTERNAL_CODEX_HOMES;
+const originalCloud = process.env.HOV_ROUTER_EXTERNAL_CODEX_CLOUD_ROOTS;
 const dirs: string[] = [];
 afterEach(() => {
 	if (originalHomes === undefined)
-		delete process.env.CCFLARE_EXTERNAL_CODEX_HOMES;
-	else process.env.CCFLARE_EXTERNAL_CODEX_HOMES = originalHomes;
+		delete process.env.HOV_ROUTER_EXTERNAL_CODEX_HOMES;
+	else process.env.HOV_ROUTER_EXTERNAL_CODEX_HOMES = originalHomes;
 	if (originalCloud === undefined)
-		delete process.env.CCFLARE_EXTERNAL_CODEX_CLOUD_ROOTS;
-	else process.env.CCFLARE_EXTERNAL_CODEX_CLOUD_ROOTS = originalCloud;
+		delete process.env.HOV_ROUTER_EXTERNAL_CODEX_CLOUD_ROOTS;
+	else process.env.HOV_ROUTER_EXTERNAL_CODEX_CLOUD_ROOTS = originalCloud;
 	for (const dir of dirs.splice(0))
 		rmSync(dir, { recursive: true, force: true });
 });
@@ -23,8 +23,8 @@ function config() {
 	return new Config(join(dir, "config.json"));
 }
 test("external sources default off and persist both source settings", () => {
-	delete process.env.CCFLARE_EXTERNAL_CODEX_HOMES;
-	delete process.env.CCFLARE_EXTERNAL_CODEX_CLOUD_ROOTS;
+	delete process.env.HOV_ROUTER_EXTERNAL_CODEX_HOMES;
+	delete process.env.HOV_ROUTER_EXTERNAL_CODEX_CLOUD_ROOTS;
 	const c = config();
 	expect(c.getExternalCodexHomes()).toEqual([]);
 	expect(c.getExternalCodexCloudRoots()).toEqual([]);
@@ -44,18 +44,19 @@ test("external sources default off and persist both source settings", () => {
 test("env source settings override persisted sources, including explicit empty disable", () => {
 	const c = config();
 	c.setExternalCodexHomes(["/saved"]);
-	process.env.CCFLARE_EXTERNAL_CODEX_HOMES = " /one, /two ,";
-	process.env.CCFLARE_EXTERNAL_CODEX_CLOUD_ROOTS = "main=/cloud=1,alt=/other";
+	process.env.HOV_ROUTER_EXTERNAL_CODEX_HOMES = " /one, /two ,";
+	process.env.HOV_ROUTER_EXTERNAL_CODEX_CLOUD_ROOTS =
+		"main=/cloud=1,alt=/other";
 	expect(c.getExternalCodexHomes()).toEqual(["/one", "/two"]);
 	expect(c.getExternalCodexCloudRoots()).toEqual([
 		{ accountName: "main", path: "/cloud=1" },
 		{ accountName: "alt", path: "/other" },
 	]);
-	process.env.CCFLARE_EXTERNAL_CODEX_HOMES = "";
+	process.env.HOV_ROUTER_EXTERNAL_CODEX_HOMES = "";
 	expect(c.getExternalCodexHomes()).toEqual([]);
 });
 test("invalid cloud mappings fail closed instead of guessing an account", () => {
-	process.env.CCFLARE_EXTERNAL_CODEX_CLOUD_ROOTS = "/unmapped,main=/valid";
+	process.env.HOV_ROUTER_EXTERNAL_CODEX_CLOUD_ROOTS = "/unmapped,main=/valid";
 	const c = config();
 	expect(c.getExternalCodexCloudRoots()).toEqual([
 		{ accountName: "main", path: "/valid" },

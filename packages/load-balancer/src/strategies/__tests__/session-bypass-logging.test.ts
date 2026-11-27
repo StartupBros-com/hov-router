@@ -13,7 +13,7 @@ it("logs bypass details only for an actual bypass without changing empty-pool ro
 	for (const value of [null, "false", "true"]) {
 		info.mockClear();
 		const headers = new Headers();
-		if (value !== null) headers.set("x-better-ccflare-bypass-session", value);
+		if (value !== null) headers.set("x-hov-router-bypass-session", value);
 		expect(await strategy.select([], { headers } as RequestMeta)).toEqual([]);
 		const bypass = info.mock.calls.filter(([message]) =>
 			message.startsWith("Bypass header:"),

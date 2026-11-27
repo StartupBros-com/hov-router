@@ -20,7 +20,7 @@ function makeProvider(observeRequest?: Provider["observeRequest"]): Provider {
 describe("beginRequestObservation", () => {
 	it("returns undefined and falls back to the registered codex provider's hook when the given provider defines none (diagnostics off by default, so still undefined)", () => {
 		// The registered CodexProvider is a real import-time side effect of
-		// `@hov-router/providers`; with CCFLARE_CODEX_CACHE_DIAGNOSTICS unset
+		// `@hov-router/providers`; with HOV_ROUTER_CODEX_CACHE_DIAGNOSTICS unset
 		// its own observeRequest is a no-op, so this also proves the fallback
 		// path itself never throws even though it resolves a real provider.
 		const provider = makeProvider(undefined);

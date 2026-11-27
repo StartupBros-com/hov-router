@@ -250,7 +250,7 @@ describe("selectAccountsForRequest — force account model", () => {
 });
 
 /**
- * `x-better-ccflare-account-id` names an account outright, and that path
+ * `x-hov-router-account-id` names an account outright, and that path
  * returns before every other filter. Under this setting it still has to answer
  * the one question the setting is about, because the two ways of not answering
  * it are both worse: falling through to normal selection would send the request
@@ -263,7 +263,7 @@ describe("selectAccountsForRequest — force account model, forced-account heade
 	function metaForcing(accountId: string): RequestMeta {
 		return {
 			...makeRequestMeta(),
-			headers: new Headers({ "x-better-ccflare-account-id": accountId }),
+			headers: new Headers({ "x-hov-router-account-id": accountId }),
 		};
 	}
 
@@ -369,10 +369,10 @@ describe("selectAccountsForRequest — force account model, internal probes", ()
 	function probeMeta(
 		accountId: string,
 		secret: string | null,
-		marker = "x-better-ccflare-keepalive",
+		marker = "x-hov-router-keepalive",
 	): RequestMeta {
 		const headers = new Headers({
-			"x-better-ccflare-account-id": accountId,
+			"x-hov-router-account-id": accountId,
 			[marker]: "true",
 		});
 		if (secret !== null) {
@@ -390,7 +390,7 @@ describe("selectAccountsForRequest — force account model, internal probes", ()
 		});
 
 		const result = await selectAccountsForRequest(
-			probeMeta("codex-1", SECRET, "x-better-ccflare-auto-refresh"),
+			probeMeta("codex-1", SECRET, "x-hov-router-auto-refresh"),
 			ctx,
 			CLAUDE_MODEL_IDS.HAIKU_4_5,
 		);

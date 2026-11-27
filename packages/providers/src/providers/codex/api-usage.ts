@@ -370,7 +370,7 @@ function coerceCreditsBalance(value: unknown): number | null {
 }
 
 /**
- * Map a `wham/usage` response body onto better-ccflare's provider-agnostic
+ * Map a `wham/usage` response body onto hov-router's provider-agnostic
  * UsageData shape. Mirrors OnWatch's codexPrimaryQuotaName heuristic for
  * deciding whether a lone primary window represents the 5h or 7d window.
  */
