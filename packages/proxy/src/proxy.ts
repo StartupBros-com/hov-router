@@ -38,7 +38,7 @@ import type {
 	RoutingSelectionZeroAttemptReason,
 	ServerToolRequirements,
 } from "@hov-router/types";
-import { registerManagedTerminal } from "../../../scripts/ccflare-managed-timing.mjs";
+import { registerManagedTerminal } from "../../../scripts/hov-router-managed-timing.mjs";
 import {
 	type AnthropicDegradedCohortFacts,
 	type AnthropicDegradedRouteInspection,
@@ -247,7 +247,7 @@ function modelRouteUnavailableResponse(
 			status: 503,
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-model-route": "unavailable",
+				"x-hov-router-model-route": "unavailable",
 			},
 		},
 	);
@@ -275,7 +275,7 @@ function forceRouteUnavailableResponse(
 ): Response {
 	const headers: Record<string, string> = {
 		"content-type": "application/json",
-		"x-better-ccflare-force-route": "unavailable",
+		"x-hov-router-force-route": "unavailable",
 	};
 	let message = error.message;
 	if (!error.retryable) {
@@ -901,15 +901,15 @@ async function handleProxyCoreImpl(
 	const trustedInternalScheduler = consumeInternalSchedulerAuth(req.headers);
 	const trustedInternalKeepalive =
 		(trustedInternalScheduler &&
-			req.headers.get("x-better-ccflare-keepalive") === "true") ||
+			req.headers.get("x-hov-router-keepalive") === "true") ||
 		isInternalProbe(req.headers, ctx);
 	// The auto-refresh marker is trusted nowhere: delete it at ingress so it
 	// cannot suppress pacing or analytics, or reach an upstream.
-	req.headers.delete("x-better-ccflare-auto-refresh");
+	req.headers.delete("x-hov-router-auto-refresh");
 	// The keepalive marker is meaningful only after internal authentication.
 	// Remove spoofed markers so they cannot suppress pacing or cache staging.
 	if (!trustedInternalKeepalive) {
-		req.headers.delete("x-better-ccflare-keepalive");
+		req.headers.delete("x-hov-router-keepalive");
 		req.headers.delete(CACHE_REPLAY_MODEL_HEADER);
 	}
 
@@ -1193,7 +1193,7 @@ async function handleProxyCoreImpl(
 	const routingSignal = activeAnthropicPreCommitRescue?.signal ?? req.signal;
 	const preTransportDeadlines = getPreTransportDeadlineConfig();
 	let contextAdmissionTracker =
-		process.env.CCFLARE_CONTEXT_ADMISSION === "1" &&
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION === "1" &&
 		url.pathname === "/v1/messages" &&
 		originalParsedBody &&
 		originalParsedBody.max_tokens !== 0
@@ -1648,7 +1648,7 @@ async function handleProxyCoreImpl(
 		isResponsesAdapterRequest(req.headers, ctx) &&
 		codexPhysicalModel !== null &&
 		(ctx.config.getCodexImplicitRouteEnabled?.() ??
-			process.env.CCFLARE_CODEX_IMPLICIT_ROUTE !== "0")
+			process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE !== "0")
 	) {
 		if (requestMeta.routeLineage?.kind !== "root") {
 			return modelRouteUnavailableResponse(
@@ -1865,7 +1865,7 @@ async function handleProxyCoreImpl(
 			body: finalParsedBody,
 			resolution: modelRouteResolution,
 			// Presence, not value: an empty header also disables the helper (#645).
-			publicForceAccount: req.headers.has("x-better-ccflare-account-id"),
+			publicForceAccount: req.headers.has("x-hov-router-account-id"),
 		});
 	}
 	const potentialAnthropicCohortFacts =
@@ -2849,7 +2849,7 @@ async function handleProxyCoreImpl(
 			requestMeta.routingSelectionDiagnostics.structuralCandidateCount > 0 &&
 			requestMeta.routingSelectionDiagnostics.eligibleCandidateCount === 0;
 		if (
-			process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL === "1" &&
+			process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL === "1" &&
 			!policyExcludedByImplicitFallback
 		) {
 			// An unauthenticated passthrough cannot supply independent account
@@ -4771,7 +4771,7 @@ async function handleProxyCoreImpl(
 			);
 		}
 		log.warn(
-			`All combo slots and queued model routes failed for combo "${disabledComboSessionFallbackName}", session fallback disabled by CCFLARE_DISABLE_COMBO_SESSION_FALLBACK`,
+			`All combo slots and queued model routes failed for combo "${disabledComboSessionFallbackName}", combo session fallback is off`,
 		);
 		return finishPacing(
 			pacingSlot,

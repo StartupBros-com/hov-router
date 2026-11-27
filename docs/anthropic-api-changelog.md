@@ -110,7 +110,7 @@ To test the current API response:
 
 ```bash
 # Get an access token from the database
-sqlite3 ~/.config/better-ccflare/better-ccflare.db "SELECT access_token FROM accounts WHERE name = 'claude' LIMIT 1;"
+sqlite3 ~/.config/hov-router/hov-router.db "SELECT access_token FROM accounts WHERE name = 'claude' LIMIT 1;"
 
 # Test the API endpoint
 curl -v -X GET "https://api.anthropic.com/api/oauth/usage" \

@@ -8,15 +8,15 @@ import {
 import type { Account } from "@hov-router/types";
 
 /** Opt-in: set to "1" to enable the Grok Chat cache-native vertical slice. */
-export const XAI_CACHE_NATIVE_ENV = "CCFLARE_XAI_CACHE_NATIVE";
+export const XAI_CACHE_NATIVE_ENV = "HOV_ROUTER_XAI_CACHE_NATIVE";
 
 /** Independent opt-in for privacy-safe cache flight recorder evidence. */
-export const CACHE_FLIGHT_RECORDER_ENV = "CCFLARE_CACHE_FLIGHT_RECORDER";
+export const CACHE_FLIGHT_RECORDER_ENV = "HOV_ROUTER_CACHE_FLIGHT_RECORDER";
 
 /** Official Chat Completions affinity header (xAI docs). */
 export const XAI_CONV_ID_HEADER = "x-grok-conv-id";
 
-const CONV_ID_PREFIX = "ccflare-xai-";
+const CONV_ID_PREFIX = "hov-router-xai-";
 const CONV_ID_HASH_LENGTH = 32;
 
 const SESSION_UUID_RE =
@@ -174,7 +174,7 @@ export function deriveCacheFlightRecorderId(
 		sessionId: material.sessionId,
 		firstMessage: material.firstMessage,
 	};
-	return `cfr_${hashRecorderTimeline("better-ccflare/cache-flight-recorder/v2", timelineMaterial).slice(0, 32)}`;
+	return `cfr_${hashRecorderTimeline("hov-router/cache-flight-recorder/v2", timelineMaterial).slice(0, 32)}`;
 }
 
 export interface XaiConversationIdentity {
@@ -207,7 +207,7 @@ export function deriveXaiConversationIdentity(
 		.update(firstMessage)
 		.digest("hex");
 
-	const headerValue = `ccflare-xai-${digest.slice(0, 48)}`;
+	const headerValue = `hov-router-xai-${digest.slice(0, 48)}`;
 	const prefixFingerprint = createHash("sha256")
 		.update(instructions)
 		.update("\0")

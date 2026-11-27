@@ -73,11 +73,11 @@ export const HEADERS = {
 
 /** Header carrying the process-local secret that gates internal-probe markers */
 export const INTERNAL_PROBE_SECRET_HEADER =
-	"x-better-ccflare-internal-probe-secret";
+	"x-hov-router-internal-probe-secret";
 
 /** Process-local authentication for the Responses adapter's synthetic request. */
 export const RESPONSES_ADAPTER_SECRET_HEADER =
-	"x-better-ccflare-responses-adapter-secret";
+	"x-hov-router-responses-adapter-secret";
 
 export function isResponsesAdapterRequest(
 	headers: Headers | null | undefined,
@@ -109,5 +109,5 @@ export function isInternalProbe(
 	if (!headers || !ctx.internalProbeSecret) return false;
 	if (headers.get(INTERNAL_PROBE_SECRET_HEADER) !== ctx.internalProbeSecret)
 		return false;
-	return headers.get("x-better-ccflare-keepalive") === "true";
+	return headers.get("x-hov-router-keepalive") === "true";
 }

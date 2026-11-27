@@ -1,5 +1,5 @@
 /**
- * Centralized constants for the better-ccflare application
+ * Centralized constants for the hov-router application
  * All magic numbers should be defined here to improve maintainability
  */
 
@@ -46,13 +46,13 @@ export const TIME_CONSTANTS = {
 	// Real upstream rate-limit replies ship a retry-after / reset
 	// header and use the precise value from the header — those flows
 	// are unaffected by this default.
-	// Override at runtime via CCFLARE_DEFAULT_COOLDOWN_NO_RESET_MS.
+	// Override at runtime via HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS.
 	DEFAULT_RATE_LIMIT_NO_RESET_COOLDOWN_MS: 60 * 1000, // 60s
 
 	// Adaptive rate-limit cooldown with exponential backoff.
 	// Cooldown for streak of n consecutive 429s = BASE * 2^(n-1), capped at MAX.
-	// Override at runtime via CCFLARE_RATE_LIMIT_BACKOFF_BASE_MS /
-	// CCFLARE_RATE_LIMIT_BACKOFF_MAX_MS / CCFLARE_RATE_LIMIT_RESET_STABILITY_MS.
+	// Override at runtime via HOV_ROUTER_RATE_LIMIT_BACKOFF_BASE_MS /
+	// HOV_ROUTER_RATE_LIMIT_BACKOFF_MAX_MS / HOV_ROUTER_RATE_LIMIT_RESET_STABILITY_MS.
 	RATE_LIMIT_BACKOFF_BASE_MS: 30 * 1000, // 30s: cooldown for the 1st 429 in a streak
 	RATE_LIMIT_BACKOFF_MAX_MS: 5 * 60 * 1000, // 5min: ceiling for the exponential ramp
 	RATE_LIMIT_RESET_STABILITY_MS: 5 * 60 * 1000, // 5min: healthy operation needed to reset the streak counter
@@ -61,7 +61,7 @@ export const TIME_CONSTANTS = {
 	// far-future reset (Anthropic 5h/weekly usage-window limits), we bench until
 	// that reset instead of re-probing every ~5min — but never longer than this,
 	// so a stale/oversized hint can't idle an account indefinitely.
-	// Override at runtime via CCFLARE_RATE_LIMIT_MAX_COOLDOWN_MS.
+	// Override at runtime via HOV_ROUTER_RATE_LIMIT_MAX_COOLDOWN_MS.
 	RATE_LIMIT_MAX_COOLDOWN_MS: 12 * 60 * 60 * 1000, // 12h
 
 	// Anti-thrash window for session/cache affinity upgrades (matches the
@@ -70,7 +70,7 @@ export const TIME_CONSTANTS = {
 	// within this window, further upgrades for the session are suppressed for
 	// the remainder of the window instead of re-attempting the flapping owner
 	// on every cooldown cycle. Override at runtime via
-	// CCFLARE_SESSION_AFFINITY_ANTI_THRASH_WINDOW_MS.
+	// HOV_ROUTER_SESSION_AFFINITY_ANTI_THRASH_WINDOW_MS.
 	SESSION_AFFINITY_ANTI_THRASH_WINDOW_MS: 5 * 60 * 1000, // 5min
 
 	// Fixed cooldown applied when an upstream returns 529 (overloaded_error)
@@ -102,7 +102,7 @@ export const TIME_CONSTANTS = {
 	//   fallback). The gate suppresses nothing in that case; the short 10s
 	//   value is the only thing bounding how often that ungated path
 	//   re-hits the account during an overload storm.
-	// Override at runtime via CCFLARE_OVERLOAD_COOLDOWN_MS.
+	// Override at runtime via HOV_ROUTER_OVERLOAD_COOLDOWN_MS.
 	OVERLOAD_COOLDOWN_MS: 10 * 1000, // 10s
 
 	// Cap on a 529-with-reset cooldown duration. A 529-with-reset honors
@@ -116,7 +116,7 @@ export const TIME_CONSTANTS = {
 	// repo's established "no usable signal" answer. A real, short retry-after
 	// (≤ 60s) is still honored literally; only a multi-hour unified-reset
 	// value gets capped down to this bound.
-	// Override at runtime via CCFLARE_OVERLOAD_WITH_RESET_MAX_MS.
+	// Override at runtime via HOV_ROUTER_OVERLOAD_WITH_RESET_MAX_MS.
 	OVERLOAD_WITH_RESET_MAX_MS: 60 * 1000, // 60s
 } as const;
 
@@ -143,18 +143,18 @@ function readDurationOverrideMs(
 /**
  * Compute exponential-backoff cooldown (ms) for a given streak depth.
  *   backoff = BASE * 2^(consecutiveCount - 1), capped at MAX.
- * Reads BASE/MAX from env (CCFLARE_RATE_LIMIT_BACKOFF_BASE_MS /
- * CCFLARE_RATE_LIMIT_BACKOFF_MAX_MS), falling back to TIME_CONSTANTS
+ * Reads BASE/MAX from env (HOV_ROUTER_RATE_LIMIT_BACKOFF_BASE_MS /
+ * HOV_ROUTER_RATE_LIMIT_BACKOFF_MAX_MS), falling back to TIME_CONSTANTS
  * for anything that is not a positive finite duration.
  */
 export function computeRateLimitBackoffMs(consecutiveCount: number): number {
 	const count = Math.max(1, consecutiveCount);
 	const base = readDurationOverrideMs(
-		process.env.CCFLARE_RATE_LIMIT_BACKOFF_BASE_MS,
+		process.env.HOV_ROUTER_RATE_LIMIT_BACKOFF_BASE_MS,
 		TIME_CONSTANTS.RATE_LIMIT_BACKOFF_BASE_MS,
 	);
 	const max = readDurationOverrideMs(
-		process.env.CCFLARE_RATE_LIMIT_BACKOFF_MAX_MS,
+		process.env.HOV_ROUTER_RATE_LIMIT_BACKOFF_MAX_MS,
 		TIME_CONSTANTS.RATE_LIMIT_BACKOFF_MAX_MS,
 	);
 	// Guard against overflow: 2^53 is JS safe-integer limit.
@@ -164,29 +164,29 @@ export function computeRateLimitBackoffMs(consecutiveCount: number): number {
 
 /**
  * Read the stability-reset window (ms) for the consecutive_rate_limits counter.
- * Reads CCFLARE_RATE_LIMIT_RESET_STABILITY_MS from env.
+ * Reads HOV_ROUTER_RATE_LIMIT_RESET_STABILITY_MS from env.
  */
 export function getRateLimitResetStabilityMs(): number {
 	return readDurationOverrideMs(
-		process.env.CCFLARE_RATE_LIMIT_RESET_STABILITY_MS,
+		process.env.HOV_ROUTER_RATE_LIMIT_RESET_STABILITY_MS,
 		TIME_CONSTANTS.RATE_LIMIT_RESET_STABILITY_MS,
 	);
 }
 
 /**
  * Read the fixed 529-overload cooldown (ms).
- * Reads CCFLARE_OVERLOAD_COOLDOWN_MS from env.
+ * Reads HOV_ROUTER_OVERLOAD_COOLDOWN_MS from env.
  */
 export function computeOverloadCooldownMs(): number {
 	return readDurationOverrideMs(
-		process.env.CCFLARE_OVERLOAD_COOLDOWN_MS,
+		process.env.HOV_ROUTER_OVERLOAD_COOLDOWN_MS,
 		TIME_CONSTANTS.OVERLOAD_COOLDOWN_MS,
 	);
 }
 
 /**
  * Read the cap (ms) on a 529-with-reset cooldown duration.
- * Reads CCFLARE_OVERLOAD_WITH_RESET_MAX_MS from env.
+ * Reads HOV_ROUTER_OVERLOAD_WITH_RESET_MAX_MS from env.
  *
  * This value is applied as `min(resetTime, now + cap)`, so it is the only
  * clamp standing between a 529 that carries an anthropic-ratelimit-unified-reset
@@ -195,7 +195,7 @@ export function computeOverloadCooldownMs(): number {
  */
 export function computeOverloadWithResetCapMs(): number {
 	return readDurationOverrideMs(
-		process.env.CCFLARE_OVERLOAD_WITH_RESET_MAX_MS,
+		process.env.HOV_ROUTER_OVERLOAD_WITH_RESET_MAX_MS,
 		TIME_CONSTANTS.OVERLOAD_WITH_RESET_MAX_MS,
 	);
 }
@@ -215,22 +215,22 @@ export function isOverloadReason(reason: RateLimitReason): boolean {
 
 /**
  * Read the safety ceiling (ms) for an upstream-reset-driven cooldown.
- * Reads CCFLARE_RATE_LIMIT_MAX_COOLDOWN_MS from env.
+ * Reads HOV_ROUTER_RATE_LIMIT_MAX_COOLDOWN_MS from env.
  * Uses || (not ??) so 0/NaN env values fall through to the default.
  */
 export function getRateLimitMaxCooldownMs(): number {
-	const raw = Number(process.env.CCFLARE_RATE_LIMIT_MAX_COOLDOWN_MS);
+	const raw = Number(process.env.HOV_ROUTER_RATE_LIMIT_MAX_COOLDOWN_MS);
 	return raw || TIME_CONSTANTS.RATE_LIMIT_MAX_COOLDOWN_MS;
 }
 
 /**
  * Read the anti-thrash suppression window (ms) for session/cache affinity
- * upgrades. Reads CCFLARE_SESSION_AFFINITY_ANTI_THRASH_WINDOW_MS from env.
+ * upgrades. Reads HOV_ROUTER_SESSION_AFFINITY_ANTI_THRASH_WINDOW_MS from env.
  * Uses || (not ??) so 0/NaN env values fall through to the default.
  */
 export function getSessionAffinityAntiThrashWindowMs(): number {
 	const raw = Number(
-		process.env.CCFLARE_SESSION_AFFINITY_ANTI_THRASH_WINDOW_MS,
+		process.env.HOV_ROUTER_SESSION_AFFINITY_ANTI_THRASH_WINDOW_MS,
 	);
 	return raw || TIME_CONSTANTS.SESSION_AFFINITY_ANTI_THRASH_WINDOW_MS;
 }
@@ -268,14 +268,14 @@ const OVERLOAD_RETRY_MAX_ATTEMPTS_DEFAULT = 2;
 const OVERLOAD_RETRY_MAX_ATTEMPTS_CAP = 10;
 
 /**
- * Parse CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS into a finite integer in
+ * Parse HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS into a finite integer in
  * [1, OVERLOAD_RETRY_MAX_ATTEMPTS_CAP].
  *
  * The retry loops spin on `attempt < maxAttempts` while the upstream keeps
  * returning 529/5xx, so an unclamped value is not a tuning knob: "Infinity"
  * parses truthy and retries forever, and a fractional value gives a surprising
  * count. 0 and negatives are not a way to disable the retry either; the kill
- * switch is CCFLARE_OVERLOAD_RETRY_ENABLED=false. Anything below 1 or
+ * switch is HOV_ROUTER_OVERLOAD_RETRY_ENABLED=false. Anything below 1 or
  * non-finite falls back to the default.
  */
 function readRetryMaxAttempts(raw: string | undefined): number {
@@ -293,10 +293,10 @@ function readRetryMaxAttempts(raw: string | undefined): number {
  * Used by proxyWithAccount before applying account cooldown.
  *
  * Env knobs:
- *   CCFLARE_OVERLOAD_RETRY_ENABLED      — set to "false" to disable (default: true)
- *   CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS — max in-place attempts, integer 1-10 (default: 2)
- *   CCFLARE_OVERLOAD_RETRY_BASE_MS      — jitter backoff base delay ms (default: 750)
- *   CCFLARE_OVERLOAD_RETRY_MAX_MS       — jitter backoff ceiling ms (default: 3000)
+ *   HOV_ROUTER_OVERLOAD_RETRY_ENABLED      — set to "false" to disable (default: true)
+ *   HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS — max in-place attempts, integer 1-10 (default: 2)
+ *   HOV_ROUTER_OVERLOAD_RETRY_BASE_MS      — jitter backoff base delay ms (default: 750)
+ *   HOV_ROUTER_OVERLOAD_RETRY_MAX_MS       — jitter backoff ceiling ms (default: 3000)
  */
 export function getOverloadRetryConfig(): {
 	enabled: boolean;
@@ -304,13 +304,13 @@ export function getOverloadRetryConfig(): {
 	baseMs: number;
 	maxMs: number;
 } {
-	const enabled = process.env.CCFLARE_OVERLOAD_RETRY_ENABLED !== "false";
+	const enabled = process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED !== "false";
 	const maxAttempts = readRetryMaxAttempts(
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS,
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS,
 	);
 	// baseMs/maxMs: 0 is valid (zero delay for tests), so use explicit finite check.
-	const rawBase = Number(process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS);
-	const rawMax = Number(process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS);
+	const rawBase = Number(process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS);
+	const rawMax = Number(process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS);
 	const baseMs = Number.isFinite(rawBase) && rawBase >= 0 ? rawBase : 750;
 	const maxMs = Number.isFinite(rawMax) && rawMax >= 0 ? rawMax : 3000;
 	return { enabled, maxAttempts, baseMs, maxMs };
@@ -323,12 +323,12 @@ export function getOverloadRetryConfig(): {
  * that never emits a terminal frame) must not be able to hang the retry
  * loop forever: past this bound the drain is abandoned and the reader is
  * cancelled instead.
- * Override at runtime via CCFLARE_IN_PLACE_RETRY_DRAIN_TIMEOUT_MS.
+ * Override at runtime via HOV_ROUTER_IN_PLACE_RETRY_DRAIN_TIMEOUT_MS.
  * Falls back to TIME_CONSTANTS.STREAM_OPERATION_TIMEOUT_MS.
  * Uses an explicit finite check (not ||) so 0 is a valid override for tests.
  */
 export function getInPlaceRetryDrainTimeoutMs(): number {
-	const raw = Number(process.env.CCFLARE_IN_PLACE_RETRY_DRAIN_TIMEOUT_MS);
+	const raw = Number(process.env.HOV_ROUTER_IN_PLACE_RETRY_DRAIN_TIMEOUT_MS);
 	return Number.isFinite(raw) && raw >= 0
 		? raw
 		: TIME_CONSTANTS.STREAM_OPERATION_TIMEOUT_MS;

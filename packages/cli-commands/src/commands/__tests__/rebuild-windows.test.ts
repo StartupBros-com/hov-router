@@ -304,7 +304,7 @@ describe("rebuildWindows", () => {
 		});
 
 		it("reports what would happen without writing to the real database", async () => {
-			tmpDir = mkdtempSync(join(tmpdir(), "ccflare-rebuild-windows-test-"));
+			tmpDir = mkdtempSync(join(tmpdir(), "hov-router-rebuild-windows-test-"));
 			const dbPath = join(tmpDir, "source.db");
 			dbOps = new DatabaseOperations(dbPath, { walMode: false });
 			await seedAccount(dbOps, { id: ACCOUNT_ID, name: "Primary" });

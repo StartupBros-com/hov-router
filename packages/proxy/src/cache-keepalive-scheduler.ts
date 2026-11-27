@@ -299,13 +299,13 @@ export class CacheKeepaliveScheduler {
 			const replayHeaders = new Headers(cached.headers);
 			replayHeaders.set("content-type", "application/json");
 			// Inject routing headers fresh — these were stripped from the snapshot
-			replayHeaders.set("x-better-ccflare-account-id", accountId);
-			replayHeaders.set("x-better-ccflare-bypass-session", "true");
+			replayHeaders.set("x-hov-router-account-id", accountId);
+			replayHeaders.set("x-hov-router-bypass-session", "true");
 
 			// Tag as keepalive for dual purpose:
 			//  1. Visibility: request logger can identify synthetic requests
 			//  2. Loop prevention: proxy skips staging to avoid infinite replay cycle
-			replayHeaders.set("x-better-ccflare-keepalive", "true");
+			replayHeaders.set("x-hov-router-keepalive", "true");
 			if (cached.resolvedModel) {
 				replayHeaders.set(CACHE_REPLAY_MODEL_HEADER, cached.resolvedModel);
 			}

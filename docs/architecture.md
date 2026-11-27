@@ -16,7 +16,7 @@ graph LR
         UI3[API Clients]
     end
     
-    subgraph "better-ccflare Core"
+    subgraph "hov-router Core"
         LB[Load Balancer]
         PROXY[Proxy Engine]
         AUTH[OAuth Manager]
@@ -66,7 +66,7 @@ graph TB
     end
 
     %% API Gateway Layer
-    subgraph "better-ccflare Server"
+    subgraph "hov-router Server"
         SERVER[HTTP Server<br/>apps/server]
         
         subgraph "Request Processing"
@@ -146,7 +146,7 @@ graph TB
 The project is organized as a Bun monorepo with clear separation of concerns:
 
 ```
-better-ccflare/
+hov-router/
 ├── apps/                    # Deployable applications
 │   ├── cli/               # Command-line interface
 │   └── server/            # Main HTTP server
@@ -308,7 +308,7 @@ classDiagram
 ```
 
 **Agent Discovery Process:**
-1. **Global Agents**: Loaded from `~/.config/better-ccflare/agents/` directory
+1. **Global Agents**: Loaded from `~/.config/hov-router/agents/` directory
 2. **Workspace Agents**: Dynamically discovered from `<workspace>/.claude/agents/` directories
 3. **Agent Format**: Markdown files with frontmatter containing metadata
 4. **Workspace Detection**: Automatically registers workspaces from system prompts containing CLAUDE.md references
@@ -973,7 +973,7 @@ The agent system allows HoV Router to automatically detect and apply model prefe
 ```mermaid
 graph TB
     subgraph "Agent Discovery"
-        GLOBAL[Global Agents<br/>~/.config/better-ccflare/agents/]
+        GLOBAL[Global Agents<br/>~/.config/hov-router/agents/]
         WORKSPACE[Workspace Agents<br/><workspace>/.claude/agents/]
         REGISTRY[Agent Registry]
     end
@@ -1344,7 +1344,7 @@ The architecture supports:
 ```mermaid
 graph TB
     subgraph "Local Machine"
-        SERVER[better-ccflare Server<br/>Port 8080]
+        SERVER[hov-router Server<br/>Port 8080]
         DB[(SQLite DB)]
         LOGS[Log Files]
         CONFIG[Config Files]
@@ -1375,9 +1375,9 @@ graph TB
     end
     
     subgraph "Application Tier"
-        APP1[better-ccflare Instance 1]
-        APP2[better-ccflare Instance 2]
-        APP3[better-ccflare Instance N]
+        APP1[hov-router Instance 1]
+        APP2[hov-router Instance 2]
+        APP3[hov-router Instance N]
     end
     
     subgraph "Data Tier"

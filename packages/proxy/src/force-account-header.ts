@@ -1,4 +1,4 @@
-const FORCE_ACCOUNT_HEADER = "x-better-ccflare-account-id";
+const FORCE_ACCOUNT_HEADER = "x-hov-router-account-id";
 
 /**
  * The account id a caller forces with the public exact-account header, or

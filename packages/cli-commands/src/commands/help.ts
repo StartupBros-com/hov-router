@@ -2,7 +2,7 @@
  * Exact managed-routing surface shared with the packaged CLI help.
  */
 export function getManagedRoutingHelpText(): string {
-	return `Managed routing (live server; admin key is read only from BETTER_CCFLARE_ADMIN_API_KEY):
+	return `Managed routing (live server; admin key is read only from HOV_ROUTER_ADMIN_API_KEY):
   routing list [--api-url <loopback-url>] [--json]
   routing detail <account-id> [--api-url <loopback-url>] [--json]
   routing preview <family> [--managed-model <model>] [--api-url <loopback-url>] [--json]

@@ -1,10 +1,10 @@
 // Read version from build-time define (injected by packages/dashboard-web/build.ts),
 // falling back to apps/cli/package.json for local dev where no define is supplied.
-// Honors CCFLARE_BUILD_SUFFIX when the dashboard build is invoked with the env var set.
+// Honors HOV_ROUTER_BUILD_SUFFIX when the dashboard build is invoked with the env var set.
 import packageJson from "../../../../apps/cli/package.json";
 
 // Build-time injected version (set by packages/dashboard-web/build.ts when
-// CCFLARE_BUILD_SUFFIX is present). undefined at dev/runtime.
+// HOV_ROUTER_BUILD_SUFFIX is present). undefined at dev/runtime.
 declare const __HOV_ROUTER_VERSION__: string | undefined;
 
 function resolveVersion(): string {

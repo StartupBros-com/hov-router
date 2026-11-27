@@ -63,11 +63,11 @@ const SEMANTIC_OVERLOAD = [
 const GUARD_SECRET = Uint8Array.from({ length: 32 }, (_, index) => index + 1);
 const NATIVE_MODEL = "claude-opus-4-6";
 const ROUTING_ENV_NAMES = [
-	"CCFLARE_OVERLOAD_RETRY_BASE_MS",
-	"CCFLARE_OVERLOAD_RETRY_MAX_MS",
-	"CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS",
-	"CCFLARE_OVERLOAD_RETRY_ENABLED",
-	"CCFLARE_PASSTHROUGH_ON_EMPTY_POOL",
+	"HOV_ROUTER_OVERLOAD_RETRY_BASE_MS",
+	"HOV_ROUTER_OVERLOAD_RETRY_MAX_MS",
+	"HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS",
+	"HOV_ROUTER_OVERLOAD_RETRY_ENABLED",
+	"HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL",
 ] as const;
 const originalRoutingEnv = Object.fromEntries(
 	ROUTING_ENV_NAMES.map((name) => [name, process.env[name]]),
@@ -533,11 +533,11 @@ describe("Anthropic degraded-mode cross-layer acceptance", () => {
 	const originalFetch = globalThis.fetch;
 
 	beforeEach(() => {
-		process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "1";
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "1";
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	});
 
 	afterEach(() => {
@@ -685,7 +685,7 @@ describe("Anthropic degraded-mode cross-layer acceptance", () => {
 	});
 
 	it("suppresses an owner-bound follower, then allows one failed owner probe without changing affinity", async () => {
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
 		const runtime = createRuntime("enforce", 21, 200_000);
 		const cohortKey = openCohort(runtime, "1");
 		const openState = runtime.coordinator.getCohortState(cohortKey);

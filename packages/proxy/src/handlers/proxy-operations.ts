@@ -77,7 +77,7 @@ import {
 	RECOVERY_STATUS_EXHAUSTED,
 	RECOVERY_STATUS_HEADER,
 } from "@hov-router/types/routing-recovery";
-import { assertManagedWorkAvailable } from "../../../../scripts/ccflare-managed-timing.mjs";
+import { assertManagedWorkAvailable } from "../../../../scripts/hov-router-managed-timing.mjs";
 import {
 	isAdvisorResultUnprocessableMessage,
 	mayContainAdvisorResult,
@@ -494,18 +494,18 @@ function degradedSuppressionReason(
 }
 
 function isSyntheticInternalRequest(headers: Headers): boolean {
-	return !!headers.get("x-better-ccflare-keepalive");
+	return !!headers.get("x-hov-router-keepalive");
 }
 
-const SYNTHETIC_RESPONSE_HEADER = "x-better-ccflare-synthetic-response";
-const SYNTHETIC_STATUS_HEADER = "x-better-ccflare-synthetic-status";
-const SYNTHETIC_RESPONSE_URL_PREFIX = "https://better-ccflare.local/";
-const INTERNAL_TRANSPORT_HEADER_PREFIX = "x-better-ccflare-";
-const TRUSTED_SYNTHETIC_HEADER_PREFIX = "x-better-ccflare-synthetic-";
+const SYNTHETIC_RESPONSE_HEADER = "x-hov-router-synthetic-response";
+const SYNTHETIC_STATUS_HEADER = "x-hov-router-synthetic-status";
+const SYNTHETIC_RESPONSE_URL_PREFIX = "https://hov-router.local/";
+const INTERNAL_TRANSPORT_HEADER_PREFIX = "x-hov-router-";
+const TRUSTED_SYNTHETIC_HEADER_PREFIX = "x-hov-router-synthetic-";
 const CODEX_CACHE_LANE_RESCUE_RESERVE_MAX_MS = 30_000;
 const CODEX_CACHE_LANE_RESCUE_RESERVE_DIVISOR = 4;
 const TEST_CONTEXT_WINDOW_ENV =
-	"CCFLARE_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW";
+	"HOV_ROUTER_CONTEXT_ADMISSION_TEST_EFFECTIVE_WINDOW";
 
 /**
  * Downstream proxy helpers still accept a Provider-shaped context. Bind that
@@ -1068,7 +1068,7 @@ export function admitConcreteCodexModel(
 	snapshot?: CodexModelContextSnapshot,
 ): boolean {
 	if (
-		process.env.CCFLARE_CONTEXT_ADMISSION !== "1" ||
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION !== "1" ||
 		account.provider !== "codex" ||
 		!tracker
 	) {
@@ -1190,7 +1190,7 @@ export function selectAdmittedCodexModel(
 	snapshot = captureCodexModelContextSnapshot(account.id),
 ): { admitted: boolean; model: string | null } {
 	if (
-		process.env.CCFLARE_CONTEXT_ADMISSION !== "1" ||
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION !== "1" ||
 		account.provider !== "codex" ||
 		!tracker ||
 		!requestedModel
@@ -1453,7 +1453,7 @@ export async function forceModelInTransformedRequest(
  *      epoch-seconds for reset headers, earliest usable hint, 24-hour cap)
  *   2. getRateLimitedUntil — usage-window reset time if known
  *   3. probe-cooldown default (TIME_CONSTANTS.DEFAULT_RATE_LIMIT_NO_RESET_COOLDOWN_MS,
- *      60s by default, overridable via CCFLARE_DEFAULT_COOLDOWN_NO_RESET_MS) as
+ *      60s by default, overridable via HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS) as
  *      last resort. Was a 1-hour ban prior to v3.5.x — that locked accounts
  *      out unnecessarily when upstream returned a transient 429 without a
  *      reset hint, draining small pools to zero routable accounts on a
@@ -1478,7 +1478,7 @@ export function extractCooldownUntil(
 	// default — `??` would coalesce the empty string to 0 and silently
 	// disable the cooldown entirely.
 	const DEFAULT_COOLDOWN_MS =
-		Number(process.env.CCFLARE_DEFAULT_COOLDOWN_NO_RESET_MS) ||
+		Number(process.env.HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS) ||
 		TIME_CONSTANTS.DEFAULT_RATE_LIMIT_NO_RESET_COOLDOWN_MS;
 	const now = Date.now();
 
@@ -3815,19 +3815,16 @@ export async function proxyWithAccount(
 				),
 			};
 			currentTransportAttemptId = crypto.randomUUID();
+			attemptHeaders.set("x-hov-router-attempt-id", currentTransportAttemptId);
 			attemptHeaders.set(
-				"x-better-ccflare-attempt-id",
-				currentTransportAttemptId,
-			);
-			attemptHeaders.set(
-				"x-better-ccflare-attempt-ordinal",
+				"x-hov-router-attempt-ordinal",
 				String(transportAttemptOrdinal),
 			);
-			attemptHeaders.set("x-better-ccflare-attempt-cause", cause);
+			attemptHeaders.set("x-hov-router-attempt-cause", cause);
 			if (finalModel) {
-				attemptHeaders.set("x-better-ccflare-final-model", finalModel);
+				attemptHeaders.set("x-hov-router-final-model", finalModel);
 			} else {
-				attemptHeaders.delete("x-better-ccflare-final-model");
+				attemptHeaders.delete("x-hov-router-final-model");
 			}
 		};
 		const prepareAttemptHeaders = (plan: ProviderAttemptPlan): Headers => {
@@ -3869,31 +3866,28 @@ export async function proxyWithAccount(
 				// Client-supplied copies are untrusted. Strip before attaching only
 				// server-derived pacing metadata so traces cannot be spoofed or
 				// retain arbitrary sensitive header content. (Codex prepareHeaders
-				// already drops every client x-better-ccflare-* header, including
+				// already drops every client x-hov-router-* header, including
 				// the retired pacing canary and action headers.)
-				prepared.delete("x-better-ccflare-pacing-cohort-id");
-				prepared.delete("x-better-ccflare-pacing-role");
-				prepared.delete("x-better-ccflare-pacing-wait-ms");
-				prepared.delete("x-better-ccflare-pacing-release-reason");
-				prepared.set("x-better-ccflare-request-id", requestMeta.id);
+				prepared.delete("x-hov-router-pacing-cohort-id");
+				prepared.delete("x-hov-router-pacing-role");
+				prepared.delete("x-hov-router-pacing-wait-ms");
+				prepared.delete("x-hov-router-pacing-release-reason");
+				prepared.set("x-hov-router-request-id", requestMeta.id);
 				// Attribution is resolved by the proxy before account selection. Replace
 				// any client-supplied marker here, once the selected provider is known.
 				if (isAttributedAgent) {
-					prepared.set("x-better-ccflare-attributed-agent", "true");
+					prepared.set("x-hov-router-attributed-agent", "true");
 				} else {
-					prepared.delete("x-better-ccflare-attributed-agent");
+					prepared.delete("x-hov-router-attributed-agent");
 				}
 				if (requestMeta.codexPacingCohortId) {
 					prepared.set(
-						"x-better-ccflare-pacing-cohort-id",
+						"x-hov-router-pacing-cohort-id",
 						requestMeta.codexPacingCohortId,
 					);
 				}
 				if (requestMeta.codexPacingRole) {
-					prepared.set(
-						"x-better-ccflare-pacing-role",
-						requestMeta.codexPacingRole,
-					);
+					prepared.set("x-hov-router-pacing-role", requestMeta.codexPacingRole);
 				}
 				if (
 					typeof requestMeta.codexPacingWaitMs === "number" &&
@@ -3901,13 +3895,13 @@ export async function proxyWithAccount(
 					requestMeta.codexPacingWaitMs >= 0
 				) {
 					prepared.set(
-						"x-better-ccflare-pacing-wait-ms",
+						"x-hov-router-pacing-wait-ms",
 						String(requestMeta.codexPacingWaitMs),
 					);
 				}
 				if (requestMeta.codexPacingReleaseReason) {
 					prepared.set(
-						"x-better-ccflare-pacing-release-reason",
+						"x-hov-router-pacing-release-reason",
 						requestMeta.codexPacingReleaseReason,
 					);
 				}
@@ -3933,7 +3927,7 @@ export async function proxyWithAccount(
 					prepared.delete(CODEX_AUTHENTICATED_CALLER_HEADER);
 				}
 			} else {
-				prepared.delete("x-better-ccflare-attributed-agent");
+				prepared.delete("x-hov-router-attributed-agent");
 			}
 			// Synthetic-response markers are internal provider-to-proxy signals. Strip
 			// client-supplied copies before providers transform the outbound request.
@@ -4424,7 +4418,7 @@ export async function proxyWithAccount(
 			async function runCacheAwareProviderAttempt(): Promise<Response> {
 				// Every transport attempt, including retries, passes this final boundary.
 				// Preserve only trusted local synthetic-response markers; no
-				// x-better-ccflare-* metadata may reach a real upstream transport.
+				// x-hov-router-* metadata may reach a real upstream transport.
 				transportRequest = sanitizeInternalTransportHeaders(transportRequest);
 				if (nativeWebSearchLane) {
 					transportRequest =
@@ -4630,7 +4624,7 @@ export async function proxyWithAccount(
 		// Capture it before transport sanitization and reattach only to the local
 		// response object below.
 		const internalRequestStream = transformedRequest.headers.get(
-			"x-better-ccflare-request-stream",
+			"x-hov-router-request-stream",
 		);
 		const xaiCacheOfficialEndpoint = isOfficialXaiEndpoint(account);
 		const xaiCacheKeyPresent =
@@ -4713,14 +4707,11 @@ export async function proxyWithAccount(
 			finalizedCodexAttemptIds.add(attemptId);
 			try {
 				const traceHeaders = new Headers(discarded.headers);
-				traceHeaders.set("x-better-ccflare-request-id", requestMeta.id);
-				traceHeaders.set("x-better-ccflare-request-stream", "false");
-				traceHeaders.set("x-better-ccflare-attempt-id", attemptId);
+				traceHeaders.set("x-hov-router-request-id", requestMeta.id);
+				traceHeaders.set("x-hov-router-request-stream", "false");
+				traceHeaders.set("x-hov-router-attempt-id", attemptId);
 				if (currentTransportModel) {
-					traceHeaders.set(
-						"x-better-ccflare-final-model",
-						currentTransportModel,
-					);
+					traceHeaders.set("x-hov-router-final-model", currentTransportModel);
 				}
 				const processed = await attemptPlan.processResponse(
 					new Response(discarded.clone().body, {
@@ -5012,7 +5003,7 @@ export async function proxyWithAccount(
 										headers: {
 											"cache-control": "no-cache",
 											"content-type": "text/event-stream; charset=utf-8",
-											"x-better-ccflare-precommit-rescue": "active",
+											"x-hov-router-precommit-rescue": "active",
 										},
 									}),
 									failoverAttempts: terminalFailoverAttempts,
@@ -5868,7 +5859,7 @@ export async function proxyWithAccount(
 				failureResponse.status !== 429 ||
 				!isClaudeProvider ||
 				isAnthropicOutOfCredits(failureResponse) ||
-				req.headers.get("x-better-ccflare-keepalive") === "true"
+				req.headers.get("x-hov-router-keepalive") === "true"
 			) {
 				return null;
 			}
@@ -6176,7 +6167,7 @@ export async function proxyWithAccount(
 				return null;
 			}
 
-			if (req.headers.get("x-better-ccflare-keepalive") === "true") {
+			if (req.headers.get("x-hov-router-keepalive") === "true") {
 				return {
 					scope: "model",
 					attemptedModel,
@@ -6369,7 +6360,7 @@ export async function proxyWithAccount(
 
 				if (rawResponse.status === 429) {
 					const isKeepalive =
-						req.headers.get("x-better-ccflare-keepalive") === "true";
+						req.headers.get("x-hov-router-keepalive") === "true";
 
 					// Preserve verified Codex recovery provenance before the generic 429
 					// model-fallback path can replace it with model_fallback_429 and a
@@ -7042,38 +7033,29 @@ export async function proxyWithAccount(
 		// Inject request metadata into response headers so providers can read
 		// stream intent and request ID without needing the original request object.
 		const responseHeaders = new Headers(rawResponse.headers);
-		responseHeaders.set("x-better-ccflare-request-id", requestMeta.id);
+		responseHeaders.set("x-hov-router-request-id", requestMeta.id);
 		if (currentTransportAttemptId) {
-			responseHeaders.set(
-				"x-better-ccflare-attempt-id",
-				currentTransportAttemptId,
-			);
+			responseHeaders.set("x-hov-router-attempt-id", currentTransportAttemptId);
 		}
 		if (currentTransportModel) {
-			responseHeaders.set(
-				"x-better-ccflare-final-model",
-				currentTransportModel,
-			);
+			responseHeaders.set("x-hov-router-final-model", currentTransportModel);
 		}
 		if (internalRequestStream === "true" || internalRequestStream === "false") {
-			responseHeaders.set(
-				"x-better-ccflare-request-stream",
-				internalRequestStream,
-			);
+			responseHeaders.set("x-hov-router-request-stream", internalRequestStream);
 		}
 		const internalCustomTools = transformedRequest.headers.get(
-			"x-better-ccflare-codex-custom-tools",
+			"x-hov-router-codex-custom-tools",
 		);
 		if (internalCustomTools === "true" || internalCustomTools === "false") {
 			responseHeaders.set(
-				"x-better-ccflare-codex-custom-tools",
+				"x-hov-router-codex-custom-tools",
 				internalCustomTools,
 			);
 		}
 		// Inject the original request path so providers can identify the
 		// response type (e.g. /v1/models vs /v1/messages) in processResponse
 		// without needing the original request object.
-		responseHeaders.set("x-better-ccflare-request-path", requestMeta.path);
+		responseHeaders.set("x-hov-router-request-path", requestMeta.path);
 		const taggedRawResponse = new Response(rawResponse.body, {
 			status: rawResponse.status,
 			statusText: rawResponse.statusText,
@@ -7231,10 +7213,10 @@ export async function proxyWithAccount(
 						// transport's final metadata so the response tags describe the
 						// actual retry rather than the superseded first attempt.
 						const retryRequestStream = retryTransport.headers.get(
-							"x-better-ccflare-request-stream",
+							"x-hov-router-request-stream",
 						);
 						const retryCustomTools = retryTransport.headers.get(
-							"x-better-ccflare-codex-custom-tools",
+							"x-hov-router-codex-custom-tools",
 						);
 
 						// Mirror the first response's metadata tagging: providers read
@@ -7242,19 +7224,16 @@ export async function proxyWithAccount(
 						// map fallback behind them has a 30s TTL a long backoff can
 						// outlive — the request ID alone is not enough.
 						const retryTaggedHeaders = new Headers(retryRaw.headers);
-						retryTaggedHeaders.set(
-							"x-better-ccflare-request-id",
-							requestMeta.id,
-						);
+						retryTaggedHeaders.set("x-hov-router-request-id", requestMeta.id);
 						if (currentTransportAttemptId) {
 							retryTaggedHeaders.set(
-								"x-better-ccflare-attempt-id",
+								"x-hov-router-attempt-id",
 								currentTransportAttemptId,
 							);
 						}
 						if (currentTransportModel) {
 							retryTaggedHeaders.set(
-								"x-better-ccflare-final-model",
+								"x-hov-router-final-model",
 								currentTransportModel,
 							);
 						}
@@ -7263,18 +7242,18 @@ export async function proxyWithAccount(
 							retryRequestStream === "false"
 						) {
 							retryTaggedHeaders.set(
-								"x-better-ccflare-request-stream",
+								"x-hov-router-request-stream",
 								retryRequestStream,
 							);
 						}
 						if (retryCustomTools === "true" || retryCustomTools === "false") {
 							retryTaggedHeaders.set(
-								"x-better-ccflare-codex-custom-tools",
+								"x-hov-router-codex-custom-tools",
 								retryCustomTools,
 							);
 						}
 						retryTaggedHeaders.set(
-							"x-better-ccflare-request-path",
+							"x-hov-router-request-path",
 							requestMeta.path,
 						);
 						const retryTaggedRaw = new Response(retryRaw.body, {
@@ -7678,19 +7657,16 @@ export async function proxyWithAccount(
 					if (isScopedFailure(rawFailureClassification)) return null;
 
 					const rescueResponseHeaders = new Headers(rawResponse.headers);
-					rescueResponseHeaders.set(
-						"x-better-ccflare-request-id",
-						requestMeta.id,
-					);
+					rescueResponseHeaders.set("x-hov-router-request-id", requestMeta.id);
 					if (currentTransportAttemptId) {
 						rescueResponseHeaders.set(
-							"x-better-ccflare-attempt-id",
+							"x-hov-router-attempt-id",
 							currentTransportAttemptId,
 						);
 					}
 					if (currentTransportModel) {
 						rescueResponseHeaders.set(
-							"x-better-ccflare-final-model",
+							"x-hov-router-final-model",
 							currentTransportModel,
 						);
 					}
@@ -7699,7 +7675,7 @@ export async function proxyWithAccount(
 						internalRequestStream === "false"
 					) {
 						rescueResponseHeaders.set(
-							"x-better-ccflare-request-stream",
+							"x-hov-router-request-stream",
 							internalRequestStream,
 						);
 					}
@@ -7708,12 +7684,12 @@ export async function proxyWithAccount(
 						internalCustomTools === "false"
 					) {
 						rescueResponseHeaders.set(
-							"x-better-ccflare-codex-custom-tools",
+							"x-hov-router-codex-custom-tools",
 							internalCustomTools,
 						);
 					}
 					rescueResponseHeaders.set(
-						"x-better-ccflare-request-path",
+						"x-hov-router-request-path",
 						requestMeta.path,
 					);
 					const rescueTaggedRaw = new Response(rawResponse.body, {
@@ -8000,7 +7976,7 @@ export async function proxyWithAccount(
 				);
 			}
 			const routeSuppressed =
-				req.headers.get("x-better-ccflare-keepalive") !== "true" &&
+				req.headers.get("x-hov-router-keepalive") !== "true" &&
 				routingAttemptLedger !== undefined;
 			if (routeSuppressed) {
 				routingAttemptLedger.blockAccount(account.id);

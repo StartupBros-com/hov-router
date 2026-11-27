@@ -416,7 +416,7 @@ describe("the check just before each send", () => {
 				standIn((m) => success(m));
 				const { ctx } = makeCtx(inputs());
 				const meta = makeRequestMeta({
-					headers: new Headers({ "x-better-ccflare-account-id": ACCOUNT_ID }),
+					headers: new Headers({ "x-hov-router-account-id": ACCOUNT_ID }),
 				});
 				const refusal = send(makeAccount(), ctx, model, meta);
 				await expect(refusal).rejects.toBeInstanceOf(

@@ -22,13 +22,13 @@ import {
 const log = new Logger("ModelRouteProfiles");
 
 /**
- * Names a file holding the same JSON array as `CCFLARE_MODEL_ROUTE_PROFILES_JSON`.
+ * Names a file holding the same JSON array as `HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON`.
  * The backend reads it at every start, so a backend-only deploy (or any other
  * backend restart under the running guard) loads an edit. An environment
  * value reaches the backend only on a full unit restart.
  */
 export const MODEL_ROUTE_PROFILES_FILE_ENV =
-	"CCFLARE_MODEL_ROUTE_PROFILES_FILE" as const;
+	"HOV_ROUTER_MODEL_ROUTE_PROFILES_FILE" as const;
 
 const MAX_PROFILES_FILE_BYTES = 256 * 1024;
 // The record holds the profile text plus a few small fields.

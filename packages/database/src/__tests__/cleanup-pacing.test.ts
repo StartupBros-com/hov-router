@@ -12,7 +12,7 @@ import type { CleanupPacer } from "../cleanup-pacing";
 import { DatabaseOperations } from "../database-operations";
 
 const DAY = 24 * 60 * 60 * 1000;
-const BATCH_ENV = "BETTER_CCFLARE_DB_CLEANUP_BATCH_SIZE";
+const BATCH_ENV = "HOV_ROUTER_DB_CLEANUP_BATCH_SIZE";
 
 let db: DatabaseOperations;
 let savedBatchSize: string | undefined;

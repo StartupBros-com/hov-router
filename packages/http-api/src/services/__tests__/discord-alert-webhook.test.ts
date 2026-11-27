@@ -371,7 +371,7 @@ describe("deliverAlertWebhook", () => {
 		const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
 		expect(url).toBe("https://discord.com/api/webhooks/123/token-abc");
 		const headers = new Headers(init.headers);
-		expect(headers.get("User-Agent")).toBe("better-ccflare-alerts/1.0");
+		expect(headers.get("User-Agent")).toBe("hov-router-alerts/1.0");
 		expect(headers.get("Content-Type")).toBe("application/json");
 		const parsed = JSON.parse(String(init.body));
 		expect(parsed.allowed_mentions).toEqual({ parse: [] });
@@ -389,7 +389,7 @@ describe("deliverAlertWebhook", () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
 		const headers = new Headers(init.headers);
-		expect(headers.get("User-Agent")).toBe("better-ccflare-alerts/1.0");
+		expect(headers.get("User-Agent")).toBe("hov-router-alerts/1.0");
 		const parsed = JSON.parse(String(init.body));
 		expect(parsed).toEqual({ type: "alert", alert: BASE_ALERT });
 	});

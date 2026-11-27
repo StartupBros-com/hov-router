@@ -1183,7 +1183,7 @@ export class UsageCollector {
 			nativeResponses:
 				msg.isStream &&
 				msg.providerName === "codex" &&
-				msg.responseHeaders["x-better-ccflare-codex-response-format"] ===
+				msg.responseHeaders["x-hov-router-codex-response-format"] ===
 					"responses-api"
 					? {
 							frames: new SseFrameBuffer({

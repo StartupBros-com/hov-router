@@ -664,8 +664,8 @@ describe("proxyWithAccount — windowless 429 is not benched (issue #301)", () =
 		const account = makeAccount();
 		const body = makeRequestBody();
 		const req = makeRequest(body, {
-			"x-better-ccflare-keepalive": "true",
-			"x-better-ccflare-internal-probe-secret": "test-secret",
+			"x-hov-router-keepalive": "true",
+			"x-hov-router-internal-probe-secret": "test-secret",
 		});
 
 		const result = await runProxy(account, ctx, req, body);

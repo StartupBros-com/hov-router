@@ -34,7 +34,7 @@ const ADVISOR_PAIRING_400 = {
 	},
 };
 const originalFetch = globalThis.fetch;
-const originalPassthrough = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+const originalPassthrough = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 let restoreUsageCollectors = (): void => {};
 
 function makeAccount(overrides: Partial<Account> = {}): Account {
@@ -247,7 +247,7 @@ function sseOk(): Response {
 }
 
 beforeEach(() => {
-	process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+	process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 	const collector = {
 		handleStart: mock(() => undefined),
 		handleChunk: mock(() => undefined),
@@ -272,9 +272,9 @@ afterEach(() => {
 	restoreUsageCollectors = (): void => {};
 	globalThis.fetch = originalFetch;
 	if (originalPassthrough === undefined) {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	} else {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = originalPassthrough;
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = originalPassthrough;
 	}
 });
 
@@ -311,7 +311,7 @@ describe("advisor native passthrough dispatch", () => {
 		// dispatch backstop must refuse it, so no fetch is ever made.
 		const codex = makeCodexAccount();
 		const { ctx } = makeContext([]);
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		const deferred = spyOn(
 			accountSelectorModule,
 			"getCapacityDeferredModelRoutes",

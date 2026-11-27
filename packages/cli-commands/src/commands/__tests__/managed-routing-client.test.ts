@@ -68,8 +68,8 @@ describe("managed routing live HTTP client", () => {
 		const { calls, fetch } = recordingFetch(json([]));
 		const client = createManagedRoutingClient({
 			env: {
-				BETTER_CCFLARE_API_URL: "http://localhost:9191/",
-				BETTER_CCFLARE_ADMIN_API_KEY: "admin-secret",
+				HOV_ROUTER_API_URL: "http://localhost:9191/",
+				HOV_ROUTER_ADMIN_API_KEY: "admin-secret",
 			},
 			fetch,
 		});
@@ -293,7 +293,7 @@ describe("managed routing live HTTP client", () => {
 		);
 		const client = createManagedRoutingClient({
 			baseUrl: "http://localhost:8788",
-			env: { BETTER_CCFLARE_ADMIN_API_KEY: "admin-secret" },
+			env: { HOV_ROUTER_ADMIN_API_KEY: "admin-secret" },
 			fetch,
 		});
 
@@ -349,7 +349,7 @@ describe("managed routing live HTTP client", () => {
 		);
 		const client = createManagedRoutingClient({
 			baseUrl: "http://localhost:8788",
-			env: { BETTER_CCFLARE_ADMIN_API_KEY: secret },
+			env: { HOV_ROUTER_ADMIN_API_KEY: secret },
 			fetch,
 		});
 

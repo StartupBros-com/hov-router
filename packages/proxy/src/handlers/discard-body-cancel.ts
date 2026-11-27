@@ -36,7 +36,7 @@ import {
  *     metric and wall-clock.
  *
  * Same discard-site scope as the prior `cancelDiscardedResponseBody`
- * primitive: every Response ccflare obtained via `makeProxyRequest` and then
+ * primitive: every Response the router obtained via `makeProxyRequest` and then
  * decided not to forward (429/529/401 failover `return null` paths and every
  * retry-loop overwrite) is drained before the decision is finalised. Live
  * streaming / SSE / `withSanitizedProxyHeaders` forward paths are

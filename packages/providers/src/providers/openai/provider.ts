@@ -444,7 +444,7 @@ export class OpenAICompatibleProvider extends BaseProvider {
 	 * GLM behind LiteLLM) ignore nested `reasoning` and honour only the
 	 * chat-template kwarg, whose template accepts off/low/high/max. Efforts are
 	 * rounded UP to that ladder (never lowered). This is opt-in via
-	 * CCFLARE_CHAT_TEMPLATE_REASONING_ACCOUNTS (account IDs) because real OpenAI
+	 * HOV_ROUTER_CHAT_TEMPLATE_REASONING_ACCOUNTS (account IDs) because real OpenAI
 	 * endpoints 400 on unknown request parameters.
 	 */
 	private injectChatTemplateReasoning(

@@ -132,7 +132,7 @@ export function AgentsTab() {
 							<p className="text-sm text-muted-foreground break-words">
 								Workspace agents live in a project's .claude/agents/ directory.{" "}
 								{PRODUCT_NAME} registers projects only when
-								BETTER_CCFLARE_AGENT_WORKSPACE_AUTODISCOVER=true is set. It then
+								HOV_ROUTER_AGENT_WORKSPACE_AUTODISCOVER=true is set. It then
 								registers a project from the next request sent from inside it,
 								if that folder is on its own machine under the directory it runs
 								from.

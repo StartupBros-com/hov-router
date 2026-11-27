@@ -64,7 +64,7 @@ describe("storage-full backstop", () => {
 		const h = harness();
 		const error = Object.assign(
 			new Error(
-				"ENOSPC: no space left on device, open '/home/someone/.config/better-ccflare/secret.json'",
+				"ENOSPC: no space left on device, open '/home/someone/.config/hov-router/secret.json'",
 			),
 			{ code: "ENOSPC" },
 		);

@@ -86,9 +86,9 @@ Auto-fallback integrates seamlessly with the existing session-based load balanci
 
 ```bash
 # Add accounts with different priorities
-better-ccflare --add-account primary --mode claude-oauth --priority 0
-better-ccflare --add-account secondary --mode claude-oauth --priority 10
-better-ccflare --add-account backup --mode console --priority 50
+hov-router --add-account primary --mode claude-oauth --priority 0
+hov-router --add-account secondary --mode claude-oauth --priority 10
+hov-router --add-account backup --mode console --priority 50
 ```
 
 #### 2. Enable Auto-Fallback on Preferred Accounts
@@ -111,7 +111,7 @@ curl -s http://localhost:8080/api/accounts | \
   jq '.[] | {name, priority, autoFallbackEnabled, rateLimitStatus}'
 
 # Monitor logs
-tail -f ~/.local/share/better-ccflare/logs/better-ccflare.log | grep "Auto-fallback"
+tail -f ~/.local/share/hov-router/logs/hov-router.log | grep "Auto-fallback"
 ```
 
 ### Configuration Script
@@ -129,9 +129,9 @@ API_BASE="http://localhost:8080/api"
 echo "Setting up auto-fallback configuration..."
 
 # Add accounts (if they don't exist)
-better-ccflare --add-account primary --mode claude-oauth --priority 0 || true
-better-ccflare --add-account secondary --mode claude-oauth --priority 10 || true
-better-ccflare --add-account backup --mode console --priority 50 || true
+hov-router --add-account primary --mode claude-oauth --priority 0 || true
+hov-router --add-account secondary --mode claude-oauth --priority 10 || true
+hov-router --add-account backup --mode console --priority 50 || true
 
 # Get account IDs
 PRIMARY_ID=$(curl -s "$API_BASE/accounts" | jq -r '.[] | select(.name=="primary") | .id')
@@ -159,11 +159,11 @@ Setup to minimize costs by preferring free accounts:
 
 ```bash
 # High priority account (auto-fallback enabled)
-better-ccflare --add-account high-priority --mode console --priority 0
+hov-router --add-account high-priority --mode console --priority 0
 
 # Lower priority accounts
-better-ccflare --add-account medium-priority --mode claude-oauth --priority 10
-better-ccflare --add-account low-priority --mode claude-oauth --priority 20
+hov-router --add-account medium-priority --mode claude-oauth --priority 10
+hov-router --add-account low-priority --mode claude-oauth --priority 20
 
 # Enable auto-fallback on high priority account
 ACCOUNT_ID=$(curl -s http://localhost:8080/api/accounts | jq -r '.[] | select(.name=="high-priority") | .id')
@@ -183,13 +183,13 @@ Setup to prioritize highest performance accounts:
 
 ```bash
 # High priority account (highest performance, priority 0)
-better-ccflare --add-account premium --mode claude-oauth --priority 0
+hov-router --add-account premium --mode claude-oauth --priority 0
 
 # Medium priority account (good performance, priority 10)
-better-ccflare --add-account standard --mode claude-oauth --priority 10
+hov-router --add-account standard --mode claude-oauth --priority 10
 
 # Low priority account (lower performance, priority 20)
-better-ccflare --add-account basic --mode console --priority 20
+hov-router --add-account basic --mode console --priority 20
 
 # Enable auto-fallback on premium account
 ACCOUNT_ID=$(curl -s http://localhost:8080/api/accounts | jq -r '.[] | select(.name=="premium") | .id')
@@ -209,13 +209,13 @@ Setup for different usage patterns during business vs after hours:
 
 ```bash
 # High priority account (priority 0)
-better-ccflare --add-account business --mode claude-oauth --priority 0
+hov-router --add-account business --mode claude-oauth --priority 0
 
 # Medium priority account (priority 10)
-better-ccflare --add-account after-hours --mode claude-oauth --priority 10
+hov-router --add-account after-hours --mode claude-oauth --priority 10
 
 # Low priority account (priority 20)
-better-ccflare --add-account weekend --mode console --priority 20
+hov-router --add-account weekend --mode console --priority 20
 
 # Enable auto-fallback on business account
 ACCOUNT_ID=$(curl -s http://localhost:8080/api/accounts | jq -r '.[] | select(.name=="business") | .id')
@@ -240,7 +240,7 @@ curl -X POST http://localhost:8080/api/accounts/$ACCOUNT_ID/auto-fallback \
 
 ```bash
 # Monitor auto-fallback events in real-time
-tail -f ~/.local/share/better-ccflare/logs/better-ccflare.log | grep "Auto-fallback"
+tail -f ~/.local/share/hov-router/logs/hov-router.log | grep "Auto-fallback"
 
 # Check account status periodically
 watch -n 30 'curl -s http://localhost:8080/api/accounts | jq ".[] | select(.autoFallbackEnabled == true)"'
@@ -325,10 +325,10 @@ Enable debug logging to troubleshoot issues:
 export LOG_LEVEL=DEBUG
 
 # Restart server
-better-ccflare
+hov-router
 
 # Monitor detailed logs
-tail -f ~/.local/share/better-ccflare/logs/better-ccflare.log | grep -E "(Auto-fallback|SessionStrategy|Account)"
+tail -f ~/.local/share/hov-router/logs/hov-router.log | grep -E "(Auto-fallback|SessionStrategy|Account)"
 ```
 
 ### Health Checks
@@ -431,7 +431,7 @@ Set up monitoring for auto-fallback events:
 # Script to monitor and alert on auto-fallback
 #!/bin/bash
 while true; do
-  if tail -n 10 ~/.local/share/better-ccflare/logs/better-ccflare.log | grep -q "Auto-fallback"; then
+  if tail -n 10 ~/.local/share/hov-router/logs/hov-router.log | grep -q "Auto-fallback"; then
     echo "⚠️ Auto-fallback triggered at $(date)"
     # Send notification (email, Slack, etc.)
   fi

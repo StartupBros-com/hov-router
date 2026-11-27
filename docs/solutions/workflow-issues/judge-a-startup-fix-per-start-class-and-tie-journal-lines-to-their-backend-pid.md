@@ -10,10 +10,10 @@ applies_when:
   - Judging from the production journal whether a change to backend startup worked
   - Counting how often a startup symptom, such as a slow statement or an event-loop stall, appears per backend start
   - Placing a journal line in a backend's run by its time since the newest start
-  - Reading journalctl -u ccflare-stack.service without sudo
+  - Reading journalctl -u hov-router.service without sudo
 symptoms:
   - One quiet start after a deploy is read as evidence that a startup fix works
-  - "Counting systemd `Started ccflare-stack.service` lines finds a handful of starts, while the backend logged dozens of `Ready to proxy requests` lines"
+  - "Counting systemd `Started hov-router.service` lines finds a handful of starts, while the backend logged dozens of `Ready to proxy requests` lines"
   - A main-thread statement logged at shutdown looks like a stall minutes into a run
   - The same journal query returns fewer starts an hour later
 root_cause: incorrect_assumption
@@ -28,14 +28,14 @@ tags: [journalctl, start-class, backend-only, handoff, full-restart, supervisor-
 
 ## Context
 
-#1046 moved the two closed-window scans that run at backend startup off the main thread. Judging it from the production journal (`journalctl -u ccflare-stack.service`) went wrong twice in one session (#1042). Both mistakes came from treating every backend start, and every line near one, alike.
+#1046 moved the two closed-window scans that run at backend startup off the main thread. Judging it from the production journal (`journalctl -u hov-router.service`) went wrong twice in one session (#1042). Both mistakes came from treating every backend start, and every line near one, alike.
 
 - **A pooled base rate.** The first count found 3 window-column startup stalls in 30 earlier starts, so one quiet start after the deploy looked like the expected result about 9 times in 10. Split by start class, all 3 stalls were in backend-only handoffs, and no full restart had one. The deploy being judged was a full restart, so its quiet start tested nothing. The correction is on #1042.
 - **Placing lines by the newest start.** Five `Slow main-thread SQL: … exec PRAGMA wal_checkpoint(TRUNCATE)` lines, the longest 5016 ms, looked like main-thread work in a running backend. Four of them came 149 to 595 s after the newest `Ready to proxy requests` line. Each one was logged by an outgoing backend as it closed after a handoff, and in those four cases its replacement was already serving.
 
 ## Guidance
 
-**Classify every start from the runner's own lines.** Every process in the unit logs under the `run-ccflare-stack.sh[PID]` identifier, with its own PID: the runner, the guard and each backend. A backend start is its `⚡ Ready to proxy requests...` line (`apps/server/src/server.ts`), and the PID on that line is the new backend's. The runner's own lines begin with a `[timestamp]` from `log()` in `scripts/run-ccflare-stack.sh`, and the runner line just before a READY line names the class:
+**Classify every start from the runner's own lines.** Every process in the unit logs under the `run-hov-router.sh[PID]` identifier, with its own PID: the runner, the guard and each backend. A backend start is its `⚡ Ready to proxy requests...` line (`apps/server/src/server.ts`), and the PID on that line is the new backend's. The runner's own lines begin with a `[timestamp]` from `log()` in `scripts/run-hov-router.sh`, and the runner line just before a READY line names the class:
 
 | Runner line before READY | Class | What stays up |
 |---|---|---|
@@ -43,7 +43,7 @@ tags: [journalctl, start-class, backend-only, handoff, full-restart, supervisor-
 | `runner stop budgets configured; …` under a runner PID not seen before | full restart: the service manager started a new runner | nothing |
 | `restarting stack via supervisor; child=…; class=…` | supervisor restart: the same runner restarted the guard and backend | the runner |
 
-systemd's `Started ccflare-stack.service` lines are in the system journal. An unprivileged `journalctl` prints "You are currently not seeing messages from other users and the system" and shows none of them. Even read with sudo, they count only full restarts. The runner's lines classified all 25 starts in the extract below.
+systemd's `Started hov-router.service` lines are in the system journal. An unprivileged `journalctl` prints "You are currently not seeing messages from other users and the system" and shows none of them. Even read with sudo, they count only full restarts. The runner's lines classified all 25 starts in the extract below.
 
 **Count the symptom per class, and judge a fix only on the class that showed it.** In the extract from 2026-11-22 21:17Z to 2026-11-26 01:06Z, a window-column startup stall was a `Slow main-thread SQL: … all SELECT id, account_id, window_key` line from the new backend:
 
@@ -64,7 +64,7 @@ So the stall came with a slow handoff, not with every handoff. That points at lo
 
 **Look for a line the fix changes, not for a quiet start.** A fix that moves a statement to another thread changes the line it logs. Since #1046, a slow startup scan logs as an unsuffixed `Slow off-thread SQL` line instead of `Slow main-thread SQL`. One such line, on a start of any class, shows which thread ran the scan. A scan that finishes under the 250 ms slow-SQL threshold logs nothing at all. Per-thread I/O counters are the other route ([verify-worker-thread-lanes-by-per-thread-syscr.md](verify-worker-thread-lanes-by-per-thread-syscr.md)), but nobody has yet checked that they can single out reads made before READY. The keyed `get` lines that begin with the same columns are not the scans: [polled-endpoint-waiting-on-an-unbounded-read-dies-on-a-slow-disk.md](../performance-issues/polled-endpoint-waiting-on-an-unbounded-read-dies-on-a-slow-disk.md).
 
-**Tie each line to the process that logged it, not to the newest start.** The PID in `run-ccflare-stack.sh[PID]` is journald's `_PID` for the line, which `journalctl -o json` shows as a field. During a handoff two backends log at once, and the outgoing one keeps logging until it exits.
+**Tie each line to the process that logged it, not to the newest start.** The PID in `run-hov-router.sh[PID]` is journald's `_PID` for the line, which `journalctl -o json` shows as a field. During a handoff two backends log at once, and the outgoing one keeps logging until it exits.
 
 - `old_pid=N` on the handoff line names the outgoing backend. The runner's `retiring backend reaped; pid=N` line marks its exit. Four of the five checkpoint lines came 0.04 to 0.13 s before their PID's reaped line. The fifth PID was the `old_pid` of the handoff 133 s earlier.
 - Those lines come from `BunSqlAdapter.close()` (`packages/database/src/adapters/bun-sql-adapter.ts`), the only checkpoint the running server issues on its main thread. The periodic checkpoint runs in the incremental-vacuum worker, and the main connection sets `wal_autocheckpoint = 0` (`packages/database/src/database-operations.ts`). A main-thread checkpoint line therefore comes from a backend that is shutting down.
@@ -73,7 +73,7 @@ So the stall came with a slow handoff, not with every handoff. That points at lo
 **Save one extract and count from it.** The journal rotates. Two reads on one evening, both covering 2026-11-22 onward, found 31 starts and then 24, because the oldest lines were removed between them. By 2026-11-26 01:06Z an unprivileged read began at 2026-11-22 21:17Z. Write the range to a file once and work only from the file:
 
 ```bash
-journalctl -u ccflare-stack.service --since "2026-11-22 00:00 UTC" -o short-iso-precise --no-pager > extract.log
+journalctl -u hov-router.service --since "2026-11-22 00:00 UTC" -o short-iso-precise --no-pager > extract.log
 ```
 
 **Name the time zone in every bound.** The host runs at -05:00, and one line can carry two times five hours apart:
@@ -91,7 +91,7 @@ journalctl -u ccflare-stack.service --since "2026-11-22 00:00 UTC" -o short-iso-
 
 - Before writing that a startup change worked, or did not, from the journal.
 - When counting a symptom per start, or setting a threshold from that count.
-- When the deploy being judged differs from the starts that showed the symptom, in start class or in load. `scripts/deploy-ccflare.sh --check` says which kind a deploy will be: [backend-only-deploy-keeps-the-runners-environment.md](backend-only-deploy-keeps-the-runners-environment.md).
+- When the deploy being judged differs from the starts that showed the symptom, in start class or in load. `scripts/deploy-hov-router.sh --check` says which kind a deploy will be: [backend-only-deploy-keeps-the-runners-environment.md](backend-only-deploy-keeps-the-runners-environment.md).
 
 ## Examples
 

@@ -4,9 +4,9 @@ export const DEFAULT_GUARD_POLICY_ID = "pool-exhaustion-finite-recovery-v1";
 // cannot import workspace packages at runtime. Keep these compatibility
 // literals in parity with packages/types/src/routing-recovery.ts; policy tests
 // exercise every recognized scope and reject every other value.
-export const RECOVERY_STATUS_HEADER = "x-better-ccflare-pool-status";
+export const RECOVERY_STATUS_HEADER = "x-hov-router-pool-status";
 export const RECOVERY_STATUS_EXHAUSTED = "exhausted";
-export const RECOVERY_SCOPE_HEADER = "x-better-ccflare-recovery-scope";
+export const RECOVERY_SCOPE_HEADER = "x-hov-router-recovery-scope";
 export const RECOVERY_SCOPES = Object.freeze(["pool", "model", "route"]);
 
 function headerValue(headers, name) {

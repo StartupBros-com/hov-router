@@ -548,7 +548,7 @@ class PriceCatalogue {
 	}
 
 	private getCacheDir(): string {
-		return join(tmpdir(), "better-ccflare");
+		return join(tmpdir(), "hov-router");
 	}
 
 	private getCachePath(): string {

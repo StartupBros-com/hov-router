@@ -7,7 +7,7 @@ import type { AgentWorkspace } from "@hov-router/types";
 
 const log = new Logger("WorkspacePersistence");
 
-const WORKSPACES_FILE = join(homedir(), ".better-ccflare", "workspaces.json");
+const WORKSPACES_FILE = join(homedir(), ".hov-router", "workspaces.json");
 
 interface WorkspacesData {
 	version: number;
@@ -19,7 +19,7 @@ export class WorkspacePersistence {
 
 	/**
 	 * @param options.workspacesFile Override for the persisted-workspaces
-	 *   file path. Defaults to the real `~/.better-ccflare/workspaces.json`.
+	 *   file path. Defaults to the real `~/.hov-router/workspaces.json`.
 	 *   Tests MUST pass a tmp-dir path here (or via
 	 *   `AgentRegistry.setWorkspacePersistenceForTests`) instead of relying
 	 *   on the default — the default writes to the real file.

@@ -235,7 +235,7 @@ describe("cache transport staging", () => {
 			clientHeaders: new Headers({
 				authorization: "Bearer should-not-be-retained",
 				"x-api-key": "should-not-be-retained",
-				"x-better-ccflare-request-id": "internal-request-id",
+				"x-hov-router-request-id": "internal-request-id",
 				"anthropic-beta": "prompt-caching-2024-07-31",
 			}),
 		});
@@ -246,7 +246,7 @@ describe("cache transport staging", () => {
 			cacheBodyStore.getLastCachedRequest("account-headers")?.headers;
 		expect(headers?.authorization).toBeUndefined();
 		expect(headers?.["x-api-key"]).toBeUndefined();
-		expect(headers?.["x-better-ccflare-request-id"]).toBeUndefined();
+		expect(headers?.["x-hov-router-request-id"]).toBeUndefined();
 		expect(headers?.["anthropic-beta"]).toBe("prompt-caching-2024-07-31");
 	});
 

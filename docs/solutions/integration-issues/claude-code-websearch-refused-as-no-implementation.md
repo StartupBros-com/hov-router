@@ -67,7 +67,7 @@ web_search has two lanes: the proven hosted lane (Codex, unchanged and fail-clos
 
 - **Forced tool_choice.** Anthropic's docs ("Forcing tool use") reject `tool_choice` `any` or `tool` with a 400 on Opus 5.5, Sonnet 5.5 and Fable 5.1, with no server-tool exemption. Fable 5.2 (launched 2026-11-09) rejects it too; PR #771 added it to `FORCED_TOOL_CHOICE_UNSUPPORTED`. Claude Code 2.1.289 demotes a forced choice to `auto` itself when thinking is on, and also when the helper asks for disabled thinking on a model whose client capability table carries `rejects_disabled_thinking`: it then omits `thinking` and sends `auto`. Opus 5.5, Sonnet 5.5, Fable 5, Fable 5.1 and Mythos 5.1 carry that tag. This was read from the binary, not observed on the wire. So for a helper whose model is one of those, the client already sends `auto`, and the proxy logs nothing. The proxy's demotion is the backstop for a helper whose model the proxy changes before sending, for example through an account model mapping, a route profile's `logicalModel` or a combo. On the native lane the proxy rewrites a `tool_choice` that is exactly `{type: "tool", name: "web_search"}` to `{type: "auto"}` when `supportsForcedToolChoice` is false for the model actually sent (`demoteForcedWebSearchChoice` in `proxy-operations.ts`), and logs once per request at warn level. Other forced choices pass through. `supportsForcedToolChoice` matches the three undated ids exactly, so a dated or suffixed alias of those models would reach Anthropic undemoted and get its visible 400. Neither the repo nor the production helper rows carry such an alias today. The function is shared with two other callers (the Responses translator and the agent interceptor), so widening its match belongs to its own change.
 - **`search_profile`.** The helper may send `search_profile: "fast"`. Before this fix the field made the declaration invalid options. It now derives as a valid hosted requirement that Codex still refuses to prove, so such requests are servable only on the native lane.
-- **Replay keyring.** Production has `CCFLARE_SERVER_TOOL_REPLAY_KEYS_FILE`, so the replay bind succeeds and the bind-failure path is a degraded case. A natively served request still binds and burns one counter range it never uses; the claimant is an in-memory closure, so no lease is left outstanding.
+- **Replay keyring.** Production has `HOV_ROUTER_SERVER_TOOL_REPLAY_KEYS_FILE`, so the replay bind succeeds and the bind-failure path is a degraded case. A natively served request still binds and burns one counter range it never uses; the claimant is an in-memory closure, so no lease is left outstanding.
 
 ## Verification
 
@@ -84,7 +84,7 @@ Join each `tool_result` to its `tool_use` by id. Do not grep transcripts for the
 Refusals, including those in route-profile sessions, can be counted directly:
 
 ```sql
--- sqlite3 -readonly ~/.config/better-ccflare/better-ccflare.db
+-- sqlite3 -readonly ~/.config/hov-router/hov-router.db
 SELECT date(timestamp/1000,'unixepoch','localtime') d, coalesce(route_profile_id,'-') profile,
        substr(error_message,1,40) err, count(*)
 FROM requests

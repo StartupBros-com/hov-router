@@ -35,7 +35,7 @@ export function openBindWarning(state: OpenBindState): string | null {
 		`${PRODUCT_NAME} is listening on ${state.hostname}:${state.port} with no API key, ` +
 		"so anyone who can reach this port can use the accounts it holds and change its settings. " +
 		`Create an admin key with \`${COMMAND_NAME} --generate-api-key <name> --admin\` or on the dashboard's API Keys page. ` +
-		"Or limit who can reach the port: set BETTER_CCFLARE_HOST=127.0.0.1 when clients run on this machine, " +
+		"Or limit who can reach the port: set HOV_ROUTER_HOST=127.0.0.1 when clients run on this machine, " +
 		"publish a container port on 127.0.0.1 only, or put a firewall in front of it. " +
 		`${PRODUCT_NAME} cannot see a firewall or a container's port mapping, so this warning repeats until a key exists or the host is a loopback address.`
 	);

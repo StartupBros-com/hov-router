@@ -28,7 +28,7 @@ import {
 	isLowRiskProjectSlug,
 } from "../project-attribution";
 
-const HEADING_ENV_VAR = "CCFLARE_ENABLE_HEADING_PROJECT_ATTRIBUTION";
+const HEADING_ENV_VAR = "HOV_ROUTER_ENABLE_HEADING_PROJECT_ATTRIBUTION";
 
 /** Opt in to the H1-heading fallback for the scope of a single test (#413: off by default). */
 function withHeadingAttributionEnabled() {
@@ -45,9 +45,9 @@ describe("extractProjectAttributionFromRequest", () => {
 		delete process.env[HEADING_ENV_VAR];
 	});
 
-	it("prefers x-better-ccflare-project over x-project when both are present", () => {
+	it("prefers x-hov-router-project over x-project when both are present", () => {
 		const headers = new Headers({
-			"x-better-ccflare-project": "ns-project",
+			"x-hov-router-project": "ns-project",
 			"x-project": "legacy-project",
 		});
 		const result = extractProjectAttributionFromRequest(headers, null);
@@ -67,7 +67,7 @@ describe("extractProjectAttributionFromRequest", () => {
 		// within the 64-char slug grammar bound so it passes validation.
 		const slug = `${"x".repeat(15)}-`.repeat(4);
 		const raw = `\x01\x02${slug}\n`;
-		const headers = new Headers({ "x-better-ccflare-project": raw });
+		const headers = new Headers({ "x-hov-router-project": raw });
 		const result = extractProjectAttributionFromRequest(headers, null);
 		expect(result.project).not.toBeNull();
 		expect(result.project?.length).toBeLessThanOrEqual(64);
@@ -80,7 +80,7 @@ describe("extractProjectAttributionFromRequest", () => {
 		// Round-2 P1 hardening for the H1 path made >64-char values reject
 		// wholesale rather than truncate-and-keep; the header path must match.
 		const raw = "x".repeat(80);
-		const headers = new Headers({ "x-better-ccflare-project": raw });
+		const headers = new Headers({ "x-hov-router-project": raw });
 		const result = extractProjectAttributionFromRequest(headers, null);
 		expect(result.project).toBeNull();
 		expect(result.projectAttributionSource).toBe("none");
@@ -89,7 +89,7 @@ describe("extractProjectAttributionFromRequest", () => {
 	describe("header-derived project names are validated like heading-derived ones (#373)", () => {
 		it("rejects a namespaced header value that fails isLowRiskProjectSlug", () => {
 			const headers = new Headers({
-				"x-better-ccflare-project": "## some system prompt fragment",
+				"x-hov-router-project": "## some system prompt fragment",
 			});
 			const result = extractProjectAttributionFromRequest(headers, null);
 			expect(result.project).toBeNull();
@@ -111,7 +111,7 @@ describe("extractProjectAttributionFromRequest", () => {
 			// it through. Header path must validate the FULL value too.
 			const cleanPrefix = `${"x".repeat(15)}-`.repeat(4);
 			const headers = new Headers({
-				"x-better-ccflare-project": `${cleanPrefix}${"Z".repeat(25)}`,
+				"x-hov-router-project": `${cleanPrefix}${"Z".repeat(25)}`,
 			});
 			const result = extractProjectAttributionFromRequest(headers, null);
 			expect(result.project).toBeNull();
@@ -120,7 +120,7 @@ describe("extractProjectAttributionFromRequest", () => {
 
 		it("ignores the legacy header when the namespaced header is rejected", () => {
 			const headers = new Headers({
-				"x-better-ccflare-project": "# leaked system prompt heading",
+				"x-hov-router-project": "# leaked system prompt heading",
 				"x-project": "legacy-project",
 			});
 			const result = extractProjectAttributionFromRequest(headers, null);
@@ -129,7 +129,7 @@ describe("extractProjectAttributionFromRequest", () => {
 		});
 
 		it("still accepts ordinary slug-shaped header values", () => {
-			const headers = new Headers({ "x-better-ccflare-project": "my-app" });
+			const headers = new Headers({ "x-hov-router-project": "my-app" });
 			const result = extractProjectAttributionFromRequest(headers, null);
 			expect(result.project).toBe("my-app");
 			expect(result.projectAttributionSource).toBe("header_project");
@@ -139,10 +139,10 @@ describe("extractProjectAttributionFromRequest", () => {
 	it("infers a sanitized repo slug from a /home workspace path in the system prompt", () => {
 		const headers = new Headers();
 		const body = {
-			system: "context at /home/will/projects/better-ccflare/foo.ts done",
+			system: "context at /home/will/projects/hov-router/foo.ts done",
 		};
 		const result = extractProjectAttributionFromRequest(headers, body);
-		expect(result.project).toBe("better-ccflare");
+		expect(result.project).toBe("hov-router");
 		expect(result.projectAttributionSource).toBe("path_project");
 	});
 
@@ -166,14 +166,14 @@ describe("extractProjectAttributionFromRequest", () => {
 			const headers = new Headers();
 			const body = {
 				system:
-					"/home/will/projects/better-ccflare # Some Leaked System Prompt Heading Text/more",
+					"/home/will/projects/hov-router # Some Leaked System Prompt Heading Text/more",
 			};
 			const result = extractProjectAttributionFromRequest(headers, body);
 			expect(result.project).toBeNull();
 			expect(result.projectAttributionSource).toBe("none");
 		});
 
-		describe("CCFLARE_ENABLE_HEADING_PROJECT_ATTRIBUTION=true (opt-in, #413)", () => {
+		describe("HOV_ROUTER_ENABLE_HEADING_PROJECT_ATTRIBUTION=true (opt-in, #413)", () => {
 			let restore: () => void;
 			beforeEach(() => {
 				restore = withHeadingAttributionEnabled();
@@ -281,7 +281,7 @@ describe("extractProjectAttributionFromRequest", () => {
 		expect(result.projectAttributionSource).toBe("none");
 	});
 
-	describe("CCFLARE_ENABLE_HEADING_PROJECT_ATTRIBUTION=true (opt-in, #413)", () => {
+	describe("HOV_ROUTER_ENABLE_HEADING_PROJECT_ATTRIBUTION=true (opt-in, #413)", () => {
 		let restore: () => void;
 		beforeEach(() => {
 			restore = withHeadingAttributionEnabled();
@@ -473,7 +473,7 @@ describe("extractProjectAttributionFromRequest", () => {
 
 describe("isLowRiskProjectSlug", () => {
 	it("accepts ordinary repo-name-shaped labels", () => {
-		expect(isLowRiskProjectSlug("better-ccflare")).toBe(true);
+		expect(isLowRiskProjectSlug("hov-router")).toBe(true);
 		expect(isLowRiskProjectSlug("Harness")).toBe(true);
 		expect(isLowRiskProjectSlug("eval-suite")).toBe(true);
 		expect(isLowRiskProjectSlug("My Project")).toBe(true);
@@ -536,7 +536,7 @@ describe("isLowRiskProjectSlug", () => {
 		it("does not over-reject ordinary hyphenated slugs with word-only tails", () => {
 			expect(isLowRiskProjectSlug("attribution-source-tags")).toBe(true);
 			expect(isLowRiskProjectSlug("my-really-long-project-name")).toBe(true);
-			expect(isLowRiskProjectSlug("better-ccflare")).toBe(true);
+			expect(isLowRiskProjectSlug("hov-router")).toBe(true);
 		});
 	});
 
@@ -561,7 +561,7 @@ describe("isLowRiskProjectSlug", () => {
 		}
 
 		it("still accepts ordinary slug-shaped labels (no over-rejection regression)", () => {
-			expect(isLowRiskProjectSlug("better-ccflare")).toBe(true);
+			expect(isLowRiskProjectSlug("hov-router")).toBe(true);
 			expect(isLowRiskProjectSlug("Harness")).toBe(true);
 			expect(isLowRiskProjectSlug("eval-suite")).toBe(true);
 			expect(isLowRiskProjectSlug("My Project")).toBe(true);
@@ -596,7 +596,7 @@ describe("isLowRiskProjectSlug", () => {
 			expect(isLowRiskProjectSlug("Harness")).toBe(true);
 			expect(isLowRiskProjectSlug("attribution-source-tags")).toBe(true);
 			expect(isLowRiskProjectSlug("My Cool Project")).toBe(true);
-			expect(isLowRiskProjectSlug("better-ccflare")).toBe(true);
+			expect(isLowRiskProjectSlug("hov-router")).toBe(true);
 		});
 	});
 
@@ -635,14 +635,14 @@ describe("isLowRiskPathSegment", () => {
 		expect(isLowRiskPathSegment("auth-token-service")).toBe(true);
 		expect(isLowRiskPathSegment("account-billing")).toBe(true);
 		expect(isLowRiskPathSegment("ui.v2")).toBe(true);
-		expect(isLowRiskPathSegment("better-ccflare")).toBe(true);
+		expect(isLowRiskPathSegment("hov-router")).toBe(true);
 		expect(isLowRiskPathSegment("MyProj")).toBe(true);
 	});
 
 	it("still rejects a runaway sentence-shaped capture (the #373 leak signature)", () => {
 		expect(
 			isLowRiskPathSegment(
-				"better-ccflare # Some Leaked System Prompt Heading Text",
+				"hov-router # Some Leaked System Prompt Heading Text",
 			),
 		).toBe(false);
 		expect(
@@ -719,7 +719,7 @@ describe("extractProjectAttributionFromParts (usage-collector base64 fallback)",
 	});
 	it("returns header_project from a lowercased Record<string,string> header map", () => {
 		const result = extractProjectAttributionFromParts(
-			{ "X-Better-Ccflare-Project": "MyProj" },
+			{ "X-Hov-Router-Project": "MyProj" },
 			null,
 		);
 		expect(result.project).toBe("MyProj");
@@ -738,7 +738,7 @@ describe("extractProjectAttributionFromParts (usage-collector base64 fallback)",
 		expect(result.projectAttributionSource).toBe("path_project");
 	});
 
-	describe("CCFLARE_ENABLE_HEADING_PROJECT_ATTRIBUTION=true (opt-in, #413)", () => {
+	describe("HOV_ROUTER_ENABLE_HEADING_PROJECT_ATTRIBUTION=true (opt-in, #413)", () => {
 		let restore: () => void;
 		beforeEach(() => {
 			restore = withHeadingAttributionEnabled();

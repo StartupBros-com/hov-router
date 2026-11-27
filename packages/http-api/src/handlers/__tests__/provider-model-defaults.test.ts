@@ -19,7 +19,7 @@ function makeConfig(initial: Record<string, Record<string, string>> = {}) {
 			saved = structuredClone(value);
 		},
 		getEnabledProviderModelDefaultProviders: () => {
-			const fromEnv = process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS;
+			const fromEnv = process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS;
 			if (fromEnv) {
 				const parsed = fromEnv
 					.split(",")
@@ -41,14 +41,14 @@ function request(overrides: unknown): Request {
 }
 
 const ORIGINAL_MODEL_DEFAULTS_PROVIDERS_ENV =
-	process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS;
+	process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS;
 
 afterEach(() => {
 	setProviderModelDefaultOverrides({});
 	if (ORIGINAL_MODEL_DEFAULTS_PROVIDERS_ENV === undefined) {
-		delete process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS;
+		delete process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS;
 	} else {
-		process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS =
+		process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS =
 			ORIGINAL_MODEL_DEFAULTS_PROVIDERS_ENV;
 	}
 });
@@ -182,8 +182,8 @@ describe("provider model defaults", () => {
 		expect(resolveProviderModelDefault("xai", "sonnet")).toBe("grok-4.7");
 	});
 
-	it("GET lists only codex by default (CCFLARE_MODEL_DEFAULTS_PROVIDERS unset)", async () => {
-		delete process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS;
+	it("GET lists only codex by default (HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS unset)", async () => {
+		delete process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS;
 		const handlers = createConfigHandlers(makeConfig());
 		const response = await handlers.getProviderModelDefaults();
 		expect(response.status).toBe(200);
@@ -196,7 +196,7 @@ describe("provider model defaults", () => {
 	});
 
 	it("POST rejects a disabled provider with 400 citing the env var", async () => {
-		delete process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS;
+		delete process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS;
 		const handlers = createConfigHandlers(makeConfig());
 		const response = await handlers.setProviderModelDefaults(
 			request([{ provider: "xai", family: "sonnet", model: "grok-x" }]),
@@ -207,8 +207,8 @@ describe("provider model defaults", () => {
 		expect(JSON.stringify(body)).toContain("xai");
 	});
 
-	it("CCFLARE_MODEL_DEFAULTS_PROVIDERS=codex,xai lists and accepts xai again", async () => {
-		process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS = "codex,xai";
+	it("HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS=codex,xai lists and accepts xai again", async () => {
+		process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS = "codex,xai";
 		const handlers = createConfigHandlers(makeConfig());
 		const getBody = (await (
 			await handlers.getProviderModelDefaults()
@@ -227,7 +227,7 @@ describe("provider model defaults", () => {
 	});
 
 	it("a disabled provider's stored override stays inert and does not affect resolution", async () => {
-		process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS = "codex,xai";
+		process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS = "codex,xai";
 		const config = makeConfig({ xai: { sonnet: "grok-custom" } });
 		const handlers = createConfigHandlers(config);
 		// A POST to codex already pushes the whole map (filtered by enabled
@@ -237,7 +237,7 @@ describe("provider model defaults", () => {
 		);
 		expect(resolveProviderModelDefault("xai", "sonnet")).toBe("grok-custom");
 
-		process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS = "codex";
+		process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS = "codex";
 		await handlers.setProviderModelDefaults(
 			request([{ provider: "codex", family: "opus", model: "gpt-custom" }]),
 		);
@@ -279,8 +279,8 @@ describe("provider model defaults", () => {
 		);
 	});
 
-	it("codex keeps translating even when left out of CCFLARE_MODEL_DEFAULTS_PROVIDERS", async () => {
-		process.env.CCFLARE_MODEL_DEFAULTS_PROVIDERS = "xai";
+	it("codex keeps translating even when left out of HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS", async () => {
+		process.env.HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS = "xai";
 		const handlers = createConfigHandlers(makeConfig());
 		const response = await handlers.setProviderModelDefaults(
 			request([{ provider: "codex", family: "opus", model: "gpt-custom" }]),

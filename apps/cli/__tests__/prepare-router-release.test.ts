@@ -28,7 +28,7 @@ const expected = {
 	ref: "refs/tags/v1.2.3",
 	sha: "a".repeat(40),
 };
-const filename = "better-ccflare-linux-amd64";
+const filename = "hov-router-linux-amd64";
 const bunPin = readFileSync(
 	resolve(import.meta.dir, "../../../.bun-version"),
 	"utf8",
@@ -61,7 +61,7 @@ function schemaExample(
 		sha,
 		bun: bunPin,
 		target: "bun-linux-amd64",
-		executable: { filename: "better-ccflare-linux-amd64", size, sha256 },
+		executable: { filename: "hov-router-linux-amd64", size, sha256 },
 		provenance: {
 			raw: tokenFor(identity.version),
 			schemaVersion: "v1",
@@ -142,13 +142,13 @@ function syntheticRelease(mode = "clean", hasPrevious = false) {
 		GITHUB_TOKEN: "synthetic-token",
 		ANTHROPIC_API_KEY: "synthetic-provider",
 		DATABASE_URL: "synthetic-db",
-		BETTER_CCFLARE_DB_PATH: "synthetic-db-path",
-		BETTER_CCFLARE_CONFIG_PATH: "synthetic-config",
-		CCFLARE_VERSION: "9.9.9",
-		CCFLARE_BUILD_SUFFIX: "hostile",
-		CCFLARE_SKIP_PLATFORMS: "bun-linux-amd64",
-		CCFLARE_BUILD_PRODUCER: "github-release-binary",
-		CCFLARE_ONLY_PLATFORMS: "bun-windows-x64",
+		HOV_ROUTER_DB_PATH: "synthetic-db-path",
+		HOV_ROUTER_CONFIG_PATH: "synthetic-config",
+		HOV_ROUTER_VERSION: "9.9.9",
+		HOV_ROUTER_BUILD_SUFFIX: "hostile",
+		HOV_ROUTER_SKIP_PLATFORMS: "bun-linux-amd64",
+		HOV_ROUTER_BUILD_PRODUCER: "github-release-binary",
+		HOV_ROUTER_ONLY_PLATFORMS: "bun-windows-x64",
 		GIT_DIR: "/nonexistent-synthetic-git",
 		GIT_WORK_TREE: "/nonexistent-synthetic-tree",
 		GIT_CONFIG_COUNT: "1",
@@ -159,13 +159,15 @@ function syntheticRelease(mode = "clean", hasPrevious = false) {
 		BUN_OPTIONS: "--no-env-file",
 	};
 	const dotenv =
-		"DOTENV_SENTINEL=must-not-reach-build\nCCFLARE_VERSION=8.8.8\n";
+		"DOTENV_SENTINEL=must-not-reach-build\nHOV_ROUTER_VERSION=8.8.8\n";
 	for (const dir of [base, repo, cli, dashboard])
 		writeFileSync(join(dir, ".env"), dotenv);
 	const forbidden = [
 		...Object.keys(hostile).filter(
 			(key) =>
-				!["CCFLARE_BUILD_PRODUCER", "CCFLARE_ONLY_PLATFORMS"].includes(key),
+				!["HOV_ROUTER_BUILD_PRODUCER", "HOV_ROUTER_ONLY_PLATFORMS"].includes(
+					key,
+				),
 		),
 		"DOTENV_SENTINEL",
 	];
@@ -175,15 +177,15 @@ function syntheticRelease(mode = "clean", hasPrevious = false) {
 		join(dashboard, "build.ts"),
 		`${guard}
 import { appendFileSync, mkdirSync } from "node:fs";
-if (process.env.CCFLARE_BUILD_PRODUCER || process.env.CCFLARE_ONLY_PLATFORMS) throw new Error("dashboard producer/platform leak");
+if (process.env.HOV_ROUTER_BUILD_PRODUCER || process.env.HOV_ROUTER_ONLY_PLATFORMS) throw new Error("dashboard producer/platform leak");
 appendFileSync(${JSON.stringify(calls)}, "dashboard\\n");
 ${mode === "config" ? 'mkdirSync(process.env.HOME + "/.config");' : ""}
 `,
 	);
 	const shellGuard = [
 		...forbidden,
-		"CCFLARE_BUILD_PRODUCER",
-		"CCFLARE_ONLY_PLATFORMS",
+		"HOV_ROUTER_BUILD_PRODUCER",
+		"HOV_ROUTER_ONLY_PLATFORMS",
 	]
 		.map((key) => `$${key}`)
 		.join("");
@@ -192,7 +194,7 @@ ${mode === "config" ? 'mkdirSync(process.env.HOME + "/.config");' : ""}
 		`${guard}
 import { appendFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-if (process.env.CCFLARE_BUILD_PRODUCER !== "hov-router-binary" || process.env.CCFLARE_ONLY_PLATFORMS !== "bun-linux-amd64") throw new Error("wrong explicit release producer/platform");
+if (process.env.HOV_ROUTER_BUILD_PRODUCER !== "hov-router-binary" || process.env.HOV_ROUTER_ONLY_PLATFORMS !== "bun-linux-amd64") throw new Error("wrong explicit release producer/platform");
 appendFileSync(${JSON.stringify(calls)}, "cli\\n");
 const sha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 const body = '#!/bin/sh\\ntest -z "${shellGuard}" || exit 94\\nprintf "%s %s\\\\n" "' + '$' + '{0##*/}" "$1" >> ${calls}\\ncase "$1" in\\n--help) printf "HoV Router\\\\n";;\\n--version) printf "HoV Router v1.2.3\\\\n";;\\n--git-sha) printf "' + ${mode === "smoke" ? '"wrong-sha"' : "sha"} + '\\\\n";;\\nesac\\n';
@@ -377,7 +379,7 @@ describe("native tagged release rehearsal", () => {
 							].includes(path)),
 				);
 			files.push(
-				"scripts/ccflare-managed-timing.mjs",
+				"scripts/hov-router-managed-timing.mjs",
 				"apps/cli/router-artifacts.ts",
 				"apps/cli/prepare-router-release.ts",
 				"packages/core/src/router-repository.ts",
@@ -743,13 +745,13 @@ describe("downloaded release verification (not publisher authentication)", () =>
 		const marker = join(home, "calls");
 		writeFileSync(
 			join(home, ".env"),
-			"CCFLARE_VERSION=9.9.9\nANTHROPIC_API_KEY=dotenv-secret\n",
+			"HOV_ROUTER_VERSION=9.9.9\nANTHROPIC_API_KEY=dotenv-secret\n",
 		);
 		const source = readFileSync(join(fixture().dir, filename), "utf8");
 		const { dir } = fixture(
 			source.replace(
 				"case",
-				`test -z "$ANTHROPIC_API_KEY$CCFLARE_VERSION$CCFLARE_BUILD_PRODUCER$DATABASE_URL$GITHUB_TOKEN$BUN_OPTIONS" || exit 94\nprintf '%s %s\\n' "\${0##*/}" "$1" >> '${marker}'\ncase`,
+				`test -z "$ANTHROPIC_API_KEY$HOV_ROUTER_VERSION$HOV_ROUTER_BUILD_PRODUCER$DATABASE_URL$GITHUB_TOKEN$BUN_OPTIONS" || exit 94\nprintf '%s %s\\n' "\${0##*/}" "$1" >> '${marker}'\ncase`,
 			),
 		);
 		const result = spawnSync(
@@ -774,8 +776,8 @@ describe("downloaded release verification (not publisher authentication)", () =>
 					ANTHROPIC_API_KEY: "synthetic",
 					GITHUB_TOKEN: "synthetic",
 					DATABASE_URL: "synthetic",
-					CCFLARE_VERSION: "9.9.9",
-					CCFLARE_BUILD_PRODUCER: "github-release-binary",
+					HOV_ROUTER_VERSION: "9.9.9",
+					HOV_ROUTER_BUILD_PRODUCER: "github-release-binary",
 				},
 				encoding: "utf8",
 			},

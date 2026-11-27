@@ -11,7 +11,7 @@ describe("updateAccountUsage session duration", () => {
 	let dbOps: DatabaseOperations;
 
 	beforeEach(() => {
-		dir = mkdtempSync(join(tmpdir(), "ccflare-session-duration-"));
+		dir = mkdtempSync(join(tmpdir(), "hov-router-session-duration-"));
 		dbOps = new DatabaseOperations(join(dir, "test.db"));
 	});
 

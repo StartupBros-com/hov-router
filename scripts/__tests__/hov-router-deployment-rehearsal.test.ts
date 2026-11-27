@@ -22,7 +22,7 @@ import {
 	prepareTransaction,
 	processExists,
 	recoverTransaction,
-} from "../ccflare-deployment-transaction.mjs";
+} from "../hov-router-deployment-transaction.mjs";
 import { resolveNodeExecutable } from "./node-runtime";
 const root = join(import.meta.dir, "..", "..");
 // Hold every socket open until all ports are read: closing one before binding
@@ -60,7 +60,7 @@ test.each([
 	"candidate_out_of_space",
 	"rollback_out_of_space",
 ])("disposable compiled Bun/SQLite %s retains ingress and proves cold owner handoff", async (mode) => {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-handoff-rehearsal-")),
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-handoff-rehearsal-")),
 		control = join(dir, "transaction"),
 		pin = join(dir, "pin"),
 		node = resolveNodeExecutable(),
@@ -110,8 +110,8 @@ test.each([
 				source,
 				`import {Database} from "bun:sqlite";import {openSync,closeSync,unlinkSync,appendFileSync,existsSync,mkdirSync,readFileSync,writeFileSync} from "node:fs";import {createManagedIngress} from ${JSON.stringify(join(root, "apps/server/src/managed-ingress.ts"))};
  ${name === "candidate" && mode === "early_exit" ? "process.exit(42);" : ""}${refusal(name)}const lock=process.env.FIXTURE_DB+".owner";const owner=openSync(lock,"wx");if(process.env.FIXTURE_PROC_ROOT){const proc=process.env.FIXTURE_PROC_ROOT+"/"+process.pid;mkdirSync(proc,{recursive:true});writeFileSync(proc+"/stat",readFileSync("/proc/"+process.pid+"/stat"));writeFileSync(proc+"/status",${JSON.stringify("Name:\tfixture\nVmRSS:\t0 kB\nVmSwap:\t0 kB\n")});}const db=new Database(process.env.FIXTURE_DB);db.exec("CREATE TABLE IF NOT EXISTS calls(generation INTEGER,path TEXT)");appendFileSync(process.env.FIXTURE_EVENTS,"open:"+process.pid+"\\n");
- await Bun.sleep(${delay});const ingress=createManagedIngress({enabled:true,secret:Buffer.from(process.env.CCFLARE_GUARD_CORRELATION_SECRET,"base64url"),generation:Number(process.env.CCFLARE_MANAGED_GENERATION),ingressNonce:process.env.CCFLARE_MANAGED_INGRESS_NONCE,candidateNonce:${JSON.stringify(name === "candidate" && mode === "bad_nonce" ? "e".repeat(32) : null)} ?? process.env.CCFLARE_MANAGED_CANDIDATE_NONCE,sourceSha:process.env.CCFLARE_SOURCE_SHA});
- const server=Bun.serve({hostname:"127.0.0.1",port:Number(process.env.PORT),fetch:r=>ingress(r,async req=>{const url=new URL(req.url);if(url.pathname==="/health")return Response.json({status:"ok",git_sha:${JSON.stringify(name === "candidate" && mode === "bad_source" ? oldSource : sha)}});db.query("INSERT INTO calls VALUES(?,?)").run(Number(process.env.CCFLARE_MANAGED_GENERATION),url.pathname);if(url.pathname==="/v1/slow"){const waitForFile=path=>new Promise(resolve=>{const timer=setInterval(()=>{if(existsSync(path)){clearInterval(timer);resolve();}},10);});if(process.env.FIXTURE_HEADER_RELEASE)await waitForFile(process.env.FIXTURE_HEADER_RELEASE);return new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode("first"));const finish=()=>{try{c.enqueue(new TextEncoder().encode("last"));c.close();}catch{}};if(process.env.FIXTURE_STREAM_RELEASE)waitForFile(process.env.FIXTURE_STREAM_RELEASE).then(finish);else setTimeout(finish,350);}}));}return new Response(${JSON.stringify(sha)});})});
+ await Bun.sleep(${delay});const ingress=createManagedIngress({enabled:true,secret:Buffer.from(process.env.HOV_ROUTER_GUARD_CORRELATION_SECRET,"base64url"),generation:Number(process.env.HOV_ROUTER_MANAGED_GENERATION),ingressNonce:process.env.HOV_ROUTER_MANAGED_INGRESS_NONCE,candidateNonce:${JSON.stringify(name === "candidate" && mode === "bad_nonce" ? "e".repeat(32) : null)} ?? process.env.HOV_ROUTER_MANAGED_CANDIDATE_NONCE,sourceSha:process.env.HOV_ROUTER_SOURCE_SHA});
+ const server=Bun.serve({hostname:"127.0.0.1",port:Number(process.env.PORT),fetch:r=>ingress(r,async req=>{const url=new URL(req.url);if(url.pathname==="/health")return Response.json({status:"ok",git_sha:${JSON.stringify(name === "candidate" && mode === "bad_source" ? oldSource : sha)}});db.query("INSERT INTO calls VALUES(?,?)").run(Number(process.env.HOV_ROUTER_MANAGED_GENERATION),url.pathname);if(url.pathname==="/v1/slow"){const waitForFile=path=>new Promise(resolve=>{const timer=setInterval(()=>{if(existsSync(path)){clearInterval(timer);resolve();}},10);});if(process.env.FIXTURE_HEADER_RELEASE)await waitForFile(process.env.FIXTURE_HEADER_RELEASE);return new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode("first"));const finish=()=>{try{c.enqueue(new TextEncoder().encode("last"));c.close();}catch{}};if(process.env.FIXTURE_STREAM_RELEASE)waitForFile(process.env.FIXTURE_STREAM_RELEASE).then(finish);else setTimeout(finish,350);}}));}return new Response(${JSON.stringify(sha)});})});
  process.on("SIGTERM",()=>{server.stop(true);db.close();closeSync(owner);unlinkSync(lock);appendFileSync(process.env.FIXTURE_EVENTS,"close:"+process.pid+"\\n");process.exit(0);});`,
 			);
 			const result = spawnSync(
@@ -125,22 +125,22 @@ test.each([
 		writeFileSync(pin, "previous-pin");
 		const nextPin = join(dir, "next-pin");
 		writeFileSync(nextPin, "candidate-pin");
-		runner = spawn("bash", [join(root, "scripts/run-ccflare-stack.sh")], {
+		runner = spawn("bash", [join(root, "scripts/run-hov-router.sh")], {
 			cwd: root,
 			env: (runnerEnvironment = {
 				...process.env,
 				HOME: dir,
 				USER: "fixture",
 				NODE_BIN: node,
-				CCFLARE_BIN: join(dir, "old"),
-				GUARD_SCRIPT: join(root, "scripts/ccflare-guard.mjs"),
+				HOV_ROUTER_BIN: join(dir, "old"),
+				GUARD_SCRIPT: join(root, "scripts/hov-router-guard.mjs"),
 				GUARD_SOURCE_ID: oldSource,
-				CCFLARE_SOURCE_SHA: oldSource,
-				CCFLARE_GIT_SHA: oldSource,
-				CCFLARE_SCHEMA_DIGEST: schema,
-				CCFLARE_PIN_PATH: pin,
-				CCFLARE_TRANSACTION_DIR: control,
-				CCFLARE_MANAGED_TIMING: "1",
+				HOV_ROUTER_SOURCE_SHA: oldSource,
+				HOV_ROUTER_GIT_SHA: oldSource,
+				HOV_ROUTER_SCHEMA_DIGEST: schema,
+				HOV_ROUTER_PIN_PATH: pin,
+				HOV_ROUTER_TRANSACTION_DIR: control,
+				HOV_ROUTER_MANAGED_TIMING: "1",
 				...(rssMode
 					? {
 							RUNNER_RSS_THRESHOLD_BYTES: "1",
@@ -156,7 +156,7 @@ test.each([
 							RUNNER_RSS_RECYCLE_WINDOW_MS: "60000",
 						}
 					: {}),
-				CCFLARE_UPSTREAM_PORT: String(upstreamPort),
+				HOV_ROUTER_UPSTREAM_PORT: String(upstreamPort),
 				GUARD_PORT: String(guardPort),
 				GUARD_TOTAL_DEADLINE_MS: "10000",
 				GUARD_RETRY_ATTEMPT_HEADROOM_MS: "1",
@@ -269,7 +269,7 @@ test.each([
 			const client = spawnSync(
 				node,
 				[
-					join(root, "scripts/ccflare-deployment-transaction.mjs"),
+					join(root, "scripts/hov-router-deployment-transaction.mjs"),
 					"client",
 					control,
 					command,
@@ -286,7 +286,7 @@ test.each([
 		const expired = fetch(base + "/v1/expired", {
 			method: "POST",
 			body: "{}",
-			headers: { "x-better-ccflare-timeout-ms": "200" },
+			headers: { "x-hov-router-timeout-ms": "200" },
 		});
 		const waitingAbort = new AbortController();
 		const waiting = fetch(base + "/v1/waiting", {
@@ -330,7 +330,7 @@ test.each([
 			if (mode === "rollback_out_of_space") {
 				await until(() =>
 					logs.includes(
-						"restarting stack via supervisor; child=better-ccflare upstream",
+						"restarting stack via supervisor; child=hov-router upstream",
 					),
 				);
 				rmSync(refuseOld);
@@ -376,7 +376,7 @@ test.each([
 			await exited;
 			const restarted = spawnSync(
 				"bash",
-				[join(root, "scripts/run-ccflare-stack.sh")],
+				[join(root, "scripts/run-hov-router.sh")],
 				{ cwd: root, env: runnerEnvironment!, encoding: "utf8", timeout: 3000 },
 			);
 			expect(restarted.status).toBe(70);

@@ -1,6 +1,6 @@
 # HoV Router
 
-This directory is the HoV Router CLI and server package (`hov-router`, with older command names such as `better-ccflare` kept as compatibility commands).
+This directory is the HoV Router CLI and server package, which builds the `hov-router` command.
 
 Documentation lives in the repository README: https://github.com/StartupBros-com/hov-router#readme
 

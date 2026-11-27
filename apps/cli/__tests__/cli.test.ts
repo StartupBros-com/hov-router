@@ -54,7 +54,7 @@ async function withServingCli(
 ) {
 	for (let attempt = 0; attempt < 2; attempt++) {
 		const port = await choosePort();
-		const dir = mkdtempSync(join(tmpdir(), "ccflare-cli-serve-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-cli-serve-"));
 		const dbPath = join(dir, "serve.db");
 		const proc = spawn(
 			"bun",
@@ -63,8 +63,8 @@ async function withServingCli(
 				env: {
 					...process.env,
 					NODE_ENV: "test",
-					BETTER_CCFLARE_DB_PATH: dbPath,
-					BETTER_CCFLARE_HOST: "127.0.0.1",
+					HOV_ROUTER_DB_PATH: dbPath,
+					HOV_ROUTER_HOST: "127.0.0.1",
 					XDG_CONFIG_HOME: dir,
 					...envOverrides,
 				},
@@ -134,7 +134,7 @@ async function withServingCli(
 // Tracks per-invocation temp databases so afterEach can remove them along
 // with their SQLite WAL/SHM siblings. Each runCLI() below pushes one path
 // here; the suite's afterEach() drains the set after the existing
-// tempDir/Ssl-fixture rmSync. Without this the runCLI-routed BETTER_CCFLARE_DB_PATH
+// tempDir/Ssl-fixture rmSync. Without this the runCLI-routed HOV_ROUTER_DB_PATH
 // files accumulate across repeated suite invocations under $TMPDIR.
 const createdDbPaths = new Set<string>();
 
@@ -153,18 +153,18 @@ function runCLI(
 	return new Promise((resolve) => {
 		// Route the spawned CLI's database through the environment's temp dir so
 		// tests pass under any sandbox that blocks writes to ~/.config/. The
-		// CLI honours BETTER_CCFLARE_DB_PATH (see packages/database/src/factory.ts)
+		// CLI honours HOV_ROUTER_DB_PATH (see packages/database/src/factory.ts)
 		// — honouring it here keeps each test run hermetic and removes a
-		// ~/.config/better-ccflare/better-ccflare.db dependency the test never
+		// ~/.config/hov-router/hov-router.db dependency the test never
 		// asked for. Falls back to ~/.config in the unlikely event neither
 		// TMPDIR nor HOME is writable.
-		const cliDbPath = `${process.env.TMPDIR || "/tmp"}/better-ccflare-cli-test-${process.pid}-${Date.now()}.db`;
+		const cliDbPath = `${process.env.TMPDIR || "/tmp"}/hov-router-cli-test-${process.pid}-${Date.now()}.db`;
 		createdDbPaths.add(cliDbPath);
 		const proc = spawn("bun", ["run", CLI_PATH, ...args], {
 			env: {
 				...process.env,
 				NODE_ENV: "test",
-				BETTER_CCFLARE_DB_PATH: cliDbPath,
+				HOV_ROUTER_DB_PATH: cliDbPath,
 				...env,
 			},
 		});
@@ -364,7 +364,7 @@ describe("CLI Integration Tests", () => {
 
 	beforeEach(() => {
 		// Create temp directory for SSL cert tests
-		tempDir = join(tmpdir(), `better-ccflare-test-${Date.now()}`);
+		tempDir = join(tmpdir(), `hov-router-test-${Date.now()}`);
 		mkdirSync(tempDir, { recursive: true });
 		tempSslKeyPath = join(tempDir, "test.key");
 		tempSslCertPath = join(tempDir, "test.crt");
@@ -396,9 +396,8 @@ describe("CLI Integration Tests", () => {
 				const result = await runCLI([flag], {
 					HOME: home,
 					XDG_CONFIG_HOME: join(home, "config"),
-					BETTER_CCFLARE_DB_PATH:
-						"/proc/better-ccflare-must-not-open/identity.db",
-					BETTER_CCFLARE_GIT_SHA: "abcdef1234567890abcdef1234567890abcdef12",
+					HOV_ROUTER_DB_PATH: "/proc/hov-router-must-not-open/identity.db",
+					HOV_ROUTER_HEALTH_GIT_SHA: "abcdef1234567890abcdef1234567890abcdef12",
 				});
 				expect(result.exitCode).toBe(0);
 				expect(result.stderr).toBe("");
@@ -434,8 +433,8 @@ describe("CLI Integration Tests", () => {
 		it("prints only the embedded git SHA before initialization", async () => {
 			const sha = "abcdef1234567890abcdef1234567890abcdef12";
 			const result = await runCLI(["--git-sha"], {
-				BETTER_CCFLARE_GIT_SHA: sha,
-				BETTER_CCFLARE_DB_PATH: "/proc/better-ccflare-must-not-open/version.db",
+				HOV_ROUTER_HEALTH_GIT_SHA: sha,
+				HOV_ROUTER_DB_PATH: "/proc/hov-router-must-not-open/version.db",
 			});
 
 			expect(result.exitCode).toBe(0);
@@ -445,8 +444,8 @@ describe("CLI Integration Tests", () => {
 
 		it("fails the git SHA command when the binary has no embedded SHA", async () => {
 			const result = await runCLI(["--git-sha"], {
-				BETTER_CCFLARE_GIT_SHA: "",
-				BETTER_CCFLARE_DB_PATH: "/proc/better-ccflare-must-not-open/version.db",
+				HOV_ROUTER_HEALTH_GIT_SHA: "",
+				HOV_ROUTER_DB_PATH: "/proc/hov-router-must-not-open/version.db",
 			});
 
 			expect(result.exitCode).toBe(1);
@@ -462,9 +461,7 @@ describe("CLI Integration Tests", () => {
 			expect(result.exitCode).toBe(0);
 			expect(result.stdout).toContain("HoV Router");
 			expect(result.stdout).toContain("Usage: hov-router [options]");
-			expect(result.stdout).toContain(
-				"Earlier command names, such as better-ccflare, remain supported aliases",
-			);
+			expect(result.stdout).not.toContain("Earlier command names");
 			expect(result.stdout).toContain("hov-router --serve");
 			expect(result.stdout).not.toContain("  wstack-router ");
 			expect(result.stdout).not.toContain("  better-ccflare ");
@@ -551,8 +548,7 @@ describe("CLI Integration Tests", () => {
 				const result = await runCLI(
 					["routing", "list", "--api-url", server.baseUrl, "--json"],
 					{
-						BETTER_CCFLARE_DB_PATH:
-							"/proc/better-ccflare-must-not-open/routing.db",
+						HOV_ROUTER_DB_PATH: "/proc/hov-router-must-not-open/routing.db",
 					},
 				);
 
@@ -570,7 +566,7 @@ describe("CLI Integration Tests", () => {
 		it("ships preview, reviewed apply, and manual rollback with exact live API writes", async () => {
 			const server = await startRoutingServer();
 			const noDatabase = {
-				BETTER_CCFLARE_DB_PATH: "/proc/better-ccflare-must-not-open/routing.db",
+				HOV_ROUTER_DB_PATH: "/proc/hov-router-must-not-open/routing.db",
 			};
 			try {
 				const preview = await runCLI(
@@ -757,7 +753,7 @@ describe("CLI Integration Tests", () => {
 		// writer starts, and the next test covers startup with the writer on.
 		it("opens the database with the server's runtime config", async () => {
 			await withServingCli(
-				{ BETTER_CCFLARE_DB_WRITER_WORKER: "0" },
+				{ HOV_ROUTER_DB_WRITER_WORKER: "0" },
 				async (processId, dbPath) => {
 					// mmap is on only when the configured connection opened the file.
 					// Match the file itself, not its always-mapped -shm sibling.
@@ -781,7 +777,7 @@ describe("CLI Integration Tests", () => {
 			});
 			try {
 				await withServingCli(
-					{ BETTER_CCFLARE_DB_WRITER_WORKER: undefined, LOG_LEVEL: "info" },
+					{ HOV_ROUTER_DB_WRITER_WORKER: undefined, LOG_LEVEL: "info" },
 					async (_pid, _dbPath, readOutput) => {
 						for (
 							let i = 0;
@@ -1079,5 +1075,67 @@ describe("CLI Security Tests", () => {
 		const _output = result.stdout + result.stderr;
 		// Should show error but not leak full paths unnecessarily
 		expect(result.exitCode).toBeGreaterThan(0);
+	});
+});
+
+describe("CLI retired names", () => {
+	it("allows importing helpers without starting the CLI or inspecting host storage", () => {
+		const home = mkdtempSync(join(tmpdir(), "hov-router-cli-import-"));
+		const oldWorkspaces = join(home, ".better-ccflare", "workspaces.json");
+		const db = join(home, "test.db");
+		mkdirSync(join(home, ".better-ccflare"));
+		writeFileSync(oldWorkspaces, "[]");
+		const env = {
+			...process.env,
+			HOME: home,
+			XDG_CONFIG_HOME: join(home, "config"),
+			HOV_ROUTER_DB_PATH: db,
+			BETTER_CCFLARE_ADMIN_API_KEY: "retired-value-must-not-print",
+		};
+		try {
+			const imported = Bun.spawnSync(
+				[
+					process.execPath,
+					"--eval",
+					`await import(${JSON.stringify(CLI_PATH)}); console.log("CLI imported");`,
+				],
+				{ cwd: home, env, stdout: "pipe", stderr: "pipe" },
+			);
+			expect(imported.exitCode).toBe(0);
+			expect(imported.stdout.toString()).toContain("CLI imported");
+			expect(imported.stderr.toString()).not.toContain(
+				"retired-value-must-not-print",
+			);
+			expect(existsSync(db)).toBe(false);
+			expect(readFileSync(oldWorkspaces, "utf8")).toBe("[]");
+
+			// Executing the same file must still refuse before it opens storage.
+			const executed = Bun.spawnSync(
+				[process.execPath, "run", CLI_PATH, "--version"],
+				{ cwd: home, env, stdout: "pipe", stderr: "pipe" },
+			);
+			expect(executed.exitCode).toBe(78);
+			expect(executed.stderr.toString()).toContain(
+				"BETTER_CCFLARE_ADMIN_API_KEY -> HOV_ROUTER_ADMIN_API_KEY",
+			);
+			expect(executed.stderr.toString()).not.toContain(
+				"retired-value-must-not-print",
+			);
+			expect(existsSync(db)).toBe(false);
+		} finally {
+			rmSync(home, { recursive: true, force: true });
+		}
+	}, 20_000);
+
+	it("exits 78 for an old environment name and prints names, not values", async () => {
+		const result = await runCLI(["--version"], {
+			BETTER_CCFLARE_ADMIN_API_KEY: "retired-value-must-not-print",
+		});
+		expect(result.exitCode).toBe(78);
+		expect(result.stderr).toContain(
+			"BETTER_CCFLARE_ADMIN_API_KEY -> HOV_ROUTER_ADMIN_API_KEY",
+		);
+		expect(result.stderr).not.toContain("retired-value-must-not-print");
+		expect(result.stdout).toBe("");
 	});
 });

@@ -201,7 +201,7 @@ describe("proxyWithAccount — xAI cache-native conv-id header attachment", () =
 
 	async function runXaiRequest(
 		accountOverrides: Partial<Account> = {},
-		convId: string | null = "ccflare-xai-test-conv",
+		convId: string | null = "hov-router-xai-test-conv",
 		requestHeaders?: HeadersInit,
 	) {
 		const bodyBuffer = new TextEncoder().encode(
@@ -246,7 +246,7 @@ describe("proxyWithAccount — xAI cache-native conv-id header attachment", () =
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		expect(fetchedRequest?.url).toBe("https://api.x.ai/v1/chat/completions");
 		expect(fetchedRequest?.headers.get(XAI_CONV_ID_HEADER)).toBe(
-			"ccflare-xai-test-conv",
+			"hov-router-xai-test-conv",
 		);
 	});
 
@@ -275,7 +275,7 @@ describe("proxyWithAccount — xAI cache-native conv-id header attachment", () =
 			}),
 		).buffer;
 		const requestMeta = makeRequestMeta();
-		setXaiConvId(requestMeta, "ccflare-xai-test-conv");
+		setXaiConvId(requestMeta, "hov-router-xai-test-conv");
 		const ctx = makeProxyContext(new CodexProvider());
 		const result = await proxyWithAccount(
 			makeMessagesRequest(bodyBuffer),
@@ -309,7 +309,7 @@ describe("proxyWithAccount — xAI cache-native conv-id header attachment", () =
 	it("strips a client-supplied x-grok-conv-id header for a custom/proxy xai endpoint", async () => {
 		await runXaiRequest(
 			{ custom_endpoint: "https://my-xai-proxy.example.com/v1" },
-			"ccflare-xai-test-conv",
+			"hov-router-xai-test-conv",
 			{ [XAI_CONV_ID_HEADER]: "client-supplied-conv-id" },
 		);
 

@@ -19,7 +19,7 @@ describe("config load preservation", () => {
 	let warn: ReturnType<typeof spyOn>;
 
 	beforeEach(() => {
-		dir = mkdtempSync(join(tmpdir(), "ccflare-config-preservation-"));
+		dir = mkdtempSync(join(tmpdir(), "hov-router-config-preservation-"));
 		path = join(dir, "config.json");
 		error = spyOn(Logger.prototype, "error").mockImplementation(() => {});
 		warn = spyOn(Logger.prototype, "warn").mockImplementation(() => {});

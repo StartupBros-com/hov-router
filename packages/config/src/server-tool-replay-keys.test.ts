@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { Logger } from "@hov-router/logger";
 import {
-	CCFLARE_SERVER_TOOL_REPLAY_KEYS_FILE,
+	HOV_ROUTER_SERVER_TOOL_REPLAY_KEYS_FILE,
 	loadServerToolReplayKeys,
 } from "./index";
 
@@ -36,7 +36,7 @@ const NEXT_KEY = Buffer.from(
 let fileCounter = 0;
 
 function getTestDirectory(): string {
-	testDirectory ??= mkdtempSync(join(tmpdir(), "better-ccflare-replay-keys-"));
+	testDirectory ??= mkdtempSync(join(tmpdir(), "hov-router-replay-keys-"));
 	return testDirectory;
 }
 
@@ -53,7 +53,7 @@ function writeRawKeyFile(contents: string, mode = 0o600): string {
 
 function loadPath(path: string, platform: NodeJS.Platform = "linux") {
 	return loadServerToolReplayKeys(
-		{ [CCFLARE_SERVER_TOOL_REPLAY_KEYS_FILE]: path },
+		{ [HOV_ROUTER_SERVER_TOOL_REPLAY_KEYS_FILE]: path },
 		platform,
 	);
 }
@@ -84,8 +84,8 @@ describe("server-tool replay key loader", () => {
 	it("returns a deeply frozen disabled state when no key file is configured", () => {
 		const result = loadServerToolReplayKeys({});
 
-		expect(CCFLARE_SERVER_TOOL_REPLAY_KEYS_FILE).toBe(
-			"CCFLARE_SERVER_TOOL_REPLAY_KEYS_FILE",
+		expect(HOV_ROUTER_SERVER_TOOL_REPLAY_KEYS_FILE).toBe(
+			"HOV_ROUTER_SERVER_TOOL_REPLAY_KEYS_FILE",
 		);
 		expect(result).toEqual({ status: "disabled" });
 		expect(Object.isFrozen(result)).toBe(true);
@@ -111,7 +111,7 @@ describe("server-tool replay key loader", () => {
 			{},
 			{
 				get(_target, property) {
-					if (property === CCFLARE_SERVER_TOOL_REPLAY_KEYS_FILE) {
+					if (property === HOV_ROUTER_SERVER_TOOL_REPLAY_KEYS_FILE) {
 						throw new Error(sentinel);
 					}
 					return undefined;
@@ -746,7 +746,7 @@ describe("server-tool replay key loader", () => {
 			it("treats a configured blank path as unavailable", () => {
 				expect(
 					loadServerToolReplayKeys({
-						[CCFLARE_SERVER_TOOL_REPLAY_KEYS_FILE]: "",
+						[HOV_ROUTER_SERVER_TOOL_REPLAY_KEYS_FILE]: "",
 					}),
 				).toEqual({
 					status: "unavailable",

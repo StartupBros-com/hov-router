@@ -326,8 +326,9 @@ echo "btr-abcdef1234567890..." | grep -E "^btr-[a-zA-Z0-9]{32}$"
 curl -v -X GET http://localhost:8080/api/stats \
   -H "x-api-key: your-key-here"
 
-# Check server logs for authentication details
-tail -f ~/.config/better-ccflare/better-ccflare.log
+# Check server logs for authentication details (HOV_ROUTER_LOG_DIR, or
+# hov-router-logs in the system temp directory)
+tail -f "${HOV_ROUTER_LOG_DIR:-${TMPDIR:-/tmp}/hov-router-logs}/app.log"
 ```
 
 #### Dashboard Issues
@@ -336,7 +337,7 @@ tail -f ~/.config/better-ccflare/better-ccflare.log
 curl http://localhost:8080/health
 
 # Restart server with clean state
-pkill better-ccflare
+pkill -x hov-router
 hov-router --serve
 ```
 

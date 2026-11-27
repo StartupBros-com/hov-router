@@ -144,7 +144,7 @@ function makeRequest(
 		"anthropic-version": "2023-06-01",
 	});
 	if (options.agentId) {
-		headers.set("x-better-ccflare-agent-id", options.agentId);
+		headers.set("x-hov-router-agent-id", options.agentId);
 	}
 	return new Request("https://proxy.local/v1/messages", {
 		method: "POST",

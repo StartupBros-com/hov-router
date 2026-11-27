@@ -6,11 +6,11 @@ import type { ApiKey } from "@hov-router/types/api-key";
 import type { APIContext } from "../types";
 
 // Set isolation before importing modules that can initialize database singletons.
-const scratch = mkdtempSync(join(tmpdir(), "ccflare-public-boundary-"));
-process.env.BETTER_CCFLARE_DB_PATH = join(scratch, "test.db");
-process.env.BETTER_CCFLARE_CONFIG_PATH = join(scratch, "config.json");
+const scratch = mkdtempSync(join(tmpdir(), "hov-router-public-boundary-"));
+process.env.HOV_ROUTER_DB_PATH = join(scratch, "test.db");
+process.env.HOV_ROUTER_CONFIG_PATH = join(scratch, "config.json");
 process.env.DATABASE_URL = "";
-process.env.BETTER_CCFLARE_PUBLIC_SUBSCRIPTIONS = "";
+process.env.HOV_ROUTER_PUBLIC_SUBSCRIPTIONS = "";
 const { APIRouter } = await import("../router");
 const { AuthService } = await import("../services/auth-service");
 

@@ -1,5 +1,5 @@
 /**
- * Regression test for issue #273 — ccflare-side mitigation for the Bun
+ * Regression test for issue #273 — hov-router-side mitigation for the Bun
  * off-heap fetch leak (oven-sh/bun#35093).
  *
  * When proxyWithAccount decides to discard a response (429/529/401

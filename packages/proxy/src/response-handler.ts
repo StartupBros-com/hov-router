@@ -130,7 +130,7 @@ function fireAndForgetEnd(
 // instead of silently disabling the cooldown.
 function getMidStreamRateLimitCooldownMs(): number {
 	return (
-		Number(process.env.CCFLARE_DEFAULT_COOLDOWN_NO_RESET_MS) ||
+		Number(process.env.HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS) ||
 		TIME_CONSTANTS.DEFAULT_RATE_LIMIT_NO_RESET_COOLDOWN_MS
 	);
 }
@@ -230,14 +230,14 @@ export function handleAnthropicSseRateLimit(
 		: "upstream_429_with_reset";
 	// SSE error frames don't carry reset headers — HTTP headers were already
 	// sent before the error occurred — so any resetTime we could compute here
-	// for a 529 would be a value ccflare invents, never an upstream
+	// for a 529 would be a value the router invents, never an upstream
 	// instruction. Omit it entirely and let the cooldown core apply its own
 	// fixed short overload cooldown (computeOverloadCooldownMs, see
 	// applyRateLimitCooldown's upstream_529_overloaded_no_reset handling).
 	// A genuine rate_limit_error still honors the original HTTP 200 headers
 	// exactly as before — they can positively describe a real quota window.
 	// The header below never names its window and carries the per-model weekly
-	// reset on a model-scoped 429, and the fallback is a value ccflare invents.
+	// reset on a model-scoped 429, and the fallback is a value the router invents.
 	// Neither is attributable, so only the classifier's proven account window may
 	// size a durable hold — bounded by the header, which may shorten it but never
 	// stretch it (#160).
@@ -267,11 +267,10 @@ export function handleAnthropicSseRateLimit(
 // 4MB so afterburn can see full conversation history for friction analysis.
 const MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024;
 
-const MODEL_REWRITE_HEADER = "x-better-ccflare-model-rewrite";
-const ROUTE_FALLBACK_HEADER = "x-better-ccflare-route-fallback";
-const ROUTED_MODEL_HEADER = "x-better-ccflare-routed-model";
-const CACHE_FLIGHT_RECORDER_HEADER =
-	"x-better-ccflare-cache-flight-recorder-id";
+const MODEL_REWRITE_HEADER = "x-hov-router-model-rewrite";
+const ROUTE_FALLBACK_HEADER = "x-hov-router-route-fallback";
+const ROUTED_MODEL_HEADER = "x-hov-router-routed-model";
+const CACHE_FLIGHT_RECORDER_HEADER = "x-hov-router-cache-flight-recorder-id";
 
 /**
  * Builds a Headers copy with the model-rewrite header set when an
@@ -886,13 +885,13 @@ export async function forwardToClient(
 
 	// Always strip compression headers *before* we do anything else
 	const response = withSanitizedProxyHeaders(responseRaw);
-	// Not stripping x-better-ccflare-codex-response-format: for /v1/responses
+	// Not stripping x-hov-router-codex-response-format: for /v1/responses
 	// traffic this goes to handler.ts (not the real client), which reads it
 	// and strips it itself.
 	const isCodexResponsesPassthrough = response.headers.has(
-		"x-better-ccflare-codex-response-format",
+		"x-hov-router-codex-response-format",
 	);
-	response.headers.delete("x-better-ccflare-request-path");
+	response.headers.delete("x-hov-router-request-path");
 
 	// Prepare objects once for serialisation - sanitize headers before storing
 	const sanitizedReq = sanitizeRequestHeaders(requestHeaders);

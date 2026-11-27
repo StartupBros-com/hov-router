@@ -25,7 +25,7 @@ export interface ProviderModel {
 	 */
 	supersededBy?: string | null;
 	/**
-	 * "builtin"/"catalog": ccflare knows this model for the provider.
+	 * "builtin"/"catalog": the router knows this model for the provider.
 	 * "reference": it exists in the provider public catalog — which is NOT a
 	 * promise that the account plan can call it.
 	 */

@@ -4,7 +4,7 @@ import { isModelRewrite } from "../worker-messages";
 // isModelRewrite is the single predicate behind every consumer of the
 // originalModel/appliedModel pair (StartMessage construction in
 // response-handler.ts, request-row persistence in usage-collector.ts, and
-// the x-better-ccflare-model-rewrite response header). These tests pin the
+// the x-hov-router-model-rewrite response header). These tests pin the
 // Greptile finding from PR #300: an agent-detected but NOT rewritten
 // request (equal values) must never be treated as a rewrite.
 describe("isModelRewrite", () => {

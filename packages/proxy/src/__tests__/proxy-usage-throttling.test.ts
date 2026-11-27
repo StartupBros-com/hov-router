@@ -252,9 +252,7 @@ describe("handleProxy usage throttling", () => {
 		const response = await handleProxy(request, new URL(request.url), ctx);
 		expect(response.status).toBe(503);
 		expect(response.headers.get("retry-after")).toBe("60");
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBe(
-			"exhausted",
-		);
+		expect(response.headers.get("x-hov-router-pool-status")).toBe("exhausted");
 		expect((await response.json()).error.code).toBe("model_pool_exhausted");
 	});
 
@@ -294,7 +292,7 @@ describe("handleProxy usage throttling", () => {
 			const response = await handleProxy(request, new URL(request.url), ctx);
 			expect(response.status).toBe(503);
 			expect(response.headers.get("retry-after")).toBe("60");
-			expect(response.headers.get("x-better-ccflare-pool-status")).toBe(
+			expect(response.headers.get("x-hov-router-pool-status")).toBe(
 				"exhausted",
 			);
 			expect((await response.json()).error.code).toBe("model_pool_exhausted");

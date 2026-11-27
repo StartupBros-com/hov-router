@@ -33,7 +33,7 @@ On the dashboard, open the Accounts page. An Anthropic (Claude login), Codex or 
 | xAI | Not available. | Sign in with `grok --oauth`, then run `hov-router --reauthenticate <name>`. It imports the new login from `~/.grok/auth.json`. |
 | Other providers | Not available. | Remove the account and add it again. |
 
-Quote a name that contains spaces, for example `hov-router --reauthenticate 'team account'`. The `better-ccflare` command takes the same flags.
+Quote a name that contains spaces, for example `hov-router --reauthenticate 'team account'`. The `hov-router` command takes the same flags.
 
 ## What a re-login changes
 

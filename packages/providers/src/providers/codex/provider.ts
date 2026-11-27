@@ -151,18 +151,18 @@ function recordCacheLifecycle(facts: CacheFacts): void {
 export { CODEX_LOGICAL_MODEL_FAMILY_HEADER };
 
 const INTERNAL_HEADERS = [
-	"x-better-ccflare-request-id",
-	"x-better-ccflare-attempt-id",
-	"x-better-ccflare-attempt-ordinal",
-	"x-better-ccflare-attempt-cause",
-	"x-better-ccflare-final-model",
-	"x-better-ccflare-request-stream",
-	"x-better-ccflare-pacing-canary",
-	"x-better-ccflare-pacing-cohort-id",
-	"x-better-ccflare-pacing-action",
-	"x-better-ccflare-pacing-role",
-	"x-better-ccflare-pacing-wait-ms",
-	"x-better-ccflare-pacing-release-reason",
+	"x-hov-router-request-id",
+	"x-hov-router-attempt-id",
+	"x-hov-router-attempt-ordinal",
+	"x-hov-router-attempt-cause",
+	"x-hov-router-final-model",
+	"x-hov-router-request-stream",
+	"x-hov-router-pacing-canary",
+	"x-hov-router-pacing-cohort-id",
+	"x-hov-router-pacing-action",
+	"x-hov-router-pacing-role",
+	"x-hov-router-pacing-wait-ms",
+	"x-hov-router-pacing-release-reason",
 ];
 
 function sanitizeResponseHeaders(headers: Headers): Headers {
@@ -194,10 +194,9 @@ export const CODEX_DEFAULT_ENDPOINT =
 const OPENAI_PROMPT_CACHE_HOSTS = new Set(["chatgpt.com", "api.openai.com"]);
 export const CODEX_PING_MODEL = "gpt-5.6-sol";
 const CODEX_SYNTHETIC_COUNT_TOKENS_URL =
-	"https://better-ccflare.local/codex/count_tokens";
-const CODEX_SYNTHETIC_RESPONSE_URL =
-	"https://better-ccflare.local/codex/response";
-export const CODEX_PROMPT_CACHE_KEY_ENV = "CCFLARE_CODEX_PROMPT_CACHE_KEY";
+	"https://hov-router.local/codex/count_tokens";
+const CODEX_SYNTHETIC_RESPONSE_URL = "https://hov-router.local/codex/response";
+export const CODEX_PROMPT_CACHE_KEY_ENV = "HOV_ROUTER_CODEX_PROMPT_CACHE_KEY";
 // The Codex CLI's turn-state header must never be forwarded to the subscription backend.
 const CODEX_CLIENT_TURN_STATE_HEADER = "x-codex-turn-state";
 /**
@@ -210,7 +209,7 @@ const CODEX_CLIENT_TURN_STATE_HEADER = "x-codex-turn-state";
  */
 const CODEX_RESPONSES_LITE_HEADER = "x-openai-internal-codex-responses-lite";
 /** "conversation" (default) or "session"; see derivePromptCacheKey. */
-export const CODEX_CACHE_KEY_MODE_ENV = "CCFLARE_CODEX_CACHE_KEY_MODE";
+export const CODEX_CACHE_KEY_MODE_ENV = "HOV_ROUTER_CODEX_CACHE_KEY_MODE";
 /**
  * Set to "0" to make Codex's synthetic count_tokens endpoint return a typed
  * Anthropic-shaped error instead of a character-based estimate. Anthropic-
@@ -221,10 +220,21 @@ export const CODEX_CACHE_KEY_MODE_ENV = "CCFLARE_CODEX_CACHE_KEY_MODE";
  * unchanged.
  */
 export const CODEX_SYNTHETIC_COUNT_TOKENS_ENV =
-	"CCFLARE_CODEX_SYNTHETIC_COUNT_TOKENS";
+	"HOV_ROUTER_CODEX_SYNTHETIC_COUNT_TOKENS";
 const CODEX_CACHE_LANE_RESCUE_DOMAIN =
-	"better-ccflare:codex-cache-lane-rescue:v1\0";
+	"hov-router:codex-cache-lane-rescue:v1\0";
 const CODEX_CACHE_LANE_RESCUE_SALT_MAX_CHARS = 128;
+
+/** OpenAI bounds the whole prompt_cache_key, including its descriptive prefix. */
+const CODEX_PROMPT_CACHE_KEY_MAX_CHARS = 64;
+function boundedPromptCacheKey(
+	prefix: "hov-router-session-" | "hov-router-convo-" | "hov-router-rescue-",
+	digest: string,
+): string {
+	return (
+		prefix + digest.slice(0, CODEX_PROMPT_CACHE_KEY_MAX_CHARS - prefix.length)
+	);
+}
 // Structured (non-text) tool_result blocks larger than this are replaced with
 // a size marker: replaying megabyte payloads (e.g. base64 documents) into
 // every subsequent turn bloats context and destroys prompt-cache reuse.
@@ -459,7 +469,7 @@ const CODEX_REASONING_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 // When enabled, telemetry reports the effective Codex context capacity rather
 // than the raw model maximum.
-export const CODEX_EFFECTIVE_CONTEXT_ENV = "CCFLARE_CODEX_EFFECTIVE_CONTEXT";
+export const CODEX_EFFECTIVE_CONTEXT_ENV = "HOV_ROUTER_CODEX_EFFECTIVE_CONTEXT";
 export { MODEL_CONTEXT_WINDOWS } from "../../request-capabilities";
 
 // ── Codex Responses API types ─────────────────────────────────────────────────
@@ -1089,21 +1099,20 @@ interface CodexTransformOptions {
 // digest-verified prior response ID may populate codexBody.previous_response_id;
 // a caller-supplied previous_response_id is never consumed.
 /** External opt-in header consumed only by the Responses adapter. */
-export const CODEX_CONTINUATION_HEADER = "x-better-ccflare-codex-continuation";
+export const CODEX_CONTINUATION_HEADER = "x-hov-router-codex-continuation";
 /**
  * Internal-only signal, set exclusively by proxy-operations.ts from a
  * server-verified check (`isResponsesAdapterRequest`), never trusted from a
  * raw client header. Deleted before any outbound transport.
  */
-export const CODEX_NATIVE_RESPONSES_HEADER =
-	"x-better-ccflare-native-responses";
+export const CODEX_NATIVE_RESPONSES_HEADER = "x-hov-router-native-responses";
 /**
  * Internal-only caller-identity digest, stamped by proxy-operations.ts from
  * the already-authenticated API key id for *this* physical request. Never
  * trusted from a raw client header; deleted before any outbound transport.
  */
 export const CODEX_AUTHENTICATED_CALLER_HEADER =
-	"x-better-ccflare-authenticated-caller";
+	"x-hov-router-authenticated-caller";
 
 /**
  * Behavior 1 (Messages-lane continuation): default-OFF gate. Nothing on the
@@ -1113,7 +1122,7 @@ export const CODEX_AUTHENTICATED_CALLER_HEADER =
  * 99f5dce0's own env var name.
  */
 export const CODEX_MESSAGES_CONTINUATION_ENV =
-	"CCFLARE_CODEX_MESSAGES_CONTINUATION";
+	"HOV_ROUTER_CODEX_MESSAGES_CONTINUATION";
 /**
  * Optional comma-separated allowlist of physical Codex models admitted to
  * Behavior 1. Undefined means "all models admitted" (once the flag above is
@@ -1122,7 +1131,7 @@ export const CODEX_MESSAGES_CONTINUATION_ENV =
  * splits to `[""]`, which never matches a real model id).
  */
 export const CODEX_MESSAGES_CONTINUATION_MODELS_ENV =
-	"CCFLARE_CODEX_MESSAGES_CONTINUATION_MODELS";
+	"HOV_ROUTER_CODEX_MESSAGES_CONTINUATION_MODELS";
 
 type CodexContinuationOwner = "response-id" | "none";
 /** Protocol lane discriminator, hashed into every response-id lane key so a
@@ -1686,7 +1695,7 @@ export class CodexProvider extends BaseProvider {
 		continuationOptIn: boolean;
 		/**
 		 * Behavior 1 (Messages-lane continuation): true iff
-		 * `CCFLARE_CODEX_MESSAGES_CONTINUATION=1` (and, when set, the optional
+		 * `HOV_ROUTER_CODEX_MESSAGES_CONTINUATION=1` (and, when set, the optional
 		 * model allowlist admits this physical model) for a request that did
 		 * NOT arrive through the trusted Responses adapter. Only ever
 		 * consulted when `!nativeResponses`; a native-Responses attempt is
@@ -2181,7 +2190,7 @@ export class CodexProvider extends BaseProvider {
 				capabilityProofKey,
 				physicalModel,
 			) => {
-				const requestId = response.headers.get("x-better-ccflare-request-id");
+				const requestId = response.headers.get("x-hov-router-request-id");
 				if (requestId) this.requestStreamById.delete(requestId);
 				return processCodexHostedSearchResponse({
 					response,
@@ -2244,8 +2253,8 @@ export class CodexProvider extends BaseProvider {
 				};
 	}
 	override readonly cacheReplayModelStrategy = "transformed-body" as const;
-	// Fallback map: proxy-operations.ts injects x-better-ccflare-request-id and
-	// x-better-ccflare-request-stream into the upstream response before calling
+	// Fallback map: proxy-operations.ts injects x-hov-router-request-id and
+	// x-hov-router-request-stream into the upstream response before calling
 	// processResponse, so headerRequestedStream is normally set. This map covers
 	// the race where a response arrives after the 30s TTL sweep evicts the entry,
 	// and the 529 in-place retry path (which doesn't re-tag those headers).
@@ -2524,7 +2533,7 @@ export class CodexProvider extends BaseProvider {
 
 		// Remove internal proxy headers.
 		for (const key of [...newHeaders.keys()]) {
-			if (key.startsWith("x-better-ccflare-")) {
+			if (key.startsWith("x-hov-router-")) {
 				newHeaders.delete(key);
 			}
 		}
@@ -2575,10 +2584,10 @@ export class CodexProvider extends BaseProvider {
 			ingress_digest: cacheDigest(randomUUID()),
 			path: nativeResponses ? "native" : "legacy",
 			gateway_request_digest: gatewayIdentity(
-				"x-better-ccflare-gateway-request-digest",
+				"x-hov-router-gateway-request-digest",
 			),
 			gateway_attempt_digest: gatewayIdentity(
-				"x-better-ccflare-gateway-attempt-digest",
+				"x-hov-router-gateway-attempt-digest",
 			),
 		};
 		recordCacheLifecycle({ ...facts, event: "request_received" });
@@ -2713,7 +2722,7 @@ export class CodexProvider extends BaseProvider {
 						request,
 						501,
 						"not_implemented_error",
-						"Codex does not support count_tokens; synthetic estimates are disabled (CCFLARE_CODEX_SYNTHETIC_COUNT_TOKENS=0).",
+						"Codex does not support count_tokens; synthetic estimates are disabled (HOV_ROUTER_CODEX_SYNTHETIC_COUNT_TOKENS=0).",
 					);
 				}
 				return this.createSyntheticCountTokensResponse(request, body);
@@ -2732,18 +2741,18 @@ export class CodexProvider extends BaseProvider {
 				);
 			}
 
-			const requestId = request.headers.get("x-better-ccflare-request-id");
-			const attemptId = request.headers.get("x-better-ccflare-attempt-id");
+			const requestId = request.headers.get("x-hov-router-request-id");
+			const attemptId = request.headers.get("x-hov-router-attempt-id");
 			const attemptOrdinal = Number.parseInt(
-				request.headers.get("x-better-ccflare-attempt-ordinal") ?? "",
+				request.headers.get("x-hov-router-attempt-ordinal") ?? "",
 				10,
 			);
 			const attemptCause = request.headers.get(
-				"x-better-ccflare-attempt-cause",
+				"x-hov-router-attempt-cause",
 			) as Parameters<typeof writeCodexTrace>[0]["attemptCause"];
-			const finalModel = request.headers.get("x-better-ccflare-final-model");
+			const finalModel = request.headers.get("x-hov-router-final-model");
 			const isAttributedAgent =
-				request.headers.get("x-better-ccflare-attributed-agent") === "true";
+				request.headers.get("x-hov-router-attributed-agent") === "true";
 			if (requestId) {
 				this.requestToolSchemasById.set(requestId, {
 					tools: this.buildToolSchemaMap(body.tools),
@@ -2840,7 +2849,7 @@ export class CodexProvider extends BaseProvider {
 				subscriptionEndpoint: isSubscriptionEndpoint,
 				preserveClientSessionIdentity: nativeResponses,
 			});
-			// Best-effort, env-gated observability (no-op unless CCFLARE_CODEX_TRACE_DIR set).
+			// Best-effort, env-gated observability (no-op unless HOV_ROUTER_CODEX_TRACE_DIR set).
 			writeCodexTrace({
 				requestId: requestId ?? undefined,
 				attemptId: attemptId ?? undefined,
@@ -2876,13 +2885,11 @@ export class CodexProvider extends BaseProvider {
 					? (cacheKeyDecision.selectedConversationIdentity?.slice(0, 16) ??
 						null)
 					: null,
-				pacingCohortId: request.headers.get(
-					"x-better-ccflare-pacing-cohort-id",
-				),
-				pacingRole: request.headers.get("x-better-ccflare-pacing-role"),
-				pacingWaitMs: request.headers.get("x-better-ccflare-pacing-wait-ms"),
+				pacingCohortId: request.headers.get("x-hov-router-pacing-cohort-id"),
+				pacingRole: request.headers.get("x-hov-router-pacing-role"),
+				pacingWaitMs: request.headers.get("x-hov-router-pacing-wait-ms"),
 				pacingReleaseReason: request.headers.get(
-					"x-better-ccflare-pacing-release-reason",
+					"x-hov-router-pacing-release-reason",
 				),
 				isDescendant: isAttributedAgent,
 				orchestrationAdmission,
@@ -2912,25 +2919,25 @@ export class CodexProvider extends BaseProvider {
 			newHeaders.set("content-type", "application/json");
 			newHeaders.delete(CODEX_CLIENT_TURN_STATE_HEADER);
 			newHeaders.set(
-				"x-better-ccflare-request-stream",
+				"x-hov-router-request-stream",
 				body.stream === true ? "true" : "false",
 			);
 			newHeaders.set(
-				"x-better-ccflare-codex-custom-tools",
+				"x-hov-router-codex-custom-tools",
 				hasCustomTools ? "true" : "false",
 			);
-			newHeaders.delete("x-better-ccflare-request-id");
-			newHeaders.delete("x-better-ccflare-attempt-id");
-			newHeaders.delete("x-better-ccflare-attempt-ordinal");
-			newHeaders.delete("x-better-ccflare-attempt-cause");
-			newHeaders.delete("x-better-ccflare-final-model");
-			newHeaders.delete("x-better-ccflare-attributed-agent");
-			newHeaders.delete("x-better-ccflare-pacing-canary");
-			newHeaders.delete("x-better-ccflare-pacing-cohort-id");
-			newHeaders.delete("x-better-ccflare-pacing-action");
-			newHeaders.delete("x-better-ccflare-pacing-role");
-			newHeaders.delete("x-better-ccflare-pacing-wait-ms");
-			newHeaders.delete("x-better-ccflare-pacing-release-reason");
+			newHeaders.delete("x-hov-router-request-id");
+			newHeaders.delete("x-hov-router-attempt-id");
+			newHeaders.delete("x-hov-router-attempt-ordinal");
+			newHeaders.delete("x-hov-router-attempt-cause");
+			newHeaders.delete("x-hov-router-final-model");
+			newHeaders.delete("x-hov-router-attributed-agent");
+			newHeaders.delete("x-hov-router-pacing-canary");
+			newHeaders.delete("x-hov-router-pacing-cohort-id");
+			newHeaders.delete("x-hov-router-pacing-action");
+			newHeaders.delete("x-hov-router-pacing-role");
+			newHeaders.delete("x-hov-router-pacing-wait-ms");
+			newHeaders.delete("x-hov-router-pacing-release-reason");
 			newHeaders.delete(CODEX_NATIVE_RESPONSES_HEADER);
 			newHeaders.delete(CODEX_AUTHENTICATED_CALLER_HEADER);
 			newHeaders.delete("content-length");
@@ -2985,13 +2992,13 @@ export class CodexProvider extends BaseProvider {
 
 		// /v1/models responses: translate Codex format → OpenAI /v1/models format
 		// with full capability fields preserved for the CLI.
-		const requestPath = response.headers.get("x-better-ccflare-request-path");
+		const requestPath = response.headers.get("x-hov-router-request-path");
 		if (requestPath === "/v1/models") {
 			return this.transformModelsListResponse(response);
 		}
 
 		const contentType = response.headers.get("content-type");
-		const requestId = response.headers.get("x-better-ccflare-request-id");
+		const requestId = response.headers.get("x-hov-router-request-id");
 		const fallbackEntry = requestId
 			? this.requestStreamById.get(requestId)
 			: undefined;
@@ -3003,12 +3010,12 @@ export class CodexProvider extends BaseProvider {
 				ts: Date.now(),
 			});
 		}
-		const attemptId = response.headers.get("x-better-ccflare-attempt-id");
+		const attemptId = response.headers.get("x-hov-router-attempt-id");
 
 		const finalModel =
-			response.headers.get("x-better-ccflare-final-model") ?? undefined;
+			response.headers.get("x-hov-router-final-model") ?? undefined;
 		const headerRequestedStream = response.headers.get(
-			"x-better-ccflare-request-stream",
+			"x-hov-router-request-stream",
 		);
 		const requestedStream =
 			headerRequestedStream === "true"
@@ -3017,7 +3024,7 @@ export class CodexProvider extends BaseProvider {
 					? false
 					: (fallbackEntry?.stream ?? true);
 		const headerCustomTools = response.headers.get(
-			"x-better-ccflare-codex-custom-tools",
+			"x-hov-router-codex-custom-tools",
 		);
 		const mightHaveCustomToolCalls =
 			headerCustomTools === "true"
@@ -3172,7 +3179,7 @@ export class CodexProvider extends BaseProvider {
 	): Response {
 		const headers = sanitizeResponseHeaders(response.headers);
 		headers.set("content-type", "text/event-stream");
-		headers.set("x-better-ccflare-codex-response-format", "responses-api");
+		headers.set("x-hov-router-codex-response-format", "responses-api");
 		return new Response(body, {
 			status: response.status,
 			statusText: response.statusText,
@@ -3412,7 +3419,7 @@ export class CodexProvider extends BaseProvider {
 	 * identity: session id + instructions + first input item, all stable
 	 * across the turns of one conversation and distinct across concurrent
 	 * subagents. Each conversation is sequential, so per-key traffic stays far
-	 * below the documented rate bound. CCFLARE_CODEX_CACHE_KEY_MODE=session
+	 * below the documented rate bound. HOV_ROUTER_CODEX_CACHE_KEY_MODE=session
 	 * restores the coarse per-session key.
 	 *
 	 * Continuity: when orchestration admission matched this request to an
@@ -3474,21 +3481,26 @@ export class CodexProvider extends BaseProvider {
 				: conversationIdentity;
 		let key =
 			effectiveMode === "session"
-				? `ccflare-session-${createHash("sha256")
-						.update(sessionId)
-						.digest("hex")
-						.slice(0, 48)}`
+				? boundedPromptCacheKey(
+						"hov-router-session-",
+						createHash("sha256").update(sessionId).digest("hex"),
+					)
 				: selectedConversationIdentity
-					? `ccflare-convo-${selectedConversationIdentity.slice(0, 48)}`
+					? boundedPromptCacheKey(
+							"hov-router-convo-",
+							selectedConversationIdentity,
+						)
 					: null;
 		if (key && cacheLaneRescueSalt) {
-			key = `ccflare-rescue-${createHash("sha256")
-				.update(CODEX_CACHE_LANE_RESCUE_DOMAIN)
-				.update(key)
-				.update("\0")
-				.update(cacheLaneRescueSalt)
-				.digest("hex")
-				.slice(0, 48)}`;
+			key = boundedPromptCacheKey(
+				"hov-router-rescue-",
+				createHash("sha256")
+					.update(CODEX_CACHE_LANE_RESCUE_DOMAIN)
+					.update(key)
+					.update("\0")
+					.update(cacheLaneRescueSalt)
+					.digest("hex"),
+			);
 		}
 
 		return {
@@ -3956,8 +3968,8 @@ export class CodexProvider extends BaseProvider {
 	): Request {
 		const headers = new Headers({
 			"content-type": "application/json",
-			"x-better-ccflare-synthetic-response": "true",
-			"x-better-ccflare-synthetic-status": String(status),
+			"x-hov-router-synthetic-response": "true",
+			"x-hov-router-synthetic-status": String(status),
 		});
 		return new Request(CODEX_SYNTHETIC_RESPONSE_URL, {
 			method: request.method,
@@ -4302,12 +4314,9 @@ export class CodexProvider extends BaseProvider {
 
 	private async transformSseResponseToJson(
 		response: Response,
-		requestId = response.headers.get("x-better-ccflare-request-id") ??
-			"unknown",
-		attemptId = response.headers.get("x-better-ccflare-attempt-id") ??
-			undefined,
-		finalModel = response.headers.get("x-better-ccflare-final-model") ??
-			undefined,
+		requestId = response.headers.get("x-hov-router-request-id") ?? "unknown",
+		attemptId = response.headers.get("x-hov-router-attempt-id") ?? undefined,
+		finalModel = response.headers.get("x-hov-router-final-model") ?? undefined,
 		drainAbort?: AbortController,
 		accountId?: string,
 		modelContextSnapshot: CodexModelContextSnapshot = accountId
@@ -4550,12 +4559,9 @@ export class CodexProvider extends BaseProvider {
 
 	private transformStreamingResponse(
 		response: Response,
-		requestId = response.headers.get("x-better-ccflare-request-id") ??
-			"unknown",
-		attemptId = response.headers.get("x-better-ccflare-attempt-id") ??
-			undefined,
-		finalModel = response.headers.get("x-better-ccflare-final-model") ??
-			"unknown",
+		requestId = response.headers.get("x-hov-router-request-id") ?? "unknown",
+		attemptId = response.headers.get("x-hov-router-attempt-id") ?? undefined,
+		finalModel = response.headers.get("x-hov-router-final-model") ?? "unknown",
 		drainAbort?: AbortController,
 		accountId?: string,
 		modelContextSnapshot: CodexModelContextSnapshot = accountId

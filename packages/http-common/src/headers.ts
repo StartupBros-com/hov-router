@@ -3,20 +3,19 @@ import {
 	RECOVERY_STATUS_HEADER,
 } from "@hov-router/types/routing-recovery";
 
-/** Private hop-by-hop request correlation installed by ccflare-guard. */
-export const GUARD_REQUEST_ID_HEADER =
-	"x-better-ccflare-guard-request-id" as const;
+/** Private hop-by-hop request correlation installed by hov-router-guard. */
+export const GUARD_REQUEST_ID_HEADER = "x-hov-router-guard-request-id" as const;
 
 /**
  * Reserved defense-in-depth name for the env-only guard credential.
  * Legitimate stack components never transmit the credential over HTTP.
  */
 export const GUARD_CORRELATION_SECRET_HEADER =
-	"x-better-ccflare-guard-correlation-secret" as const;
+	"x-hov-router-guard-correlation-secret" as const;
 
 /** Private proxy-to-provider carrier for the normalized logical Claude family. */
 export const CODEX_LOGICAL_MODEL_FAMILY_HEADER =
-	"x-better-ccflare-logical-model-family" as const;
+	"x-hov-router-logical-model-family" as const;
 
 const CLIENT_FORWARDING_HEADER_EXACT_NAMES = [
 	"cookie",
@@ -71,9 +70,9 @@ export function stripClientForwardingHeaders(headers: Headers): void {
  * guard-trusted headers that must never originate from an upstream provider.
  *
  * Removes: content-encoding, content-length, transfer-encoding,
- * x-better-ccflare-pool-status, x-better-ccflare-recovery-scope,
- * x-better-ccflare-guard-request-id,
- * x-better-ccflare-logical-model-family, x-codex-turn-state
+ * x-hov-router-pool-status, x-hov-router-recovery-scope,
+ * x-hov-router-guard-request-id,
+ * x-hov-router-logical-model-family, x-codex-turn-state
  */
 export function sanitizeProxyHeaders(original: Headers): Headers {
 	const sanitized = new Headers(original);
@@ -83,7 +82,7 @@ export function sanitizeProxyHeaders(original: Headers): Headers {
 	sanitized.delete("content-length");
 	sanitized.delete("transfer-encoding");
 
-	// x-better-ccflare-pool-status is a reserved header the ccflare-guard
+	// x-hov-router-pool-status is a reserved header the hov-router-guard
 	// trusts, at header time, to authorize retrying a 503 (R17). Only the
 	// proxy's own synthesized pool-exhausted responses may set it. An
 	// upstream provider response must never be allowed to carry it through
@@ -115,8 +114,8 @@ export function sanitizeProxyHeaders(original: Headers): Headers {
  * analytics.
  *
  * Removes: accept-encoding, content-encoding, transfer-encoding, content-length,
- * authorization, x-api-key, cookie, x-better-ccflare-guard-request-id,
- * x-better-ccflare-logical-model-family
+ * authorization, x-api-key, cookie, x-hov-router-guard-request-id,
+ * x-hov-router-logical-model-family
  */
 export function sanitizeRequestHeaders(original: Headers): Headers {
 	const h = new Headers(original);
@@ -136,7 +135,7 @@ export function sanitizeRequestHeaders(original: Headers): Headers {
 	// keep in sync with INTERNAL_PROBE_SECRET_HEADER
 	// (@hov-router/proxy already depends on http-common, so importing the
 	// proxy package's constant here would create an import cycle)
-	h.delete("x-better-ccflare-internal-probe-secret");
+	h.delete("x-hov-router-internal-probe-secret");
 	return h;
 }
 

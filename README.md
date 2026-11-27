@@ -47,7 +47,7 @@ Shared clients need Claude Code and access to the confirmed server, not a Router
 - **Source builds:** instructions use a POSIX shell on Linux/macOS, or WSL on Windows, with Git, Node.js, and Bun 1.4.2. The source-install acceptance check runs on Linux x86_64; macOS and native Windows installation have not been verified here.
 - **Other distributions:** Router does not publish npm packages, container images, or binaries for other platforms. The upstream better-ccflare packages and downloads are a different distribution.
 
-Use `hov-router`; older command names such as `better-ccflare` remain compatible, with unchanged storage/configuration names. See [migration and rollback](docs/hov-router-migration.md). The repository, renamed `StartupBros/hov-router` on 2026-10-21, moved to [StartupBros-com/hov-router](https://github.com/StartupBros-com/hov-router) on 2026-11-20; it is the same repository, not a new fork.
+Use `hov-router`. Release 8.0.0 renamed the storage, settings and headers inherited from better-ccflare; an older install moves them first ([Renamed in 8.0.0](docs/hov-router-migration.md#renamed-in-800)). The repository, renamed `StartupBros/hov-router` on 2026-10-21, moved to [StartupBros-com/hov-router](https://github.com/StartupBros-com/hov-router) on 2026-11-20; it is the same repository, not a new fork.
 
 ## Help and contributions
 

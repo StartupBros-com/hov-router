@@ -1140,7 +1140,7 @@ const DISCORD_WEBHOOK_HOSTS: ReadonlySet<string> = new Set([
 const DISCORD_WEBHOOK_PATH_PREFIX = "/api/webhooks/";
 
 /** Discord's edge returns 403 to a generic/default fetch User-Agent. */
-export const ALERT_WEBHOOK_USER_AGENT = "better-ccflare-alerts/1.0";
+export const ALERT_WEBHOOK_USER_AGENT = "hov-router-alerts/1.0";
 
 /** Discord hard-caps message `content` at 2000 codepoints. A byte- or
  * UTF-16-unit-based cut can split a surrogate pair; see

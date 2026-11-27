@@ -141,8 +141,8 @@ function throttledUsage() {
 let savedPassthrough: string | undefined;
 
 beforeEach(() => {
-	savedPassthrough = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-	delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+	savedPassthrough = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+	delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	usageCache.clear();
 	stubUsageCollector();
 });
@@ -150,9 +150,9 @@ beforeEach(() => {
 afterEach(() => {
 	usageCache.clear();
 	if (savedPassthrough === undefined) {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	} else {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = savedPassthrough;
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = savedPassthrough;
 	}
 });
 
@@ -222,7 +222,7 @@ describe("force_account_model refusal — ordering against capacity answers", ()
 		let response: Response;
 		try {
 			response = await handleProxy(
-				makeRequest({ "x-better-ccflare-account-id": "codex-1" }),
+				makeRequest({ "x-hov-router-account-id": "codex-1" }),
 				new URL("https://proxy.local/v1/messages"),
 				ctx,
 			);

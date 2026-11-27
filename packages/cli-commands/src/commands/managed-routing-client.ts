@@ -10,8 +10,8 @@ import type {
 export const DEFAULT_MANAGED_ROUTING_API_URL = "http://127.0.0.1:8788";
 
 export interface ManagedRoutingClientEnvironment {
-	BETTER_CCFLARE_API_URL?: string;
-	BETTER_CCFLARE_ADMIN_API_KEY?: string;
+	HOV_ROUTER_API_URL?: string;
+	HOV_ROUTER_ADMIN_API_KEY?: string;
 }
 
 export interface ManagedRoutingClientOptions {
@@ -197,10 +197,10 @@ export function createManagedRoutingClient(
 	const env = options.env ?? process.env;
 	const baseUrl = resolveBaseUrl(
 		options.baseUrl ??
-			env.BETTER_CCFLARE_API_URL ??
+			env.HOV_ROUTER_API_URL ??
 			DEFAULT_MANAGED_ROUTING_API_URL,
 	);
-	const adminApiKey = env.BETTER_CCFLARE_ADMIN_API_KEY?.trim() || undefined;
+	const adminApiKey = env.HOV_ROUTER_ADMIN_API_KEY?.trim() || undefined;
 	const fetchImplementation = options.fetch ?? globalThis.fetch;
 
 	async function request(

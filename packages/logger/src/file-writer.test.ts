@@ -12,16 +12,16 @@ describe("LogFileWriter.write — non-serializable payloads", () => {
 	let writer: LogFileWriter;
 
 	beforeEach(() => {
-		savedLogDir = process.env.BETTER_CCFLARE_LOG_DIR;
-		logDir = mkdtempSync(join(tmpdir(), "better-ccflare-logger-test-"));
-		process.env.BETTER_CCFLARE_LOG_DIR = logDir;
+		savedLogDir = process.env.HOV_ROUTER_LOG_DIR;
+		logDir = mkdtempSync(join(tmpdir(), "hov-router-logger-test-"));
+		process.env.HOV_ROUTER_LOG_DIR = logDir;
 		writer = new LogFileWriter();
 	});
 
 	afterEach(() => {
 		writer.close();
-		if (savedLogDir === undefined) delete process.env.BETTER_CCFLARE_LOG_DIR;
-		else process.env.BETTER_CCFLARE_LOG_DIR = savedLogDir;
+		if (savedLogDir === undefined) delete process.env.HOV_ROUTER_LOG_DIR;
+		else process.env.HOV_ROUTER_LOG_DIR = savedLogDir;
 		rmSync(logDir, { recursive: true, force: true });
 	});
 

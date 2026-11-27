@@ -16,7 +16,9 @@ describe("integrity-check runner blob URL", () => {
 	let dbPath: string;
 
 	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ccflare-integrity-url-"));
+		tmpDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), "hov-router-integrity-url-"),
+		);
 		dbPath = path.join(tmpDir, "test.db");
 		const db = new Database(dbPath, { create: true });
 		db.exec("PRAGMA journal_mode = WAL");
