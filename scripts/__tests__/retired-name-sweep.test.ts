@@ -42,6 +42,7 @@ const CODE_EXEMPTIONS: Record<string, string> = {
 		"refuses a host still on the 7.x unit",
 	"scripts/hov-router-cutover.sh": "the one-time host move",
 	"scripts/__tests__/hov-router-cutover.test.ts": "the one-time host move",
+	"scripts/__tests__/migration-recipes.test.ts": "the documented one-time storage move",
 	"apps/cli/build-provenance.ts": "published releases and their provenance",
 	"apps/cli/router-artifacts.ts": "published releases and their provenance",
 	"apps/cli/__tests__/build-multi-arch.test.ts":
