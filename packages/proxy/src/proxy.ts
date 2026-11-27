@@ -364,6 +364,7 @@ export function isHelperShapedServerToolPreview(
 function applyExplicitModelRoute(
 	bodyContext: RequestBodyContext,
 	profile: ModelRouteProfile,
+	trustCodexResponsesEffort: boolean,
 ): void {
 	bodyContext.setModel(profile.logicalModel);
 	if (!profile.defaultEffort) return;
@@ -376,9 +377,20 @@ function applyExplicitModelRoute(
 			typeof body.reasoning === "object" && body.reasoning !== null
 				? (body.reasoning as Record<string, unknown>)
 				: null;
+		// The Responses adapter keeps the caller's effort in the Codex carrier
+		// until provider conversion. A profile default must not conflict with it.
+		const codexReasoning = trustCodexResponsesEffort
+			? (
+					body.__hov_router_codex_passthrough as
+						| { reasoning?: { effort?: unknown } | null }
+						| null
+						| undefined
+				)?.reasoning
+			: undefined;
 		if (
 			(outputConfig && "effort" in outputConfig) ||
-			(reasoning && "effort" in reasoning)
+			(reasoning && "effort" in reasoning) ||
+			codexReasoning?.effort !== undefined
 		) {
 			return;
 		}
@@ -1526,7 +1538,12 @@ async function handleProxyCoreImpl(
 			if (isServerToolHelper) {
 				finalRequestBodyContext.setModel(profile.logicalModel);
 			} else {
-				applyExplicitModelRoute(finalRequestBodyContext, profile);
+				applyExplicitModelRoute(
+					finalRequestBodyContext,
+					profile,
+					profile.expectedProvider === "codex" &&
+						isResponsesAdapterRequest(req.headers, ctx),
+				);
 			}
 			finalBodyBuffer = finalRequestBodyContext.getBuffer();
 			appliedModel = profile.logicalModel;
