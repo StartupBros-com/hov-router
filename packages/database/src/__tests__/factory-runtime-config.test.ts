@@ -24,7 +24,7 @@ const runtime: RuntimeConfig = {
 
 let dir: string;
 beforeEach(() => {
-	dir = mkdtempSync(join(tmpdir(), "ccflare-factory-runtime-"));
+	dir = mkdtempSync(join(tmpdir(), "hov-router-factory-runtime-"));
 });
 afterEach(async () => {
 	await DatabaseFactory.closeAll();

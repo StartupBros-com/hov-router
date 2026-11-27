@@ -323,8 +323,8 @@ describe("proxyWithAccount — out_of_credits (issue #261)", () => {
 			body: bodyBuffer,
 			headers: {
 				"Content-Type": "application/json",
-				"x-better-ccflare-keepalive": "true",
-				"x-better-ccflare-internal-probe-secret": "test-secret",
+				"x-hov-router-keepalive": "true",
+				"x-hov-router-internal-probe-secret": "test-secret",
 			},
 		});
 
@@ -365,7 +365,7 @@ describe("proxyWithAccount — out_of_credits (issue #261)", () => {
 			body: bodyBuffer,
 			headers: {
 				"Content-Type": "application/json",
-				"x-better-ccflare-keepalive": "false",
+				"x-hov-router-keepalive": "false",
 			},
 		});
 
@@ -1678,7 +1678,7 @@ describe("proxyWithAccount — scoped same-account model continuation", () => {
 			body: bodyBuffer,
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-keepalive": "true",
 			},
 		});
 
@@ -1845,19 +1845,19 @@ describe("proxyWithAccount — scoped failures returned by a 529 retry", () => {
 		originalFetch = globalThis.fetch;
 		realDateNow = Date.now;
 		Date.now = () => INCIDENT_NOW;
-		process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 	});
 
 	afterEach(() => {
 		globalThis.fetch = originalFetch;
 		Date.now = realDateNow;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS;
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 		usageCache.delete("acc-anthropic-1");
 	});
 

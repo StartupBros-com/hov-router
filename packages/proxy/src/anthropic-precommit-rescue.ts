@@ -2,7 +2,7 @@ import { extractClaudeVersion } from "@hov-router/core";
 import {
 	assertManagedWorkAvailable,
 	managedRemainingMs,
-} from "../../../scripts/ccflare-managed-timing.mjs";
+} from "../../../scripts/hov-router-managed-timing.mjs";
 
 export const ANTHROPIC_PRECOMMIT_RESCUE_PING_FRAME =
 	'event: ping\ndata: {"type":"ping"}\n\n';
@@ -34,7 +34,7 @@ export const ANTHROPIC_PRECOMMIT_RESCUE_COMMITMENT_DEADLINE_MS =
 // well before that ceiling. Set the budget to 14 minutes, 60s of headroom
 // under the 900s client timeout. True silence (no valid frames at all) is
 // still caught by the independent protocol-idle timer (120s by default;
-// production sets 420s through CCFLARE_ANTHROPIC_PRECOMMIT_TIMEOUT_MS). A
+// production sets 420s through HOV_ROUTER_ANTHROPIC_PRECOMMIT_TIMEOUT_MS). A
 // native or Codex stream that pings but never produces content is not, since
 // those pings refresh that timer's deadline, so it now fails over at ~810s on
 // the first candidate (840s minus the 30s fallback reserve) instead of ~450s,
@@ -59,14 +59,14 @@ export const ANTHROPIC_PRECOMMIT_RESCUE_PING_INTERVAL_MS = 25_000;
 // Canonical request-wide commitment override. The semantic preflight module
 // retains its existing public alias for compatibility.
 export const ANTHROPIC_PRECOMMIT_COMMITMENT_TIMEOUT_ENV =
-	"CCFLARE_ANTHROPIC_MEANINGFUL_PROGRESS_TIMEOUT_MS";
+	"HOV_ROUTER_ANTHROPIC_MEANINGFUL_PROGRESS_TIMEOUT_MS";
 
 export const ANTHROPIC_PRECOMMIT_RESCUE_ACTIVATION_ENV =
-	"CCFLARE_ANTHROPIC_PRECOMMIT_RESCUE_ACTIVATION_MS";
+	"HOV_ROUTER_ANTHROPIC_PRECOMMIT_RESCUE_ACTIVATION_MS";
 export const ANTHROPIC_PRECOMMIT_RESCUE_PING_INTERVAL_ENV =
-	"CCFLARE_ANTHROPIC_PRECOMMIT_RESCUE_PING_INTERVAL_MS";
+	"HOV_ROUTER_ANTHROPIC_PRECOMMIT_RESCUE_PING_INTERVAL_MS";
 export const ANTHROPIC_PRECOMMIT_RESCUE_DEADLINE_ENV =
-	"CCFLARE_ANTHROPIC_PRECOMMIT_RESCUE_DEADLINE_MS";
+	"HOV_ROUTER_ANTHROPIC_PRECOMMIT_RESCUE_DEADLINE_MS";
 
 const MAX_RESCUE_ACTIVATION_MS = 150_000;
 const MAX_RESCUE_PING_INTERVAL_MS = 30_000;
@@ -664,7 +664,7 @@ function createRescueResponse(
 		headers: {
 			"cache-control": "no-cache",
 			"content-type": "text/event-stream; charset=utf-8",
-			"x-better-ccflare-precommit-rescue": "active",
+			"x-hov-router-precommit-rescue": "active",
 		},
 	});
 }

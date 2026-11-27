@@ -735,7 +735,7 @@ function resolveGrokAuthExpiresAt(
 }
 
 function loadGrokAuthEntry(
-	authPath = process.env.BETTER_CCFLARE_GROK_AUTH_PATH ||
+	authPath = process.env.HOV_ROUTER_GROK_AUTH_PATH ||
 		join(homedir(), ".grok", "auth.json"),
 ): GrokAuthEntry | null {
 	try {
@@ -2188,7 +2188,7 @@ async function notifyServersToForceResetRateLimit(
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
-						"x-better-ccflare-local-control-secret": localControlSecret,
+						"x-hov-router-local-control-secret": localControlSecret,
 					},
 				},
 			);
@@ -2340,7 +2340,7 @@ async function reauthenticateQwenAccount(
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
-						"x-better-ccflare-local-control-secret": localControlSecret,
+						"x-hov-router-local-control-secret": localControlSecret,
 					},
 				},
 			);
@@ -2698,7 +2698,7 @@ export async function reauthenticateAccount(
 						method: "POST",
 						headers: {
 							"Content-Type": "application/json",
-							"x-better-ccflare-local-control-secret": localControlSecret,
+							"x-hov-router-local-control-secret": localControlSecret,
 						},
 					},
 				);

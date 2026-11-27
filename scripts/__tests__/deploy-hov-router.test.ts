@@ -21,9 +21,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const repoRoot = join(import.meta.dir, "..", "..");
-const deployScript = join(repoRoot, "scripts", "deploy-ccflare.sh");
-const helperScriptForShell = "scripts/deploy-ccflare-lib.sh";
-const runnerScript = join(repoRoot, "scripts", "run-ccflare-stack.sh");
+const deployScript = join(repoRoot, "scripts", "deploy-hov-router.sh");
+const helperScriptForShell = "scripts/deploy-hov-router-lib.sh";
+const runnerScript = join(repoRoot, "scripts", "run-hov-router.sh");
 const systemdDocs = join(repoRoot, "docs", "systemd.md");
 const deploymentDocs = join(repoRoot, "docs", "deployment.md");
 const tempDirs: string[] = [];
@@ -35,7 +35,7 @@ afterEach(() => {
 });
 
 function tempDir(): string {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-deploy-test-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-deploy-test-"));
 	tempDirs.push(dir);
 	return dir;
 }
@@ -101,7 +101,7 @@ function createDisposableDeployRepo(options: { cliVersion?: string } = {}): {
 		gitAt(checkout, "config", "user.email", "deploy-test@example.invalid"),
 	);
 	mkdirSync(join(checkout, "scripts"));
-	copyFileSync(deployScript, join(checkout, "scripts", "deploy-ccflare.sh"));
+	copyFileSync(deployScript, join(checkout, "scripts", "deploy-hov-router.sh"));
 	copyFileSync(
 		join(repoRoot, helperScriptForShell),
 		join(checkout, helperScriptForShell),
@@ -292,10 +292,10 @@ async function runRunnerGatewayProbe(
 		{
 			cwd: repoRoot,
 			env: bashChildEnv({
-				CCFLARE_BIN: "/bin/false",
+				HOV_ROUTER_BIN: "/bin/false",
 				GUARD_SCRIPT: "/bin/true",
 				NODE_BIN: "/bin/true",
-				CCFLARE_UPSTREAM_PORT: String(upstreamPort),
+				HOV_ROUTER_UPSTREAM_PORT: String(upstreamPort),
 				GUARD_PORT: String(guardPort),
 				AI_GATEWAY_TUNNEL_ENABLED: "1",
 				AI_GATEWAY_TUNNEL_REQUIRED: required ? "1" : "0",
@@ -357,7 +357,7 @@ function repoRootDeployTestArtifacts(): string[] {
 	return readdirSync(repoRoot)
 		.filter(
 			(name) =>
-				name.includes("ccflare-deploy-test-") &&
+				name.includes("hov-router-deploy-test-") &&
 				name.endsWith("pin.rendered.conf"),
 		)
 		.sort();
@@ -376,9 +376,9 @@ function writeDigestFixtures(dir: string): {
 	policy: string;
 	runner: string;
 } {
-	const guard = join(dir, "ccflare-guard.mjs");
-	const policy = join(dir, "ccflare-guard-policy.mjs");
-	const runner = join(dir, "run-ccflare-stack.sh");
+	const guard = join(dir, "hov-router-guard.mjs");
+	const policy = join(dir, "hov-router-guard-policy.mjs");
+	const runner = join(dir, "run-hov-router.sh");
 	writeFileSync(guard, "// guard fixture\n");
 	writeFileSync(policy, "// policy fixture\n");
 	writeFileSync(runner, "#!/usr/bin/env bash\n# runner fixture\n");
@@ -480,7 +480,7 @@ describe("render_systemd_pin", () => {
 		const deployer = readFileSync(deployScript, "utf8");
 		const renderedBodyPolicyLines = [
 			...renderer.matchAll(
-				/"(Environment=(?:GUARD_MAX_REQUEST_BODY_BYTES|GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES|CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES|CCFLARE_MAX_BODY_ADMISSION_QUEUE)=\d+)"/g,
+				/"(Environment=(?:GUARD_MAX_REQUEST_BODY_BYTES|GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES|HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES|HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE)=\d+)"/g,
 			),
 		].map((match) => match[1]);
 
@@ -509,10 +509,10 @@ describe("render_systemd_pin", () => {
 			[
 				"# Comments outside the managed block are tolerated but not retained.",
 				"",
-				"# BEGIN better-ccflare managed deployment",
+				"# BEGIN hov-router managed deployment",
 				"[Service]",
 				"Environment=KEEP_ME=unchanged",
-				"Environment=CCFLARE_BIN=/old/bin",
+				"Environment=HOV_ROUTER_BIN=/old/bin",
 				"Environment=GUARD_SCRIPT=/old/guard.mjs",
 				"Environment=GUARD_SCRIPT=/duplicate/guard.mjs",
 				"Environment=GUARD_SHA256=oldguardsha",
@@ -523,7 +523,7 @@ describe("render_systemd_pin", () => {
 				"KillMode=control-group",
 				"TimeoutStopSec=999s",
 				"ExecStart=/home/will/legacy-runner.sh",
-				"# END better-ccflare managed deployment",
+				"# END hov-router managed deployment",
 				"",
 				"; A systemd semicolon comment is also tolerated.",
 			].join("\n"),
@@ -541,23 +541,23 @@ describe("render_systemd_pin", () => {
 		expect(result.exitCode).toBe(0);
 		expect(readFileSync(output, "utf8")).toBe(
 			[
-				"# BEGIN better-ccflare managed deployment",
+				"# BEGIN hov-router managed deployment",
 				"[Unit]",
 				"StartLimitIntervalSec=300s",
 				"StartLimitBurst=5",
 				"[Service]",
 				"Environment=KEEP_ME=unchanged",
 				"Environment=OPERATOR_OVERRIDE=must-not-survive",
-				"Environment=CCFLARE_BIN=/new/bin",
+				"Environment=HOV_ROUTER_BIN=/new/bin",
 				"Environment=GUARD_ACCEPTED_CAP_MS=1470000",
-				"Environment=CCFLARE_MANAGED_TIMING=1",
-				"Environment=CCFLARE_DISTRIBUTION=v1:startupbros-managed-source",
-				"Environment=CCFLARE_PRODUCER=startupbros",
-				"Environment=CCFLARE_ARTIFACT_MODE=managed-source",
-				"Environment=CCFLARE_GIT_SHA=abc123",
-				"Environment=CCFLARE_GIT_REF=refs/heads/main",
-				"Environment=CCFLARE_SOURCE_SHA=abc123",
-				"Environment=CCFLARE_SOURCE_REF=refs/heads/main",
+				"Environment=HOV_ROUTER_MANAGED_TIMING=1",
+				"Environment=HOV_ROUTER_DISTRIBUTION=v1:startupbros-managed-source",
+				"Environment=HOV_ROUTER_PRODUCER=startupbros",
+				"Environment=HOV_ROUTER_ARTIFACT_MODE=managed-source",
+				"Environment=HOV_ROUTER_GIT_SHA=abc123",
+				"Environment=HOV_ROUTER_GIT_REF=refs/heads/main",
+				"Environment=HOV_ROUTER_SOURCE_SHA=abc123",
+				"Environment=HOV_ROUTER_SOURCE_REF=refs/heads/main",
 				`Environment=GUARD_SCRIPT=${guardScript}`,
 				"Environment=GUARD_SOURCE_ID=abc123",
 				"Environment=GUARD_POLICY_ID=pool-exhaustion-finite-recovery-v1",
@@ -566,8 +566,8 @@ describe("render_systemd_pin", () => {
 				`Environment=RUNNER_SHA256=${sha256Of(runnerScriptFixture)}`,
 				"Environment=GUARD_MAX_REQUEST_BODY_BYTES=33554432",
 				"Environment=GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456",
-				"Environment=CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=1073741824",
-				"Environment=CCFLARE_MAX_BODY_ADMISSION_QUEUE=500",
+				"Environment=HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=1073741824",
+				"Environment=HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500",
 				"Environment=GUARD_TOTAL_DEADLINE_MS=600000",
 				"Environment=GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000",
 				"Environment=GUARD_MAX_RECOVERY_SLEEP_MS=120000",
@@ -585,12 +585,12 @@ describe("render_systemd_pin", () => {
 				"TimeoutStopSec=720s",
 				"Restart=on-failure",
 				"RestartSec=5s",
-				"RestartPreventExitStatus=143",
-				"RuntimeDirectory=ccflare-stack",
+				"RestartPreventExitStatus=143 78",
+				"RuntimeDirectory=hov-router",
 				"RuntimeDirectoryMode=0700",
 				"ExecStart=",
 				`ExecStart=${runnerScriptFixture}`,
-				"# END better-ccflare managed deployment",
+				"# END hov-router managed deployment",
 				"",
 			].join("\n"),
 		);
@@ -613,7 +613,7 @@ describe("render_systemd_pin", () => {
 			"Environment=OPERATOR_OVERRIDE=must-not-survive",
 		);
 		expect(readFileSync(output, "utf8")).not.toContain(
-			"CCFLARE_GUARD_CORRELATION_SECRET",
+			"HOV_ROUTER_GUARD_CORRELATION_SECRET",
 		);
 	});
 
@@ -625,10 +625,10 @@ describe("render_systemd_pin", () => {
 		writeFileSync(
 			input,
 			[
-				"# BEGIN better-ccflare managed deployment",
+				"# BEGIN hov-router managed deployment",
 				"[Service]",
-				'Environment="NODE_OPTIONS=--max-old-space-size=4096" "CCFLARE_MAX_BODY_ADMISSION_QUEUE=400" "HTTP_PROXY=http://proxy.example"',
-				"# END better-ccflare managed deployment",
+				'Environment="NODE_OPTIONS=--max-old-space-size=4096" "HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=400" "HTTP_PROXY=http://proxy.example"',
+				"# END hov-router managed deployment",
 				"",
 			].join("\n"),
 		);
@@ -645,9 +645,9 @@ describe("render_systemd_pin", () => {
 		expect(rendered).toContain(
 			'Environment="NODE_OPTIONS=--max-old-space-size=4096" "HTTP_PROXY=http://proxy.example"',
 		);
-		expect(rendered).not.toContain("CCFLARE_MAX_BODY_ADMISSION_QUEUE=400");
+		expect(rendered).not.toContain("HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=400");
 		expect(rendered).toContain(
-			"Environment=CCFLARE_MAX_BODY_ADMISSION_QUEUE=500",
+			"Environment=HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500",
 		);
 	});
 
@@ -660,15 +660,15 @@ describe("render_systemd_pin", () => {
 		writeFileSync(
 			input,
 			[
-				"# BEGIN better-ccflare managed deployment",
+				"# BEGIN hov-router managed deployment",
 				"[Service]",
-				'Environment=HTTP_PROXY=http://before.example "KEEP=before reset" CCFLARE_VERSION=v3.5.65 CCFLARE_BUILD_DATE=2026-08-01',
-				"Environment=CCFLARE_CHECKOUT_SHA=checkout CCFLARE_EVENT_SHA=event CCFLARE_TAG_SHA=tag",
+				'Environment=HTTP_PROXY=http://before.example "KEEP=before reset" HOV_ROUTER_VERSION=v3.5.65 HOV_ROUTER_BUILD_DATE=2026-08-01',
+				"Environment=HOV_ROUTER_CHECKOUT_SHA=checkout HOV_ROUTER_EVENT_SHA=event HOV_ROUTER_TAG_SHA=tag",
 				"Environment=",
 				'Environment="HTTP_PROXY=http://after.example" \\',
 				"  'KEEP=after reset' \"CONTINUED=raw spelling\"",
 				'Environment=HTTP_PROXY=http://final.example "KEEP=final value"',
-				"# END better-ccflare managed deployment",
+				"# END hov-router managed deployment",
 				"",
 			].join("\n"),
 		);
@@ -693,11 +693,11 @@ describe("render_systemd_pin", () => {
 			"KEEP=before reset",
 			"HTTP_PROXY=http://after.example",
 			"KEEP=after reset",
-			"CCFLARE_VERSION=v3.5.65",
-			"CCFLARE_BUILD_DATE=2026-08-01",
-			"CCFLARE_CHECKOUT_SHA=checkout",
-			"CCFLARE_EVENT_SHA=event",
-			"CCFLARE_TAG_SHA=tag",
+			"HOV_ROUTER_VERSION=v3.5.65",
+			"HOV_ROUTER_BUILD_DATE=2026-08-01",
+			"HOV_ROUTER_CHECKOUT_SHA=checkout",
+			"HOV_ROUTER_EVENT_SHA=event",
+			"HOV_ROUTER_TAG_SHA=tag",
 		]) {
 			expect(rendered).not.toContain(stale);
 		}
@@ -715,14 +715,14 @@ describe("render_systemd_pin", () => {
 		writeFileSync(
 			input,
 			[
-				"# BEGIN better-ccflare managed deployment",
+				"# BEGIN hov-router managed deployment",
 				"[Service]",
 				"Environment=BEFORE_RESET=old",
 				'Environment=""',
 				"Environment=AFTER_DOUBLE_RESET=must-not-survive",
 				"Environment=''",
 				"Environment=AFTER_SINGLE_RESET=survives",
-				"# END better-ccflare managed deployment",
+				"# END hov-router managed deployment",
 				"",
 			].join("\n"),
 		);
@@ -749,12 +749,12 @@ describe("render_systemd_pin", () => {
 		writeFileSync(
 			input,
 			[
-				"# BEGIN better-ccflare managed deployment",
+				"# BEGIN hov-router managed deployment",
 				"[Service]",
 				"Environment=HTTP_PROXY=http://proxy.example \\",
 				"  # This comment must not terminate the continuation.",
 				'  "KEEP=continued value"',
-				"# END better-ccflare managed deployment",
+				"# END hov-router managed deployment",
 				"",
 			].join("\n"),
 		);
@@ -782,10 +782,10 @@ describe("render_systemd_pin", () => {
 		writeFileSync(
 			input,
 			[
-				"# BEGIN better-ccflare managed deployment",
+				"# BEGIN hov-router managed deployment",
 				"[Service]",
-				"Environment=HTTP_PROXY\\x3dhttp://proxy.example HTTPS_PROXY\\075http://secure-proxy.example CCFLARE_BIN\\x3d/stale/bin",
-				"# END better-ccflare managed deployment",
+				"Environment=HTTP_PROXY\\x3dhttp://proxy.example HTTPS_PROXY\\075http://secure-proxy.example HOV_ROUTER_BIN\\x3d/stale/bin",
+				"# END hov-router managed deployment",
 				"",
 			].join("\n"),
 		);
@@ -802,7 +802,7 @@ describe("render_systemd_pin", () => {
 		expect(rendered).toContain(
 			"Environment=HTTP_PROXY\\x3dhttp://proxy.example HTTPS_PROXY\\075http://secure-proxy.example",
 		);
-		expect(rendered).not.toContain("CCFLARE_BIN\\x3d/stale/bin");
+		expect(rendered).not.toContain("HOV_ROUTER_BIN\\x3d/stale/bin");
 	});
 
 	test("accepts documented C escapes without changing raw tokens", () => {
@@ -831,10 +831,10 @@ describe("render_systemd_pin", () => {
 		writeFileSync(
 			input,
 			[
-				"# BEGIN better-ccflare managed deployment",
+				"# BEGIN hov-router managed deployment",
 				"[Service]",
 				`Environment=${assignments.join(" ")}`,
-				"# END better-ccflare managed deployment",
+				"# END hov-router managed deployment",
 				"",
 			].join("\n"),
 		);
@@ -861,10 +861,10 @@ describe("render_systemd_pin", () => {
 			writeFileSync(
 				input,
 				[
-					"# BEGIN better-ccflare managed deployment",
+					"# BEGIN hov-router managed deployment",
 					"[Service]",
 					`Environment=HTTP_PROXY${invalid}http://proxy.example`,
-					"# END better-ccflare managed deployment",
+					"# END hov-router managed deployment",
 					"",
 				].join("\n"),
 			);
@@ -891,10 +891,10 @@ describe("render_systemd_pin", () => {
 		writeFileSync(
 			input,
 			[
-				"# BEGIN better-ccflare managed deployment",
+				"# BEGIN hov-router managed deployment",
 				"[Service]",
-				'Environment="NODE_OPTIONS=--max-old-space-size=4096" \'CCFLARE_UPDATE_CHANNEL=nightly\' "HTTP_PROXY=http://proxy.example"',
-				"# END better-ccflare managed deployment",
+				'Environment="NODE_OPTIONS=--max-old-space-size=4096" \'HOV_ROUTER_UPDATE_CHANNEL=nightly\' "HTTP_PROXY=http://proxy.example"',
+				"# END hov-router managed deployment",
 				"",
 			].join("\n"),
 		);
@@ -911,18 +911,18 @@ describe("render_systemd_pin", () => {
 		expect(rendered).toContain(
 			'Environment="NODE_OPTIONS=--max-old-space-size=4096" "HTTP_PROXY=http://proxy.example"',
 		);
-		expect(rendered).not.toContain("CCFLARE_UPDATE_CHANNEL=nightly");
+		expect(rendered).not.toContain("HOV_ROUTER_UPDATE_CHANNEL=nightly");
 	});
 
 	test("leaves correlation credential generation to the restart-scoped runner", () => {
 		const deploySource = readFileSync(deployScript, "utf8");
 
-		expect(deploySource).toContain("run-ccflare-stack.sh");
+		expect(deploySource).toContain("run-hov-router.sh");
 		expect(deploySource).not.toMatch(
-			/Environment=.*CCFLARE_GUARD_CORRELATION_SECRET/,
+			/Environment=.*HOV_ROUTER_GUARD_CORRELATION_SECRET/,
 		);
 		expect(deploySource).not.toMatch(
-			/CCFLARE_GUARD_CORRELATION_SECRET=[A-Za-z0-9_-]+/,
+			/HOV_ROUTER_GUARD_CORRELATION_SECRET=[A-Za-z0-9_-]+/,
 		);
 	});
 
@@ -936,7 +936,7 @@ describe("render_systemd_pin", () => {
 			[
 				"# legacy unowned pin",
 				"[Service]",
-				"Environment=CCFLARE_BIN=/stale/bin",
+				"Environment=HOV_ROUTER_BIN=/stale/bin",
 				"ExecStart=/stale/runner",
 				"",
 			].join("\n"),
@@ -1007,7 +1007,7 @@ describe("render_systemd_pin", () => {
 		expect(result.exitCode).toBe(0);
 		const rendered = readFileSync(output, "utf8");
 		expect(
-			rendered.startsWith("# BEGIN better-ccflare managed deployment\n"),
+			rendered.startsWith("# BEGIN hov-router managed deployment\n"),
 		).toBe(true);
 		expect(rendered).not.toContain("deployment note");
 		expect(rendered).not.toContain("another comment");
@@ -1034,10 +1034,10 @@ describe("render_systemd_pin", () => {
 		writeFileSync(
 			input,
 			[
-				"# BEGIN better-ccflare managed deployment",
+				"# BEGIN hov-router managed deployment",
 				"[Service]",
-				"# BEGIN better-ccflare managed deployment",
-				"# END better-ccflare managed deployment",
+				"# BEGIN hov-router managed deployment",
+				"# END hov-router managed deployment",
 			].join("\n"),
 		);
 
@@ -1071,19 +1071,19 @@ describe("deployment provenance pin", () => {
 		expect(result.exitCode).toBe(0);
 		const rendered = readFileSync(output, "utf8");
 		for (const line of [
-			"Environment=CCFLARE_DISTRIBUTION=v1:startupbros-managed-source",
-			"Environment=CCFLARE_PRODUCER=startupbros",
-			"Environment=CCFLARE_ARTIFACT_MODE=managed-source",
-			"Environment=CCFLARE_GIT_SHA=abcdef1234567890abcdef1234567890abcdef12",
-			"Environment=CCFLARE_GIT_REF=refs/heads/main",
-			"Environment=CCFLARE_SOURCE_SHA=abcdef1234567890abcdef1234567890abcdef12",
-			"Environment=CCFLARE_SOURCE_REF=refs/heads/main",
+			"Environment=HOV_ROUTER_DISTRIBUTION=v1:startupbros-managed-source",
+			"Environment=HOV_ROUTER_PRODUCER=startupbros",
+			"Environment=HOV_ROUTER_ARTIFACT_MODE=managed-source",
+			"Environment=HOV_ROUTER_GIT_SHA=abcdef1234567890abcdef1234567890abcdef12",
+			"Environment=HOV_ROUTER_GIT_REF=refs/heads/main",
+			"Environment=HOV_ROUTER_SOURCE_SHA=abcdef1234567890abcdef1234567890abcdef12",
+			"Environment=HOV_ROUTER_SOURCE_REF=refs/heads/main",
 		])
 			expect(rendered).toContain(line);
 
 		const legacy = resolveBuildProvenance({
-			CCFLARE_GIT_SHA: "abcdef1234567890abcdef1234567890abcdef12",
-			CCFLARE_GIT_REF: "refs/heads/main",
+			HOV_ROUTER_GIT_SHA: "abcdef1234567890abcdef1234567890abcdef12",
+			HOV_ROUTER_GIT_REF: "refs/heads/main",
 		});
 		expect(legacy).toMatchObject({
 			proven: false,
@@ -1203,8 +1203,8 @@ describe("validate_deployment_timing", () => {
 					"[Service]",
 					"Environment=GUARD_MAX_REQUEST_BODY_BYTES=33554432",
 					"Environment=GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456",
-					"Environment=CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456",
-					"Environment=CCFLARE_MAX_BODY_ADMISSION_QUEUE=500",
+					"Environment=HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456",
+					"Environment=HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500",
 					`Environment=GUARD_TOTAL_DEADLINE_MS=${deadline}`,
 					`Environment=GUARD_RETRY_ATTEMPT_HEADROOM_MS=${headroom}`,
 					`Environment=GUARD_MAX_RECOVERY_SLEEP_MS=${maxSleep}`,
@@ -1269,8 +1269,8 @@ describe("validate_deployment_timing", () => {
 				"[Service]",
 				"Environment=GUARD_MAX_REQUEST_BODY_BYTES=33554432",
 				"Environment=GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456",
-				"Environment=CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456",
-				"Environment=CCFLARE_MAX_BODY_ADMISSION_QUEUE=500",
+				"Environment=HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456",
+				"Environment=HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500",
 				"Environment=GUARD_TOTAL_DEADLINE_MS=600000",
 				"Environment=GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000",
 				"Environment=GUARD_MAX_RECOVERY_WAITS=12",
@@ -1369,18 +1369,18 @@ describe("effective systemd policy validation", () => {
 			mock,
 			[
 				"#!/usr/bin/env bash",
-				'printf \'systemctl:%s\\n\' "$*" >>"$CCFLARE_TEST_SYSTEMCTL_LOG"',
+				'printf \'systemctl:%s\\n\' "$*" >>"$HOV_ROUTER_TEST_SYSTEMCTL_LOG"',
 				'if [[ "$*" == *"daemon-reload"* ]]; then exit 0; fi',
-				'if [[ "$*" == *"--property=KillMode"* ]]; then printf \'%s\\n\' "$CCFLARE_TEST_KILL_MODE"; exit 0; fi',
-				'if [[ "$*" == *"--property=TimeoutStopUSec"* ]]; then printf \'%s\\n\' "$CCFLARE_TEST_TIMEOUT"; exit 0; fi',
-				'if [[ "$*" == *"--property=StartLimitIntervalUSec"* ]]; then printf \'%s\\n\' "${CCFLARE_TEST_START_LIMIT_INTERVAL_SEC:-300s}"; exit 0; fi',
-				'if [[ "$*" == *"--property=StartLimitBurst"* ]]; then printf \'%s\\n\' "${CCFLARE_TEST_START_LIMIT_BURST:-5}"; exit 0; fi',
-				'if [[ "$*" == *"--property=RestartUSec"* ]]; then printf \'%s\\n\' "${CCFLARE_TEST_RESTART_SEC:-5s}"; exit 0; fi',
-				'if [[ "$*" == *"--property=RestartPreventExitStatus"* ]]; then printf \'%s\\n\' "${CCFLARE_TEST_RESTART_PREVENT_EXIT_STATUS:-143}"; exit 0; fi',
-				'if [[ "$*" == *"--property=Restart"* ]]; then printf \'%s\\n\' "${CCFLARE_TEST_RESTART:-on-failure}"; exit 0; fi',
+				'if [[ "$*" == *"--property=KillMode"* ]]; then printf \'%s\\n\' "$HOV_ROUTER_TEST_KILL_MODE"; exit 0; fi',
+				'if [[ "$*" == *"--property=TimeoutStopUSec"* ]]; then printf \'%s\\n\' "$HOV_ROUTER_TEST_TIMEOUT"; exit 0; fi',
+				'if [[ "$*" == *"--property=StartLimitIntervalUSec"* ]]; then printf \'%s\\n\' "${HOV_ROUTER_TEST_START_LIMIT_INTERVAL_SEC:-300s}"; exit 0; fi',
+				'if [[ "$*" == *"--property=StartLimitBurst"* ]]; then printf \'%s\\n\' "${HOV_ROUTER_TEST_START_LIMIT_BURST:-5}"; exit 0; fi',
+				'if [[ "$*" == *"--property=RestartUSec"* ]]; then printf \'%s\\n\' "${HOV_ROUTER_TEST_RESTART_SEC:-5s}"; exit 0; fi',
+				'if [[ "$*" == *"--property=RestartPreventExitStatus"* ]]; then printf \'%s\\n\' "${HOV_ROUTER_TEST_RESTART_PREVENT_EXIT_STATUS:-143 78}"; exit 0; fi',
+				'if [[ "$*" == *"--property=Restart"* ]]; then printf \'%s\\n\' "${HOV_ROUTER_TEST_RESTART:-on-failure}"; exit 0; fi',
 				'if [[ "$*" == *"--property=Environment"* ]]; then',
-				'  environment="$CCFLARE_TEST_ENVIRONMENT"',
-				'  if [[ "${CCFLARE_TEST_OMIT_FAILURE_STOP_BUDGET:-0}" != "1" && "$environment" != *"RUNNER_FAILURE_STOP_BUDGET_MS="* ]]; then environment="$environment RUNNER_FAILURE_STOP_BUDGET_MS=${CCFLARE_TEST_FAILURE_STOP_BUDGET:-30000}"; fi',
+				'  environment="$HOV_ROUTER_TEST_ENVIRONMENT"',
+				'  if [[ "${HOV_ROUTER_TEST_OMIT_FAILURE_STOP_BUDGET:-0}" != "1" && "$environment" != *"RUNNER_FAILURE_STOP_BUDGET_MS="* ]]; then environment="$environment RUNNER_FAILURE_STOP_BUDGET_MS=${HOV_ROUTER_TEST_FAILURE_STOP_BUDGET:-30000}"; fi',
 				"  printf '%s\\n' \"$environment\"",
 				"  exit 0",
 				"fi",
@@ -1398,14 +1398,14 @@ describe("effective systemd policy validation", () => {
 		const { binDir, log } = writeSystemctlMock(dir);
 		const base = [
 			`export PATH=${shellQuote(shellPath(binDir))}:$PATH`,
-			`export CCFLARE_TEST_SYSTEMCTL_LOG=${shellQuote(shellPath(log))}`,
-			"export CCFLARE_TEST_KILL_MODE=mixed",
-			"export CCFLARE_TEST_TIMEOUT=12min",
-			"export CCFLARE_TEST_ENVIRONMENT='KEEP=1 GUARD_MAX_REQUEST_BODY_BYTES=33554432 GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 CCFLARE_MAX_BODY_ADMISSION_QUEUE=500 GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_SLEEP_MS=120000 GUARD_MAX_RECOVERY_WAITS=12 GUARD_SHUTDOWN_GRACE_MS=600000 RUNNER_RSS_THRESHOLD_BYTES=4294967296 RUNNER_RSS_POLL_INTERVAL_MS=60000 RUNNER_RSS_MIN_UPTIME_MS=1800000 RUNNER_RSS_CONSECUTIVE_SAMPLES=5 RUNNER_RSS_RECYCLE_COOLDOWN_MS=3600000 RUNNER_RSS_MAX_RECYCLES=8 RUNNER_RSS_RECYCLE_WINDOW_MS=86400000'",
+			`export HOV_ROUTER_TEST_SYSTEMCTL_LOG=${shellQuote(shellPath(log))}`,
+			"export HOV_ROUTER_TEST_KILL_MODE=mixed",
+			"export HOV_ROUTER_TEST_TIMEOUT=12min",
+			"export HOV_ROUTER_TEST_ENVIRONMENT='KEEP=1 GUARD_MAX_REQUEST_BODY_BYTES=33554432 GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500 GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_SLEEP_MS=120000 GUARD_MAX_RECOVERY_WAITS=12 GUARD_SHUTDOWN_GRACE_MS=600000 RUNNER_RSS_THRESHOLD_BYTES=4294967296 RUNNER_RSS_POLL_INTERVAL_MS=60000 RUNNER_RSS_MIN_UPTIME_MS=1800000 RUNNER_RSS_CONSECUTIVE_SAMPLES=5 RUNNER_RSS_RECYCLE_COOLDOWN_MS=3600000 RUNNER_RSS_MAX_RECYCLES=8 RUNNER_RSS_RECYCLE_WINDOW_MS=86400000'",
 			`source ${shellQuote(helperScriptForShell)}`,
 		];
 		const good = bash(
-			[...base, "validate_effective_systemd_policy ccflare-stack.service"].join(
+			[...base, "validate_effective_systemd_policy hov-router.service"].join(
 				"\n",
 			),
 		);
@@ -1424,8 +1424,8 @@ describe("effective systemd policy validation", () => {
 			const invalidRestart = bash(
 				[
 					...base,
-					`export CCFLARE_TEST_RESTART=${shellQuote(restart)}`,
-					"validate_effective_systemd_policy ccflare-stack.service",
+					`export HOV_ROUTER_TEST_RESTART=${shellQuote(restart)}`,
+					"validate_effective_systemd_policy hov-router.service",
 				].join("\n"),
 			);
 			expect(invalidRestart.exitCode).not.toBe(0);
@@ -1437,9 +1437,9 @@ describe("effective systemd policy validation", () => {
 			const invalidStartLimit = bash(
 				[
 					...base,
-					`export CCFLARE_TEST_START_LIMIT_INTERVAL_SEC=${interval === "299999999" ? "299s" : "300s"}`,
-					`export CCFLARE_TEST_START_LIMIT_BURST=${burst}`,
-					"validate_effective_systemd_policy ccflare-stack.service",
+					`export HOV_ROUTER_TEST_START_LIMIT_INTERVAL_SEC=${interval === "299999999" ? "299s" : "300s"}`,
+					`export HOV_ROUTER_TEST_START_LIMIT_BURST=${burst}`,
+					"validate_effective_systemd_policy hov-router.service",
 				].join("\n"),
 			);
 			expect(invalidStartLimit.exitCode).not.toBe(0);
@@ -1448,9 +1448,9 @@ describe("effective systemd policy validation", () => {
 		const safeOperatorOverride = bash(
 			[
 				...base,
-				"export CCFLARE_TEST_TIMEOUT='17min'",
-				"export CCFLARE_TEST_ENVIRONMENT='GUARD_MAX_REQUEST_BODY_BYTES=16777216 GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=33554432 CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 CCFLARE_MAX_BODY_ADMISSION_QUEUE=500 GUARD_TOTAL_DEADLINE_MS=900000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=45000 GUARD_MAX_RECOVERY_SLEEP_MS=90000 GUARD_MAX_RECOVERY_WAITS=20 GUARD_SHUTDOWN_GRACE_MS=900000 RUNNER_RSS_THRESHOLD_BYTES=4294967296 RUNNER_RSS_POLL_INTERVAL_MS=60000 RUNNER_RSS_MIN_UPTIME_MS=1800000 RUNNER_RSS_CONSECUTIVE_SAMPLES=5 RUNNER_RSS_RECYCLE_COOLDOWN_MS=3600000 RUNNER_RSS_MAX_RECYCLES=8 RUNNER_RSS_RECYCLE_WINDOW_MS=86400000'",
-				"validate_effective_systemd_policy ccflare-stack.service",
+				"export HOV_ROUTER_TEST_TIMEOUT='17min'",
+				"export HOV_ROUTER_TEST_ENVIRONMENT='GUARD_MAX_REQUEST_BODY_BYTES=16777216 GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=33554432 HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500 GUARD_TOTAL_DEADLINE_MS=900000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=45000 GUARD_MAX_RECOVERY_SLEEP_MS=90000 GUARD_MAX_RECOVERY_WAITS=20 GUARD_SHUTDOWN_GRACE_MS=900000 RUNNER_RSS_THRESHOLD_BYTES=4294967296 RUNNER_RSS_POLL_INTERVAL_MS=60000 RUNNER_RSS_MIN_UPTIME_MS=1800000 RUNNER_RSS_CONSECUTIVE_SAMPLES=5 RUNNER_RSS_RECYCLE_COOLDOWN_MS=3600000 RUNNER_RSS_MAX_RECYCLES=8 RUNNER_RSS_RECYCLE_WINDOW_MS=86400000'",
+				"validate_effective_systemd_policy hov-router.service",
 			].join("\n"),
 		);
 		expect(safeOperatorOverride.exitCode).toBe(0);
@@ -1465,9 +1465,9 @@ describe("effective systemd policy validation", () => {
 			const invalidRecoverySilence = bash(
 				[
 					...base,
-					`export CCFLARE_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=900000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=45000 GUARD_MAX_RECOVERY_SLEEP_MS=${maxSleep} GUARD_MAX_RECOVERY_WAITS=12 GUARD_SHUTDOWN_GRACE_MS=900000'`,
-					"export CCFLARE_TEST_TIMEOUT='17min'",
-					"validate_effective_systemd_policy ccflare-stack.service",
+					`export HOV_ROUTER_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=900000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=45000 GUARD_MAX_RECOVERY_SLEEP_MS=${maxSleep} GUARD_MAX_RECOVERY_WAITS=12 GUARD_SHUTDOWN_GRACE_MS=900000'`,
+					"export HOV_ROUTER_TEST_TIMEOUT='17min'",
+					"validate_effective_systemd_policy hov-router.service",
 				].join("\n"),
 			);
 			expect(invalidRecoverySilence.exitCode).not.toBe(0);
@@ -1476,8 +1476,8 @@ describe("effective systemd policy validation", () => {
 		const missingRecoveryWaits = bash(
 			[
 				...base,
-				"export CCFLARE_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_SLEEP_MS=120000 GUARD_SHUTDOWN_GRACE_MS=600000'",
-				"validate_effective_systemd_policy ccflare-stack.service",
+				"export HOV_ROUTER_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_SLEEP_MS=120000 GUARD_SHUTDOWN_GRACE_MS=600000'",
+				"validate_effective_systemd_policy hov-router.service",
 			].join("\n"),
 		);
 		expect(missingRecoveryWaits.exitCode).not.toBe(0);
@@ -1485,8 +1485,8 @@ describe("effective systemd policy validation", () => {
 		const missingFailureStopBudget = bash(
 			[
 				...base,
-				"export CCFLARE_TEST_OMIT_FAILURE_STOP_BUDGET=1",
-				"validate_effective_systemd_policy ccflare-stack.service",
+				"export HOV_ROUTER_TEST_OMIT_FAILURE_STOP_BUDGET=1",
+				"validate_effective_systemd_policy hov-router.service",
 			].join("\n"),
 		);
 		expect(missingFailureStopBudget.exitCode).not.toBe(0);
@@ -1495,8 +1495,8 @@ describe("effective systemd policy validation", () => {
 			const invalidFailureStopBudget = bash(
 				[
 					...base,
-					`export CCFLARE_TEST_FAILURE_STOP_BUDGET=${shellQuote(budget)}`,
-					"validate_effective_systemd_policy ccflare-stack.service",
+					`export HOV_ROUTER_TEST_FAILURE_STOP_BUDGET=${shellQuote(budget)}`,
+					"validate_effective_systemd_policy hov-router.service",
 				].join("\n"),
 			);
 			expect(invalidFailureStopBudget.exitCode).not.toBe(0);
@@ -1505,8 +1505,8 @@ describe("effective systemd policy validation", () => {
 		const missingRecoverySilence = bash(
 			[
 				...base,
-				"export CCFLARE_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_WAITS=12 GUARD_SHUTDOWN_GRACE_MS=600000'",
-				"validate_effective_systemd_policy ccflare-stack.service",
+				"export HOV_ROUTER_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_WAITS=12 GUARD_SHUTDOWN_GRACE_MS=600000'",
+				"validate_effective_systemd_policy hov-router.service",
 			].join("\n"),
 		);
 		expect(missingRecoverySilence.exitCode).not.toBe(0);
@@ -1514,8 +1514,8 @@ describe("effective systemd policy validation", () => {
 		const infeasibleRecoverySilence = bash(
 			[
 				...base,
-				"export CCFLARE_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=550000 GUARD_MAX_RECOVERY_SLEEP_MS=60000 GUARD_MAX_RECOVERY_WAITS=12 GUARD_SHUTDOWN_GRACE_MS=600000'",
-				"validate_effective_systemd_policy ccflare-stack.service",
+				"export HOV_ROUTER_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=550000 GUARD_MAX_RECOVERY_SLEEP_MS=60000 GUARD_MAX_RECOVERY_WAITS=12 GUARD_SHUTDOWN_GRACE_MS=600000'",
+				"validate_effective_systemd_policy hov-router.service",
 			].join("\n"),
 		);
 		expect(infeasibleRecoverySilence.exitCode).not.toBe(0);
@@ -1523,8 +1523,8 @@ describe("effective systemd policy validation", () => {
 		const overridden = bash(
 			[
 				...base,
-				"export CCFLARE_TEST_TIMEOUT='10min'",
-				"validate_effective_systemd_policy ccflare-stack.service",
+				"export HOV_ROUTER_TEST_TIMEOUT='10min'",
+				"validate_effective_systemd_policy hov-router.service",
 			].join("\n"),
 		);
 		expect(overridden.exitCode).not.toBe(0);
@@ -1532,8 +1532,8 @@ describe("effective systemd policy validation", () => {
 		const missingHeadroom = bash(
 			[
 				...base,
-				"export CCFLARE_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=600000 GUARD_SHUTDOWN_GRACE_MS=600000'",
-				"validate_effective_systemd_policy ccflare-stack.service",
+				"export HOV_ROUTER_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=600000 GUARD_SHUTDOWN_GRACE_MS=600000'",
+				"validate_effective_systemd_policy hov-router.service",
 			].join("\n"),
 		);
 		expect(missingHeadroom.exitCode).not.toBe(0);
@@ -1544,18 +1544,18 @@ describe("effective systemd policy validation", () => {
 		const { binDir, log } = writeSystemctlMock(dir);
 		const base = [
 			`export PATH=${shellQuote(shellPath(binDir))}:$PATH`,
-			`export CCFLARE_TEST_SYSTEMCTL_LOG=${shellQuote(shellPath(log))}`,
-			"export CCFLARE_TEST_KILL_MODE=mixed",
-			"export CCFLARE_TEST_TIMEOUT=12min",
+			`export HOV_ROUTER_TEST_SYSTEMCTL_LOG=${shellQuote(shellPath(log))}`,
+			"export HOV_ROUTER_TEST_KILL_MODE=mixed",
+			"export HOV_ROUTER_TEST_TIMEOUT=12min",
 			`source ${shellQuote(helperScriptForShell)}`,
 		];
 		const safe =
-			"GUARD_MAX_REQUEST_BODY_BYTES=33554432 GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 CCFLARE_MAX_BODY_ADMISSION_QUEUE=500 GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_SLEEP_MS=120000 GUARD_MAX_RECOVERY_WAITS=12 GUARD_SHUTDOWN_GRACE_MS=600000 RUNNER_RSS_THRESHOLD_BYTES=4294967296 RUNNER_RSS_POLL_INTERVAL_MS=60000 RUNNER_RSS_MIN_UPTIME_MS=1800000 RUNNER_RSS_CONSECUTIVE_SAMPLES=5 RUNNER_RSS_RECYCLE_COOLDOWN_MS=3600000 RUNNER_RSS_MAX_RECYCLES=8 RUNNER_RSS_RECYCLE_WINDOW_MS=86400000";
+			"GUARD_MAX_REQUEST_BODY_BYTES=33554432 GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500 GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_SLEEP_MS=120000 GUARD_MAX_RECOVERY_WAITS=12 GUARD_SHUTDOWN_GRACE_MS=600000 RUNNER_RSS_THRESHOLD_BYTES=4294967296 RUNNER_RSS_POLL_INTERVAL_MS=60000 RUNNER_RSS_MIN_UPTIME_MS=1800000 RUNNER_RSS_CONSECUTIVE_SAMPLES=5 RUNNER_RSS_RECYCLE_COOLDOWN_MS=3600000 RUNNER_RSS_MAX_RECYCLES=8 RUNNER_RSS_RECYCLE_WINDOW_MS=86400000";
 		const good = bash(
 			[
 				...base,
-				`export CCFLARE_TEST_ENVIRONMENT='${safe}'`,
-				"validate_effective_systemd_policy ccflare-stack.service",
+				`export HOV_ROUTER_TEST_ENVIRONMENT='${safe}'`,
+				"validate_effective_systemd_policy hov-router.service",
 			].join("\n"),
 		);
 		expect(good.exitCode).toBe(0);
@@ -1569,23 +1569,23 @@ describe("effective systemd policy validation", () => {
 		for (const environment of [
 			safe.replace("GUARD_MAX_REQUEST_BODY_BYTES=33554432 ", ""),
 			safe.replace("GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 ", ""),
-			safe.replace("CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 ", ""),
-			safe.replace("CCFLARE_MAX_BODY_ADMISSION_QUEUE=500 ", ""),
+			safe.replace("HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 ", ""),
+			safe.replace("HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500 ", ""),
 			safe.replace(
-				"CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456",
-				"CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=1",
+				"HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456",
+				"HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=1",
 			),
 			safe.replace(
-				"CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456",
-				"CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=1073741825",
+				"HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456",
+				"HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=1073741825",
 			),
 			safe.replace(
-				"CCFLARE_MAX_BODY_ADMISSION_QUEUE=500",
-				"CCFLARE_MAX_BODY_ADMISSION_QUEUE=5001",
+				"HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500",
+				"HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=5001",
 			),
 			safe.replace(
-				"CCFLARE_MAX_BODY_ADMISSION_QUEUE=500",
-				"CCFLARE_MAX_BODY_ADMISSION_QUEUE=invalid",
+				"HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500",
+				"HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=invalid",
 			),
 			safe.replace(
 				"GUARD_MAX_REQUEST_BODY_BYTES=33554432",
@@ -1615,12 +1615,42 @@ describe("effective systemd policy validation", () => {
 			const invalid = bash(
 				[
 					...base,
-					`export CCFLARE_TEST_ENVIRONMENT='${environment}'`,
-					"validate_effective_systemd_policy ccflare-stack.service",
+					`export HOV_ROUTER_TEST_ENVIRONMENT='${environment}'`,
+					"validate_effective_systemd_policy hov-router.service",
 				].join("\n"),
 			);
 			expect(invalid.exitCode).not.toBe(0);
 		}
+	});
+
+	test("requires systemd to leave both terminal exit statuses alone", () => {
+		// 143 is an intentional stop and 78 a retired name the backend refused.
+		// A restart after either repeats it, so the unit must not restart on one.
+		const dir = tempDir();
+		const { binDir, log } = writeSystemctlMock(dir);
+		const environment =
+			"GUARD_MAX_REQUEST_BODY_BYTES=33554432 GUARD_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=268435456 HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500 GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_SLEEP_MS=120000 GUARD_MAX_RECOVERY_WAITS=12 GUARD_SHUTDOWN_GRACE_MS=600000 RUNNER_RSS_THRESHOLD_BYTES=4294967296 RUNNER_RSS_POLL_INTERVAL_MS=60000 RUNNER_RSS_MIN_UPTIME_MS=1800000 RUNNER_RSS_CONSECUTIVE_SAMPLES=5 RUNNER_RSS_RECYCLE_COOLDOWN_MS=3600000 RUNNER_RSS_MAX_RECYCLES=8 RUNNER_RSS_RECYCLE_WINDOW_MS=86400000";
+		const validate = (statuses: string) =>
+			bash(
+				[
+					`export PATH=${shellQuote(shellPath(binDir))}:$PATH`,
+					`export HOV_ROUTER_TEST_SYSTEMCTL_LOG=${shellQuote(shellPath(log))}`,
+					"export HOV_ROUTER_TEST_KILL_MODE=mixed",
+					"export HOV_ROUTER_TEST_TIMEOUT=12min",
+					`export HOV_ROUTER_TEST_ENVIRONMENT='${environment}'`,
+					`export HOV_ROUTER_TEST_RESTART_PREVENT_EXIT_STATUS='${statuses}'`,
+					`source ${shellQuote(helperScriptForShell)}`,
+					"validate_effective_systemd_policy hov-router.service",
+				].join("\n"),
+			);
+		expect(validate("143 78").exitCode).toBe(0);
+		expect(validate("78 143").exitCode).toBe(0);
+		const without78 = validate("143");
+		expect(without78.exitCode).not.toBe(0);
+		expect(capturedOutput(without78.stderr, "stderr")).toContain(
+			"expected statuses 143 and 78",
+		);
+		expect(validate("78").exitCode).not.toBe(0);
 	});
 
 	test("hard-fails when a later operator drop-in remains unsafe after pin restoration", () => {
@@ -1631,7 +1661,7 @@ describe("effective systemd policy validation", () => {
 			sudo,
 			[
 				"#!/usr/bin/env bash",
-				'printf \'sudo:%s\\n\' "$*" >>"$CCFLARE_TEST_SYSTEMCTL_LOG"',
+				'printf \'sudo:%s\\n\' "$*" >>"$HOV_ROUTER_TEST_SYSTEMCTL_LOG"',
 				'exec "$@"',
 				"",
 			].join("\n"),
@@ -1644,12 +1674,12 @@ describe("effective systemd policy validation", () => {
 		const result = bash(
 			[
 				`export PATH=${shellQuote(shellPath(binDir))}:$PATH`,
-				`export CCFLARE_TEST_SYSTEMCTL_LOG=${shellQuote(shellPath(log))}`,
-				"export CCFLARE_TEST_KILL_MODE=control-group",
-				"export CCFLARE_TEST_TIMEOUT=12min",
-				"export CCFLARE_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_SLEEP_MS=120000 GUARD_SHUTDOWN_GRACE_MS=600000'",
+				`export HOV_ROUTER_TEST_SYSTEMCTL_LOG=${shellQuote(shellPath(log))}`,
+				"export HOV_ROUTER_TEST_KILL_MODE=control-group",
+				"export HOV_ROUTER_TEST_TIMEOUT=12min",
+				"export HOV_ROUTER_TEST_ENVIRONMENT='GUARD_TOTAL_DEADLINE_MS=600000 GUARD_RETRY_ATTEMPT_HEADROOM_MS=30000 GUARD_MAX_RECOVERY_SLEEP_MS=120000 GUARD_SHUTDOWN_GRACE_MS=600000'",
 				`source ${shellQuote(helperScriptForShell)}`,
-				`reload_validate_or_restore_systemd_policy ${shellQuote(shellPath(pin))} ${shellQuote(shellPath(backup))} ccflare-stack.service`,
+				`reload_validate_or_restore_systemd_policy ${shellQuote(shellPath(pin))} ${shellQuote(shellPath(backup))} hov-router.service`,
 			].join("\n"),
 		);
 		expect(result.exitCode).toBe(70);
@@ -1934,7 +1964,7 @@ describe("validate_bun_runtime_version", () => {
 		// Not the repo's real pin, so only a hint built from the file passes.
 		writeFileSync(versionFile, "9.9.9\n");
 		const hint =
-			"Put Bun 9.9.9 first on PATH and run the deploy again, for example: mise exec bun@9.9.9 -- scripts/deploy-ccflare.sh";
+			"Put Bun 9.9.9 first on PATH and run the deploy again, for example: mise exec bun@9.9.9 -- scripts/deploy-hov-router.sh";
 		const toolchainCheck = () =>
 			bash(
 				[
@@ -2095,7 +2125,7 @@ describe("process start identity", () => {
 		const root = tempDir();
 		const procRoot = join(root, "proc");
 		const pidDir = join(procRoot, "42");
-		const runner = join(root, "run-ccflare-stack.sh");
+		const runner = join(root, "run-hov-router.sh");
 		mkdirSync(pidDir, { recursive: true });
 		writeFileSync(runner, "#!/usr/bin/env bash\n");
 		writeFileSync(
@@ -2128,8 +2158,8 @@ describe("guard_prune_candidates", () => {
 		for (const [index, name] of names.entries()) {
 			const dir = join(root, name);
 			mkdirSync(dir);
-			writeFileSync(join(dir, "ccflare-guard.mjs"), "guard");
-			writeFileSync(join(dir, "ccflare-guard-policy.mjs"), "policy");
+			writeFileSync(join(dir, "hov-router-guard.mjs"), "guard");
+			writeFileSync(join(dir, "hov-router-guard-policy.mjs"), "policy");
 			utimesSync(dir, index + 1, index + 1);
 		}
 		mkdirSync(join(root, "not-a-sha"));
@@ -2153,7 +2183,7 @@ describe("source-controlled stack runner", () => {
 	test("validates the shared guard shutdown grace before starting children", () => {
 		for (const value of ["-1", "12ms"]) {
 			const invalid = bash(
-				`GUARD_SHUTDOWN_GRACE_MS=${shellQuote(value)} CCFLARE_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
+				`GUARD_SHUTDOWN_GRACE_MS=${shellQuote(value)} HOV_ROUTER_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
 			);
 			expect(invalid.exitCode).toBe(64);
 			expect(capturedOutput(invalid.stdout, "stdout")).toContain(
@@ -2162,7 +2192,7 @@ describe("source-controlled stack runner", () => {
 		}
 
 		const zero = bash(
-			`GUARD_SHUTDOWN_GRACE_MS=0 CCFLARE_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
+			`GUARD_SHUTDOWN_GRACE_MS=0 HOV_ROUTER_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
 		);
 		expect(zero.exitCode).toBe(64);
 	});
@@ -2170,7 +2200,7 @@ describe("source-controlled stack runner", () => {
 	test("bounds failure cleanup separately from the intentional stop grace", () => {
 		for (const value of ["0", "120001", "-1", "12ms"]) {
 			const invalid = bash(
-				`RUNNER_FAILURE_STOP_BUDGET_MS=${shellQuote(value)} CCFLARE_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
+				`RUNNER_FAILURE_STOP_BUDGET_MS=${shellQuote(value)} HOV_ROUTER_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
 			);
 			expect(invalid.exitCode).toBe(64);
 			expect(capturedOutput(invalid.stdout, "stdout")).toContain(
@@ -2200,7 +2230,7 @@ describe("source-controlled stack runner", () => {
 
 	test("rejects a zero deadline instead of letting the guard clamp it to 1ms", () => {
 		const result = bash(
-			`GUARD_TOTAL_DEADLINE_MS=0 CCFLARE_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
+			`GUARD_TOTAL_DEADLINE_MS=0 HOV_ROUTER_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
 		);
 		expect(result.exitCode).toBe(64);
 		expect(capturedOutput(result.stdout, "stdout")).toContain(
@@ -2210,7 +2240,7 @@ describe("source-controlled stack runner", () => {
 
 	test("rejects an invalid retry-attempt headroom before starting children", () => {
 		const result = bash(
-			`GUARD_RETRY_ATTEMPT_HEADROOM_MS=0 CCFLARE_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
+			`GUARD_RETRY_ATTEMPT_HEADROOM_MS=0 HOV_ROUTER_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
 		);
 		expect(result.exitCode).toBe(64);
 		expect(capturedOutput(result.stdout, "stdout")).toContain(
@@ -2220,7 +2250,7 @@ describe("source-controlled stack runner", () => {
 
 	test("rejects an invalid or infeasible recovery sleep cap before starting children", () => {
 		const invalid = bash(
-			`GUARD_MAX_RECOVERY_SLEEP_MS=0 CCFLARE_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
+			`GUARD_MAX_RECOVERY_SLEEP_MS=0 HOV_ROUTER_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
 		);
 		expect(invalid.exitCode).toBe(64);
 		expect(capturedOutput(invalid.stdout, "stdout")).toContain(
@@ -2228,7 +2258,7 @@ describe("source-controlled stack runner", () => {
 		);
 
 		const infeasible = bash(
-			`GUARD_TOTAL_DEADLINE_MS=100 GUARD_RETRY_ATTEMPT_HEADROOM_MS=40 GUARD_MAX_RECOVERY_SLEEP_MS=61 GUARD_SHUTDOWN_GRACE_MS=100 CCFLARE_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
+			`GUARD_TOTAL_DEADLINE_MS=100 GUARD_RETRY_ATTEMPT_HEADROOM_MS=40 GUARD_MAX_RECOVERY_SLEEP_MS=61 GUARD_SHUTDOWN_GRACE_MS=100 HOV_ROUTER_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
 		);
 		expect(infeasible.exitCode).toBe(64);
 		expect(capturedOutput(infeasible.stdout, "stdout")).toContain(
@@ -2237,7 +2267,7 @@ describe("source-controlled stack runner", () => {
 
 		for (const value of ["120001", "180000"]) {
 			const aboveHardMaximum = bash(
-				`GUARD_MAX_RECOVERY_SLEEP_MS=${value} CCFLARE_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
+				`GUARD_MAX_RECOVERY_SLEEP_MS=${value} HOV_ROUTER_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
 			);
 			expect(aboveHardMaximum.exitCode).toBe(64);
 			expect(capturedOutput(aboveHardMaximum.stdout, "stdout")).toContain(
@@ -2248,7 +2278,7 @@ describe("source-controlled stack runner", () => {
 
 	test("rejects shutdown grace shorter than the total request deadline", () => {
 		const result = bash(
-			`GUARD_TOTAL_DEADLINE_MS=900000 GUARD_SHUTDOWN_GRACE_MS=600000 CCFLARE_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
+			`GUARD_TOTAL_DEADLINE_MS=900000 GUARD_SHUTDOWN_GRACE_MS=600000 HOV_ROUTER_BIN=/bin/true GUARD_SCRIPT=/bin/true NODE_BIN=/bin/true AI_GATEWAY_TUNNEL_ENABLED=0 bash ${shellQuote(shellPath(runnerScript))}`,
 		);
 		expect(result.exitCode).toBe(64);
 		expect(capturedOutput(result.stdout, "stdout")).toContain(
@@ -2311,7 +2341,7 @@ describe("source-controlled stack runner", () => {
 		expect(source).toContain('waited_pids=("${child_pids[@]}")');
 		expect(source).toContain('wait -n -p exited_pid "${waited_pids[@]}"');
 		expect(source).toContain(
-			'stop_child "better-ccflare upstream" "$upstream_pid" "$UPSTREAM_STOP_BUDGET_MS"',
+			'stop_child "hov-router upstream" "$upstream_pid" "$UPSTREAM_STOP_BUDGET_MS"',
 		);
 		expect(source).toContain(
 			'stop_child "ai-gateway ssh tunnel" "$ai_gateway_tunnel_pid" 5000',
@@ -2342,7 +2372,7 @@ describe("source-controlled stack runner", () => {
 				expect(result.stdout).toContain(
 					`ai-gateway tunnel already ready at 127.0.0.1:${fixture.port}`,
 				);
-				expect(result.stdout).toContain("starting better-ccflare upstream");
+				expect(result.stdout).toContain("starting hov-router upstream");
 			} finally {
 				await fixture.close();
 			}
@@ -2362,7 +2392,7 @@ describe("source-controlled stack runner", () => {
 				expect(result.stdout).toContain(
 					"ai-gateway tunnel is required; exiting",
 				);
-				expect(result.stdout).not.toContain("starting better-ccflare upstream");
+				expect(result.stdout).not.toContain("starting hov-router upstream");
 			} finally {
 				await fixture.close();
 			}
@@ -2374,7 +2404,7 @@ describe("source-controlled stack runner", () => {
 			"ai-gateway tunnel is required; exiting",
 		);
 		expect(connectionFailure.stdout).not.toContain(
-			"starting better-ccflare upstream",
+			"starting hov-router upstream",
 		);
 	}, 15_000);
 
@@ -2385,7 +2415,7 @@ describe("source-controlled stack runner", () => {
 			expect(result.stdout).toContain(
 				"ai-gateway tunnel unavailable; continuing without last-resort fallback",
 			);
-			expect(result.stdout).toContain("starting better-ccflare upstream");
+			expect(result.stdout).toContain("starting hov-router upstream");
 		} finally {
 			await fixture.close();
 		}
@@ -2448,11 +2478,11 @@ process.on("SIGTERM", () => {
 				detached: process.platform !== "win32",
 				env: bashChildEnv({
 					HOME: dir,
-					USER: "ccflare-test",
-					CCFLARE_BIN: shellPath(fixture),
+					USER: "hov-router-test",
+					HOV_ROUTER_BIN: shellPath(fixture),
 					GUARD_SCRIPT: shellPath(fixture),
 					NODE_BIN: nodeBin,
-					CCFLARE_UPSTREAM_PORT: String(upstreamPort),
+					HOV_ROUTER_UPSTREAM_PORT: String(upstreamPort),
 					GUARD_PORT: String(guardPort),
 					AI_GATEWAY_TUNNEL_ENABLED: "0",
 					AI_GATEWAY_TUNNEL_REQUIRED: "0",
@@ -2477,7 +2507,7 @@ process.on("SIGTERM", () => {
 
 		try {
 			await waitFor(
-				() => stdout.includes("ccflare stack ready"),
+				() => stdout.includes("hov-router stack ready"),
 				5_000,
 				() => `runner did not become ready:\n${stdout}\n${stderr}`,
 			);
@@ -2547,15 +2577,15 @@ process.on("SIGTERM", () => {
 			expect(guardStopMs).toBeLessThan(1_500);
 			const upstreamStopMs = result.at - (upstreamTerm?.timestamp ?? 0);
 			expect(upstreamStopMs).toBeLessThan(1_000);
-			expect(stdout).toContain("ccflare guard");
+			expect(stdout).toContain("hov-router guard");
 			expect(stdout).toContain("did not stop after 360ms; sending SIGKILL");
-			expect(stdout).toContain("better-ccflare upstream");
+			expect(stdout).toContain("hov-router upstream");
 			expect(
 				stdout
 					.split("\n")
 					.some(
 						(line) =>
-							line.includes("better-ccflare upstream") &&
+							line.includes("hov-router upstream") &&
 							line.includes("SIGKILL"),
 					),
 			).toBe(false);
@@ -2682,11 +2712,11 @@ describe("deploy_schema_digest", () => {
 // The five files a backend-only handoff must find byte-identical to the
 // running ingress, keyed as runtime.json's `ingress` object keys them.
 const handoffInputs = {
-	runner: "scripts/run-ccflare-stack.sh",
-	guard: "scripts/ccflare-guard.mjs",
-	policy: "scripts/ccflare-guard-policy.mjs",
-	timing: "scripts/ccflare-managed-timing.mjs",
-	transaction: "scripts/ccflare-deployment-transaction.mjs",
+	runner: "scripts/run-hov-router.sh",
+	guard: "scripts/hov-router-guard.mjs",
+	policy: "scripts/hov-router-guard-policy.mjs",
+	timing: "scripts/hov-router-managed-timing.mjs",
+	transaction: "scripts/hov-router-deployment-transaction.mjs",
 } as const;
 type HandoffKey = keyof typeof handoffInputs;
 
@@ -2966,6 +2996,7 @@ describe("deploy --check report", () => {
 		fixture: HandoffFixture,
 		health: unknown,
 		headSha = "a".repeat(40),
+		host: { legacyUnitFile?: string; pin?: string } = {},
 	) {
 		const healthFile = join(fixture.root, "health.json");
 		writeFileSync(
@@ -2989,6 +3020,8 @@ describe("deploy --check report", () => {
 				`REPO_ROOT=${shellQuote(fixture.source)}`,
 				`HANDOFF_DIR=${shellQuote(fixture.handoffDir)}`,
 				`HEALTH_URL=${shellQuote(`file://${healthFile}`)}`,
+				`LEGACY_UNIT_FILE=${shellQuote(host.legacyUnitFile ?? join(fixture.root, "absent", "ccflare-stack.service"))}`,
+				`PIN=${shellQuote(host.pin ?? join(fixture.root, "absent", "50-pinned-build.conf"))}`,
 				"report_deploy_plan",
 			].join("\n"),
 		);
@@ -3043,11 +3076,95 @@ describe("deploy --check report", () => {
 			`restart: unknown: ${runtimeIsDirectory.runtime} is not a regular file`,
 		);
 	});
+
+	test("names a host still on the 7.x unit, and stays quiet once it has moved", () => {
+		const fixture = createHandoffFixture();
+		const legacyUnitFile = join(fixture.root, "ccflare-stack.service");
+		// The handoff fixture writes its own pin at the root; this host's is not there yet.
+		mkdirSync(join(fixture.root, "hov-router.service.d"));
+		const pin = join(fixture.root, "hov-router.service.d", "50-pinned-build.conf");
+		writeFileSync(legacyUnitFile, "[Service]\n");
+		const host = { legacyUnitFile, pin };
+
+		expect(runReport(fixture, { git_sha: "e784510d" }, undefined, host)).toContain(
+			`host:    a deploy refuses: ccflare-stack.service is installed and ${pin} does not exist yet; move this host once with scripts/hov-router-cutover.sh`,
+		);
+		// After the cutover the old unit stays for its revert, beside the new pin.
+		writeFileSync(pin, "# BEGIN hov-router managed deployment\n");
+		expect(runReport(fixture, { git_sha: "e784510d" }, undefined, host)).not.toContain(
+			"host:",
+		);
+	});
+});
+
+describe("legacy unit refusal", () => {
+	function reason(legacyExists: boolean, pinExists: boolean, state: string) {
+		const dir = tempDir();
+		const legacy = join(dir, "ccflare-stack.service");
+		const pin = join(dir, "50-pinned-build.conf");
+		if (legacyExists) writeFileSync(legacy, "[Service]\n");
+		if (pinExists) writeFileSync(pin, "\n");
+		return bash(
+			[
+				`source ${shellQuote(helperScriptForShell)}`,
+				`legacy_unit_host_reason ${shellQuote(legacy)} ${shellQuote(pin)} ${shellQuote(state)}`,
+			].join("\n"),
+		);
+	}
+
+	test("refuses while the old unit runs, even beside a new pin", () => {
+		for (const state of ["active", "activating", "reloading", "deactivating"]) {
+			const result = reason(true, true, state);
+			expect(result.exitCode).toBe(0);
+			expect(capturedOutput(result.stdout, "stdout")).toBe(
+				`ccflare-stack.service is ${state}`,
+			);
+		}
+	});
+
+	test("refuses an installed old unit with no new pin", () => {
+		const result = reason(true, false, "inactive");
+		expect(result.exitCode).toBe(0);
+		expect(capturedOutput(result.stdout, "stdout")).toContain(
+			"ccflare-stack.service is installed and",
+		);
+	});
+
+	test("lets a moved or never-legacy host deploy", () => {
+		for (const [legacy, pin, state] of [
+			[true, true, "inactive"],
+			[true, true, "failed"],
+			[false, true, ""],
+			[false, false, "inactive"],
+		] as const) {
+			const result = reason(legacy, pin, state);
+			expect(result.exitCode).toBe(1);
+			expect(capturedOutput(result.stdout, "stdout")).toBe("");
+		}
+	});
+
+	test("the deploy asks before the pin validation, the build and any mutation", () => {
+		const source = readFileSync(deployScript, "utf8");
+		const lockWarning = source.indexOf(
+			"could not record this deploy as the lock holder",
+		);
+		const refusal = source.indexOf(
+			'legacy_unit_host_reason "$LEGACY_UNIT_FILE" "$PIN" "$LEGACY_UNIT_STATE"',
+		);
+		const preflight = source.indexOf(
+			'validate_deploy_owned_systemd_pin "$PIN"',
+			lockWarning,
+		);
+		expect(lockWarning).toBeGreaterThan(0);
+		expect(refusal).toBeGreaterThan(lockWarning);
+		expect(preflight).toBeGreaterThan(refusal);
+		expect(source.slice(refusal, preflight)).toContain("exit 1");
+	});
 });
 
 describe("deploy --no-prune", () => {
 	test("documents preservation and still rejects unknown arguments", () => {
-		const help = bash("bash scripts/deploy-ccflare.sh --no-prune --help");
+		const help = bash("bash scripts/deploy-hov-router.sh --no-prune --help");
 		expectCommandOk(help);
 		const helpText = capturedOutput(help.stdout, "stdout");
 		expect(helpText).toContain("--no-prune");
@@ -3055,7 +3172,7 @@ describe("deploy --no-prune", () => {
 		// The help range ends at the header's last line, not inside the code.
 		expect(helpText).toContain("REQUIRES");
 		expect(helpText).not.toContain("set -Eeuo pipefail");
-		const unknown = bash("bash scripts/deploy-ccflare.sh --no-prune --unknown");
+		const unknown = bash("bash scripts/deploy-hov-router.sh --no-prune --unknown");
 		expect(unknown.exitCode).toBe(2);
 		expect(capturedOutput(unknown.stderr, "stderr")).toContain("Unknown arg: --unknown");
 	});
@@ -3067,7 +3184,7 @@ describe("deploy --no-prune", () => {
 		const scratch = tempDir();
 		const check = bashAt(
 			checkout,
-			`TMPDIR=${shellQuote(scratch)} bash scripts/deploy-ccflare.sh --no-prune --check`,
+			`TMPDIR=${shellQuote(scratch)} bash scripts/deploy-hov-router.sh --no-prune --check`,
 		);
 		expectCommandOk(check);
 		expect(capturedOutput(check.stdout, "stdout")).toContain(
@@ -3082,7 +3199,7 @@ describe("deploy --no-prune", () => {
 		const runtimeDir = tempDir();
 		const full = bashAt(
 			mismatched.checkout,
-			`TMPDIR=${shellQuote(scratch)} XDG_RUNTIME_DIR=${shellQuote(runtimeDir)} bash scripts/deploy-ccflare.sh --no-prune`,
+			`TMPDIR=${shellQuote(scratch)} XDG_RUNTIME_DIR=${shellQuote(runtimeDir)} bash scripts/deploy-hov-router.sh --no-prune`,
 		);
 		expect(full.exitCode).toBe(1);
 		const stderr = capturedOutput(full.stderr, "stderr");
@@ -3103,7 +3220,7 @@ describe("deploy --no-prune", () => {
 		const categories: string[][] = [[], [], [], [], []];
 		for (let i = 0; i < 8; i++) {
 			const paths = [
-				join(dest, `better-ccflare-v1.0.0-${i}`),
+				join(dest, `hov-router-v1.0.0-${i}`),
 				join(dest, "guards", `${i}`.repeat(40)),
 				join(dest, "runners", `${i}`.repeat(40)),
 				join(pins, `50-pinned-build.conf.bak-ordinary-${i}`),
@@ -3113,8 +3230,8 @@ describe("deploy --no-prune", () => {
 				if (category === 1 || category === 2) {
 					mkdirSync(path, { recursive: true });
 					const modules = category === 1
-						? ["ccflare-guard.mjs", "ccflare-guard-policy.mjs", "ccflare-managed-timing.mjs"]
-						: ["run-ccflare-stack.sh", "ccflare-deployment-transaction.mjs"];
+						? ["hov-router-guard.mjs", "hov-router-guard-policy.mjs", "hov-router-managed-timing.mjs"]
+						: ["run-hov-router.sh", "hov-router-deployment-transaction.mjs"];
 					for (const module of oldLayout ? modules.slice(0, -1) : modules) writeFileSync(join(path, module), "fixture\n");
 				} else writeFileSync(path, "fixture\n");
 				utimesSync(path, 1000 + i, 1000 + i);
@@ -3137,7 +3254,7 @@ describe("deploy --no-prune", () => {
 			'GUARDS_ROOT="$DEST/guards"; RUNNERS_ROOT="$DEST/runners"',
 			// Protect an old artifact outside the retention window as the real
 			// deploy does; the other old artifacts must still prune by default.
-			`DEST_BIN="$DEST/better-ccflare-v1.0.0-0"; GUARD_DIR="$GUARDS_ROOT/${"0".repeat(40)}"; RUNNER_DIR="$RUNNERS_ROOT/${"0".repeat(40)}"`,
+			`DEST_BIN="$DEST/hov-router-v1.0.0-0"; GUARD_DIR="$GUARDS_ROOT/${"0".repeat(40)}"; RUNNER_DIR="$RUNNERS_ROOT/${"0".repeat(40)}"`,
 			"KEEP_BINARIES=5; KEEP_GUARDS=5; KEEP_RUNNERS=5; KEEP_BACKUPS=3",
 			'sudo() { "$@"; }',
 			"HEALTH_URL=fixture; GUARD_HEALTH_URL=fixture; HEALTH_WAIT_SECS=0",
@@ -3190,7 +3307,7 @@ describe("deploy source gate in disposable repositories", () => {
 		const sudo = recordingSudo();
 		const result = bashAt(
 			checkout,
-			`${prefix}PATH=${shellQuote(sudo.dir)}:"$PATH" TMPDIR=${shellQuote(scratch)} bash scripts/deploy-ccflare.sh --check`,
+			`${prefix}PATH=${shellQuote(sudo.dir)}:"$PATH" TMPDIR=${shellQuote(scratch)} bash scripts/deploy-hov-router.sh --check`,
 		);
 		// The bootstrap and every source gate run without elevation.
 		expect(sudo.calls()).toEqual([]);
@@ -3265,7 +3382,7 @@ describe("deploy source gate in disposable repositories", () => {
 		function runInner(cwd: string, sha: string, root: string) {
 			return bashAt(
 				cwd,
-				`CCFLARE_DEPLOY_BOOTSTRAP_SHA=${shellQuote(sha)} CCFLARE_DEPLOY_BOOTSTRAP_ROOT=${shellQuote(root)} bash scripts/deploy-ccflare.sh --check`,
+				`HOV_ROUTER_DEPLOY_BOOTSTRAP_SHA=${shellQuote(sha)} HOV_ROUTER_DEPLOY_BOOTSTRAP_ROOT=${shellQuote(root)} bash scripts/deploy-hov-router.sh --check`,
 			);
 		}
 
@@ -3345,7 +3462,7 @@ describe("deploy source gate in disposable repositories", () => {
 			`#!/bin/sh\n: > ${shellQuote(marker)}\nexec sleep 30\n`,
 		);
 		chmodSync(join(shim, "node"), 0o755);
-		const child = spawn("bash", ["scripts/deploy-ccflare.sh", "--check"], {
+		const child = spawn("bash", ["scripts/deploy-hov-router.sh", "--check"], {
 			cwd: checkout,
 			detached: true,
 			stdio: ["ignore", "pipe", "pipe"],
@@ -3505,7 +3622,7 @@ describe("deployment flow safety contracts", () => {
 			'git merge-base --is-ancestor "$HEAD_SHA" refs/remotes/origin/main',
 		);
 		expect(source).toContain(
-			'"$CCFLARE_DEPLOY_BOOTSTRAP_SHA"; then\n\tMAIN_SOURCE_OK=1',
+			'"$HOV_ROUTER_DEPLOY_BOOTSTRAP_SHA"; then\n\tMAIN_SOURCE_OK=1',
 		);
 	});
 
@@ -3549,7 +3666,7 @@ describe("deployment flow safety contracts", () => {
 			'create_verified_source_snapshot "$REPO_ROOT" "$BOOTSTRAP_ROOT" "$BOOTSTRAP_SHA"',
 		);
 		expect(bootstrap).toContain(
-			'env --default-signal=INT,QUIT bash "$BOOTSTRAP_ROOT/scripts/deploy-ccflare.sh" "$@" <&0 &',
+			'env --default-signal=INT,QUIT bash "$BOOTSTRAP_ROOT/scripts/deploy-hov-router.sh" "$@" <&0 &',
 		);
 		expect(bootstrap).toContain("trap 'forward_to_deploy TERM' TERM");
 		expect(bootstrap).toContain("trap 'forward_to_deploy HUP' HUP");
@@ -3574,7 +3691,7 @@ describe("deployment flow safety contracts", () => {
 			"bun run build",
 			"GUARD_DIR=",
 			"sudo cp",
-			"systemctl restart ccflare-stack.service",
+			"systemctl restart hov-router.service",
 		]) {
 			expect(source.indexOf(marker, checkExit + 1)).toBeGreaterThan(checkExit);
 		}
@@ -3582,8 +3699,8 @@ describe("deployment flow safety contracts", () => {
 
 	// A genuine dynamic test would need two real, overlapping full-deploy
 	// invocations (git ancestry gate passing, `bun run build`, `sudo cp` into
-	// /home/will/.config/better-ccflare, and `systemctl restart
-	// ccflare-stack.service`) racing for the same lock. That means mutating
+	// /home/will/.config/hov-router, and `systemctl restart
+	// hov-router.service`) racing for the same lock. That means mutating
 	// production host paths from a fixture, which is out of bounds here — so
 	// this stays a static structural check: the lock is a single non-blocking
 	// flock on a UID-scoped file, acquired only after the CHECK_ONLY exit (and
@@ -3594,7 +3711,7 @@ describe("deployment flow safety contracts", () => {
 		const source = readFileSync(deployScript, "utf8");
 		const checkExit = source.indexOf('if [[ "$CHECK_ONLY" == "1" ]]');
 		const lockPath = source.indexOf(
-			'DEPLOY_LOCK="${XDG_RUNTIME_DIR:-/tmp}/better-ccflare-deploy-${UID}.lock"',
+			'DEPLOY_LOCK="${XDG_RUNTIME_DIR:-/tmp}/hov-router-deploy-${UID}.lock"',
 		);
 		const lockOpen = source.indexOf('exec 9>"$DEPLOY_LOCK"', lockPath);
 		const lockAcquire = source.indexOf("if ! flock -n 9; then", lockOpen);
@@ -3621,7 +3738,7 @@ describe("deployment flow safety contracts", () => {
 	function deployLockLines(): string {
 		const source = readFileSync(deployScript, "utf8");
 		const start = source.indexOf(
-			'DEPLOY_LOCK="${XDG_RUNTIME_DIR:-/tmp}/better-ccflare-deploy-${UID}.lock"',
+			'DEPLOY_LOCK="${XDG_RUNTIME_DIR:-/tmp}/hov-router-deploy-${UID}.lock"',
 		);
 		const warning = source.indexOf(
 			"could not record this deploy as the lock holder",
@@ -3650,7 +3767,7 @@ describe("deployment flow safety contracts", () => {
 		const ready = join(dir, "holder-ready");
 		const record = join(
 			dir,
-			`better-ccflare-deploy-${process.getuid?.() ?? 0}.lock.holder`,
+			`hov-router-deploy-${process.getuid?.() ?? 0}.lock.holder`,
 		);
 		const holder = Bun.spawn(
 			["bash", "-c", deployLockScript(`touch '${ready}'\nexec sleep 30`)],
@@ -3658,8 +3775,8 @@ describe("deployment flow safety contracts", () => {
 				cwd: repoRoot,
 				env: lockEnv(dir, {
 					HEAD_SHA: "a".repeat(40),
-					CCFLARE_DEPLOY_CALLER_REF: "feature-a at 1111111",
-					CCFLARE_DEPLOY_CALLER_DIR: "/work/feature-a",
+					HOV_ROUTER_DEPLOY_CALLER_REF: "feature-a at 1111111",
+					HOV_ROUTER_DEPLOY_CALLER_DIR: "/work/feature-a",
 					CLAUDE_CODE_SESSION_ID: "session-a",
 				}),
 				stdout: "pipe",
@@ -3681,8 +3798,8 @@ describe("deployment flow safety contracts", () => {
 					cwd: repoRoot,
 					env: lockEnv(dir, {
 						HEAD_SHA: "b".repeat(40),
-						CCFLARE_DEPLOY_CALLER_REF: "feature-b at 2222222",
-						CCFLARE_DEPLOY_CALLER_DIR: "/work/feature-b",
+						HOV_ROUTER_DEPLOY_CALLER_REF: "feature-b at 2222222",
+						HOV_ROUTER_DEPLOY_CALLER_DIR: "/work/feature-b",
 						CLAUDE_CODE_SESSION_ID: "session-b",
 					}),
 					stdout: "pipe",
@@ -3695,7 +3812,7 @@ describe("deployment flow safety contracts", () => {
 				"took-the-lock",
 			);
 			expect(loserErr).toContain(
-				"refusing to deploy: another better-ccflare deployment holds",
+				"refusing to deploy: another hov-router deployment holds",
 			);
 			expect(loserErr).toContain(`pid=${holder.pid}`);
 			expect(loserErr).toContain(`sha=${"a".repeat(40)}`);
@@ -3766,14 +3883,14 @@ describe("deployment flow safety contracts", () => {
 	test("the bootstrap passes the caller's checkout and branch to the snapshot it runs", () => {
 		const source = readFileSync(deployScript, "utf8");
 		const bootstrap = source.indexOf(
-			'if [[ -z "${CCFLARE_DEPLOY_BOOTSTRAP_SHA:-}" ]]; then',
+			'if [[ -z "${HOV_ROUTER_DEPLOY_BOOTSTRAP_SHA:-}" ]]; then',
 		);
 		const exported = source.indexOf(
-			'export CCFLARE_DEPLOY_CALLER_REF="$CALLER_REF" CCFLARE_DEPLOY_CALLER_DIR="$REPO_ROOT"',
+			'export HOV_ROUTER_DEPLOY_CALLER_REF="$CALLER_REF" HOV_ROUTER_DEPLOY_CALLER_DIR="$REPO_ROOT"',
 			bootstrap,
 		);
 		const launch = source.indexOf(
-			'env --default-signal=INT,QUIT bash "$BOOTSTRAP_ROOT/scripts/deploy-ccflare.sh"',
+			'env --default-signal=INT,QUIT bash "$BOOTSTRAP_ROOT/scripts/deploy-hov-router.sh"',
 			bootstrap,
 		);
 		const lockWrite = source.indexOf("write_deploy_lock_holder");
@@ -3816,7 +3933,7 @@ describe("deployment flow safety contracts", () => {
 			lockAcquire,
 		);
 		const restart = source.indexOf(
-			"sudo systemctl restart ccflare-stack.service",
+			"sudo systemctl restart hov-router.service",
 			lockAcquire,
 		);
 
@@ -3836,16 +3953,16 @@ describe("deployment flow safety contracts", () => {
 		);
 		expect(source).toContain('cd "$BUILD_SOURCE_ROOT"');
 		expect(source).toContain(
-			'BUILT_BIN="$BUILD_SOURCE_ROOT/apps/cli/dist/better-ccflare"',
+			'BUILT_BIN="$BUILD_SOURCE_ROOT/apps/cli/dist/hov-router"',
 		);
 		expect(source).toContain(
-			'SOURCE_GUARD="$BUILD_SOURCE_ROOT/scripts/ccflare-guard.mjs"',
+			'SOURCE_GUARD="$BUILD_SOURCE_ROOT/scripts/hov-router-guard.mjs"',
 		);
 		expect(source).toContain(
-			'SOURCE_GUARD_POLICY="$BUILD_SOURCE_ROOT/scripts/ccflare-guard-policy.mjs"',
+			'SOURCE_GUARD_POLICY="$BUILD_SOURCE_ROOT/scripts/hov-router-guard-policy.mjs"',
 		);
 		expect(source).toContain(
-			'SOURCE_RUNNER="$BUILD_SOURCE_ROOT/scripts/run-ccflare-stack.sh"',
+			'SOURCE_RUNNER="$BUILD_SOURCE_ROOT/scripts/run-hov-router.sh"',
 		);
 		expect(source).not.toContain('SOURCE_GUARD="$REPO_ROOT/');
 		expect(source).not.toContain('SOURCE_RUNNER="$REPO_ROOT/');
@@ -3864,7 +3981,7 @@ describe("deployment flow safety contracts", () => {
 			effectivePolicy,
 		);
 		const restart = source.indexOf(
-			"sudo systemctl restart ccflare-stack.service",
+			"sudo systemctl restart hov-router.service",
 			effectivePolicy,
 		);
 		const postReloadAssignments = source.slice(
@@ -3977,7 +4094,7 @@ describe("deployment flow safety contracts", () => {
 		expect(source).toContain('GUARD_DIR="${GUARDS_ROOT}/${HEAD_SHA}"');
 		expect(source).toContain('RUNNER_DIR="${RUNNERS_ROOT}/${HEAD_SHA}"');
 		expect(source).toContain(
-			'SOURCE_RUNNER="$BUILD_SOURCE_ROOT/scripts/run-ccflare-stack.sh"',
+			'SOURCE_RUNNER="$BUILD_SOURCE_ROOT/scripts/run-hov-router.sh"',
 		);
 		expect(source).toContain('GUARD_SOURCE_ID="$HEAD_SHA"');
 		expect(source).toContain(
@@ -3987,14 +4104,14 @@ describe("deployment flow safety contracts", () => {
 		expect(source).toContain("replace_systemd_pin_if_snapshot_current");
 		expect(source).toContain('render_systemd_pin \\\n\t"$PIN_BACKUP"');
 		expect(source).toContain(
-			'cp "$SOURCE_GUARD_POLICY" "$GUARD_STAGE_DIR/ccflare-guard-policy.mjs"',
+			'cp "$SOURCE_GUARD_POLICY" "$GUARD_STAGE_DIR/hov-router-guard-policy.mjs"',
 		);
 		expect(source).toContain('mv "$GUARD_STAGE_DIR" "$GUARD_DIR"');
 		expect(source).toContain("trap 'rollback_on_failure $?' EXIT");
 		expect(source).toContain(
 			'sudo cp --preserve=all "$PIN_BACKUP" "$rollback_stage"',
 		);
-		expect(source).toContain("sudo systemctl restart ccflare-stack.service");
+		expect(source).toContain("sudo systemctl restart hov-router.service");
 		expect(source).toContain("validate_deploy_health");
 		expect(source).toContain("verify_process_start_identity");
 		expect(source).toContain("ROLLBACK_HARD_FAILURE=70");
@@ -4019,7 +4136,7 @@ describe("deployment flow safety contracts", () => {
 			timingValidation,
 		);
 		const restart = source.indexOf(
-			"sudo systemctl restart ccflare-stack.service",
+			"sudo systemctl restart hov-router.service",
 			pinRender,
 		);
 		const effectivePolicy = source.indexOf(
@@ -4069,7 +4186,7 @@ test("renderer retains a validated narrower accepted cap", () => {
 		files = writeDigestFixtures(dir);
 	writeFileSync(
 		input,
-		"# BEGIN better-ccflare managed deployment\n[Service]\nEnvironment=GUARD_ACCEPTED_CAP_MS=900000\nEnvironment=CCFLARE_SERVER_DRAIN_MS=90000\n# END better-ccflare managed deployment\n",
+		"# BEGIN hov-router managed deployment\n[Service]\nEnvironment=GUARD_ACCEPTED_CAP_MS=900000\nEnvironment=HOV_ROUTER_SERVER_DRAIN_MS=90000\n# END hov-router managed deployment\n",
 	);
 	const result = bash(
 		`source ${helperScriptForShell}; render_systemd_pin '${input}' '${output}' '${join(dir, "binary")}' '${files.runner}' '${files.guard}' '${"a".repeat(40)}' 'fixture' '${files.policy}'`,
@@ -4079,7 +4196,7 @@ test("renderer retains a validated narrower accepted cap", () => {
 		"Environment=GUARD_ACCEPTED_CAP_MS=900000",
 	);
 	expect(readFileSync(output, "utf8")).toContain(
-		"CCFLARE_SERVER_DRAIN_MS=90000",
+		"HOV_ROUTER_SERVER_DRAIN_MS=90000",
 	);
 });
 
@@ -4091,7 +4208,7 @@ test("a rendered pin with the runtime directory passes the checks a deploy runs 
 	// A pin from before the runtime directory was added (#827).
 	writeFileSync(
 		input,
-		"# BEGIN better-ccflare managed deployment\n[Service]\nKillMode=mixed\nTimeoutStopSec=720s\n# END better-ccflare managed deployment\n",
+		"# BEGIN hov-router managed deployment\n[Service]\nKillMode=mixed\nTimeoutStopSec=720s\n# END hov-router managed deployment\n",
 	);
 	expectCommandOk(
 		bash(
@@ -4099,7 +4216,7 @@ test("a rendered pin with the runtime directory passes the checks a deploy runs 
 		),
 	);
 	const rendered = readFileSync(output, "utf8").split("\n");
-	expect(rendered).toContain("RuntimeDirectory=ccflare-stack");
+	expect(rendered).toContain("RuntimeDirectory=hov-router");
 	expect(rendered).toContain("RuntimeDirectoryMode=0700");
 
 	// The structure check every later deploy starts with, and the timing
@@ -4123,7 +4240,7 @@ test("rendered policy rejects retirement exceeding effective systemd stop timeou
 		files = writeDigestFixtures(dir);
 	writeFileSync(
 		input,
-		"# BEGIN better-ccflare managed deployment\n[Service]\nEnvironment=CCFLARE_SERVER_DRAIN_MS=900000\n# END better-ccflare managed deployment\n",
+		"# BEGIN hov-router managed deployment\n[Service]\nEnvironment=HOV_ROUTER_SERVER_DRAIN_MS=900000\n# END hov-router managed deployment\n",
 	);
 	expectCommandOk(
 		bash(
@@ -4152,7 +4269,7 @@ describe("immutable_binary_name", () => {
 		);
 		expect(first.exitCode).toBe(0);
 		expect(first.stdout.toString().trim()).toBe(
-			`better-ccflare-v3.5.78-abcdef012345-${"a".repeat(64)}`,
+			`hov-router-v3.5.78-abcdef012345-${"a".repeat(64)}`,
 		);
 		expect(equal.stdout.toString()).toBe(first.stdout.toString());
 		expect(different.stdout.toString()).not.toBe(first.stdout.toString());
@@ -4165,15 +4282,15 @@ describe("immutable_binary_name", () => {
 
 test("artifact module pruning recognizes only exact legacy or managed module sets", () => {
 	const dir = tempDir();
-	writeFileSync(join(dir, "ccflare-guard.mjs"), "guard");
-	writeFileSync(join(dir, "ccflare-guard-policy.mjs"), "policy");
-	const command = `source ${helperScriptForShell}; artifact_module_set_matches ${shellQuote(dir)} ccflare-guard.mjs ccflare-guard-policy.mjs`;
+	writeFileSync(join(dir, "hov-router-guard.mjs"), "guard");
+	writeFileSync(join(dir, "hov-router-guard-policy.mjs"), "policy");
+	const command = `source ${helperScriptForShell}; artifact_module_set_matches ${shellQuote(dir)} hov-router-guard.mjs hov-router-guard-policy.mjs`;
 	expect(bash(command).exitCode).toBe(0);
-	writeFileSync(join(dir, "ccflare-managed-timing.mjs"), "timing");
+	writeFileSync(join(dir, "hov-router-managed-timing.mjs"), "timing");
 	expect(bash(command).exitCode).not.toBe(0);
-	expect(bash(command + " ccflare-managed-timing.mjs").exitCode).toBe(0);
+	expect(bash(command + " hov-router-managed-timing.mjs").exitCode).toBe(0);
 	writeFileSync(join(dir, "unexpected"), "preserve");
-	expect(bash(command + " ccflare-managed-timing.mjs").exitCode).not.toBe(0);
+	expect(bash(command + " hov-router-managed-timing.mjs").exitCode).not.toBe(0);
 });
 
 describe("request_backend_handoff temporary command ownership", () => {
@@ -4181,7 +4298,7 @@ describe("request_backend_handoff temporary command ownership", () => {
 		const run =
 			privileged &&
 			(process.platform !== "linux" ||
-				process.env.CCFLARE_TEST_PRIVILEGED_HANDOFF !== "1")
+				process.env.HOV_ROUTER_TEST_PRIVILEGED_HANDOFF !== "1")
 				? test.skip
 				: test;
 		run(

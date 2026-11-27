@@ -39,7 +39,7 @@ import {
 	DEFAULT_GUARD_POLICY_ID,
 	evaluateGuardRetry,
 	recoveryHeaderStatus,
-} from "./ccflare-guard-policy.mjs";
+} from "./hov-router-guard-policy.mjs";
 
 import {
 	CLIENT_TIMEOUT_HEADER,
@@ -50,9 +50,9 @@ import {
 	createAcceptedTiming,
 	monotonicNowNs,
 	signManagedTiming,
-} from "./ccflare-managed-timing.mjs";
+} from "./hov-router-managed-timing.mjs";
 
-export const DEFAULT_GUARD_SOURCE_ID = "better-ccflare-source-guard-v1";
+export const DEFAULT_GUARD_SOURCE_ID = "hov-router-source-guard-v1";
 export const DEFAULT_GUARD_MAX_ATTEMPTS = 3;
 export const DEFAULT_GUARD_TOTAL_DEADLINE_MS = 600_000;
 export const DEFAULT_GUARD_RETRY_ATTEMPT_HEADROOM_MS = 30_000;
@@ -87,10 +87,10 @@ export const DEFAULT_GUARD_DELAY_INSPECTION_TIMEOUT_MS = 5_000;
 // sysexits.h EX_SOFTWARE: bounded, non-signal status reserved for a drain that
 // reached its deadline and had to destroy remaining connections.
 export const GUARD_FORCED_DRAIN_EXIT_STATUS = 70;
-export const GUARD_REQUEST_ID_HEADER = "x-better-ccflare-guard-request-id";
+export const GUARD_REQUEST_ID_HEADER = "x-hov-router-guard-request-id";
 export const GUARD_CORRELATION_SECRET_HEADER =
-	"x-better-ccflare-guard-correlation-secret";
-const PROXY_REQUEST_ID_HEADER = "x-better-ccflare-request-id";
+	"x-hov-router-guard-correlation-secret";
+const PROXY_REQUEST_ID_HEADER = "x-hov-router-request-id";
 // Claude Code (2.1.289) latches "Fable requires usage credits" for the whole
 // process when one Fable response carries this header as "true", then holds
 // the next Fable turn on a consent prompt that expires in background sessions
@@ -100,10 +100,10 @@ const PROXY_REQUEST_ID_HEADER = "x-better-ccflare-request-id";
 // requests.unified_ratelimit_headers. See #450.
 export const UNIFIED_OVERAGE_IN_USE_HEADER =
 	"anthropic-ratelimit-unified-overage-in-use";
-export const GUARD_CORRELATION_SECRET_ENV = "CCFLARE_GUARD_CORRELATION_SECRET";
+export const GUARD_CORRELATION_SECRET_ENV = "HOV_ROUTER_GUARD_CORRELATION_SECRET";
 
 const GUARD_CORRELATION_VERSION = "v1";
-const GUARD_CORRELATION_SIGNING_DOMAIN = "better-ccflare/guard-correlation/v1";
+const GUARD_CORRELATION_SIGNING_DOMAIN = "hov-router/guard-correlation/v1";
 const MAX_GUARD_ATTEMPT_ORDINAL = 1_000_000;
 const CANONICAL_UUID_V4_PATTERN =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -142,7 +142,7 @@ const HOP_BY_HOP_HEADERS = new Set([
 
 const GUARD_MODULE_PATH = fileURLToPath(import.meta.url);
 const POLICY_MODULE_PATH = fileURLToPath(
-	new URL("./ccflare-guard-policy.mjs", import.meta.url),
+	new URL("./hov-router-guard-policy.mjs", import.meta.url),
 );
 
 function fileIdentity(path) {
@@ -185,7 +185,7 @@ function parentRunnerIdentity(pid, procRoot) {
 		const script = args
 			.slice(1)
 			.map((candidate) => fileIdentity(candidate))
-			.find((identity) => identity?.path.endsWith("run-ccflare-stack.sh"));
+			.find((identity) => identity?.path.endsWith("run-hov-router.sh"));
 		return script || null;
 	} catch {
 		return null;
@@ -212,7 +212,7 @@ export function inspectRuntimeIdentity(options = {}) {
 			guard: fileIdentity(options.guardPath || GUARD_MODULE_PATH),
 			policy: fileIdentity(options.policyPath || POLICY_MODULE_PATH),
 			timing: fileIdentity(
-				fileURLToPath(new URL("./ccflare-managed-timing.mjs", import.meta.url)),
+				fileURLToPath(new URL("./hov-router-managed-timing.mjs", import.meta.url)),
 			),
 			transaction: (() => {
 				const runner = parentRunnerIdentity(runnerPid, procRoot);
@@ -220,7 +220,7 @@ export function inspectRuntimeIdentity(options = {}) {
 					? fileIdentity(
 							fileURLToPath(
 								new URL(
-									"./ccflare-deployment-transaction.mjs",
+									"./hov-router-deployment-transaction.mjs",
 									`file://${runner.path}`,
 								),
 							),
@@ -1647,7 +1647,7 @@ export function createGuard(options = {}) {
 		8788,
 	);
 	const upstreamBase =
-		options.upstreamBase ?? env.CCFLARE_UPSTREAM ?? "http://127.0.0.1:8789";
+		options.upstreamBase ?? env.HOV_ROUTER_UPSTREAM ?? "http://127.0.0.1:8789";
 	const upstreamUrl = new URL(upstreamBase);
 	const maxActive = Math.max(
 		1,
@@ -1880,18 +1880,18 @@ export function createGuard(options = {}) {
 		DEFAULT_ACCEPTED_CAP_MS,
 		{ name: "GUARD_ACCEPTED_CAP_MS", min: 1, max: DEFAULT_ACCEPTED_CAP_MS },
 	);
-	const managedTimingEnabled = env.CCFLARE_MANAGED_TIMING === "1";
+	const managedTimingEnabled = env.HOV_ROUTER_MANAGED_TIMING === "1";
 	if (managedTimingEnabled) bootIdentity(); // Linux-only contract fails before listen.
 	const timingNow = managedTimingEnabled
 		? monotonicNowNs
 		: () => process.hrtime.bigint();
 	const ingressNonce =
-		env.CCFLARE_MANAGED_INGRESS_NONCE ||
+		env.HOV_ROUTER_MANAGED_INGRESS_NONCE ||
 		(managedTimingEnabled ? "" : randomUUID().replaceAll("-", ""));
-	let candidateNonce = env.CCFLARE_MANAGED_CANDIDATE_NONCE || "";
-	let backendSourceSha = env.CCFLARE_SOURCE_SHA || sourceId;
+	let candidateNonce = env.HOV_ROUTER_MANAGED_CANDIDATE_NONCE || "";
+	let backendSourceSha = env.HOV_ROUTER_SOURCE_SHA || sourceId;
 	let timingSecret = decodeGuardCorrelationSecret(
-		options.guardCorrelationSecret ?? env.CCFLARE_GUARD_CORRELATION_SECRET,
+		options.guardCorrelationSecret ?? env.HOV_ROUTER_GUARD_CORRELATION_SECRET,
 	);
 	if (
 		managedTimingEnabled &&
@@ -2214,7 +2214,7 @@ export function createGuard(options = {}) {
 							candidate.candidateNonce ||
 						health.managedIngress?.timingContract !== MANAGED_TIMING_VERSION ||
 						health.managedIngress?.schemaDigest !==
-							env.CCFLARE_SCHEMA_DIGEST)) ||
+							env.HOV_ROUTER_SCHEMA_DIGEST)) ||
 				procStartTime(candidate.pid) !== candidate.startTime
 			)
 				throw new Error("replacement health identity mismatch");
@@ -2236,7 +2236,7 @@ export function createGuard(options = {}) {
 			!/^[0-9a-f]{64}$/.test(manifest.candidateHash || "") ||
 			!/^[0-9a-f]{40}$/.test(manifest.candidateSourceSha || "") ||
 			!/^[0-9a-f]{32}$/.test(manifest.candidateNonce || "") ||
-			manifest.schemaDigest !== env.CCFLARE_SCHEMA_DIGEST ||
+			manifest.schemaDigest !== env.HOV_ROUTER_SCHEMA_DIGEST ||
 			!manifest.intentPath ||
 			!manifest.pinPath
 		)

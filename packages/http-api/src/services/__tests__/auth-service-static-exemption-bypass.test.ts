@@ -36,8 +36,8 @@ import type { DatabaseOperations } from "@hov-router/database";
 import { type ApiKey, NodeCryptoUtils } from "@hov-router/types/api-key";
 import { AuthService } from "../auth-service";
 
-const INTERNAL_PROBE_SECRET_HEADER = "x-better-ccflare-internal-probe-secret";
-const LOCAL_CONTROL_SECRET_HEADER = "x-better-ccflare-local-control-secret";
+const INTERNAL_PROBE_SECRET_HEADER = "x-hov-router-internal-probe-secret";
+const LOCAL_CONTROL_SECRET_HEADER = "x-hov-router-local-control-secret";
 const PROBE_SECRET = "test-internal-probe-secret";
 const LOCAL_CONTROL_SECRET = "test-local-control-secret";
 const NON_GET_METHODS = [
@@ -277,7 +277,7 @@ describe("AuthService — static exemption bypass regression", () => {
 					method: "POST",
 					headers: {
 						[INTERNAL_PROBE_SECRET_HEADER]: PROBE_SECRET,
-						"x-better-ccflare-keepalive": "true",
+						"x-hov-router-keepalive": "true",
 					},
 				});
 				const result = await auth.authenticateProxyRequest(req, path, "POST");
@@ -293,7 +293,7 @@ describe("AuthService — static exemption bypass regression", () => {
 					method: "POST",
 					headers: {
 						[INTERNAL_PROBE_SECRET_HEADER]: PROBE_SECRET,
-						"x-better-ccflare-keepalive": "true",
+						"x-hov-router-keepalive": "true",
 					},
 				});
 				const result = await auth.authenticateProxyRequest(req, path, "POST");

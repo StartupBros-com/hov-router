@@ -1,3 +1,4 @@
+import { refuseRetiredNames } from "@hov-router/config/retired-names";
 import { loadCliDotenv } from "./startup-env";
 
 // This entrypoint is compiled with --no-compile-autoload-dotenv and loads the
@@ -36,6 +37,8 @@ import { loadCliDotenv } from "./startup-env";
 // argv[1] names Bun's virtual bundled entrypoint, not the deployed executable.
 // Load fallbacks once, using the physical path, before app modules snapshot env.
 loadCliDotenv(process.execPath);
+// Before any app module can read a setting or create a directory.
+refuseRetiredNames();
 
 // The dynamic import is important: app modules may snapshot env at import time.
 const { startCli } = await import("./main");

@@ -31,7 +31,7 @@ tags:
 
 ## Problem
 
-`scripts/run-ccflare-stack.sh` assumed that a trapped TERM always runs its handler. Under bash
+`scripts/run-hov-router.sh` assumed that a trapped TERM always runs its handler. Under bash
 5.2.21 (Ubuntu 24.04, which production runs and which CI's `ubuntu-latest` was until
 2026-11-17), it does not. A trapped signal that
 lands while bash parses a `$(...)` loses its handler. bash prints
@@ -93,7 +93,7 @@ anything when no backend pid was noted. An empty pid cannot tell "nothing was sp
 of the fix did, so it would have closed a record it could not read and let a second runner own
 the database. The test "leaves a record it cannot read, so the next start is held" caught it.
 The transaction module's rule applies here too: only `ENOENT` proves absence
-(`scripts/ccflare-deployment-transaction.mjs:42`).
+(`scripts/hov-router-deployment-transaction.mjs:42`).
 
 **One TERM, then `wait`.** That wait has no bound. Two probes totalling 1,400 rounds never
 lost a TERM, so the cause could not be fixed directly; only the wait could be bounded.
@@ -103,7 +103,7 @@ lost a TERM, so the cause could not be fixed directly; only the wait could be bo
 The exit path decides from markers set by plain assignments, not from which handler ran, and
 every wait in it ends (#865).
 
-- **A spawn marker.** `owner_spawn_begun` (`scripts/run-ccflare-stack.sh:135`) is set just
+- **A spawn marker.** `owner_spawn_begun` (`scripts/run-hov-router.sh:135`) is set just
   before the backend is launched (`:1070`). `close_reaped_owner` (`:458`) reads it:
 
   ```bash
@@ -133,7 +133,7 @@ every wait in it ends (#865).
   finding it. The same function stops the deploy listener, the retiring backend's reaper and
   the guard control call.
 
-`scripts/deploy-ccflare.sh` already worked this way: its rollback runs from the EXIT trap
+`scripts/deploy-hov-router.sh` already worked this way: its rollback runs from the EXIT trap
 (`trap 'rollback_on_failure $?' EXIT`, `:278`), not from a signal handler.
 
 ## Why This Works
@@ -164,7 +164,7 @@ second one.
   first one.
 - **Test the EXIT-only path directly.** Send the runner SIGUSR1, which it does not trap, at the
   moment under test. See "closes the record when the runner is ended without its stop handler as
-  the record is written" (`scripts/__tests__/run-ccflare-stack-full-disk.test.ts:449`). The
+  the record is written" (`scripts/__tests__/run-hov-router-full-disk.test.ts:449`). The
   bounded helper stop is covered by the describe "a deploy listener that does not stop when it is
   told to" (`:567`). Its listeners ignore TERM outright, because the real cause is unknown.
 - **Check a new bash before relying on the handler again.** This probe is the measurement above:

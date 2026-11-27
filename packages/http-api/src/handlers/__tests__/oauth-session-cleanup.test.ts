@@ -29,18 +29,18 @@ mock.module("@hov-router/proxy", () => ({
 
 const SESSION_ID = "00000000-0000-0000-0000-0000000000c1";
 let configDir: string;
-const originalConfigPath = process.env.BETTER_CCFLARE_CONFIG_PATH;
+const originalConfigPath = process.env.HOV_ROUTER_CONFIG_PATH;
 
 beforeAll(() => {
 	configDir = mkdtempSync(join(tmpdir(), "oauth-session-cleanup-"));
-	process.env.BETTER_CCFLARE_CONFIG_PATH = join(configDir, "config.json");
+	process.env.HOV_ROUTER_CONFIG_PATH = join(configDir, "config.json");
 });
 
 afterAll(() => {
 	if (originalConfigPath === undefined) {
-		delete process.env.BETTER_CCFLARE_CONFIG_PATH;
+		delete process.env.HOV_ROUTER_CONFIG_PATH;
 	} else {
-		process.env.BETTER_CCFLARE_CONFIG_PATH = originalConfigPath;
+		process.env.HOV_ROUTER_CONFIG_PATH = originalConfigPath;
 	}
 	rmSync(configDir, { recursive: true, force: true });
 });

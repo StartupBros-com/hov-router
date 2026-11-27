@@ -1204,17 +1204,16 @@ describe("cache isolation between detail and non-detail", () => {
 
 describe("health build-time provenance", () => {
 	const ENV_KEYS = [
-		"CCFLARE_GIT_SHA",
-		"CCFLARE_GIT_REF",
-		"CCFLARE_BUILD_DATE",
-		"CCFLARE_VERSION",
-		"CCFLARE_DISTRIBUTION",
-		"CCFLARE_PRODUCER",
-		"CCFLARE_ARTIFACT_MODE",
-		"CCFLARE_UPDATE_CHANNEL",
-		"CCFLARE_SOURCE_SHA",
-		"CCFLARE_SOURCE_REF",
-		"BETTER_CCFLARE_VERSION",
+		"HOV_ROUTER_GIT_SHA",
+		"HOV_ROUTER_GIT_REF",
+		"HOV_ROUTER_BUILD_DATE",
+		"HOV_ROUTER_VERSION",
+		"HOV_ROUTER_DISTRIBUTION",
+		"HOV_ROUTER_PRODUCER",
+		"HOV_ROUTER_ARTIFACT_MODE",
+		"HOV_ROUTER_UPDATE_CHANNEL",
+		"HOV_ROUTER_SOURCE_SHA",
+		"HOV_ROUTER_SOURCE_REF",
 		"npm_package_version",
 	] as const;
 
@@ -1247,11 +1246,11 @@ describe("health build-time provenance", () => {
 	}
 
 	// NOTE: `version` and `git_sha` are intentionally NOT asserted against the
-	// CCFLARE_VERSION / CCFLARE_GIT_SHA env vars here. readBuildProvenance()
+	// HOV_ROUTER_VERSION / HOV_ROUTER_GIT_SHA env vars here. readBuildProvenance()
 	// populates them first, but health.ts then overrides both with the fork's
 	// own --define-based getVersionSync()/getGitSha() (packages/core/version.ts)
 	// so `git_sha` stays verifiable via the compiled binary regardless of
-	// Docker-style env vars — see scripts/deploy-ccflare-lib.sh
+	// Docker-style env vars — see scripts/deploy-hov-router-lib.sh
 	// validate_deploy_health(), which compares /health's git_sha against the
 	// binary that was actually built. getVersionSync()/getGitSha() also cache
 	// their result for the process lifetime, so they aren't reliably
@@ -1259,11 +1258,11 @@ describe("health build-time provenance", () => {
 	// fork-side equivalent and remain pure env-var passthrough.
 	it("reports build-time provenance when env vars are set", async () => {
 		const saved = snapshotEnv();
-		process.env.CCFLARE_GIT_SHA = "abcdef1234567890abcdef1234567890abcdef12";
-		process.env.CCFLARE_GIT_REF = "deploy/test";
-		process.env.CCFLARE_BUILD_DATE = "2026-08-01T00:00:00Z";
-		process.env.CCFLARE_VERSION = "9.9.9-test";
-		delete process.env.BETTER_CCFLARE_VERSION;
+		process.env.HOV_ROUTER_GIT_SHA = "abcdef1234567890abcdef1234567890abcdef12";
+		process.env.HOV_ROUTER_GIT_REF = "deploy/test";
+		process.env.HOV_ROUTER_BUILD_DATE = "2026-08-01T00:00:00Z";
+		process.env.HOV_ROUTER_VERSION = "9.9.9-test";
+		delete process.env.HOV_ROUTER_VERSION;
 		delete process.env.npm_package_version;
 		try {
 			const handler = createHealthHandler(makeDb(), makeConfig());
@@ -1284,15 +1283,15 @@ describe("health build-time provenance", () => {
 
 	it("exposes only validated distribution fields without altering health identity", async () => {
 		const saved = snapshotEnv();
-		process.env.CCFLARE_GIT_SHA = "abcdef1234567890abcdef1234567890abcdef12";
-		process.env.CCFLARE_GIT_REF = "refs/heads/main";
-		process.env.CCFLARE_BUILD_DATE = "2026-08-01T00:00:00Z";
-		process.env.CCFLARE_DISTRIBUTION = "v1:startupbros-managed-source";
-		process.env.CCFLARE_PRODUCER = "startupbros";
-		process.env.CCFLARE_ARTIFACT_MODE = "managed-source";
-		process.env.CCFLARE_SOURCE_SHA = process.env.CCFLARE_GIT_SHA;
-		process.env.CCFLARE_SOURCE_REF = process.env.CCFLARE_GIT_REF;
-		delete process.env.CCFLARE_UPDATE_CHANNEL;
+		process.env.HOV_ROUTER_GIT_SHA = "abcdef1234567890abcdef1234567890abcdef12";
+		process.env.HOV_ROUTER_GIT_REF = "refs/heads/main";
+		process.env.HOV_ROUTER_BUILD_DATE = "2026-08-01T00:00:00Z";
+		process.env.HOV_ROUTER_DISTRIBUTION = "v1:startupbros-managed-source";
+		process.env.HOV_ROUTER_PRODUCER = "startupbros";
+		process.env.HOV_ROUTER_ARTIFACT_MODE = "managed-source";
+		process.env.HOV_ROUTER_SOURCE_SHA = process.env.HOV_ROUTER_GIT_SHA;
+		process.env.HOV_ROUTER_SOURCE_REF = process.env.HOV_ROUTER_GIT_REF;
+		delete process.env.HOV_ROUTER_UPDATE_CHANNEL;
 		try {
 			const response = await createHealthHandler(
 				makeDb(),
@@ -1310,7 +1309,7 @@ describe("health build-time provenance", () => {
 				proven: true,
 				reason: "proven_non_actionable",
 			});
-			expect(JSON.stringify(body)).not.toContain("CCFLARE_SOURCE_SHA");
+			expect(JSON.stringify(body)).not.toContain("HOV_ROUTER_SOURCE_SHA");
 		} finally {
 			restoreEnv(saved);
 		}
@@ -1367,10 +1366,10 @@ it("reports the loaded route profiles' source when the server provides it", asyn
 		source: "file" as const,
 		status: "last_good" as const,
 		count: 6,
-		path: "/etc/better-ccflare/model-route-profiles.json",
+		path: "/etc/hov-router/model-route-profiles.json",
 		sha256: "a".repeat(64),
 		fallbackReady: true,
-		error: "CCFLARE_MODEL_ROUTE_PROFILES_FILE (/etc/x): must be valid JSON",
+		error: "HOV_ROUTER_MODEL_ROUTE_PROFILES_FILE (/etc/x): must be valid JSON",
 	};
 	const present = await (
 		await createHealthHandler(db, config, {

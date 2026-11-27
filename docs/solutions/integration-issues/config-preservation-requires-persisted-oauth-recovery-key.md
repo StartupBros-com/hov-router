@@ -25,7 +25,7 @@ This dependency matters to maintainers changing config recovery or secret creati
 
 ## Symptoms
 
-During [PR #530](https://github.com/StartupBros-com/better-ccflare/pull/530), an intermediate implementation suppressed writes after an invalid initial config load but still allowed a generated secret to be returned. Regression checks also exposed a generated key being returned after a real filesystem write failure. These were pre-merge findings, not an observed production loss of OAuth records.
+During [PR #530](https://github.com/StartupBros-com/hov-router/pull/530), an intermediate implementation suppressed writes after an invalid initial config load but still allowed a generated secret to be returned. Regression checks also exposed a generated key being returned after a real filesystem write failure. These were pre-merge findings, not an observed production loss of OAuth records.
 
 ## What Didn't Work
 
@@ -79,6 +79,6 @@ Retire or rewrite this dependency-specific guidance if OAuth recovery stops deri
 
 ## Related Issues
 
-- [PR #530: merged config-preservation fix](https://github.com/StartupBros-com/better-ccflare/pull/530).
-- [Issue #529: specification and functional-confirmation tracking](https://github.com/StartupBros-com/better-ccflare/issues/529).
+- [PR #530: merged config-preservation fix](https://github.com/StartupBros-com/hov-router/pull/530).
+- [Issue #529: specification and functional-confirmation tracking](https://github.com/StartupBros-com/hov-router/issues/529).
 - [full-disk-outage-was-the-runner-giving-up.md](full-disk-outage-was-the-runner-giving-up.md): why the store moved to slot files that a save overwrites in place.

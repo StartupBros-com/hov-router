@@ -24,7 +24,7 @@ import type {
  *
  * - promptCacheKeyEnabled / cacheKeyMode / pacingMs (60s): KEEP — the proven
  *   production controls. pacingMs is recorded as its deployed value
- *   (2026-08-20 plan doc Sources block: `CCFLARE_CACHE_PACING_MS=60000`), not
+ *   (2026-08-20 plan doc Sources block: `HOV_ROUTER_CACHE_PACING_MS=60000`), not
  *   the env-unset code default, because the ownership table declares it
  *   KEPT ON.
  * - globalKeepaliveTtlMinutes, xaiCacheKeepaliveTtlMinutes: default-off

@@ -208,7 +208,7 @@ function deriveRequestAudience(
 
 function requestLineageMatches(request: Request, lineage: string): boolean {
 	return (
-		request.headers.get("x-better-ccflare-keepalive") !== "true" &&
+		request.headers.get("x-hov-router-keepalive") !== "true" &&
 		request.headers.get("x-claude-code-session-id") === lineage
 	);
 }

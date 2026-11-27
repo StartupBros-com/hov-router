@@ -64,7 +64,7 @@ Status as of this writing: PR #451 was deployed on 2026-10-06 at 01:25Z. Confirm
 PR #451 makes the guard drop one response header. The guard is the last hop before the client.
 
 ```js
-// scripts/ccflare-guard.mjs:106
+// scripts/hov-router-guard.mjs:106
 export const UNIFIED_OVERAGE_IN_USE_HEADER =
 	"anthropic-ratelimit-unified-overage-in-use";
 
@@ -74,7 +74,7 @@ export const UNIFIED_OVERAGE_IN_USE_HEADER =
 
 - **The backend still records the upstream value before the guard strips it.** The `requests.unified_ratelimit_headers` column holds the bounded `anthropic-ratelimit-unified-*` headers of each successful Fable 2xx (`captureUnifiedRatelimitHeaders`, `packages/proxy/src/usage-collector.ts:233`). This capture came with #445 and was kept.
 - **The cap is gone.** #445's cap was removed from both the code and the live config.
-- **A test pins the strip.** `scripts/__tests__/ccflare-guard.test.ts:1091` checks that the header is dropped and that the other unified headers still reach the client.
+- **A test pins the strip.** `scripts/__tests__/hov-router-guard.test.ts:1091` checks that the header is dropped and that the other unified headers still reach the client.
 
 ## Why This Works
 
@@ -102,14 +102,14 @@ Not covered:
 - **For a client-side symptom, find the client's actual trigger before building proxy machinery.** When Claude Code shows a prompt, a banner or a model switch, search the installed binary for the message text and read what sets it. #445 shipped a config, an evaluator, route blockers, a 503 lane and a logger on a premise nobody had checked. Searching the client would have pointed at the response headers. The fix at the proxy edge was a few lines.
 - **Behind a pool, a rate-limit header describes the serving account, not the client.** Any `anthropic-ratelimit-unified-*` header that Claude Code acts on can mislead it. When an upgrade makes the client start acting on a new one, decide whether the guard should pass it through.
 - **If it comes back, check in this order.** Do not treat it as pool exhaustion, and do not re-add a per-account cap.
-  1. Check that the deployed guard still strips the header: run `rg -F UNIFIED_OVERAGE_IN_USE_HEADER` on the pinned `guards/<sha>/ccflare-guard.mjs` under `~/.config/better-ccflare`.
+  1. Check that the deployed guard still strips the header: run `rg -F UNIFIED_OVERAGE_IN_USE_HEADER` on the pinned `guards/<sha>/hov-router-guard.mjs` under `~/.config/hov-router`.
   2. Check whether a 429 carrying `credits_required` or `seven_day_overage_included` reached the session.
   3. Check for `tengu_saffron_lattice` among the cached GrowthBook features in `~/.claude.json`.
 
   For steps 1 and 2, this query reads the database without writing anything:
 
   ```sql
-  -- sqlite3 -readonly ~/.config/better-ccflare/better-ccflare.db
+  -- sqlite3 -readonly ~/.config/hov-router/hov-router.db
   SELECT datetime(timestamp/1000, 'unixepoch') AS t_utc, model, status_code,
          unified_ratelimit_headers, error_message
   FROM requests

@@ -30,23 +30,23 @@ import {
 function stripInternalControlHeaders(headers: Headers): void {
 	headers.delete(INTERNAL_PROBE_SECRET_HEADER);
 	headers.delete(RESPONSES_ADAPTER_SECRET_HEADER);
-	headers.delete("x-better-ccflare-auto-refresh");
-	headers.delete("x-better-ccflare-keepalive");
+	headers.delete("x-hov-router-auto-refresh");
+	headers.delete("x-hov-router-keepalive");
 	headers.delete(GUARD_REQUEST_ID_HEADER);
 	headers.delete(GUARD_CORRELATION_SECRET_HEADER);
-	// The rest of this list is every other in-use x-better-ccflare-* internal
+	// The rest of this list is every other in-use x-hov-router-* internal
 	// signalling header read anywhere upstream of this call (account
 	// selection, routing, provider request-shaping): this function runs at
 	// the physical-dispatch boundary, strictly after every such read, on a
 	// disposable Headers copy the caller never sees again -- so stripping
 	// here cannot affect anything already read from the original headers.
-	headers.delete("x-better-ccflare-request-id");
-	headers.delete("x-better-ccflare-request-stream");
-	headers.delete("x-better-ccflare-codex-custom-tools");
-	headers.delete("x-better-ccflare-native-responses");
-	headers.delete("x-better-ccflare-authenticated-caller");
-	headers.delete("x-better-ccflare-exclude-providers");
-	headers.delete("x-better-ccflare-codex-continuation");
+	headers.delete("x-hov-router-request-id");
+	headers.delete("x-hov-router-request-stream");
+	headers.delete("x-hov-router-codex-custom-tools");
+	headers.delete("x-hov-router-native-responses");
+	headers.delete("x-hov-router-authenticated-caller");
+	headers.delete("x-hov-router-exclude-providers");
+	headers.delete("x-hov-router-codex-continuation");
 }
 
 /**
@@ -117,7 +117,7 @@ export async function prepareRequestBody(req: Request): Promise<{
  * reused keep-alive socket it counts from when the socket returned to the pool,
  * so a slow model was dropped at 260-300 s — long before
  * PROXY_REQUEST_TIMEOUT_MS or the precommit rescue's commitment window (#489).
- * Disabling it leaves those ccflare deadlines in charge of the header wait.
+ * Disabling it leaves those router deadlines in charge of the header wait.
  * On 1.3.11 the same timer also reaped a body that went silent after headers,
  * including one whose reader was only cancelled; without it, that upstream is
  * held until it closes. Bun 1.4.2 cuts neither phase and closes the socket on

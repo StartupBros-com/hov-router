@@ -6,8 +6,8 @@ import type { ProxyContext } from "../proxy-types";
 
 /**
  * The in-place 529 retry re-invokes processResponse with a re-tagged retry
- * response. Providers (codex) read x-better-ccflare-request-stream and
- * x-better-ccflare-codex-custom-tools from response headers, with only a
+ * response. Providers (codex) read x-hov-router-request-stream and
+ * x-hov-router-codex-custom-tools from response headers, with only a
  * 30s-TTL map as fallback — a long backoff plus a concurrent sweep can evict
  * that entry, so the retry response must carry the same metadata headers the
  * first response got, not just the request ID.
@@ -107,8 +107,8 @@ function makeProxyContext(seen: SeenHeaders[]): ProxyContext {
 			// transformed request so proxy-operations can tag responses from them.
 			transformRequestBody: async (request: Request) => {
 				const headers = new Headers(request.headers);
-				headers.set("x-better-ccflare-request-stream", "true");
-				headers.set("x-better-ccflare-codex-custom-tools", "true");
+				headers.set("x-hov-router-request-stream", "true");
+				headers.set("x-hov-router-codex-custom-tools", "true");
 				return new Request(request.url, {
 					method: request.method,
 					headers,
@@ -117,13 +117,9 @@ function makeProxyContext(seen: SeenHeaders[]): ProxyContext {
 			},
 			processResponse: async (response: Response) => {
 				seen.push({
-					requestId: response.headers.get("x-better-ccflare-request-id"),
-					requestStream: response.headers.get(
-						"x-better-ccflare-request-stream",
-					),
-					customTools: response.headers.get(
-						"x-better-ccflare-codex-custom-tools",
-					),
+					requestId: response.headers.get("x-hov-router-request-id"),
+					requestStream: response.headers.get("x-hov-router-request-stream"),
+					customTools: response.headers.get("x-hov-router-codex-custom-tools"),
 					status: response.status,
 				});
 				return response;
@@ -148,19 +144,19 @@ describe("proxyWithAccount — 529 in-place retry response tagging", () => {
 	const savedEnv: Record<string, string | undefined> = {};
 	const ENV_KEYS = [
 		"PRIVATE_AI_TRACE_ROUTES_JSON",
-		"CCFLARE_OVERLOAD_RETRY_ENABLED",
-		"CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS",
-		"CCFLARE_OVERLOAD_RETRY_BASE_MS",
-		"CCFLARE_OVERLOAD_RETRY_MAX_MS",
+		"HOV_ROUTER_OVERLOAD_RETRY_ENABLED",
+		"HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS",
+		"HOV_ROUTER_OVERLOAD_RETRY_BASE_MS",
+		"HOV_ROUTER_OVERLOAD_RETRY_MAX_MS",
 	];
 
 	beforeEach(() => {
 		originalFetch = globalThis.fetch;
 		for (const key of ENV_KEYS) savedEnv[key] = process.env[key];
-		process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = "true";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
-		process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = "true";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";
 	});
 
 	afterEach(() => {
@@ -229,7 +225,7 @@ describe("proxyWithAccount — 529 in-place retry response tagging", () => {
 				expect(headers.get("x-private-ai-parent-span-id")).toBe(
 					"2222222222222222",
 				);
-				expect(headers.has("x-better-ccflare-request-id")).toBe(false);
+				expect(headers.has("x-hov-router-request-id")).toBe(false);
 			}
 			expect(sent[0].get("x-private-ai-attempt-id")).not.toBe(
 				sent[1].get("x-private-ai-attempt-id"),

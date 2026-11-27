@@ -82,14 +82,14 @@ function works(strategy: MountStrategy, probeDir: string): boolean {
 
 /**
  * The way that works on this host, or null when neither does.
- * BETTER_CCFLARE_DISK_FULL_TEST_MOUNT names one to use and no other.
+ * HOV_ROUTER_DISK_FULL_TEST_MOUNT names one to use and no other.
  */
 export function findMountStrategy(): MountStrategy | null {
 	if (process.platform !== "linux" || uid === "") return null;
-	const forced = process.env.BETTER_CCFLARE_DISK_FULL_TEST_MOUNT as
+	const forced = process.env.HOV_ROUTER_DISK_FULL_TEST_MOUNT as
 		| MountStrategy
 		| undefined;
-	const probeDir = mkdtempSync(join(tmpdir(), "ccflare-disk-full-probe-"));
+	const probeDir = mkdtempSync(join(tmpdir(), "hov-router-disk-full-probe-"));
 	try {
 		if (forced) return works(forced, probeDir) ? forced : null;
 		if (works("userns", probeDir)) return "userns";

@@ -27,7 +27,7 @@ const READY_SERVER_TOOL_REPLAY_RUNTIME =
 	await createReadyServerToolReplayRuntimeForTest();
 
 const originalFetch = globalThis.fetch;
-const originalPassthrough = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+const originalPassthrough = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 let restoreUsageCollectors = (): void => {};
 
 function makeAccount(overrides: Partial<Account> = {}): Account {
@@ -368,7 +368,7 @@ async function run(
 }
 
 beforeEach(() => {
-	process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+	process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 	const collector = {
 		handleStart: mock(() => undefined),
 		handleChunk: mock(() => undefined),
@@ -393,9 +393,9 @@ afterEach(() => {
 	restoreUsageCollectors = (): void => {};
 	globalThis.fetch = originalFetch;
 	if (originalPassthrough === undefined) {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	} else {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = originalPassthrough;
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = originalPassthrough;
 	}
 });
 
@@ -649,7 +649,7 @@ describe("native web_search passthrough dispatch", () => {
 	});
 
 	it("continues to the first-party account when the replay bind fails and a hosted candidate is ordered ahead of it", async () => {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		const { provider, buildUrl, transform } = makeSpiedHostedProvider();
 		const { ctx } = makeContext(
 			[freshHostedAccount({ priority: 0 }), freshAccount({ priority: 5 })],
@@ -673,7 +673,7 @@ describe("native web_search passthrough dispatch", () => {
 	});
 
 	it("keeps replay_unavailable with zero sends when only a hosted route exists and the runtime is disabled", async () => {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		const { ctx } = makeContext(
 			[makeHostedAccount()],
 			{ status: "disabled" },
@@ -695,7 +695,7 @@ describe("native web_search passthrough dispatch", () => {
 	it("keeps replay_unavailable with zero sends when the bind fails and a first-party account is present but the request is not native-eligible", async () => {
 		// Proxy-opaque history passes the invalid and unsupported checks, so it
 		// reaches the bind-failure gate, where only the eligibility arm refuses it.
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		const { ctx } = makeContext([makeAccount()], { status: "disabled" });
 		const calls = installFetch(() => jsonOk());
 		const { request } = makeHelperRequest({ messages: PROXY_OPAQUE_HISTORY });
@@ -711,7 +711,7 @@ describe("native web_search passthrough dispatch", () => {
 	});
 
 	it("refuses proxy-opaque history with zero sends", async () => {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		const { ctx } = makeContext([makeAccount()]);
 		const calls = installFetch(() => jsonOk());
 		const { request } = makeHelperRequest({ messages: PROXY_OPAQUE_HISTORY });
@@ -726,7 +726,7 @@ describe("native web_search passthrough dispatch", () => {
 	});
 
 	it("keeps anthropic-compatible and custom-endpoint anthropic accounts at no_implementation", async () => {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		const compatible = makeAccount({
 			id: "compat",
 			name: "compat",
@@ -754,7 +754,7 @@ describe("native web_search passthrough dispatch", () => {
 	});
 
 	it("answers 503 temporary_unavailable with zero fetches when every first-party account is excluded", async () => {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		const { ctx } = makeContext([
 			makeAccount({ id: "a", name: "a", paused: true }),
 			makeAccount({ id: "b", name: "b", priority: 1, paused: true }),
@@ -773,7 +773,7 @@ describe("native web_search passthrough dispatch", () => {
 	});
 
 	it("serves from the available account when the other first-party account is throttled", async () => {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		const throttled = makeAccount({
 			id: "throttled",
 			name: "throttled",
@@ -900,7 +900,7 @@ describe("native web_search passthrough dispatch", () => {
 
 describe("hosted web_search request contrast", () => {
 	it("drops the beta=true query for a hosted candidate, which the native lane keeps", async () => {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		const { ctx } = makeContext(
 			[makeHostedAccount()],
 			READY_SERVER_TOOL_REPLAY_RUNTIME,
@@ -969,7 +969,7 @@ function rateLimited(): Response {
 
 describe("one search per request across lanes", () => {
 	it("executes exactly one search when a proven hosted fixture is ordered ahead of the first-party account", async () => {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		const { provider } = makeSpiedHostedProvider();
 		const { ctx } = makeContext(
 			[freshHostedAccount({ priority: 0 }), freshAccount({ priority: 5 })],
@@ -988,7 +988,7 @@ describe("one search per request across lanes", () => {
 
 	for (const status of [429, 500]) {
 		it(`skips the hosted candidate once a native send began and failed with ${status}`, async () => {
-			delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+			delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 			const { provider, buildUrl, transform } = makeSpiedHostedProvider();
 			const { ctx } = makeContext(
 				[freshAccount({ priority: 0 }), freshHostedAccount({ priority: 5 })],
@@ -1024,7 +1024,7 @@ describe("one search per request across lanes", () => {
 	}
 
 	it("skips the first-party candidate once a hosted dispatch is claimed", async () => {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		const { provider } = makeSpiedHostedProvider();
 		const { ctx } = makeContext(
 			[freshHostedAccount({ priority: 0 }), freshAccount({ priority: 5 })],
@@ -1051,7 +1051,7 @@ describe("one search per request across lanes", () => {
 	});
 
 	it("keeps native-to-native failover unchanged beside a hosted fixture", async () => {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 		const { provider } = makeSpiedHostedProvider();
 		const { ctx } = makeContext(
 			[

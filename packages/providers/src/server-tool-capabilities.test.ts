@@ -3265,7 +3265,7 @@ describe("search_profile declarations", () => {
 			null,
 		]);
 		const digest = new Bun.CryptoHasher("sha256")
-			.update("better-ccflare/server-tool-option-profile/v1\0")
+			.update("hov-router/server-tool-option-profile/v1\0")
 			.update(canonical)
 			.digest("hex");
 		expect(requirement?.optionProfileId).toBe(

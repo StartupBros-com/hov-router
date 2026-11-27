@@ -619,7 +619,7 @@ test("rollouts that ran through a custom provider or a route alias are not count
 	);
 	await write(
 		"rollout-proxied.jsonl",
-		rollout("proxied", "better_ccflare", [["gpt-6-astra", 400]], "03"),
+		rollout("proxied", "hov_router", [["gpt-6-astra", 400]], "03"),
 	);
 	await write(
 		"rollout-alias.jsonl",
@@ -667,7 +667,7 @@ test("a counted rollout that later shows a custom provider loses its rows (#782)
 		path,
 		rollout(
 			"heal",
-			"better_ccflare",
+			"hov_router",
 			[
 				["gpt-6-astra", 300],
 				["gpt-6-astra", 50],

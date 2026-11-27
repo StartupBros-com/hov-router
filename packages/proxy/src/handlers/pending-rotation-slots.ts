@@ -133,6 +133,8 @@ function parseFileDigest(fileName: string): string | null {
 	return HEX_SHA256.test(digest) ? digest : null;
 }
 
+// The label keeps the name inherited from better-ccflare on purpose: slots on
+// disk were sealed under it, and a new label would make them unreadable.
 function deriveKey(secret: string): Buffer {
 	if (!secret) throw new Error("pending rotation slot secret is empty");
 	return createHash("sha256")

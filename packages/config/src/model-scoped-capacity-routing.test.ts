@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { Config } from "./index";
 
 function makeConfig(): { config: Config; cleanup: () => void } {
-	const dir = mkdtempSync(join(tmpdir(), "better-ccflare-config-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-config-"));
 	return {
 		config: new Config(join(dir, "config.json")),
 		cleanup: () => rmSync(dir, { recursive: true, force: true }),

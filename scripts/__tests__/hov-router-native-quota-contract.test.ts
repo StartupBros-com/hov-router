@@ -2,8 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createServer, type Server } from "node:http";
 import type { Account } from "../../packages/types/src/account";
 import { createRoutingTerminalResponse } from "../../packages/proxy/src/handlers/routing-terminal";
-import { evaluateGuardRetry } from "../ccflare-guard-policy.mjs";
-import { createGuard } from "../ccflare-guard.mjs";
+import { evaluateGuardRetry } from "../hov-router-guard-policy.mjs";
+import { createGuard } from "../hov-router-guard.mjs";
 
 const NOW = Date.parse("2026-09-05T12:00:00.000Z");
 
@@ -88,8 +88,8 @@ describe("native quota client and guard contract", () => {
 			1,
 		);
 		expect(Number(response.headers.get("retry-after"))).toBeLessThanOrEqual(60);
-		expect(response.headers.has("x-better-ccflare-pool-status")).toBe(false);
-		expect(response.headers.has("x-better-ccflare-recovery-scope")).toBe(false);
+		expect(response.headers.has("x-hov-router-pool-status")).toBe(false);
+		expect(response.headers.has("x-hov-router-recovery-scope")).toBe(false);
 	});
 
 	test.each([

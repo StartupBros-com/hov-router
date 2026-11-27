@@ -3,7 +3,7 @@ import { getChatTemplateReasoningAccountIds } from "@hov-router/config";
 import type { Account } from "@hov-router/types";
 import { OpenAICompatibleProvider } from "../provider";
 
-const ENV = "CCFLARE_CHAT_TEMPLATE_REASONING_ACCOUNTS";
+const ENV = "HOV_ROUTER_CHAT_TEMPLATE_REASONING_ACCOUNTS";
 
 function makeAccount(id: string): Account {
 	return {

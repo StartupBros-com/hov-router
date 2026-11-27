@@ -51,7 +51,7 @@ const READY_SERVER_TOOL_REPLAY_RUNTIME =
 
 const MODEL = "claude-sonnet-4-5";
 const originalFetch = globalThis.fetch;
-const originalPassthrough = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+const originalPassthrough = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 let restoreUsageCollectors = (): void => {};
 let usageHandleStart = mock(() => undefined);
 let usageHandleEnd = mock(async () => undefined);
@@ -322,13 +322,13 @@ function makeServerToolRequest(
 		headers.set("x-api-key", "second-server-tool-test-client");
 	}
 	if (options.agentId) {
-		headers.set("x-better-ccflare-agent-id", options.agentId);
+		headers.set("x-hov-router-agent-id", options.agentId);
 	}
 	if (options.claudeCodeAgentId) {
 		headers.set("x-claude-code-agent-id", options.claudeCodeAgentId);
 	}
 	if (options.forcedAccountId) {
-		headers.set("x-better-ccflare-account-id", options.forcedAccountId);
+		headers.set("x-hov-router-account-id", options.forcedAccountId);
 	}
 	const query = options.query ? `?${options.query.replace(/^\?/, "")}` : "";
 	return new Request(`https://proxy.local/v1/messages${query}`, {
@@ -369,7 +369,7 @@ function makeServerToolRequest(
 }
 
 beforeEach(() => {
-	process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+	process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 	usageHandleStart = mock(() => undefined);
 	usageHandleEnd = mock(async () => undefined);
 	const collector = {
@@ -396,9 +396,9 @@ afterEach(() => {
 	restoreUsageCollectors = (): void => {};
 	globalThis.fetch = originalFetch;
 	if (originalPassthrough === undefined) {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	} else {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = originalPassthrough;
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = originalPassthrough;
 	}
 });
 
@@ -775,8 +775,8 @@ describe("server-tool routing integration", () => {
 		expect(mutations.updateAccountUsage).toHaveBeenCalledTimes(0);
 		expect(mutations.asyncWrite).toHaveBeenCalledTimes(0);
 		expect(mutations.reportFailure).toHaveBeenCalledTimes(0);
-		expect(response.headers.has("x-better-ccflare-pool-status")).toBeFalse();
-		expect(response.headers.has("x-better-ccflare-recovery-scope")).toBeFalse();
+		expect(response.headers.has("x-hov-router-pool-status")).toBeFalse();
+		expect(response.headers.has("x-hov-router-recovery-scope")).toBeFalse();
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(usageHandleStart).toHaveBeenCalledTimes(1);
 		expect(usageHandleStart.mock.calls[0]?.[0]).toMatchObject({
@@ -881,8 +881,8 @@ describe("server-tool routing integration", () => {
 		expect(mutations.reportFailure).toHaveBeenCalledTimes(0);
 		expect(globalThis.fetch).toHaveBeenCalledTimes(0);
 		expect(response.headers.has("retry-after")).toBeFalse();
-		expect(response.headers.has("x-better-ccflare-pool-status")).toBeFalse();
-		expect(response.headers.has("x-better-ccflare-recovery-scope")).toBeFalse();
+		expect(response.headers.has("x-hov-router-pool-status")).toBeFalse();
+		expect(response.headers.has("x-hov-router-recovery-scope")).toBeFalse();
 	});
 
 	it("skips a locally drifted candidate and succeeds through a proven sibling", async () => {
@@ -976,8 +976,8 @@ describe("server-tool routing integration", () => {
 		expect(mutations.updateAccountUsage).toHaveBeenCalledTimes(0);
 		expect(mutations.asyncWrite).toHaveBeenCalledTimes(0);
 		expect(mutations.reportFailure).toHaveBeenCalledTimes(0);
-		expect(response.headers.has("x-better-ccflare-pool-status")).toBeFalse();
-		expect(response.headers.has("x-better-ccflare-recovery-scope")).toBeFalse();
+		expect(response.headers.has("x-hov-router-pool-status")).toBeFalse();
+		expect(response.headers.has("x-hov-router-recovery-scope")).toBeFalse();
 	});
 
 	it("keeps mixed structural and temporary failures retryable", async () => {
@@ -1051,7 +1051,7 @@ describe("server-tool routing integration", () => {
 		const response = await handleProxy(request, new URL(request.url), ctx);
 		expect(response.status).toBe(400);
 		expect(response.headers.get("x-should-retry")).toBe("false");
-		expect(response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		expect(await response.json()).toMatchObject({
@@ -1079,7 +1079,7 @@ describe("server-tool routing integration", () => {
 		const response = await handleProxy(request, new URL(request.url), ctx);
 		expect(response.status).toBe(400);
 		expect(response.headers.get("x-should-retry")).toBe("false");
-		expect(response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		expect(await response.json()).toMatchObject({
@@ -1129,7 +1129,7 @@ describe("server-tool routing integration", () => {
 			reason: "forced_incapable",
 			account_id: forced.id,
 		});
-		expect(response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		expect(globalThis.fetch).toHaveBeenCalledTimes(0);
@@ -1192,7 +1192,7 @@ describe("server-tool routing integration", () => {
 		});
 		expect(body.error).not.toHaveProperty("account_id");
 		expect(JSON.stringify(body)).not.toContain(forced.id);
-		expect(response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		expect(globalThis.fetch).toHaveBeenCalledTimes(0);
@@ -1378,8 +1378,8 @@ describe("server-tool routing integration", () => {
 				},
 			);
 		});
-		const previousOverloadRetry = process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
-		process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = "false";
+		const previousOverloadRetry = process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = "false";
 		try {
 			const request = makeServerToolRequest({ claudeCodeForcedChoice: true });
 			const response = await handleProxy(request, new URL(request.url), ctx);
@@ -1395,9 +1395,9 @@ describe("server-tool routing integration", () => {
 			});
 		} finally {
 			if (previousOverloadRetry === undefined) {
-				delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+				delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 			} else {
-				process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = previousOverloadRetry;
+				process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = previousOverloadRetry;
 			}
 		}
 	});
@@ -1590,8 +1590,8 @@ describe("server-tool routing integration", () => {
 	});
 
 	it("keeps a real Codex hosted-tool profile on its proven physical model", async () => {
-		const originalContextAdmission = process.env.CCFLARE_CONTEXT_ADMISSION;
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		const originalContextAdmission = process.env.HOV_ROUTER_CONTEXT_ADMISSION;
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		try {
 			const physicalModel = "gpt-5.6-sol";
 			const account = makeAccount({
@@ -1642,7 +1642,7 @@ describe("server-tool routing integration", () => {
 					{
 						headers: {
 							"content-type": "text/event-stream",
-							"x-better-ccflare-final-model": physicalModel,
+							"x-hov-router-final-model": physicalModel,
 						},
 					},
 				);
@@ -1674,9 +1674,9 @@ describe("server-tool routing integration", () => {
 			]);
 		} finally {
 			if (originalContextAdmission === undefined) {
-				delete process.env.CCFLARE_CONTEXT_ADMISSION;
+				delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 			} else {
-				process.env.CCFLARE_CONTEXT_ADMISSION = originalContextAdmission;
+				process.env.HOV_ROUTER_CONTEXT_ADMISSION = originalContextAdmission;
 			}
 		}
 	});
@@ -1712,7 +1712,7 @@ describe("xAI count helpers preserve exact provider intent", () => {
 				method: "POST",
 				headers: {
 					"content-type": "application/json",
-					"x-better-ccflare-account-id": xai.id,
+					"x-hov-router-account-id": xai.id,
 				},
 				body: JSON.stringify({
 					model: MODEL,
@@ -1819,7 +1819,7 @@ describe("count helper declaration validation", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-account-id": xai.id,
+				"x-hov-router-account-id": xai.id,
 			},
 			body: JSON.stringify({ model: MODEL, messages: [] }),
 		});
@@ -2131,8 +2131,8 @@ describe("advisor native passthrough request gate", () => {
 		expect(mutations.markAccountRateLimited).toHaveBeenCalledTimes(0);
 		expect(mutations.updateAccountUsage).toHaveBeenCalledTimes(0);
 		expect(mutations.asyncWrite).toHaveBeenCalledTimes(0);
-		expect(response.headers.has("x-better-ccflare-pool-status")).toBeFalse();
-		expect(response.headers.has("x-better-ccflare-recovery-scope")).toBeFalse();
+		expect(response.headers.has("x-hov-router-pool-status")).toBeFalse();
+		expect(response.headers.has("x-hov-router-recovery-scope")).toBeFalse();
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(usageHandleEnd.mock.calls[0]?.[0]).toMatchObject({
 			success: false,
@@ -2425,7 +2425,7 @@ describe("advisor native-only selection through handleProxy", () => {
 
 	it("refuses a header force to a non-first-party account with zero fetches", async () => {
 		const request = advisorRequest({
-			headers: { "x-better-ccflare-account-id": "advisor-gateway" },
+			headers: { "x-hov-router-account-id": "advisor-gateway" },
 		});
 		const { response, body } = await refused(request, [
 			gateway(),
@@ -2542,8 +2542,8 @@ describe("advisor native-only selection through handleProxy", () => {
 			}
 		});
 
-		it("refuses with zero fetches under CCFLARE_PASSTHROUGH_ON_EMPTY_POOL=1 rather than passing through to Anthropic", async () => {
-			process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		it("refuses with zero fetches under HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL=1 rather than passing through to Anthropic", async () => {
+			process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 			const first = firstParty();
 			const { ctx } = makeContext([gateway(), first]);
 			throttleFirstParty(ctx, first);
@@ -2667,7 +2667,7 @@ describe("advisor native-only selection through handleProxy", () => {
 
 		it("returns the usage-throttle 529 for a force-routed non-first-party pin that is predictively throttled", async () => {
 			const gw = gateway();
-			const forced = { "x-better-ccflare-account-id": gw.id };
+			const forced = { "x-hov-router-account-id": gw.id };
 			const { ctx } = makeContext([gw, firstParty()]);
 			throttleAccount(ctx, gw);
 			try {
@@ -2695,7 +2695,7 @@ describe("advisor native-only selection through handleProxy", () => {
 			const gw = gateway();
 			const { ctx } = makeContext([gw, firstParty()]);
 			const { response, text } = await send(
-				advisorRequest({ headers: { "x-better-ccflare-account-id": gw.id } }),
+				advisorRequest({ headers: { "x-hov-router-account-id": gw.id } }),
 				ctx,
 			);
 			expect(response.status).toBe(400);
@@ -2952,7 +2952,7 @@ describe("route-profile WebSearch helper falls to the global proven lane", () =>
 			type: "force_route_unavailable",
 			reason: "forced_incapable",
 		});
-		expect(response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		expect(calls).toHaveLength(0);
@@ -2992,7 +2992,7 @@ describe("route-profile WebSearch helper falls to the global proven lane", () =>
 
 		expect(response.status).toBe(400);
 		expect(response.headers.get("x-should-retry")).toBe("false");
-		expect(response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		expect(JSON.parse(text).error).toMatchObject({
@@ -3237,7 +3237,7 @@ describe("route-profile WebSearch helper falls to the global proven lane", () =>
 			type: "force_route_unavailable",
 			reason: "forced_incapable",
 		});
-		expect(response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		expect(calls).toHaveLength(0);

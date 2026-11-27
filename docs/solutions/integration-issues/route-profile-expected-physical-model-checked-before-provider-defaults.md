@@ -45,7 +45,7 @@ The two shapes have different fixes. An accountId-pinned profile can simply drop
 ## Symptoms
 
 - On 2026-09-22 at 07:09 UTC, every request on `route_profile_id = grok-primary` returned HTTP 503, recorded as `force_route_model_mapping_mismatch`, before xAI was called (session history).
-  - The `grok` account's `model_mappings` had been changed from `grok-4.6` to `grok-4.7`, but the profile in `/etc/better-ccflare/model-route-profiles.env` still said `expectedPhysicalModel: "grok-4.6"`.
+  - The `grok` account's `model_mappings` had been changed from `grok-4.6` to `grok-4.7`, but the profile in `/etc/hov-router/model-route-profiles.env` still said `expectedPhysicalModel: "grok-4.6"`.
   - The terminal label comes from `force_route_${error.reason}` (`packages/proxy/src/proxy.ts:1102`), and the 503 comes from `forceRouteUnavailableResponse` (`packages/proxy/src/proxy.ts:262`).
 - The same break was about to recur that evening. The post-deploy plan for #361 was to clear the account's mapping so it would follow the derived default. The resolver predicted `model_mapping_mismatch` for that state.
 - The request that would have gone upstream was correct in both Grok cases. Only the account-selection guard rejected it.
@@ -77,13 +77,13 @@ Before:
 After:
 
 ```json
-{"id":"grok-primary","displayName":"Grok (latest) · grok","description":"Pins this Claude Code session tree to the newest Grok (ccflare follows the models.dev catalog)","accountId":"<grok account id>","logicalModel":"claude-opus-5","expectedProvider":"xai"}
+{"id":"grok-primary","displayName":"Grok (latest) · grok","description":"Pins this Claude Code session tree to the newest Grok (the router follows the models.dev catalog)","accountId":"<grok account id>","logicalModel":"claude-opus-5","expectedProvider":"xai"}
 ```
 
 Order of operations used on 2026-09-22 (~21:11 UTC):
 
-1. Back up `/etc/better-ccflare/model-route-profiles.env`.
-2. Write the edited `CCFLARE_MODEL_ROUTE_PROFILES_JSON` to a candidate file, and parse it with the real `parseModelRouteProfiles`. It returned all 6 profiles, with the other 5 unchanged.
+1. Back up `/etc/hov-router/model-route-profiles.env`.
+2. Write the edited `HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON` to a candidate file, and parse it with the real `parseModelRouteProfiles`. It returned all 6 profiles, with the other 5 unchanged.
 3. Install the candidate.
 4. Set the account's `model_mappings` to NULL, guarded on the old value (1 row changed).
 5. Restart the service once. The env file is read only at process start.
@@ -116,7 +116,7 @@ The `id` is unchanged, so the picker ID `claude-bccf-route-codex-pool-astra[1m]`
 
 Applied on 2026-09-26 with operator approval, in two phases. Phase one was read-only:
 
-1. Copy the live env file into a mode-700 scratch directory, and assert it is exactly one `CCFLARE_MODEL_ROUTE_PROFILES_JSON='...'` line.
+1. Copy the live env file into a mode-700 scratch directory, and assert it is exactly one `HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON='...'` line.
 2. Extract the running service's value from `/proc/<MainPID>/environ`, printing only this variable, and `cmp` it with the file. That catches an edit that was made but never restarted into.
 3. Compare-and-set on the fields being changed: the old `expectedPhysicalModel`, `selection: "capability"`, `expectedProvider: "codex"`, and no `physicalModelPolicy` yet.
 4. Transform with `jq -c`; `del(...)` plus object addition keeps key order. Then:
@@ -129,12 +129,12 @@ Phase two wrote and restarted:
 
 6. Repeat the compare-and-set against the live file.
 7. `cp -p` a backup, then `install -m 600 -o root -g root`, and verify the installed bytes. `EnvironmentFile` content needs no `daemon-reload`.
-8. `systemctl restart ccflare-stack.service`, and poll `/health` for 200. If it never comes up, reinstall the backup and restart again.
+8. `systemctl restart hov-router.service`, and poll `/health` for 200. If it never comes up, reinstall the backup and restart again.
 9. Check `git_sha`, guard health, and `NRestarts`, then `cmp` the new MainPID's environ value against the JSON validated in step 5.
 
 Observed: the file matched the running value; the parser accepted both versions, with only the two intended profiles changed. The restart began at 02:22:51Z and was healthy at 02:23:39Z, on the same build, with the running value byte-identical to the validated JSON.
 
-The info-level `Model route profiles configured: N` line (`apps/server/src/server.ts:2059`) did not appear in `journalctl -u ccflare-stack.service`. Production probably logs above info, but that wasn't checked. Don't treat the line's absence as a failure, or its presence as the check.
+The info-level `Model route profiles configured: N` line (`apps/server/src/server.ts:2059`) did not appear in `journalctl -u hov-router.service`. Production probably logs above info, but that wasn't checked. Don't treat the line's absence as a failure, or its presence as the check.
 
 **Not proven at the time:** no request had been served under catalog-role admission (`routed_model` equal to the catalog target). All three Codex accounts were out of weekly quota until about 2026-09-29 23:36Z. The first request on `codex-pool-astra` after the restart (02:25:07Z) returned `503 force_route_account_capacity_exhausted`. That's consistent with the fix, but not proof, because the order of the capacity check relative to catalog-role admission was not checked. `docs/solutions/workflow-issues/verify-capacity-exhausted-provider-lane-fixes-against-a-mock-upstream.md` describes how to prove such a lane without waiting for quota.
 
@@ -175,7 +175,7 @@ Catalog-role and line are the capability-pool equivalents. Both take the model f
 - **Before changing or clearing any account's `model_mappings`, find every profile that pins a physical model**, not only those that name the account. Capability pools have no `accountId` (the parser rejects one, `model-route-profiles.ts:298-302`), so an accountId-scoped search misses them. Since #973 the profiles live in the database. Read them on the dashboard's Route Lanes page ("Edit as JSON"), or with `GET /api/route-profiles` and an admin key, then look for `expectedPhysicalModel` in `profiles`. On a build older than #973 they were in the root-owned env file:
 
   ```bash
-  sudo cat /etc/better-ccflare/model-route-profiles.env | python3 -c '
+  sudo cat /etc/hov-router/model-route-profiles.env | python3 -c '
   import json, sys
   line = sys.stdin.read().strip()
   profiles = json.loads(line.split("=", 1)[1].strip("\x27"))

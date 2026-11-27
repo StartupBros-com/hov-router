@@ -453,7 +453,7 @@ describe("proxyWithAccount — combo override success-conditioning / observabili
 		const startMessage = handleStart.mock.calls[0]?.[0] as StartMessage;
 		expect(startMessage.originalModel).toBe("claude-fable-5");
 		expect(startMessage.appliedModel).toBe("gpt-5.6-terra");
-		expect(result?.headers.get("x-better-ccflare-model-rewrite")).toBe(
+		expect(result?.headers.get("x-hov-router-model-rewrite")).toBe(
 			"claude-fable-5->gpt-5.6-terra",
 		);
 	});
@@ -512,10 +512,10 @@ describe("proxyWithAccount — combo override success-conditioning / observabili
 			{ routeCandidateId: "route-candidate-root" },
 		);
 
-		expect(result?.headers.get("x-better-ccflare-route-fallback")).toBe(
+		expect(result?.headers.get("x-hov-router-route-fallback")).toBe(
 			"profile_root_model",
 		);
-		expect(result?.headers.get("x-better-ccflare-routed-model")).toBe(
+		expect(result?.headers.get("x-hov-router-routed-model")).toBe(
 			"gpt-5.6-terra",
 		);
 		expect(await result?.json()).toMatchObject({ id: "msg_route_provenance" });
@@ -563,10 +563,10 @@ describe("proxyWithAccount — combo override success-conditioning / observabili
 		);
 
 		expect(result?.status).toBe(204);
-		expect(result?.headers.get("x-better-ccflare-route-fallback")).toBe(
+		expect(result?.headers.get("x-hov-router-route-fallback")).toBe(
 			"global_requested_model",
 		);
-		expect(result?.headers.get("x-better-ccflare-routed-model")).toBe(
+		expect(result?.headers.get("x-hov-router-routed-model")).toBe(
 			"gpt-5.6-terra",
 		);
 	});
@@ -626,13 +626,13 @@ describe("proxyWithAccount — combo override success-conditioning / observabili
 			{ routeCandidateId: candidateId },
 		);
 
-		expect(result?.headers.get("x-better-ccflare-route-fallback")).toBe(
+		expect(result?.headers.get("x-hov-router-route-fallback")).toBe(
 			"profile_root_model",
 		);
 		const routeHeaderNames: string[] = [];
 		const forbidden = [account.id, candidateId];
 		for (const [name, value] of result?.headers.entries() ?? []) {
-			if (/^x-better-ccflare-(route|routed)/.test(name)) {
+			if (/^x-hov-router-(route|routed)/.test(name)) {
 				routeHeaderNames.push(name);
 			}
 			for (const secret of forbidden) {
@@ -641,8 +641,8 @@ describe("proxyWithAccount — combo override success-conditioning / observabili
 			}
 		}
 		expect(routeHeaderNames.sort()).toEqual([
-			"x-better-ccflare-route-fallback",
-			"x-better-ccflare-routed-model",
+			"x-hov-router-route-fallback",
+			"x-hov-router-routed-model",
 		]);
 		const bodyText = (await result?.text()) ?? "";
 		expect(bodyText).toContain("msg_route_leak_check");
@@ -684,7 +684,7 @@ describe("proxyWithAccount — combo override success-conditioning / observabili
 		const startMessage = handleStart.mock.calls[0]?.[0] as StartMessage;
 		expect(startMessage.originalModel).toBeNull();
 		expect(startMessage.appliedModel).toBeNull();
-		expect(result?.headers.get("x-better-ccflare-model-rewrite")).toBeNull();
+		expect(result?.headers.get("x-hov-router-model-rewrite")).toBeNull();
 	});
 
 	it("keeps a logical route-profile rewrite instead of replacing it with physical transport provenance", async () => {
@@ -723,7 +723,7 @@ describe("proxyWithAccount — combo override success-conditioning / observabili
 		const startMessage = handleStart.mock.calls[0]?.[0] as StartMessage;
 		expect(startMessage.originalModel).toBe("claude-fable-5");
 		expect(startMessage.appliedModel).toBe("claude-sonnet-5");
-		expect(result?.headers.get("x-better-ccflare-model-rewrite")).toBe(
+		expect(result?.headers.get("x-hov-router-model-rewrite")).toBe(
 			"claude-fable-5->claude-sonnet-5",
 		);
 	});

@@ -26,7 +26,7 @@ import * as path from "node:path";
 import { DatabaseOperations } from "../database-operations";
 
 function makeTempDbPath(): string {
-	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ccflare-pragma-test-"));
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hov-router-pragma-test-"));
 	return path.join(dir, "test.db");
 }
 

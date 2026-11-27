@@ -4,12 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Config } from "./index";
 
-const ENV_NAME = "CCFLARE_ANTHROPIC_DEGRADED_DIAGNOSTICS";
+const ENV_NAME = "HOV_ROUTER_ANTHROPIC_DEGRADED_DIAGNOSTICS";
 const original = process.env[ENV_NAME];
 
 function makeConfig(): { config: Config; cleanup: () => void } {
 	const directory = mkdtempSync(
-		join(tmpdir(), "better-ccflare-degraded-diagnostics-"),
+		join(tmpdir(), "hov-router-degraded-diagnostics-"),
 	);
 	return {
 		config: new Config(join(directory, "config.json")),

@@ -5,22 +5,22 @@ import { join } from "node:path";
 import { Config } from "./index";
 
 describe("getCodexImplicitRouteEnabled", () => {
-	const originalEnv = process.env.CCFLARE_CODEX_IMPLICIT_ROUTE;
+	const originalEnv = process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE;
 	let directory: string;
 	let config: Config;
 
 	beforeEach(() => {
-		delete process.env.CCFLARE_CODEX_IMPLICIT_ROUTE;
-		directory = mkdtempSync(join(tmpdir(), "ccflare-codex-implicit-route-"));
+		delete process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE;
+		directory = mkdtempSync(join(tmpdir(), "hov-router-codex-implicit-route-"));
 		config = new Config(join(directory, "config.json"));
 	});
 
 	afterEach(() => {
 		rmSync(directory, { recursive: true, force: true });
 		if (originalEnv === undefined) {
-			delete process.env.CCFLARE_CODEX_IMPLICIT_ROUTE;
+			delete process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE;
 		} else {
-			process.env.CCFLARE_CODEX_IMPLICIT_ROUTE = originalEnv;
+			process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE = originalEnv;
 		}
 	});
 
@@ -29,21 +29,21 @@ describe("getCodexImplicitRouteEnabled", () => {
 	});
 
 	it("disables implicit routing only for the literal environment value 0", () => {
-		process.env.CCFLARE_CODEX_IMPLICIT_ROUTE = "0";
+		process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE = "0";
 		expect(config.getCodexImplicitRouteEnabled()).toBe(false);
 	});
 
 	it("keeps implicit routing enabled for other environment values", () => {
 		for (const value of ["1", "true", "false", "", " 0 "]) {
-			process.env.CCFLARE_CODEX_IMPLICIT_ROUTE = value;
+			process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE = value;
 			expect(config.getCodexImplicitRouteEnabled()).toBe(true);
 		}
 	});
 
 	it("reads the environment switch without persisting or caching it", () => {
-		process.env.CCFLARE_CODEX_IMPLICIT_ROUTE = "0";
+		process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE = "0";
 		expect(config.getCodexImplicitRouteEnabled()).toBe(false);
-		delete process.env.CCFLARE_CODEX_IMPLICIT_ROUTE;
+		delete process.env.HOV_ROUTER_CODEX_IMPLICIT_ROUTE;
 		expect(config.getCodexImplicitRouteEnabled()).toBe(true);
 	});
 });

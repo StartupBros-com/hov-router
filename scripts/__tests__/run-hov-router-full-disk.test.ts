@@ -40,7 +40,7 @@ import {
 	startRunner,
 } from "./runner-transaction-fixture";
 
-const READY = "ccflare stack ready";
+const READY = "hov-router stack ready";
 const WAITING = "waiting for space instead of opening the restart circuit";
 const CIRCUIT_OPEN = "restart circuit open";
 /** The runner's status when its restart circuit opens. */
@@ -66,7 +66,7 @@ afterEach(async () => {
 
 /** Scratch, state and TMPDIR under one new directory; TMPDIR exists. */
 function layout(): RunnerLayout & { root: string } {
-	const root = mkdtempSync(join(tmpdir(), "ccflare-runner-full-disk-"));
+	const root = mkdtempSync(join(tmpdir(), "hov-router-runner-full-disk-"));
 	roots.push(root);
 	const made = {
 		root,
@@ -120,7 +120,7 @@ async function runtimeRecord(
 }
 
 const controlDirsIn = (dir: string) =>
-	readdirSync(dir).filter((name) => name.startsWith("ccflare-control."));
+	readdirSync(dir).filter((name) => name.startsWith("hov-router-control."));
 
 /**
  * The listener writes its record before it listens, so its socket can
@@ -147,7 +147,7 @@ describe("the runner's control directory", () => {
 		// backend whose listener then wrote its credential to the working
 		// directory.
 		expect(runner.output()).toContain("control directory could not be made");
-		expect(runner.count("starting better-ccflare upstream")).toBe(0);
+		expect(runner.count("starting hov-router upstream")).toBe(0);
 		expect(lifecycle(runner)).toEqual([]);
 		// The disk is not full here, so this is an ordinary failure: counted.
 		expect(runner.count(WAITING)).toBe(0);
@@ -308,7 +308,7 @@ describe("the ownership record after a start that was never recorded", () => {
 		const started = [
 			...runner
 				.output()
-				.matchAll(/stopping better-ccflare upstream pid=(\d+)/g),
+				.matchAll(/stopping hov-router upstream pid=(\d+)/g),
 		].map((match) => Number(match[1]));
 		expect(started.length).toBeGreaterThanOrEqual(1);
 		const owner = JSON.parse(
@@ -777,7 +777,7 @@ describe("a start that fails for any other reason", () => {
 // The second group: the same runner, on a filesystem with no free block. The
 // driver does the work inside a private mount namespace (its header has what
 // it holds the runner to) and reports what did not hold.
-const DRIVER = join(import.meta.dir, "run-ccflare-stack-full-disk-driver.ts");
+const DRIVER = join(import.meta.dir, "run-hov-router-full-disk-driver.ts");
 const FILESYSTEM = "size=16m";
 /** The driver's own exit code for "stopped at `--deadline-ms`". */
 const DEADLINE_EXIT_CODE = 3;
@@ -811,8 +811,8 @@ function startDriver(
 	scenario = "restarts",
 ) {
 	if (!strategy) throw new Error("no way to mount a private filesystem");
-	const mount = mkdtempSync(join(tmpdir(), "ccflare-runner-full-fs-"));
-	const scratch = mkdtempSync(join(tmpdir(), "ccflare-runner-full-scratch-"));
+	const mount = mkdtempSync(join(tmpdir(), "hov-router-runner-full-fs-"));
+	const scratch = mkdtempSync(join(tmpdir(), "hov-router-runner-full-scratch-"));
 	roots.push(mount, scratch);
 	const child = Bun.spawn(
 		inPrivateFilesystem(strategy, mount, FILESYSTEM, [

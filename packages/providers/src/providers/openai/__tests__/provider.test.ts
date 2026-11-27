@@ -543,32 +543,30 @@ describe("OpenAICompatibleProvider", () => {
 
 	describe("skill elision", () => {
 		let tmpDir: string;
-		const originalConfigPath = process.env.BETTER_CCFLARE_CONFIG_PATH;
-		const originalBlocked = process.env.CCFLARE_SKILL_ELISION_BLOCKED;
+		const originalConfigPath = process.env.HOV_ROUTER_CONFIG_PATH;
+		const originalBlocked = process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 
 		beforeEach(() => {
-			tmpDir = mkdtempSync(
-				join(tmpdir(), "better-ccflare-skill-elision-openai-"),
-			);
-			process.env.BETTER_CCFLARE_CONFIG_PATH = join(tmpDir, "config.json");
+			tmpDir = mkdtempSync(join(tmpdir(), "hov-router-skill-elision-openai-"));
+			process.env.HOV_ROUTER_CONFIG_PATH = join(tmpDir, "config.json");
 		});
 
 		afterEach(() => {
 			rmSync(tmpDir, { recursive: true, force: true });
 			if (originalConfigPath === undefined) {
-				delete process.env.BETTER_CCFLARE_CONFIG_PATH;
+				delete process.env.HOV_ROUTER_CONFIG_PATH;
 			} else {
-				process.env.BETTER_CCFLARE_CONFIG_PATH = originalConfigPath;
+				process.env.HOV_ROUTER_CONFIG_PATH = originalConfigPath;
 			}
 			if (originalBlocked === undefined) {
-				delete process.env.CCFLARE_SKILL_ELISION_BLOCKED;
+				delete process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 			} else {
-				process.env.CCFLARE_SKILL_ELISION_BLOCKED = originalBlocked;
+				process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED = originalBlocked;
 			}
 		});
 
 		it("elides a blocked skill bundle before translating to OpenAI format", async () => {
-			process.env.CCFLARE_SKILL_ELISION_BLOCKED = "some-skill";
+			process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED = "some-skill";
 			const bundleText = makeSkillText("some-skill", 12_000);
 			const anthropicRequest = {
 				model: "claude-3-5-sonnet-20241022",
@@ -590,13 +588,13 @@ describe("OpenAICompatibleProvider", () => {
 			const body = await transformed.json();
 			const content = body.messages[0].content as string;
 
-			expect(content).toContain("[better-ccflare]");
+			expect(content).toContain("[hov-router]");
 			expect(content).not.toContain(bundleText);
 			expect(content.length).toBeLessThan(200);
 		});
 
 		it("leaves a bundle for a skill not in the blocklist unchanged", async () => {
-			process.env.CCFLARE_SKILL_ELISION_BLOCKED = "other-skill";
+			process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED = "other-skill";
 			const bundleText = makeSkillText("some-skill", 12_000);
 			const anthropicRequest = {
 				model: "claude-3-5-sonnet-20241022",

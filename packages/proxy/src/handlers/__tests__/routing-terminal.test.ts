@@ -187,10 +187,10 @@ describe("routing terminal responses", () => {
 		expect(terminal.response.status).toBe(401);
 		expect(terminal.response.headers.get("retry-after")).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-pool-status"),
+			terminal.response.headers.get("x-hov-router-pool-status"),
 		).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-recovery-scope"),
+			terminal.response.headers.get("x-hov-router-recovery-scope"),
 		).toBeNull();
 		const parsed = await body(terminal.response);
 		expect(parsed.type).toBe("error");
@@ -247,7 +247,7 @@ describe("routing terminal responses", () => {
 
 		expect(terminal.kind).toBe("route_unavailable");
 		expect(terminal.response.headers.get("retry-after")).toBe("31");
-		expect(terminal.response.headers.get("x-better-ccflare-route-status")).toBe(
+		expect(terminal.response.headers.get("x-hov-router-route-status")).toBe(
 			"circuit-open",
 		);
 		// The marker authorizes a bounded guard retry; the scope keeps the claim
@@ -256,12 +256,12 @@ describe("routing terminal responses", () => {
 		// Without the marker the guard reads finite recovery as absent and fails
 		// the request once, which is what turned a transient upstream blip into a
 		// bare 503 whenever the pool was down to a single routable account.
-		expect(terminal.response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(terminal.response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
-		expect(
-			terminal.response.headers.get("x-better-ccflare-recovery-scope"),
-		).toBe("route");
+		expect(terminal.response.headers.get("x-hov-router-recovery-scope")).toBe(
+			"route",
+		);
 		const parsed = await body(terminal.response);
 		expect(parsed.error.code).toBe("route_unavailable");
 		expect(parsed.error.next_available_at).toBe(
@@ -293,10 +293,10 @@ describe("routing terminal responses", () => {
 		expect(terminal.kind).toBe("route_unavailable");
 		expect(terminal.response.headers.get("retry-after")).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-pool-status"),
+			terminal.response.headers.get("x-hov-router-pool-status"),
 		).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-recovery-scope"),
+			terminal.response.headers.get("x-hov-router-recovery-scope"),
 		).toBeNull();
 		const parsed = await body(terminal.response);
 		expect(parsed.error.code).toBe("route_unavailable");
@@ -388,10 +388,10 @@ describe("routing terminal responses", () => {
 		expect(terminal.kind).toBe("route_unavailable");
 		expect(terminal.response.headers.get("retry-after")).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-route-status"),
+			terminal.response.headers.get("x-hov-router-route-status"),
 		).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-pool-status"),
+			terminal.response.headers.get("x-hov-router-pool-status"),
 		).toBeNull();
 	});
 
@@ -432,13 +432,13 @@ describe("routing terminal responses", () => {
 		expect(terminal.kind).toBe("route_unavailable");
 		expect(terminal.response.headers.get("retry-after")).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-route-status"),
+			terminal.response.headers.get("x-hov-router-route-status"),
 		).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-pool-status"),
+			terminal.response.headers.get("x-hov-router-pool-status"),
 		).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-recovery-scope"),
+			terminal.response.headers.get("x-hov-router-recovery-scope"),
 		).toBeNull();
 		const parsed = await body(terminal.response);
 		expect(parsed.error).toMatchObject({
@@ -490,12 +490,12 @@ describe("routing terminal responses", () => {
 		expect(terminal.kind).toBe("model_pool_exhausted");
 		expect(terminal.response.status).toBe(503);
 		expect(terminal.response.headers.get("retry-after")).toBe("61");
-		expect(terminal.response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(terminal.response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
-		expect(
-			terminal.response.headers.get("x-better-ccflare-recovery-scope"),
-		).toBe("model");
+		expect(terminal.response.headers.get("x-hov-router-recovery-scope")).toBe(
+			"model",
+		);
 		const parsed = await body(terminal.response);
 		expect(parsed.type).toBe("error");
 		expect(parsed.error.type).toBe("service_unavailable");
@@ -542,7 +542,7 @@ describe("routing terminal responses", () => {
 			});
 
 			expect(response.headers.get("retry-after")).toBeNull();
-			expect(response.headers.get("x-better-ccflare-pool-status")).toBeNull();
+			expect(response.headers.get("x-hov-router-pool-status")).toBeNull();
 			const parsed = await body(response);
 			expect(parsed.error.code).toBe("model_pool_exhausted");
 			expect("next_available_at" in parsed.error).toBe(false);
@@ -560,12 +560,8 @@ describe("routing terminal responses", () => {
 		});
 
 		expect(response.headers.get("retry-after")).toBe("46");
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBe(
-			"exhausted",
-		);
-		expect(response.headers.get("x-better-ccflare-recovery-scope")).toBe(
-			"model",
-		);
+		expect(response.headers.get("x-hov-router-pool-status")).toBe("exhausted");
+		expect(response.headers.get("x-hov-router-recovery-scope")).toBe("model");
 		const parsed = await body(response);
 		expect(parsed.error.next_available_at).toBe(
 			new Date(recoveryAt).toISOString(),
@@ -585,7 +581,7 @@ describe("routing terminal responses", () => {
 		expect("next_available_at" in parsed.error).toBe(false);
 		expect(terminal.response.headers.get("retry-after")).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-pool-status"),
+			terminal.response.headers.get("x-hov-router-pool-status"),
 		).toBeNull();
 	});
 
@@ -630,12 +626,12 @@ describe("routing terminal responses", () => {
 			new Date(now + 90_000).toISOString(),
 		);
 		expect(terminal.response.headers.get("retry-after")).toBe("90");
-		expect(terminal.response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(terminal.response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
-		expect(
-			terminal.response.headers.get("x-better-ccflare-recovery-scope"),
-		).toBe("model");
+		expect(terminal.response.headers.get("x-hov-router-recovery-scope")).toBe(
+			"model",
+		);
 		expect("attempted_routes" in parsed.error).toBe(false);
 		expect("routing_diagnostics" in parsed.error).toBe(false);
 	});
@@ -707,7 +703,7 @@ describe("routing terminal responses", () => {
 
 		expect(terminal.kind).toBe("pool_exhausted");
 		expect(terminal.response.headers.get("retry-after")).toBe("60");
-		expect(terminal.response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(terminal.response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
 		const parsed = await body(terminal.response);
@@ -760,7 +756,7 @@ describe("routing terminal responses", () => {
 		expect(terminal.kind).toBe("route_unavailable");
 		expect(terminal.response.headers.get("retry-after")).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-pool-status"),
+			terminal.response.headers.get("x-hov-router-pool-status"),
 		).toBeNull();
 		const parsed = await body(terminal.response);
 		expect(parsed.error.code).toBe("route_unavailable");
@@ -797,12 +793,12 @@ describe("routing terminal responses", () => {
 
 		expect(terminal.kind).toBe("pool_exhausted");
 		expect(terminal.response.headers.get("retry-after")).toBe("3600");
-		expect(terminal.response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(terminal.response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
-		expect(
-			terminal.response.headers.get("x-better-ccflare-recovery-scope"),
-		).toBe("pool");
+		expect(terminal.response.headers.get("x-hov-router-recovery-scope")).toBe(
+			"pool",
+		);
 		const parsed = await body(terminal.response);
 		expect(parsed.error.type).toBe("pool_exhausted");
 		expect(parsed.error.code).toBe("pool_exhausted");
@@ -927,7 +923,7 @@ describe("routing terminal responses", () => {
 		expect(terminal.kind).toBe("route_unavailable");
 		expect(terminal.response.headers.get("retry-after")).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-pool-status"),
+			terminal.response.headers.get("x-hov-router-pool-status"),
 		).toBeNull();
 		const parsed = await body(terminal.response);
 		expect(parsed.error.code).toBe("route_unavailable");
@@ -962,7 +958,7 @@ describe("routing terminal responses", () => {
 			expect(terminal.kind).toBe("route_unavailable");
 			expect(terminal.response.headers.get("retry-after")).toBeNull();
 			expect(
-				terminal.response.headers.get("x-better-ccflare-pool-status"),
+				terminal.response.headers.get("x-hov-router-pool-status"),
 			).toBeNull();
 			const parsed = await body(terminal.response);
 			expect(parsed.error.code).toBe("route_unavailable");
@@ -1106,7 +1102,7 @@ describe("routing terminal responses", () => {
 
 		expect(terminal.kind).toBe("pool_exhausted");
 		expect(terminal.response.headers.get("retry-after")).toBe("60");
-		expect(terminal.response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(terminal.response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
 		const parsed = await body(terminal.response);
@@ -1189,7 +1185,7 @@ describe("routing terminal responses", () => {
 		expect(terminal.kind).toBe("route_unavailable");
 		expect(terminal.response.headers.get("retry-after")).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-pool-status"),
+			terminal.response.headers.get("x-hov-router-pool-status"),
 		).toBeNull();
 		const parsed = await body(terminal.response);
 		expect(parsed.error.code).toBe("route_unavailable");
@@ -1253,7 +1249,7 @@ describe("request-compatible terminal inventory", () => {
 			makeAccount({ id: "codex", provider: "codex" }),
 		];
 		const headers = new Headers({
-			"x-better-ccflare-exclude-providers": "anthropic-oauth",
+			"x-hov-router-exclude-providers": "anthropic-oauth",
 		});
 
 		expect(
@@ -1353,7 +1349,7 @@ describe("terminal account refresh merge", () => {
 		const excluded = filterRequestCompatibleAccounts(
 			[refreshed],
 			new Headers({
-				"x-better-ccflare-exclude-providers": "codex",
+				"x-hov-router-exclude-providers": "codex",
 			}),
 		);
 
@@ -1473,9 +1469,9 @@ describe("protected Anthropic overload terminal", () => {
 			traceparent: "00-secret",
 			tracestate: "vendor=secret",
 			"transfer-encoding": "chunked",
-			"x-better-ccflare-guard-request-id": "guard-secret",
-			"x-better-ccflare-pool-status": "exhausted",
-			"x-better-ccflare-recovery-scope": "pool",
+			"x-hov-router-guard-request-id": "guard-secret",
+			"x-hov-router-pool-status": "exhausted",
+			"x-hov-router-recovery-scope": "pool",
 			"x-provider-echo": "secret",
 			"content-type": "application/json; charset=utf-8",
 			"retry-after": "5",
@@ -1498,8 +1494,8 @@ describe("protected Anthropic overload terminal", () => {
 		expect(response.headers.get("content-type")).toBe("application/json");
 		expect(response.headers.get("retry-after")).toBe("10");
 		expect(response.headers.get("x-request-id")).toBeNull();
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBeNull();
-		expect(response.headers.get("x-better-ccflare-recovery-scope")).toBeNull();
+		expect(response.headers.get("x-hov-router-pool-status")).toBeNull();
+		expect(response.headers.get("x-hov-router-recovery-scope")).toBeNull();
 	});
 
 	it.each([

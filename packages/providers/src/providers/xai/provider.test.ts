@@ -201,7 +201,7 @@ describe("XaiProvider", () => {
 			process.env[XAI_CACHE_NATIVE_ENV] = "1";
 			const on = await provider.transformRequestBody(makeReq(), account());
 			const header = on.headers.get(XAI_CONV_ID_HEADER);
-			expect(header).toMatch(/^ccflare-xai-[0-9a-f]{48}$/);
+			expect(header).toMatch(/^hov-router-xai-[0-9a-f]{48}$/);
 
 			const custom = await provider.transformRequestBody(
 				makeReq(),

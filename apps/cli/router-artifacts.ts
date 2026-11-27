@@ -21,7 +21,7 @@ import {
 import { isHistoricalWstackRelease } from "../../packages/core/src/router-repository";
 
 export const artifactRoot = resolve(import.meta.dir, "../..");
-export const executableFilename = "better-ccflare-linux-amd64";
+export const executableFilename = "hov-router-linux-amd64";
 export function isolatedEnvironment(home: string, scratch: string) {
 	return {
 		PATH: `${dirname(process.execPath)}:/usr/bin:/bin`,
@@ -158,8 +158,10 @@ export function prepareArtifacts(
 				cwd: join(artifactRoot, "apps/cli"),
 				env: {
 					...env,
-					CCFLARE_ONLY_PLATFORMS: "bun-linux-amd64",
-					...(release ? { CCFLARE_BUILD_PRODUCER: "hov-router-binary" } : {}),
+					HOV_ROUTER_ONLY_PLATFORMS: "bun-linux-amd64",
+					...(release
+						? { HOV_ROUTER_BUILD_PRODUCER: "hov-router-binary" }
+						: {}),
 				},
 				stdio: "inherit",
 				timeout: 600_000,

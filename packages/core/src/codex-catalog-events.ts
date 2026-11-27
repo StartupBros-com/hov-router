@@ -74,7 +74,7 @@ export type CodexIdentityRecordError =
 export interface CodexIdentityRecordStaleEvt {
 	type: "identity_record_stale";
 	error: CodexIdentityRecordError;
-	/** The client version ccflare is advertising right now. */
+	/** The client version the router is advertising right now. */
 	version: string;
 	/** When the record that is still in use was verified, if any. */
 	verifiedAt?: string;

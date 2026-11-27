@@ -201,7 +201,7 @@ describe("UsageCollector - stream terminal state in the live summary", () => {
 			path: "/v1/responses",
 			providerName: "codex",
 			responseHeaders: {
-				"x-better-ccflare-codex-response-format": "responses-api",
+				"x-hov-router-codex-response-format": "responses-api",
 			},
 		});
 		collector.handleChunk(

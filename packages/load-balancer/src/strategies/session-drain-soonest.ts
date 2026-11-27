@@ -160,7 +160,7 @@ export class SessionDrainSoonestStrategy extends SessionAffinityStrategy {
 	): Promise<Account[]> {
 		const selected = await super.select(accounts, meta);
 		if (
-			meta.headers?.get("x-better-ccflare-bypass-session") !== "true" &&
+			meta.headers?.get("x-hov-router-bypass-session") !== "true" &&
 			selected[0]
 		) {
 			this.resetSelectedSession(selected[0], Date.now());

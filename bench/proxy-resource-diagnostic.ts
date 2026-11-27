@@ -303,7 +303,7 @@ export async function runBoundedResourceDiagnostic() {
 		import("./proxy-request-memory-harness"),
 		import("../packages/providers/src/providers/codex/provider"),
 	]);
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-resource-controls-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-resource-controls-"));
 	const dbPath = join(dir, "control.db"),
 		db = new Database(dbPath);
 	db.exec(

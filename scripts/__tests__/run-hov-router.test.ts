@@ -19,7 +19,10 @@ import { join } from "node:path";
 import { resolveNodeExecutable } from "./node-runtime";
 
 const repoRoot = join(import.meta.dir, "..", "..");
-const runnerScript = join(repoRoot, "scripts", "run-ccflare-stack.sh");
+const runnerScript = join(repoRoot, "scripts", "run-hov-router.sh");
+// The runner owns PATH; an env-based shebang would select its toolchain shim,
+// whose trust state is unavailable under the fixture's isolated HOME.
+const nodeExecutable = resolveNodeExecutable();
 const tempDirs: string[] = [];
 
 afterEach(() => {
@@ -57,7 +60,7 @@ function writeFixturePrograms(dir: string): {
 	writeFileSync(
 		upstream,
 		[
-			"#!/usr/bin/env node",
+			`#!${nodeExecutable}`,
 			'import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";',
 			'import http from "node:http";',
 			'const portIndex = process.argv.indexOf("--port");',
@@ -83,7 +86,7 @@ function writeFixturePrograms(dir: string): {
 			"};",
 			"writeStatus();",
 			"const rssTimer = procEnabled ? setInterval(writeStatus, 2) : undefined;",
-			'appendFileSync(`${process.env.CAPTURE_DIR}/upstream.json`, JSON.stringify({ pid: process.pid, secret: process.env.CCFLARE_GUARD_CORRELATION_SECRET, logLevel: process.env.LOG_LEVEL, argv: process.argv }) + "\\n");',
+			'appendFileSync(`${process.env.CAPTURE_DIR}/upstream.json`, JSON.stringify({ pid: process.pid, secret: process.env.HOV_ROUTER_GUARD_CORRELATION_SECRET, logLevel: process.env.LOG_LEVEL, argv: process.argv }) + "\\n");',
 			"appendFileSync(`${process.env.CAPTURE_DIR}/lifecycle.log`, `upstream-start ${process.pid}\\n`);",
 			"const server = http.createServer((_req, res) => { res.writeHead(200, { 'content-type': 'application/json' }); res.end('{}'); });",
 			"server.listen(port, '127.0.0.1');",
@@ -95,7 +98,7 @@ function writeFixturePrograms(dir: string): {
 		[
 			'import { appendFileSync } from "node:fs";',
 			'import http from "node:http";',
-			'appendFileSync(`${process.env.CAPTURE_DIR}/guard.json`, JSON.stringify({ pid: process.pid, secret: process.env.CCFLARE_GUARD_CORRELATION_SECRET, argv: process.argv }) + "\\n");',
+			'appendFileSync(`${process.env.CAPTURE_DIR}/guard.json`, JSON.stringify({ pid: process.pid, secret: process.env.HOV_ROUTER_GUARD_CORRELATION_SECRET, argv: process.argv }) + "\\n");',
 			"appendFileSync(`${process.env.CAPTURE_DIR}/lifecycle.log`, `guard-start ${process.pid}\\n`);",
 			"const server = http.createServer((_req, res) => {",
 			"  res.writeHead(200, { 'content-type': 'application/json' });",
@@ -141,7 +144,7 @@ function writeStubbornGuardFixture(dir: string): {
 	writeFileSync(
 		programs.upstream,
 		[
-			"#!/usr/bin/env node",
+			`#!${nodeExecutable}`,
 			'import http from "node:http";',
 			'const portIndex = process.argv.indexOf("--port");',
 			"const port = Number(process.argv[portIndex + 1]);",
@@ -213,7 +216,7 @@ function writeOptionalTunnelFixture(dir: string): string {
 	writeFileSync(
 		tunnel,
 		[
-			"#!/usr/bin/env node",
+			`#!${nodeExecutable}`,
 			'import { existsSync, unlinkSync } from "node:fs";',
 			'import http from "node:http";',
 			"const exitFile = process.env.TUNNEL_EXIT_FILE;",
@@ -240,7 +243,7 @@ async function spawnRunnerFixture(
 	extraEnv: Record<string, string> = {},
 	options: { unsetLogLevel?: boolean } = {},
 ): Promise<SpawnedRunnerFixture> {
-	const captureDir = tempDir("ccflare-stack-capture-");
+	const captureDir = tempDir("hov-router-capture-");
 	mkdirSync(captureDir, { recursive: true });
 	const upstreamPort = await allocatePort();
 	const guardPort = await allocatePort();
@@ -251,15 +254,15 @@ async function spawnRunnerFixture(
 			...process.env,
 			...(options.unsetLogLevel ? { LOG_LEVEL: undefined } : {}),
 			CAPTURE_DIR: captureDir,
-			CCFLARE_BIN: programs.upstream,
+			HOV_ROUTER_BIN: programs.upstream,
 			GUARD_SCRIPT: programs.guard,
 			NODE_BIN: process.execPath,
-			CCFLARE_UPSTREAM_PORT: String(upstreamPort),
+			HOV_ROUTER_UPSTREAM_PORT: String(upstreamPort),
 			GUARD_PORT: String(guardPort),
 			AI_GATEWAY_LOCAL_PORT: String(tunnelPort),
 			AI_GATEWAY_TUNNEL_ENABLED: "0",
 			AI_GATEWAY_TUNNEL_REQUIRED: "1",
-			CCFLARE_GUARD_CORRELATION_SECRET: "inherited-value-must-be-replaced",
+			HOV_ROUTER_GUARD_CORRELATION_SECRET: "inherited-value-must-be-replaced",
 			RUNNER_HEALTH_POLL_INTERVAL_MS: "10",
 			RUNNER_HEALTH_MAX_ATTEMPTS: "100",
 			RUNNER_HEALTH_STABILITY_DELAY_MS: "0",
@@ -484,7 +487,7 @@ async function stopRunner(
 	}
 }
 
-describe("run-ccflare-stack millisecond clock", () => {
+describe("run-hov-router millisecond clock", () => {
 	// uutils date 0.10, the date of Ubuntu 26.04 and so of CI, keeps the first
 	// three digits of the nanoseconds after dropping their leading zeros. In
 	// the first ~100 ms of each second `date +%s%3N` therefore read as much as
@@ -532,7 +535,7 @@ describe("run-ccflare-stack millisecond clock", () => {
 	}, 30_000);
 });
 
-describe("run-ccflare-stack upstream environment", () => {
+describe("run-hov-router upstream environment", () => {
 	test("uses one owned sleep per RSS sample instead of the restart backoff slicer", () => {
 		const source = readFileSync(runnerScript, "utf8");
 		const watchdog = source.match(/rss_watchdog\(\) \{([\s\S]*?)\n\}/)?.[1];
@@ -563,11 +566,11 @@ describe("run-ccflare-stack upstream environment", () => {
 			expect(source).toContain(key);
 		expect(source).toContain('child_exit_class="memory-recycle"');
 		expect(source).toContain(
-			'stop_child "ccflare guard" "$guard_pid" "$GUARD_STOP_BUDGET_MS"',
+			'stop_child "hov-router guard" "$guard_pid" "$GUARD_STOP_BUDGET_MS"',
 		);
 	});
 	test("defaults LOG_LEVEL to warn when it is unset", async () => {
-		const fixtureDir = tempDir("ccflare-stack-log-level-default-fixture-");
+		const fixtureDir = tempDir("hov-router-log-level-default-fixture-");
 		const programs = writeFixturePrograms(fixtureDir);
 
 		const invocation = await runStackInvocation(programs);
@@ -576,7 +579,7 @@ describe("run-ccflare-stack upstream environment", () => {
 	});
 
 	test("passes an explicit LOG_LEVEL override to upstream", async () => {
-		const fixtureDir = tempDir("ccflare-stack-log-level-override-fixture-");
+		const fixtureDir = tempDir("hov-router-log-level-override-fixture-");
 		const programs = writeFixturePrograms(fixtureDir);
 
 		const invocation = await runStackInvocation(programs, {
@@ -587,13 +590,13 @@ describe("run-ccflare-stack upstream environment", () => {
 	});
 });
 
-describe("run-ccflare-stack RSS containment behavior", () => {
+describe("run-hov-router RSS containment behavior", () => {
 	test("publishes proc status snapshots without changing an open reader's sample", async () => {
-		const fixtureDir = tempDir("ccflare-stack-proc-snapshot-");
+		const fixtureDir = tempDir("hov-router-proc-snapshot-");
 		const runner = await spawnRunner(writeFixturePrograms(fixtureDir));
 		let statusFd: number | undefined;
 		try {
-			await waitForOutput(runner, "ccflare stack ready");
+			await waitForOutput(runner, "hov-router stack ready");
 			const record = JSON.parse(
 				readFileSync(join(runner.captureDir, "upstream.json"), "utf8").trim(),
 			);
@@ -624,7 +627,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	}, 10_000);
 
 	test("keeps the watchdog disabled when the tuple is omitted or threshold is zero", async () => {
-		const fixtureDir = tempDir("ccflare-stack-rss-disabled-");
+		const fixtureDir = tempDir("hov-router-rss-disabled-");
 		const programs = writeFixturePrograms(fixtureDir);
 		for (const env of [
 			{ FAKE_PROC_DISABLED: "1" },
@@ -638,7 +641,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 		]) {
 			const runner = await spawnRunner(programs, env);
 			try {
-				await waitForOutput(runner, "ccflare stack ready");
+				await waitForOutput(runner, "hov-router stack ready");
 				setRssKiB(runner, 1000);
 				await Bun.sleep(80);
 				expect(generationCount(runner)).toBe(1);
@@ -650,7 +653,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	}, 15_000);
 
 	test("rejects a partial or malformed tuple before starting a child", async () => {
-		const fixtureDir = tempDir("ccflare-stack-rss-invalid-");
+		const fixtureDir = tempDir("hov-router-rss-invalid-");
 		const programs = writeFixturePrograms(fixtureDir);
 		for (const env of [
 			{ RUNNER_RSS_THRESHOLD_BYTES: "10240" },
@@ -665,7 +668,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	});
 
 	test("resets the high-water streak and recycles only after consecutive high samples", async () => {
-		const fixtureDir = tempDir("ccflare-stack-rss-streak-");
+		const fixtureDir = tempDir("hov-router-rss-streak-");
 		const programs = writeFixturePrograms(fixtureDir);
 		const runner = await spawnRunner(
 			programs,
@@ -676,7 +679,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 		);
 		try {
 			setRssKiB(runner, 1);
-			await waitForOutput(runner, "ccflare stack ready");
+			await waitForOutput(runner, "hov-router stack ready");
 			setRssKiB(runner, 20);
 			await Bun.sleep(130);
 			setRssKiB(runner, 1);
@@ -709,7 +712,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	}, 10_000);
 
 	test("counts swapped-out pages so a leak hidden in swap still recycles", async () => {
-		const fixtureDir = tempDir("ccflare-stack-rss-swap-");
+		const fixtureDir = tempDir("hov-router-rss-swap-");
 		const programs = writeFixturePrograms(fixtureDir);
 		const runner = await spawnRunner(
 			programs,
@@ -718,7 +721,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 		try {
 			setRssKiB(runner, 1);
 			setSwapKiB(runner, 0);
-			await waitForOutput(runner, "ccflare stack ready");
+			await waitForOutput(runner, "hov-router stack ready");
 			expect(generationCount(runner)).toBe(1);
 			// Resident stays an order of magnitude below the 10240-byte threshold
 			// while the growth sits entirely in swap. An RSS-only sample reads
@@ -737,7 +740,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	}, 10_000);
 
 	test("treats a swapless host's absent VmSwap field as zero and still recycles", async () => {
-		const fixtureDir = tempDir("ccflare-stack-rss-swapless-");
+		const fixtureDir = tempDir("hov-router-rss-swapless-");
 		const programs = writeFixturePrograms(fixtureDir);
 		const runner = await spawnRunner(programs, {
 			...rssPolicy({ RUNNER_RSS_POLL_INTERVAL_MS: "100" }),
@@ -745,7 +748,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 		});
 		try {
 			setRssKiB(runner, 1);
-			await waitForOutput(runner, "ccflare stack ready");
+			await waitForOutput(runner, "hov-router stack ready");
 			expect(generationCount(runner)).toBe(1);
 			// The field must be genuinely absent, not written as "VmSwap: 0". A
 			// fixture that always emits the key would let this test pass against a
@@ -766,7 +769,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	}, 10_000);
 
 	test("discards a malformed VmSwap line and recovers on the next clean sample", async () => {
-		const fixtureDir = tempDir("ccflare-stack-rss-swap-malformed-");
+		const fixtureDir = tempDir("hov-router-rss-swap-malformed-");
 		const programs = writeFixturePrograms(fixtureDir);
 		const runner = await spawnRunner(
 			programs,
@@ -775,7 +778,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 		try {
 			setRssKiB(runner, 1);
 			setSwapKiB(runner, 0);
-			await waitForOutput(runner, "ccflare stack ready");
+			await waitForOutput(runner, "hov-router stack ready");
 			expect(generationCount(runner)).toBe(1);
 			// Corrupt swap BEFORE raising RSS, so no poll can observe a well-formed
 			// over-threshold sample in the gap between the two writes.
@@ -800,7 +803,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	}, 10_000);
 
 	test("does not recycle below threshold and delays high RSS until minimum uptime", async () => {
-		const fixtureDir = tempDir("ccflare-stack-rss-min-uptime-");
+		const fixtureDir = tempDir("hov-router-rss-min-uptime-");
 		const programs = writeFixturePrograms(fixtureDir);
 		const runner = await spawnRunner(
 			programs,
@@ -808,7 +811,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 		);
 		try {
 			setRssKiB(runner, 1);
-			await waitForOutput(runner, "ccflare stack ready");
+			await waitForOutput(runner, "hov-router stack ready");
 			await Bun.sleep(40);
 			expect(generationCount(runner)).toBe(1);
 			setRssKiB(runner, 20);
@@ -821,7 +824,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	}, 10_000);
 
 	test("pro-gate round 1 CI on #518 (#449): captures the watchdog's start-time identity before announcing the stack ready", async () => {
-		const fixtureDir = tempDir("ccflare-stack-rss-identity-order-");
+		const fixtureDir = tempDir("hov-router-rss-identity-order-");
 		const runner = await spawnRunner(
 			writeGatedGuardFixturePrograms(fixtureDir),
 			{
@@ -864,11 +867,11 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 			// after "ready" must not be able to become that baseline, so the
 			// announcement cannot precede this read.
 			await Bun.sleep(100);
-			expect(runner.getOutput().stdout).not.toContain("ccflare stack ready");
+			expect(runner.getOutput().stdout).not.toContain("hov-router stack ready");
 			writeSync(writer, identity);
 			closeSync(writer);
 			writer = undefined;
-			await waitForOutput(runner, "ccflare stack ready");
+			await waitForOutput(runner, "hov-router stack ready");
 			rmSync(stat);
 			writeFileSync(stat, identity);
 		} finally {
@@ -879,12 +882,12 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	}, 10_000);
 
 	test("never triggers from a stale PID whose exact proc start-time identity changed", async () => {
-		const fixtureDir = tempDir("ccflare-stack-rss-identity-");
+		const fixtureDir = tempDir("hov-router-rss-identity-");
 		const programs = writeFixturePrograms(fixtureDir);
 		const runner = await spawnRunner(programs, rssPolicy());
 		try {
 			setRssKiB(runner, 1);
-			await waitForOutput(runner, "ccflare stack ready");
+			await waitForOutput(runner, "hov-router stack ready");
 			const record = JSON.parse(
 				readFileSync(join(runner.captureDir, "upstream.json"), "utf8").trim(),
 			);
@@ -909,7 +912,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	}, 10_000);
 
 	test("records forced guard drain status and still performs a bounded restart", async () => {
-		const fixtureDir = tempDir("ccflare-stack-rss-forced-");
+		const fixtureDir = tempDir("hov-router-rss-forced-");
 		const programs = writeFixturePrograms(fixtureDir);
 		const runner = await spawnRunner(programs, {
 			...rssPolicy(),
@@ -932,7 +935,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	}, 10_000);
 
 	test("bounds a memory recycle when the guard ignores TERM and reports an unknown drain", async () => {
-		const fixtureDir = tempDir("ccflare-stack-rss-stubborn-guard-");
+		const fixtureDir = tempDir("hov-router-rss-stubborn-guard-");
 		const programs = writeFixturePrograms(fixtureDir);
 		const runner = await spawnRunner(programs, {
 			...rssPolicy(),
@@ -959,7 +962,7 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	}, 10_000);
 
 	test("enforces recycle cooldown and cap without entering the failure restart loop", async () => {
-		const fixtureDir = tempDir("ccflare-stack-rss-cap-");
+		const fixtureDir = tempDir("hov-router-rss-cap-");
 		const programs = writeFixturePrograms(fixtureDir);
 		const runner = await spawnRunner(
 			programs,
@@ -986,13 +989,13 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	}, 10_000);
 
 	test("exits 143 promptly when SIGTERM arrives during a watchdog wait", async () => {
-		const fixtureDir = tempDir("ccflare-stack-rss-term-");
+		const fixtureDir = tempDir("hov-router-rss-term-");
 		const programs = writeFixturePrograms(fixtureDir);
 		const runner = await spawnRunner(
 			programs,
 			rssPolicy({ RUNNER_RSS_POLL_INTERVAL_MS: "1000" }),
 		);
-		await waitForOutput(runner, "ccflare stack ready");
+		await waitForOutput(runner, "hov-router stack ready");
 		const sentAt = Date.now();
 		runner.child.kill("SIGTERM");
 		const result = await waitForExit(runner.child, 2_000);
@@ -1003,9 +1006,9 @@ describe("run-ccflare-stack RSS containment behavior", () => {
 	}, 10_000);
 });
 
-describe("run-ccflare-stack guard correlation credential", () => {
+describe("run-hov-router guard correlation credential", () => {
 	test("generates one high-entropy per-stack secret, passes it only by child env, and rotates on restart", async () => {
-		const fixtureDir = tempDir("ccflare-stack-fixture-");
+		const fixtureDir = tempDir("hov-router-fixture-");
 		const programs = writeFixturePrograms(fixtureDir);
 		const runnerSource = readFileSync(runnerScript, "utf8");
 
@@ -1043,9 +1046,52 @@ describe("run-ccflare-stack guard correlation credential", () => {
 	}, 20_000);
 });
 
-describe("run-ccflare-stack supervisor lifecycle", () => {
+describe("run-hov-router retired names", () => {
+	// 8.0.0 renamed the variables inherited from better-ccflare. An old name the
+	// runner no longer reads would leave its setting at the default, so the
+	// runner refuses before it starts anything, and systemd must not restart it.
+	test("refuses an old environment name before starting a child", async () => {
+		const programs = writeFixturePrograms(tempDir("hov-router-retired-env-"));
+		const runner = await spawnRunner(programs, {
+			BETTER_CCFLARE_DB_PATH: "retired-value-must-not-print",
+		});
+		const { code } = await waitForExit(runner.child);
+		const { stderr } = runner.getOutput();
+		expect(code).toBe(78);
+		expect(stderr).toContain("BETTER_CCFLARE_DB_PATH -> HOV_ROUTER_DB_PATH");
+		expect(stderr).not.toContain("retired-value-must-not-print");
+		expect(existsSync(join(runner.captureDir, "lifecycle.log"))).toBe(false);
+	});
+
+	test("stops without a restart when the backend refuses an old name", async () => {
+		const dir = tempDir("hov-router-retired-backend-");
+		const programs = writeFixturePrograms(dir);
+		writeFileSync(
+			programs.upstream,
+			[
+				`#!${nodeExecutable}`,
+				'import { appendFileSync } from "node:fs";',
+				"appendFileSync(`${process.env.CAPTURE_DIR}/lifecycle.log`, `upstream-start ${process.pid}\\n`);",
+				"process.exit(78);",
+			].join("\n"),
+		);
+		chmodSync(programs.upstream, 0o755);
+		const runner = await spawnRunner(programs, {
+			RUNNER_RESTART_BACKOFF_BASE_MS: "0",
+			RUNNER_RESTART_BACKOFF_MAX_MS: "0",
+		});
+		const { code } = await waitForExit(runner.child, 10_000);
+		expect(code).toBe(78);
+		const starts = readFileSync(join(runner.captureDir, "lifecycle.log"), "utf8")
+			.split("\n")
+			.filter((line) => line.startsWith("upstream-start"));
+		expect(starts).toHaveLength(1);
+	});
+});
+
+describe("run-hov-router supervisor lifecycle", () => {
 	test("classifies an unexpected child failure and opens a bounded restart circuit", async () => {
-		const fixtureDir = tempDir("ccflare-stack-failure-fixture-");
+		const fixtureDir = tempDir("hov-router-failure-fixture-");
 		const programs = writeGuardExitFixture(fixtureDir, 42);
 		const runner = await spawnRunner(programs, {
 			RUNNER_RESTART_BACKOFF_BASE_MS: "20",
@@ -1059,12 +1105,12 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 
 		expect(result.code).toBe(1);
 		expect(output.stdout).toContain("class=failure");
-		expect(output.stdout).toContain("child=ccflare guard");
+		expect(output.stdout).toContain("child=hov-router guard");
 		expect(output.stdout).toContain("restart circuit open");
 		expect(output.stdout).toContain("backoff_ms=20");
 		expect(output.stdout).toContain("backoff_ms=40");
 		const starts = (
-			output.stdout.match(/starting better-ccflare upstream/g) ?? []
+			output.stdout.match(/starting hov-router upstream/g) ?? []
 		).length;
 		expect(starts).toBe(3);
 		const secrets = readFileSync(
@@ -1079,7 +1125,7 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 	}, 10_000);
 
 	test("bounds failure cleanup when the guard ignores TERM without shortening intentional stop grace", async () => {
-		const fixtureDir = tempDir("ccflare-stack-stubborn-guard-fixture-");
+		const fixtureDir = tempDir("hov-router-stubborn-guard-fixture-");
 		const programs = writeStubbornGuardFixture(fixtureDir);
 		const runner = await spawnRunner(programs, {
 			RUNNER_FAILURE_STOP_BUDGET_MS: "120",
@@ -1107,13 +1153,13 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 	}, 8_000);
 
 	test("treats a runner SIGTERM as intentional and never restarts the stack", async () => {
-		const fixtureDir = tempDir("ccflare-stack-term-fixture-");
+		const fixtureDir = tempDir("hov-router-term-fixture-");
 		const programs = writeStableFixturePrograms(fixtureDir);
 		const runner = await spawnRunner(programs, {
 			RUNNER_RESTART_BACKOFF_BASE_MS: "20",
 			RUNNER_RESTART_MAX_FAILURES: "3",
 		});
-		await waitForOutput(runner, "ccflare stack ready");
+		await waitForOutput(runner, "hov-router stack ready");
 		expect(runner.child.kill("SIGTERM")).toBe(true);
 		const result = await waitForExit(runner.child, 5_000);
 		const output = runner.getOutput();
@@ -1125,7 +1171,7 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 	}, 10_000);
 
 	test("interrupts a restart backoff promptly on an intentional SIGTERM", async () => {
-		const fixtureDir = tempDir("ccflare-stack-backoff-term-fixture-");
+		const fixtureDir = tempDir("hov-router-backoff-term-fixture-");
 		const programs = writeGuardExitFixture(fixtureDir, 42);
 		const runner = await spawnRunner(programs, {
 			RUNNER_RESTART_BACKOFF_BASE_MS: "1000",
@@ -1142,7 +1188,7 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 	}, 10_000);
 
 	test("supervises a child that exits zero without a runner shutdown signal", async () => {
-		const fixtureDir = tempDir("ccflare-stack-clean-exit-fixture-");
+		const fixtureDir = tempDir("hov-router-clean-exit-fixture-");
 		const programs = writeGuardExitFixture(fixtureDir, 0);
 		const runner = await spawnRunner(programs, {
 			RUNNER_RESTART_BACKOFF_BASE_MS: "10",
@@ -1159,13 +1205,13 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 		expect(output.stdout).toContain("restarting stack via supervisor");
 		expect(output.stdout).toContain("restart circuit open");
 		const starts = (
-			output.stdout.match(/starting better-ccflare upstream/g) ?? []
+			output.stdout.match(/starting hov-router upstream/g) ?? []
 		).length;
 		expect(starts).toBe(2);
 	}, 10_000);
 
 	test("keeps a required tunnel fail-closed while applying the bounded restart cap", async () => {
-		const fixtureDir = tempDir("ccflare-stack-required-tunnel-fixture-");
+		const fixtureDir = tempDir("hov-router-required-tunnel-fixture-");
 		const programs = writeStableFixturePrograms(fixtureDir);
 		const runner = await spawnRunner(programs, {
 			AI_GATEWAY_TUNNEL_ENABLED: "1",
@@ -1188,11 +1234,11 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 		expect(result.code).toBe(1);
 		expect(output.stdout).toContain("ai-gateway tunnel is required");
 		expect(output.stdout).toContain("restart circuit open");
-		expect(output.stdout).not.toContain("starting better-ccflare upstream");
+		expect(output.stdout).not.toContain("starting hov-router upstream");
 	}, 12_000);
 
 	test("supervises an optional tunnel after startup and restarts on tunnel death", async () => {
-		const fixtureDir = tempDir("ccflare-stack-optional-tunnel-fixture-");
+		const fixtureDir = tempDir("hov-router-optional-tunnel-fixture-");
 		const programs = writeStableFixturePrograms(fixtureDir);
 		const tunnel = writeOptionalTunnelFixture(fixtureDir);
 		const tunnelExitFile = join(fixtureDir, "stop-tunnel");
@@ -1209,13 +1255,13 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 			RUNNER_RESTART_MAX_FAILURES: "3",
 			RUNNER_RESTART_WINDOW_MS: "1000",
 		});
-		await waitForOutput(runner, "ccflare stack ready");
+		await waitForOutput(runner, "hov-router stack ready");
 		writeFileSync(tunnelExitFile, "stop\n");
 		await waitForOutput(runner, "child=ai-gateway ssh tunnel");
 		await waitForOutput(runner, "restarting stack via supervisor");
 		const restartStartedAt = Date.now();
 		while (
-			(runner.getOutput().stdout.match(/ccflare stack ready/g) ?? []).length <
+			(runner.getOutput().stdout.match(/hov-router stack ready/g) ?? []).length <
 				2 &&
 			Date.now() - restartStartedAt < 5_000
 		) {
@@ -1226,7 +1272,7 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 		// racing TERM against another fixture-induced tunnel death.
 		const recoveredOutput = runner.getOutput();
 		expect(
-			(recoveredOutput.stdout.match(/ccflare stack ready/g) ?? []).length,
+			(recoveredOutput.stdout.match(/hov-router stack ready/g) ?? []).length,
 			JSON.stringify(recoveredOutput),
 		).toBe(2);
 		expect(
@@ -1245,7 +1291,7 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 	}, 12_000);
 
 	test("exits with a bounded circuit status under a service auto invocation", async () => {
-		const fixtureDir = tempDir("ccflare-stack-circuit-auto-fixture-");
+		const fixtureDir = tempDir("hov-router-circuit-auto-fixture-");
 		const programs = writeGuardExitFixture(fixtureDir, 42);
 		const runner = await spawnRunner(programs, {
 			// systemd sets INVOCATION_ID. Auto mode must exit with a distinct
@@ -1271,7 +1317,7 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 		// ahead closed the restart window early and reset the count (#880). The
 		// runner's own lines are printed so a repeat shows how it was counted.
 		expect(
-			(output.stdout.match(/starting better-ccflare upstream/g) ?? []).length,
+			(output.stdout.match(/starting hov-router upstream/g) ?? []).length,
 			JSON.stringify(output),
 		).toBe(2);
 
@@ -1303,7 +1349,7 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 	}, 10_000);
 
 	test("holds an explicitly requested circuit until an operator TERM", async () => {
-		const fixtureDir = tempDir("ccflare-stack-circuit-hold-fixture-");
+		const fixtureDir = tempDir("hov-router-circuit-hold-fixture-");
 		const programs = writeGuardExitFixture(fixtureDir, 42);
 		const runner = await spawnRunner(programs, {
 			// Explicit hold is retained for operator-controlled one-shot fixtures;
@@ -1321,7 +1367,7 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 			5_000,
 		);
 		const startsBefore = (
-			runner.getOutput().stdout.match(/starting better-ccflare upstream/g) ?? []
+			runner.getOutput().stdout.match(/starting hov-router upstream/g) ?? []
 		).length;
 		expect(startsBefore).toBe(2);
 		expect(runner.child.kill("SIGTERM")).toBe(true);
@@ -1331,14 +1377,14 @@ describe("run-ccflare-stack supervisor lifecycle", () => {
 
 		expect(result.code).toBe(143);
 		expect(
-			(output.stdout.match(/starting better-ccflare upstream/g) ?? []).length,
+			(output.stdout.match(/starting hov-router upstream/g) ?? []).length,
 		).toBe(startsBefore);
 		expect(output.stdout).toContain("shutdown requested");
 	}, 10_000);
 
 	test("ignores explicit hold under a systemd invocation", async () => {
 		const fixtureDir = tempDir(
-			"ccflare-stack-circuit-service-override-fixture-",
+			"hov-router-circuit-service-override-fixture-",
 		);
 		const programs = writeGuardExitFixture(fixtureDir, 42);
 		const runner = await spawnRunner(programs, {
@@ -1370,17 +1416,14 @@ describe("persistent guard memory replacement (real Node guard, mock upstream on
 		// a 1.5 s injected delay, so headroom is added on top of the delay. The
 		// callers' 30 s test timeouts cover this window, the handoff, and the reap.
 		const readyTimeoutMs = guardStartupDelayMs + 10_000;
-		const nodeExecutable = resolveNodeExecutable();
-		const dir = tempDir("ccflare-persistent-fixture-");
+		const dir = tempDir("hov-router-persistent-fixture-");
 		const programs = writeFixturePrograms(dir);
 		const startupDelayModule = join(dir, "guard-start-delay.mjs");
 		writeFileSync(
 			startupDelayModule,
-			`if (process.argv[1] === ${JSON.stringify(join(repoRoot, "scripts/ccflare-guard.mjs"))}) await new Promise(resolve => setTimeout(resolve, ${guardStartupDelayMs}));`,
+			`if (process.argv[1] === ${JSON.stringify(join(repoRoot, "scripts/hov-router-guard.mjs"))}) await new Promise(resolve => setTimeout(resolve, ${guardStartupDelayMs}));`,
 		);
 		let source = readFileSync(programs.upstream, "utf8");
-		// The runner owns PATH; pin this mock to the same verified native runtime.
-		source = source.replace("#!/usr/bin/env node", `#!${nodeExecutable}`);
 		source = source.replace(
 			"res.end('{}');",
 			"res.end(JSON.stringify({git_sha:existsSync(`${process.env.CAPTURE_DIR}/bad-health`) ? 'wrong-sha' : '01234567'}));",
@@ -1397,7 +1440,7 @@ describe("persistent guard memory replacement (real Node guard, mock upstream on
 		const runner = await spawnRunner(
 			{
 				upstream: programs.upstream,
-				guard: join(repoRoot, "scripts/ccflare-guard.mjs"),
+				guard: join(repoRoot, "scripts/hov-router-guard.mjs"),
 			},
 			{
 				...rssPolicy({ RUNNER_RSS_POLL_INTERVAL_MS: "20" }),
@@ -1422,7 +1465,7 @@ describe("persistent guard memory replacement (real Node guard, mock upstream on
 		try {
 			await waitForOutput(
 				runner,
-				"ccflare stack ready",
+				"hov-router stack ready",
 				Number(extra.FIXTURE_READY_TIMEOUT_MS ?? readyTimeoutMs),
 			);
 		} catch (error) {
@@ -1433,7 +1476,7 @@ describe("persistent guard memory replacement (real Node guard, mock upstream on
 			for (const match of runner
 				.getOutput()
 				.stdout.matchAll(
-					/stopping (?:ccflare guard|better-ccflare upstream) pid=(\d+)/g,
+					/stopping (?:hov-router guard|hov-router upstream) pid=(\d+)/g,
 				))
 				expect(existsSync(`/proc/${match[1]}`)).toBe(false);
 			throw error;

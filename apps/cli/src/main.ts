@@ -1,10 +1,14 @@
 #!/usr/bin/env bun
+import { refuseRetiredNames } from "@hov-router/config/retired-names";
 import { loadCliDotenv } from "./startup-env";
 import { unknownArgumentLines } from "./unknown-argument";
 
 // Source runs retain the script-directory fallback. Compiled startup has already
 // loaded the same fallbacks using its physical executable, before app imports.
 loadCliDotenv(process.argv[1]);
+// The compiled entry refuses before importing this module. Importing CLI helpers
+// is not startup and must not inspect the caller's storage or terminate it.
+if (import.meta.main) refuseRetiredNames();
 
 import type { CreatedAccountIdentity } from "@hov-router/cli-commands";
 import { getManagedRoutingHelpText } from "@hov-router/cli-commands/help";
@@ -27,11 +31,7 @@ import {
 	resolveFamilyAliasModel,
 	shutdown,
 } from "@hov-router/core";
-import {
-	COMMAND_NAME,
-	LEGACY_COMMAND_NAME,
-	PRODUCT_NAME,
-} from "@hov-router/core/product-identity";
+import { COMMAND_NAME, PRODUCT_NAME } from "@hov-router/core/product-identity";
 import { container, SERVICE_KEYS } from "@hov-router/core-di";
 import type { DatabaseOperations } from "@hov-router/database";
 import { Logger } from "@hov-router/logger";
@@ -136,7 +136,6 @@ export function renderHelpText(version: string): string {
 🎯 ${PRODUCT_NAME} v${version} - Load Balancer for Claude
 
 Usage: ${COMMAND_NAME} [options]
-Earlier command names, such as ${LEGACY_COMMAND_NAME}, remain supported aliases.
 
 Options:
   --version, -v       Show version number
@@ -411,9 +410,9 @@ function displayConfigInfo(parsed: ParsedArgs, config: Config): void {
 
 	configItems.push({
 		name: "Host",
-		value: process.env.BETTER_CCFLARE_HOST || "0.0.0.0",
-		source: process.env.BETTER_CCFLARE_HOST
-			? "Environment (BETTER_CCFLARE_HOST)"
+		value: process.env.HOV_ROUTER_HOST || "0.0.0.0",
+		source: process.env.HOV_ROUTER_HOST
+			? "Environment (HOV_ROUTER_HOST)"
 			: "Default",
 		description: "Server binding host",
 	});
@@ -443,9 +442,9 @@ function displayConfigInfo(parsed: ParsedArgs, config: Config): void {
 	// Database Configuration
 	configItems.push({
 		name: "Database Path",
-		value: process.env.BETTER_CCFLARE_DB_PATH || resolveDbPath(),
-		source: process.env.BETTER_CCFLARE_DB_PATH
-			? "Environment (BETTER_CCFLARE_DB_PATH)"
+		value: process.env.HOV_ROUTER_DB_PATH || resolveDbPath(),
+		source: process.env.HOV_ROUTER_DB_PATH
+			? "Environment (HOV_ROUTER_DB_PATH)"
 			: "Default",
 		description: "SQLite database file path",
 	});
@@ -1156,7 +1155,7 @@ export async function convertFamilyPolicyAliasesViaLocalControl(options: {
 			redirect: "error",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-local-control-secret": options.localControlSecret,
+				"x-hov-router-local-control-secret": options.localControlSecret,
 			},
 			...(body === undefined ? {} : { body: JSON.stringify(body) }),
 		});
@@ -1640,7 +1639,7 @@ async function main() {
 				// For API key accounts, get the API key from environment or prompt
 				let apiKey =
 					process.env[
-						`BETTER_CCFLARE_API_KEY_${parsed.addAccount.toUpperCase()}`
+						`HOV_ROUTER_API_KEY_${parsed.addAccount.toUpperCase()}`
 					] ||
 					process.env[`API_KEY_${parsed.addAccount.toUpperCase()}`] ||
 					"";

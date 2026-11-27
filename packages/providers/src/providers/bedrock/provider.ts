@@ -126,9 +126,9 @@ function transformSelfContainedStreamCitation(
 }
 
 /**
- * AWS Bedrock provider for better-ccflare
+ * AWS Bedrock provider for hov-router
  *
- * Integrates with better-ccflare's provider system to route /v1/messages requests
+ * Integrates with hov-router's provider system to route /v1/messages requests
  * to AWS Bedrock accounts. Uses Phase 1 utilities for credential management and
  * AWS SDK v3 for automatic SigV4 signing.
  *

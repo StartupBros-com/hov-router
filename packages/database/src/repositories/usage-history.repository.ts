@@ -532,7 +532,7 @@ export class UsageHistoryRepository extends BaseRepository<UsageSnapshotRow> {
 		// append_order is the durable database-generated surrogate key, so it
 		// bounds the physical delete without relying on SQLite rowid storage
 		// locations. The timestamp index makes the inner selection efficient.
-		// Batch size is configurable via BETTER_CCFLARE_DB_CLEANUP_BATCH_SIZE
+		// Batch size is configurable via HOV_ROUTER_DB_CLEANUP_BATCH_SIZE
 		// (default 200) — lower it if rows are large and batches are timing
 		// out (#412).
 		const BATCH_SIZE = getCleanupBatchSize();

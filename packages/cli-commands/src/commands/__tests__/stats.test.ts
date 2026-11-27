@@ -111,7 +111,7 @@ describe("compactDatabase", () => {
 
 	describe("live-service writer-lock guard", () => {
 		it("throws (and does NOT call compact) when another process holds the writer lock", async () => {
-			// Simulate the running better-ccflare server holding the DB
+			// Simulate the running hov-router server holding the DB
 			// writer lock by opening a second connection and starting a
 			// long-running write transaction. The CLI's probe should hit
 			// SQLITE_BUSY and refuse before invoking the worker-backed
@@ -121,7 +121,7 @@ describe("compactDatabase", () => {
 			const os = await import("node:os");
 			const path = await import("node:path");
 			const tmpDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), "ccflare-compact-guard-"),
+				path.join(os.tmpdir(), "hov-router-compact-guard-"),
 			);
 			const dbPath = path.join(tmpDir, "test.db");
 			const blocker = new Database(dbPath, { create: true });
@@ -151,7 +151,7 @@ describe("compactDatabase", () => {
 			const os = await import("node:os");
 			const path = await import("node:path");
 			const tmpDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), "ccflare-compact-ok-"),
+				path.join(os.tmpdir(), "hov-router-compact-ok-"),
 			);
 			const dbPath = path.join(tmpDir, "test.db");
 			const initDb = new Database(dbPath, { create: true });

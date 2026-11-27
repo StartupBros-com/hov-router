@@ -517,21 +517,21 @@ describe("multi-instance-guard (SQLite)", () => {
 	});
 
 	it("readMultiInstanceMode defaults to warn and respects refuse", () => {
-		const prev = process.env.BETTER_CCFLARE_MULTI_INSTANCE;
+		const prev = process.env.HOV_ROUTER_MULTI_INSTANCE;
 		try {
-			delete process.env.BETTER_CCFLARE_MULTI_INSTANCE;
+			delete process.env.HOV_ROUTER_MULTI_INSTANCE;
 			expect(readMultiInstanceMode()).toBe("warn");
-			process.env.BETTER_CCFLARE_MULTI_INSTANCE = "refuse";
+			process.env.HOV_ROUTER_MULTI_INSTANCE = "refuse";
 			expect(readMultiInstanceMode()).toBe("refuse");
-			process.env.BETTER_CCFLARE_MULTI_INSTANCE = "WARN";
+			process.env.HOV_ROUTER_MULTI_INSTANCE = "WARN";
 			expect(readMultiInstanceMode()).toBe("warn");
-			process.env.BETTER_CCFLARE_MULTI_INSTANCE = "unknown";
+			process.env.HOV_ROUTER_MULTI_INSTANCE = "unknown";
 			expect(readMultiInstanceMode()).toBe("warn"); // unknown -> warn
 		} finally {
 			if (prev === undefined) {
-				delete process.env.BETTER_CCFLARE_MULTI_INSTANCE;
+				delete process.env.HOV_ROUTER_MULTI_INSTANCE;
 			} else {
-				process.env.BETTER_CCFLARE_MULTI_INSTANCE = prev;
+				process.env.HOV_ROUTER_MULTI_INSTANCE = prev;
 			}
 		}
 	});

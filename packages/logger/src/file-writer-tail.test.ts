@@ -14,9 +14,9 @@ import { LogFileWriter } from "./file-writer";
 
 let dir: string, saved: string | undefined, writer: LogFileWriter;
 beforeEach(() => {
-	saved = process.env.BETTER_CCFLARE_LOG_DIR;
+	saved = process.env.HOV_ROUTER_LOG_DIR;
 	dir = mkdtempSync(join(tmpdir(), "log-tail-"));
-	process.env.BETTER_CCFLARE_LOG_DIR = dir;
+	process.env.HOV_ROUTER_LOG_DIR = dir;
 	writer = new LogFileWriter();
 	writer.close();
 });
@@ -24,8 +24,8 @@ afterEach(() => {
 	mock.restore();
 	writer.close();
 	rmSync(dir, { recursive: true, force: true });
-	if (saved === undefined) delete process.env.BETTER_CCFLARE_LOG_DIR;
-	else process.env.BETTER_CCFLARE_LOG_DIR = saved;
+	if (saved === undefined) delete process.env.HOV_ROUTER_LOG_DIR;
+	else process.env.HOV_ROUTER_LOG_DIR = saved;
 });
 const ev = (ts: number, msg = "message") =>
 	JSON.stringify({ ts, level: "INFO", msg });

@@ -35,16 +35,16 @@ import {
 	recordWhenThereIsSpace,
 	recoverTransaction,
 	writeCredential,
-} from "../ccflare-deployment-transaction.mjs";
+} from "../hov-router-deployment-transaction.mjs";
 import { resolveNodeExecutable } from "./node-runtime";
 
 const transactionModule = fileURLToPath(
-	new URL("../ccflare-deployment-transaction.mjs", import.meta.url),
+	new URL("../hov-router-deployment-transaction.mjs", import.meta.url),
 );
 
 const dirs: string[] = [];
 function scratch(): string {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-transaction-full-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-transaction-full-"));
 	dirs.push(dir);
 	return dir;
 }
@@ -381,7 +381,7 @@ describe("the deploy listener's record", () => {
 	test("writes over the last listener's record without waiting", async () => {
 		const dir = scratch();
 		const path = join(dir, "runtime.json");
-		durableWrite(path, { generation: 1, controlDir: "/run/ccflare-stack/a" });
+		durableWrite(path, { generation: 1, controlDir: "/run/hov-router/a" });
 		const { slept, said, sleep, log } = quiet();
 
 		const how = await recordWhenThereIsSpace(
@@ -519,7 +519,7 @@ describe("the deploy listener's start", () => {
 		const listener = await listening(
 			["serve", handoff],
 			{
-				CCFLARE_DEPLOYMENT_RUNTIME: JSON.stringify(
+				HOV_ROUTER_DEPLOYMENT_RUNTIME: JSON.stringify(
 					runtime(control, join(dir, "pin")),
 				),
 			},
@@ -545,7 +545,7 @@ describe("the deploy listener's start", () => {
 		const handoff = join(dir, "handoff");
 		mkdirSync(control);
 		const env = { ...process.env };
-		delete env.CCFLARE_DEPLOYMENT_RUNTIME;
+		delete env.HOV_ROUTER_DEPLOYMENT_RUNTIME;
 
 		const result = spawnSync(
 			resolveNodeExecutable(),
@@ -554,7 +554,7 @@ describe("the deploy listener's start", () => {
 		);
 
 		expect(result.status).toBe(70);
-		expect(result.stderr).toContain("CCFLARE_DEPLOYMENT_RUNTIME");
+		expect(result.stderr).toContain("HOV_ROUTER_DEPLOYMENT_RUNTIME");
 	});
 
 	test("puts its credential in the file already there", async () => {
@@ -575,7 +575,7 @@ describe("the deploy listener's start", () => {
 		const listener = await listening(
 			["serve", handoff],
 			{
-				CCFLARE_DEPLOYMENT_RUNTIME: JSON.stringify(
+				HOV_ROUTER_DEPLOYMENT_RUNTIME: JSON.stringify(
 					runtime(control, join(dir, "pin")),
 				),
 			},
@@ -608,7 +608,7 @@ describe("the deploy listener's start", () => {
 		const listener = await listening(
 			["serve", handoff],
 			{
-				CCFLARE_DEPLOYMENT_RUNTIME: JSON.stringify(
+				HOV_ROUTER_DEPLOYMENT_RUNTIME: JSON.stringify(
 					runtime(control, join(dir, "pin")),
 				),
 			},

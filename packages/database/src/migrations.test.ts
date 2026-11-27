@@ -1654,7 +1654,7 @@ describe("Database Backup Behavior", () => {
 		expect(backupSize).toBeGreaterThan(0);
 	});
 
-	it("should prune older backups to BETTER_CCFLARE_MIGRATION_BACKUP_KEEP", () => {
+	it("should prune older backups to HOV_ROUTER_MIGRATION_BACKUP_KEEP", () => {
 		const dbPath = path.join(tmpDir, "prune.db");
 		const db = new Database(dbPath);
 		ensureSchema(db);
@@ -1668,8 +1668,8 @@ describe("Database Backup Behavior", () => {
 		fs.writeFileSync(path.join(tmpDir, "prune.db.backup.4000"), "old-4");
 		fs.writeFileSync(path.join(tmpDir, "prune.db.backup.5000"), "old-5");
 
-		const prev = process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP;
-		process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP = "2";
+		const prev = process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP;
+		process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP = "2";
 		try {
 			// Trigger a migration so a new backup gets written + prune fires.
 			const db2 = new Database(dbPath);
@@ -1681,9 +1681,9 @@ describe("Database Backup Behavior", () => {
 			db3.close();
 		} finally {
 			if (prev === undefined) {
-				delete process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP;
+				delete process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP;
 			} else {
-				process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP = prev;
+				process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP = prev;
 			}
 		}
 
@@ -1725,8 +1725,8 @@ describe("Database Backup Behavior", () => {
 		fs.writeFileSync(path.join(tmpDir, "garbled.db.backup.4000"), "x");
 		fs.writeFileSync(path.join(tmpDir, "garbled.db.backup.5000"), "x");
 
-		const prev = process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP;
-		process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP = "2abc";
+		const prev = process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP;
+		process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP = "2abc";
 		try {
 			const db2 = new Database(dbPath);
 			db2.prepare("ALTER TABLE accounts ADD COLUMN account_tier TEXT").run();
@@ -1737,9 +1737,9 @@ describe("Database Backup Behavior", () => {
 			db3.close();
 		} finally {
 			if (prev === undefined) {
-				delete process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP;
+				delete process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP;
 			} else {
-				process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP = prev;
+				process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP = prev;
 			}
 		}
 
@@ -1777,8 +1777,8 @@ describe("Database Backup Behavior", () => {
 			fs.writeFileSync(path.join(tmpDir, name), "manual-keep");
 		}
 
-		const prev = process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP;
-		process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP = "2";
+		const prev = process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP;
+		process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP = "2";
 		try {
 			const db2 = new Database(dbPath);
 			db2.prepare("ALTER TABLE accounts ADD COLUMN account_tier TEXT").run();
@@ -1789,9 +1789,9 @@ describe("Database Backup Behavior", () => {
 			db3.close();
 		} finally {
 			if (prev === undefined) {
-				delete process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP;
+				delete process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP;
 			} else {
-				process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP = prev;
+				process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP = prev;
 			}
 		}
 
@@ -1802,7 +1802,7 @@ describe("Database Backup Behavior", () => {
 		}
 	});
 
-	it("should leave backups in place when BETTER_CCFLARE_MIGRATION_BACKUP_KEEP=0", () => {
+	it("should leave backups in place when HOV_ROUTER_MIGRATION_BACKUP_KEEP=0", () => {
 		const dbPath = path.join(tmpDir, "nokeep.db");
 		const db = new Database(dbPath);
 		ensureSchema(db);
@@ -1812,8 +1812,8 @@ describe("Database Backup Behavior", () => {
 		fs.writeFileSync(path.join(tmpDir, "nokeep.db.backup.200"), "old-2");
 		fs.writeFileSync(path.join(tmpDir, "nokeep.db.backup.300"), "old-3");
 
-		const prev = process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP;
-		process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP = "0";
+		const prev = process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP;
+		process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP = "0";
 		try {
 			const db2 = new Database(dbPath);
 			db2.prepare("ALTER TABLE accounts ADD COLUMN account_tier TEXT").run();
@@ -1824,9 +1824,9 @@ describe("Database Backup Behavior", () => {
 			db3.close();
 		} finally {
 			if (prev === undefined) {
-				delete process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP;
+				delete process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP;
 			} else {
-				process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP = prev;
+				process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP = prev;
 			}
 		}
 
@@ -1849,8 +1849,8 @@ describe("Database Backup Behavior", () => {
 		fs.writeFileSync(path.join(tmpDir, "negative.db.backup.4000"), "x");
 		fs.writeFileSync(path.join(tmpDir, "negative.db.backup.5000"), "x");
 
-		const prev = process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP;
-		process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP = "-1";
+		const prev = process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP;
+		process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP = "-1";
 		try {
 			const db2 = new Database(dbPath);
 			db2.prepare("ALTER TABLE accounts ADD COLUMN account_tier TEXT").run();
@@ -1861,9 +1861,9 @@ describe("Database Backup Behavior", () => {
 			db3.close();
 		} finally {
 			if (prev === undefined) {
-				delete process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP;
+				delete process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP;
 			} else {
-				process.env.BETTER_CCFLARE_MIGRATION_BACKUP_KEEP = prev;
+				process.env.HOV_ROUTER_MIGRATION_BACKUP_KEEP = prev;
 			}
 		}
 

@@ -66,9 +66,9 @@ describe("LogFileWriter on storage that cannot be written", () => {
 	};
 
 	beforeEach(() => {
-		savedLogDir = process.env.BETTER_CCFLARE_LOG_DIR;
-		logDir = mkdtempSync(join(tmpdir(), "better-ccflare-logger-full-"));
-		process.env.BETTER_CCFLARE_LOG_DIR = logDir;
+		savedLogDir = process.env.HOV_ROUTER_LOG_DIR;
+		logDir = mkdtempSync(join(tmpdir(), "hov-router-logger-full-"));
+		process.env.HOV_ROUTER_LOG_DIR = logDir;
 		uncaught = [];
 		process.on("uncaughtException", onUncaught);
 	});
@@ -77,8 +77,8 @@ describe("LogFileWriter on storage that cannot be written", () => {
 		process.off("uncaughtException", onUncaught);
 		writer?.close();
 		writer = null;
-		if (savedLogDir === undefined) delete process.env.BETTER_CCFLARE_LOG_DIR;
-		else process.env.BETTER_CCFLARE_LOG_DIR = savedLogDir;
+		if (savedLogDir === undefined) delete process.env.HOV_ROUTER_LOG_DIR;
+		else process.env.HOV_ROUTER_LOG_DIR = savedLogDir;
 		rmSync(logDir, { recursive: true, force: true });
 	});
 
@@ -253,7 +253,7 @@ describe("LogFileWriter on storage that cannot be written", () => {
 		// or EEXIST, the same way it fails with ENOSPC when no block is free.
 		const blocker = join(logDir, "blocker");
 		writeFileSync(blocker, "not a directory");
-		process.env.BETTER_CCFLARE_LOG_DIR = join(blocker, "logs");
+		process.env.HOV_ROUTER_LOG_DIR = join(blocker, "logs");
 
 		expect(() => {
 			writer = new LogFileWriter({ retryBaseMs: 20 });
@@ -280,7 +280,7 @@ describe("LogFileWriter on storage that cannot be written", () => {
 	it("reopens the file once when many lines arrive before the first write is confirmed", async () => {
 		const blocker = join(logDir, "blocker");
 		writeFileSync(blocker, "not a directory");
-		process.env.BETTER_CCFLARE_LOG_DIR = join(blocker, "logs");
+		process.env.HOV_ROUTER_LOG_DIR = join(blocker, "logs");
 		writer = new LogFileWriter({ retryBaseMs: 20 });
 		const sink = writer;
 		expect(sink.status().suspended).toBe(true);

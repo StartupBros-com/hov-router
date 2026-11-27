@@ -209,7 +209,7 @@ export async function handleRepairCommand(
 	dbOps: DatabaseOperations,
 ): Promise<void> {
 	console.log("");
-	console.log("BETTER-CCFLARE DATABASE REPAIR");
+	console.log("HOV ROUTER DATABASE REPAIR");
 	console.log("=".repeat(50));
 	console.log("");
 

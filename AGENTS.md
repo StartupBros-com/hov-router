@@ -6,32 +6,26 @@ Instructions for any agent working on **HoV Router** (`hov-router`): a load bala
 
 Anthropic-backed accounts, including the `claude` account, are Claude subscription logins. Traffic from the unmodified Claude Code binary is normal use: interactive sessions, headless `claude -p`, and programs or containers that run the binary through Router. Anthropic documents `claude -p` for scripts and CI ([headless](https://code.claude.com/docs/en/headless)). Router goes further than Anthropic's gateway docs: the [LLM gateway](https://code.claude.com/docs/en/llm-gateway) page describes a gateway that forwards the user's own login, while Router pools several subscription logins and replaces the client's credential with one of them. That pooling is a risk the operator accepts, not a pattern Anthropic documents.
 
-**Never send an Anthropic-backed account a request that does not come from Claude Code**, directly or through Router: no curl, test harness, SDK script, diagnostic probe or third-party agent harness, whether or not you would call it "testing". Anthropic limits subscription logins to "ordinary use of Claude Code and other native Anthropic applications" and can enforce that without notice ([legal and compliance](https://code.claude.com/docs/en/legal-and-compliance)), so such a request puts the account at risk. For scripted API requests, use a non-Anthropic account (ollama, litellm, omniroute, etc.) and force-route with `x-better-ccflare-account-id`.
+**Never send an Anthropic-backed account a request that does not come from Claude Code**, directly or through Router: no curl, test harness, SDK script, diagnostic probe or third-party agent harness, whether or not you would call it "testing". Anthropic limits subscription logins to "ordinary use of Claude Code and other native Anthropic applications" and can enforce that without notice ([legal and compliance](https://code.claude.com/docs/en/legal-and-compliance)), so such a request puts the account at risk. For scripted API requests, use a non-Anthropic account (ollama, litellm, omniroute, etc.) and force-route with `x-hov-router-account-id`. A server older than 8.0.0 ignores that header and sends the request into the pool, so first check that its `/health` `version` is 8.0.0 or later.
 
 Nothing here authorizes paid overage.
 
-## ⚠️ CRITICAL: ccflare names are being renamed in #1056
+## Names
 
-HoV Router still carries operational names from the ccflare fork. [#1056](https://github.com/StartupBros-com/hov-router/issues/1056) renames them to HoV Router names. Names that never leave the binary are already renamed: the `@hov-router/*` workspaces, build defines and dashboard storage keys. A single PR renames the rest, and they change together in one full-restart deploy.
+The product is HoV Router. Release 8.0.0 ([#1056](https://github.com/StartupBros-com/hov-router/issues/1056)) renamed everything it inherited from better-ccflare, and code uses only these names:
+- **Command and packages:** `hov-router`; workspaces `@hov-router/*`, with the CLI as `@hov-router/cli`; build output `apps/cli/dist/hov-router`; release asset `hov-router-linux-amd64`.
+- **Storage:** the config directory `~/.config/hov-router` (or `$XDG_CONFIG_HOME/hov-router`; on Windows, `hov-router` under `LOCALAPPDATA`/`APPDATA`), holding `hov-router.json` and `hov-router.db`.
+- **Environment variables:** `HOV_ROUTER_*`. **Headers:** `x-hov-router-*`.
+- **Service:** `hov-router.service` (guard `:8788` → binary `:8789`; default port `8080`).
 
-Until that deploy, production reads only the old names below, so use them when you talk to it. Rename them only in that PR, never one at a time on the side. A missed reader silently falls back:
-- An ignored `BETTER_CCFLARE_DB_PATH` opens the default database.
-- An ignored `x-better-ccflare-account-id` sends the request into the pool.
+Startup refuses a retired name instead of ignoring it: it exits 78 naming each one, and a request carrying a retired header gets a 400. Ignoring one would fail silently, since an ignored database path opens the default database and an ignored account header sends the request into the pool. Do not add a reader for an old name. [Renamed in 8.0.0](docs/hov-router-migration.md#renamed-in-800) covers moving an install.
 
-Add no new `ccflare` names. New code uses `hov-router`, `HOV_ROUTER_*`, `x-hov-router-*` and `@hov-router/*`.
-
-Still live under the old names:
-- **Commands:** `hov-router` is preferred, and `better-ccflare` still works (`COMMAND_NAMES` in `packages/core/src/product-identity.ts`). Existing `wstack-router` links run the same binary.
-- **Storage:** the config directory `~/.config/better-ccflare` (or `$XDG_CONFIG_HOME/better-ccflare`; on Windows, `better-ccflare` under `LOCALAPPDATA`/`APPDATA`), plus `better-ccflare.json` and `better-ccflare.db`.
-- **Environment variables:** `BETTER_CCFLARE_*`, `CCFLARE_*`, `ccflare_*`. **Headers:** `x-better-ccflare-*`.
-- **Artifacts:** `apps/cli/dist/better-ccflare`, the `better-ccflare` package name in `apps/cli`, and the release asset `better-ccflare-linux-amd64`.
-- **Service:** `ccflare-stack.service` (guard `:8788` → binary `:8789`; default port `8080`). The port numbers stay after the rename.
-
-Never renamed, because they are history or required credit:
-- Published release bytes, assets and attestations, and the provenance tokens embedded in them: `v1:startupbros-wstack-router-*` (v3.6.2 through v3.7.1), `v1:startupbros-hov-router-*`, and the `v1:tombii-*` tokens that recognize upstream builds.
-- LICENSE, `docs/acknowledgements.md`, the upstream links in `UPSTREAM.md`, CHANGELOG, and dated plans and reports. `docs/solutions/` is current guidance, so rename the names in it.
-
-Display text uses `PRODUCT_NAME` / `COMMAND_NAME` from `@hov-router/core/product-identity`. Import that subpath directly, not the core barrel, which the dashboard cannot load.
+These keep the old name on purpose:
+- Published release bytes, assets and attestations, and the provenance tokens in them: `v1:startupbros-wstack-router-*` (v3.6.2 through v3.7.1), `v1:startupbros-hov-router-*`, and the `v1:tombii-*` tokens that recognize upstream builds. Releases before 8.0.0 keep the asset name `better-ccflare-linux-amd64`.
+- Two key-derivation labels, in `packages/providers/src/server-tools/replay-envelope.ts` and `packages/proxy/src/handlers/pending-rotation-slots.ts`: data already sealed under them would stop being counted or readable.
+- Upstream's own names: its repositories, npm package, image and issue numbers.
+- The refusal itself (`packages/config/src/retired-names.ts`, `scripts/run-hov-router.sh`), the deploy script's refusal of a host still on `ccflare-stack.service`, the one-time host move (`scripts/hov-router-cutover.sh`), and their tests.
+- LICENSE, `docs/acknowledgements.md`, the upstream links in `UPSTREAM.md`, CHANGELOG, and dated plans, reports and ideation pages.
 
 ## ⚠️ CRITICAL: Generated files
 
@@ -63,7 +57,7 @@ This repo has both a `main` branch and a `main` tag:
 Branch from a freshly fetched `origin/main`; never change `main` directly. Before changing anything, run `git status` and note pre-existing changes so you can tell them apart from yours. Stage files by name (`git add <files>`), never `git add .`, which picks up generated workers.
 
 ## Deployment source (production)
-Production is a root systemd service, `ccflare-stack.service` (guard on `:8788` in front of the binary on `:8789`). Deploys ship only the freshly fetched `origin/main` tip, via `scripts/deploy-ccflare.sh`. Run it from any checkout: it snapshots that tip and runs the snapshot's own copy of the script, so the invoking branch, HEAD and uncommitted files never ship. `scripts/deploy-ccflare.sh --check` prints the target and live SHAs and whether a deploy would be backend-only or a full restart (naming the first field that forces one), without a build, sudo or systemd. The binary embeds its git SHA at build time, verifiable at runtime via the health endpoint's `git_sha` field (no need to trust the binary filename). The systemd pin lives at `/etc/systemd/system/ccflare-stack.service.d/50-pinned-build.conf`. Never let a long-lived feature branch become the de-facto trunk again — merge to `main` and deploy from there. Merging never deploys; the script is the only deploy path.
+Production is a root systemd service, `hov-router.service` (guard on `:8788` in front of the binary on `:8789`). Deploys ship only the freshly fetched `origin/main` tip, via `scripts/deploy-hov-router.sh`. Run it from any checkout: it snapshots that tip and runs the snapshot's own copy of the script, so the invoking branch, HEAD and uncommitted files never ship. `scripts/deploy-hov-router.sh --check` prints the target and live SHAs and whether a deploy would be backend-only or a full restart (naming the first field that forces one), without a build, sudo or systemd. The binary embeds its git SHA at build time, verifiable at runtime via the health endpoint's `git_sha` field (no need to trust the binary filename). The systemd pin lives at `/etc/systemd/system/hov-router.service.d/50-pinned-build.conf`. A host that still runs `ccflare-stack.service` (7.x) moves once, with `scripts/hov-router-cutover.sh`, a full restart that needs the operator's go; the deploy script refuses such a host. Never let a long-lived feature branch become the de-facto trunk again — merge to `main` and deploy from there. Merging never deploys; the script is the only deploy path.
 
 **Who may deploy.** The operator's standing decision (2026-10-15) lets a session deploy merged `main` through the script without a fresh ask when the deploy is a backend-only handoff: the running guard and runner stay up and in-flight streams finish within the guard's shutdown grace. A full restart restarts the whole unit and interrupts clients, so it needs the operator's go for that deploy; when unsure which one a deploy is, ask. Run `--check` first. Its verdict compares only the schema digest, the five ingress scripts (runner, guard, guard policy, timing, transaction) and the systemd pin, never other drop-ins or environment files, so a deploy that goes with a changed drop-in or environment file needs a full restart even when `--check` says backend-only ([why](docs/solutions/workflow-issues/backend-only-deploy-keeps-the-runners-environment.md)).
 
@@ -131,10 +125,10 @@ gh pr list --search "#<N>" --state all
 Decide from the result whether the issue still applies, and state that conclusion with its evidence before proceeding. If it no longer applies, say so on the issue instead of implementing it. Rate limiting, health, and proxy code change frequently. Especially check: has the reported symptom been fixed? Does the proposal conflict with new architecture?
 
 ## Database
-- Default: `~/.config/better-ccflare/better-ccflare.db`
-- Custom: Set `BETTER_CCFLARE_DB_PATH=/path/to/dev.db` in env or .env
-- Query: `sqlite3 -readonly ~/.config/better-ccflare/better-ccflare.db "SELECT name, provider, custom_endpoint FROM accounts;"`
-- **The CLI opens `BETTER_CCFLARE_DB_PATH`, else the default path.** On a host where production runs as the same user, the default is the production database, and these commands change it with no prompt: `--remove` deletes the account, `--reset-stats` zeroes every account's request and session counters, and `--clear-history` deletes requests, payloads and routing attempts older than the configured retention, plus orphaned payloads. Point `BETTER_CCFLARE_DB_PATH` at a scratch copy before trying them.
+- Default: `~/.config/hov-router/hov-router.db`
+- Custom: Set `HOV_ROUTER_DB_PATH=/path/to/dev.db` in env or .env
+- Query: `sqlite3 -readonly ~/.config/hov-router/hov-router.db "SELECT name, provider, custom_endpoint FROM accounts;"`
+- **The CLI opens `HOV_ROUTER_DB_PATH`, else the default path.** On a host where production runs as the same user, the default is the production database, and these commands change it with no prompt: `--remove` deletes the account, `--reset-stats` zeroes every account's request and session counters, and `--clear-history` deletes requests, payloads and routing attempts older than the configured retention, plus orphaned payloads. Point `HOV_ROUTER_DB_PATH` at a scratch copy before trying them.
 
 ## Database migrations
 

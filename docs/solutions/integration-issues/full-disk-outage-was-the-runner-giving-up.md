@@ -8,7 +8,7 @@ component: infrastructure
 symptoms:
   - "Every client lost the router for 21 minutes on 2026-11-14 after the host's ext4 root filled; it stayed down until someone freed space and ran systemctl reset-failed and start"
   - "Backend exited 1 on `ENOSPC: no space left on device, write` from a log write nothing caught"
-  - "Runner logged `mktemp: failed to create directory via template '/tmp/ccflare-control.XXXXXX'`, then `backend transaction held: ENOSPC`, then `restart circuit open; exiting for service supervisor; status=75`"
+  - "Runner logged `mktemp: failed to create directory via template '/tmp/hov-router-control.XXXXXX'`, then `backend transaction held: ENOSPC`, then `restart circuit open; exiting for service supervisor; status=75`"
   - "After a clean stop on a full ext4 disk, starts failed with `SQLITE_IOERR_SHMSIZE` even though the WAL files had been kept"
 root_cause: incorrect_assumption
 resolution_type: code_fix
@@ -96,7 +96,7 @@ those paths either has nothing to lose, writes in place over blocks it already o
   (`apps/server/src/storage-full-backstop.ts:64`). "Full" means `ENOSPC`, `EDQUOT` or
   `SQLITE_FULL` (`packages/core/src/storage-full.ts:1`). I/O errors are left out on purpose,
   because a failing device raises them on a disk with room.
-- **Start reserve (#837).** The server keeps `better-ccflare.db.start-reserve`, 64 KiB of
+- **Start reserve (#837).** The server keeps `hov-router.db.start-reserve`, 64 KiB of
   written bytes beside the database (`packages/database/src/start-reserve.ts:16`). When the
   start's open fails for lack of space, it removes that file and opens once more, doing nothing
   in between. Whatever runs there gives another writer time to take the blocks
@@ -112,10 +112,10 @@ those paths either has nothing to lose, writes in place over blocks it already o
   nothing can store. The refusal is never terminal and pauses nothing
   (`packages/proxy/src/handlers/token-manager.ts:145-150`).
 - **Runner (#839, #840, #865).** The control directory lives under systemd's
-  `RuntimeDirectory=ccflare-stack`, on `/run`, not on the disk. Ownership and listener records
+  `RuntimeDirectory=hov-router`, on `/run`, not on the disk. Ownership and listener records
   are overwritten in place when a new file cannot be made. A start that fails for lack of space
   (the backend exits 28, the errno of `ENOSPC`, `apps/server/src/failed-start.ts:14`) is waited
-  out instead of counted toward the restart circuit (`scripts/run-ccflare-stack.sh:1353-1361`).
+  out instead of counted toward the restart circuit (`scripts/run-hov-router.sh:1353-1361`).
   A stop that lands mid-start is kept until the ownership record says what was started (#840).
   A runner that leaves through its EXIT trap alone before the spawn, which bash 5.2 can do when
   it drops a stop's handler, closes the record as unstarted (#865, see
@@ -166,7 +166,7 @@ in every measured run.
   taken. Give it a pause (`--spin-pause-us 1000`): with none, no start survives, because SQLite
   releases and retakes the index pages at every open. Check `failures` in the report and each
   restart's `healthy`. The runner
-  has its own driver (`scripts/__tests__/run-ccflare-stack-full-disk-driver.ts`), and the
+  has its own driver (`scripts/__tests__/run-hov-router-full-disk-driver.ts`), and the
   credential slots have `apps/server/src/disk-full-slot-scenario.ts`. Both take the same mount.
   Both scenarios refuse a directory that is not a small dedicated mount, because the fill would
   otherwise fill the host's disk (`apps/server/src/disk-full-support.ts:32`).
@@ -176,7 +176,7 @@ in every measured run.
 - **Never write a new file on a path that must work when the disk is full.** A temp file plus
   rename, `mktemp`, a new log file and a new SQLite connection's index all need blocks. Write
   over a file made while there was space, put it on `/run`, or wait for space.
-- **Leave the two files alone.** `better-ccflare.db.start-reserve` and
+- **Leave the two files alone.** `hov-router.db.start-reserve` and
   `pending-rotations/*.slot` look like junk to a disk cleanup. Deleting the reserve costs the
   next full-disk start its margin. A slot can hold the only copy of a rotated refresh token, and
   deleting it then costs that account its sign-in. `docs/troubleshooting.md` names both under

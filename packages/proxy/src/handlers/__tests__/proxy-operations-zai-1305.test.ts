@@ -174,20 +174,20 @@ describe("proxyWithAccount — Zai in-stream 1305 overload detection", () => {
 	let originalFetch: typeof globalThis.fetch;
 	const savedEnv: Record<string, string | undefined> = {};
 	const ENV_KEYS = [
-		"CCFLARE_OVERLOAD_RETRY_ENABLED",
-		"CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS",
-		"CCFLARE_OVERLOAD_RETRY_BASE_MS",
-		"CCFLARE_OVERLOAD_RETRY_MAX_MS",
+		"HOV_ROUTER_OVERLOAD_RETRY_ENABLED",
+		"HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS",
+		"HOV_ROUTER_OVERLOAD_RETRY_BASE_MS",
+		"HOV_ROUTER_OVERLOAD_RETRY_MAX_MS",
 	];
 
 	beforeEach(() => {
 		expect(getProvider("zai")).toBeDefined();
 		originalFetch = globalThis.fetch;
 		for (const key of ENV_KEYS) savedEnv[key] = process.env[key];
-		process.env.CCFLARE_OVERLOAD_RETRY_ENABLED = "true";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
-		process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED = "true";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";
 	});
 
 	afterEach(() => {
@@ -220,7 +220,7 @@ describe("proxyWithAccount — Zai in-stream 1305 overload detection", () => {
 	});
 
 	it("converts to a synthetic 429 after exhausting 1305 retries and fails over (no next account)", async () => {
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "3";
 		let fetchCount = 0;
 		const result = await run(
 			makeAccount(),
@@ -260,7 +260,7 @@ describe("proxyWithAccount — Zai in-stream 1305 overload detection", () => {
 			},
 			makeProxyContext(),
 			makeRequestMeta({
-				headers: new Headers({ "x-better-ccflare-keepalive": "true" }),
+				headers: new Headers({ "x-hov-router-keepalive": "true" }),
 			}),
 		);
 		// The unrecognized 1305 stream passes straight through untouched: a

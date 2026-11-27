@@ -219,12 +219,12 @@ async function main(): Promise<void> {
 	const packageJson = (await Bun.file("./package.json").json()) as {
 		version?: unknown;
 	};
-	const suffix = process.env.CCFLARE_BUILD_SUFFIX;
+	const suffix = process.env.HOV_ROUTER_BUILD_SUFFIX;
 	const version =
 		typeof packageJson.version === "string" && !suffix
 			? packageJson.version
 			: "";
-	const context = process.env.CCFLARE_BUILD_PRODUCER;
+	const context = process.env.HOV_ROUTER_BUILD_PRODUCER;
 	const evidence = readTombiiTaggedBuildEvidence(version, context);
 	const defines = releaseBuildDefines(
 		evidence,

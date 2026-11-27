@@ -34,7 +34,7 @@ describe("parseHealthVerdict", () => {
 	});
 
 	test("rejects the guard's drain body, which has no verdict", () => {
-		// scripts/ccflare-guard.mjs answers /health itself during a drain.
+		// scripts/hov-router-guard.mjs answers /health itself during a drain.
 		expect(
 			parseHealthVerdict({
 				error: "service_unavailable",

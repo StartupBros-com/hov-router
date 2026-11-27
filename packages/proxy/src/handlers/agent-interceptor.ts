@@ -69,7 +69,7 @@ function declinesForcedToolChoiceRewrite(
  * Detects agent usage and modifies the request body to use the preferred model
  * @param requestBodyBuffer - The buffered request body
  * @param dbOps - Database operations instance
- * @param requestHeaders - Incoming request headers (used for x-better-ccflare-agent-id)
+ * @param requestHeaders - Incoming request headers (used for x-hov-router-agent-id)
  * @param options.frontmatterModelFallback - When true, fall back to the
  *   agent's frontmatter `model` if no explicit DB preference is configured.
  *   Defaults to false (see `Config.getAgentFrontmatterModelFallback`).
@@ -133,7 +133,7 @@ export async function interceptAndModifyRequest(
 		//
 		// When neither agent header nor a prompt-detected agent is present, fall
 		// back to the Claude Code session id (`x-claude-code-session-id`).
-		// claude-cli emits this header; ccflare has long persisted it as a
+		// claude-cli emits this header; the router has long persisted it as a
 		// request header so no client change is needed. A session id is a
 		// weaker attribution signal than an agent id (multiple agents can
 		// share one session), but it still splits a fleet of unrelated
@@ -141,7 +141,7 @@ export async function interceptAndModifyRequest(
 		// `agentAttributionSource` distinguishes the two header paths so the
 		// attribution remains auditable downstream.
 		const explicitAgentId = requestHeaders
-			?.get("x-better-ccflare-agent-id")
+			?.get("x-hov-router-agent-id")
 			?.trim()
 			?.slice(0, 256);
 		const sessionHeaderId = requestHeaders
@@ -271,9 +271,9 @@ export async function interceptAndModifyRequest(
 		// workspace list still loads via AgentRegistry.initialize() so already-
 		// registered workspaces continue to work; this only stops NEW workspaces
 		// from being auto-registered from request bodies. Mirrors the pattern
-		// used by `BETTER_CCFLARE_DISCOVER_PLUGIN_AGENTS` in packages/agents.
+		// used by `HOV_ROUTER_DISCOVER_PLUGIN_AGENTS` in packages/agents.
 		const extraDirs =
-			process.env.BETTER_CCFLARE_AGENT_WORKSPACE_AUTODISCOVER === "true"
+			process.env.HOV_ROUTER_AGENT_WORKSPACE_AUTODISCOVER === "true"
 				? extractAgentDirectories(systemPrompt)
 				: [];
 		log.debug(

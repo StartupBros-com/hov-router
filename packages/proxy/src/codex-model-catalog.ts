@@ -896,9 +896,9 @@ function isIdentityRecordAlertError(
  * Report a configured verified Codex CLI version record that is stale or
  * unreadable, which means the managed updater has stalled.
  *
- * The record is only read when `CCFLARE_CODEX_VERIFIED_VERSION_FILE` is set
+ * The record is only read when `HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE` is set
  * (there is no default path), so an install without the updater never alerts.
- * A valid explicit `CCFLARE_CODEX_CLIENT_VERSION` wins over the record and is
+ * A valid explicit `HOV_ROUTER_CODEX_CLIENT_VERSION` wins over the record and is
  * not reported either. Evaluated by the refresh heartbeat once per cycle,
  * never per request.
  */

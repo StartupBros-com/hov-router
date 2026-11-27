@@ -24,15 +24,15 @@ function fetchSignal(
 
 describe("proxyUnauthenticated abort lifecycle", () => {
 	it("pairs a Codex model URL with its headers when identity changes between preparation steps", async () => {
-		const previous = process.env.CCFLARE_CODEX_CLIENT_VERSION;
+		const previous = process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 		const provider = new CodexProvider();
 		const buildUrl = provider.buildUrl;
 		let outgoing: Request | undefined;
 		try {
-			process.env.CCFLARE_CODEX_CLIENT_VERSION = "0.171.0";
+			process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = "0.171.0";
 			provider.buildUrl = function (...args) {
 				const url = buildUrl.apply(this, args);
-				process.env.CCFLARE_CODEX_CLIENT_VERSION = "0.172.0";
+				process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = "0.172.0";
 				return url;
 			};
 			globalThis.fetch = (async (input, init) => {
@@ -70,8 +70,8 @@ describe("proxyUnauthenticated abort lifecycle", () => {
 			expect(outgoing?.headers.get("Version")).toBe("0.171.0");
 		} finally {
 			if (previous === undefined)
-				delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-			else process.env.CCFLARE_CODEX_CLIENT_VERSION = previous;
+				delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+			else process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = previous;
 		}
 	});
 	afterEach(() => {

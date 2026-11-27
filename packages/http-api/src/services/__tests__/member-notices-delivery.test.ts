@@ -171,7 +171,7 @@ describe("member notice delivery", () => {
 		expect(requestId).toMatch(UUID);
 		expect(headers).toEqual({
 			"Content-Type": "application/json",
-			"User-Agent": "better-ccflare-alerts/1.0",
+			"User-Agent": "hov-router-alerts/1.0",
 			"X-Request-Signature": signMemberNoticeRequest(SECRET, {
 				method: "POST",
 				pathname: INTAKE_PATH,

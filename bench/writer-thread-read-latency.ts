@@ -138,7 +138,7 @@ type Sample = {
 	writes: number;
 };
 
-const dir = mkdtempSync(join(tmpdir(), "ccflare-writer-bench-"));
+const dir = mkdtempSync(join(tmpdir(), "hov-router-writer-bench-"));
 const dbPath = join(dir, "bench.db");
 const ops = new DatabaseOperations(dbPath, DB_CONFIG);
 const adapter = ops.getAdapter();

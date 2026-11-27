@@ -32,8 +32,8 @@ import {
 type ConfigChangeListener = (event: { key: string; newValue: unknown }) => void;
 
 const enabledEnv = Object.freeze({
-	CCFLARE_XAI_CACHE_NATIVE: "1",
-	CCFLARE_CACHE_FLIGHT_RECORDER: "1",
+	HOV_ROUTER_XAI_CACHE_NATIVE: "1",
+	HOV_ROUTER_CACHE_FLIGHT_RECORDER: "1",
 });
 
 function makeAccount(overrides: Partial<Account> = {}): Account {
@@ -482,14 +482,14 @@ describe("CohortSealService", () => {
 		expect(
 			capture(
 				makeService(makeConfig(20, 0).config, {
-					env: { CCFLARE_XAI_CACHE_NATIVE: "1" },
+					env: { HOV_ROUTER_XAI_CACHE_NATIVE: "1" },
 				}),
 			),
 		).toBeNull();
 		expect(
 			capture(
 				makeService(makeConfig(20, 0).config, {
-					env: { CCFLARE_CACHE_FLIGHT_RECORDER: "1" },
+					env: { HOV_ROUTER_CACHE_FLIGHT_RECORDER: "1" },
 				}),
 			),
 		).toBeNull();

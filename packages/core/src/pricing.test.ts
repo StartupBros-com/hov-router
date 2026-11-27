@@ -22,12 +22,12 @@ import {
 
 /**
  * The pricing catalogue's on-disk cache is a fixed, shared path
- * (`{tmpdir()}/better-ccflare/models.dev.json`) rather than a per-test
+ * (`{tmpdir()}/hov-router/models.dev.json`) rather than a per-test
  * scratch file, because it is also the real runtime cache for this machine.
  * Tests that need to control what the synchronous disk-cache fallback sees
  * must save/restore whatever was already there instead of clobbering it.
  */
-const DISK_CACHE_PATH = join(tmpdir(), "better-ccflare", "models.dev.json");
+const DISK_CACHE_PATH = join(tmpdir(), "hov-router", "models.dev.json");
 
 async function withDiskCache<T>(
 	content: unknown | null,
@@ -44,7 +44,7 @@ async function withDiskCache<T>(
 		if (content === null) {
 			await rm(DISK_CACHE_PATH, { force: true });
 		} else {
-			await mkdir(join(tmpdir(), "better-ccflare"), { recursive: true });
+			await mkdir(join(tmpdir(), "hov-router"), { recursive: true });
 			await writeFile(DISK_CACHE_PATH, JSON.stringify(content));
 		}
 		return await fn();
