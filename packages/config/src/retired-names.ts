@@ -76,6 +76,23 @@ export function findRetiredStorage(
 	if (existsSync(oldDir) && !existsSync(newDir)) {
 		found.push({ path: oldDir, replacement: newDir });
 	}
+	// Creating the destination directory alone does not migrate its files.
+	// Explicit paths remain choices rather than default-storage fallbacks.
+	for (const [override, filename, oldName] of [
+		[env.HOV_ROUTER_CONFIG_PATH, CONFIG_FILENAME, `${RETIRED_FILE_STEM}.json`],
+		[env.HOV_ROUTER_DB_PATH, DB_FILENAME, `${RETIRED_FILE_STEM}.db`],
+	] as const) {
+		const old = join(oldDir, oldName);
+		const current = join(newDir, filename);
+		if (
+			!override &&
+			existsSync(newDir) &&
+			!existsSync(current) &&
+			existsSync(old)
+		) {
+			found.push({ path: old, replacement: current });
+		}
+	}
 
 	const configPath =
 		env.HOV_ROUTER_CONFIG_PATH || join(newDir, CONFIG_FILENAME);

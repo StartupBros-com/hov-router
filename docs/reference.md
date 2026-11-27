@@ -197,7 +197,7 @@ The PATH change applies to this shell only. To keep it, add the printed director
 
 ### Start the local server
 
-The commands below assume you completed the optional [PATH setup](#optional-add-commands-to-path) or the source install. If you skipped PATH setup, replace `hov-router` in these examples with `"$HOME/.local/lib/hov-router/7.0.0/hov-router"`.
+The commands below require the 8.x rename code from [Install from source](#install-from-source), with that build first on PATH. The published 7.0.0 binary above ignores the 8.x environment keys, including the loopback binding below, and must not be used for these instructions. No 8.x release asset is assumed available.
 
 For a new local setup, start the server and dashboard with:
 

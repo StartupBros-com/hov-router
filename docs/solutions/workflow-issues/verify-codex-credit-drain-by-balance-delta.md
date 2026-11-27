@@ -151,6 +151,8 @@ To attribute spending without reading secrets:
 
 A live check that proves billing and never touches Anthropic-backed accounts (see the Anthropic-accounts rule in AGENTS.md):
 
+Before any scripted force-routed request, read `GET /health` on that same test origin and require a `version` string matching `^[0-9]+\.[0-9]+\.[0-9]+$` whose major component is at least 8. Refuse missing, unknown, unparseable, prerelease or older versions. A 7.x server ignores the new force-route header and can send the request into the subscription pool. An HTTP 503 from health can still carry the version; inspect its JSON without treating a transport failure as a version. Do not send the request when this check fails.
+
 1. Rule out other spenders. Confirm the local Codex CLI is logged into a different account (Guidance §5), and that nothing else uses the target account during the test.
 2. Read `GET /api/accounts` and record the target account's `credits_balance`, `codex_subscription` flags and `codexCreditDrainActive`. If a drain-on account at 100% shows `codexCreditDrainActive: false`, there is no fresh credit evidence yet; wait one poll.
 3. Send a request force-routed with `x-hov-router-account-id: <codex account id>`, with output large enough to move the balance (about 1k tokens).

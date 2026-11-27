@@ -1640,7 +1640,9 @@ async function main() {
 				let apiKey =
 					process.env[
 						`HOV_ROUTER_API_KEY_${parsed.addAccount.toUpperCase()}`
-					] || "";
+					] ||
+					process.env[`API_KEY_${parsed.addAccount.toUpperCase()}`] ||
+					"";
 
 				if (!apiKey) {
 					// Prompt for API key if not in environment

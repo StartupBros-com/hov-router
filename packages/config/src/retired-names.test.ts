@@ -221,3 +221,23 @@ describe("retired request headers", () => {
 		);
 	});
 });
+
+it("detects populated old storage behind an empty new directory but honors custom DB", () => {
+	const { home, base } = scratch();
+	mkdirSync(join(base, "better-ccflare"));
+	mkdirSync(join(base, "hov-router"));
+	const old = join(base, "better-ccflare/better-ccflare.db");
+	writeFileSync(old, "populated");
+	expect(findRetiredStorage({ env: {}, home, configBase: base })).toEqual([
+		{ path: old, replacement: join(base, "hov-router/hov-router.db") },
+	]);
+	expect(
+		findRetiredStorage({
+			env: { HOV_ROUTER_DB_PATH: join(base, "custom.db") },
+			home,
+			configBase: base,
+		}),
+	).toEqual([]);
+	writeFileSync(join(base, "hov-router/hov-router.db"), "migrated");
+	expect(findRetiredStorage({ env: {}, home, configBase: base })).toEqual([]);
+});

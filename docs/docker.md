@@ -161,13 +161,13 @@ A container that still finds an old name stops at start with exit status 78 and 
 5. Rename the variables in the `.env` file next to `docker-compose.yml`: `BETTER_CCFLARE_*`, `CCFLARE_*` and `ccflare_*` become `HOV_ROUTER_*` with the same ending, and `BETTER_CCFLARE_GIT_SHA` becomes `HOV_ROUTER_HEALTH_GIT_SHA`. This prints any left:
 
    ```bash
-   grep -nE '^(BETTER_CCFLARE_|CCFLARE_|ccflare_)' .env
+   sed -nE 's/^[[:space:]]*(export[[:space:]]+)?((BETTER_CCFLARE_|CCFLARE_|ccflare_)[A-Za-z0-9_]*)[[:space:]]*=.*/\2/p' .env
    ```
 
-6. Start it and check that the database is there:
+6. Recreate the container so it captures the renamed environment, then check that the database is there:
 
    ```bash
-   docker compose start
+   docker compose up -d --force-recreate
    docker compose exec hov-router ls -l /data/hov-router.db
    ```
 

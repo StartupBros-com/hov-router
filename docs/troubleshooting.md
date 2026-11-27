@@ -908,6 +908,8 @@ bun start
 
 Use this procedure only for an authorized check against a test instance. It does not authorize paid usage or a request to an Anthropic subscription account.
 
+Before any scripted force-routed request, read `GET /health` on that same test origin and require a `version` string matching `^[0-9]+\.[0-9]+\.[0-9]+$` whose major component is at least 8. Refuse missing, unknown, unparseable, prerelease or older versions. A 7.x server ignores the new force-route header and can send the request into the subscription pool. An HTTP 503 from health can still carry the version; inspect its JSON without treating a transport failure as a version. Do not send the request when this check fails.
+
 1. Identify the test server and the database/configuration it actually uses. In that instance's dashboard or authenticated `GET /api/accounts`, verify an available account whose provider is `openrouter`. Record its nonempty ID. Do not look it up in the default production database for a different server.
 2. Read OpenRouter's [current model catalog](https://openrouter.ai/api/v1/models). Choose a currently available `:free` model and check its pricing; do not reuse an old slug or substitute its paid variant when it is unavailable.
 3. Send a small `POST /v1/messages` to that test instance with its API key, the selected model, a short message, `max_tokens: 10`, and `x-hov-router-account-id` set to the verified ID. Stop before sending if the ID or free-model choice is missing. Do not retry without the force-route header or against a different provider.

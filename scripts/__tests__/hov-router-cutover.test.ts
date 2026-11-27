@@ -9,6 +9,7 @@ import {
 	readdirSync,
 	readFileSync,
 	readlinkSync,
+ symlinkSync,
 	realpathSync,
 	rmSync,
 	writeFileSync,
@@ -67,10 +68,14 @@ const STUBS: Record<string, string> = {
 set -u
 [[ "\${1:-}" == "-n" ]] && shift
 printf '%s\\n' "$*" >>"$STUB_STATE/sudo.log"
-if [[ -n "\${STUB_FAIL_WORKER_PREFLIGHT:-}" && "$1" == true && -e "$HOV_ROUTER_CUTOVER_STATE_DIR/lock" ]]; then exit 1; fi
+if [[ -n "\${STUB_FAIL_WORKER_PREFLIGHT:-}" && "$1" == true && "\${HOV_ROUTER_CUTOVER_LOCK_INHERITED:-}" == 1 ]]; then exit 1; fi
 if [[ -n "\${STUB_FAIL_SUDO:-}" && "$*" == *"$STUB_FAIL_SUDO"* ]]; then
 	echo "stub sudo: injected failure" >&2
 	exit 1
+fi
+if [[ -n "\${STUB_PARTIAL_COPY:-}" && "$1" == cp && "$*" == *secrets.env* ]]; then
+ printf partial >"\${@: -1}"
+ exit 1
 fi
 if [[ "$1" == install ]]; then
 	args=()
@@ -99,6 +104,7 @@ shift
 units="$HOV_ROUTER_CUTOVER_ETC/systemd/system"
 case "$command" in
 	show)
+		if [[ "$*" == *--property=DropInPaths* ]]; then printf '%s\\n' "\${STUB_DROPIN_PATHS:-}"; exit 0; fi
 		[[ -f "$units/$1" ]] && printf '%s\\n' "$STUB_USER"
 		exit 0
 		;;
@@ -135,10 +141,15 @@ done
 exit 7
 `,
 	fuser: `#!/usr/bin/env bash
+[[ -n "\${STUB_HELD_FILE:-}" && "\${@: -1}" == "$STUB_HELD_FILE" ]] && exit 0
 exit 1
 `,
 	bun: `#!/usr/bin/env bash
 printf '%s %s\\n' "$PWD" "$*" >>"$STUB_STATE/bun.log"
+if [[ -n "\${STUB_PAUSE_BUILD:-}" ]]; then
+ touch "$STUB_STATE/build-paused"
+ while [[ ! -e "$STUB_STATE/build-release" ]]; do sleep 0.05; done
+fi
 [[ -z "\${STUB_FAIL_BUN:-}" ]]
 `,
 	deploy: `#!/usr/bin/env bash
@@ -395,6 +406,108 @@ function log(host: Host, name: string): string[] {
 	const path = join(host.stubState, name);
 	return existsSync(path) ? readFileSync(path, "utf8").trim().split("\n") : [];
 }
+
+test("concurrent apply cannot rotate a building worker's state", async () => {
+	const host = createHost();
+	expect(run(host, ["--apply"], { STUB_PAUSE_BUILD: "1" }).exitCode).toBe(0);
+	try {
+		for (let i = 0; i < 100 && !existsSync(join(host.stubState, "build-paused")); i++) await Bun.sleep(50);
+		expect(existsSync(join(host.stubState, "build-paused"))).toBe(true);
+		const inode = lstatSync(host.state).ino;
+		const second = run(host, ["--apply"]);
+		expect(second.exitCode).toBe(1);
+		expect(second.stderr).toContain("another cutover holds");
+		expect(lstatSync(host.state).ino).toBe(inode);
+		expect(existsSync(join(host.state, "started"))).toBe(false);
+	} finally {
+		write(join(host.stubState, "build-release"), "");
+		for (let i = 0; i < 200 && !existsSync(join(host.state, "result")); i++) await Bun.sleep(50);
+	}
+	expect(readFileSync(join(host.state, "result"), "utf8")).toStartWith("ok:");
+}, 20000);
+
+test("held old WAL refuses the move and permits retry after release", async () => {
+	const host = createHost();
+	const before = tree(host);
+	const held = join(host.home, ".config", "better-ccflare", "better-ccflare.db-wal");
+	expect(run(host, ["--apply", "--foreground", "--no-prebuild"], { STUB_HELD_FILE: held }).exitCode).not.toBe(0);
+	expect(tree(host)).toEqual(before);
+	expect(units(host).oldActive).toBe(true);
+	// The launcher archives the completed rollback and retries with no holder.
+	expect(run(host, ["--apply", "--no-prebuild"]).exitCode).toBe(0);
+	for (let i = 0; i < 200 && !existsSync(join(host.state, "result")); i++) await Bun.sleep(50);
+	expect(readFileSync(join(host.state, "result"), "utf8")).toStartWith("ok:");
+}, 20000);
+
+test("held new WAL refuses rollback until its holder releases it", () => {
+	const host = createHost();
+	expect(run(host, ["--apply", "--foreground", "--no-prebuild"]).exitCode).toBe(0);
+	const cfg = join(host.home, ".config", "hov-router");
+	const held = join(cfg, "hov-router.db-wal");
+	expect(run(host, ["--revert"], { STUB_HELD_FILE: held }).exitCode).toBe(1);
+	expect(readFileSync(held, "utf8")).toBe("wal\n");
+	expect(existsSync(join(host.home, ".config", "better-ccflare"))).toBe(false);
+	expect(run(host, ["--revert"]).exitCode).toBe(0);
+	expect(units(host).oldActive).toBe(true);
+	expect(readFileSync(join(host.home, ".config", "better-ccflare", "better-ccflare.db-wal"), "utf8")).toBe("wal\n");
+});
+
+test("broad env glob refuses before it can load rollback backups", () => {
+	const host = createHost();
+	write(join(host.dropins, "55-secrets.conf"), `[Service]\nEnvironmentFile=${host.etc}/better-ccflare/*\n`);
+	const before = tree(host);
+	const result = run(host, ["--apply", "--foreground", "--no-prebuild"]);
+	expect(result.exitCode).toBe(1);
+	expect(result.stderr).toContain("retired-key backup");
+	expect(tree(host)).toEqual(before);
+	expect(units(host).oldActive).toBe(true);
+});
+
+test("symlinked environment file is refused without replacing the link", () => {
+	const host = createHost();
+	const file = join(host.etc, "better-ccflare", "linked.env");
+	symlinkSync("secrets.env", file);
+	write(join(host.dropins, "60-linked.conf"), `[Service]\nEnvironmentFile=${file}\n`);
+	const before = tree(host);
+	expect(run(host, ["--apply", "--foreground", "--no-prebuild"]).exitCode).toBe(1);
+	expect(tree(host)).toEqual(before);
+	expect(readlinkSync(file)).toBe("secrets.env");
+	expect(units(host).oldActive).toBe(true);
+});
+
+test("unhandled runtime drop-in refuses before service stop", () => {
+	const host = createHost();
+	const before = tree(host);
+	const result = run(host, ["--apply", "--foreground", "--no-prebuild"], { STUB_DROPIN_PATHS: "/run/systemd/system/ccflare-stack.service.d/runtime.conf" });
+	expect(result.exitCode).toBe(1);
+	expect(result.stderr).toContain("loaded drop-in is outside");
+	expect(tree(host)).toEqual(before);
+	expect(units(host).oldActive).toBe(true);
+});
+
+test("equivalent environment paths keep one original backup through rollback", () => {
+	const host = createHost();
+	write(join(host.dropins, "60-alias.conf"), `[Service]\nEnvironmentFile=${host.etc}/better-ccflare/./secrets.env\n`);
+	const before = tree(host);
+	expect(run(host, ["--apply", "--foreground", "--no-prebuild"]).exitCode).toBe(0);
+	const backup = join(host.etc, "hov-router", "secrets.env.pre-8.0.0");
+	expect(readFileSync(backup, "utf8")).toBe("CCFLARE_FIXTURE_SECRET=fixture-secret-value\n");
+	expect(run(host, ["--revert"]).exitCode).toBe(0);
+	// New handoff state is intentionally retained separately on rollback.
+	expect(readFileSync(join(host.etc, "better-ccflare", "secrets.env"), "utf8")).toBe("CCFLARE_FIXTURE_SECRET=fixture-secret-value\n");
+	expect(tree(host)["etc/better-ccflare/secrets.env"]).toBe(before["etc/better-ccflare/secrets.env"]);
+});
+
+test("separate optional pattern cannot start loading newly created backups", () => {
+	const host = createHost();
+	write(join(host.dropins, "60-backups.conf"), `[Service]\nEnvironmentFile=-${host.etc}/better-ccflare/*.pre-8.0.0\n`);
+	const before = tree(host);
+	const result = run(host, ["--apply", "--foreground", "--no-prebuild"]);
+	expect(result.exitCode).toBe(1);
+	expect(result.stderr).toContain("retired-key backup");
+	expect(tree(host)).toEqual(before);
+	expect(units(host).oldActive).toBe(true);
+});
 
 function addLoadedFiles(host: Host) {
 	const dir = join(host.etc, "better-ccflare");
@@ -865,4 +978,57 @@ describe("cutover --revert", () => {
 		expect(revert.exitCode).toBe(1);
 		expect(revert.stderr).toContain("no cutover ran from this account");
 	});
+});
+
+describe("review regressions", () => {
+ test("rewriter drains a large real slow pipe byte for byte", async () => {
+  const source = readFileSync(cutoverSource, "utf8");
+  const js = source.split("cat <<'NODE'\n")[1]?.split("\nNODE")[0];
+  expect(js).toBeDefined();
+  const input = `OTHER=${"x".repeat(1024 * 1024)}\nCCFLARE_PORT=9000\n`;
+  const child = Bun.spawn(["node", "-e", js!, "env", "/etc", "/home/test", "fixture"], {stdin: new Blob([input]), stdout:"pipe", stderr:"pipe"});
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of child.stdout) { chunks.push(chunk); await Bun.sleep(5); }
+  expect(await child.exited).toBe(0);
+  expect(Buffer.concat(chunks).toString()).toBe(input.replace("CCFLARE_PORT", "HOV_ROUTER_PORT"));
+ });
+ for (const suffix of ["handoff.pre-8.0.0", "hov-router.db"]) {
+  for (const dangling of [false, true]) {
+   test(`refuses occupied ${suffix}, dangling=${dangling}, before stop`, () => {
+    const host = createHost();
+    const path = join(host.home, ".config/better-ccflare", suffix);
+    if (dangling) symlinkSync("missing", path); else write(join(path, "keep"), "operator bytes");
+    const before = tree(host);
+    expect(run(host, ["--apply", "--foreground", "--no-prebuild"]).exitCode).toBe(1);
+    expect(tree(host)).toEqual(before);
+    expect(log(host,"systemctl.log")).not.toContain("stop ccflare-stack.service");
+   });
+  }
+ }
+ test("partial backup copy cannot replace the intact original on rollback", () => {
+  const host = createHost();
+  const before = tree(host);
+  const apply = run(host,["--apply","--foreground","--no-prebuild"],{STUB_PARTIAL_COPY:"1"});
+  expect(apply.exitCode).not.toBe(0);
+  expect(readFileSync(join(host.etc,"better-ccflare/secrets.env"),"utf8")).toBe("CCFLARE_FIXTURE_SECRET=fixture-secret-value\n");
+  expect(tree(host)).toEqual(before);
+ });
+ for (const form of ["quoted", "glob", "control"]) {
+  test(`discovers ${form} environment references`, () => {
+   const host = createHost();
+   const envPath = join(host.etc,"better-ccflare/extra.env");
+   write(envPath,"CCFLARE_EXTRA=synthetic\n");
+   const dropin = form === "control" ? join(host.etc,"systemd/system.control/ccflare-stack.service.d/90-env.conf") : join(host.dropins,"60-extra.conf");
+   write(dropin,`[Service]\nEnvironmentFile=${form === "quoted" ? `"${envPath}"` : form === "glob" ? `${host.etc}/better-ccflare/ex*.env` : envPath}\n`);
+   expect(run(host,["--apply","--foreground","--no-prebuild"]).exitCode).toBe(0);
+   expect(readFileSync(join(host.etc,"hov-router/extra.env"),"utf8")).toBe("HOV_ROUTER_EXTRA=synthetic\n");
+  });
+ }
+ test("unsupported specifier refuses before mutation", () => {
+  const host=createHost(); write(join(host.dropins,"60-extra.conf"),"[Service]\nEnvironmentFile=%h/settings.env\n");
+  const before=tree(host);
+  expect(run(host,["--apply","--foreground","--no-prebuild"]).exitCode).toBe(1);
+  expect(tree(host)).toEqual(before);
+  expect(log(host,"systemctl.log")).not.toContain("stop ccflare-stack.service");
+ });
 });

@@ -232,7 +232,7 @@ const output = lines.map((line, index) => {
 	return next;
 });
 process.stdout.write(output.join("\n"));
-process.exit(leftovers ? 3 : 0);
+process.exitCode = leftovers ? 3 : 0;
 NODE
 )"
 
@@ -281,6 +281,8 @@ stage_files() {
 	local stage="$1" report="$1/report" status=0 file name
 	mkdir -p "$stage/systemd/dropins" "$stage/systemd/control" || return 1
 	: >"$report" || return 1
+	discover_inputs "$stage" || return 1
+	loaded_env_files "$stage" | sort -u >"$stage/loaded-env-files" || return 1
 	rename_names unit "$OLD_UNIT" <"$OLD_UNIT_FILE" >"$stage/systemd/unit" 2>>"$report" || status=1
 	for file in "$OLD_DROPINS"/*.conf; do
 		[[ -f "$file" ]] || continue
@@ -297,8 +299,17 @@ stage_files() {
 	while IFS= read -r file; do
 		if [[ "$file" == "$OLD_ETC"/* ]]; then
 			[[ -f "$file" ]] || continue
+			local pattern
+			while IFS= read -r pattern; do
+				pattern="${pattern:1}"
+				# Compare against every effective glob, including optional patterns with no current match.
+				# shellcheck disable=SC2254
+				case "$file$ENV_BACKUP_SUFFIX" in
+					$pattern) refuse "EnvironmentFile pattern would also load a retired-key backup" ;;
+				esac
+			done <"$stage/env-patterns"
 			local reserved
-			for reserved in "$file$ENV_BACKUP_SUFFIX" "$file.cutover-tmp"; do
+			for reserved in "$file$ENV_BACKUP_SUFFIX" "$file.cutover-tmp" "$file.cutover-backup-tmp"; do
 				[[ ! -e "$reserved" && ! -L "$reserved" ]] || refuse "$reserved already exists"
 			done
 			printf '%s\n' "${file#"$OLD_ETC"/}" >>"$stage/env-files"
@@ -307,33 +318,94 @@ stage_files() {
 			echo "outside $file sets a retired key and is not under $OLD_ETC" >>"$report"
 			status=1
 		fi
-	done < <(loaded_env_files)
+	done <"$stage/loaded-env-files"
 	write_seed_pin "$OLD_DROPINS/$PIN_NAME" "$stage/systemd/seed" "$report" || status=1
 	return "$status"
 }
 
-# The EnvironmentFile= paths the old unit loads, without systemd's leading "-".
-loaded_env_files() {
-	local file
-	for file in "$OLD_UNIT_FILE" "$OLD_DROPINS"/*.conf; do
-		[[ -f "$file" ]] || continue
-		sed -n -E 's/^[[:space:]]*EnvironmentFile=-?//p' "$file"
-	done | sort -u
+# Resolve effective directives before stopping anything. Control drop-ins win
+# over ordinary drop-ins of the same name. Unsupported syntax fails closed.
+discover_inputs() {
+	node - "$OLD_UNIT_FILE" "$OLD_DROPINS" "$OLD_CONTROL" "$HOME_DIR" "$1" <<'NODE'
+const fs = require("node:fs");
+const path = require("node:path");
+const [unit, ordinary, control, home, stage] = process.argv.slice(2);
+const selected = new Map();
+for (const dir of [ordinary, control]) {
+	if (!fs.existsSync(dir)) continue;
+	for (const name of fs.readdirSync(dir)) {
+		if (name.endsWith(".conf")) selected.set(name, path.join(dir, name));
+	}
+}
+let env = [], workdir = "/";
+function parse(raw, directive) {
+	let value = raw.trim();
+	if (/[\\%$\n\r]/.test(value)) throw new Error(`unsupported ${directive} syntax`);
+	if (value.startsWith('"') || value.startsWith("'")) {
+		if (value.length < 2 || !value.endsWith(value[0])) throw new Error(`unsupported ${directive} quoting`);
+		value = value.slice(1, -1);
+	} else if (/\s/.test(value)) throw new Error(`unsupported ${directive} words`);
+	if (/["']/.test(value)) throw new Error(`unsupported ${directive} quoting`);
+	return value;
+}
+try {
+	for (const file of [unit, ...[...selected.keys()].sort().map(name => selected.get(name))]) {
+		let section = "";
+		for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+			if (/^\s*[#;]/.test(line)) continue;
+			const header = /^\s*\[([^\]]+)\]\s*$/.exec(line);
+			if (header) { section = header[1]; continue; }
+			if (section !== "Service") continue;
+			const match = /^\s*(EnvironmentFile|WorkingDirectory)\s*=(.*)$/.exec(line);
+			if (!match) continue;
+			const key = match[1];
+			let value = parse(match[2], key);
+			if (key === "EnvironmentFile" && !value) { env = []; continue; }
+			const optional = value.startsWith("-");
+			if (optional) value = value.slice(1);
+			if (key === "WorkingDirectory" && value === "~") value = home;
+			if (!value && key === "WorkingDirectory") value = "/";
+			if (!path.isAbsolute(value)) throw new Error(`unsupported ${key} path`);
+			value = path.normalize(value);
+			if (key === "WorkingDirectory") {
+				if (/[*?\[]/.test(value)) throw new Error("unsupported WorkingDirectory pattern");
+				workdir = value;
+			} else env.push({value, optional});
+		}
+	}
+	fs.writeFileSync(path.join(stage, "env-patterns"), env.map(({value, optional}) => `${optional ? "-" : "+"}${value}\n`).join(""));
+	fs.writeFileSync(path.join(stage, "workdir"), workdir);
+} catch (error) {
+	process.stderr.write(`${error.message}\n`);
+	process.exitCode = 1;
+}
+NODE
 }
 
-# The .env files the router reads at startup (apps/cli/src/startup-env.ts): in
-# its working directory, two levels above it, and beside its binary, which the
-# deploy installs in the config directory.
+loaded_env_files() {
+	local pattern file optional matched
+	while IFS= read -r pattern; do
+		optional="${pattern:0:1}"
+		pattern="${pattern:1}"
+		matched=0
+		while IFS= read -r file; do
+			[[ -f "$file" ]] || continue
+			if [[ "$file" == "$OLD_ETC"/* ]]; then
+				[[ ! -L "$file" && "$(realpath "$file")" == "$OLD_ETC"/* ]] || refuse "environment file is symlinked or outside the directory being moved: $file"
+			fi
+			realpath "$file" || return 1
+			matched=1
+		done < <(compgen -G "$pattern" || true)
+		if ((matched == 0)) && [[ "$optional" != - ]]; then
+			echo "required EnvironmentFile has no readable match" >&2
+			return 1
+		fi
+	done <"$1/env-patterns"
+}
+
 startup_dotenv_files() {
-	local workdir file
-	# The last setting wins, and drop-ins apply in name order after the unit.
-	workdir="$(
-		for file in "$OLD_UNIT_FILE" "$OLD_DROPINS"/*.conf; do
-			if [[ -f "$file" ]]; then sed -n -E 's/^[[:space:]]*WorkingDirectory=-?//p' "$file"; fi
-		done | tail -n 1
-	)"
-	[[ "$workdir" != "~" ]] || workdir="$HOME_DIR"
-	[[ -n "$workdir" ]] || workdir=/
+	local workdir
+	workdir="$(cat "$1/workdir")"
 	printf '%s\n' "${workdir%/}/.env" "$(realpath -m "$workdir/../..")/.env" "$OLD_CFG/.env" | sort -u
 }
 
@@ -387,11 +459,22 @@ preflight() {
 	[[ -n "$HOME_DIR" && -d "$HOME_DIR" ]] || refuse "no home directory for $SERVICE_USER"
 	[[ -f "$OLD_DROPINS/$PIN_NAME" ]] || refuse "$OLD_DROPINS/$PIN_NAME does not exist"
 	[[ -d "$OLD_CFG" ]] || refuse "$OLD_CFG does not exist"
-	for file in "$NEW_UNIT_FILE" "$NEW_DROPINS" "$NEW_CONTROL" "$NEW_CFG" "$NEW_ETC" "$NEW_DOT"; do
-		[[ ! -e "$file" ]] || refuse "$file already exists"
+	local effective_dropins
+	local -a dropin_paths=()
+	effective_dropins="$(systemctl show "$OLD_UNIT" --property=DropInPaths --value)" || refuse "could not discover the loaded drop-ins"
+	read -r -a dropin_paths <<<"$effective_dropins"
+	for file in "${dropin_paths[@]}"; do
+		case "$file" in
+			"$OLD_DROPINS"/*.conf | "$OLD_CONTROL"/*.conf) ;;
+			*) refuse "loaded drop-in is outside the directories this cutover handles: $file" ;;
+		esac
+		[[ -f "$file" ]] || refuse "loaded drop-in is no longer available: $file"
 	done
-	for file in "$OLD_CFG"/hov-router.*; do
-		[[ ! -e "$file" ]] || refuse "$file already exists beside the files it would be renamed from"
+	for file in "$NEW_UNIT_FILE" "$NEW_DROPINS" "$NEW_CONTROL" "$NEW_CFG" "$NEW_ETC" "$NEW_DOT"; do
+		[[ ! -e "$file" && ! -L "$file" ]] || refuse "$file already exists"
+	done
+	for file in "$OLD_CFG"/hov-router.* "$OLD_CFG/handoff.pre-8.0.0"; do
+		[[ ! -e "$file" && ! -L "$file" ]] || refuse "$file already exists beside the files it would be renamed from"
 	done
 
 	local stage_status=0
@@ -399,7 +482,7 @@ preflight() {
 	stage_files "$stage" || stage_status=$?
 	leftovers="$(grep '^leftover ' "$report" || true)"
 	if [[ -n "$leftovers" ]]; then
-		sed 's/^leftover /  /' <<<"$leftovers" >&2
+		while IFS= read -r line; do printf '  %s\n' "${line#leftover }"; done <<<"$leftovers" >&2
 		refuse "these lines would still name ccflare outside a comment (file:line directive); rename them by hand first"
 	fi
 	if ((stage_status != 0)) || grep -q -v -E '^(key|rename|comment) ' "$report"; then
@@ -412,7 +495,7 @@ preflight() {
 		keys="$(sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?((BETTER_CCFLARE_|CCFLARE_|ccflare_)[A-Za-z0-9_]*)=.*$/\2/p' "$file" | sort -u | paste -sd' ' -)" \
 			|| refuse "could not read $file"
 		[[ -z "$keys" ]] || refuse "$file sets $keys; the router reads that file at startup and stops on an old name, so rename them there first"
-	done < <(startup_dotenv_files)
+	done < <(startup_dotenv_files "$stage")
 	if grep -q -x -E 'key (HOV_ROUTER_DB_PATH|HOV_ROUTER_CONFIG_PATH|XDG_CONFIG_HOME)' "$report"; then
 		refuse "the unit sets a database, config or XDG_CONFIG_HOME path, so its storage may live outside $OLD_CFG; move it by hand"
 	fi
@@ -459,6 +542,19 @@ preflight() {
 		|| refuse "origin/main does not have the 8.0.0 rename yet, so the deploy would ship a build that reads the old names"
 }
 
+# Never rotate the directory containing the lock: every invocation must contend
+# on the same inode, including the launcher while its worker is still building.
+acquire_lock() {
+	local lock="$STATE_DIR.lock"
+	mkdir -p "$(dirname "$STATE_DIR")"
+	if [[ "${HOV_ROUTER_CUTOVER_LOCK_INHERITED:-}" == 1 ]] && [[ /proc/$$/fd/8 -ef "$lock" ]]; then
+		flock -n 8 || refuse "another cutover holds $lock"
+		return
+	fi
+	exec 8>"$lock"
+	flock -n 8 || refuse "another cutover holds $lock"
+}
+
 start_detached() {
 	local stage
 	stage="$(mktemp -d "${TMPDIR:-/tmp}/hov-router-cutover-check.XXXXXX")"
@@ -474,7 +570,7 @@ start_detached() {
 	chmod 0700 "$STATE_DIR"
 	local args=(--apply --foreground)
 	((PREBUILD)) || args+=(--no-prebuild)
-	setsid -f bash "$SCRIPT_PATH" "${args[@]}" </dev/null >>"$LOG" 2>&1
+	HOV_ROUTER_CUTOVER_LOCK_INHERITED=1 setsid -f bash "$SCRIPT_PATH" "${args[@]}" </dev/null >>"$LOG" 2>&1
 	echo "==> Started. Log: $LOG"
 	echo "    The outcome is the first line of $RESULT: ok, failed, reverted or revert-failed."
 }
@@ -527,8 +623,6 @@ run_apply() {
 	local stage="$STATE_DIR/stage" file name target prior served deadline
 	mkdir -p "$STATE_DIR"
 	chmod 0700 "$STATE_DIR"
-	exec 8>"$STATE_DIR/lock"
-	flock -n 8 || refuse "another cutover holds $STATE_DIR/lock"
 	[[ ! -e "$STARTED" ]] || refuse "$STATE_DIR already records a cutover; read $LOG"
 	CURRENT_STEP=preflight
 	trap on_apply_exit EXIT
@@ -564,7 +658,7 @@ run_apply() {
 		[[ -e "$file" || -L "$file" ]] || continue
 		name="${file##*/}"
 		target="$NEW_CFG/hov-router.${name#better-ccflare.}"
-		[[ ! -e "$target" ]]
+		[[ ! -e "$target" && ! -L "$target" ]]
 		mv -T "$file" "$target"
 	done
 	if [[ -e "$NEW_CFG/handoff" ]]; then mv -T "$NEW_CFG/handoff" "$NEW_CFG/handoff.pre-8.0.0"; fi
@@ -572,7 +666,8 @@ run_apply() {
 	CURRENT_STEP="renaming the keys in $NEW_ETC"
 	while IFS= read -r name; do
 		file="$NEW_ETC/$name"
-		sudo -n cp --preserve=all "$file" "$file$ENV_BACKUP_SUFFIX"
+		sudo -n cp --preserve=all "$file" "$file.cutover-backup-tmp"
+		sudo -n mv -T "$file.cutover-backup-tmp" "$file$ENV_BACKUP_SUFFIX"
 		sudo -n cp --preserve=all "$file" "$file.cutover-tmp"
 		sudo -n cat "$file" | rename_names env "${file##*/}" 2>/dev/null | sudo -n tee "$file.cutover-tmp" >/dev/null
 		sudo -n mv -f "$file.cutover-tmp" "$file"
@@ -666,9 +761,10 @@ revert_host() {
 	[[ -d "$etc_dir" ]] || etc_dir="$OLD_ETC"
 	while IFS= read -r name; do
 		file="$etc_dir/$name"
-		[[ -f "$file$ENV_BACKUP_SUFFIX" ]] || continue
-		sudo -n rm -f "$file.cutover-tmp" || return 1
-		sudo -n mv -f "$file$ENV_BACKUP_SUFFIX" "$file" || return 1
+		sudo -n rm -f "$file.cutover-tmp" "$file.cutover-backup-tmp" || return 1
+		if [[ -f "$file$ENV_BACKUP_SUFFIX" ]]; then
+			sudo -n mv -f "$file$ENV_BACKUP_SUFFIX" "$file" || return 1
+		fi
 	done <"$STATE_DIR/stage/env-files" || return 1
 
 	cfg="$NEW_CFG"
@@ -710,6 +806,8 @@ revert_host() {
 	log "$OLD_UNIT is back${prior:+ at $prior}"
 }
 
+if [[ "$MODE" != check ]]; then acquire_lock; fi
+
 case "$MODE" in
 	check)
 		stage="$(mktemp -d "${TMPDIR:-/tmp}/hov-router-cutover-check.XXXXXX")"
@@ -727,8 +825,6 @@ case "$MODE" in
 	revert)
 		[[ -d "$STATE_DIR" ]] || refuse "$STATE_DIR does not exist, so no cutover ran from this account"
 		mkdir -p "$STATE_DIR"
-		exec 8>"$STATE_DIR/lock"
-		flock -n 8 || refuse "a cutover holds $STATE_DIR/lock"
 		[[ -e "$STARTED" ]] || refuse "the cutover did not start changing the host; nothing to revert"
 		if revert_host; then
 			write_result "reverted: by --revert; $OLD_UNIT serves again"

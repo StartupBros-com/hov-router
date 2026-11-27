@@ -28,6 +28,8 @@ Ask only for choices inspection cannot resolve. Autostart, shell-profile edits, 
 - **Linux x86_64:** follow [the verified binary installation](reference.md#install-the-linux-x86_64-release) for the current release. If the host already has an earlier binary install with PATH aliases, [upgrade it](reference.md#upgrade-an-earlier-binary-install) after step 1 instead of rerunning the PATH block. Check its pinned checksum before execution; offer [signed provenance verification](hov-router-releases.md#optional-consumer-provenance-verification) before the first run; it needs `curl`, a current GitHub CLI and network access, but no GitHub login. Stop on a failed download or verification. Existing paths are intentionally refused, not overwritten. [PATH aliases](reference.md#optional-add-commands-to-path) are optional; using the full executable path is enough.
 - **Source build:** follow [Install from source](reference.md#install-from-source), including Git, Node.js, and pinned Bun 1.4.2. It uses a POSIX shell on Linux/macOS or WSL on Windows. Linux x86_64 is the tested source-install platform; don't claim other platforms were verified. Router has no native Windows/macOS/ARM binary or npm/container distribution. The manual's upstream recipes install upstream, not Router.
 
+For the isolated setup below, use the source build containing the 8.x rename. The published 7.0.0 binary ignores the new host and private storage overrides and is unsuitable for this procedure. No 8.x release download is assumed available.
+
 Record the selected executable's path and version. Keep the previous command path for rollback.
 
 ## 3. Open the right dashboard

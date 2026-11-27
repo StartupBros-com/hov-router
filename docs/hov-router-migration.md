@@ -58,21 +58,35 @@ The rename changes no database schema and no saved data, and the default port st
 
 1. Stop every router process, including a service and any server started in a terminal. On Linux, `pgrep -af 'better-ccflare|hov-router'` should then print nothing.
 2. Back up the config directory with your usual procedure.
-3. Move the directories and rename the files in them. The block stops before changing anything if the old config directory is missing or a new directory already exists:
+3. Move the directories and rename their files. These Bash recipes require GNU coreutils 9.5 or later (`mv --update=none-fail`); on macOS install GNU coreutils and replace `mv` with `gmv`. Stop all writers first and keep the directories private throughout. Check every destination, including dangling symlinks, before the first move. Each move also refuses a collision rather than silently skipping an existing database. If a move fails, inspect the remaining paths before retrying; nothing is automatically deleted:
 
    ```bash
    (
      set -eu
      base="${XDG_CONFIG_HOME:-$HOME/.config}"
-     test -d "$base/better-ccflare"
-     test ! -e "$base/hov-router"
-     if [ -e "$HOME/.better-ccflare" ]; then test ! -e "$HOME/.hov-router"; fi
-     mv -T "$base/better-ccflare" "$base/hov-router"
-     cd "$base/hov-router"
-     for f in better-ccflare.*; do
-       if [ -e "$f" ]; then mv -n "$f" "hov-router.${f#better-ccflare.}"; fi
+     source="$base/better-ccflare"
+     target="$base/hov-router"
+     test -d "$source"
+     test ! -e "$target"
+     test ! -L "$target"
+     test ! -e "$HOME/.hov-router"
+     test ! -L "$HOME/.hov-router"
+     for f in "$source"/better-ccflare.*; do
+       if [ -e "$f" ] || [ -L "$f" ]; then
+         dest="$source/hov-router.${f##*/better-ccflare.}"
+         test ! -e "$dest"
+         test ! -L "$dest"
+       fi
      done
-     if [ -e "$HOME/.better-ccflare" ]; then mv -T "$HOME/.better-ccflare" "$HOME/.hov-router"; fi
+     mv -T --update=none-fail "$source" "$target"
+     for f in "$target"/better-ccflare.*; do
+       if [ -e "$f" ] || [ -L "$f" ]; then
+         mv -T --update=none-fail "$f" "$target/hov-router.${f##*/better-ccflare.}"
+       fi
+     done
+     if [ -e "$HOME/.better-ccflare" ] || [ -L "$HOME/.better-ccflare" ]; then
+       mv -T --update=none-fail "$HOME/.better-ccflare" "$HOME/.hov-router"
+     fi
    )
    ```
 
@@ -93,15 +107,29 @@ The rename changes no database schema and no saved data, and the default port st
 (
   set -eu
   base="${XDG_CONFIG_HOME:-$HOME/.config}"
-  test -d "$base/hov-router"
-  test ! -e "$base/better-ccflare"
-  if [ -e "$HOME/.hov-router" ]; then test ! -e "$HOME/.better-ccflare"; fi
-  mv -T "$base/hov-router" "$base/better-ccflare"
-  cd "$base/better-ccflare"
-  for f in hov-router.*; do
-    if [ -e "$f" ]; then mv -n "$f" "better-ccflare.${f#hov-router.}"; fi
+  source="$base/hov-router"
+  target="$base/better-ccflare"
+  test -d "$source"
+  test ! -e "$target"
+  test ! -L "$target"
+  test ! -e "$HOME/.better-ccflare"
+  test ! -L "$HOME/.better-ccflare"
+  for f in "$source"/hov-router.*; do
+    if [ -e "$f" ] || [ -L "$f" ]; then
+      dest="$source/better-ccflare.${f##*/hov-router.}"
+      test ! -e "$dest"
+      test ! -L "$dest"
+    fi
   done
-  if [ -e "$HOME/.hov-router" ]; then mv -T "$HOME/.hov-router" "$HOME/.better-ccflare"; fi
+  mv -T --update=none-fail "$source" "$target"
+  for f in "$target"/hov-router.*; do
+    if [ -e "$f" ] || [ -L "$f" ]; then
+      mv -T --update=none-fail "$f" "$target/better-ccflare.${f##*/hov-router.}"
+    fi
+  done
+  if [ -e "$HOME/.hov-router" ] || [ -L "$HOME/.hov-router" ]; then
+    mv -T --update=none-fail "$HOME/.hov-router" "$HOME/.better-ccflare"
+  fi
 )
 ```
 
