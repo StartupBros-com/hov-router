@@ -28,7 +28,7 @@ const PING_EVERY_MS = 25_000;
 const SEMANTIC_TIMEOUT_MS = 120_000; // code default
 const HORIZON_MS = 200_000;
 // Production overrides the idle clock in
-// /etc/systemd/system/ccflare-stack.service.d/60-precommit-timeout.conf, and a
+// /etc/systemd/system/hov-router.service.d/60-precommit-timeout.conf, and a
 // Claude Code request carries a request-wide 14-minute commitment boundary
 // (CLAUDE_CODE_PRECOMMIT_RESCUE_COMMITMENT_DEADLINE_MS).
 const PROD_SEMANTIC_TIMEOUT_MS = 420_000;

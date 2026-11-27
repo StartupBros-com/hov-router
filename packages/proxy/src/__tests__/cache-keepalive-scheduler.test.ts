@@ -470,8 +470,8 @@ describe("CacheKeepaliveScheduler", () => {
 
 			// Verify routing headers were injected.
 			const headers = init?.headers as Headers;
-			expect(headers.get("x-better-ccflare-account-id")).toBe(accountId);
-			expect(headers.get("x-better-ccflare-bypass-session")).toBe("true");
+			expect(headers.get("x-hov-router-account-id")).toBe(accountId);
+			expect(headers.get("x-hov-router-bypass-session")).toBe("true");
 			expect(headers.get("content-type")).toBe("application/json");
 
 			scheduler.stop();
@@ -551,7 +551,7 @@ describe("CacheKeepaliveScheduler", () => {
 					"content-type": "application/json",
 					authorization: "Bearer must-not-survive",
 					"x-api-key": "must-not-survive",
-					"x-better-ccflare-request-id": "must-not-survive",
+					"x-hov-router-request-id": "must-not-survive",
 				}),
 			);
 
@@ -568,7 +568,7 @@ describe("CacheKeepaliveScheduler", () => {
 			expect(capturedHeaders.has(INTERNAL_SCHEDULER_AUTH_HEADER)).toBe(false);
 			expect(capturedHeaders.has("authorization")).toBe(false);
 			expect(capturedHeaders.has("x-api-key")).toBe(false);
-			expect(capturedHeaders.has("x-better-ccflare-request-id")).toBe(false);
+			expect(capturedHeaders.has("x-hov-router-request-id")).toBe(false);
 			expect(JSON.parse(capturedBodyText).model).toBe(
 				"provider-alias-remapped-to-primary",
 			);

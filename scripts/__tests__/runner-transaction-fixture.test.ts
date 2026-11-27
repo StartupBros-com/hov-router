@@ -23,7 +23,7 @@ import {
 	startRunner,
 } from "./runner-transaction-fixture";
 
-const READY = "ccflare stack ready";
+const READY = "hov-router stack ready";
 /** The runner's status after a stop it was asked for. */
 const STOPPED_EXIT_STATUS = 143;
 
@@ -42,7 +42,7 @@ afterEach(async () => {
 });
 
 function layout(): RunnerLayout {
-	const root = mkdtempSync(join(tmpdir(), "ccflare-runner-fixture-"));
+	const root = mkdtempSync(join(tmpdir(), "hov-router-runner-fixture-"));
 	roots.push(root);
 	const made = {
 		scratch: join(root, "scratch"),

@@ -58,10 +58,10 @@ function isValidModelScopedCapacityRoutingMode(
  * config files, health output, and every generic config enumeration surface.
  */
 export const GUARD_CORRELATION_SECRET_ENV =
-	"CCFLARE_GUARD_CORRELATION_SECRET" as const;
+	"HOV_ROUTER_GUARD_CORRELATION_SECRET" as const;
 
-export const CCFLARE_SERVER_TOOL_REPLAY_KEYS_FILE =
-	"CCFLARE_SERVER_TOOL_REPLAY_KEYS_FILE" as const;
+export const HOV_ROUTER_SERVER_TOOL_REPLAY_KEYS_FILE =
+	"HOV_ROUTER_SERVER_TOOL_REPLAY_KEYS_FILE" as const;
 
 const CANONICAL_32_BYTE_BASE64URL = /^[A-Za-z0-9_-]{43}$/;
 const SAFE_REPLAY_KEY_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
@@ -584,7 +584,7 @@ export function loadServerToolReplayKeys(
 ): ServerToolReplayKeysState {
 	let configuredPath: string | undefined;
 	try {
-		configuredPath = env[CCFLARE_SERVER_TOOL_REPLAY_KEYS_FILE];
+		configuredPath = env[HOV_ROUTER_SERVER_TOOL_REPLAY_KEYS_FILE];
 	} catch {
 		return SERVER_TOOL_REPLAY_KEYS_UNAVAILABLE;
 	}
@@ -857,10 +857,10 @@ export type ProviderModelDefaultOverrides = Record<
  * touches model resolution itself.
  */
 export const PROVIDER_MODEL_DEFAULTS_ENV_VAR =
-	"CCFLARE_MODEL_DEFAULTS_PROVIDERS";
+	"HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS";
 
 /** Literal "0" disables request-time physical Codex model admission. */
-export const CODEX_IMPLICIT_ROUTE_ENV_VAR = "CCFLARE_CODEX_IMPLICIT_ROUTE";
+export const CODEX_IMPLICIT_ROUTE_ENV_VAR = "HOV_ROUTER_CODEX_IMPLICIT_ROUTE";
 
 const _DEFAULT_PROVIDER_MODEL_DEFAULTS_PROVIDERS: readonly string[] = ["codex"];
 
@@ -872,7 +872,7 @@ const _DEFAULT_PROVIDER_MODEL_DEFAULTS_PROVIDERS: readonly string[] = ["codex"];
  * boot and after a successful POST. The persisted file always keeps
  * the full map — a disabled provider's stored override is never
  * erased, just excluded here, so it re-applies automatically once
- * CCFLARE_MODEL_DEFAULTS_PROVIDERS re-enables that provider.
+ * HOV_ROUTER_MODEL_DEFAULTS_PROVIDERS re-enables that provider.
  */
 export function filterEnabledProviderModelDefaultOverrides(
 	enabledProviders: Iterable<string>,
@@ -1087,11 +1087,11 @@ function validateDatabaseConfig(
 /**
  * Account IDs opted in to chat-template reasoning (see
  * OpenAICompatibleProvider.injectChatTemplateReasoning). Comma-separated list
- * in CCFLARE_CHAT_TEMPLATE_REASONING_ACCOUNTS, read live on every call so the
+ * in HOV_ROUTER_CHAT_TEMPLATE_REASONING_ACCOUNTS, read live on every call so the
  * allowlist can change without caching. IDs only: names can be renamed.
  */
 export function getChatTemplateReasoningAccountIds(): ReadonlySet<string> {
-	const raw = process.env.CCFLARE_CHAT_TEMPLATE_REASONING_ACCOUNTS;
+	const raw = process.env.HOV_ROUTER_CHAT_TEMPLATE_REASONING_ACCOUNTS;
 	if (!raw) return new Set();
 	return new Set(
 		raw
@@ -1135,7 +1135,7 @@ export function getPrivateAiTraceRoutes(): ReadonlyMap<string, string> {
 }
 
 export function getCodexReasoningRetention(): boolean {
-	const fromEnv = process.env.CCFLARE_CODEX_REASONING_RETENTION;
+	const fromEnv = process.env.HOV_ROUTER_CODEX_REASONING_RETENTION;
 	if (fromEnv) {
 		return fromEnv !== "false" && fromEnv !== "0";
 	}
@@ -1220,7 +1220,7 @@ const MAX_SKILL_ELISION_BLOCKED_SKILLS = 16;
 
 /**
  * Parse the CSV/array config-file or env value for
- * `CCFLARE_SKILL_ELISION_BLOCKED` / `skill_elision_blocked_skills` into a
+ * `HOV_ROUTER_SKILL_ELISION_BLOCKED` / `skill_elision_blocked_skills` into a
  * bounded, normalized list of lowercased skill names. Fails closed to an
  * empty list (feature effectively off) on any malformed input — oversized
  * lists, non-string elements, or an unsupported input type — rather than
@@ -1439,7 +1439,7 @@ export class Config extends EventEmitter {
 
 	getExternalCodexHomes(): string[] {
 		return (
-			process.env.CCFLARE_EXTERNAL_CODEX_HOMES ??
+			process.env.HOV_ROUTER_EXTERNAL_CODEX_HOMES ??
 			this.data.external_codex_homes ??
 			""
 		)
@@ -1452,7 +1452,7 @@ export class Config extends EventEmitter {
 	}
 	private getRawExternalCodexCloudRoots(): string {
 		return (
-			process.env.CCFLARE_EXTERNAL_CODEX_CLOUD_ROOTS ??
+			process.env.HOV_ROUTER_EXTERNAL_CODEX_CLOUD_ROOTS ??
 			this.data.external_codex_cloud_roots ??
 			""
 		);
@@ -1647,7 +1647,7 @@ export class Config extends EventEmitter {
 
 	getOutboundProxy(): string | undefined {
 		const candidate =
-			process.env.BETTER_CCFLARE_OUTBOUND_PROXY ?? this.data.outbound_proxy;
+			process.env.HOV_ROUTER_OUTBOUND_PROXY ?? this.data.outbound_proxy;
 		if (!candidate) {
 			return undefined;
 		}
@@ -1768,10 +1768,10 @@ export class Config extends EventEmitter {
 	/**
 	 * Official-xAI-only keepalive TTL. Independent of the global Anthropic-oriented
 	 * CACHE_KEEPALIVE_TTL_MINUTES so Grok can be canaried without replaying every
-	 * Anthropic account. Env: CCFLARE_XAI_CACHE_KEEPALIVE_TTL_MINUTES.
+	 * Anthropic account. Env: HOV_ROUTER_XAI_CACHE_KEEPALIVE_TTL_MINUTES.
 	 */
 	getXaiCacheKeepaliveTtlMinutes(): number {
-		const fromEnv = process.env.CCFLARE_XAI_CACHE_KEEPALIVE_TTL_MINUTES;
+		const fromEnv = process.env.HOV_ROUTER_XAI_CACHE_KEEPALIVE_TTL_MINUTES;
 		if (fromEnv) {
 			const n = parseInt(fromEnv, 10);
 			if (!Number.isNaN(n)) return this.clamp(n, 0, 60);
@@ -1946,7 +1946,7 @@ export class Config extends EventEmitter {
 	 */
 	getModelCatalogOAuthRefreshEnabled(): boolean {
 		const fromEnv = parseEnabledEnvFlag(
-			process.env.BETTER_CCFLARE_MODELS_OAUTH_REFRESH,
+			process.env.HOV_ROUTER_MODELS_OAUTH_REFRESH,
 		);
 		if (fromEnv !== undefined) {
 			return fromEnv;
@@ -1966,13 +1966,13 @@ export class Config extends EventEmitter {
 		const resolved = resolveImplicitFallbackPolicyConfig(
 			{
 				mode:
-					process.env.CCFLARE_IMPLICIT_FALLBACK_MODE ??
+					process.env.HOV_ROUTER_IMPLICIT_FALLBACK_MODE ??
 					this.data.implicit_fallback_mode,
 				allowedClasses:
-					process.env.CCFLARE_IMPLICIT_FALLBACK_ALLOWED_CLASSES ??
+					process.env.HOV_ROUTER_IMPLICIT_FALLBACK_ALLOWED_CLASSES ??
 					this.data.implicit_fallback_allowed_classes,
 				deniedClasses:
-					process.env.CCFLARE_IMPLICIT_FALLBACK_DENIED_CLASSES ??
+					process.env.HOV_ROUTER_IMPLICIT_FALLBACK_DENIED_CLASSES ??
 					this.data.implicit_fallback_denied_classes,
 			},
 			(field) => {
@@ -1996,7 +1996,7 @@ export class Config extends EventEmitter {
 	 * to the file, matching `parseSkillElisionBlockedSkills`'s own contract.
 	 */
 	getSkillElisionBlockedSkills(): readonly string[] {
-		const fromEnv = process.env.CCFLARE_SKILL_ELISION_BLOCKED;
+		const fromEnv = process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 		if (fromEnv !== undefined) {
 			return parseSkillElisionBlockedSkills(fromEnv);
 		}
@@ -2012,7 +2012,7 @@ export class Config extends EventEmitter {
 	 */
 	getClaudeCodeBackgroundMergePolicyEnabled(): boolean {
 		const fromEnv = parseEnabledEnvFlag(
-			process.env.CCFLARE_CLAUDE_CODE_BACKGROUND_MERGE_POLICY,
+			process.env.HOV_ROUTER_CLAUDE_CODE_BACKGROUND_MERGE_POLICY,
 		);
 		if (fromEnv !== undefined) return fromEnv;
 		return this.data.claude_code_background_merge_policy_enabled === true;
@@ -2057,9 +2057,8 @@ export class Config extends EventEmitter {
 	}
 
 	/**
-	 * Migrate one-time boot inputs from the retired combo environment settings.
-	 * Persisted values always win so dashboard choices cannot be overwritten by a
-	 * later restart with stale environment state.
+	 * Keep the routing an install with combos was already doing when these
+	 * settings were introduced. Persisted values always win.
 	 */
 	adoptLegacyRoutingSettings(hasCombos: boolean): string[] {
 		const notes: string[] = [];
@@ -2070,16 +2069,11 @@ export class Config extends EventEmitter {
 			);
 		}
 
-		if (this.getComboSessionFallbackSource() === "default") {
-			const legacyValue = process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK;
-			if (legacyValue !== undefined && legacyValue !== "") {
-				this.setComboSessionFallback(!/^(1|true|yes|on)$/i.test(legacyValue));
-			} else if (hasCombos) {
-				this.setComboSessionFallback(true);
-				notes.push(
-					"combo session fallback enabled: existing combos retain their historical SessionStrategy fallback. Turn it off in the dashboard Combos tab",
-				);
-			}
+		if (hasCombos && this.getComboSessionFallbackSource() === "default") {
+			this.setComboSessionFallback(true);
+			notes.push(
+				"combo session fallback enabled: existing combos retain their historical SessionStrategy fallback. Turn it off in the dashboard Combos tab",
+			);
 		}
 		return notes;
 	}
@@ -2187,7 +2181,7 @@ export class Config extends EventEmitter {
 
 	/** Restart-scoped Bun body-admission budget; malformed input fails safe. */
 	getMaxBufferedRequestBodyBytes(): number {
-		const raw = process.env.CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES;
+		const raw = process.env.HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES;
 		if (raw === undefined || !/^\d+$/.test(raw)) {
 			return DEFAULT_MAX_BUFFERED_REQUEST_BODY_BYTES;
 		}
@@ -2201,7 +2195,7 @@ export class Config extends EventEmitter {
 
 	/** Restart-scoped FIFO body-admission queue cap; malformed input fails safe. */
 	getMaxBodyAdmissionQueue(): number {
-		const raw = process.env.CCFLARE_MAX_BODY_ADMISSION_QUEUE;
+		const raw = process.env.HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE;
 		if (raw === undefined || !/^\d+$/.test(raw)) {
 			return DEFAULT_MAX_BODY_ADMISSION_QUEUE;
 		}
@@ -2217,37 +2211,37 @@ export class Config extends EventEmitter {
 		const resolved = resolveAnthropicDegradedModeConfig(
 			{
 				mode:
-					process.env.CCFLARE_ANTHROPIC_DEGRADED_MODE ??
+					process.env.HOV_ROUTER_ANTHROPIC_DEGRADED_MODE ??
 					this.data.anthropic_degraded_mode,
 				largeRequestTokenThreshold:
-					process.env.CCFLARE_ANTHROPIC_DEGRADED_LARGE_REQUEST_TOKENS ??
+					process.env.HOV_ROUTER_ANTHROPIC_DEGRADED_LARGE_REQUEST_TOKENS ??
 					this.data.anthropic_degraded_large_request_tokens,
 				largeRequestByteThreshold:
-					process.env.CCFLARE_ANTHROPIC_DEGRADED_LARGE_REQUEST_BYTES ??
+					process.env.HOV_ROUTER_ANTHROPIC_DEGRADED_LARGE_REQUEST_BYTES ??
 					this.data.anthropic_degraded_large_request_bytes,
 				evidenceWindowMs:
-					process.env.CCFLARE_ANTHROPIC_DEGRADED_EVIDENCE_WINDOW_MS ??
+					process.env.HOV_ROUTER_ANTHROPIC_DEGRADED_EVIDENCE_WINDOW_MS ??
 					this.data.anthropic_degraded_evidence_window_ms,
 				quorum:
-					process.env.CCFLARE_ANTHROPIC_DEGRADED_QUORUM ??
+					process.env.HOV_ROUTER_ANTHROPIC_DEGRADED_QUORUM ??
 					this.data.anthropic_degraded_quorum,
 				retryMinMs:
-					process.env.CCFLARE_ANTHROPIC_DEGRADED_RETRY_MIN_MS ??
+					process.env.HOV_ROUTER_ANTHROPIC_DEGRADED_RETRY_MIN_MS ??
 					this.data.anthropic_degraded_retry_min_ms,
 				retryFallbackMs:
-					process.env.CCFLARE_ANTHROPIC_DEGRADED_RETRY_FALLBACK_MS ??
+					process.env.HOV_ROUTER_ANTHROPIC_DEGRADED_RETRY_FALLBACK_MS ??
 					this.data.anthropic_degraded_retry_fallback_ms,
 				retryMaxMs:
-					process.env.CCFLARE_ANTHROPIC_DEGRADED_RETRY_MAX_MS ??
+					process.env.HOV_ROUTER_ANTHROPIC_DEGRADED_RETRY_MAX_MS ??
 					this.data.anthropic_degraded_retry_max_ms,
 				recoveryWindowMs:
-					process.env.CCFLARE_ANTHROPIC_DEGRADED_RECOVERY_WINDOW_MS ??
+					process.env.HOV_ROUTER_ANTHROPIC_DEGRADED_RECOVERY_WINDOW_MS ??
 					this.data.anthropic_degraded_recovery_window_ms,
 				probeLeaseMs:
-					process.env.CCFLARE_ANTHROPIC_DEGRADED_PROBE_LEASE_MS ??
+					process.env.HOV_ROUTER_ANTHROPIC_DEGRADED_PROBE_LEASE_MS ??
 					this.data.anthropic_degraded_probe_lease_ms,
 				maxCohorts:
-					process.env.CCFLARE_ANTHROPIC_DEGRADED_MAX_COHORTS ??
+					process.env.HOV_ROUTER_ANTHROPIC_DEGRADED_MAX_COHORTS ??
 					this.data.anthropic_degraded_max_cohorts,
 			},
 			(field) => {
@@ -2267,7 +2261,7 @@ export class Config extends EventEmitter {
 	 * closed so an operator typo cannot silently start emitting joinable events.
 	 */
 	getAnthropicDegradedDiagnosticsEnabled(): boolean {
-		const fromEnv = process.env.CCFLARE_ANTHROPIC_DEGRADED_DIAGNOSTICS;
+		const fromEnv = process.env.HOV_ROUTER_ANTHROPIC_DEGRADED_DIAGNOSTICS;
 		const raw =
 			fromEnv === undefined
 				? this.data.anthropic_degraded_diagnostics_enabled
@@ -2878,4 +2872,8 @@ export class Config extends EventEmitter {
 // Re-export types
 export type { StrategyName } from "@hov-router/core";
 export { resolveConfigPath } from "./paths";
-export { getPlatformConfigDir } from "./paths-common";
+export {
+	CONFIG_FILENAME,
+	DB_FILENAME,
+	getPlatformConfigDir,
+} from "./paths-common";

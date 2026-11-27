@@ -18,14 +18,14 @@ import {
 	monotonicNowNs,
 	registerManagedTerminal,
 	signManagedTiming,
-} from "../../../scripts/ccflare-managed-timing.mjs";
+} from "../../../scripts/hov-router-managed-timing.mjs";
 import { createManagedIngress } from "./managed-ingress";
 
 test.each([
 	"accepted",
 	"earlier_semantic",
 ])("real collector %s first terminal persists through later cancellation", async (mode) => {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-managed-attribution-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-managed-attribution-"));
 	DatabaseFactory.initialize(join(dir, "fixture.db"));
 	const db = DatabaseFactory.getInstance(),
 		writer = new AsyncDbWriter();
@@ -59,7 +59,7 @@ test.each([
 			method: "POST",
 			body: "{}",
 			headers: {
-				"x-better-ccflare-managed-timing": signManagedTiming(
+				"x-hov-router-managed-timing": signManagedTiming(
 					timing,
 					binding,
 					secret,

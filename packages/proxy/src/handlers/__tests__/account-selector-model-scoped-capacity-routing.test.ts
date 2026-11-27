@@ -245,7 +245,7 @@ describe("selectAccountsForRequest — model-scoped capacity routing", () => {
 			selectAccountsForRequest(
 				makeRequestMeta({
 					headers: new Headers({
-						"x-better-ccflare-account-id": account.id,
+						"x-hov-router-account-id": account.id,
 					}),
 				}),
 				makeCtx({ accounts: [account], mode: "off" }),
@@ -511,7 +511,7 @@ describe("native quota wait combo isolation", () => {
 		);
 		expect(meta.comboName).toBe("Fable Combo");
 		const forced = makeRequestMeta({
-			headers: new Headers({ "x-better-ccflare-account-id": account.id }),
+			headers: new Headers({ "x-hov-router-account-id": account.id }),
 		});
 		expect(
 			await selectAccountsForRequest(forced, ctx, "claude-fable-5"),

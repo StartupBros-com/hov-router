@@ -241,7 +241,7 @@ describe("circuit-recovery keepalive asymmetry (PR #349 fix A test ii)", () => {
 		// header (the function refuses to recognise the marker without the
 		// shared secret — see proxy-types.ts:54-68).
 		const secret = "test-internal-probe-secret";
-		process.env.CCFLARE_INTERNAL_PROBE_SECRET = secret;
+		process.env.HOV_ROUTER_INTERNAL_PROBE_SECRET = secret;
 
 		const cb = getDefaultCircuitBreaker();
 		const key = circuitKeyFor(account);
@@ -270,8 +270,8 @@ describe("circuit-recovery keepalive asymmetry (PR #349 fix A test ii)", () => {
 			).internalProbeSecret = secret;
 
 			const request = makeRequest({
-				"x-better-ccflare-internal-probe-secret": secret,
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-internal-probe-secret": secret,
+				"x-hov-router-keepalive": "true",
 			});
 
 			const response = await handleProxy(
@@ -289,7 +289,7 @@ describe("circuit-recovery keepalive asymmetry (PR #349 fix A test ii)", () => {
 		} finally {
 			globalThis.fetch = realFetch;
 			collectorSpy.mockRestore();
-			delete process.env.CCFLARE_INTERNAL_PROBE_SECRET;
+			delete process.env.HOV_ROUTER_INTERNAL_PROBE_SECRET;
 		}
 	});
 });

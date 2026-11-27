@@ -32,7 +32,7 @@ describe("start reserve keeper", () => {
 	let dbPath: string;
 
 	beforeEach(() => {
-		dir = mkdtempSync(join(tmpdir(), "ccflare-start-reserve-keeper-"));
+		dir = mkdtempSync(join(tmpdir(), "hov-router-start-reserve-keeper-"));
 		dbPath = join(dir, "router.db");
 	});
 

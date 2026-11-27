@@ -158,8 +158,8 @@ beforeEach(() => {
 
 describe("startIntegrityScheduler", () => {
 	afterEach(() => {
-		delete process.env.CCFLARE_INTEGRITY_CHECK_INTERVAL;
-		delete process.env.CCFLARE_FULL_INTEGRITY_CHECK_INTERVAL;
+		delete process.env.HOV_ROUTER_INTEGRITY_CHECK_INTERVAL;
+		delete process.env.HOV_ROUTER_FULL_INTEGRITY_CHECK_INTERVAL;
 	});
 
 	it("returns a stop function that doesn't throw", () => {
@@ -172,8 +172,8 @@ describe("startIntegrityScheduler", () => {
 		expect(() => stop()).not.toThrow();
 	});
 
-	it("CCFLARE_INTEGRITY_CHECK_INTERVAL=0 disables only the quick check", () => {
-		process.env.CCFLARE_INTEGRITY_CHECK_INTERVAL = "0";
+	it("HOV_ROUTER_INTEGRITY_CHECK_INTERVAL=0 disables only the quick check", () => {
+		process.env.HOV_ROUTER_INTEGRITY_CHECK_INTERVAL = "0";
 		const dbOps = makeDbOps();
 		const stop = startIntegrityScheduler(dbOps, { fullIntervalHours: 500 });
 		expect(typeof stop).toBe("function");
@@ -181,8 +181,8 @@ describe("startIntegrityScheduler", () => {
 	});
 
 	it("setting both env vars to 0 returns a no-op stop", () => {
-		process.env.CCFLARE_INTEGRITY_CHECK_INTERVAL = "0";
-		process.env.CCFLARE_FULL_INTEGRITY_CHECK_INTERVAL = "0";
+		process.env.HOV_ROUTER_INTEGRITY_CHECK_INTERVAL = "0";
+		process.env.HOV_ROUTER_FULL_INTEGRITY_CHECK_INTERVAL = "0";
 		const dbOps = makeDbOps();
 		const stop = startIntegrityScheduler(dbOps);
 		expect(() => stop()).not.toThrow();
@@ -193,7 +193,7 @@ describe("startIntegrityScheduler", () => {
 	});
 
 	it("garbled env values fall back to default", () => {
-		process.env.CCFLARE_INTEGRITY_CHECK_INTERVAL = "6abc";
+		process.env.HOV_ROUTER_INTEGRITY_CHECK_INTERVAL = "6abc";
 		const dbOps = makeDbOps();
 		const stop = startIntegrityScheduler(dbOps, { fullIntervalHours: 500 });
 		expect(typeof stop).toBe("function");

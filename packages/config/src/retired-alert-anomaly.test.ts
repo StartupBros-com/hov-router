@@ -18,7 +18,7 @@ const savedEnv = process.env[ENV];
 const directories: string[] = [];
 
 function configPath(data: Record<string, unknown>): string {
-	const directory = mkdtempSync(join(tmpdir(), "ccflare-retired-anomaly-"));
+	const directory = mkdtempSync(join(tmpdir(), "hov-router-retired-anomaly-"));
 	directories.push(directory);
 	const path = join(directory, "config.json");
 	writeFileSync(path, JSON.stringify(data));

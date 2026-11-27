@@ -3,9 +3,9 @@ import { closeSync, constants, fstatSync, openSync, readSync } from "node:fs";
 /** Compatibility constants remain stable even when the effective identity advances. */
 export const CODEX_VERSION = "0.156.0";
 export const CODEX_USER_AGENT = `codex-cli/${CODEX_VERSION} (Windows 10.0.26100; x64)`;
-export const CODEX_CLIENT_VERSION_ENV = "CCFLARE_CODEX_CLIENT_VERSION";
+export const CODEX_CLIENT_VERSION_ENV = "HOV_ROUTER_CODEX_CLIENT_VERSION";
 export const CODEX_VERIFIED_VERSION_FILE_ENV =
-	"CCFLARE_CODEX_VERIFIED_VERSION_FILE";
+	"HOV_ROUTER_CODEX_VERIFIED_VERSION_FILE";
 
 export interface CodexClientIdentity {
 	readonly version: string;

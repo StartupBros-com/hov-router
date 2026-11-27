@@ -22,7 +22,7 @@ function runCompiledFixture(
 	defines: string[],
 	env: Record<string, string> = {},
 ) {
-	const dir = mkdtempSync(join(tmpdir(), "better-ccflare-provenance-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-provenance-"));
 	const source = join(dir, "fixture.ts");
 	const binary = join(dir, "fixture");
 	writeFileSync(
@@ -51,7 +51,7 @@ function runCompiledFixture(
 }
 
 function runShellSubstitutionFixture(): unknown {
-	const dir = mkdtempSync(join(tmpdir(), "better-ccflare-provenance-shell-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-provenance-shell-"));
 	const source = join(dir, "fixture.ts");
 	const binary = join(dir, "fixture");
 	const releaseBuildProvenance = join(
@@ -258,24 +258,25 @@ describe("Router build provenance", () => {
 			});
 			expect(
 				runCompiledFixture(defines, {
-					CCFLARE_VERSION: "9.9.9",
-					CCFLARE_GIT_SHA: runtimeSha,
-					CCFLARE_UPDATE_CHANNEL: "npm",
+					HOV_ROUTER_VERSION: "9.9.9",
+					HOV_ROUTER_GIT_SHA: runtimeSha,
+					HOV_ROUTER_UPDATE_CHANNEL: "npm",
 				}),
 			).toEqual(embedded);
 			expect(
-				runCompiledFixture(defines, { CCFLARE_DISTRIBUTION: token }).provenance,
+				runCompiledFixture(defines, { HOV_ROUTER_DISTRIBUTION: token })
+					.provenance,
 			).toMatchObject({ proven: false, reason: "missing_source_sha" });
 			expect(
 				runCompiledFixture(defines, {
-					CCFLARE_DISTRIBUTION: token,
-					CCFLARE_VERSION: "2.0.0",
-					CCFLARE_GIT_SHA: runtimeSha,
-					CCFLARE_SOURCE_SHA: runtimeSha,
-					CCFLARE_GIT_REF: "refs/tags/v2.0.0",
-					CCFLARE_SOURCE_REF: "refs/tags/v2.0.0",
-					CCFLARE_PRODUCER: "startupbros",
-					CCFLARE_ARTIFACT_MODE: mode,
+					HOV_ROUTER_DISTRIBUTION: token,
+					HOV_ROUTER_VERSION: "2.0.0",
+					HOV_ROUTER_GIT_SHA: runtimeSha,
+					HOV_ROUTER_SOURCE_SHA: runtimeSha,
+					HOV_ROUTER_GIT_REF: "refs/tags/v2.0.0",
+					HOV_ROUTER_SOURCE_REF: "refs/tags/v2.0.0",
+					HOV_ROUTER_PRODUCER: "startupbros",
+					HOV_ROUTER_ARTIFACT_MODE: mode,
 				}).provenance,
 			).toMatchObject({
 				proven: true,
@@ -355,8 +356,8 @@ describe("release binary provenance", () => {
 		});
 
 		const isolatedRuntimeFields = runCompiledFixture(defines, {
-			CCFLARE_VERSION: "9.9.9",
-			CCFLARE_GIT_SHA: runtimeSha,
+			HOV_ROUTER_VERSION: "9.9.9",
+			HOV_ROUTER_GIT_SHA: runtimeSha,
 		});
 		expect(isolatedRuntimeFields).toEqual(embedded);
 		expect(isolatedRuntimeFields.docker).toMatchObject({
@@ -366,14 +367,14 @@ describe("release binary provenance", () => {
 		});
 
 		const runtimeOverride = runCompiledFixture(defines, {
-			CCFLARE_DISTRIBUTION: "v1:startupbros-managed-source",
-			CCFLARE_GIT_SHA: runtimeSha,
-			CCFLARE_GIT_REF: "refs/heads/main",
-			CCFLARE_SOURCE_SHA: runtimeSha,
-			CCFLARE_SOURCE_REF: "refs/heads/main",
-			CCFLARE_PRODUCER: "startupbros",
-			CCFLARE_ARTIFACT_MODE: "managed-source",
-			CCFLARE_VERSION: "9.9.9",
+			HOV_ROUTER_DISTRIBUTION: "v1:startupbros-managed-source",
+			HOV_ROUTER_GIT_SHA: runtimeSha,
+			HOV_ROUTER_GIT_REF: "refs/heads/main",
+			HOV_ROUTER_SOURCE_SHA: runtimeSha,
+			HOV_ROUTER_SOURCE_REF: "refs/heads/main",
+			HOV_ROUTER_PRODUCER: "startupbros",
+			HOV_ROUTER_ARTIFACT_MODE: "managed-source",
+			HOV_ROUTER_VERSION: "9.9.9",
 		});
 		expect(runtimeOverride.provenance).toMatchObject({
 			identity: "v1:startupbros-managed-source",
@@ -387,7 +388,7 @@ describe("release binary provenance", () => {
 		});
 
 		const partialRuntimeOverride = runCompiledFixture(defines, {
-			CCFLARE_DISTRIBUTION: "v1:startupbros-managed-source",
+			HOV_ROUTER_DISTRIBUTION: "v1:startupbros-managed-source",
 		});
 		expect(partialRuntimeOverride.provenance).toMatchObject({
 			identity: "v1:startupbros-managed-source",
@@ -553,13 +554,13 @@ describe("release binary provenance", () => {
 		expect(builder).toContain('"src/compiled.ts"');
 		expect(builder).toContain('"--no-compile-autoload-dotenv"');
 		// The router ships only the Linux x86_64 asset; build:multi still builds
-		// any platform through CCFLARE_ONLY_PLATFORMS.
+		// any platform through HOV_ROUTER_ONLY_PLATFORMS.
 		const expectedScripts = {
 			"build:linux-amd64": "bun-linux-amd64",
 		};
 		for (const [script, target] of Object.entries(expectedScripts)) {
 			expect(packageJson.scripts[script]).toBe(
-				`CCFLARE_ONLY_PLATFORMS=${target} bun run build:multi`,
+				`HOV_ROUTER_ONLY_PLATFORMS=${target} bun run build:multi`,
 			);
 			expect(packageJson.scripts[script]).not.toContain(
 				"bun build src/main.ts",
@@ -571,14 +572,14 @@ describe("release binary provenance", () => {
 		expect(platformsForBuild("bun-windows-x64", "")).toEqual([
 			expect.objectContaining({
 				target: "bun-windows-x64",
-				outfile: "better-ccflare-windows-x64.exe",
+				outfile: "hov-router-windows-x64.exe",
 			}),
 		]);
-		expect(platformsForBuild("better-ccflare-linux-amd64", "")).toEqual([
+		expect(platformsForBuild("hov-router-linux-amd64", "")).toEqual([
 			expect.objectContaining({ target: "bun-linux-amd64" }),
 		]);
 		expect(() => platformsForBuild("unknown-platform", "")).toThrow(
-			"CCFLARE_ONLY_PLATFORMS contains an unknown platform",
+			"HOV_ROUTER_ONLY_PLATFORMS contains an unknown platform",
 		);
 		expect(releaseBuildDefines(null, "github-release-binary")).toEqual([]);
 	});

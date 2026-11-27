@@ -24,7 +24,7 @@ describe("Config#getLocalControlSecret race condition (#379)", () => {
 	let configPath: string;
 
 	beforeEach(() => {
-		dir = mkdtempSync(join(tmpdir(), "better-ccflare-config-race-"));
+		dir = mkdtempSync(join(tmpdir(), "hov-router-config-race-"));
 		configPath = join(dir, "config.json");
 	});
 

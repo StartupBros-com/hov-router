@@ -75,7 +75,7 @@ interface DryRunClone {
 async function cloneForDryRun(
 	source: DatabaseOperations,
 ): Promise<DryRunClone> {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-rebuild-windows-dryrun-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-rebuild-windows-dryrun-"));
 	const clonePath = join(dir, "clone.db");
 	source.getAdapter().getSQLiteDb().exec("VACUUM INTO ?", [clonePath]);
 	const cloneDbOps = new DatabaseOperations(clonePath, { walMode: false });

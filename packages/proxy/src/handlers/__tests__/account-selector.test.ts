@@ -74,10 +74,6 @@ const { filterRequestCompatibleAccounts } = await import("../routing-terminal");
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-afterEach(() => {
-	delete process.env.CCFLARE_DISABLE_COMBO_SESSION_FALLBACK;
-});
-
 function makeAccount(overrides: Partial<Account> = {}): Account {
 	return {
 		id: "acc-1",
@@ -538,7 +534,7 @@ describe("selectAccountsForRequest — implicit fallback drain policy", () => {
 		const ctx = makeCtx({ accounts: [paid, fallback] });
 		ctx.implicitFallbackPolicy = enforcePaidDrain;
 		const meta = makeRequestMeta({
-			headers: new Headers({ "x-better-ccflare-account-id": paid.id }),
+			headers: new Headers({ "x-hov-router-account-id": paid.id }),
 		});
 
 		const result = await selectAccountsForRequest(meta, ctx, "claude-opus-4-8");
@@ -974,13 +970,13 @@ describe("selectAccountsForRequest — authoritative owner capture", () => {
 
 // ── selectAccountsForRequest — forced account via header ──────────────────────
 
-describe("selectAccountsForRequest — x-better-ccflare-account-id header", () => {
+describe("selectAccountsForRequest — x-hov-router-account-id header", () => {
 	it("returns exactly the forced account when the header matches", async () => {
 		const acc1 = makeAccount({ id: "acc-1", name: "first" });
 		const acc2 = makeAccount({ id: "acc-2", name: "second" });
 		const ctx = makeCtx({ accounts: [acc1, acc2] });
 		const meta = makeRequestMeta({
-			headers: new Headers({ "x-better-ccflare-account-id": "acc-2" }),
+			headers: new Headers({ "x-hov-router-account-id": "acc-2" }),
 		});
 
 		const result = await selectAccountsForRequest(meta, ctx);
@@ -992,7 +988,7 @@ describe("selectAccountsForRequest — x-better-ccflare-account-id header", () =
 		const acc = makeAccount({ id: "acc-1" });
 		const ctx = makeCtx({ accounts: [acc] });
 		const meta = makeRequestMeta({
-			headers: new Headers({ "x-better-ccflare-account-id": "nonexistent" }),
+			headers: new Headers({ "x-hov-router-account-id": "nonexistent" }),
 		});
 
 		await expect(selectAccountsForRequest(meta, ctx)).rejects.toMatchObject({
@@ -1020,7 +1016,7 @@ describe("selectAccountsForRequest — x-better-ccflare-account-id header", () =
 			usageWorker: { postMessage: mock(() => {}) },
 		} as unknown as ProxyContext;
 		const meta = makeRequestMeta({
-			headers: new Headers({ "x-better-ccflare-account-id": "acc-paused" }),
+			headers: new Headers({ "x-hov-router-account-id": "acc-paused" }),
 		});
 
 		await expect(selectAccountsForRequest(meta, ctx)).rejects.toMatchObject({
@@ -1046,7 +1042,7 @@ describe("selectAccountsForRequest — x-better-ccflare-account-id header", () =
 			});
 			const ctx = makeCtx({ accounts: [paused] });
 			const meta = makeRequestMeta({
-				headers: new Headers({ "x-better-ccflare-account-id": paused.id }),
+				headers: new Headers({ "x-hov-router-account-id": paused.id }),
 			});
 
 			await expect(selectAccountsForRequest(meta, ctx)).rejects.toMatchObject({
@@ -1077,7 +1073,7 @@ describe("selectAccountsForRequest — x-better-ccflare-account-id header", () =
 			usageWorker: { postMessage: mock(() => {}) },
 		} as unknown as ProxyContext;
 		const meta = makeRequestMeta({
-			headers: new Headers({ "x-better-ccflare-account-id": "acc-rl" }),
+			headers: new Headers({ "x-hov-router-account-id": "acc-rl" }),
 		});
 
 		await expect(selectAccountsForRequest(meta, ctx)).rejects.toMatchObject({
@@ -1095,7 +1091,7 @@ describe("selectAccountsForRequest — x-better-ccflare-account-id header", () =
 		});
 		const meta = makeRequestMeta({
 			headers: new Headers({
-				"x-better-ccflare-account-id": "acc-forced",
+				"x-hov-router-account-id": "acc-forced",
 			}),
 		});
 
@@ -1115,7 +1111,7 @@ describe("selectAccountsForRequest — profile-only account eligibility", () => 
 		ctx.modelRouteSessionRegistry = makeProfileOnlyRegistry(exclusive.id);
 		const meta = makeRequestMeta({
 			headers: new Headers({
-				"x-better-ccflare-account-id": exclusive.id,
+				"x-hov-router-account-id": exclusive.id,
 			}),
 		});
 
@@ -1810,7 +1806,7 @@ describe("selectAccountsForRequest — server-derived route profile", () => {
 			forcedAccountId: forced.id,
 			routeProfileId: "pro-primary-sol",
 			headers: new Headers({
-				"x-better-ccflare-exclude-providers": "codex",
+				"x-hov-router-exclude-providers": "codex",
 			}),
 		});
 
@@ -1832,8 +1828,8 @@ describe("selectAccountsForRequest — server-derived route profile", () => {
 		const ctx = makeCtx({ accounts: [pinned, fallback] });
 		const meta = makeRequestMeta({
 			headers: new Headers({
-				"x-better-ccflare-account-id": pinned.id,
-				"x-better-ccflare-exclude-providers": "codex",
+				"x-hov-router-account-id": pinned.id,
+				"x-hov-router-exclude-providers": "codex",
 			}),
 		});
 
@@ -1855,8 +1851,8 @@ describe("selectAccountsForRequest — server-derived route profile", () => {
 		const ctx = makeCtx({ accounts: [oauth] });
 		const meta = makeRequestMeta({
 			headers: new Headers({
-				"x-better-ccflare-account-id": oauth.id,
-				"x-better-ccflare-exclude-providers": "anthropic-oauth",
+				"x-hov-router-account-id": oauth.id,
+				"x-hov-router-exclude-providers": "anthropic-oauth",
 			}),
 		});
 
@@ -1883,8 +1879,8 @@ describe("selectAccountsForRequest — server-derived route profile", () => {
 		for (const account of [apiKeyAccount, codex]) {
 			const meta = makeRequestMeta({
 				headers: new Headers({
-					"x-better-ccflare-account-id": account.id,
-					"x-better-ccflare-exclude-providers": "anthropic-oauth",
+					"x-hov-router-account-id": account.id,
+					"x-hov-router-exclude-providers": "anthropic-oauth",
 				}),
 			});
 
@@ -1900,7 +1896,7 @@ describe("selectAccountsForRequest — server-derived route profile", () => {
 		const meta = makeRequestMeta({
 			forcedAccountId: "server",
 			routeProfileId: "profile",
-			headers: new Headers({ "x-better-ccflare-account-id": "public" }),
+			headers: new Headers({ "x-hov-router-account-id": "public" }),
 		});
 
 		await expect(selectAccountsForRequest(meta, ctx)).rejects.toMatchObject({
@@ -1918,7 +1914,7 @@ describe("selectAccountsForRequest — server-derived route profile", () => {
 			forcedAccountId: account.id,
 			routeProfileId: "profile",
 			headers: new Headers({
-				"x-better-ccflare-account-id": account.id,
+				"x-hov-router-account-id": account.id,
 			}),
 		});
 
@@ -2386,7 +2382,7 @@ describe("selectAccountsForRequest — catalog-role route profile", () => {
 			selectAccountsForRequest(
 				poolRoleMeta({
 					headers: new Headers({
-						"x-better-ccflare-exclude-providers": "codex",
+						"x-hov-router-exclude-providers": "codex",
 					}),
 				}),
 				ctx,
@@ -3195,7 +3191,7 @@ describe("selectAccountsForRequest — Grok cache-native force-route fail-closed
 		} as unknown as ProxyContext;
 		const meta = makeRequestMeta({
 			xaiCacheNativeActive: true,
-			headers: new Headers({ "x-better-ccflare-account-id": "acc-paused" }),
+			headers: new Headers({ "x-hov-router-account-id": "acc-paused" }),
 		});
 		await expect(selectAccountsForRequest(meta, ctx)).rejects.toBeInstanceOf(
 			ForceRouteUnavailableError,
@@ -3222,7 +3218,7 @@ describe("selectAccountsForRequest — Grok cache-native force-route fail-closed
 		const meta = makeRequestMeta({
 			xaiCacheNativeActive: true,
 			headers: new Headers({
-				"x-better-ccflare-account-id": "acc-custom",
+				"x-hov-router-account-id": "acc-custom",
 			}),
 		});
 
@@ -3250,7 +3246,7 @@ describe("selectAccountsForRequest — Grok cache-native force-route fail-closed
 		} as unknown as ProxyContext;
 		const meta = makeRequestMeta({
 			xaiCacheNativeActive: true,
-			headers: new Headers({ "x-better-ccflare-account-id": "acc-paused" }),
+			headers: new Headers({ "x-hov-router-account-id": "acc-paused" }),
 		});
 
 		await expect(selectAccountsForRequest(meta, ctx)).rejects.toMatchObject({
@@ -3271,9 +3267,9 @@ describe("selectAccountsForRequest — Grok cache-native force-route fail-closed
 		const meta = makeRequestMeta({
 			xaiCacheNativeActive: true,
 			headers: new Headers({
-				"x-better-ccflare-account-id": "acc-rl",
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-auto-refresh": "true",
+				"x-hov-router-account-id": "acc-rl",
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-auto-refresh": "true",
 			}),
 		});
 
@@ -3306,7 +3302,7 @@ describe("selectAccountsForRequest — Grok cache-native force-route fail-closed
 		} as unknown as ProxyContext;
 		const meta = makeRequestMeta({
 			xaiCacheNativeActive: false,
-			headers: new Headers({ "x-better-ccflare-account-id": "acc-paused" }),
+			headers: new Headers({ "x-hov-router-account-id": "acc-paused" }),
 		});
 		await expect(selectAccountsForRequest(meta, ctx)).rejects.toMatchObject({
 			accountId: "acc-paused",
@@ -3634,7 +3630,7 @@ describe("selectAccountsForRequest — combo routing", () => {
 		});
 		const meta = makeRequestMeta({
 			headers: new Headers({
-				"x-better-ccflare-exclude-providers": "anthropic-oauth",
+				"x-hov-router-exclude-providers": "anthropic-oauth",
 			}),
 		});
 
@@ -4132,9 +4128,9 @@ describe("selectAccountsForRequest — auto-refresh marker earns no routing bypa
 		} as unknown as ProxyContext;
 		const meta = makeRequestMeta({
 			headers: new Headers({
-				"x-better-ccflare-account-id": "acc-overage",
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-auto-refresh": "true",
+				"x-hov-router-account-id": "acc-overage",
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-auto-refresh": "true",
 			}),
 		});
 
@@ -4154,9 +4150,9 @@ describe("selectAccountsForRequest — auto-refresh marker earns no routing bypa
 		const ctx = makeCtx({ accounts: [overagePausedAcc] });
 		const meta = makeRequestMeta({
 			headers: new Headers({
-				"x-better-ccflare-account-id": "acc-overage",
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-auto-refresh": "true",
+				"x-hov-router-account-id": "acc-overage",
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-auto-refresh": "true",
 			}),
 		});
 
@@ -4185,7 +4181,7 @@ describe("selectAccountsForRequest — auto-refresh marker earns no routing bypa
 		} as unknown as ProxyContext;
 		const meta = makeRequestMeta({
 			headers: new Headers({
-				"x-better-ccflare-account-id": "acc-overage",
+				"x-hov-router-account-id": "acc-overage",
 			}),
 		});
 
@@ -4216,9 +4212,9 @@ describe("selectAccountsForRequest — auto-refresh marker earns no routing bypa
 		} as unknown as ProxyContext;
 		const meta = makeRequestMeta({
 			headers: new Headers({
-				"x-better-ccflare-account-id": "acc-manual",
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-auto-refresh": "true",
+				"x-hov-router-account-id": "acc-manual",
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-auto-refresh": "true",
 			}),
 		});
 
@@ -4248,9 +4244,9 @@ describe("selectAccountsForRequest — auto-refresh marker earns no routing bypa
 		} as unknown as ProxyContext;
 		const meta = makeRequestMeta({
 			headers: new Headers({
-				"x-better-ccflare-account-id": "acc-rl",
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-auto-refresh": "true",
+				"x-hov-router-account-id": "acc-rl",
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-auto-refresh": "true",
 			}),
 		});
 
@@ -4281,9 +4277,9 @@ describe("selectAccountsForRequest — auto-refresh marker earns no routing bypa
 		} as unknown as ProxyContext;
 		const meta = makeRequestMeta({
 			headers: new Headers({
-				"x-better-ccflare-account-id": "acc-broken",
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-auto-refresh": "true",
+				"x-hov-router-account-id": "acc-broken",
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-auto-refresh": "true",
 			}),
 		});
 
@@ -4763,7 +4759,7 @@ describe("selectAccountsForRequest — model-lane hard capacity", () => {
 		const meta = makeRequestMeta(
 			agentPreferenceRewrite("claude-fable-5", {
 				headers: new Headers({
-					"x-better-ccflare-exclude-providers": "anthropic-oauth",
+					"x-hov-router-exclude-providers": "anthropic-oauth",
 				}),
 			}),
 		);
@@ -4866,7 +4862,7 @@ describe("selectAccountsForRequest — model-lane hard capacity", () => {
 		const ctx = makeCtx({ accounts: [forced, substitute] });
 		const meta = makeRequestMeta({
 			headers: new Headers({
-				"x-better-ccflare-account-id": forced.id,
+				"x-hov-router-account-id": forced.id,
 			}),
 		});
 
@@ -4888,7 +4884,7 @@ describe("selectAccountsForRequest — model-lane hard capacity", () => {
 		const opus = await selectAccountsForRequest(
 			makeRequestMeta({
 				headers: new Headers({
-					"x-better-ccflare-account-id": forced.id,
+					"x-hov-router-account-id": forced.id,
 				}),
 			}),
 			ctx,
@@ -4912,7 +4908,7 @@ describe("selectAccountsForRequest — model-lane hard capacity", () => {
 			],
 		});
 		const meta = makeRequestMeta({
-			headers: new Headers({ "x-better-ccflare-account-id": forced.id }),
+			headers: new Headers({ "x-hov-router-account-id": forced.id }),
 		});
 
 		const error = await selectAccountsForRequest(
@@ -4955,7 +4951,7 @@ describe("selectAccountsForRequest — model-lane hard capacity", () => {
 			],
 		});
 		const meta = makeRequestMeta({
-			headers: new Headers({ "x-better-ccflare-account-id": forced.id }),
+			headers: new Headers({ "x-hov-router-account-id": forced.id }),
 		});
 
 		await expect(
@@ -5019,9 +5015,9 @@ describe("selectAccountsForRequest — model-lane hard capacity", () => {
 		const ctx = makeCtx({ accounts: [forced] });
 		const meta = makeRequestMeta({
 			headers: new Headers({
-				"x-better-ccflare-account-id": forced.id,
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-auto-refresh": "true",
+				"x-hov-router-account-id": forced.id,
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-auto-refresh": "true",
 			}),
 		});
 
@@ -5079,7 +5075,7 @@ describe("selectAccountsForRequest — model-lane hard capacity", () => {
 	it("bypasses reactive markers only for explicit synthetic probes while preserving snapshot blockers", async () => {
 		const account = makeAccount({ id: "synthetic-capacity" });
 		const headers = new Headers({
-			"x-better-ccflare-account-id": account.id,
+			"x-hov-router-account-id": account.id,
 		});
 		usageCache.markFamilyScopedExhausted(
 			account.id,
@@ -5903,7 +5899,7 @@ describe("selectAccountsForRequest — server-tool capability-first routing", ()
 		const meta = serverToolMeta(
 			agentPreferenceRewrite("claude-opus-4-8", {
 				headers: new Headers({
-					"x-better-ccflare-exclude-providers": excludedProvider,
+					"x-hov-router-exclude-providers": excludedProvider,
 				}),
 			}),
 		);
@@ -6840,7 +6836,7 @@ describe("selectAccountsForRequest — server-tool capability-first routing", ()
 			} as ProxyContext["serverToolReplay"];
 			const meta = serverToolMeta({
 				headers: new Headers({
-					"x-better-ccflare-account-id": forced.id,
+					"x-hov-router-account-id": forced.id,
 				}),
 			});
 
@@ -7010,7 +7006,7 @@ describe("selectAccountsForRequest — pool-floor alarm on the force-route path"
 		});
 		const meta = makeRequestMeta({
 			id: "req-force-poolfloor",
-			headers: new Headers({ "x-better-ccflare-account-id": forced.id }),
+			headers: new Headers({ "x-hov-router-account-id": forced.id }),
 		});
 
 		// A lane string unique to this test: the alarm throttles per (lane,
@@ -7568,7 +7564,7 @@ describe("selectAccountsForRequest — native Anthropic advisor constraint", () 
 		]) {
 			const ctx = makeCtx({ accounts: mixedPool() });
 			const meta = advisorMeta(DECLARED, {
-				headers: new Headers({ "x-better-ccflare-account-id": id }),
+				headers: new Headers({ "x-hov-router-account-id": id }),
 			});
 
 			expectRefusal(
@@ -7581,7 +7577,7 @@ describe("selectAccountsForRequest — native Anthropic advisor constraint", () 
 	it("returns the history reason for a history-only request on a forced non-first-party account", async () => {
 		const ctx = makeCtx({ accounts: mixedPool() });
 		const meta = advisorMeta(HISTORY_ONLY, {
-			headers: new Headers({ "x-better-ccflare-account-id": "codex" }),
+			headers: new Headers({ "x-hov-router-account-id": "codex" }),
 		});
 
 		expectRefusal(
@@ -7595,7 +7591,7 @@ describe("selectAccountsForRequest — native Anthropic advisor constraint", () 
 		const served = await selectAccountsForRequest(
 			advisorMeta(DECLARED, {
 				headers: new Headers({
-					"x-better-ccflare-account-id": "first-party-api-key",
+					"x-hov-router-account-id": "first-party-api-key",
 				}),
 			}),
 			ctx,
@@ -7613,7 +7609,7 @@ describe("selectAccountsForRequest — native Anthropic advisor constraint", () 
 			selectAccountsForRequest(
 				advisorMeta(DECLARED, {
 					headers: new Headers({
-						"x-better-ccflare-account-id": "first-party-oauth",
+						"x-hov-router-account-id": "first-party-oauth",
 					}),
 				}),
 				makeCtx({ accounts: pausedPool }),
@@ -8336,12 +8332,12 @@ describe("selectAccountsForRequest — native web_search passthrough lane", () =
 		});
 	});
 
-	describe("forced account (x-better-ccflare-account-id)", () => {
+	describe("forced account (x-hov-router-account-id)", () => {
 		it("admits a forced first-party account for web_search", async () => {
 			for (const id of ["first-party-oauth", "first-party-api-key"]) {
 				const ctx = makeCtx({ accounts: webSearchPool() });
 				const meta = serverToolMeta({
-					headers: new Headers({ "x-better-ccflare-account-id": id }),
+					headers: new Headers({ "x-hov-router-account-id": id }),
 				});
 
 				const result = await selectAccountsForRequest(meta, ctx, MODEL_ID);
@@ -8364,7 +8360,7 @@ describe("selectAccountsForRequest — native web_search passthrough lane", () =
 			]) {
 				const ctx = makeCtx({ accounts: webSearchPool() });
 				const meta = serverToolMeta({
-					headers: new Headers({ "x-better-ccflare-account-id": id }),
+					headers: new Headers({ "x-hov-router-account-id": id }),
 				});
 
 				const error = await rejection(

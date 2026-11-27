@@ -22,12 +22,12 @@ import {
 	fileHash,
 	processExists,
 	recoverTransaction,
-} from "../ccflare-deployment-transaction.mjs";
+} from "../hov-router-deployment-transaction.mjs";
 import { resolveNodeExecutable } from "./node-runtime";
 
 // Overlap handoff: a quiesce-capable backend releases the port on SIGUSR2 and
 // keeps streaming while its replacement serves new work. The drain handoff is
-// covered by ccflare-deployment-rehearsal.test.ts.
+// covered by hov-router-deployment-rehearsal.test.ts.
 const root = join(import.meta.dir, "..", "..");
 // Hold every socket open until all ports are read: closing one before binding
 // the next lets the kernel hand the same port out twice (PR #746's CI run got
@@ -73,7 +73,7 @@ test.each([
 	"term_mid_retire",
 	"rollback",
 ])("compiled Bun backend %s handoff keeps the old stream while its replacement binds the port", async (mode) => {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-overlap-rehearsal-")),
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-overlap-rehearsal-")),
 		control = join(dir, "transaction"),
 		pin = join(dir, "pin"),
 		node = resolveNodeExecutable(),
@@ -110,8 +110,8 @@ test.each([
 				source,
 				`import {Database} from "bun:sqlite";import {openSync,closeSync,unlinkSync,appendFileSync,existsSync} from "node:fs";import {createManagedIngress} from ${JSON.stringify(join(root, "apps/server/src/managed-ingress.ts"))};
  const lock=process.env.FIXTURE_DB+".owner";const owner=openSync(lock,"wx");const db=new Database(process.env.FIXTURE_DB);db.exec("CREATE TABLE IF NOT EXISTS calls(generation INTEGER,path TEXT)");appendFileSync(process.env.FIXTURE_EVENTS,"open:"+process.pid+"\\n");
- await Bun.sleep(${delay});const ingress=createManagedIngress({enabled:true,secret:Buffer.from(process.env.CCFLARE_GUARD_CORRELATION_SECRET,"base64url"),generation:Number(process.env.CCFLARE_MANAGED_GENERATION),ingressNonce:process.env.CCFLARE_MANAGED_INGRESS_NONCE,candidateNonce:process.env.CCFLARE_MANAGED_CANDIDATE_NONCE,sourceSha:process.env.CCFLARE_SOURCE_SHA});
- let quiesced=false;const server=Bun.serve({hostname:"127.0.0.1",port:Number(process.env.PORT),fetch:r=>ingress(r,async req=>{const url=new URL(req.url);if(url.pathname==="/health")return Response.json({status:"ok",git_sha:${JSON.stringify(healthSha)},handoff:{protocol:"quiesce-v1",pid:process.pid}});db.query("INSERT INTO calls VALUES(?,?)").run(Number(process.env.CCFLARE_MANAGED_GENERATION),url.pathname);if(url.pathname==="/v1/slow")return new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode("first"));const timer=setInterval(()=>{if(existsSync(process.env.FIXTURE_STREAM_RELEASE)){clearInterval(timer);c.enqueue(new TextEncoder().encode("last"));c.close();}},10);}}));return new Response(${JSON.stringify(sha)});})});
+ await Bun.sleep(${delay});const ingress=createManagedIngress({enabled:true,secret:Buffer.from(process.env.HOV_ROUTER_GUARD_CORRELATION_SECRET,"base64url"),generation:Number(process.env.HOV_ROUTER_MANAGED_GENERATION),ingressNonce:process.env.HOV_ROUTER_MANAGED_INGRESS_NONCE,candidateNonce:process.env.HOV_ROUTER_MANAGED_CANDIDATE_NONCE,sourceSha:process.env.HOV_ROUTER_SOURCE_SHA});
+ let quiesced=false;const server=Bun.serve({hostname:"127.0.0.1",port:Number(process.env.PORT),fetch:r=>ingress(r,async req=>{const url=new URL(req.url);if(url.pathname==="/health")return Response.json({status:"ok",git_sha:${JSON.stringify(healthSha)},handoff:{protocol:"quiesce-v1",pid:process.pid}});db.query("INSERT INTO calls VALUES(?,?)").run(Number(process.env.HOV_ROUTER_MANAGED_GENERATION),url.pathname);if(url.pathname==="/v1/slow")return new Response(new ReadableStream({start(c){c.enqueue(new TextEncoder().encode("first"));const timer=setInterval(()=>{if(existsSync(process.env.FIXTURE_STREAM_RELEASE)){clearInterval(timer);c.enqueue(new TextEncoder().encode("last"));c.close();}},10);}}));return new Response(${JSON.stringify(sha)});})});
  process.on("SIGUSR2",()=>{${onQuiesce}});
  process.on("SIGTERM",()=>{server.stop(true);db.close();if(!quiesced){closeSync(owner);unlinkSync(lock);}appendFileSync(process.env.FIXTURE_EVENTS,"close:"+process.pid+"\\n");process.exit(0);});`,
 			);
@@ -126,7 +126,7 @@ test.each([
 		writeFileSync(pin, "previous-pin");
 		const nextPin = join(dir, "next-pin");
 		writeFileSync(nextPin, "candidate-pin");
-		runner = spawn("bash", [join(root, "scripts/run-ccflare-stack.sh")], {
+		runner = spawn("bash", [join(root, "scripts/run-hov-router.sh")], {
 			cwd: root,
 			env: {
 				...process.env,
@@ -134,16 +134,16 @@ test.each([
 				USER: "fixture",
 				TMPDIR: dir,
 				NODE_BIN: node,
-				CCFLARE_BIN: join(dir, "old"),
-				GUARD_SCRIPT: join(root, "scripts/ccflare-guard.mjs"),
+				HOV_ROUTER_BIN: join(dir, "old"),
+				GUARD_SCRIPT: join(root, "scripts/hov-router-guard.mjs"),
 				GUARD_SOURCE_ID: oldSource,
-				CCFLARE_SOURCE_SHA: oldSource,
-				CCFLARE_GIT_SHA: oldSource,
-				CCFLARE_SCHEMA_DIGEST: schema,
-				CCFLARE_PIN_PATH: pin,
-				CCFLARE_TRANSACTION_DIR: control,
-				CCFLARE_MANAGED_TIMING: "1",
-				CCFLARE_UPSTREAM_PORT: String(upstreamPort),
+				HOV_ROUTER_SOURCE_SHA: oldSource,
+				HOV_ROUTER_GIT_SHA: oldSource,
+				HOV_ROUTER_SCHEMA_DIGEST: schema,
+				HOV_ROUTER_PIN_PATH: pin,
+				HOV_ROUTER_TRANSACTION_DIR: control,
+				HOV_ROUTER_MANAGED_TIMING: "1",
+				HOV_ROUTER_UPSTREAM_PORT: String(upstreamPort),
 				GUARD_PORT: String(guardPort),
 				GUARD_TOTAL_DEADLINE_MS: "10000",
 				GUARD_RETRY_ATTEMPT_HEADROOM_MS: "1",
@@ -201,7 +201,7 @@ test.each([
 		const client = spawnSync(
 			node,
 			[
-				join(root, "scripts/ccflare-deployment-transaction.mjs"),
+				join(root, "scripts/hov-router-deployment-transaction.mjs"),
 				"client",
 				control,
 				command,

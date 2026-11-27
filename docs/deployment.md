@@ -2,9 +2,9 @@
 
 ## Overview
 
-HoV Router (formerly better-ccflare) is a load balancer proxy for Claude API accounts that can be deployed in various configurations, from simple local development to production-grade distributed systems. This document covers all deployment options, from single-instance setups to scalable architectures.
+HoV Router (formerly hov-router) is a load balancer proxy for Claude API accounts that can be deployed in various configurations, from simple local development to production-grade distributed systems. This document covers all deployment options, from single-instance setups to scalable architectures.
 
-> **Important**: HoV Router provides a powerful CLI interface and web dashboard for monitoring and management. The primary command is `hov-router` (older command names such as `better-ccflare` also work); the executable provides all functionality through command-line flags.
+> **Important**: HoV Router provides a powerful CLI interface and web dashboard for monitoring and management. The primary command is `hov-router` (older command names such as `hov-router` also work); the executable provides all functionality through command-line flags.
 
 ## Table of Contents
 
@@ -69,7 +69,7 @@ bun install
 bun run build
 
 # Start HoV Router (Server + Dashboard)
-bun run better-ccflare
+bun run hov-router
 
 # Or use CLI commands:
 bun run cli --serve
@@ -91,7 +91,7 @@ export LOG_LEVEL=DEBUG
 export LOG_FORMAT=pretty  # Options: pretty, json
 
 # Start with custom config
-bun run better-ccflare
+bun run hov-router
 ```
 
 ## Production Deployment
@@ -120,29 +120,29 @@ bun run build
 
 # Build the main HoV Router binary (includes CLI and server)
 cd apps/cli
-bun build src/main.ts --compile --outfile dist/better-ccflare --target=bun
+bun build src/main.ts --compile --outfile dist/hov-router --target=bun
 
 # Copy binary to deployment location
-cp apps/cli/dist/better-ccflare /opt/better-ccflare/
+cp apps/cli/dist/hov-router /opt/hov-router/
 # Make it executable
-chmod +x /opt/better-ccflare/better-ccflare
+chmod +x /opt/hov-router/hov-router
 ```
 
 #### Binary Deployment Structure
 
 ```
-/opt/better-ccflare/
-├── better-ccflare             # Main binary (CLI + Server)
+/opt/hov-router/
+├── hov-router             # Main binary (CLI + Server)
 ├── config/
 │   └── config.json     # Configuration (optional)
 └── data/
-    ├── better-ccflare.db      # SQLite database
+    ├── hov-router.db      # SQLite database
     └── logs/           # Log files (if configured)
 ```
 
 **Note**: The configuration and database are automatically created in platform-specific directories:
-- **Linux/macOS**: `~/.config/better-ccflare/`
-- **Windows**: `%LOCALAPPDATA%\better-ccflare\` or `%APPDATA%\better-ccflare\`
+- **Linux/macOS**: `~/.config/hov-router/`
+- **Windows**: `%LOCALAPPDATA%\hov-router\` or `%APPDATA%\hov-router\`
 
 ### Process Management
 
@@ -156,8 +156,8 @@ npm install -g pm2
 cat > ecosystem.config.js << 'EOF'
 module.exports = {
   apps: [{
-    name: 'better-ccflare',
-    script: '/opt/better-ccflare/better-ccflare',
+    name: 'hov-router',
+    script: '/opt/hov-router/hov-router',
     args: '--serve',
     instances: 1,
     exec_mode: 'fork',
@@ -172,9 +172,9 @@ module.exports = {
       RETRY_DELAY_MS: 1000,
       RETRY_BACKOFF: 2
     },
-    error_file: '/opt/better-ccflare/data/logs/error.log',
-    out_file: '/opt/better-ccflare/data/logs/out.log',
-    log_file: '/opt/better-ccflare/data/logs/combined.log',
+    error_file: '/opt/hov-router/data/logs/error.log',
+    out_file: '/opt/hov-router/data/logs/out.log',
+    log_file: '/opt/hov-router/data/logs/combined.log',
     time: true,
     autorestart: true,
     max_restarts: 10,
@@ -196,7 +196,7 @@ Create a systemd service file:
 
 ```bash
 # Create service file
-sudo cat > /etc/systemd/system/better-ccflare.service << 'EOF'
+sudo cat > /etc/systemd/system/hov-router.service << 'EOF'
 [Unit]
 Description=HoV Router Load Balancer
 After=network.target
@@ -206,13 +206,13 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-User=better-ccflare
-Group=better-ccflare
-WorkingDirectory=/opt/better-ccflare
-ExecStart=/opt/better-ccflare/better-ccflare --serve
+User=hov-router
+Group=hov-router
+WorkingDirectory=/opt/hov-router
+ExecStart=/opt/hov-router/hov-router --serve
 Restart=on-failure
 RestartSec=5
-RestartPreventExitStatus=143
+RestartPreventExitStatus=143 78
 
 # Environment
 Environment="PORT=8080"
@@ -230,7 +230,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/better-ccflare/data
+ReadWritePaths=/opt/hov-router/data
 
 # Resource limits
 LimitNOFILE=65536
@@ -240,7 +240,7 @@ LimitNPROC=4096
 WantedBy=multi-user.target
 EOF
 
-When this unit is backed by `scripts/run-ccflare-stack.sh`, unexpected child
+When this unit is backed by `scripts/run-hov-router.sh`, unexpected child
 failures use the runner's bounded aggregate cleanup setting
 `RUNNER_FAILURE_STOP_BUDGET_MS` (30,000 ms by default; hard maximum 120,000 ms).
 It is failure-only: an operator `TERM`/`INT` still receives the full guard
@@ -249,14 +249,14 @@ budget below the unit's `StartLimitIntervalSec` window and verify the runner's
 startup log reports both budgets after changing the environment.
 
 # Create user and directories
-sudo useradd -r -s /bin/false better-ccflare
-sudo mkdir -p /opt/better-ccflare/{config,data/logs}
-sudo chown -R better-ccflare:better-ccflare /opt/better-ccflare
+sudo useradd -r -s /bin/false hov-router
+sudo mkdir -p /opt/hov-router/{config,data/logs}
+sudo chown -R hov-router:hov-router /opt/hov-router
 
 # Enable and start service
 sudo systemctl daemon-reload
-sudo systemctl enable better-ccflare
-sudo systemctl start better-ccflare
+sudo systemctl enable hov-router
+sudo systemctl start hov-router
 ```
 
 ## Docker Deployment
@@ -274,25 +274,25 @@ See [Run HoV Router in Docker](docker.md) for plain `docker run`, the data volum
 ### Nginx Configuration
 
 ```nginx
-# /etc/nginx/sites-available/better-ccflare
-upstream better-ccflare_backend {
+# /etc/nginx/sites-available/hov-router
+upstream hov-router_backend {
     server 127.0.0.1:8080 max_fails=3 fail_timeout=30s;
     keepalive 32;
 }
 
 server {
     listen 80;
-    server_name better-ccflare.yourdomain.com;
+    server_name hov-router.yourdomain.com;
     return 301 https://$server_name$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name better-ccflare.yourdomain.com;
+    server_name hov-router.yourdomain.com;
 
     # SSL configuration
-    ssl_certificate /etc/letsencrypt/live/better-ccflare.yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/better-ccflare.yourdomain.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/hov-router.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/hov-router.yourdomain.com/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
@@ -319,12 +319,12 @@ server {
 
     # Main proxy
     location / {
-        proxy_pass http://better-ccflare_backend;
+        proxy_pass http://hov-router_backend;
     }
 
     # API endpoints
     location /v1/ {
-        proxy_pass http://better-ccflare_backend;
+        proxy_pass http://hov-router_backend;
         
         # Increase limits for AI requests
         client_max_body_size 100M;
@@ -336,14 +336,14 @@ server {
     # buffers them, so events and the 20-second keepalives arrive late.
     # The $ anchor leaves the /stream/token POSTs under location /.
     location ~ ^/api/(requests|logs|alerts)/stream$ {
-        proxy_pass http://better-ccflare_backend;
+        proxy_pass http://hov-router_backend;
         proxy_buffering off;
         proxy_cache off;
     }
 
     # Static assets caching
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        proxy_pass http://better-ccflare_backend;
+        proxy_pass http://hov-router_backend;
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
@@ -353,7 +353,7 @@ server {
 ### Caddy Configuration
 
 ```caddyfile
-better-ccflare.yourdomain.com {
+hov-router.yourdomain.com {
     # Automatic HTTPS
     tls your-email@example.com
 
@@ -414,7 +414,7 @@ graph TB
         APP[HoV Router Server]
         
         subgraph "Log Outputs"
-            FILE[File Logs<br/>/var/log/better-ccflare/]
+            FILE[File Logs<br/>/var/log/hov-router/]
             STDOUT[Container Stdout]
             SYSLOG[Syslog]
         end
@@ -476,7 +476,7 @@ services:
     volumes:
       - ./promtail-config.yaml:/etc/promtail/config.yml
       - /var/log:/var/log:ro
-      - /opt/better-ccflare/data/logs:/app/logs:ro
+      - /opt/hov-router/data/logs:/app/logs:ro
     command: -config.file=/etc/promtail/config.yml
 
 volumes:
@@ -490,8 +490,8 @@ volumes:
 
 ```bash
 # Increase file descriptor limits
-echo "better-ccflare soft nofile 65536" >> /etc/security/limits.conf
-echo "better-ccflare hard nofile 65536" >> /etc/security/limits.conf
+echo "hov-router soft nofile 65536" >> /etc/security/limits.conf
+echo "hov-router hard nofile 65536" >> /etc/security/limits.conf
 
 # TCP tuning for high throughput
 cat >> /etc/sysctl.conf << EOF
@@ -517,7 +517,7 @@ sysctl -p
 ### Application Tuning
 
 ```json
-// ~/.config/better-ccflare/config.json (or platform-specific location)
+// ~/.config/hov-router/config.json (or platform-specific location)
 {
   "lb_strategy": "session",
   "client_id": "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
@@ -559,9 +559,9 @@ graph TB
     end
     
     subgraph "Application Instances"
-        APP1[better-ccflare-1<br/>Port 8081]
-        APP2[better-ccflare-2<br/>Port 8082]
-        APP3[better-ccflare-N<br/>Port 808N]
+        APP1[hov-router-1<br/>Port 8081]
+        APP2[hov-router-2<br/>Port 8082]
+        APP3[hov-router-N<br/>Port 808N]
     end
     
     subgraph "Shared Data Layer"
@@ -614,37 +614,37 @@ PRAGMA mmap_size = 268435456;
 > **Important**: HoV Router is [single-instance-per-database](#multi-instance-deployment-single-instance-per-database) — run exactly **one** replica per database. Put the SQLite file on a persistent volume so the pod's state survives a restart or reschedule, and do not scale this deployment horizontally. To scale, run separate deployments, each with its own database and a disjoint account set (see [Multi-Instance Deployment](#multi-instance-deployment-single-instance-per-database)).
 
 ```yaml
-# better-ccflare-deployment.yaml
+# hov-router-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: better-ccflare
+  name: hov-router
   labels:
-    app: better-ccflare
+    app: hov-router
 spec:
   replicas: 1 # single-instance-per-database — do not scale this without a separate database
   strategy:
     type: Recreate # stop the old pod before starting its replacement
   selector:
     matchLabels:
-      app: better-ccflare
+      app: hov-router
   template:
     metadata:
       labels:
-        app: better-ccflare
+        app: hov-router
     spec:
       securityContext:
         fsGroup: 1000 # the image runs as UID 1000; make the mounted volume writable to it
       containers:
-      - name: better-ccflare
-        image: your-registry/better-ccflare:latest
+      - name: hov-router
+        image: your-registry/hov-router:latest
         ports:
         - containerPort: 8080
         env:
-        - name: BETTER_CCFLARE_HOST
+        - name: HOV_ROUTER_HOST
           value: "0.0.0.0" # the Service and the probes reach the pod IP, not loopback
-        - name: BETTER_CCFLARE_DB_PATH
-          value: "/data/better-ccflare.db"
+        - name: HOV_ROUTER_DB_PATH
+          value: "/data/hov-router.db"
         - name: LB_STRATEGY
           value: "session"
         - name: LOG_LEVEL
@@ -676,12 +676,12 @@ spec:
       volumes:
       - name: data
         persistentVolumeClaim:
-          claimName: better-ccflare-data
+          claimName: hov-router-data
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: better-ccflare-data
+  name: hov-router-data
 spec:
   accessModes: ["ReadWriteOnce"]
   resources:
@@ -691,10 +691,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: better-ccflare
+  name: hov-router
 spec:
   selector:
-    app: better-ccflare
+    app: hov-router
   ports:
   - port: 80
     targetPort: 8080
@@ -704,7 +704,7 @@ spec:
 Two settings in this manifest matter for the volume:
 
 - **`strategy: Recreate`.** The default rolling update starts the replacement pod before stopping the old one. With a `ReadWriteOnce` volume, a replacement scheduled on another node cannot mount it, so the rollout stalls. If both pods do get the volume, two instances share one database, which this deployment must never do. `Recreate` stops the old pod first.
-- **`fsGroup: 1000`.** The image runs as the non-root `ccflare` user (UID 1000). A fresh volume is usually owned by root, and the mount hides the image's own `/data`, so without `fsGroup` the app cannot create its database or config. If your storage driver ignores `fsGroup`, make the volume writable by UID 1000 some other way, such as an init container that runs `chown`.
+- **`fsGroup: 1000`.** The image runs as the non-root `hov-router` user (UID 1000). A fresh volume is usually owned by root, and the mount hides the image's own `/data`, so without `fsGroup` the app cannot create its database or config. If your storage driver ignores `fsGroup`, make the volume writable by UID 1000 some other way, such as an init container that runs `chown`.
 
 ### High Availability Checklist
 
@@ -892,24 +892,24 @@ healthcheck:
    ```bash
    # Find the actual database location
    # Linux/macOS:
-   sqlite3 ~/.config/better-ccflare/better-ccflare.db "PRAGMA journal_mode=WAL;"
+   sqlite3 ~/.config/hov-router/hov-router.db "PRAGMA journal_mode=WAL;"
    
    # Windows:
-   sqlite3 %LOCALAPPDATA%\better-ccflare\better-ccflare.db "PRAGMA journal_mode=WAL;"
+   sqlite3 %LOCALAPPDATA%\hov-router\hov-router.db "PRAGMA journal_mode=WAL;"
    ```
 
 2. **High Memory Usage**
    ```bash
    # Check for memory leaks
-   node --inspect=0.0.0.0:9229 /opt/better-ccflare/better-ccflare-server
+   node --inspect=0.0.0.0:9229 /opt/hov-router/hov-router-server
    ```
 
 3. **Connection Refused**
    ```bash
    # Check if service is running
-   systemctl status better-ccflare
+   systemctl status hov-router
    # Check logs
-   journalctl -u better-ccflare -f
+   journalctl -u hov-router -f
    ```
 
 4. **Rate Limit Issues**
@@ -926,12 +926,12 @@ healthcheck:
 
 ```bash
 # Daily: Check recent errors (systemd install; use your unit's name)
-journalctl -u better-ccflare --since "24 hours ago" | grep ERROR
+journalctl -u hov-router --since "24 hours ago" | grep ERROR
 
 # Weekly: Database maintenance
 # Linux/macOS:
-sqlite3 ~/.config/better-ccflare/better-ccflare.db "VACUUM;"
-sqlite3 ~/.config/better-ccflare/better-ccflare.db "ANALYZE;"
+sqlite3 ~/.config/hov-router/hov-router.db "VACUUM;"
+sqlite3 ~/.config/hov-router/hov-router.db "ANALYZE;"
 
 # Monthly: Clean old request history
 hov-router --clear-history
@@ -951,16 +951,16 @@ bun update
 # VACUUM INTO, mkdir and tar create world-readable files under a typical umask.
 umask 077
 
-BACKUP_DIR="/backup/better-ccflare/$(date +%Y%m%d)"
+BACKUP_DIR="/backup/hov-router/$(date +%Y%m%d)"
 mkdir -p "$BACKUP_DIR"
 
 # Determine config directory based on OS
 if [[ "$OSTYPE" == "darwin"* ]] || [[ "$OSTYPE" == "linux-gnu"* ]]; then
-    CONFIG_DIR="$HOME/.config/better-ccflare"
+    CONFIG_DIR="$HOME/.config/hov-router"
 elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
-    CONFIG_DIR="$LOCALAPPDATA/better-ccflare"
+    CONFIG_DIR="$LOCALAPPDATA/hov-router"
 else
-    CONFIG_DIR="$HOME/.config/better-ccflare"  # Default fallback
+    CONFIG_DIR="$HOME/.config/hov-router"  # Default fallback
 fi
 
 # Back up the database with VACUUM INTO, not the sqlite3 `.backup` command.
@@ -970,20 +970,20 @@ fi
 # read transaction, including changes still in the -wal file. Its target must
 # not already exist, and an interrupted run can leave a partial file, so write
 # to a temporary name and rename only on success.
-SNAPSHOT="$BACKUP_DIR/better-ccflare.db"
-if ! sqlite3 "$CONFIG_DIR/better-ccflare.db" ".timeout 30000" "VACUUM INTO '$SNAPSHOT.partial'"; then
+SNAPSHOT="$BACKUP_DIR/hov-router.db"
+if ! sqlite3 "$CONFIG_DIR/hov-router.db" ".timeout 30000" "VACUUM INTO '$SNAPSHOT.partial'"; then
     rm -f "$SNAPSHOT.partial"
     exit 1
 fi
 mv "$SNAPSHOT.partial" "$SNAPSHOT"
-cp "$CONFIG_DIR/better-ccflare.json" "$BACKUP_DIR/" 2>/dev/null || true
+cp "$CONFIG_DIR/hov-router.json" "$BACKUP_DIR/" 2>/dev/null || true
 
 # Compress
 tar -czf "$BACKUP_DIR.tar.gz" "$BACKUP_DIR"
 rm -rf "$BACKUP_DIR"
 
 # Keep only last 30 days
-find /backup/better-ccflare -name "*.tar.gz" -mtime +30 -delete
+find /backup/hov-router -name "*.tar.gz" -mtime +30 -delete
 ```
 
 ## Environment Variables Reference
@@ -996,7 +996,7 @@ find /backup/better-ccflare -name "*.tar.gz" -mtime +30 -delete
 | `LB_STRATEGY` | session | Load balancing strategy: `session`, `least-used`, `session-affinity`, or opt-in `session-drain-soonest`. Session-based strategies preserve OAuth stickiness; `least-used` spreads requests by utilization. |
 | `LOG_LEVEL` | INFO | Logging level: `DEBUG`, `INFO`, `WARN`, `ERROR` |
 | `LOG_FORMAT` | pretty | Log format: `pretty` (human-readable) or `json` (structured) |
-| `BETTER_CCFLARE_DEBUG` | 0 | Enable debug mode (1/0) - enables console output |
+| `HOV_ROUTER_DEBUG` | 0 | Enable debug mode (1/0) - enables console output |
 
 ### Advanced Configuration
 
@@ -1007,8 +1007,8 @@ find /backup/better-ccflare -name "*.tar.gz" -mtime +30 -delete
 | `RETRY_ATTEMPTS` | 3 | Number of retry attempts for failed requests |
 | `RETRY_DELAY_MS` | 1000 | Initial delay between retries in milliseconds |
 | `RETRY_BACKOFF` | 2 | Backoff multiplier for exponential retry delays |
-| `BETTER_CCFLARE_CONFIG_PATH` | Platform-specific | Path to configuration file |
-| `BETTER_CCFLARE_DB_PATH` | Platform-specific | Path to SQLite database file |
+| `HOV_ROUTER_CONFIG_PATH` | Platform-specific | Path to configuration file |
+| `HOV_ROUTER_DB_PATH` | Platform-specific | Path to SQLite database file |
 | `DATABASE_URL` | - | Not used. A value starting with `postgres://` or `postgresql://` is refused at startup; see [PostgreSQL support removed](hov-router-migration.md#postgresql-support-removed). |
 
 ### Configuration File
@@ -1028,8 +1028,8 @@ HoV Router also supports a JSON configuration file that takes precedence over en
 ```
 
 The configuration file is located at:
-- **Linux/macOS**: `~/.config/better-ccflare/config.json`
-- **Windows**: `%APPDATA%\better-ccflare\config.json`
+- **Linux/macOS**: `~/.config/hov-router/config.json`
+- **Windows**: `%APPDATA%\hov-router\config.json`
 
 ## Conclusion
 
@@ -1062,7 +1062,7 @@ HoV Router includes a powerful web-based dashboard for monitoring and management
 hov-router --serve
 
 # Or from source:
-bun run better-ccflare
+bun run hov-router
 
 # Dashboard will be available at:
 # http://localhost:8080 (or your configured port)
@@ -1092,7 +1092,7 @@ The HoV Router CLI can connect to a remote API server for distributed deployment
 
 ```bash
 # Set API URL for remote connection
-export BETTER_CCFLARE_API_URL=https://better-ccflare.example.com
+export HOV_ROUTER_API_URL=https://hov-router.example.com
 hov-router --list  # Will query the remote server
 ```
 
@@ -1111,7 +1111,7 @@ When the running backend's `/health` advertises `handoff: {"protocol": "quiesce-
 
 A retiring request that would need a guard retry after the fence gets a 503 instead, because the port now belongs to the replacement. A backend that does not advertise the capability (Bun exits on an unhandled `SIGUSR2`), or that still listens after `RUNNER_QUIESCE_PORT_TIMEOUT_MS` (default 10000, range 100-120000), takes the drain path described below. A deployment that arrives while the previous handoff's backend is still retiring waits for it first, for up to the retire timer plus the backend stop allowance. Run one deployment at a time: if `lifecycle.retiring` is not `null`, that wait plus a drain fallback can outlast the deployment script's 800-second verification window.
 
-The official deployment script selects backend-only handoff only when the running runner, guard, recovery policy, timing module and transaction module have exactly the same bytes as the candidate artifacts, and the migration-source digest is unchanged. Lifecycle changes and schema changes take the existing full-stack bootstrap path. The first deployment introducing this protocol therefore still requires a measured full restart. No database-sharing blue/green instance is started. `scripts/deploy-ccflare.sh --check` runs the same check against the running generation and reports `backend-only`, `full restart: <first differing field>`, or `unknown: <reason>` when it cannot decide; a deploy treats `unknown` as a full restart.
+The official deployment script selects backend-only handoff only when the running runner, guard, recovery policy, timing module and transaction module have exactly the same bytes as the candidate artifacts, and the migration-source digest is unchanged. Lifecycle changes and schema changes take the existing full-stack bootstrap path. The first deployment introducing this protocol therefore still requires a measured full restart. No database-sharing blue/green instance is started. `scripts/deploy-hov-router.sh --check` runs the same check against the running generation and reports `backend-only`, `full restart: <first differing field>`, or `unknown: <reason>` when it cannot decide; a deploy treats `unknown` as a full restart.
 
 The runner records a private, fsynced intent with a transaction ID, old generation and PID/start identity, exact prior pin hash, immutable candidate binary hash/source, candidate nonce and compatibility digest. It authenticates a permissioned local control command, replies once that intent is durable, and starts the handoff only after the deploy acknowledges the reply. A prepared intent that no deploy acknowledges goes back to the intent it replaced, so a deploy that stopped waiting cannot leave a handoff that nothing will commit. On the drain path it records draining, fences dispatch, then reaps the old PID/start before starting the candidate. While draining, the guard still sends dashboard reads (GET or HEAD outside `/v1/`, excluding paths ending in `/stream`) to the old backend; they join its generation, so the drain waits for them. Guard verification checks the executable, listener ownership, source, nonce, generation, readiness and timing contract. The candidate remains fenced until the exact systemd pin and committed phase are durable. Attach rotates the per-generation credential before releasing queued requests. Health reports the retained ingress source separately from `backendSourceSha`.
 
@@ -1121,7 +1121,7 @@ An incompatible manifest, stale command, ambiguous owner, changed pin, or unfini
 
 The guard owns first-header acceptance before queueing or reading an upload. The new accepted cap is **1,470,000 ms**: 1,440,000 ms of work plus a 30,000 ms cleanup reserve. This is an intentional new finite limit after response commitment; healthy periodic chunks no longer permit an indefinitely long response. Existing 600,000 ms response-start, 120,000 ms idle, and user-agent-selected backend semantic/rescue budgets remain independent and may terminate earlier.
 
-A caller may narrow the cap with `x-better-ccflare-timeout-ms`; it cannot expand the policy or provide trusted absolute timing. For a narrower cap, cleanup reserve is `min(30000, floor(cap/5))`. Managed timing uses the Linux boot-time clock from `/proc/uptime` with declared 10 ms precision and boot identity. It includes suspend time. Bun and Node `process.hrtime` do not share an origin in the tested Bun version and are deliberately not serialized as a common clock. Wall-clock changes cannot renew the budget. This shared-clock protocol is Linux-only; standalone ingress keeps its local lifecycle.
+A caller may narrow the cap with `x-hov-router-timeout-ms`; it cannot expand the policy or provide trusted absolute timing. For a narrower cap, cleanup reserve is `min(30000, floor(cap/5))`. Managed timing uses the Linux boot-time clock from `/proc/uptime` with declared 10 ms precision and boot identity. It includes suspend time. Bun and Node `process.hrtime` do not share an origin in the tested Bun version and are deliberately not serialized as a common clock. Wall-clock changes cannot renew the budget. This shared-clock protocol is Linux-only; standalone ingress keeps its local lifecycle.
 
 The bounded HMAC envelope binds original acceptance/deadlines, boot, ingress nonce, backend nonce/source/generation, request/attempt, method and path. Managed ingress rejects missing, malformed, mismatched or replayed envelopes before authentication, body admission or provider work. Pending requests retain their original acceptance when a new generation attaches. The backend publishes `accepted_request_deadline` to the native first-terminal arbiter before owned cancellation; a cancellation that remains unsettled at the original cleanup ceiling adds `cleanup_timeout` evidence without replacing that primary cause.
 

@@ -188,7 +188,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 
 	afterEach(() => {
 		globalThis.fetch = originalFetch;
-		delete process.env.CCFLARE_CONTEXT_ADMISSION;
+		delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 	});
 
 	it("returns a synthetic token count without fetching or refreshing Codex", async () => {
@@ -223,12 +223,8 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 		// synthetic-response markers onto the client-facing Response, not just
 		// content-type/cache-control, so downstream consumers can tell the count
 		// is a local estimate rather than an authoritative upstream value.
-		expect(result?.headers.get("x-better-ccflare-synthetic-response")).toBe(
-			"true",
-		);
-		expect(result?.headers.get("x-better-ccflare-synthetic-status")).toBe(
-			"200",
-		);
+		expect(result?.headers.get("x-hov-router-synthetic-response")).toBe("true");
+		expect(result?.headers.get("x-hov-router-synthetic-status")).toBe("200");
 		const payload = await result?.json();
 		expect(payload.input_tokens).toBeNumber();
 		expect(payload.input_tokens).toBeGreaterThan(0);
@@ -359,8 +355,8 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 			const response = await proxyWithAccount(
 				makeMessagesRequest(bodyBuffer, {
 					"Content-Type": "application/json",
-					"x-better-ccflare-attributed-agent": "false",
-					"x-better-ccflare-guard-request-id":
+					"x-hov-router-attributed-agent": "false",
+					"x-hov-router-guard-request-id":
 						"76110a75-9e91-4ab9-89a7-3e5d25a318fc",
 				}),
 				new URL("https://proxy.local/v1/messages"),
@@ -382,9 +378,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 				0,
 				makeProxyContext(),
 			);
-			expect(
-				response?.headers.get("x-better-ccflare-guard-request-id"),
-			).toBeNull();
+			expect(response?.headers.get("x-hov-router-guard-request-id")).toBeNull();
 		} finally {
 			collectorSpy.mockRestore();
 		}
@@ -392,10 +386,10 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		expect(fetchedRequest).not.toBeNull();
 		expect(
-			fetchedRequest?.headers.get("x-better-ccflare-attributed-agent"),
+			fetchedRequest?.headers.get("x-hov-router-attributed-agent"),
 		).toBeNull();
 		expect(
-			fetchedRequest?.headers.get("x-better-ccflare-guard-request-id"),
+			fetchedRequest?.headers.get("x-hov-router-guard-request-id"),
 		).toBeNull();
 		const upstreamBody = await fetchedRequest?.clone().json();
 		expect(upstreamBody.tools).toEqual([]);
@@ -479,7 +473,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		expect(fetchedRequest).not.toBeNull();
 		expect(
-			fetchedRequest?.headers.get("x-better-ccflare-attributed-agent"),
+			fetchedRequest?.headers.get("x-hov-router-attributed-agent"),
 		).toBeNull();
 		const upstreamBody = await fetchedRequest?.clone().json();
 		expect(
@@ -606,7 +600,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 			upstreamBody.tools.map((tool: { name: string }) => tool.name),
 		).toEqual(expectedTools);
 		expect(
-			fetchedRequest?.headers.get("x-better-ccflare-attributed-agent"),
+			fetchedRequest?.headers.get("x-hov-router-attributed-agent"),
 		).toBeNull();
 	});
 
@@ -616,7 +610,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	 * `agentAttributionSource` + Claude Code header combination by asserting
 	 * on the upstream tool list (the observable effect -- the internal
 	 * marker header itself is always stripped before the wire, see the
-	 * unconditional `newHeaders.delete("x-better-ccflare-attributed-agent")`
+	 * unconditional `newHeaders.delete("x-hov-router-attributed-agent")`
 	 * in the Codex provider's convertToCodexFormat).
 	 */
 	async function runDescendantMarkerCase(
@@ -681,7 +675,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 		}
 
 		expect(
-			fetchedRequest?.headers.get("x-better-ccflare-attributed-agent"),
+			fetchedRequest?.headers.get("x-hov-router-attributed-agent"),
 		).toBeNull();
 		const upstreamBody = await fetchedRequest?.clone().json();
 		return upstreamBody.tools.map((tool: { name: string }) => tool.name);
@@ -768,8 +762,8 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 			const result = await proxyWithAccount(
 				makeMessagesRequest(bodyBuffer, {
 					"Content-Type": "application/json",
-					"x-better-ccflare-synthetic-response": "true",
-					"x-better-ccflare-synthetic-status": "418",
+					"x-hov-router-synthetic-response": "true",
+					"x-hov-router-synthetic-status": "418",
 				}),
 				new URL("https://proxy.local/v1/messages"),
 				makeCodexAccount({
@@ -797,15 +791,15 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 			),
 		).toBeTrue();
 		expect(
-			fetchedRequest?.headers.get("x-better-ccflare-synthetic-response"),
+			fetchedRequest?.headers.get("x-hov-router-synthetic-response"),
 		).toBeNull();
 		expect(
-			fetchedRequest?.headers.get("x-better-ccflare-synthetic-status"),
+			fetchedRequest?.headers.get("x-hov-router-synthetic-status"),
 		).toBeNull();
 	});
 
 	it("fails open for a low-confidence oversized official-subscription request", async () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		let fetchedRequest: Request | null = null;
 		const fetchMock = mock(async (input: RequestInfo | URL) => {
 			fetchedRequest = input instanceof Request ? input : new Request(input);
@@ -882,7 +876,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("logs a privacy-safe low-confidence admission defer decision", () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const events: Array<{ msg?: string; data?: Record<string, unknown> }> = [];
 		const listener = (event: {
 			msg?: string;
@@ -929,7 +923,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("admits account-local current-model capacity without borrowing a sibling's window", () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const first = makeCodexAccount({
 			id: "current-first",
 			model_mappings: JSON.stringify({ opus: "gpt-6-wide" }),
@@ -987,7 +981,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("admits a calibrated 500k prompt within GPT-5.6 operational capacity", () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const tracker = createContextAdmissionTracker(
 			calibratedAdmissionEstimate(500_000),
 			50_000,
@@ -1004,7 +998,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("still rejects a calibrated over-limit estimate", () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const tracker = createContextAdmissionTracker(
 			calibratedAdmissionEstimate(835_000),
 			50_000,
@@ -1022,7 +1016,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("skips an undersized Codex model before fetch and uses a larger mapped fallback", async () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		let fetchedModel: string | null = null;
 		globalThis.fetch = mock(async (input: RequestInfo | URL) => {
 			const request = input instanceof Request ? input : new Request(input);
@@ -1086,7 +1080,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("admission uses the provider's default for a family missing from partial account mappings", () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const tracker = createContextAdmissionTracker(
 			calibratedAdmissionEstimate(250_000),
 			20_000,
@@ -1105,7 +1099,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("reserves the full forwarded max_tokens for custom/API endpoints", async () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const tracker = createContextAdmissionTracker(
 			calibratedAdmissionEstimate(220_000),
 			50_000,
@@ -1134,7 +1128,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("uses zero output reserve for the ChatGPT subscription wire contract", async () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const tracker = createContextAdmissionTracker(
 			calibratedAdmissionEstimate(250_000),
 			50_000,
@@ -1151,7 +1145,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("reports occupied tokens paired with the largest safe rejected candidate", async () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const tracker = createContextAdmissionTracker(
 			calibratedAdmissionEstimate(900_000),
 			50_000,
@@ -1183,7 +1177,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("uses the smaller occupied total to break equal-safe-limit ties", async () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const tracker = createContextAdmissionTracker(
 			calibratedAdmissionEstimate(260_000),
 			10_000,
@@ -1205,7 +1199,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	it("excludes count_tokens from admission", async () => {
 		const path = "/v1/messages/count_tokens";
 		const extraHeaders = {};
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const fetchMock = mock(
 			async () =>
 				new Response(JSON.stringify({ ok: true }), {
@@ -1267,12 +1261,12 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it.each([
-		["x-better-ccflare-keepalive", "true"],
-		["x-better-ccflare-keepalive", "false"],
-		["x-better-ccflare-auto-refresh", "true"],
-		["x-better-ccflare-auto-refresh", "false"],
+		["x-hov-router-keepalive", "true"],
+		["x-hov-router-keepalive", "false"],
+		["x-hov-router-auto-refresh", "true"],
+		["x-hov-router-auto-refresh", "false"],
 	])("does not let client header %s=%s bypass admission", async (header, value) => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const fetchMock = mock(async () => {
 			throw new Error("capacity rejection must happen before fetch");
 		});
@@ -1317,7 +1311,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("excludes max_tokens zero cache-prewarm requests from admission", async () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const fetchMock = mock(async () => {
 			throw new Error("subscription prewarm should remain a local response");
 		});
@@ -1371,7 +1365,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("preserves later mapped fallback traversal after preselecting the first safe model", async () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const fetchedModels: string[] = [];
 		globalThis.fetch = mock(async (input: RequestInfo | URL) => {
 			const request = input instanceof Request ? input : new Request(input);
@@ -1442,7 +1436,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("fails open for unknown Codex capacity", async () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const fetchMock = mock(
 			async () =>
 				new Response(JSON.stringify({ ok: true }), {
@@ -1555,7 +1549,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("rejects every undersized candidate without cooldown or account mutation", () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const account = makeCodexAccount({
 			model_mappings: JSON.stringify({
 				sonnet: ["gpt-5.3-codex-spark", "gpt-5.4-mini"],
@@ -1579,7 +1573,7 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	});
 
 	it("preserves a meaningful attempted failure over later capacity skips", () => {
-		process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+		process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 		const tracker = createContextAdmissionTracker(
 			calibratedAdmissionEstimate(300_000),
 			20_000,
@@ -1620,40 +1614,40 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 	it("strips every internal transport header from passthrough headers", () => {
 		const headers = new Headers({
 			authorization: "Bearer public-upstream-token",
-			"x-better-ccflare-guard-request-id":
+			"x-hov-router-guard-request-id":
 				"v1.76110a75-9e91-4ab9-89a7-3e5d25a318fc.1.signature",
-			"x-better-ccflare-guard-correlation-secret": "must-never-be-http",
-			"x-better-ccflare-request-id": "req-internal",
-			"x-better-ccflare-pacing-canary": "bypass",
-			"x-better-ccflare-pacing-cohort-id": "cohort",
-			"x-better-ccflare-pacing-action": "bypassed",
-			"x-better-ccflare-pacing-role": "follower",
-			"x-better-ccflare-pacing-wait-ms": "60000",
-			"x-better-ccflare-pacing-release-reason": "cap",
-			"x-better-ccflare-request-stream": "true",
-			"x-better-ccflare-attributed-agent": "true",
+			"x-hov-router-guard-correlation-secret": "must-never-be-http",
+			"x-hov-router-request-id": "req-internal",
+			"x-hov-router-pacing-canary": "bypass",
+			"x-hov-router-pacing-cohort-id": "cohort",
+			"x-hov-router-pacing-action": "bypassed",
+			"x-hov-router-pacing-role": "follower",
+			"x-hov-router-pacing-wait-ms": "60000",
+			"x-hov-router-pacing-release-reason": "cap",
+			"x-hov-router-request-stream": "true",
+			"x-hov-router-attributed-agent": "true",
 			[CODEX_LOGICAL_MODEL_FAMILY_HEADER]: "fable",
 		});
 		const sanitized = sanitizeInternalHeaders(headers);
 		expect(sanitized.get("authorization")).toBe("Bearer public-upstream-token");
 		for (const name of [
-			"x-better-ccflare-guard-request-id",
-			"x-better-ccflare-guard-correlation-secret",
-			"x-better-ccflare-request-id",
-			"x-better-ccflare-pacing-canary",
-			"x-better-ccflare-pacing-cohort-id",
-			"x-better-ccflare-pacing-action",
-			"x-better-ccflare-pacing-role",
-			"x-better-ccflare-pacing-wait-ms",
-			"x-better-ccflare-pacing-release-reason",
-			"x-better-ccflare-request-stream",
-			"x-better-ccflare-attributed-agent",
+			"x-hov-router-guard-request-id",
+			"x-hov-router-guard-correlation-secret",
+			"x-hov-router-request-id",
+			"x-hov-router-pacing-canary",
+			"x-hov-router-pacing-cohort-id",
+			"x-hov-router-pacing-action",
+			"x-hov-router-pacing-role",
+			"x-hov-router-pacing-wait-ms",
+			"x-hov-router-pacing-release-reason",
+			"x-hov-router-request-stream",
+			"x-hov-router-attributed-agent",
 			CODEX_LOGICAL_MODEL_FAMILY_HEADER,
 		]) {
 			expect(sanitized.get(name)).toBeNull();
 		}
 		// Pure helper: the reusable transform headers remain intact for retries.
-		expect(headers.get("x-better-ccflare-request-id")).toBe("req-internal");
+		expect(headers.get("x-hov-router-request-id")).toBe("req-internal");
 	});
 
 	it("overwrites spoofed logical-family metadata and strips it before Codex transport", async () => {
@@ -1929,12 +1923,12 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 			const result = await proxyWithAccount(
 				makeMessagesRequest(bodyBuffer, {
 					"Content-Type": "application/json",
-					"x-better-ccflare-pacing-canary": "spoofed",
-					"x-better-ccflare-pacing-action": "spoofed",
-					"x-better-ccflare-pacing-cohort-id": "secret-value",
-					"x-better-ccflare-pacing-role": "leader",
-					"x-better-ccflare-pacing-wait-ms": "999",
-					"x-better-ccflare-pacing-release-reason": "leader",
+					"x-hov-router-pacing-canary": "spoofed",
+					"x-hov-router-pacing-action": "spoofed",
+					"x-hov-router-pacing-cohort-id": "secret-value",
+					"x-hov-router-pacing-role": "leader",
+					"x-hov-router-pacing-wait-ms": "999",
+					"x-hov-router-pacing-release-reason": "leader",
 				}),
 				new URL("https://proxy.local/v1/messages"),
 				makeCodexAccount({
@@ -1958,27 +1952,27 @@ describe("proxyWithAccount — Codex count_tokens", () => {
 		// The retired canary and action headers are never set, and a client copy
 		// is stripped rather than passed through to the trace.
 		expect(
-			transformedHeaders?.get("x-better-ccflare-pacing-canary") ?? null,
+			transformedHeaders?.get("x-hov-router-pacing-canary") ?? null,
 		).toBeNull();
 		expect(
-			transformedHeaders?.get("x-better-ccflare-pacing-action") ?? null,
+			transformedHeaders?.get("x-hov-router-pacing-action") ?? null,
 		).toBeNull();
 		expect(
-			transformedHeaders?.get("x-better-ccflare-pacing-cohort-id") ?? null,
+			transformedHeaders?.get("x-hov-router-pacing-cohort-id") ?? null,
 		).toBeNull();
-		expect(transformedHeaders?.get("x-better-ccflare-pacing-role")).toBe(
+		expect(transformedHeaders?.get("x-hov-router-pacing-role")).toBe(
 			"follower",
 		);
-		expect(transformedHeaders?.get("x-better-ccflare-pacing-wait-ms")).toBe(
+		expect(transformedHeaders?.get("x-hov-router-pacing-wait-ms")).toBe(
 			"60000",
 		);
-		expect(
-			transformedHeaders?.get("x-better-ccflare-pacing-release-reason"),
-		).toBe("cap");
+		expect(transformedHeaders?.get("x-hov-router-pacing-release-reason")).toBe(
+			"cap",
+		);
 		for (const header of [
-			"x-better-ccflare-pacing-role",
-			"x-better-ccflare-pacing-wait-ms",
-			"x-better-ccflare-pacing-release-reason",
+			"x-hov-router-pacing-role",
+			"x-hov-router-pacing-wait-ms",
+			"x-hov-router-pacing-release-reason",
 		]) {
 			expect(fetchedRequest?.headers.get(header) ?? null).toBeNull();
 		}
@@ -2000,7 +1994,7 @@ describe("proxyWithAccount — non-Codex accounts never receive the Codex descen
 	// branch in prepareAttemptHeaders lives entirely inside
 	// `if (plan.providerName === "codex")` in proxy-operations.ts, so a
 	// non-Codex provider never evaluates isAttributedAgent or touches
-	// x-better-ccflare-attributed-agent at all -- regardless of attribution
+	// x-hov-router-attributed-agent at all -- regardless of attribution
 	// source or Claude Code headers on the request.
 	function makeNonCodexAccount(overrides: Partial<Account> = {}): Account {
 		return makeCodexAccount({
@@ -2090,7 +2084,7 @@ describe("proxyWithAccount — non-Codex accounts never receive the Codex descen
 
 		expect(fetchedRequest).not.toBeNull();
 		expect(
-			fetchedRequest?.headers.get("x-better-ccflare-attributed-agent"),
+			fetchedRequest?.headers.get("x-hov-router-attributed-agent"),
 		).toBeNull();
 	});
 });

@@ -7,10 +7,10 @@ problem_type: workflow_issue
 component: development_workflow
 severity: medium
 applies_when:
-  - Adding or changing a drop-in, Environment= line, or EnvironmentFile for ccflare-stack.service
+  - Adding or changing a drop-in, Environment= line, or EnvironmentFile for hov-router.service
   - Switching on an environment-gated feature such as member notices on the production host
-  - "`scripts/deploy-ccflare.sh --check` prints `restart: backend-only` after a service environment change"
-  - Hand-editing better-ccflare.json on a host whose router is running
+  - "`scripts/deploy-hov-router.sh --check` prints `restart: backend-only` after a service environment change"
+  - Hand-editing hov-router.json on a host whose router is running
 root_cause: incorrect_assumption
 resolution_type: workflow_improvement
 related_components:
@@ -35,7 +35,7 @@ last_updated: 2026-11-22
 Member notices (PR #720 here; the receiver lives in a separate, private repository) are
 switched on in production by two new host files: an EnvironmentFile holding `MEMBER_NOTICE_WEBHOOK_URL` and
 `MEMBER_NOTICE_SIGNING_SECRET`, and a drop-in under
-`/etc/systemd/system/ccflare-stack.service.d/` that names it. Planning that activation turned up
+`/etc/systemd/system/hov-router.service.d/` that names it. Planning that activation turned up
 two ways the feature can come up `off` while every file looks right. Neither is written down in
 `docs/deployment.md`, `docs/systemd.md`, or the Member notices section of
 `docs/configuration.md`.
@@ -48,19 +48,19 @@ revision. Neither was observed in production.
 
 ### 1. Service environment changes reach the backend only on a full restart
 
-`scripts/deploy-ccflare.sh` takes one of two paths (`:609-624`):
+`scripts/deploy-hov-router.sh` takes one of two paths (`:609-624`):
 
-- **Full restart**: `sudo systemctl restart ccflare-stack.service` (`:746`). systemd starts a
+- **Full restart**: `sudo systemctl restart hov-router.service` (`:746`). systemd starts a
   new runner with the current merged environment, so every drop-in and EnvironmentFile takes
   effect.
-- **Backend-only handoff**: the running runner (`scripts/run-ccflare-stack.sh`) stays up and
-  starts the candidate binary as its own child. `run-ccflare-stack.sh:979` points `CCFLARE_BIN`
-  at `manifest.candidateBinary`, and `run-ccflare-stack.sh:1071-1081` launches
-  `"$CCFLARE_BIN" --serve ... &`. The child inherits the runner's environment, which systemd
+- **Backend-only handoff**: the running runner (`scripts/run-hov-router.sh`) stays up and
+  starts the candidate binary as its own child. `run-hov-router.sh:979` points `HOV_ROUTER_BIN`
+  at `manifest.candidateBinary`, and `run-hov-router.sh:1071-1081` launches
+  `"$HOV_ROUTER_BIN" --serve ... &`. The child inherits the runner's environment, which systemd
   fixed when the runner started; the launch overrides only a few fixed variables such as `PORT`
   and `LOG_LEVEL`. The runner sources no env file of its own.
 
-The eligibility check (`backend_handoff_eligible`, `scripts/deploy-ccflare-lib.sh:1634`)
+The eligibility check (`backend_handoff_eligible`, `scripts/deploy-hov-router-lib.sh:1634`)
 compares three things: the schema digest (`:1666`); the runner, guard, policy, timing and
 transaction bytes (`:1667`); and the managed pin `50-pinned-build.conf` (`:1669`). The checks
 after that only confirm the running generation is alive. It reads no other drop-in and no
@@ -68,18 +68,18 @@ EnvironmentFile. A deploy after you add a drop-in can therefore still be
 backend-only, and the new backend then runs without the new variables.
 
 The deploy also runs `systemctl daemon-reload` on both paths
-(`reload_validate_or_restore_systemd_policy`, `deploy-ccflare.sh:717`). After a backend-only
-deploy, `systemctl show -p EnvironmentFiles ccflare-stack.service` therefore lists the new file
+(`reload_validate_or_restore_systemd_policy`, `deploy-hov-router.sh:717`). After a backend-only
+deploy, `systemctl show -p EnvironmentFiles hov-router.service` therefore lists the new file
 even though the running process never loaded it. That listing describes the next start, not the
 running process.
 
 What to do:
 
-1. Run `scripts/deploy-ccflare.sh --check` first (it works from any checkout).
+1. Run `scripts/deploy-hov-router.sh --check` first (it works from any checkout).
    `restart: full restart: <reason>` means the deploy itself loads the new environment.
    `restart: backend-only (the running guard and runner stay up)` means it will not.
 2. If it says backend-only, finish the deploy, then run
-   `sudo systemctl daemon-reload && sudo systemctl restart ccflare-stack.service`. A full
+   `sudo systemctl daemon-reload && sudo systemctl restart hov-router.service`. A full
    restart is a persistence change on this host, so get the operator's go first.
 3. Verify the running backend, not systemd. Count the variable without printing its value:
 
@@ -92,9 +92,9 @@ What to do:
    key) returns `memberNotices.state`: `off` with no address, `invalid_address` when the address
    is not https, `missing_secret` without a signing secret, and `on` otherwise.
 
-### 2. Never stage keys in better-ccflare.json while the router runs
+### 2. Never stage keys in hov-router.json while the router runs
 
-`ConfigManager` reads `better-ccflare.json` once (`packages/config/src/index.ts:1520`) and keeps
+`ConfigManager` reads `hov-router.json` once (`packages/config/src/index.ts:1520`) and keeps
 it in memory. Every write serializes that whole copy back to disk (`saveConfig`, `:1546-1554`),
 and ordinary reads write too: `get(key, default)` calls `set` when the key is absent (`:1579`),
 and `set` saves (`:1589`). Nothing watches the file. A key you add by hand while the process
@@ -107,7 +107,7 @@ again.
 
 ### Route profiles: use the file, not the environment (#960)
 
-Route profiles were the setting edited most often. The profiles env file has about 20 `.bak-*` copies on the production host since August, and each edit cost a full restart. The backend can now read them from `CCFLARE_MODEL_ROUTE_PROFILES_FILE`, a file it opens at every start, so a backend-only deploy loads an edit. A broken edit falls back to the last good copy instead of failing the next unattended restart. See [Profiles in a file](../../configuration.md#profiles-in-a-file). Switching a host from `EnvironmentFile=` to the file variable is itself a drop-in change, so it takes one last full restart. Since #971 the profiles live in the database and are edited live through `PUT /api/route-profiles`, with no deploy at all; the file only seeds the database on the first start. See [Edit lanes live](../../configuration.md#edit-lanes-live).
+Route profiles were the setting edited most often. The profiles env file has about 20 `.bak-*` copies on the production host since August, and each edit cost a full restart. The backend can now read them from `HOV_ROUTER_MODEL_ROUTE_PROFILES_FILE`, a file it opens at every start, so a backend-only deploy loads an edit. A broken edit falls back to the last good copy instead of failing the next unattended restart. See [Profiles in a file](../../configuration.md#profiles-in-a-file). Switching a host from `EnvironmentFile=` to the file variable is itself a drop-in change, so it takes one last full restart. Since #971 the profiles live in the database and are edited live through `PUT /api/route-profiles`, with no deploy at all; the file only seeds the database on the first start. See [Edit lanes live](../../configuration.md#edit-lanes-live).
 
 The switch also reverses rollback safety. A build from before #960 ignores the file variable and starts with no profiles, and nothing fails loudly: Claude Code just loses the profile rows in `/model`. So the rollback order is settings first, then version. Restore the `EnvironmentFile=` drop-in and full-restart on the current build, then pin the older one. The deploy prints a `route profiles:` line from `/health` and warns when the file was not loaded, because a deploy whose health check passes can still be serving the last good copy.
 
@@ -128,18 +128,18 @@ file holds the key. Only the running process's environment is authoritative.
 
 ## When to Apply
 
-- Any new or changed environment for `ccflare-stack.service`, not just member notices. Every
+- Any new or changed environment for `hov-router.service`, not just member notices. Every
   setting the router reads from its environment at start behaves this way.
   `docs/configuration.md` already says this for Anthropic degraded mode ("captured at process
   start; changing them requires a full restart"), but not for deploys.
-- Any hand edit of `better-ccflare.json` on a host with a running router.
+- Any hand edit of `hov-router.json` on a host with a running router.
 
 ## Examples
 
 Switching on member notices, done safely:
 
 1. Install the EnvironmentFile (mode 600) and the drop-in that names it.
-2. Run `scripts/deploy-ccflare.sh --check`. A full restart loads the file during the deploy
+2. Run `scripts/deploy-hov-router.sh --check`. A full restart loads the file during the deploy
    itself, which is what happened on 2026-11-04. If it prints backend-only, follow step 2 under
    trap 1 above.
 3. Read the backend's `/proc/<pid>/environ` count and `memberNotices.state` (`on`).

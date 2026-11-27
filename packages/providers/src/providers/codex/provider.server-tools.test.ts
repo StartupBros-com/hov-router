@@ -98,7 +98,7 @@ function upstreamSse(events: readonly unknown[]): Response {
 		{
 			headers: {
 				"content-type": "text/event-stream",
-				"x-better-ccflare-final-model": "gpt-5.6-sol",
+				"x-hov-router-final-model": "gpt-5.6-sol",
 			},
 		},
 	);
@@ -1128,11 +1128,11 @@ describe("Codex strict hosted-search request mapper", () => {
 
 describe("Codex exact hosted-search attempt plan", () => {
 	test("snapshots identity in hosted header callbacks across configuration changes", () => {
-		const previous = process.env.CCFLARE_CODEX_CLIENT_VERSION;
+		const previous = process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 		try {
-			process.env.CCFLARE_CODEX_CLIENT_VERSION = "0.171.0";
+			process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = "0.171.0";
 			const plan = materializeHostedPlan(hostedRequestBody(true));
-			process.env.CCFLARE_CODEX_CLIENT_VERSION = "0.172.0";
+			process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = "0.172.0";
 			expect(plan.prepareHeaders(new Headers(), "token").get("Version")).toBe(
 				"0.171.0",
 			);
@@ -1143,8 +1143,8 @@ describe("Codex exact hosted-search attempt plan", () => {
 			).toBe("0.172.0");
 		} finally {
 			if (previous === undefined)
-				delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-			else process.env.CCFLARE_CODEX_CLIENT_VERSION = previous;
+				delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+			else process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = previous;
 		}
 	});
 	test("emits non-strict client functions beside hosted search without changing their schemas", async () => {
@@ -1401,7 +1401,7 @@ describe("Codex exact hosted-search attempt plan", () => {
 				method: "POST",
 				headers: {
 					"content-type": "application/json",
-					"x-better-ccflare-attributed-agent": "true",
+					"x-hov-router-attributed-agent": "true",
 				},
 				body: JSON.stringify(body),
 			}),

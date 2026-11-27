@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # shrink-db.sh — prune old request payloads and reclaim disk for a bloated
-# better-ccflare SQLite database, WITHOUT a full blocking VACUUM.
+# hov-router SQLite database, WITHOUT a full blocking VACUUM.
 #
 # WHY THIS SCRIPT EXISTS
 #   On a busy proxy the request_payloads table can grow to tens of GB (full
@@ -39,8 +39,8 @@
 #   --yes           Skip the confirmation prompt.
 #
 # ENV
-#   BETTER_CCFLARE_DB_PATH   Override DB path (default:
-#                            ~/.config/better-ccflare/better-ccflare.db)
+#   HOV_ROUTER_DB_PATH   Override DB path (default:
+#                            ~/.config/hov-router/hov-router.db)
 #
 set -euo pipefail
 
@@ -62,14 +62,14 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-DB="${BETTER_CCFLARE_DB_PATH:-$HOME/.config/better-ccflare/better-ccflare.db}"
+DB="${HOV_ROUTER_DB_PATH:-$HOME/.config/hov-router/hov-router.db}"
 
 if ! command -v sqlite3 >/dev/null 2>&1; then
 	echo "ERROR: sqlite3 not found on PATH." >&2; exit 1
 fi
 if [[ ! -f "$DB" ]]; then
 	echo "ERROR: database not found at: $DB" >&2
-	echo "Set BETTER_CCFLARE_DB_PATH if it lives elsewhere." >&2; exit 1
+	echo "Set HOV_ROUTER_DB_PATH if it lives elsewhere." >&2; exit 1
 fi
 
 # Validate numeric args.
@@ -90,7 +90,7 @@ cutoff_ms() { # N days ago, as Unix ms epoch (matches request_payloads.timestamp
 	"${SQLITE[@]}" "SELECT CAST(strftime('%s','now','-$DAYS days') AS INTEGER) * 1000;"
 }
 
-echo "=== better-ccflare DB shrink ==="
+echo "=== hov-router DB shrink ==="
 echo "DB:            $DB"
 PAGE_SIZE="$("${SQLITE[@]}" 'PRAGMA page_size;')"
 AUTO_VACUUM="$("${SQLITE[@]}" 'PRAGMA auto_vacuum;')"

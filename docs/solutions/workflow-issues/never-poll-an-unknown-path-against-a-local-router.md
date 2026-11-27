@@ -1,5 +1,5 @@
 ---
-title: Never poll an unknown HTTP path against a local ccflare — unknown paths fall through to the generic proxy
+title: Never poll an unknown HTTP path against a local router — unknown paths fall through to the generic proxy
 date: 2026-09-10
 category: workflow-issues
 module: local-testing
@@ -7,7 +7,7 @@ problem_type: workflow_issue
 component: development_workflow
 severity: high
 applies_when:
-  - Writing a script that starts a local ccflare and waits for it to be ready
+  - Writing a script that starts a local router and waits for it to be ready
   - Health-checking or smoke-testing a dev instance from a shell script or CI job
   - Any harness that loops on an HTTP request until the server answers
 symptoms:
@@ -28,11 +28,11 @@ tags:
   - startup-banner
 ---
 
-# Never poll an unknown HTTP path against a local ccflare
+# Never poll an unknown HTTP path against a local router
 
 ## Context
 
-ccflare's fetch handler routes a small set of known paths (the dashboard, the API
+The router's fetch handler routes a small set of known paths (the dashboard, the API
 router, `/v1/responses`) and **forwards everything else to the generic proxy**, which
 attempts to serve it across the real account pool.
 
@@ -40,7 +40,7 @@ That makes an unknown path a live routing attempt, not a harmless 404.
 
 ## What went wrong
 
-A probe harness waited for a locally-started ccflare by polling `/api/health` in a
+A probe harness waited for a locally-started router by polling `/api/health` in a
 loop. That path is not a route. Every poll fell through to the generic proxy and was
 attempted against real accounts, including Anthropic-backed accounts. A readiness poll should never reach an upstream account; it is not a [CLI route check](../../agent-setup.md#5-connect-claude-code-and-prove-the-route):
 
@@ -78,9 +78,9 @@ from *died during startup*, because it checks the process as well as the log.
 
 ## Two related traps in the same harness
 
-**Do not point a second ccflare at the production database.** It holds the real DB and
+**Do not point a second router at the production database.** It holds the real DB and
 a multi-instance guard will correctly refuse the second writer. Use
-`BETTER_CCFLARE_DB_PATH` pointed at a disposable copy.
+`HOV_ROUTER_DB_PATH` pointed at a disposable copy.
 
 **Do not copy the production database wholesale to get one.** It can be multiple
 gigabytes of request history, and startup against it will outrun any reasonable
@@ -98,6 +98,6 @@ on.
 
 ## Applicability
 
-Any script that starts a ccflare instance and waits on it. The general rule: on a
+Any script that starts a router instance and waits on it. The general rule: on a
 proxy that forwards unknown paths to real upstreams, **a readiness probe must not be
 an HTTP request** unless you have verified the exact path is a locally-handled route.

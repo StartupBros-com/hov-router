@@ -5,9 +5,9 @@ import { makeProxyRequest } from "../request-handler";
  * Bun's fetch arms its own 300 s idle timer unless `timeout: false` is passed.
  * On a reused keep-alive socket that timer runs from when the socket returned
  * to the pool, so a slow upstream was cut at 260-300 s with "TimeoutError: The
- * operation timed out." long before ccflare's 30-minute header deadline or the
+ * operation timed out." long before the router's 30-minute header deadline or the
  * precommit rescue's commitment window (#489). Both fetch calls must opt out so
- * ccflare's own deadlines govern, and the option must ride in fetch()'s init
+ * The router's own deadlines govern, and the option must ride in fetch()'s init
  * argument, where Bun reads it.
  */
 type BunFetchInit = RequestInit & { timeout?: boolean };
@@ -75,7 +75,7 @@ describe("makeProxyRequest disables Bun's built-in fetch timeout", () => {
 		expect(calls).toHaveLength(1);
 		const { input, init } = calls[0] ?? {};
 		expect(input).toBeInstanceOf(Request);
-		// The derived Request still carries ccflare's combined abort signal.
+		// The derived Request still carries the router's combined abort signal.
 		expect((input as Request).signal.aborted).toBe(false);
 		expect((input as Request).method).toBe("POST");
 		// Only the Bun option rides in init, so it cannot override the

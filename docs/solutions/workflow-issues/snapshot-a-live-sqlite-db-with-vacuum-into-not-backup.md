@@ -7,7 +7,7 @@ problem_type: workflow_issue
 component: database
 severity: medium
 applies_when:
-  - Snapshotting the production better-ccflare.db before a deploy, a migration or a manual repair
+  - Snapshotting the production hov-router.db before a deploy, a migration or a manual repair
   - Writing or reviewing a cron job or script that backs up the database while the server runs
   - Any hot backup of a continuously written WAL-mode SQLite file
 symptoms:
@@ -34,9 +34,9 @@ tags:
 
 ## Context
 
-`scripts/deploy-ccflare.sh` backs up binaries and the version pin, not the database, so a pre-deploy database snapshot is a separate operator step.
+`scripts/deploy-hov-router.sh` backs up binaries and the version pin, not the database, so a pre-deploy database snapshot is a separate operator step.
 
-On 2026-10-18 the pre-deploy step for issue #541 snapshotted the production database (`~/.config/better-ccflare/better-ccflare.db`, 4,499,165,184 bytes, WAL mode) with:
+On 2026-10-18 the pre-deploy step for issue #541 snapshotted the production database (`~/.config/hov-router/hov-router.db`, 4,499,165,184 bytes, WAL mode) with:
 
 ```bash
 sqlite3 "$db" ".backup '$backup'"
@@ -56,13 +56,13 @@ It ran from 01:27:55 to 01:30:17 (2 minutes 22 seconds) and wrote a compacted 3,
 
 ## Guidance
 
-Take every snapshot of a running better-ccflare database with `VACUUM INTO`:
+Take every snapshot of a running hov-router database with `VACUUM INTO`:
 
 ```bash
 (umask 077 && sqlite3 "$DB" ".timeout 30000" "VACUUM INTO '$TARGET.partial'" && mv "$TARGET.partial" "$TARGET")
 ```
 
-- Create the snapshot owner-only. It holds the same plaintext OAuth tokens and API keys as the database, which the server keeps at `0600` (#681), but SQLite creates the `VACUUM INTO` target with the default `0644` mode under a typical umask. Checked on 2026-10-31 with sqlite3 3.45.1: under umask 0022, a snapshot of a `0600` database came out `0644`, and under `umask 077` it came out `0600`. The server's startup sweep restricts only `better-ccflare.db.backup.*` files beside the database, so a snapshot anywhere else stays readable by other users unless it is created this way.
+- Create the snapshot owner-only. It holds the same plaintext OAuth tokens and API keys as the database, which the server keeps at `0600` (#681), but SQLite creates the `VACUUM INTO` target with the default `0644` mode under a typical umask. Checked on 2026-10-31 with sqlite3 3.45.1: under umask 0022, a snapshot of a `0600` database came out `0644`, and under `umask 077` it came out `0600`. The server's startup sweep restricts only `hov-router.db.backup.*` files beside the database, so a snapshot anywhere else stays readable by other users unless it is created this way.
 - Give each run a new, dated target. `VACUUM INTO` refuses an existing file (`Error: stepping, output file already exists`) rather than overwriting it, so delete a failed run's partial before retrying.
 - Write to a temporary name and rename only on success. SQLite documents that a `VACUUM INTO` interrupted by a crash or power loss can leave an incomplete, corrupt output file, and a run killed partway leaves its unfinished output behind.
 - Read the snapshot back before relying on it, for example with `sqlite3 -readonly` row counts of `usage_windows`, `requests` and `accounts`.
@@ -94,14 +94,14 @@ The output also differs from the source in two ways: it is compacted (3.5 GB fro
 Before, in the `backup.sh` script in `docs/deployment.md`:
 
 ```bash
-sqlite3 "$CONFIG_DIR/better-ccflare.db" ".backup $BACKUP_DIR/better-ccflare.db"
+sqlite3 "$CONFIG_DIR/hov-router.db" ".backup $BACKUP_DIR/hov-router.db"
 ```
 
 After:
 
 ```bash
-SNAPSHOT="$BACKUP_DIR/better-ccflare.db"
-if ! sqlite3 "$CONFIG_DIR/better-ccflare.db" ".timeout 30000" "VACUUM INTO '$SNAPSHOT.partial'"; then
+SNAPSHOT="$BACKUP_DIR/hov-router.db"
+if ! sqlite3 "$CONFIG_DIR/hov-router.db" ".timeout 30000" "VACUUM INTO '$SNAPSHOT.partial'"; then
     rm -f "$SNAPSHOT.partial"
     exit 1
 fi

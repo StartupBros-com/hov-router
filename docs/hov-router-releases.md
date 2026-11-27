@@ -528,7 +528,7 @@ is cut (a standing decision since 2026-11-10), after these checks:
    before publishing, or the published notes point at a missing file. Download
    the draft's three assets with `gh release download vX.Y.Z --repo
    StartupBros-com/hov-router`, then the bundle with `gh attestation download
-   better-ccflare-linux-amd64 --repo StartupBros-com/hov-router`, and confirm the
+   hov-router-linux-amd64 --repo StartupBros-com/hov-router`, and confirm the
    file holds one bundle. Once it is on `main`, run the body's verify block as
    written in the folder holding the three assets; the block needs no login.
    `binary-install.test.ts` accepts this one undocumented bundle while it is
@@ -594,7 +594,8 @@ as "claude-bccf-quality-" on the 6.0.0 card until the body was edited.
 
 ## Fixed inventory and provenance
 
-The draft holds exactly `better-ccflare-linux-amd64`, `SHA256SUMS` and
+The draft holds exactly `hov-router-linux-amd64` (`better-ccflare-linux-amd64`
+before 8.0.0), `SHA256SUMS` and
 `release-manifest.json`. The manifest records repository, version, ref, SHA, Bun pin,
 target and binary size/digest, plus the compiled provenance claim. It is a claim,
 not its own trust anchor. GitHub build attestation covers the binary and manifest;

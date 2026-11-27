@@ -113,7 +113,7 @@ async function measureStrategy(
 		const r = await fetch(TARGET_URL);
 		await strategy.drain(r);
 		// Hold the response so its backing store lifetime matches
-		// ccflare's discard path: the Response object is still
+		// The router's discard path: the Response object is still
 		// reachable when we drop it (only its body has been released).
 		// The held[] array bounds how long that reachable window is.
 		held.push(r);

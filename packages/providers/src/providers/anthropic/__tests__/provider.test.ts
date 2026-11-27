@@ -239,32 +239,32 @@ describe("AnthropicProvider", () => {
 
 	describe("skill elision (defense-in-depth)", () => {
 		let tmpDir: string;
-		const originalConfigPath = process.env.BETTER_CCFLARE_CONFIG_PATH;
-		const originalBlocked = process.env.CCFLARE_SKILL_ELISION_BLOCKED;
+		const originalConfigPath = process.env.HOV_ROUTER_CONFIG_PATH;
+		const originalBlocked = process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 
 		beforeEach(() => {
 			tmpDir = mkdtempSync(
-				join(tmpdir(), "better-ccflare-skill-elision-anthropic-"),
+				join(tmpdir(), "hov-router-skill-elision-anthropic-"),
 			);
-			process.env.BETTER_CCFLARE_CONFIG_PATH = join(tmpDir, "config.json");
+			process.env.HOV_ROUTER_CONFIG_PATH = join(tmpDir, "config.json");
 		});
 
 		afterEach(() => {
 			rmSync(tmpDir, { recursive: true, force: true });
 			if (originalConfigPath === undefined) {
-				delete process.env.BETTER_CCFLARE_CONFIG_PATH;
+				delete process.env.HOV_ROUTER_CONFIG_PATH;
 			} else {
-				process.env.BETTER_CCFLARE_CONFIG_PATH = originalConfigPath;
+				process.env.HOV_ROUTER_CONFIG_PATH = originalConfigPath;
 			}
 			if (originalBlocked === undefined) {
-				delete process.env.CCFLARE_SKILL_ELISION_BLOCKED;
+				delete process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 			} else {
-				process.env.CCFLARE_SKILL_ELISION_BLOCKED = originalBlocked;
+				process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED = originalBlocked;
 			}
 		});
 
 		it("never elides a skill bundle even when the skill is in the blocklist", async () => {
-			process.env.CCFLARE_SKILL_ELISION_BLOCKED = "ce-plan";
+			process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED = "ce-plan";
 			const bundleText = makeSkillText("ce-plan", 12_000);
 			const request = new Request("https://api.anthropic.com/v1/messages", {
 				method: "POST",

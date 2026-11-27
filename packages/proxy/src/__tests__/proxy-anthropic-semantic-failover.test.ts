@@ -115,19 +115,19 @@ const OPUS_SIBLING = "claude-opus-4-8-20260701";
 const FABLE = "claude-fable-5";
 const AUTHORIZED_AGENT_ID = "semantic-failover-route-intent";
 const SESSION = "semantic-failover-session";
-const TIMEOUT_ENV = "CCFLARE_ANTHROPIC_PRECOMMIT_TIMEOUT_MS";
+const TIMEOUT_ENV = "HOV_ROUTER_ANTHROPIC_PRECOMMIT_TIMEOUT_MS";
 const MEANINGFUL_PROGRESS_ENV = ANTHROPIC_PRECOMMIT_COMMITMENT_TIMEOUT_ENV;
 const POST_COMMIT_MEANINGFUL_PROGRESS_ENV =
 	ANTHROPIC_POST_COMMIT_MEANINGFUL_PROGRESS_TIMEOUT_ENV;
-const TERMINAL_GRACE_ENV = "CCFLARE_ANTHROPIC_TERMINAL_GRACE_MS";
-const BUFFER_ENV = "CCFLARE_ANTHROPIC_PRECOMMIT_MAX_BUFFER_BYTES";
-const SUPPRESSION_ENV = "CCFLARE_ANTHROPIC_ROUTE_SUPPRESSION_MS";
+const TERMINAL_GRACE_ENV = "HOV_ROUTER_ANTHROPIC_TERMINAL_GRACE_MS";
+const BUFFER_ENV = "HOV_ROUTER_ANTHROPIC_PRECOMMIT_MAX_BUFFER_BYTES";
+const SUPPRESSION_ENV = "HOV_ROUTER_ANTHROPIC_ROUTE_SUPPRESSION_MS";
 const RESCUE_ACTIVATION_ENV = ANTHROPIC_PRECOMMIT_RESCUE_ACTIVATION_ENV;
 const RESCUE_PING_ENV = ANTHROPIC_PRECOMMIT_RESCUE_PING_INTERVAL_ENV;
 const RESCUE_DEADLINE_ENV = ANTHROPIC_PRECOMMIT_RESCUE_DEADLINE_ENV;
-const CONTEXT_ADMISSION_ENV = "CCFLARE_CONTEXT_ADMISSION";
-const CODEX_PROMPT_CACHE_KEY_ENV = "CCFLARE_CODEX_PROMPT_CACHE_KEY";
-const ACCOUNT_SELECTION_TIMEOUT_ENV = "CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS";
+const CONTEXT_ADMISSION_ENV = "HOV_ROUTER_CONTEXT_ADMISSION";
+const CODEX_PROMPT_CACHE_KEY_ENV = "HOV_ROUTER_CODEX_PROMPT_CACHE_KEY";
+const ACCOUNT_SELECTION_TIMEOUT_ENV = "HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS";
 
 const originalFetch = globalThis.fetch;
 const originalEnv = new Map(
@@ -886,7 +886,7 @@ function makeRequest(
 		"anthropic-version": "2023-06-01",
 	};
 	if (forcedAccountId) {
-		headers["x-better-ccflare-account-id"] = forcedAccountId;
+		headers["x-hov-router-account-id"] = forcedAccountId;
 	}
 	if (userAgent) headers["user-agent"] = userAgent;
 	return new Request("https://proxy.local/v1/messages", {
@@ -942,7 +942,7 @@ function makeAuthorizedRequest(
 		userAgent,
 	);
 	const headers = new Headers(request.headers);
-	headers.set("x-better-ccflare-agent-id", AUTHORIZED_AGENT_ID);
+	headers.set("x-hov-router-agent-id", AUTHORIZED_AGENT_ID);
 	return new Request(request, { headers });
 }
 
@@ -952,7 +952,7 @@ function makeAuthorizedCustomRequest(body: Record<string, unknown>): Request {
 		headers: {
 			"content-type": "application/json",
 			"anthropic-version": "2023-06-01",
-			"x-better-ccflare-agent-id": AUTHORIZED_AGENT_ID,
+			"x-hov-router-agent-id": AUTHORIZED_AGENT_ID,
 		},
 		body: JSON.stringify({ ...body, model: FABLE }),
 	});
@@ -968,7 +968,7 @@ function makeAuthorizedCodexRequest(
 		headers: {
 			"content-type": "application/json",
 			"anthropic-version": "2023-06-01",
-			"x-better-ccflare-agent-id": AUTHORIZED_AGENT_ID,
+			"x-hov-router-agent-id": AUTHORIZED_AGENT_ID,
 		},
 		body: JSON.stringify({
 			model: FABLE,
@@ -1095,8 +1095,8 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		]);
 		expect(outboundBodies).toHaveLength(2);
 		const [first, retry] = outboundBodies;
-		expect(first.prompt_cache_key).toMatch(/^ccflare-convo-[0-9a-f]{48}$/);
-		expect(retry.prompt_cache_key).toMatch(/^ccflare-rescue-[0-9a-f]{48}$/);
+		expect(first.prompt_cache_key).toMatch(/^hov-router-convo-[0-9a-f]{47}$/);
+		expect(retry.prompt_cache_key).toMatch(/^hov-router-rescue-[0-9a-f]{46}$/);
 		expect(retry.prompt_cache_key).not.toBe(first.prompt_cache_key);
 		const { prompt_cache_key: _firstKey, ...firstPayload } = first;
 		const { prompt_cache_key: _retryKey, ...retryPayload } = retry;
@@ -1237,8 +1237,8 @@ describe("downstream Anthropic Messages SSE routing", () => {
 
 		expect(response.status).toBe(503);
 		expect(outboundKeys).toHaveLength(2);
-		expect(outboundKeys[0]).toMatch(/^ccflare-convo-/);
-		expect(outboundKeys[1]).toMatch(/^ccflare-rescue-/);
+		expect(outboundKeys[0]).toMatch(/^hov-router-convo-/);
+		expect(outboundKeys[1]).toMatch(/^hov-router-rescue-/);
 		expect(payload.error).toMatchObject({
 			code: "route_unavailable",
 			attempted_routes: 1,
@@ -1331,7 +1331,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 
 		const request = makeAuthorizedCodexRequest();
 		if (scenario === "synthetic_internal") {
-			request.headers.set("x-better-ccflare-keepalive", "true");
+			request.headers.set("x-hov-router-keepalive", "true");
 			stampInternalSchedulerAuth(request.headers);
 		}
 		const response = await handleProxy(request, new URL(request.url), ctx);
@@ -1431,8 +1431,8 @@ describe("downstream Anthropic Messages SSE routing", () => {
 
 		expect(response.status).toBe(200);
 		expect(outboundKeys).toHaveLength(2);
-		expect(outboundKeys[0]).toMatch(/^ccflare-convo-[0-9a-f]{48}$/);
-		expect(outboundKeys[1]).toMatch(/^ccflare-rescue-[0-9a-f]{48}$/);
+		expect(outboundKeys[0]).toMatch(/^hov-router-convo-[0-9a-f]{47}$/);
+		expect(outboundKeys[1]).toMatch(/^hov-router-rescue-[0-9a-f]{46}$/);
 		expect(outboundKeys[1]).not.toBe(outboundKeys[0]);
 		expect(outboundModels[1]).toBe(outboundModels[0]);
 		expect(body).toContain('"text":"codex recovered"');
@@ -1489,8 +1489,8 @@ describe("downstream Anthropic Messages SSE routing", () => {
 	});
 
 	it("routes a precommit Codex context overflow to xAI without penalizing Codex", async () => {
-		const previousXaiCacheNative = process.env.CCFLARE_XAI_CACHE_NATIVE;
-		process.env.CCFLARE_XAI_CACHE_NATIVE = "1";
+		const previousXaiCacheNative = process.env.HOV_ROUTER_XAI_CACHE_NATIVE;
+		process.env.HOV_ROUTER_XAI_CACHE_NATIVE = "1";
 		try {
 			const codex = makeCodexAccount("codex-context-overflow");
 			const xai = makeXaiAccount("xai-context-fallback");
@@ -1559,7 +1559,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 			expect(secondBody).toContain('"text":"xai recovered"');
 			expect(thirdBody).toContain('"text":"codex recovered"');
 			expect(xaiConversationIds).toHaveLength(2);
-			expect(xaiConversationIds[0]).toMatch(/^ccflare-xai-[0-9a-f]{48}$/);
+			expect(xaiConversationIds[0]).toMatch(/^hov-router-xai-[0-9a-f]{48}$/);
 			expect(xaiConversationIds[1]).toBe(xaiConversationIds[0]);
 			expect(
 				recordCacheAffinitySuccess.mock.calls.map(
@@ -1580,9 +1580,9 @@ describe("downstream Anthropic Messages SSE routing", () => {
 			expect(codex.consecutive_rate_limits).toBe(0);
 		} finally {
 			if (previousXaiCacheNative === undefined) {
-				delete process.env.CCFLARE_XAI_CACHE_NATIVE;
+				delete process.env.HOV_ROUTER_XAI_CACHE_NATIVE;
 			} else {
-				process.env.CCFLARE_XAI_CACHE_NATIVE = previousXaiCacheNative;
+				process.env.HOV_ROUTER_XAI_CACHE_NATIVE = previousXaiCacheNative;
 			}
 		}
 	});
@@ -3557,7 +3557,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 			expect(response.headers.get("content-type")).toContain(
 				"text/event-stream",
 			);
-			expect(response.headers.get("x-better-ccflare-precommit-rescue")).toBe(
+			expect(response.headers.get("x-hov-router-precommit-rescue")).toBe(
 				"active",
 			);
 		} else {
@@ -3705,7 +3705,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		const body = await response.text();
 
 		expect(response.status).toBe(200);
-		expect(response.headers.get("x-better-ccflare-precommit-rescue")).toBe(
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBe(
 			"active",
 		);
 		expect(body).toContain('"code":"context_length_exceeded"');
@@ -3924,7 +3924,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		) as unknown as typeof fetch;
 		const baseRequest = makeCodexRequest();
 		const headers = new Headers(baseRequest.headers);
-		headers.set("x-better-ccflare-account-id", codex.id);
+		headers.set("x-hov-router-account-id", codex.id);
 		const request = new Request(baseRequest.url, {
 			method: baseRequest.method,
 			headers,
@@ -3981,7 +3981,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		}) as unknown as typeof fetch;
 		const baseRequest = makeCodexRequest();
 		const headers = new Headers(baseRequest.headers);
-		headers.set("x-better-ccflare-account-id", codex.id);
+		headers.set("x-hov-router-account-id", codex.id);
 		const request = new Request(baseRequest.url, {
 			method: baseRequest.method,
 			headers,
@@ -3997,7 +3997,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 
 		expect(response.status).toBe(200);
 		expect(response.headers.get("content-type")).toContain("text/event-stream");
-		expect(response.headers.get("x-better-ccflare-precommit-rescue")).toBe(
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBe(
 			"active",
 		);
 		expect(body).toEndWith(ANTHROPIC_PRECOMMIT_RESCUE_CONTEXT_OVERFLOW_FRAME);
@@ -4143,8 +4143,8 @@ describe("downstream Anthropic Messages SSE routing", () => {
 
 		expect(response.status).toBe(503);
 		expect(outboundKeys).toHaveLength(2);
-		expect(outboundKeys[0]).toMatch(/^ccflare-convo-/);
-		expect(outboundKeys[1]).toMatch(/^ccflare-rescue-/);
+		expect(outboundKeys[0]).toMatch(/^hov-router-convo-/);
+		expect(outboundKeys[1]).toMatch(/^hov-router-rescue-/);
 		expect(payload.error).toMatchObject({
 			code: "route_unavailable",
 			attempted_routes: 1,
@@ -4359,9 +4359,9 @@ describe("downstream Anthropic Messages SSE routing", () => {
 			);
 
 			expect(claude.response.status).toBe(200);
-			expect(
-				claude.response.headers.get("x-better-ccflare-precommit-rescue"),
-			).toBe("active");
+			expect(claude.response.headers.get("x-hov-router-precommit-rescue")).toBe(
+				"active",
+			);
 			expect(claude.body).toContain("survived-180s");
 			expect(claude.body).not.toContain(ANTHROPIC_PRECOMMIT_RESCUE_ERROR_FRAME);
 			expect(claude.body).toContain(
@@ -4372,7 +4372,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 
 			expect(generic.response.status).toBe(200);
 			expect(
-				generic.response.headers.get("x-better-ccflare-precommit-rescue"),
+				generic.response.headers.get("x-hov-router-precommit-rescue"),
 			).toBe("active");
 			expect(generic.body).toContain(ANTHROPIC_PRECOMMIT_RESCUE_ERROR_FRAME);
 			expect(generic.body).toContain(ANTHROPIC_PRECOMMIT_RESCUE_PING_FRAME);
@@ -4380,7 +4380,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 
 			expect(silent.response.status).toBe(503);
 			expect(
-				silent.response.headers.get("x-better-ccflare-precommit-rescue"),
+				silent.response.headers.get("x-hov-router-precommit-rescue"),
 			).toBeNull();
 			expect(silent.body).not.toContain(ANTHROPIC_PRECOMMIT_RESCUE_ERROR_FRAME);
 			expect(silentCancelCount).toBe(1);
@@ -4410,7 +4410,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		const first = await reader?.read();
 		await reader?.cancel("test complete");
 
-		expect(response.headers.get("x-better-ccflare-precommit-rescue")).toBe(
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBe(
 			"active",
 		);
 		expect(decoder.decode(first?.value)).toBe(
@@ -4481,9 +4481,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		expect(strategySelect).toHaveBeenCalledTimes(1);
 		expect(first).toBeInstanceOf(Response);
 		if (!(first instanceof Response)) return;
-		expect(first.headers.get("x-better-ccflare-precommit-rescue")).toBe(
-			"active",
-		);
+		expect(first.headers.get("x-hov-router-precommit-rescue")).toBe("active");
 		expect(providerFetch).not.toHaveBeenCalled();
 		const reader = first.body?.getReader();
 		const ping = await reader?.read();
@@ -4520,9 +4518,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		expect(response.status).toBe(202);
 		expect(response.statusText).toBe("Selection completed");
 		expect(response.headers.get("x-selection-path")).toBe("preserved");
-		expect(
-			response.headers.get("x-better-ccflare-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(await response.text()).toBe(expectedBody);
 	});
 
@@ -4551,9 +4547,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		expect(response.status).toBe(202);
 		expect(response.statusText).toBe("Slow response preserved");
 		expect(response.headers.get("x-slow-non-stream")).toBe("preserved");
-		expect(
-			response.headers.get("x-better-ccflare-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(await response.text()).toBe(expectedBody);
 	});
 
@@ -4596,9 +4590,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		expect(response.status).toBe(207);
 		expect(response.statusText).toBe("Route preserved");
 		expect(response.headers.get("x-non-messages-path")).toBe("preserved");
-		expect(
-			response.headers.get("x-better-ccflare-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(await response.text()).toBe(expectedBody);
 	});
 
@@ -5225,9 +5217,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 
 		expect(fetchCount).toBe(1);
 		expect(body).toContain('"text":"commit xai"');
-		expect(
-			response.headers.get("x-better-ccflare-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(reportCandidateFailure).not.toHaveBeenCalled();
 		expect(reportCandidateSuccess).toHaveBeenCalledTimes(1);
 		expect(reportCandidateSuccess.mock.calls[0][1]).toEqual({
@@ -5472,19 +5462,15 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		expect(fetchCount).toBe(0);
 		expect(response.status).toBe(503);
 		expect(response.headers.get("retry-after")).toBe("30");
-		expect(response.headers.get("x-better-ccflare-route-status")).toBe(
+		expect(response.headers.get("x-hov-router-route-status")).toBe(
 			"circuit-open",
 		);
 		// End-to-end counterpart of the routing-terminal unit test: the marker is
 		// what lets the guard hold this request for the advertised reopen delay
 		// instead of failing it once. "route" scope keeps the claim narrower than
 		// whole-pool exhaustion.
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBe(
-			"exhausted",
-		);
-		expect(response.headers.get("x-better-ccflare-recovery-scope")).toBe(
-			"route",
-		);
+		expect(response.headers.get("x-hov-router-pool-status")).toBe("exhausted");
+		expect(response.headers.get("x-hov-router-recovery-scope")).toBe("route");
 		expect(payload.error).toMatchObject({
 			code: "route_unavailable",
 			next_available_at: new Date(retryAt).toISOString(),
@@ -5553,7 +5539,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 
 		expect(Date.now() - startedAt).toBeGreaterThanOrEqual(179);
 		expect(response.status).toBe(200);
-		expect(response.headers.get("x-better-ccflare-precommit-rescue")).toBe(
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBe(
 			"active",
 		);
 		expect(body).toStartWith(ANTHROPIC_PRECOMMIT_RESCUE_PING_FRAME);
@@ -5589,7 +5575,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		const response = await handleProxy(request, new URL(request.url), ctx);
 		const responseElapsedMs = Date.now() - startedAt;
 
-		expect(response.headers.get("x-better-ccflare-precommit-rescue")).toBe(
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBe(
 			"active",
 		);
 		expect(responseElapsedMs).toBeGreaterThanOrEqual(45);
@@ -5644,9 +5630,9 @@ describe("downstream Anthropic Messages SSE routing", () => {
 			);
 		}
 		expect(outcome.response.status).toBe(200);
-		expect(
-			outcome.response.headers.get("x-better-ccflare-precommit-rescue"),
-		).toBe("active");
+		expect(outcome.response.headers.get("x-hov-router-precommit-rescue")).toBe(
+			"active",
+		);
 		const reader = outcome.response.body?.getReader();
 		expect(decoder.decode((await reader?.read())?.value)).toBe(
 			ANTHROPIC_PRECOMMIT_RESCUE_PING_FRAME,
@@ -5713,9 +5699,9 @@ describe("downstream Anthropic Messages SSE routing", () => {
 			);
 		}
 		expect(outcome.response.status).toBe(200);
-		expect(
-			outcome.response.headers.get("x-better-ccflare-precommit-rescue"),
-		).toBe("active");
+		expect(outcome.response.headers.get("x-hov-router-precommit-rescue")).toBe(
+			"active",
+		);
 		const reader = outcome.response.body?.getReader();
 		expect(decoder.decode((await reader?.read())?.value)).toBe(
 			ANTHROPIC_PRECOMMIT_RESCUE_PING_FRAME,
@@ -5981,9 +5967,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 		const request = makeRequest();
 		const response = await handleProxy(request, new URL(request.url), ctx);
 
-		expect(
-			response.headers.get("x-better-ccflare-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(response.headers.get("x-upstream-fast")).toBe("preserved");
 		expect(await response.text()).toBe(SUCCESS);
 	});
@@ -6022,9 +6006,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 			"application/json; charset=utf-8",
 		);
 		expect(response.headers.get("x-upstream-non-stream")).toBe("preserved");
-		expect(
-			response.headers.get("x-better-ccflare-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(await response.text()).toBe(expectedBody);
 		expect(reportCandidateFailure).not.toHaveBeenCalled();
 		expect(reportCandidateSuccess).not.toHaveBeenCalled();
@@ -6108,9 +6090,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 
 		const response = await handleProxy(request, new URL(request.url), ctx);
 
-		expect(
-			response.headers.get("x-better-ccflare-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 		expect(response.headers.get("x-non-native")).toBe("unchanged");
 		expect(await response.text()).toContain('"text":"recovered"');
 	});
@@ -6337,7 +6317,7 @@ describe("downstream Anthropic Messages SSE routing", () => {
 			expect(response.status).toBe(503);
 			expect(payload.error.type).toBe("service_unavailable");
 			expect(payload.error.code).toBe("route_unavailable");
-			expect(response.headers.get("x-better-ccflare-pool-status")).toBeNull();
+			expect(response.headers.get("x-hov-router-pool-status")).toBeNull();
 		}
 
 		expect(fetchedAccounts).toEqual([first.id, second.id, first.id, second.id]);
@@ -6926,7 +6906,7 @@ describe("anthropic_precommit_client_abort observability (#506)", () => {
 		const request = makeRequest(clientAbort.signal);
 		const response = await handleProxy(request, new URL(request.url), ctx);
 		await started;
-		expect(response.headers.get("x-better-ccflare-precommit-rescue")).toBe(
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBe(
 			"active",
 		);
 		const reader = response.body?.getReader();

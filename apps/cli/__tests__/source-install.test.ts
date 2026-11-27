@@ -37,7 +37,7 @@ describe("documented source installer shell (synthetic artifact, not native buil
 		const home = mkdtempSync(join(tmpdir(), "hov-router-source-install-"));
 		homes.push(home);
 		const checkout = join(home, "hov-router");
-		const built = join(checkout, "apps/cli/dist/better-ccflare");
+		const built = join(checkout, "apps/cli/dist/hov-router");
 		mkdirSync(dirname(built), { recursive: true });
 		const payload = `#!/bin/sh\ncase "$1" in\n--version) printf '${PRODUCT_NAME} v1.2.3\\n';;\n--help) printf '${PRODUCT_NAME}\\n';;\n*) exit 94;;\nesac\n`;
 		writeFileSync(built, payload, { mode: 0o755 });
@@ -47,10 +47,10 @@ describe("documented source installer shell (synthetic artifact, not native buil
 			writeFileSync(join(previous, name), "keep existing command\n");
 		for (const profile of [".profile", ".bashrc", ".zshrc"])
 			writeFileSync(join(home, profile), "keep profile\n");
-		const config = join(home, ".config/better-ccflare");
+		const config = join(home, ".config/hov-router");
 		mkdirSync(config, { recursive: true });
-		writeFileSync(join(config, "better-ccflare.json"), "keep config\n");
-		writeFileSync(join(config, "better-ccflare.db"), "keep database\n");
+		writeFileSync(join(config, "hov-router.json"), "keep config\n");
+		writeFileSync(join(config, "hov-router.db"), "keep database\n");
 		const installed = spawnSync(
 			"/bin/bash",
 			[
@@ -80,13 +80,13 @@ describe("documented source installer shell (synthetic artifact, not native buil
 		for (const profile of [".profile", ".bashrc", ".zshrc"])
 			expect(readFileSync(join(home, profile), "utf8")).toBe("keep profile\n");
 		expect(readFileSync(built, "utf8")).toBe(payload);
-		expect(readFileSync(join(config, "better-ccflare.json"), "utf8")).toBe(
+		expect(readFileSync(join(config, "hov-router.json"), "utf8")).toBe(
 			"keep config\n",
 		);
-		expect(readFileSync(join(config, "better-ccflare.db"), "utf8")).toBe(
+		expect(readFileSync(join(config, "hov-router.db"), "utf8")).toBe(
 			"keep database\n",
 		);
-		expect(readdirSync(join(home, ".config"))).toEqual(["better-ccflare"]);
+		expect(readdirSync(join(home, ".config"))).toEqual(["hov-router"]);
 	});
 });
 
@@ -235,7 +235,7 @@ describe("documented source install", () => {
 		const section = reference.split("<!-- source-install-local -->")[1];
 		expect(section).toBeDefined();
 		const commands = section.split("```bash\n")[1].split("```")[0];
-		expect(existsSync(join(root, "apps/cli/dist/better-ccflare"))).toBe(true);
+		expect(existsSync(join(root, "apps/cli/dist/hov-router"))).toBe(true);
 		const home = mkdtempSync(join(tmpdir(), "hov-router-source-install-"));
 		homes.push(home);
 		const env = {
@@ -259,14 +259,14 @@ describe("documented source install", () => {
 		expect(installed.stderr).toBe("");
 		const bin = installed.stdout.trim().split("INSTALL_DIR=")[1];
 		expect(bin).toBeDefined();
-		const configDir = join(home, ".config", "better-ccflare");
+		const configDir = join(home, ".config", "hov-router");
 		// Help/version must not create a storage namespace in a clean home.
 		expect(existsSync(configDir)).toBe(false);
 		mkdirSync(configDir, { recursive: true });
 		const fixtures = {
-			"better-ccflare.json":
+			"hov-router.json":
 				'{"data_retention_days":7,"unrelated":{"keep":true}}\n',
-			"better-ccflare.json.backup": "synthetic recovery material\n",
+			"hov-router.json.backup": "synthetic recovery material\n",
 		};
 		for (const [name, bytes] of Object.entries(fixtures))
 			writeFileSync(join(configDir, name), bytes);
@@ -276,7 +276,7 @@ describe("documented source install", () => {
 			readFileSync(join(root, "apps/cli/package.json"), "utf8"),
 		).version;
 		const sourceEvidence = spawnSync(
-			join(root, "apps/cli/dist/better-ccflare"),
+			join(root, "apps/cli/dist/hov-router"),
 			["--git-sha"],
 			{ cwd: home, env, encoding: "utf8", timeout: 10000 },
 		);
@@ -288,7 +288,7 @@ describe("documented source install", () => {
 			const executable = join(bin, name);
 			expect(
 				readFileSync(executable).equals(
-					readFileSync(join(root, "apps/cli/dist/better-ccflare")),
+					readFileSync(join(root, "apps/cli/dist/hov-router")),
 				),
 			).toBe(true);
 			for (const flag of ["--help", "--version"]) {
@@ -320,7 +320,7 @@ describe("documented source install", () => {
 					cwd: home,
 					env: {
 						...env,
-						...(custom ? { BETTER_CCFLARE_CONFIG_PATH: override } : {}),
+						...(custom ? { HOV_ROUTER_CONFIG_PATH: override } : {}),
 					},
 					encoding: "utf8",
 					timeout: 10000,
@@ -342,7 +342,7 @@ describe("documented source install", () => {
 		for (const [name, bytes] of Object.entries(fixtures))
 			expect(readFileSync(join(configDir, name), "utf8")).toBe(bytes);
 		expect(readFileSync(override, "utf8")).toBe('{"data_retention_days":9}\n');
-		expect(readdirSync(join(home, ".config"))).toEqual(["better-ccflare"]);
+		expect(readdirSync(join(home, ".config"))).toEqual(["hov-router"]);
 		expect(readdirSync(configDir).sort()).toEqual(Object.keys(fixtures).sort());
 	}, 60000);
 });

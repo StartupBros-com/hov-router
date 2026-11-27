@@ -68,7 +68,7 @@ const EXACT = new Map<string, RemovedEndpoint>([
 			removedIn: "5.0.0",
 			replacement: null,
 			advice:
-				"Cache diagnosis ran only when CCFLARE_CACHE_DIAG was set, and that variable is now ignored.",
+				"Cache diagnosis ran only when HOV_ROUTER_CACHE_DIAG was set, and that variable is now ignored.",
 		},
 	],
 ]);

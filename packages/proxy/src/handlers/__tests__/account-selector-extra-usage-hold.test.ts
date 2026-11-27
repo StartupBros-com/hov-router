@@ -315,7 +315,7 @@ describe("selection with extra-usage holds", () => {
 	it("a route naming a held login for a held model refuses with model_capacity_exhausted and goes nowhere else", async () => {
 		const held = opusHeld();
 		const free = makeAccount({ id: "free", name: "free", priority: 1 });
-		const meta = makeRequestMeta({ "x-better-ccflare-account-id": held.id });
+		const meta = makeRequestMeta({ "x-hov-router-account-id": held.id });
 		const refusal = selectAccountsForRequest(meta, makeCtx([held, free]), OPUS);
 		await expect(refusal).rejects.toBeInstanceOf(ForceRouteUnavailableError);
 		await expect(refusal).rejects.toMatchObject({
@@ -330,7 +330,7 @@ describe("selection with extra-usage holds", () => {
 			auto_pause_on_overage_enabled: true,
 			extra_usage_holds: holds(hold("five_hour", Date.now() + HOUR)),
 		});
-		const meta = makeRequestMeta({ "x-better-ccflare-account-id": held.id });
+		const meta = makeRequestMeta({ "x-hov-router-account-id": held.id });
 		await expect(
 			selectAccountsForRequest(meta, makeCtx([held]), SONNET),
 		).rejects.toMatchObject({ reason: "account_capacity_exhausted" });

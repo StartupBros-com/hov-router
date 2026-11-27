@@ -23,7 +23,7 @@ export const CODEX_SESSION_ID_HEADER = "session-id";
 export const CODEX_THREAD_ID_HEADER = "thread-id";
 export const CODEX_ROUTING_HINT_HEADER = "x-codex-routing-hint";
 /** Set to "0" to restore the pre-contract behavior (headers left untouched). */
-export const CODEX_AFFINITY_HEADERS_ENV = "CCFLARE_CODEX_AFFINITY_HEADERS";
+export const CODEX_AFFINITY_HEADERS_ENV = "HOV_ROUTER_CODEX_AFFINITY_HEADERS";
 
 export const CODEX_AFFINITY_HEADER_NAMES = [
 	CODEX_SESSION_ID_HEADER,

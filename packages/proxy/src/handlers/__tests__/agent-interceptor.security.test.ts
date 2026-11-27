@@ -8,7 +8,7 @@ import { join } from "node:path";
  * Tests the directory traversal protection in extractAgentDirectories()
  *
  * The extractor is now opt-in (gated by
- * `BETTER_CCFLARE_AGENT_WORKSPACE_AUTODISCOVER=true`); the traversal tests
+ * `HOV_ROUTER_AGENT_WORKSPACE_AUTODISCOVER=true`); the traversal tests
  * below set the flag in `beforeAll` so the assertions actually exercise the
  * extractor + path validator. A separate `describe` block verifies the gate.
  */
@@ -20,7 +20,7 @@ import { DatabaseFactory, type DatabaseOperations } from "@hov-router/database";
 import { interceptAndModifyRequest } from "../agent-interceptor";
 
 const TEST_DB_PATH = `${process.env.TMPDIR || "/tmp"}/test-agent-interceptor-security.db`;
-const AUTODISCOVER_ENV = "BETTER_CCFLARE_AGENT_WORKSPACE_AUTODISCOVER";
+const AUTODISCOVER_ENV = "HOV_ROUTER_AGENT_WORKSPACE_AUTODISCOVER";
 
 describe("Agent Interceptor - Directory Traversal Security", () => {
 	let dbOps: DatabaseOperations;
@@ -67,8 +67,8 @@ describe("Agent Interceptor - Directory Traversal Security", () => {
 
 		// Redirect the agent registry singleton at a tmp workspaces file so
 		// `registerWorkspace()` side effects from extraction never touch the
-		// real `~/.better-ccflare/workspaces.json`.
-		tmpWorkspacesDir = mkdtempSync(join(tmpdir(), "ccflare-sec-ws-"));
+		// real `~/.hov-router/workspaces.json`.
+		tmpWorkspacesDir = mkdtempSync(join(tmpdir(), "hov-router-sec-ws-"));
 		tmpWorkspacesFile = join(tmpWorkspacesDir, "workspaces.json");
 		agentRegistry.setWorkspacePersistenceForTests(
 			new WorkspacePersistence({ workspacesFile: tmpWorkspacesFile }),
@@ -318,10 +318,10 @@ And /legitimate/path/.claude/agents
 			const normalPrompt = `
 You are Claude Code. Your task is to help with software development.
 
-Contents of /home/tom/git_repos/better-ccflare/CLAUDE.md
+Contents of /home/tom/git_repos/hov-router/CLAUDE.md
 This is the project documentation.
 
-Check /home/tom/git_repos/better-ccflare/.claude/agents for custom agents.
+Check /home/tom/git_repos/hov-router/.claude/agents for custom agents.
 			`;
 			const requestBody = createMockRequestBody(normalPrompt);
 			const buffer = toArrayBuffer(requestBody);
@@ -354,7 +354,7 @@ Check /home/tom/git_repos/better-ccflare/.claude/agents for custom agents.
 		});
 	});
 
-	describe(`BETTER_CCFLARE_AGENT_WORKSPACE_AUTODISCOVER gate`, () => {
+	describe(`HOV_ROUTER_AGENT_WORKSPACE_AUTODISCOVER gate`, () => {
 		// A path that passes the default allowlist (it is `process.cwd()`)
 		// and that exists on disk, so a successful extraction would call
 		// `agentRegistry.registerWorkspace()` and add it to the registry.

@@ -28,7 +28,7 @@ const DEFAULT_WORKER_TIMEOUT_MS = 10 * 60 * 1000;
  * through the worker.
  *
  * Race the worker promise against a configurable timeout (default 10 min,
- * env override `CCFLARE_INTEGRITY_CHECK_WORKER_TIMEOUT_MS`). On timeout the
+ * env override `HOV_ROUTER_INTEGRITY_CHECK_WORKER_TIMEOUT_MS`). On timeout the
  * worker is terminated and the runner returns
  * `{ ok: false, error: "worker timed out" }` — callers translate that to a
  * `corrupt` result, which releases the scheduler mutex and keeps the next
@@ -105,7 +105,7 @@ function resolveTimeoutMs(override?: number): number {
 	if (override !== undefined && Number.isInteger(override) && override > 0) {
 		return override;
 	}
-	const raw = process.env.CCFLARE_INTEGRITY_CHECK_WORKER_TIMEOUT_MS;
+	const raw = process.env.HOV_ROUTER_INTEGRITY_CHECK_WORKER_TIMEOUT_MS;
 	if (raw === undefined || raw === "") return DEFAULT_WORKER_TIMEOUT_MS;
 	const parsed = Number(raw);
 	if (!Number.isInteger(parsed) || parsed <= 0) {

@@ -97,7 +97,7 @@ jobs:
         # runs "compiled ordinary CLI preserves project dotenv fallback" (#416), which
         # skips without it. Before this step nothing set it, so that test never ran.
         env:
-          BETTER_CCFLARE_TEST_COMPILED_CLI: ${{ github.workspace }}/apps/cli/dist/better-ccflare
+          HOV_ROUTER_TEST_COMPILED_CLI: ${{ github.workspace }}/apps/cli/dist/hov-router
         run: bun test --timeout 15000 apps/cli/src/__tests__/ordinary-cli-dotenv.test.ts
 
       - name: Run the full-disk scenario against the compiled CLI
@@ -108,7 +108,7 @@ jobs:
         # The tmpfs is mounted in a private namespace with loopback only, through
         # sudo on this runner, and the test fails here if it cannot be mounted.
         env:
-          BETTER_CCFLARE_TEST_COMPILED_CLI: ${{ github.workspace }}/apps/cli/dist/better-ccflare
+          HOV_ROUTER_TEST_COMPILED_CLI: ${{ github.workspace }}/apps/cli/dist/hov-router
         run: bun test --timeout 15000 apps/server/src/disk-full.test.ts
 
       - name: Run lint

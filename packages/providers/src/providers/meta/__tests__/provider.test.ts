@@ -407,14 +407,14 @@ describe("MetaProvider", () => {
 
 	describe("skill elision (Messages sanitizer path)", () => {
 		it("elides a blocked skill bundle before sanitizing the Messages body", async () => {
-			const originalConfigPath = process.env.BETTER_CCFLARE_CONFIG_PATH;
-			const originalBlocked = process.env.CCFLARE_SKILL_ELISION_BLOCKED;
+			const originalConfigPath = process.env.HOV_ROUTER_CONFIG_PATH;
+			const originalBlocked = process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 			const tmpDir = mkdtempSync(
-				join(tmpdir(), "better-ccflare-skill-elision-meta-"),
+				join(tmpdir(), "hov-router-skill-elision-meta-"),
 			);
 			try {
-				process.env.BETTER_CCFLARE_CONFIG_PATH = join(tmpDir, "config.json");
-				process.env.CCFLARE_SKILL_ELISION_BLOCKED = "some-skill";
+				process.env.HOV_ROUTER_CONFIG_PATH = join(tmpDir, "config.json");
+				process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED = "some-skill";
 				const bundleText = `Base directory for this skill: /skills/some-skill\n${"x".repeat(12_000)}`;
 				const body = await bodyOf(
 					await provider.transformRequestBody(
@@ -431,19 +431,19 @@ describe("MetaProvider", () => {
 				const messages = body.messages as Array<{
 					content: Array<{ type: string; text: string }>;
 				}>;
-				expect(messages[0].content[0].text).toContain("[better-ccflare]");
+				expect(messages[0].content[0].text).toContain("[hov-router]");
 				expect(messages[0].content[0].text.length).toBeLessThan(200);
 			} finally {
 				rmSync(tmpDir, { recursive: true, force: true });
 				if (originalConfigPath === undefined) {
-					delete process.env.BETTER_CCFLARE_CONFIG_PATH;
+					delete process.env.HOV_ROUTER_CONFIG_PATH;
 				} else {
-					process.env.BETTER_CCFLARE_CONFIG_PATH = originalConfigPath;
+					process.env.HOV_ROUTER_CONFIG_PATH = originalConfigPath;
 				}
 				if (originalBlocked === undefined) {
-					delete process.env.CCFLARE_SKILL_ELISION_BLOCKED;
+					delete process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED;
 				} else {
-					process.env.CCFLARE_SKILL_ELISION_BLOCKED = originalBlocked;
+					process.env.HOV_ROUTER_SKILL_ELISION_BLOCKED = originalBlocked;
 				}
 			}
 		});

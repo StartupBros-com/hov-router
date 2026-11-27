@@ -7,7 +7,7 @@ import { WorkspacePersistence } from "../workspace-persistence";
 /**
  * Regression coverage for the workspaces.json isolation fix: every
  * `WorkspacePersistence` instance used to hard-code the real
- * `~/.better-ccflare/workspaces.json` path at module load, so any test that
+ * `~/.hov-router/workspaces.json` path at module load, so any test that
  * exercised workspace registration silently clobbered the developer's real
  * file. These tests prove the injected-path constructor option is honored
  * and never falls back to the real home-directory path.
@@ -61,11 +61,7 @@ describe("WorkspacePersistence — injected path isolation", () => {
 	});
 
 	it("does not create or touch the default (real) workspaces file", async () => {
-		const realHome = path.join(
-			os.homedir(),
-			".better-ccflare",
-			"workspaces.json",
-		);
+		const realHome = path.join(os.homedir(), ".hov-router", "workspaces.json");
 		const realFileExistedBefore = fs.existsSync(realHome);
 		const realContentBefore = realFileExistedBefore
 			? fs.readFileSync(realHome, "utf-8")

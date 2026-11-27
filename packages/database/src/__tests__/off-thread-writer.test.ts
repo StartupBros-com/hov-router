@@ -40,7 +40,7 @@ const lines = (fn: { mock: { calls: unknown[][] } }) =>
 	fn.mock.calls.map(([line]) => String(line));
 
 function tempDb(): string {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-writer-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-writer-"));
 	cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
 	return join(dir, "test.db");
 }
@@ -632,20 +632,20 @@ describe("DatabaseOperations writer thread", () => {
 	}, 20_000);
 
 	it("stays off for the kill switch and in-memory databases", async () => {
-		const previous = process.env.BETTER_CCFLARE_DB_WRITER_WORKER;
+		const previous = process.env.HOV_ROUTER_DB_WRITER_WORKER;
 		cleanups.push(() => {
 			if (previous === undefined)
-				delete process.env.BETTER_CCFLARE_DB_WRITER_WORKER;
-			else process.env.BETTER_CCFLARE_DB_WRITER_WORKER = previous;
+				delete process.env.HOV_ROUTER_DB_WRITER_WORKER;
+			else process.env.HOV_ROUTER_DB_WRITER_WORKER = previous;
 		});
-		process.env.BETTER_CCFLARE_DB_WRITER_WORKER = "off";
+		process.env.HOV_ROUTER_DB_WRITER_WORKER = "off";
 		const ops = new DatabaseOperations(tempDb());
 		cleanups.push(() => ops.close());
 		expect(ops.startWriterThread()).toBe(false);
 		expect(ops.getAdapter().writerAttached()).toBe(false);
 		await ops.setAgentPreference("agent-1", "model-a");
 
-		delete process.env.BETTER_CCFLARE_DB_WRITER_WORKER;
+		delete process.env.HOV_ROUTER_DB_WRITER_WORKER;
 		const memory = new DatabaseOperations(":memory:");
 		cleanups.push(() => memory.close());
 		expect(memory.startWriterThread()).toBe(false);

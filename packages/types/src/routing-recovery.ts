@@ -1,7 +1,7 @@
 /** Reserved proxy-to-guard recovery contract headers. */
-export const RECOVERY_STATUS_HEADER = "x-better-ccflare-pool-status" as const;
+export const RECOVERY_STATUS_HEADER = "x-hov-router-pool-status" as const;
 export const RECOVERY_STATUS_EXHAUSTED = "exhausted" as const;
-export const RECOVERY_SCOPE_HEADER = "x-better-ccflare-recovery-scope" as const;
+export const RECOVERY_SCOPE_HEADER = "x-hov-router-recovery-scope" as const;
 
 // "route" is deliberately narrower than "pool": it says the lane's candidates
 // are all held open by route circuits that reopen at a known time, not that

@@ -12,7 +12,7 @@
  * Instead, both the CLI and the server resolve a shared `local_control_secret`
  * from the same on-disk config file (`Config#getLocalControlSecret`, generated
  * once and persisted). The CLI now always sends this secret via the
- * `x-better-ccflare-local-control-secret` header instead of skipping the
+ * `x-hov-router-local-control-secret` header instead of skipping the
  * notification — AuthService only honors it for the small allowlisted
  * account-notify endpoints, so this isn't a general auth bypass.
  */
@@ -49,7 +49,7 @@ const { forceResetRateLimit, reauthenticateAccount } = await import(
 	"../account"
 );
 
-const LOCAL_CONTROL_SECRET_HEADER = "x-better-ccflare-local-control-secret";
+const LOCAL_CONTROL_SECRET_HEADER = "x-hov-router-local-control-secret";
 const TEST_SECRET = "test-local-control-secret";
 
 function makeConfig(): Config {

@@ -8,7 +8,7 @@ import {
 import { basename, dirname, join } from "node:path";
 import { Logger } from "@hov-router/logger";
 
-// Ported from SijanC147/better-ccflare packages/database/src/file-modes.ts
+// Ported from SijanC147/hov-router packages/database/src/file-modes.ts
 // (aa6787355, 2f4b3eb3b), with the -journal sidecar and ensurePrivateDir added.
 
 const log = new Logger("DatabaseFileModes");

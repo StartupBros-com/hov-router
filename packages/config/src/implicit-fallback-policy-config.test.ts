@@ -9,16 +9,16 @@ import {
 } from "./index";
 
 const ENV_NAMES = [
-	"CCFLARE_IMPLICIT_FALLBACK_MODE",
-	"CCFLARE_IMPLICIT_FALLBACK_ALLOWED_CLASSES",
-	"CCFLARE_IMPLICIT_FALLBACK_DENIED_CLASSES",
+	"HOV_ROUTER_IMPLICIT_FALLBACK_MODE",
+	"HOV_ROUTER_IMPLICIT_FALLBACK_ALLOWED_CLASSES",
+	"HOV_ROUTER_IMPLICIT_FALLBACK_DENIED_CLASSES",
 ] as const;
 
 function makeConfig(raw?: Record<string, unknown>): {
 	config: Config;
 	cleanup: () => void;
 } {
-	const dir = mkdtempSync(join(tmpdir(), "better-ccflare-implicit-fallback-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-implicit-fallback-"));
 	const configPath = join(dir, "config.json");
 	if (raw) writeFileSync(configPath, JSON.stringify(raw), "utf8");
 	return {
@@ -56,7 +56,7 @@ describe("implicit fallback policy configuration", () => {
 	});
 
 	it("uses conservative paid/cloud denials when mode is explicitly enabled", () => {
-		process.env.CCFLARE_IMPLICIT_FALLBACK_MODE = "enforce";
+		process.env.HOV_ROUTER_IMPLICIT_FALLBACK_MODE = "enforce";
 		const { config, cleanup } = makeConfig();
 		try {
 			expect(config.getImplicitFallbackPolicyConfig()).toEqual({
@@ -70,10 +70,10 @@ describe("implicit fallback policy configuration", () => {
 	});
 
 	it("normalizes, deduplicates, and applies allowed classes as deny exceptions", () => {
-		process.env.CCFLARE_IMPLICIT_FALLBACK_MODE = " OBSERVE ";
-		process.env.CCFLARE_IMPLICIT_FALLBACK_ALLOWED_CLASSES =
+		process.env.HOV_ROUTER_IMPLICIT_FALLBACK_MODE = " OBSERVE ";
+		process.env.HOV_ROUTER_IMPLICIT_FALLBACK_ALLOWED_CLASSES =
 			" api-key, local,api-key ";
-		process.env.CCFLARE_IMPLICIT_FALLBACK_DENIED_CLASSES =
+		process.env.HOV_ROUTER_IMPLICIT_FALLBACK_DENIED_CLASSES =
 			"api-key, cloud-credential, oauth-subscription, cloud-credential";
 		const { config, cleanup } = makeConfig();
 		try {
@@ -88,7 +88,7 @@ describe("implicit fallback policy configuration", () => {
 	});
 
 	it("gives each valid environment field precedence over the config file", () => {
-		process.env.CCFLARE_IMPLICIT_FALLBACK_MODE = "enforce";
+		process.env.HOV_ROUTER_IMPLICIT_FALLBACK_MODE = "enforce";
 		const { config, cleanup } = makeConfig({
 			implicit_fallback_mode: "observe",
 			implicit_fallback_allowed_classes: "oauth-subscription",

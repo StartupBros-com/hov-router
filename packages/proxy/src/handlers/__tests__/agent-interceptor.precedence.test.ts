@@ -21,7 +21,7 @@ import type { ModelCatalog } from "../../model-catalog";
 import { interceptAndModifyRequest } from "../agent-interceptor";
 
 // The `agentRegistry` singleton used below defaults to persisting workspace
-// state to the real `~/.better-ccflare/workspaces.json`. Redirect it to an
+// state to the real `~/.hov-router/workspaces.json`. Redirect it to an
 // isolated tmp-dir file for the lifetime of this test file so no test here
 // can ever touch the developer's real file.
 let workspacePersistenceTmpDir: string;
@@ -183,7 +183,7 @@ describe("Agent Interceptor - precedence (DB preference vs. frontmatter fallback
 		const result = await interceptAndModifyRequest(
 			buffer,
 			dbOps,
-			new Headers({ "x-better-ccflare-agent-id": "header-agent-a" }),
+			new Headers({ "x-hov-router-agent-id": "header-agent-a" }),
 			{ getModelCatalog: async () => nonVetoingCatalog() },
 		);
 		expect(result.agentUsed).toBe("header-agent-a");
@@ -274,7 +274,7 @@ describe("Agent Interceptor - precedence (DB preference vs. frontmatter fallback
 			buffer,
 			dbOps,
 			new Headers({
-				"x-better-ccflare-agent-id": "same-model-agent-precedence",
+				"x-hov-router-agent-id": "same-model-agent-precedence",
 			}),
 		);
 		expect(result.appliedModel).toBe("claude-3-5-sonnet-20241022");

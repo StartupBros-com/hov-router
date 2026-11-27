@@ -73,7 +73,7 @@ describe("current executable smoke fixtures (not native build proof)", () => {
 --version) printf 'HoV Router v1.2.3\\n';;
 --git-sha) printf '${sha}\\n';;
 esac`;
-	it("checks exact current output and SHA for all three command aliases", () => {
+	it("checks exact current output and SHA under the hov-router command", () => {
 		const { dir, binary } = executable(body);
 		const calls = join(dir, "calls");
 		writeFileSync(
@@ -153,7 +153,7 @@ describe("local Linux artifact preparation", () => {
 				join(dashboard, "build.ts"),
 				'throw new Error("cross-device build reached");',
 			);
-			const stale = join(cli, "dist/better-ccflare-linux-amd64");
+			const stale = join(cli, "dist/hov-router-linux-amd64");
 			writeFileSync(stale, "preserved previous executable");
 			const destination = join(home, "output");
 			const result = spawnSync(
@@ -177,7 +177,7 @@ describe("local Linux artifact preparation", () => {
 			expect(existsSync(destination)).toBe(false);
 			expect(readFileSync(stale, "utf8")).toBe("preserved previous executable");
 			expect(readdirSync(join(cli, "dist"))).toEqual([
-				"better-ccflare-linux-amd64",
+				"hov-router-linux-amd64",
 			]);
 			expect(readdirSync(temporary)).toEqual([]);
 		},
@@ -205,9 +205,9 @@ describe("local Linux artifact preparation", () => {
 				writeFileSync(
 					join(cli, "build-multi-arch.ts"),
 					`import { writeFileSync } from "node:fs";
-writeFileSync("dist/better-ccflare-linux-amd64", "#!/bin/sh\\nprintf 'invalid smoke output\\\\n'\\n", { mode: 0o755 });`,
+writeFileSync("dist/hov-router-linux-amd64", "#!/bin/sh\\nprintf 'invalid smoke output\\\\n'\\n", { mode: 0o755 });`,
 				);
-				const built = join(cli, "dist/better-ccflare-linux-amd64");
+				const built = join(cli, "dist/hov-router-linux-amd64");
 				const original = Buffer.from([0, 255, 1, 128, 10, 42]);
 				if (hasPrevious) writeFileSync(built, original);
 				const destination = join(home, "output");
@@ -227,13 +227,13 @@ writeFileSync("dist/better-ccflare-linux-amd64", "#!/bin/sh\\nprintf 'invalid sm
 					},
 				);
 				expect(result.status).not.toBe(0);
-				expect(result.stdout).toContain("better-ccflare-linux-amd64: OK");
+				expect(result.stdout).toContain("hov-router-linux-amd64: OK");
 				expect(result.stderr).toContain("Unexpected hov-router --help output");
 				expect(existsSync(destination)).toBe(false);
 				if (hasPrevious) expect(readFileSync(built)).toEqual(original);
 				else expect(existsSync(built)).toBe(false);
 				expect(readdirSync(join(cli, "dist"))).toEqual(
-					hasPrevious ? ["better-ccflare-linux-amd64"] : [],
+					hasPrevious ? ["hov-router-linux-amd64"] : [],
 				);
 				expect(
 					readdirSync(home)
@@ -244,28 +244,28 @@ writeFileSync("dist/better-ccflare-linux-amd64", "#!/bin/sh\\nprintf 'invalid sm
 		);
 	}
 	it.skipIf(process.platform !== "linux" || process.arch !== "x64")(
-		"builds fresh Linux assets, verifies checksums and runs all three aliases without configuration",
+		"builds fresh Linux assets, verifies checksums and runs the command without configuration",
 		() => {
 			const home = fixture();
 			const destination = join(home, "output");
 			const sentinel = join(home, "must-not-initialize.json");
 			const result = prepare([destination], home, {
-				CCFLARE_ONLY_PLATFORMS: "bun-windows-x64",
-				CCFLARE_SKIP_PLATFORMS: "bun-linux-amd64",
-				CCFLARE_BUILD_SUFFIX: "must-not-appear",
-				CCFLARE_BUILD_PRODUCER: "github-release-binary",
-				CCFLARE_VERSION: "0.0.0-must-not-appear",
-				BETTER_CCFLARE_CONFIG_PATH: sentinel,
+				HOV_ROUTER_ONLY_PLATFORMS: "bun-windows-x64",
+				HOV_ROUTER_SKIP_PLATFORMS: "bun-linux-amd64",
+				HOV_ROUTER_BUILD_SUFFIX: "must-not-appear",
+				HOV_ROUTER_BUILD_PRODUCER: "github-release-binary",
+				HOV_ROUTER_VERSION: "0.0.0-must-not-appear",
+				HOV_ROUTER_CONFIG_PATH: sentinel,
 				DATABASE_URL: "postgresql://synthetic.invalid/never-connect",
 				ANTHROPIC_API_KEY: "synthetic-never-forward",
 			});
 			expect(result.status, result.stderr).toBe(0);
 			expect(existsSync(destination)).toBe(true);
 			expect(result.stdout).toContain("Prepared local-only artifacts");
-			expect(result.stdout).toContain("better-ccflare-linux-amd64: OK");
+			expect(result.stdout).toContain("hov-router-linux-amd64: OK");
 			expect(readdirSync(destination).sort()).toEqual([
 				"SHA256SUMS",
-				"better-ccflare-linux-amd64",
+				"hov-router-linux-amd64",
 			]);
 			const checksum = spawnSync("sha256sum", ["-c", "SHA256SUMS"], {
 				cwd: destination,
@@ -281,10 +281,7 @@ writeFileSync("dist/better-ccflare-linux-amd64", "#!/bin/sh\\nprintf 'invalid sm
 			).version;
 			for (const alias of COMMAND_NAMES) {
 				const executable = join(home, "smoke", alias);
-				copyFileSync(
-					join(destination, "better-ccflare-linux-amd64"),
-					executable,
-				);
+				copyFileSync(join(destination, "hov-router-linux-amd64"), executable);
 				for (const flag of ["--help", "--version"]) {
 					const smoke = spawnSync(executable, [flag], {
 						cwd,
@@ -305,7 +302,7 @@ writeFileSync("dist/better-ccflare-linux-amd64", "#!/bin/sh\\nprintf 'invalid sm
 			expect(existsSync(sentinel)).toBe(false);
 			expect(existsSync(join(home, ".config"))).toBe(false);
 			writeFileSync(
-				join(destination, "better-ccflare-linux-amd64"),
+				join(destination, "hov-router-linux-amd64"),
 				"tampered fixture",
 			);
 			const tampered = spawnSync("sha256sum", ["-c", "SHA256SUMS"], {
@@ -408,7 +405,7 @@ writeFileSync("dist/better-ccflare-linux-amd64", "#!/bin/sh\\nprintf 'invalid sm
 				join(dashboard, "build.ts"),
 				'throw new Error("deliberate dashboard build failure");',
 			);
-			const stale = join(cli, "dist/better-ccflare-linux-amd64");
+			const stale = join(cli, "dist/hov-router-linux-amd64");
 			writeFileSync(stale, "old executable must not be packaged");
 			const destination = join(home, "output");
 			const result = spawnSync(

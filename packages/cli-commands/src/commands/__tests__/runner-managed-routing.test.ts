@@ -173,7 +173,7 @@ describe("shared managed-routing CLI parser", () => {
 		expect(() =>
 			preflightPostCreateManagedRouting({
 				interactive: true,
-				env: { BETTER_CCFLARE_API_URL: "https://example.com" },
+				env: { HOV_ROUTER_API_URL: "https://example.com" },
 			}),
 		).toThrow(/loopback/i);
 	});

@@ -6,7 +6,7 @@ HoV Router stores its data in SQLite (via `bun:sqlite`), a zero-configuration em
 
 ### Database file
 
-The database file is `~/.config/better-ccflare/better-ccflare.db` (platform config directory) unless `BETTER_CCFLARE_DB_PATH` points elsewhere. `DATABASE_URL` does not choose the file and is not used.
+The database file is `~/.config/hov-router/hov-router.db` (platform config directory) unless `HOV_ROUTER_DB_PATH` points elsewhere. `DATABASE_URL` does not choose the file and is not used.
 
 ### Key Features
 - **Zero-configuration** deployment with SQLite
@@ -313,14 +313,14 @@ const db = container.resolve<DatabaseOperations>(SERVICE_KEYS.Database);
 
 The database file is stored in a platform-specific configuration directory:
 
-- **macOS**: `~/Library/Application Support/better-ccflare/better-ccflare.db`
-- **Linux**: `~/.config/better-ccflare/better-ccflare.db`
-- **Windows**: `%APPDATA%\better-ccflare\better-ccflare.db`
+- **macOS**: `~/Library/Application Support/hov-router/hov-router.db`
+- **Linux**: `~/.config/hov-router/hov-router.db`
+- **Windows**: `%APPDATA%\hov-router\hov-router.db`
 
-You can override the default location using the `BETTER_CCFLARE_DB_PATH` environment variable:
+You can override the default location using the `HOV_ROUTER_DB_PATH` environment variable:
 
 ```bash
-export BETTER_CCFLARE_DB_PATH=/custom/path/to/database.db
+export HOV_ROUTER_DB_PATH=/custom/path/to/database.db
 ```
 
 `DATABASE_URL` is not used to choose the file. A `DATABASE_URL` starting with `postgres://` or `postgresql://` is refused at startup; see [PostgreSQL support removed](hov-router-migration.md#postgresql-support-removed). Any other value is ignored.
@@ -329,7 +329,7 @@ export BETTER_CCFLARE_DB_PATH=/custom/path/to/database.db
 
 | Variable | Default | Description |
 |----------|---------|--------------|
-| `BETTER_CCFLARE_DB_CLEANUP_BATCH_SIZE` | `200` | Row batch size per DELETE statement during retention cleanup. Lower it if rows are large (e.g. big JSON payloads) and cleanup batches are slow (#412) |
+| `HOV_ROUTER_DB_CLEANUP_BATCH_SIZE` | `200` | Row batch size per DELETE statement during retention cleanup. Lower it if rows are large (e.g. big JSON payloads) and cleanup batches are slow (#412) |
 
 ### Runtime Configuration
 
@@ -461,7 +461,7 @@ The server performs automatic cleanup once at startup, then hourly for the lifet
 
 You can change retention windows via environment variables, the config file, or the dashboard (Overview → Data Retention). A manual "Clean up now" action is also available for use between the hourly ticks.
 
-Deletes are batched (200 rows per statement by default, looped until exhausted) rather than issued as one unbounded `DELETE`, so cleanup keeps working on tables large enough that a single delete would hold the write lock for too long. The batch size is configurable via `BETTER_CCFLARE_DB_CLEANUP_BATCH_SIZE` — lower it further if rows are large (e.g. big JSON payloads) and batches are still slow (#412). Batches on `usage_snapshots` — which has no unique surrogate key — bound each statement by physical row identity (SQLite `rowid`) rather than by its natural key, so a batch of duplicate-keyed rows can't expand into an unbounded delete.
+Deletes are batched (200 rows per statement by default, looped until exhausted) rather than issued as one unbounded `DELETE`, so cleanup keeps working on tables large enough that a single delete would hold the write lock for too long. The batch size is configurable via `HOV_ROUTER_DB_CLEANUP_BATCH_SIZE` — lower it further if rows are large (e.g. big JSON payloads) and batches are still slow (#412). Batches on `usage_snapshots` — which has no unique surrogate key — bound each statement by physical row identity (SQLite `rowid`) rather than by its natural key, so a batch of duplicate-keyed rows can't expand into an unbounded delete.
 
 1. **Payload Storage**: Batched cleanup of old payloads, plus orphaned payloads left behind by deleted requests:
 ```sql
@@ -579,21 +579,21 @@ These commands directly interact with the database through the `DatabaseOperatio
 
 1. **File-based Backup**: Copy the SQLite file only when the application is stopped. The database runs in WAL mode, so copy any `-wal` and `-shm` files alongside it; a `-wal` left by an unclean shutdown holds committed transactions the `.db` file alone does not:
 ```bash
-cp better-ccflare.db better-ccflare.db.backup
-[ -f better-ccflare.db-wal ] && cp better-ccflare.db-wal better-ccflare.db.backup-wal
-[ -f better-ccflare.db-shm ] && cp better-ccflare.db-shm better-ccflare.db.backup-shm
+cp hov-router.db hov-router.db.backup
+[ -f hov-router.db-wal ] && cp hov-router.db-wal hov-router.db.backup-wal
+[ -f hov-router.db-shm ] && cp hov-router.db-shm hov-router.db.backup-shm
 ```
 
 2. **Online Backup**: While the server is running, use `VACUUM INTO`. It writes one consistent, compacted snapshot in a single read transaction, and the target file must not already exist. The snapshot holds the same plaintext tokens as the database, but SQLite creates it with the default `0644` mode under a typical umask, so set `umask 077` first to make it owner-only:
 ```bash
-(umask 077 && sqlite3 better-ccflare.db ".timeout 30000" "VACUUM INTO 'better-ccflare-snapshot.db'")
+(umask 077 && sqlite3 hov-router.db ".timeout 30000" "VACUUM INTO 'hov-router-snapshot.db'")
 ```
 Do not use the sqlite3 `.backup` command on a running server. SQLite restarts an online backup whenever another connection writes to the source, and the proxy writes continuously, so a large `.backup` can run for hours without finishing. The snapshot is written in rollback-journal mode; when the server opens a restored copy, `configureSqlite` switches it back to WAL unless `walMode` is disabled.
 
 3. **Automated Backups**: Schedule the same `VACUUM INTO` command with cron or a system scheduler, giving each run a new dated target and keeping the same `umask 077`:
 ```bash
 # Daily snapshot (cron needs % escaped as \%)
-0 2 * * * umask 077 && sqlite3 /path/to/better-ccflare.db ".timeout 30000" "VACUUM INTO '/backups/better-ccflare-$(date +\%Y\%m\%d).db'"
+0 2 * * * umask 077 && sqlite3 /path/to/hov-router.db ".timeout 30000" "VACUUM INTO '/backups/hov-router-$(date +\%Y\%m\%d).db'"
 ```
 
 ### Maintenance Operations
@@ -652,9 +652,9 @@ Key metrics to monitor:
    - Using OS-level file encryption
    - Restricting file permissions
 
-2. **Access Control**: At startup the server sets `0600` on the database, its `-wal`, `-shm` and `-journal` files, and any `better-ccflare.db.backup.*` file beside it, including the backup a migration writes. A database directory it creates gets `0700`; an existing directory is left as it is. A failed `chmod` logs a warning and does not stop startup, and nothing is changed on Windows. Copies or snapshots kept anywhere else are yours to protect: create them under `umask 077`, as in the backup commands above, and restrict an existing data directory yourself:
+2. **Access Control**: At startup the server sets `0600` on the database, its `-wal`, `-shm` and `-journal` files, and any `hov-router.db.backup.*` file beside it, including the backup a migration writes. A database directory it creates gets `0700`; an existing directory is left as it is. A failed `chmod` logs a warning and does not stop startup, and nothing is changed on Windows. Copies or snapshots kept anywhere else are yours to protect: create them under `umask 077`, as in the backup commands above, and restrict an existing data directory yourself:
 ```bash
-chmod 700 ~/.config/better-ccflare
+chmod 700 ~/.config/hov-router
 ```
 
 3. **SQL Injection**: The codebase uses parameterized queries throughout, providing protection against SQL injection.

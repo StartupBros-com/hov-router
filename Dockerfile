@@ -46,7 +46,7 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
 COPY . .
 
 # Same command as the repo build: dashboard, then the compiled CLI binary
-# (apps/cli/dist/better-ccflare). .git is not in the build context, so the
+# (apps/cli/dist/hov-router). .git is not in the build context, so the
 # build embeds an "unknown" git SHA and emits no release provenance. The
 # runtime stage supplies the SHA from the GIT_SHA build argument instead.
 RUN bun run build
@@ -62,13 +62,12 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates curl && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /src/apps/cli/dist/better-ccflare /usr/local/bin/better-ccflare
-RUN ln -s better-ccflare /usr/local/bin/hov-router
+COPY --from=builder /src/apps/cli/dist/hov-router /usr/local/bin/hov-router
 
 # Non-root user; /data holds the database and config.
-RUN useradd -u 1000 -m -s /bin/bash ccflare && \
+RUN useradd -u 1000 -m -s /bin/bash hov-router && \
     mkdir -p /data /app/logs && \
-    chown -R ccflare:ccflare /data /app
+    chown -R hov-router:hov-router /data /app
 
 WORKDIR /app
 
@@ -88,31 +87,31 @@ ARG UPDATE_CHANNEL=unknown
 ARG BUILD_DATE=unknown
 
 ENV NODE_ENV=production
-ENV BETTER_CCFLARE_DB_PATH=/data/better-ccflare.db
+ENV HOV_ROUTER_DB_PATH=/data/hov-router.db
 ENV XDG_CONFIG_HOME=/data
-ENV BETTER_CCFLARE_LOG_DIR=/app/logs
+ENV HOV_ROUTER_LOG_DIR=/app/logs
 # Listen on every interface inside the container: a published port (-p, compose
 # `ports:`) reaches the container over its network interface, never loopback.
 # Set here rather than left to the binary's default. Restrict who can reach it
 # on the host side, e.g. publish as 127.0.0.1:8080:8080.
-ENV BETTER_CCFLARE_HOST=0.0.0.0
+ENV HOV_ROUTER_HOST=0.0.0.0
 # /health git_sha: the binary has no embedded SHA here, so it reads this.
 # Empty when GIT_SHA is not passed, which /health reports as null.
-ENV BETTER_CCFLARE_GIT_SHA=${GIT_SHA}
-ENV CCFLARE_VERSION=${VERSION}
-ENV CCFLARE_GIT_SHA=${GIT_SHA:-unknown}
-ENV CCFLARE_GIT_REF=${GIT_REF}
+ENV HOV_ROUTER_HEALTH_GIT_SHA=${GIT_SHA}
+ENV HOV_ROUTER_VERSION=${VERSION}
+ENV HOV_ROUTER_GIT_SHA=${GIT_SHA:-unknown}
+ENV HOV_ROUTER_GIT_REF=${GIT_REF}
 # Redundant copies let the runtime reject a stale or conflicting tuple.
-ENV CCFLARE_SOURCE_SHA=${GIT_SHA:-unknown}
-ENV CCFLARE_SOURCE_REF=${GIT_REF}
-ENV CCFLARE_CHECKOUT_SHA=${CHECKOUT_SHA}
-ENV CCFLARE_EVENT_SHA=${EVENT_SHA}
-ENV CCFLARE_TAG_SHA=${TAG_SHA}
-ENV CCFLARE_BUILD_DATE=${BUILD_DATE}
-ENV CCFLARE_DISTRIBUTION=${DISTRIBUTION}
-ENV CCFLARE_PRODUCER=${PRODUCER}
-ENV CCFLARE_ARTIFACT_MODE=${ARTIFACT_MODE}
-ENV CCFLARE_UPDATE_CHANNEL=${UPDATE_CHANNEL}
+ENV HOV_ROUTER_SOURCE_SHA=${GIT_SHA:-unknown}
+ENV HOV_ROUTER_SOURCE_REF=${GIT_REF}
+ENV HOV_ROUTER_CHECKOUT_SHA=${CHECKOUT_SHA}
+ENV HOV_ROUTER_EVENT_SHA=${EVENT_SHA}
+ENV HOV_ROUTER_TAG_SHA=${TAG_SHA}
+ENV HOV_ROUTER_BUILD_DATE=${BUILD_DATE}
+ENV HOV_ROUTER_DISTRIBUTION=${DISTRIBUTION}
+ENV HOV_ROUTER_PRODUCER=${PRODUCER}
+ENV HOV_ROUTER_ARTIFACT_MODE=${ARTIFACT_MODE}
+ENV HOV_ROUTER_UPDATE_CHANNEL=${UPDATE_CHANNEL}
 
 LABEL org.opencontainers.image.title="HoV Router"
 LABEL org.opencontainers.image.description="Use your AI accounts from one place, and see which account handled each request. Routes Claude Code and other clients across your provider accounts, with a dashboard for usage, cost and errors."
@@ -127,14 +126,14 @@ echo "HoV Router Docker Container"
 echo "================================="
 echo "Architecture: $(uname -m)"
 echo ""
-/usr/local/bin/better-ccflare --version
+/usr/local/bin/hov-router --version
 echo "================================="
 echo ""
-exec /usr/local/bin/better-ccflare "$@"
+exec /usr/local/bin/hov-router "$@"
 EOF
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-USER ccflare
+USER hov-router
 
 VOLUME ["/data"]
 

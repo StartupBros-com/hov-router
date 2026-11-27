@@ -197,7 +197,7 @@ describe("PUT /api/route-profiles (#971)", () => {
 		expect(response.status).toBe(400);
 		const body = await response.json();
 		expect(body.details).toEqual({ code: "invalid_route_profiles" });
-		expect(body.error).not.toContain("CCFLARE_MODEL_ROUTE_PROFILES_JSON");
+		expect(body.error).not.toContain("HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON");
 		expect(body.error).toContain("logicalModel");
 		expect((await get()).body.data.revision).toBe(0);
 	});

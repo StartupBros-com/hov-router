@@ -12,7 +12,7 @@ import {
 } from "../cache-pacing";
 
 // Retired in schema 23: the server warns once at startup and nothing reads it.
-const RETIRED_CODEX_SETTLE_MS_ENV = "CCFLARE_CODEX_CACHE_PACING_SETTLE_MS";
+const RETIRED_CODEX_SETTLE_MS_ENV = "HOV_ROUTER_CODEX_CACHE_PACING_SETTLE_MS";
 
 afterEach(() => {
 	resetCachePacing();

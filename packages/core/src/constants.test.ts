@@ -47,37 +47,37 @@ describe("resolveCooldownUntil", () => {
 });
 
 describe("getRateLimitMaxCooldownMs", () => {
-	const original = process.env.CCFLARE_RATE_LIMIT_MAX_COOLDOWN_MS;
+	const original = process.env.HOV_ROUTER_RATE_LIMIT_MAX_COOLDOWN_MS;
 
 	afterEach(() => {
 		if (original === undefined) {
-			delete process.env.CCFLARE_RATE_LIMIT_MAX_COOLDOWN_MS;
+			delete process.env.HOV_ROUTER_RATE_LIMIT_MAX_COOLDOWN_MS;
 		} else {
-			process.env.CCFLARE_RATE_LIMIT_MAX_COOLDOWN_MS = original;
+			process.env.HOV_ROUTER_RATE_LIMIT_MAX_COOLDOWN_MS = original;
 		}
 	});
 
 	it("defaults to TIME_CONSTANTS.RATE_LIMIT_MAX_COOLDOWN_MS when env is unset", () => {
-		delete process.env.CCFLARE_RATE_LIMIT_MAX_COOLDOWN_MS;
+		delete process.env.HOV_ROUTER_RATE_LIMIT_MAX_COOLDOWN_MS;
 		expect(getRateLimitMaxCooldownMs()).toBe(
 			TIME_CONSTANTS.RATE_LIMIT_MAX_COOLDOWN_MS,
 		);
 	});
 
 	it("respects a valid numeric env override", () => {
-		process.env.CCFLARE_RATE_LIMIT_MAX_COOLDOWN_MS = String(60 * 60 * 1000);
+		process.env.HOV_ROUTER_RATE_LIMIT_MAX_COOLDOWN_MS = String(60 * 60 * 1000);
 		expect(getRateLimitMaxCooldownMs()).toBe(60 * 60 * 1000);
 	});
 
 	it("falls back to the default on empty env", () => {
-		process.env.CCFLARE_RATE_LIMIT_MAX_COOLDOWN_MS = "";
+		process.env.HOV_ROUTER_RATE_LIMIT_MAX_COOLDOWN_MS = "";
 		expect(getRateLimitMaxCooldownMs()).toBe(
 			TIME_CONSTANTS.RATE_LIMIT_MAX_COOLDOWN_MS,
 		);
 	});
 
 	it("falls back to the default on non-numeric (garbage) env", () => {
-		process.env.CCFLARE_RATE_LIMIT_MAX_COOLDOWN_MS = "not-a-number";
+		process.env.HOV_ROUTER_RATE_LIMIT_MAX_COOLDOWN_MS = "not-a-number";
 		expect(getRateLimitMaxCooldownMs()).toBe(
 			TIME_CONSTANTS.RATE_LIMIT_MAX_COOLDOWN_MS,
 		);
@@ -85,11 +85,11 @@ describe("getRateLimitMaxCooldownMs", () => {
 });
 
 const ENV_KEYS = [
-	"CCFLARE_OVERLOAD_COOLDOWN_MS",
-	"CCFLARE_OVERLOAD_WITH_RESET_MAX_MS",
-	"CCFLARE_RATE_LIMIT_BACKOFF_BASE_MS",
-	"CCFLARE_RATE_LIMIT_BACKOFF_MAX_MS",
-	"CCFLARE_RATE_LIMIT_RESET_STABILITY_MS",
+	"HOV_ROUTER_OVERLOAD_COOLDOWN_MS",
+	"HOV_ROUTER_OVERLOAD_WITH_RESET_MAX_MS",
+	"HOV_ROUTER_RATE_LIMIT_BACKOFF_BASE_MS",
+	"HOV_ROUTER_RATE_LIMIT_BACKOFF_MAX_MS",
+	"HOV_ROUTER_RATE_LIMIT_RESET_STABILITY_MS",
 ] as const;
 
 let savedEnv: Record<string, string | undefined>;
@@ -111,9 +111,9 @@ afterEach(() => {
 
 describe("duration env overrides", () => {
 	it("honors a valid positive override", () => {
-		process.env.CCFLARE_OVERLOAD_COOLDOWN_MS = "2500";
-		process.env.CCFLARE_OVERLOAD_WITH_RESET_MAX_MS = "90000";
-		process.env.CCFLARE_RATE_LIMIT_RESET_STABILITY_MS = "1234";
+		process.env.HOV_ROUTER_OVERLOAD_COOLDOWN_MS = "2500";
+		process.env.HOV_ROUTER_OVERLOAD_WITH_RESET_MAX_MS = "90000";
+		process.env.HOV_ROUTER_RATE_LIMIT_RESET_STABILITY_MS = "1234";
 		expect(computeOverloadCooldownMs()).toBe(2500);
 		expect(computeOverloadWithResetCapMs()).toBe(90000);
 		expect(getRateLimitResetStabilityMs()).toBe(1234);
@@ -123,11 +123,11 @@ describe("duration env overrides", () => {
 		expect(computeOverloadCooldownMs()).toBe(
 			TIME_CONSTANTS.OVERLOAD_COOLDOWN_MS,
 		);
-		process.env.CCFLARE_OVERLOAD_COOLDOWN_MS = "not-a-number";
+		process.env.HOV_ROUTER_OVERLOAD_COOLDOWN_MS = "not-a-number";
 		expect(computeOverloadCooldownMs()).toBe(
 			TIME_CONSTANTS.OVERLOAD_COOLDOWN_MS,
 		);
-		process.env.CCFLARE_OVERLOAD_COOLDOWN_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_COOLDOWN_MS = "0";
 		expect(computeOverloadCooldownMs()).toBe(
 			TIME_CONSTANTS.OVERLOAD_COOLDOWN_MS,
 		);
@@ -172,7 +172,7 @@ describe("duration env overrides", () => {
 	// hours-long bench. A non-finite cap disables `min(resetTime, cap)`
 	// entirely, so it must never be reachable through configuration.
 	it("keeps the with-reset cap finite so min(resetTime, cap) still clamps", () => {
-		process.env.CCFLARE_OVERLOAD_WITH_RESET_MAX_MS = "Infinity";
+		process.env.HOV_ROUTER_OVERLOAD_WITH_RESET_MAX_MS = "Infinity";
 		const now = 1_700_000_000_000;
 		const threeHoursOut = now + 3 * 60 * 60 * 1000;
 		const capUntil = now + computeOverloadWithResetCapMs();
@@ -182,7 +182,7 @@ describe("duration env overrides", () => {
 });
 
 describe("overload retry attempt count", () => {
-	const KEY = "CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS";
+	const KEY = "HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS";
 	const original = process.env[KEY];
 
 	beforeEach(() => {

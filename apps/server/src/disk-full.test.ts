@@ -11,7 +11,7 @@
  * fail: a gate that quietly stops running is worse than none.
  *
  * The same file runs twice in CI. In the main suite it drives the server from
- * source. With BETTER_CCFLARE_TEST_COMPILED_CLI set it drives that binary
+ * source. With HOV_ROUTER_TEST_COMPILED_CLI set it drives that binary
  * instead, which is what production runs.
  */
 import { afterAll, describe, expect, it } from "bun:test";
@@ -22,7 +22,7 @@ import { findMountStrategy, inPrivateFilesystem } from "./disk-full-mount";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
 const SCENARIO = join(import.meta.dir, "disk-full-scenario.ts");
-const COMPILED_CLI = process.env.BETTER_CCFLARE_TEST_COMPILED_CLI || null;
+const COMPILED_CLI = process.env.HOV_ROUTER_TEST_COMPILED_CLI || null;
 const FILESYSTEM = "size=64m";
 
 const strategy = findMountStrategy();
@@ -98,7 +98,7 @@ const DEADLINE_EXIT_CODE = 3;
 
 function startScenario(args: string[]) {
 	if (!strategy) throw new Error("no way to mount a private filesystem");
-	const mount = mkdtempSync(join(tmpdir(), "ccflare-disk-full-"));
+	const mount = mkdtempSync(join(tmpdir(), "hov-router-disk-full-"));
 	mounts.push(mount);
 	const child = Bun.spawn(
 		inPrivateFilesystem(strategy, mount, FILESYSTEM, [

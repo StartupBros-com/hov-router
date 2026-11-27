@@ -8,7 +8,7 @@ import {
 	spyOn,
 } from "bun:test";
 import type { Account, ComboWithSlots, RequestMeta } from "@hov-router/types";
-import { evaluateGuardRetry } from "../../../../../scripts/ccflare-guard-policy.mjs";
+import { evaluateGuardRetry } from "../../../../../scripts/hov-router-guard-policy.mjs";
 import { handleProxy } from "../../proxy";
 import * as usageCollectorModule from "../../usage-collector";
 import { proxyWithAccount } from "../proxy-operations";
@@ -94,7 +94,7 @@ function makeAuthorizedRequest(): Request {
 		method: "POST",
 		headers: {
 			"content-type": "application/json",
-			"x-better-ccflare-agent-id": AUTHORIZED_AGENT_ID,
+			"x-hov-router-agent-id": AUTHORIZED_AGENT_ID,
 		},
 		body: makeBody(FABLE),
 	});
@@ -270,12 +270,12 @@ function makeContext(
 const originalFetch = globalThis.fetch;
 const originalDateNow = Date.now;
 const originalDefaultCooldown =
-	process.env.CCFLARE_DEFAULT_COOLDOWN_NO_RESET_MS;
+	process.env.HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS;
 let restoreUsageCollector = (): void => {};
 
 beforeEach(() => {
 	Date.now = () => NOW;
-	process.env.CCFLARE_DEFAULT_COOLDOWN_NO_RESET_MS = "60000";
+	process.env.HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS = "60000";
 	const collectorSpy = spyOn(
 		usageCollectorModule,
 		"getUsageCollector",
@@ -293,9 +293,10 @@ afterEach(() => {
 	globalThis.fetch = originalFetch;
 	Date.now = originalDateNow;
 	if (originalDefaultCooldown === undefined) {
-		delete process.env.CCFLARE_DEFAULT_COOLDOWN_NO_RESET_MS;
+		delete process.env.HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS;
 	} else {
-		process.env.CCFLARE_DEFAULT_COOLDOWN_NO_RESET_MS = originalDefaultCooldown;
+		process.env.HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS =
+			originalDefaultCooldown;
 	}
 });
 
@@ -646,14 +647,15 @@ describe("raw upstream HTTP 402 routing", () => {
 	});
 
 	it("handles a raw 402 returned by an in-place 529 retry before provider processing", async () => {
-		const savedRetryBase = process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS;
-		const savedRetryMax = process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS;
-		const savedRetryAttempts = process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS;
-		const savedRetryEnabled = process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
-		process.env.CCFLARE_OVERLOAD_RETRY_BASE_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_MS = "0";
-		process.env.CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
-		delete process.env.CCFLARE_OVERLOAD_RETRY_ENABLED;
+		const savedRetryBase = process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS;
+		const savedRetryMax = process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS;
+		const savedRetryAttempts =
+			process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS;
+		const savedRetryEnabled = process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_BASE_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_MS = "0";
+		process.env.HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS = "2";
+		delete process.env.HOV_ROUTER_OVERLOAD_RETRY_ENABLED;
 
 		try {
 			const account = makeAccount("overload-retry", {
@@ -717,10 +719,10 @@ describe("raw upstream HTTP 402 routing", () => {
 			]);
 		} finally {
 			for (const [name, value] of [
-				["CCFLARE_OVERLOAD_RETRY_BASE_MS", savedRetryBase],
-				["CCFLARE_OVERLOAD_RETRY_MAX_MS", savedRetryMax],
-				["CCFLARE_OVERLOAD_RETRY_MAX_ATTEMPTS", savedRetryAttempts],
-				["CCFLARE_OVERLOAD_RETRY_ENABLED", savedRetryEnabled],
+				["HOV_ROUTER_OVERLOAD_RETRY_BASE_MS", savedRetryBase],
+				["HOV_ROUTER_OVERLOAD_RETRY_MAX_MS", savedRetryMax],
+				["HOV_ROUTER_OVERLOAD_RETRY_MAX_ATTEMPTS", savedRetryAttempts],
+				["HOV_ROUTER_OVERLOAD_RETRY_ENABLED", savedRetryEnabled],
 			] as const) {
 				if (value === undefined) delete process.env[name];
 				else process.env[name] = value;
@@ -757,7 +759,7 @@ describe("raw upstream HTTP 402 routing", () => {
 		expect(response.status).toBe(503);
 		expect(payload.error.code).toBe("route_unavailable");
 		expect(response.headers.get("retry-after")).toBeNull();
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBeNull();
+		expect(response.headers.get("x-hov-router-pool-status")).toBeNull();
 		expect(first.cancelReasons).toEqual([undefined]);
 		expect(second.cancelReasons).toEqual([undefined]);
 		expect(getRequestRateLimitOutcomes(request)).toEqual([

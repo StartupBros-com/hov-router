@@ -23,7 +23,7 @@ describe("getRuntime() retry bounds and env resolution", () => {
 			saved[key] = process.env[key];
 			delete process.env[key];
 		}
-		dir = mkdtempSync(join(tmpdir(), "better-ccflare-runtime-bounds-"));
+		dir = mkdtempSync(join(tmpdir(), "hov-router-runtime-bounds-"));
 		configPath = join(dir, "config.json");
 		resetRuntimeWarningsForTest();
 	});

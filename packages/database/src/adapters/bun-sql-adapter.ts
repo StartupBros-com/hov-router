@@ -30,7 +30,7 @@ export interface SqlWriter {
 
 /**
  * Row batch size (per DELETE statement) used by retention cleanup loops.
- * Configurable via BETTER_CCFLARE_DB_CLEANUP_BATCH_SIZE — lower this if rows
+ * Configurable via HOV_ROUTER_DB_CLEANUP_BATCH_SIZE — lower this if rows
  * are large (e.g. TOASTed payload JSON) and batches are hitting the
  * statement_timeout before completing. See issue #412.
  *
@@ -39,7 +39,7 @@ export interface SqlWriter {
  * a fractional value (e.g. 200.5) would break both.
  */
 export function getCleanupBatchSize(): number {
-	const requested = Number(process.env.BETTER_CCFLARE_DB_CLEANUP_BATCH_SIZE);
+	const requested = Number(process.env.HOV_ROUTER_DB_CLEANUP_BATCH_SIZE);
 	return Number.isInteger(requested) && requested > 0 ? requested : 200;
 }
 
@@ -148,7 +148,7 @@ export class BunSqlAdapter {
 	 * transaction. With a reader attached the read runs there or fails; it is
 	 * never re-run on this connection, where a slow scan would stall every live
 	 * stream (#921). SQLITE_BUSY waits and retries on the reader. Without one
-	 * (an in-memory database, or BETTER_CCFLARE_DB_READER_WORKER=0) it runs here.
+	 * (an in-memory database, or HOV_ROUTER_DB_READER_WORKER=0) it runs here.
 	 */
 	async queryOffThread<R>(
 		sql: string,

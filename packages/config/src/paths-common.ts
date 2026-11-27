@@ -2,21 +2,27 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { platform } from "node:process";
 
-/**
- * Get the platform-specific configuration directory for better-ccflare
- */
-export function getPlatformConfigDir(): string {
+export const CONFIG_DIR_NAME = "hov-router";
+export const CONFIG_FILENAME = "hov-router.json";
+export const DB_FILENAME = "hov-router.db";
+
+/** The platform directory that holds per-application config directories. */
+export function getPlatformConfigBaseDir(): string {
 	if (platform === "win32") {
 		// Windows: Use LOCALAPPDATA or APPDATA
-		const baseDir =
+		return (
 			process.env.LOCALAPPDATA ??
 			process.env.APPDATA ??
-			join(homedir(), "AppData", "Local");
-		return join(baseDir, "better-ccflare");
-	} else {
-		// Linux/macOS: Follow XDG Base Directory specification
-		const xdgConfig = process.env.XDG_CONFIG_HOME;
-		const baseDir = xdgConfig ?? join(homedir(), ".config");
-		return join(baseDir, "better-ccflare");
+			join(homedir(), "AppData", "Local")
+		);
 	}
+	// Linux/macOS: Follow XDG Base Directory specification
+	return process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
+}
+
+/**
+ * Get the platform-specific configuration directory for hov-router
+ */
+export function getPlatformConfigDir(): string {
+	return join(getPlatformConfigBaseDir(), CONFIG_DIR_NAME);
 }

@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Config } from "./index";
 
-const ENV_KEY = "CCFLARE_XAI_CACHE_KEEPALIVE_TTL_MINUTES";
+const ENV_KEY = "HOV_ROUTER_XAI_CACHE_KEEPALIVE_TTL_MINUTES";
 
 function makeConfig(): { config: Config; cleanup: () => void } {
-	const dir = mkdtempSync(join(tmpdir(), "better-ccflare-config-xai-ka-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-config-xai-ka-"));
 	return {
 		config: new Config(join(dir, "config.json")),
 		cleanup: () => rmSync(dir, { recursive: true, force: true }),

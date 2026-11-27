@@ -54,7 +54,7 @@ const digest = (accountId: string) =>
 	createHash("sha256").update(accountId).digest("hex");
 
 beforeEach(() => {
-	directory = mkdtempSync(join(tmpdir(), "better-ccflare-pending-store-"));
+	directory = mkdtempSync(join(tmpdir(), "hov-router-pending-store-"));
 });
 
 afterEach(() => {

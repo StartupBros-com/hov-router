@@ -25,7 +25,7 @@ The Sonnet 5.5 incident on September 29 initially suggested a model-specific cac
 
 The saved investigation reconstructed the 04:20–04:30 UTC bucket behind the provider alert recorded at 04:35:20 UTC: 10 measured requests, 52,209 uncached input tokens, 93,279 cache-read tokens, and 83,090 cache-write tokens. Its additive denominator was 228,578 tokens, giving `93,279 / 228,578 = 40.8%`. The reconstruction reported positive cache reads on all ten requests: low token reuse was not synonymous with zero-hit requests. This was a reported bucket reconstruction, not a replay of the complete detector state machine.
 
-The early model-specific fork/side-query explanation did not survive the investigation's refutation. Rather than changing routing to address that hypothesis, the shipped response in [PR #389](https://github.com/StartupBros-com/better-ccflare/pull/389) narrowed the immediate-critical path's sample qualification. That changes alert sensitivity, not the provider's cache.
+The early model-specific fork/side-query explanation did not survive the investigation's refutation. Rather than changing routing to address that hypothesis, the shipped response in [PR #389](https://github.com/StartupBros-com/hov-router/pull/389) narrowed the immediate-critical path's sample qualification. That changes alert sensitivity, not the provider's cache.
 
 ## Guidance
 
@@ -89,4 +89,4 @@ PR #389 is merged and reachable from the source revision inspected for this lear
 - [Cache-inclusive Codex trace input versus additive persisted usage](codex-trace-input-tokens-are-cache-inclusive.md).
 - [Codex cache affinity and the session-id header](../integration-issues/codex-cache-affinity-needs-session-id-header.md): a different incident with a protocol-header cause; do not transplant its exact-prefix conclusions here.
 - [Verify fix ancestry before citing a measured rate](../workflow-issues/verify-fix-ancestry-before-citing-a-measured-rate.md).
-- [Cache-health alert work spec #368](https://github.com/StartupBros-com/better-ccflare/issues/368), which remains open pending operator confirmation.
+- [Cache-health alert work spec #368](https://github.com/StartupBros-com/hov-router/issues/368), which remains open pending operator confirmation.

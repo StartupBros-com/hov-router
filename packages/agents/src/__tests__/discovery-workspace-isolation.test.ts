@@ -9,7 +9,7 @@ import { WorkspacePersistence } from "../workspace-persistence";
  * Proves `AgentRegistry` actually uses an injected `WorkspacePersistence`
  * instance for its save/load calls, rather than silently falling back to
  * the shared singleton that targets the real
- * `~/.better-ccflare/workspaces.json` file. This is the mechanism
+ * `~/.hov-router/workspaces.json` file. This is the mechanism
  * `discovery.test.ts` (and every other test that constructs its own
  * `AgentRegistry`) relies on for isolation.
  */
@@ -70,11 +70,7 @@ describe("AgentRegistry — injected workspace persistence", () => {
 	});
 
 	it("never touches the real workspaces file when constructed with injected persistence", async () => {
-		const realHome = path.join(
-			os.homedir(),
-			".better-ccflare",
-			"workspaces.json",
-		);
+		const realHome = path.join(os.homedir(), ".hov-router", "workspaces.json");
 		const realFileExistedBefore = fs.existsSync(realHome);
 		const realContentBefore = realFileExistedBefore
 			? fs.readFileSync(realHome, "utf-8")

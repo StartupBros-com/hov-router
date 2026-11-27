@@ -15,7 +15,7 @@ import {
 	isTranslatedSseProvider,
 } from "../anthropic-semantic-preflight";
 
-// Guard defaults shipped in scripts/run-ccflare-stack.sh. Kept as literals so
+// Guard defaults shipped in scripts/run-hov-router.sh. Kept as literals so
 // that raising either one there without re-checking this budget fails here.
 const GUARD_MAX_RECOVERY_SLEEP_MS = 120_000;
 const GUARD_RETRY_ATTEMPT_HEADROOM_MS = 30_000;

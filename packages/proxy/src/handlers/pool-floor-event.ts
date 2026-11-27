@@ -89,7 +89,7 @@ export interface PoolFloorEventInput {
 }
 
 /**
- * Parse `CCFLARE_POOL_FLOOR_THRESHOLD`. A malformed, negative or fractional
+ * Parse `HOV_ROUTER_POOL_FLOOR_THRESHOLD`. A malformed, negative or fractional
  * value falls back to the default rather than silently disabling the alarm —
  * a typo must not cost an operator the warning tier.
  */

@@ -57,8 +57,8 @@ When comparable candidates have the same preference, utilization can break ties.
 ### Setting Account Priorities
 
 ```bash
-better-ccflare --add-account myaccount --mode claude-oauth --priority 10
-better-ccflare --set-priority myaccount 20
+hov-router --add-account myaccount --mode claude-oauth --priority 10
+hov-router --set-priority myaccount 20
 ```
 
 See [CLI account priorities](cli.md#account-priorities) for command details.
@@ -134,7 +134,7 @@ The [configuration mapping](configuration.md#configuration-mapping) documents th
 
 ### Configuration File
 
-The default Linux/macOS path is `~/.config/better-ccflare/better-ccflare.json`; see [configuration paths](configuration.md#configuration-file-format) for XDG, Windows, and custom-path behavior.
+The default Linux/macOS path is `~/.config/hov-router/hov-router.json`; see [configuration paths](configuration.md#configuration-file-format) for XDG, Windows, and custom-path behavior.
 
 ```json
 {

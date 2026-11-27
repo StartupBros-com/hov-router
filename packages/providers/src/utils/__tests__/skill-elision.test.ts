@@ -47,7 +47,7 @@ describe("elideSkillBundles", () => {
 		});
 		const messages = (result.body as typeof body).messages;
 		const text = (messages[0].content[0] as { text: string }).text;
-		expect(text).toContain("[better-ccflare]");
+		expect(text).toContain("[hov-router]");
 		expect(text).not.toContain(bundleText);
 		// Original message/body untouched.
 		expect(body.messages[0].content[0]).toEqual({
@@ -82,7 +82,7 @@ describe("elideSkillBundles", () => {
 			content: string;
 		};
 		expect(block.tool_use_id).toBe("call_1");
-		expect(block.content).toContain("[better-ccflare]");
+		expect(block.content).toContain("[hov-router]");
 		expect(block.content).not.toContain(bundleText);
 	});
 
@@ -115,7 +115,7 @@ describe("elideSkillBundles", () => {
 		expect(Array.isArray(block.content)).toBe(true);
 		expect(block.content).toHaveLength(2);
 		expect(block.content[0]).toEqual({ type: "text", text: "small ack" });
-		expect(block.content[1].text).toContain("[better-ccflare]");
+		expect(block.content[1].text).toContain("[hov-router]");
 		expect(block.content[1].text).not.toContain(bundleText);
 	});
 
@@ -376,6 +376,6 @@ describe("applySkillElision", () => {
 		const text = (
 			(result as typeof body).messages[0].content[0] as { text: string }
 		).text;
-		expect(text).toContain("[better-ccflare]");
+		expect(text).toContain("[hov-router]");
 	});
 });

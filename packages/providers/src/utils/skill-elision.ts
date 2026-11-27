@@ -53,7 +53,7 @@ function extractSkillBasename(text: string): string | null {
 }
 
 function skillStub(skillName: string, originalLength: number): string {
-	return `[better-ccflare] '${skillName}' skill document elided (${originalLength} chars). The skill was already loaded; continue applying its instructions.`;
+	return `[hov-router] '${skillName}' skill document elided (${originalLength} chars). The skill was already loaded; continue applying its instructions.`;
 }
 
 /**
@@ -221,11 +221,11 @@ export function applySkillElision<T>(
 // shared Provider type), so there's no clean way to thread a resolved
 // ProxyContext-level config value in. This lazily-constructed, module-level
 // Config singleton is the smallest-diff path, precedented by the existing
-// CCFLARE_CODEX_* env-read pattern in the Codex provider
+// HOV_ROUTER_CODEX_* env-read pattern in the Codex provider
 // (getCodexReasoningRetention in @hov-router/config), extended here to
 // also cover the file-backed field. Restart-scoped like every other policy
 // resolved this way in this codebase: the config FILE is read once and
-// cached for the process lifetime, but CCFLARE_SKILL_ELISION_BLOCKED is
+// cached for the process lifetime, but HOV_ROUTER_SKILL_ELISION_BLOCKED is
 // re-read live on every call (Config#getSkillElisionBlockedSkills already
 // does this), so the env override still works without a restart.
 let cachedConfig: Config | null = null;

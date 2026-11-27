@@ -482,7 +482,7 @@ describe("priceTokensAtListPrice", () => {
 
 		it("prices gpt-5.6-terra using the models.dev 'openai' section rates", () => {
 			// 2.0 / 0.2 (cache read) / 12.0 $/M per spec, verified against
-			// /tmp/better-ccflare/models.dev.json's 'openai' provider section.
+			// /tmp/hov-router/models.dev.json's 'openai' provider section.
 			const result = priceTokensAtListPrice("gpt-5.6-terra", AFTER_FLOOR_MS, {
 				inputTokens: 1_000_000,
 				cacheReadInputTokens: 1_000_000,

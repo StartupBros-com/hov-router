@@ -20,7 +20,7 @@ let forceAccountModel = false;
  * Requests exempt from the switch for the whole of their async lifetime.
  *
  * The switch is a promise about *client* requests: serve the model the caller
- * named, or serve nothing. better-ccflare's own probes are not callers. The
+ * named, or serve nothing. hov-router's own probes are not callers. The
  * cache-keepalive scheduler replays an earlier request to whatever account
  * served it, provider and all, because its job is to touch the endpoint and
  * keep the prompt cache warm — not to deliver anyone's choice of model. Mapping

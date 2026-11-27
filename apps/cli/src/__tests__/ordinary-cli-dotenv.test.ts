@@ -10,11 +10,11 @@ import {
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 
-// Host builds the binary separately. When BETTER_CCFLARE_TEST_COMPILED_CLI names
+// Host builds the binary separately. When HOV_ROUTER_TEST_COMPILED_CLI names
 // it, the same tests run against the compiled entrypoint instead of treating a
 // source-only run as proof.
 function cliEntrypoint(): string[] {
-	const binary = process.env.BETTER_CCFLARE_TEST_COMPILED_CLI;
+	const binary = process.env.HOV_ROUTER_TEST_COMPILED_CLI;
 	if (binary) {
 		if (!isAbsolute(binary))
 			throw new Error("Compiled CLI test path must be absolute");
@@ -75,10 +75,10 @@ for (const scenario of [
 				const label = file === ".env" ? "base" : file.slice(5);
 				writeFileSync(
 					join(directory, file),
-					`SYNTHETIC_STEM=${label}\nBETTER_CCFLARE_DB_PATH="$SYNTHETIC_DIRECTORY/\${SYNTHETIC_STEM}.db"\n`,
+					`SYNTHETIC_STEM=${label}\nHOV_ROUTER_DB_PATH="$SYNTHETIC_DIRECTORY/\${SYNTHETIC_STEM}.db"\n`,
 				);
 			}
-			const entrypoint = process.env.BETTER_CCFLARE_TEST_COMPILED_CLI
+			const entrypoint = process.env.HOV_ROUTER_TEST_COMPILED_CLI
 				? cliEntrypoint()
 				: [process.execPath, new URL("../main.ts", import.meta.url).pathname];
 			const child = Bun.spawn([...entrypoint, "--list"], {
@@ -91,7 +91,7 @@ for (const scenario of [
 					NODE_ENV: scenario.nodeEnv,
 					SYNTHETIC_DIRECTORY: directory,
 					...(scenario.winner === "process"
-						? { BETTER_CCFLARE_DB_PATH: join(directory, "process.db") }
+						? { HOV_ROUTER_DB_PATH: join(directory, "process.db") }
 						: {}),
 				},
 				stdout: "pipe",
@@ -110,7 +110,7 @@ for (const scenario of [
 	});
 }
 
-it.skipIf(!process.env.BETTER_CCFLARE_TEST_COMPILED_CLI)(
+it.skipIf(!process.env.HOV_ROUTER_TEST_COMPILED_CLI)(
 	"compiled ordinary CLI preserves project dotenv fallback",
 	async () => {
 		const directory = mkdtempSync(join(tmpdir(), "ordinary-cli-fallback-"));
@@ -122,7 +122,7 @@ it.skipIf(!process.env.BETTER_CCFLARE_TEST_COMPILED_CLI)(
 			const database = join(directory, "synthetic.db");
 			writeFileSync(
 				join(directory, ".env"),
-				`BETTER_CCFLARE_DB_PATH=${database}\n`,
+				`HOV_ROUTER_DB_PATH=${database}\n`,
 			);
 			const ordinary = Bun.spawn([executable, "--list"], {
 				cwd,
@@ -155,7 +155,7 @@ it("ordinary CLI finds dotenv beside its physical executable or source entrypoin
 		const cwd = join(directory, "work", "cwd");
 		mkdirSync(app);
 		mkdirSync(cwd, { recursive: true });
-		const binary = process.env.BETTER_CCFLARE_TEST_COMPILED_CLI;
+		const binary = process.env.HOV_ROUTER_TEST_COMPILED_CLI;
 		let entrypoint: string[];
 		if (binary) {
 			const executable = join(app, "arbitrary-cli-name");
@@ -172,7 +172,7 @@ it("ordinary CLI finds dotenv beside its physical executable or source entrypoin
 		const database = join(directory, "physical-directory.db");
 		writeFileSync(
 			join(app, ".env"),
-			`BETTER_CCFLARE_DB_PATH=${database}\nSYNTHETIC_INFERENCE_KEY=synthetic-file-secret\n`,
+			`HOV_ROUTER_DB_PATH=${database}\nSYNTHETIC_INFERENCE_KEY=synthetic-file-secret\n`,
 		);
 		const env = {
 			HOME: directory,

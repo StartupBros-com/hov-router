@@ -2,12 +2,12 @@
  * Usage-throttling and internal-probe markers.
  *
  * A cache-keepalive replay (private credential or process-local probe secret
- * plus `x-better-ccflare-keepalive: true`) is exempt from usage-throttling in
+ * plus `x-hov-router-keepalive: true`) is exempt from usage-throttling in
  * proxy.ts's applyUsageThrottling: a throttled-but-healthy account's own
  * synthetic replay must reach the real endpoint instead of getting our own
  * synthetic 529 (createUsageThrottledResponse).
  *
- * The `x-better-ccflare-auto-refresh` marker earns no such exemption, with or
+ * The `x-hov-router-auto-refresh` marker earns no such exemption, with or
  * without a valid probe secret: it is deleted at ingress and the request is
  * throttled like any client request.
  */
@@ -177,10 +177,10 @@ describe("handleProxy usage throttling — synthetic probe exemption", () => {
 		Date.now = () => now;
 		try {
 			const request = makeThrottledRequest({
-				"x-better-ccflare-account-id": account.id,
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-auto-refresh": "true",
-				"x-better-ccflare-internal-probe-secret": "test-secret",
+				"x-hov-router-account-id": account.id,
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-auto-refresh": "true",
+				"x-hov-router-internal-probe-secret": "test-secret",
 			});
 			const response = await handleProxy(
 				request,
@@ -207,10 +207,10 @@ describe("handleProxy usage throttling — synthetic probe exemption", () => {
 		Date.now = () => now;
 		try {
 			const request = makeThrottledRequest({
-				"x-better-ccflare-account-id": account.id,
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-keepalive": "true",
-				"x-better-ccflare-internal-probe-secret": "test-secret",
+				"x-hov-router-account-id": account.id,
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-keepalive": "true",
+				"x-hov-router-internal-probe-secret": "test-secret",
 			});
 
 			const realFetch = globalThis.fetch;
@@ -247,13 +247,13 @@ describe("handleProxy usage throttling — synthetic probe exemption", () => {
 		const realDateNow = Date.now;
 		Date.now = () => now;
 		try {
-			// An external client cannot mint x-better-ccflare-internal-probe-secret
+			// An external client cannot mint x-hov-router-internal-probe-secret
 			// (process-local, never sent to clients) — without it the marker alone
 			// must not grant the throttling exemption.
 			const request = makeThrottledRequest({
-				"x-better-ccflare-account-id": account.id,
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-auto-refresh": "true",
+				"x-hov-router-account-id": account.id,
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-auto-refresh": "true",
 			});
 			const response = await handleProxy(
 				request,
@@ -277,10 +277,10 @@ describe("handleProxy usage throttling — synthetic probe exemption", () => {
 		Date.now = () => now;
 		try {
 			const request = makeThrottledRequest({
-				"x-better-ccflare-account-id": account.id,
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-auto-refresh": "true",
-				"x-better-ccflare-internal-probe-secret": "nope",
+				"x-hov-router-account-id": account.id,
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-auto-refresh": "true",
+				"x-hov-router-internal-probe-secret": "nope",
 			});
 			const response = await handleProxy(
 				request,
@@ -304,9 +304,9 @@ describe("handleProxy usage throttling — synthetic probe exemption", () => {
 		Date.now = () => now;
 		try {
 			const request = makeThrottledRequest({
-				"x-better-ccflare-account-id": account.id,
-				"x-better-ccflare-bypass-session": "true",
-				"x-better-ccflare-keepalive": "true",
+				"x-hov-router-account-id": account.id,
+				"x-hov-router-bypass-session": "true",
+				"x-hov-router-keepalive": "true",
 			});
 			const response = await handleProxy(
 				request,

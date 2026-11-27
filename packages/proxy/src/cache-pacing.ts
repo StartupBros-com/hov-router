@@ -4,7 +4,7 @@
  * Anthropic's prompt cache entry becomes readable only after the first
  * response begins streaming. The first in-flight request per (session, model)
  * becomes the leader; followers wait for its first body chunk or a bounded
- * cap. CCFLARE_CACHE_PACING_MS controls the cap (0/unset disables pacing).
+ * cap. HOV_ROUTER_CACHE_PACING_MS controls the cap (0/unset disables pacing).
  *
  * Routing happens after this wait. Pacing observations are therefore
  * route-neutral until the proxy knows which account actually served the
@@ -16,7 +16,7 @@ import { Logger } from "@hov-router/logger";
 import { opaqueRuntimeId } from "./opaque-runtime-id";
 
 const log = new Logger("CachePacing");
-export const CACHE_PACING_MS_ENV = "CCFLARE_CACHE_PACING_MS";
+export const CACHE_PACING_MS_ENV = "HOV_ROUTER_CACHE_PACING_MS";
 const MAX_ROUTE_STATS = 256;
 
 interface LeaderEntry {

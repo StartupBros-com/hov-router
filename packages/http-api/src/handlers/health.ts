@@ -115,7 +115,7 @@ export function computePoolStatus(
 		(a) => !a.paused && a.rate_limited_until && a.rate_limited_until >= now,
 	);
 	const rate_limited = rateLimitedAccounts.length;
-	// `routable` reflects what ccflare will actually attempt to route, i.e.
+	// `routable` reflects what the router will actually attempt to route, i.e.
 	// unpaused + no active cooldown + NOT usage-exhausted. Passing the usage
 	// snapshot here is load-bearing: without it, an account at 100% utilization
 	// with no `rate_limited_until` was counted as routable while upstream
@@ -311,8 +311,8 @@ export function createHealthHandler(
 		}
 
 		// Diagnostic only: an unreachable upstream does not change `status`.
-		// The guard's replacement readiness probe, deploy-ccflare.sh and
-		// run-ccflare-stack.sh all require 200 from /health, so a host network
+		// The guard's replacement readiness probe, deploy-hov-router.sh and
+		// run-hov-router.sh all require 200 from /health, so a host network
 		// outage turned into a 503 would also block deploys and recycles of a
 		// router that is itself fine (2026-11-02, see upstream-transport-health).
 		if (getUpstreamTransportHealth) {

@@ -18,7 +18,7 @@ import { DatabaseOperations } from "../database-operations";
  * what lands on disk, so deleting the wiring fails here even though the helper
  * suite stays green.
  *
- * Ported from SijanC147/better-ccflare db-constructor-file-mode.test.ts
+ * Ported from SijanC147/hov-router db-constructor-file-mode.test.ts
  * (aa6787355).
  */
 function mode(path: string): number {
@@ -38,8 +38,8 @@ beforeEach(() => {
 	// reaches the code under test.
 	savedDatabaseUrl = process.env.DATABASE_URL;
 	delete process.env.DATABASE_URL;
-	savedReaderWorker = process.env.BETTER_CCFLARE_DB_READER_WORKER;
-	process.env.BETTER_CCFLARE_DB_READER_WORKER = "0";
+	savedReaderWorker = process.env.HOV_ROUTER_DB_READER_WORKER;
+	process.env.HOV_ROUTER_DB_READER_WORKER = "0";
 });
 
 afterEach(() => {
@@ -47,14 +47,14 @@ afterEach(() => {
 	if (savedDatabaseUrl === undefined) delete process.env.DATABASE_URL;
 	else process.env.DATABASE_URL = savedDatabaseUrl;
 	if (savedReaderWorker === undefined)
-		delete process.env.BETTER_CCFLARE_DB_READER_WORKER;
-	else process.env.BETTER_CCFLARE_DB_READER_WORKER = savedReaderWorker;
+		delete process.env.HOV_ROUTER_DB_READER_WORKER;
+	else process.env.HOV_ROUTER_DB_READER_WORKER = savedReaderWorker;
 	rmSync(dir, { recursive: true, force: true });
 });
 
 describe("DatabaseOperations constructor file modes", () => {
 	it("restricts the database and its WAL to 0600", async () => {
-		const dbPath = join(dir, "data", "better-ccflare.db");
+		const dbPath = join(dir, "data", "hov-router.db");
 		const ops = new DatabaseOperations(dbPath);
 		try {
 			expect(existsSync(dbPath)).toBe(true);
@@ -72,8 +72,8 @@ describe("DatabaseOperations constructor file modes", () => {
 		// them after the symlink's target, not the configured alias.
 		const dataDir = join(dir, "data");
 		mkdirSync(dataDir);
-		const real = join(dataDir, "better-ccflare.db");
-		const alias = join(dir, "better-ccflare.db");
+		const real = join(dataDir, "hov-router.db");
+		const alias = join(dir, "hov-router.db");
 		const older = new Database(real, { create: true });
 		try {
 			older.exec("PRAGMA journal_mode = WAL");
@@ -98,7 +98,7 @@ describe("DatabaseOperations constructor file modes", () => {
 
 	it("creates a missing database directory 0700", async () => {
 		const dbDir = join(dir, "data");
-		const ops = new DatabaseOperations(join(dbDir, "better-ccflare.db"));
+		const ops = new DatabaseOperations(join(dbDir, "hov-router.db"));
 		try {
 			expect(mode(dbDir)).toBe(0o700);
 		} finally {

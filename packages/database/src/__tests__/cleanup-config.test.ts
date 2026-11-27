@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { getCleanupBatchSize } from "../adapters/bun-sql-adapter";
 
-const ENV_KEY = "BETTER_CCFLARE_DB_CLEANUP_BATCH_SIZE";
+const ENV_KEY = "HOV_ROUTER_DB_CLEANUP_BATCH_SIZE";
 
 describe("getCleanupBatchSize", () => {
 	let prev: string | undefined;

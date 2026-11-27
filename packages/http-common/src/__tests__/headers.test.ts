@@ -10,7 +10,7 @@ import {
 	withSanitizedProxyHeaders,
 } from "../headers";
 
-// Ported from SijanC147/better-ccflare headers.test.ts (13115ce94519).
+// Ported from SijanC147/hov-router headers.test.ts (13115ce94519).
 describe("sanitizeResponseHeaders", () => {
 	test("drops credential-bearing response headers", () => {
 		const out = sanitizeResponseHeaders({
@@ -55,7 +55,7 @@ describe("sanitizeResponseHeaders", () => {
 	});
 });
 
-// P1 spoofing (proxy side): x-better-ccflare-pool-status is a reserved,
+// P1 spoofing (proxy side): x-hov-router-pool-status is a reserved,
 // guard-trusted signal. If an upstream provider response could carry it
 // through to the client, a malicious or misbehaving upstream could spoof
 // whole-pool exhaustion (or falsely deny it) to the guard sitting in front
@@ -66,31 +66,31 @@ describe("sanitizeProxyHeaders", () => {
 	test("strips the reserved pool-status header from an upstream response", () => {
 		const original = new Headers({
 			"content-type": "application/json",
-			"x-better-ccflare-pool-status": "exhausted",
-			"x-better-ccflare-recovery-scope": "model",
+			"x-hov-router-pool-status": "exhausted",
+			"x-hov-router-recovery-scope": "model",
 		});
 
 		const sanitized = sanitizeProxyHeaders(original);
 
-		expect(sanitized.has("x-better-ccflare-pool-status")).toBe(false);
-		expect(sanitized.has("x-better-ccflare-recovery-scope")).toBe(false);
+		expect(sanitized.has("x-hov-router-pool-status")).toBe(false);
+		expect(sanitized.has("x-hov-router-recovery-scope")).toBe(false);
 		expect(sanitized.get("content-type")).toBe("application/json");
 	});
 
 	test("strips the header regardless of the value an upstream sets", () => {
 		const original = new Headers({
-			"x-better-ccflare-pool-status": "available",
+			"x-hov-router-pool-status": "available",
 		});
 
-		expect(
-			sanitizeProxyHeaders(original).has("x-better-ccflare-pool-status"),
-		).toBe(false);
+		expect(sanitizeProxyHeaders(original).has("x-hov-router-pool-status")).toBe(
+			false,
+		);
 	});
 
 	test("strips a mixed-case logical-family carrier from raw upstream responses", () => {
 		const original = new Headers({
 			"content-type": "application/json",
-			"X-Better-Ccflare-Logical-Model-Family": "fable",
+			"X-Hov-Router-Logical-Model-Family": "fable",
 		});
 
 		const sanitized = sanitizeProxyHeaders(original);
@@ -137,17 +137,15 @@ describe("withSanitizedProxyHeaders", () => {
 			status: 503,
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-pool-status": "exhausted",
-				"x-better-ccflare-recovery-scope": "pool",
+				"x-hov-router-pool-status": "exhausted",
+				"x-hov-router-recovery-scope": "pool",
 			},
 		});
 
 		const sanitized = withSanitizedProxyHeaders(upstream);
 
-		expect(sanitized.headers.has("x-better-ccflare-pool-status")).toBe(false);
-		expect(sanitized.headers.has("x-better-ccflare-recovery-scope")).toBe(
-			false,
-		);
+		expect(sanitized.headers.has("x-hov-router-pool-status")).toBe(false);
+		expect(sanitized.headers.has("x-hov-router-recovery-scope")).toBe(false);
 		expect(sanitized.status).toBe(503);
 	});
 });

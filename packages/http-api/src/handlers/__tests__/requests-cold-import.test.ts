@@ -59,7 +59,7 @@ describe("requests handler — cycle-free imports", () => {
 		expect(source).toContain('from "@hov-router/types/request"');
 		// A bare `from "@hov-router/types"` (barrel) would reintroduce the
 		// dependency on some earlier import happening to load core first.
-		expect(source).not.toMatch(/from ["']@better-ccflare\/types["']/);
+		expect(source).not.toMatch(/from ["']@hov-router\/types["']/);
 	});
 
 	it("loads as the first module in a fresh process", async () => {

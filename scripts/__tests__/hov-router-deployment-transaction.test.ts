@@ -23,11 +23,11 @@ import {
 	recordBackendOwner,
 	recordReapedBackendOwner,
 	portListening,
-} from "../ccflare-deployment-transaction.mjs";
+} from "../hov-router-deployment-transaction.mjs";
 import net from "node:net";
 import { resolveNodeExecutable } from "./node-runtime";
 function fixture() {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-transaction-")),
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-transaction-")),
 		binary = join(dir, "candidate"),
 		pin = join(dir, "pin");
 	writeFileSync(binary, "candidate", { mode: 0o555 });
@@ -229,7 +229,7 @@ test.each([
 	try {
 		prepareTransaction(f.dir, f.manifest, f.runtime);
 		const module = new URL(
-			"../ccflare-deployment-transaction.mjs",
+			"../hov-router-deployment-transaction.mjs",
 			import.meta.url,
 		).href;
 		const child = spawnSync(
@@ -375,7 +375,7 @@ test.each([
 
 test("official inline Node bootstrap import does not execute CLI entrypoint", () => {
 	const module = new URL(
-		"../ccflare-deployment-transaction.mjs",
+		"../hov-router-deployment-transaction.mjs",
 		import.meta.url,
 	).href;
 	const child = spawnSync(
@@ -662,7 +662,7 @@ test.each([
 // 2026-11-06 a client timed out during a slow prepare and the listener started
 // a handoff no deploy was left to commit.
 const transactionModule = fileURLToPath(
-	new URL("../ccflare-deployment-transaction.mjs", import.meta.url),
+	new URL("../hov-router-deployment-transaction.mjs", import.meta.url),
 );
 let nodeBinary: string | undefined;
 function node() {
@@ -715,7 +715,7 @@ function runClient(handoff: string, command: string) {
 }
 async function startListener(prior?: object) {
 	const f = fixture();
-	const control = mkdtempSync(join(tmpdir(), "ccflare-control-"));
+	const control = mkdtempSync(join(tmpdir(), "hov-router-control-"));
 	const handoff = join(f.dir, "handoff");
 	mkdirSync(handoff, { mode: 0o700 });
 	if (prior) durableWrite(join(handoff, "intent.json"), prior);
@@ -969,7 +969,7 @@ async function fakeListener(
 	onCommand: (socket: net.Socket) => void,
 	onAck: (socket: net.Socket, ack: unknown) => void,
 ) {
-	const dir = mkdtempSync(join(tmpdir(), "ccflare-client-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-client-"));
 	const control = join(dir, "control");
 	mkdirSync(control);
 	writeFileSync(join(dir, "runtime.json"), JSON.stringify({ controlDir: control }));

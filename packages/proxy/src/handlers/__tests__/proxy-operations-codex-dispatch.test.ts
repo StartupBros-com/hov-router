@@ -19,7 +19,7 @@ import {
 	createAcceptedTiming,
 	monotonicNowNs,
 	registerManagedTerminal,
-} from "../../../../../scripts/ccflare-managed-timing.mjs";
+} from "../../../../../scripts/hov-router-managed-timing.mjs";
 import type { ModelFallbackExecutionPolicy } from "../proxy-operations";
 import type { ProxyContext } from "../proxy-types";
 
@@ -285,30 +285,30 @@ describe("proxyWithAccount: Codex attempt dispatch boundary", () => {
 
 	beforeEach(() => {
 		originalFetch = globalThis.fetch;
-		originalPromptCacheKey = process.env.CCFLARE_CODEX_PROMPT_CACHE_KEY;
-		originalCacheKeyMode = process.env.CCFLARE_CODEX_CACHE_KEY_MODE;
+		originalPromptCacheKey = process.env.HOV_ROUTER_CODEX_PROMPT_CACHE_KEY;
+		originalCacheKeyMode = process.env.HOV_ROUTER_CODEX_CACHE_KEY_MODE;
 		originalAnthropicPrecommitTimeout =
-			process.env.CCFLARE_ANTHROPIC_PRECOMMIT_TIMEOUT_MS;
-		process.env.CCFLARE_CODEX_PROMPT_CACHE_KEY = "1";
+			process.env.HOV_ROUTER_ANTHROPIC_PRECOMMIT_TIMEOUT_MS;
+		process.env.HOV_ROUTER_CODEX_PROMPT_CACHE_KEY = "1";
 	});
 
 	afterEach(() => {
 		setSystemTime();
 		globalThis.fetch = originalFetch;
 		if (originalPromptCacheKey === undefined) {
-			delete process.env.CCFLARE_CODEX_PROMPT_CACHE_KEY;
+			delete process.env.HOV_ROUTER_CODEX_PROMPT_CACHE_KEY;
 		} else {
-			process.env.CCFLARE_CODEX_PROMPT_CACHE_KEY = originalPromptCacheKey;
+			process.env.HOV_ROUTER_CODEX_PROMPT_CACHE_KEY = originalPromptCacheKey;
 		}
 		if (originalCacheKeyMode === undefined) {
-			delete process.env.CCFLARE_CODEX_CACHE_KEY_MODE;
+			delete process.env.HOV_ROUTER_CODEX_CACHE_KEY_MODE;
 		} else {
-			process.env.CCFLARE_CODEX_CACHE_KEY_MODE = originalCacheKeyMode;
+			process.env.HOV_ROUTER_CODEX_CACHE_KEY_MODE = originalCacheKeyMode;
 		}
 		if (originalAnthropicPrecommitTimeout === undefined) {
-			delete process.env.CCFLARE_ANTHROPIC_PRECOMMIT_TIMEOUT_MS;
+			delete process.env.HOV_ROUTER_ANTHROPIC_PRECOMMIT_TIMEOUT_MS;
 		} else {
-			process.env.CCFLARE_ANTHROPIC_PRECOMMIT_TIMEOUT_MS =
+			process.env.HOV_ROUTER_ANTHROPIC_PRECOMMIT_TIMEOUT_MS =
 				originalAnthropicPrecommitTimeout;
 		}
 		mock.restore();
@@ -563,11 +563,11 @@ describe("proxyWithAccount: Codex attempt dispatch boundary", () => {
 			throw new Error("Codex provider transformation is unavailable");
 		}
 		// The cause never reaches the wire -- the transport sanitizer strips every
-		// x-better-ccflare-* header -- so observe it where it is actually consumed.
+		// x-hov-router-* header -- so observe it where it is actually consumed.
 		const causes: Array<string | null> = [];
 		const originalTransformRequestBody = provider.transformRequestBody;
 		provider.transformRequestBody = async (request, account) => {
-			causes.push(request.headers.get("x-better-ccflare-attempt-cause"));
+			causes.push(request.headers.get("x-hov-router-attempt-cause"));
 			return originalTransformRequestBody.call(provider, request, account);
 		};
 		globalThis.fetch = mock(async () => {
@@ -685,8 +685,8 @@ describe("proxyWithAccount: Codex attempt dispatch boundary", () => {
 		const originalTransformRequestBody = provider.transformRequestBody;
 		provider.transformRequestBody = async (request, account) => {
 			transformedAttempts.push({
-				attemptId: request.headers.get("x-better-ccflare-attempt-id"),
-				cause: request.headers.get("x-better-ccflare-attempt-cause"),
+				attemptId: request.headers.get("x-hov-router-attempt-id"),
+				cause: request.headers.get("x-hov-router-attempt-cause"),
 			});
 			return originalTransformRequestBody.call(provider, request, account);
 		};
@@ -763,7 +763,7 @@ describe("proxyWithAccount: Codex attempt dispatch boundary", () => {
 		const causes: Array<string | null> = [];
 		const originalTransformRequestBody = provider.transformRequestBody;
 		provider.transformRequestBody = async (request, account) => {
-			causes.push(request.headers.get("x-better-ccflare-attempt-cause"));
+			causes.push(request.headers.get("x-hov-router-attempt-cause"));
 			return originalTransformRequestBody.call(provider, request, account);
 		};
 		globalThis.fetch = mock(
@@ -1091,12 +1091,12 @@ describe("proxyWithAccount: verified Codex 429 recovery provenance", () => {
 		});
 		expect(terminal.kind).toBe("pool_exhausted");
 		expect(terminal.response.headers.get("retry-after")).not.toBeNull();
-		expect(terminal.response.headers.get("x-better-ccflare-pool-status")).toBe(
+		expect(terminal.response.headers.get("x-hov-router-pool-status")).toBe(
 			"exhausted",
 		);
-		expect(
-			terminal.response.headers.get("x-better-ccflare-recovery-scope"),
-		).toBe("pool");
+		expect(terminal.response.headers.get("x-hov-router-recovery-scope")).toBe(
+			"pool",
+		);
 
 		const followUpCtx = makeProxyContext();
 		followUpCtx.dbOps.getAllAccounts = mock(async () => [
@@ -1104,7 +1104,7 @@ describe("proxyWithAccount: verified Codex 429 recovery provenance", () => {
 		]) as never;
 		const followUpMeta = makeRequestMeta("codex-immediate-follow-up", {
 			headers: new Headers({
-				"x-better-ccflare-account-id": persistedAccount.id,
+				"x-hov-router-account-id": persistedAccount.id,
 			}),
 		});
 		await expect(
@@ -1160,7 +1160,7 @@ describe("proxyWithAccount: verified Codex 429 recovery provenance", () => {
 		expect(terminal.kind).toBe("route_unavailable");
 		expect(terminal.response.headers.get("retry-after")).toBeNull();
 		expect(
-			terminal.response.headers.get("x-better-ccflare-pool-status"),
+			terminal.response.headers.get("x-hov-router-pool-status"),
 		).toBeNull();
 	});
 });
