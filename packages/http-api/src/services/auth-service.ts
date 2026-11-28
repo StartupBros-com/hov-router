@@ -8,6 +8,10 @@ import {
 } from "@hov-router/types/api-key";
 import { classifyAuthPath } from "./auth-paths";
 import { extractApiKey } from "./extract-api-key";
+import type {
+	DashboardIdentity,
+	DashboardIdentityVerifier,
+} from "./tailscale-dashboard-auth";
 
 const log = new Logger("AuthService");
 
@@ -52,6 +56,7 @@ export interface AuthenticationResult {
 	apiKeyId?: string;
 	apiKeyName?: string;
 	role?: ApiKeyRole;
+	dashboardIdentity?: DashboardIdentity;
 	error?: string;
 }
 
@@ -143,6 +148,7 @@ export class AuthService {
 		dbOps: DatabaseOperations,
 		internalProbeSecret?: string,
 		localControlSecret?: string,
+		private dashboardIdentityVerifier?: DashboardIdentityVerifier,
 	) {
 		this.dbOps = dbOps;
 		this.crypto = new NodeCryptoUtils();
@@ -278,7 +284,7 @@ export class AuthService {
 	 * Authorize endpoint access based on API key role
 	 */
 	async authorizeEndpoint(
-		apiKey: ApiKey,
+		apiKey: Pick<ApiKey, "role">,
 		path: string,
 		_method: string,
 	): Promise<{ authorized: boolean; reason?: string }> {
@@ -628,6 +634,19 @@ export class AuthService {
 				? this.validateAndConsumeStreamToken(token, audience)
 				: null;
 
+		// Verify the short-lived proof before any database wait. Explicit keys
+		// retain their existing role and validity checks instead of being upgraded.
+		if (
+			path.startsWith("/api/") &&
+			!req.headers.has("x-api-key") &&
+			!req.headers.has("authorization")
+		) {
+			const dashboardIdentity = this.dashboardIdentityVerifier?.(req);
+			if (dashboardIdentity) {
+				return { isAuthenticated: true, role: "admin", dashboardIdentity };
+			}
+		}
+
 		// If path is exempt, allow without authentication
 		const exemption = await this.exemptionFor(path, method, req.headers);
 		if (exemption) {
@@ -661,15 +680,12 @@ export class AuthService {
 		// Invalid tokens still allow normal header/Bearer authentication.
 
 		const apiKey = this.extractApiKey(req);
-		if (!apiKey) {
-			return {
-				isAuthenticated: false,
-				error:
-					"API key required. Include it in the 'x-api-key' header or Authorization: Bearer <key>",
-			};
-		}
+		if (apiKey) return await this.validateApiKey(apiKey);
 
-		// Validate the API key
-		return await this.validateApiKey(apiKey);
+		return {
+			isAuthenticated: false,
+			error:
+				"API key required. Include it in the 'x-api-key' header or Authorization: Bearer <key>",
+		};
 	}
 }

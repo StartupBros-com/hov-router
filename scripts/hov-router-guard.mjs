@@ -9,6 +9,7 @@ import {
 import {
 	chmodSync,
 	closeSync,
+	lstatSync,
 	openSync,
 	readFileSync,
 	readdirSync,
@@ -19,6 +20,7 @@ import {
 } from "node:fs";
 import http from "node:http";
 import net from "node:net";
+import { dirname, isAbsolute } from "node:path";
 import https from "node:https";
 import {
 	Duplex,
@@ -368,12 +370,74 @@ function combineAbortSignals(signals) {
 	};
 }
 
+const DASHBOARD_PROOF = "x-hov-router-tailscale-dashboard";
+function isIdentityHeader(lower) {
+	return lower.startsWith("tailscale-") || lower === DASHBOARD_PROOF;
+}
+
+function tailscaleConfig(env, secret) {
+	const socket = env.HOV_ROUTER_TAILSCALE_SOCKET;
+	const origin = env.HOV_ROUTER_TAILSCALE_ORIGIN;
+	const users = env.HOV_ROUTER_TAILSCALE_USERS;
+	if (!socket && !origin && !users) return null;
+	const url = URL.canParse(origin) ? new URL(origin) : null;
+	if (
+		!secret ||
+		!socket ||
+		!isAbsolute(socket) ||
+		Buffer.byteLength(socket) > 107 ||
+		url?.protocol !== "https:" ||
+		origin !== url.origin ||
+		!users ||
+		users
+			.split(",")
+			.some((user) => !user || user.length > 320 || /[^\x21-\x7e]/.test(user))
+	) {
+		throw new Error(
+			"invalid Tailscale dashboard ingress configuration or guard credential",
+		);
+	}
+	return { socket, origin, users: new Set(users.split(",")) };
+}
+
+function checkSocketPath(socket) {
+	const parent = lstatSync(dirname(socket));
+	if (
+		!parent.isDirectory() ||
+		parent.uid !== process.geteuid() ||
+		(parent.mode & 0o7777) !== 0o700
+	)
+		throw new Error("Tailscale socket requires a private owned 0700 directory");
+	if (lstatSync(socket, { throwIfNoEntry: false }))
+		throw new Error("Tailscale socket path already exists");
+}
+
+function allowedLogin(req, config) {
+	// headersDistinct preserves duplicate field lines (including empty ones).
+	const h = req.headersDistinct;
+	const login = h["tailscale-user-login"];
+	const site = h["sec-fetch-site"];
+	if (
+		h["tailscale-funnel-request"] ||
+		login?.length !== 1 ||
+		!config.users.has(login[0]) ||
+		(site &&
+			(site.length !== 1 ||
+				!["same-origin", "none"].includes(site[0]))) ||
+		(h.origin && (h.origin.length !== 1 || h.origin[0] !== config.origin)) ||
+		(!["GET", "HEAD"].includes(req.method) && !h.origin)
+	)
+		return null;
+	return login[0];
+}
+
 function requestHeaders(req, bodyLength, guardCorrelationEnvelope) {
 	const headers = new Headers();
 	for (const [key, value] of Object.entries(req.headers)) {
 		const lower = key.toLowerCase();
 		if (
 			HOP_BY_HOP_HEADERS.has(lower) ||
+			isIdentityHeader(lower) ||
 			lower === "host" ||
 			lower === "content-length"
 		) {
@@ -399,7 +463,7 @@ function responseHeaders(fetchHeaders, bodyLength = null) {
 	const headers = {};
 	fetchHeaders.forEach((value, key) => {
 		const lower = key.toLowerCase();
-		if (HOP_BY_HOP_HEADERS.has(lower)) return;
+		if (HOP_BY_HOP_HEADERS.has(lower) || isIdentityHeader(lower)) return;
 		if (
 			lower === GUARD_REQUEST_ID_HEADER ||
 			lower === GUARD_CORRELATION_SECRET_HEADER ||
@@ -1903,6 +1967,8 @@ export function createGuard(options = {}) {
 		throw new Error(
 			"managed guard requires valid clock, source, nonces and credential",
 		);
+	const tailnet = tailscaleConfig(env, timingSecret);
+	const dashboardLogins = new WeakMap();
 	if (managedTimingEnabled) monotonicNowNs();
 	let lifecycle = "serving";
 	let shutdownAllowsAdmission = false;
@@ -2735,6 +2801,22 @@ export function createGuard(options = {}) {
 			redirect: "manual",
 			signal,
 		};
+		const login = dashboardLogins.get(req);
+		if (login && upstreamTarget.pathname.startsWith("/api/")) {
+			const payload = Buffer.from(
+				JSON.stringify({
+					login,
+					origin: tailnet.origin,
+					method: req.method,
+					path: upstreamTarget.pathname + upstreamTarget.search,
+					issuedAt: Date.now(),
+				}),
+			).toString("base64url");
+			const signature = createHmac("sha256", timingSecret)
+				.update(`hov-router/tailscale-dashboard/v1\n${payload}`)
+				.digest("base64url");
+			init.headers.set(DASHBOARD_PROOF, `v1.${payload}.${signature}`);
+		}
 		if (managedTimingEnabled) {
 			init.headers.set(
 				MANAGED_TIMING_HEADER,
@@ -3609,9 +3691,8 @@ export function createGuard(options = {}) {
 	// independent 300s whole-upload timeout otherwise preempts a legitimate
 	// maintenance waiter whose body is intentionally not being consumed.
 	// Preserve finite native protection before a complete header is available.
-	const server = http.createServer(
-		{ requestTimeout: 0, headersTimeout: 60_000 },
-		async (req, res) => {
+	function ingressHandler(privateIngress) {
+		return async (req, res) => {
 			// server.close() stops accepting new TCP connections, but a connection
 			// with an in-flight request can still present another keep-alive request.
 			// Gate admission before reading its body or acquiring a concurrency lease
@@ -3762,6 +3843,28 @@ export function createGuard(options = {}) {
 				);
 				context.dispose();
 				return;
+			}
+
+			if (
+				privateIngress &&
+				upstreamTarget.pathname.startsWith("/api/") &&
+				req.headers["x-api-key"] === undefined &&
+				req.headers.authorization === undefined
+			) {
+				const login = allowedLogin(req, tailnet);
+				if (!login) {
+					drainRequestForContext(req, res, context);
+					sendJsonError(
+						res,
+						context,
+						403,
+						"guard_dashboard_forbidden",
+						"dashboard access denied",
+					);
+					context.dispose();
+					return;
+				}
+				dashboardLogins.set(req, login);
 			}
 
 			try {
@@ -3921,58 +4024,84 @@ export function createGuard(options = {}) {
 				bodyReaderLease?.release();
 				context.dispose();
 			}
-		},
-	);
+		};
+	}
 
-	server.on("close", () => upstreamTransport?.close());
-
+	const ingressOptions = { requestTimeout: 0, headersTimeout: 60_000 };
+	const server = http.createServer(ingressOptions, ingressHandler(false));
+	const privateServer = tailnet
+		? http.createServer(ingressOptions, ingressHandler(true))
+		: null;
+	const listeners = privateServer ? [server, privateServer] : [server];
 	const sockets = new Set();
-	server.on("connection", (socket) => {
-		sockets.add(socket);
-		socket.on("close", () => sockets.delete(socket));
-	});
+	const openListeners = new Set();
+	for (const listener of listeners) {
+		listener.on("listening", () => openListeners.add(listener));
+		listener.on("close", () => {
+			openListeners.delete(listener);
+			if (!openListeners.size) upstreamTransport?.close();
+		});
+		listener.on("connection", (socket) => {
+			sockets.add(socket);
+			socket.on("close", () => sockets.delete(socket));
+		});
+	}
 
 	async function listen() {
-		if (controlServer)
+		const opened = [];
+		async function bind(listener, ...args) {
 			await new Promise((resolve, reject) => {
-				controlServer.once("error", reject);
-				controlServer.listen(controlSocketPath, () => {
-					chmodSync(controlSocketPath, 0o600);
+				listener.once("error", reject);
+				listener.listen(...args, () => {
+					listener.off("error", reject);
+					opened.push(listener);
 					resolve();
 				});
 			});
-		return new Promise((resolve, reject) => {
-			const onError = (error) => reject(error);
-			server.once("error", onError);
-			server.listen(listenPort, listenHost, () => {
-				server.off("error", onError);
-				const address = server.address();
-				if (!address || typeof address === "string") {
-					reject(new Error("guard did not bind a TCP address"));
-					return;
-				}
-				log("guard_started", {
-					listenHost,
-					listenPort: address.port,
-					upstreamBase,
-					maxActive,
-					maxQueue,
-					maxBodyReaders,
-					maxRecoveryWaits,
-					maxAttempts,
-					totalDeadlineMs,
-					retryAttemptHeadroomMs,
-					maxRecoverySleepMs,
-					maxInspectionBytes,
-					maxRequestBodyBytes,
-					maxBufferedRequestBodyBytes,
-					requestDrainTimeoutMs,
-					responseIdleTimeoutMs,
-					delayInspectionTimeoutMs,
-				});
-				resolve(address);
+		}
+		try {
+			if (privateServer) {
+				checkSocketPath(tailnet.socket);
+				await bind(privateServer, tailnet.socket);
+				chmodSync(tailnet.socket, 0o600);
+			}
+			if (controlServer) {
+				await bind(controlServer, controlSocketPath);
+				chmodSync(controlSocketPath, 0o600);
+			}
+			await bind(server, listenPort, listenHost);
+			const address = server.address();
+			if (!address || typeof address === "string")
+				throw new Error("guard did not bind a TCP address");
+			log("guard_started", {
+				listenHost,
+				listenPort: address.port,
+				upstreamBase,
+				maxActive,
+				maxQueue,
+				maxBodyReaders,
+				maxRecoveryWaits,
+				maxAttempts,
+				totalDeadlineMs,
+				retryAttemptHeadroomMs,
+				maxRecoverySleepMs,
+				maxInspectionBytes,
+				maxRequestBodyBytes,
+				maxBufferedRequestBodyBytes,
+				requestDrainTimeoutMs,
+				responseIdleTimeoutMs,
+				delayInspectionTimeoutMs,
 			});
-		});
+			return address;
+		} catch (error) {
+			for (const socket of [...sockets, ...controlSockets]) socket.destroy();
+			await Promise.all(
+				opened.map(
+					(listener) => new Promise((resolve) => listener.close(resolve)),
+				),
+			);
+			throw error;
+		}
 	}
 
 	let shutdownPromise = null;
@@ -4009,15 +4138,20 @@ export function createGuard(options = {}) {
 				resolve({ outcome, exitStatus });
 				if (exitProcess) process.exit(exitStatus);
 			};
-			server.close(() => finish("natural", 0));
-			server.closeIdleConnections?.();
+			let remaining = listeners.length;
+			for (const listener of listeners) {
+				listener.close(() => {
+					if (--remaining === 0) finish("natural", 0);
+				});
+				listener.closeIdleConnections?.();
+			}
 			timer = setTimeout(() => {
 				log("guard_force_close", {
 					signal,
 					openSockets: sockets.size,
 					shutdownGraceMs,
 				});
-				server.closeAllConnections?.();
+				for (const listener of listeners) listener.closeAllConnections?.();
 				for (const socket of sockets) socket.destroy();
 				finish("forced", GUARD_FORCED_DRAIN_EXIT_STATUS);
 			}, shutdownGraceMs);
