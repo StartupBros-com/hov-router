@@ -6,6 +6,10 @@ import {
 /** Private hop-by-hop request correlation installed by hov-router-guard. */
 export const GUARD_REQUEST_ID_HEADER = "x-hov-router-guard-request-id" as const;
 
+/** Guard-signed, request-bound dashboard identity; never a client credential. */
+export const TAILSCALE_DASHBOARD_HEADER =
+	"x-hov-router-tailscale-dashboard" as const;
+
 /**
  * Reserved defense-in-depth name for the env-only guard credential.
  * Legitimate stack components never transmit the credential over HTTP.
@@ -16,6 +20,13 @@ export const GUARD_CORRELATION_SECRET_HEADER =
 /** Private proxy-to-provider carrier for the normalized logical Claude family. */
 export const CODEX_LOGICAL_MODEL_FAMILY_HEADER =
 	"x-hov-router-logical-model-family" as const;
+
+function stripTailscaleIdentityHeaders(headers: Headers): void {
+	headers.delete(TAILSCALE_DASHBOARD_HEADER);
+	for (const name of [...headers.keys()]) {
+		if (name.startsWith("tailscale-")) headers.delete(name);
+	}
+}
 
 const CLIENT_FORWARDING_HEADER_EXACT_NAMES = [
 	"cookie",
@@ -49,6 +60,7 @@ const CLIENT_FORWARDING_HEADER_PREFIXES = ["cf-", "x-forwarded-"] as const;
  * from the original request.
  */
 export function stripClientForwardingHeaders(headers: Headers): void {
+	stripTailscaleIdentityHeaders(headers);
 	for (const name of CLIENT_FORWARDING_HEADER_EXACT_NAMES) {
 		headers.delete(name);
 	}
@@ -76,6 +88,7 @@ export function stripClientForwardingHeaders(headers: Headers): void {
  */
 export function sanitizeProxyHeaders(original: Headers): Headers {
 	const sanitized = new Headers(original);
+	stripTailscaleIdentityHeaders(sanitized);
 
 	// Remove headers that are invalidated by automatic decompression
 	sanitized.delete("content-encoding");
@@ -119,6 +132,7 @@ export function sanitizeProxyHeaders(original: Headers): Headers {
  */
 export function sanitizeRequestHeaders(original: Headers): Headers {
 	const h = new Headers(original);
+	stripTailscaleIdentityHeaders(h);
 	h.delete("accept-encoding");
 	h.delete("content-encoding");
 	h.delete("content-length");
@@ -163,7 +177,12 @@ export function sanitizeResponseHeaders(
 ): Record<string, string> {
 	const sanitized: Record<string, string> = {};
 	for (const [name, value] of Object.entries(original)) {
-		if (!RESPONSE_SECRET_HEADERS.has(name.toLowerCase())) {
+		const lower = name.toLowerCase();
+		if (
+			!RESPONSE_SECRET_HEADERS.has(lower) &&
+			lower !== TAILSCALE_DASHBOARD_HEADER &&
+			!lower.startsWith("tailscale-")
+		) {
 			sanitized[name] = value;
 		}
 	}

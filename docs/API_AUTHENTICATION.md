@@ -4,6 +4,11 @@
 
 HoV Router (formerly better-ccflare) supports optional API authentication that allows you to secure your proxy endpoint with API keys. When API keys are configured, all requests to the proxy API must include a valid API key.
 
+For a private tailnet dashboard, [Tailscale dashboard access](tailscale-dashboard.md)
+lets explicitly allowed Tailscale users sign in automatically, without a key in
+the browser. It is opt-in, uses a dedicated private guard ingress, and leaves AI
+clients' API-key authentication unchanged.
+
 ## 🚀 Quick Start
 
 ### 1. Generate Your First API Key
@@ -362,17 +367,21 @@ DEBUG=auth:* hov-router --serve
 2. `Authorization: Bearer <key>` (standard HTTP format)
 
 ### **Path Exemptions**
-Once an API key exists, these are the only requests a client can make without one:
-- The dashboard page and its static assets (the page asks for a key before it loads any data)
+Once an API key exists, these are the requests a client can make without authentication:
+- The dashboard page and its static assets (data requests authenticate separately)
 - `GET /health` (health check)
 - `GET /api/version/check` (the dashboard's update notice)
 - `GET /api/sessions/:id/account` (the status-line badge)
 - `GET /api/oauth/qwen/status/:id` and `GET /api/oauth/codex/status/:id` (read-only setup polling)
 - `GET /api/public/subscription-value` (answers 404 unless the feed is turned on)
 
-Each exemption covers that method and path only. Every other request needs a
-key, including every other method on these paths, the rest of `/api/oauth/*`
-and all of `/api/api-keys/*`. None of these requests reaches a provider.
+Each exemption covers that method and path only. Every other request needs
+an authenticated principal, including every other method on these paths, the rest
+of `/api/oauth/*` and all of `/api/api-keys/*`. Normally that means an API key;
+opted-in [Tailscale dashboard access](tailscale-dashboard.md) supplies a verified
+admin identity for dashboard routes instead. It is authentication, not a public
+path exemption, and never authorizes inference. None of these exemptions reaches
+a provider.
 
 Two kinds of request from the router's own machine pass on a secret instead of
 a key:
