@@ -48,6 +48,7 @@ import {
 	CodexResetCreditObserver,
 	classifyAuthPath,
 	createServerDeviceSetupCoordinator,
+	createTailscaleDashboardVerifier,
 	ExternalCodexScanner,
 	memberNoticeStartupWarning,
 	runMemberNoticePass,
@@ -2078,7 +2079,12 @@ export default async function startServer(options?: {
 			localControlSecret,
 			modelRouteProfileController,
 		},
-		{ deviceSetupCoordinator },
+		{
+			deviceSetupCoordinator,
+			dashboardIdentityVerifier: createTailscaleDashboardVerifier(
+				readGuardCorrelationSecret(),
+			),
+		},
 	);
 
 	// Initialize AuthService for proxy authentication

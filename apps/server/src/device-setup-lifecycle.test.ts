@@ -41,6 +41,7 @@ mock.module("@hov-router/http-api", () => ({
 	CodexResetCreditObserver: MockCodexResetCreditObserver,
 	UsageWindowLedger: MockUsageWindowLedger,
 	classifyAuthPath: () => null,
+	createTailscaleDashboardVerifier: () => () => null,
 	memberNoticeStartupWarning: () => null,
 	runMemberNoticePass: async () => {},
 	startMemberNoticeScheduler: () => async () => {},

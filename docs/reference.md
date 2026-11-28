@@ -39,7 +39,7 @@ This project builds upon the foundation of [snipeship/ccflare](https://github.co
 - **Powerful CLI** - Complete command-line interface for account management and configuration
 - **REST API** - Complete API for automation and integration
 - **Claude Code `/model` Route Profiles** - Discover operator-defined exact-account or capability-pool routes in Claude Code's native picker and pin one authenticated session tree when caller/session identity is available, without changing other sessions. An exact local profile can opt its standalone WebSearch helpers into approved Anthropic subscription accounts ([opt-in](configuration.md#subscription-websearch-helper-opt-in)). See [configuration](configuration.md#claude-code-model-route-profiles) and [routing semantics](routing-architecture.md#claude-code-model-route-profiles)
-- **Standalone Linux x86_64 Binary** - Router 7.0.0 runs without Node.js or Bun; other platforms use the source-build path
+- **Standalone Linux x86_64 Binary** - Router 8.0.0 runs without Node.js or Bun; other platforms use the source-build path
 - **Comprehensive Logging** - Request/response tracking with searchable history
 - **Alert Webhooks** - With an empty `ALERT_WEBHOOK_TYPES` list, Discord keeps cache-efficiency observations (including recovery) and unknown-model catalog observations in alert history and the dashboard stream without sending a notification. Authentication failures, capacity warnings, actual stale-policy model rewrites, and cache telemetry gaps (including recovery) remain eligible. A nonempty list admits exactly the named types, including these observations. Generic webhooks retain their legacy admission and `{type, alert}` body. Discord presents the affected thing, observation, impact, action, and where to find evidence; raw messages remain in history. Persistence is not a delivery receipt: failed sends are logged, and the existing engine can record an opening that never arrived and later send its recovery.
 - **Database Integration** - SQLite for persistent storage and analytics
@@ -61,9 +61,9 @@ This project builds upon the foundation of [snipeship/ccflare](https://github.co
 
 ### Install the Linux x86_64 release
 
-[Release 7.0.0](https://github.com/StartupBros-com/hov-router/releases/tag/v7.0.0) contains one standalone Linux x86_64 binary; Node.js and Bun are not required to run it. For other platforms or a local build, use [Install from source](#install-from-source).
+[Release 8.0.0](https://github.com/StartupBros-com/hov-router/releases/tag/v8.0.0) contains one standalone Linux x86_64 binary; Node.js and Bun are not required to run it. For other platforms or a local build, use [Install from source](#install-from-source).
 
-The public home is `StartupBros-com/hov-router`, repository ID `1278801682` ([repository move](hov-router-migration.md#repository-move)). Use the current download and clone URLs below. Release 7.0.0 prints `HoV Router v7.0.0`. It still reads the configuration directory, environment variables and request headers by their names before the [8.0.0 rename](hov-router-migration.md#renamed-in-800): set `BETTER_CCFLARE_HOST`, not `HOV_ROUTER_HOST`, when you run it. The earlier 3.6.2 release keeps its historical bytes and signing identity and still prints its original product name. If you installed an earlier release with this guide, install 7.0.0 below, then [upgrade the earlier install](#upgrade-an-earlier-binary-install). 7.0.0 runs on SQLite only, sends no auto-refresh messages, has no Auto quality lane, and answers `410 Gone` for removed API endpoints: if your install used PostgreSQL, had auto-refresh on, requests a `claude-bccf-quality-*` model, or runs scripts against the router's API, read [PostgreSQL support removed](hov-router-migration.md#postgresql-support-removed), [Auto-refresh removed](hov-router-migration.md#auto-refresh-removed), [Removed in 5.0.0](hov-router-migration.md#removed-in-500) and [Auto quality lane removed](hov-router-migration.md#auto-quality-lane-removed) first. Coming from 6.x, also read [Upgrade leftovers removed](hov-router-migration.md#upgrade-leftovers-removed), [Insights page removed](hov-router-migration.md#insights-page-removed) and [Old model mapping formats removed](hov-router-migration.md#old-model-mapping-formats-removed): 7.0.0 no longer reads pending token rotations saved before 6.0.0, moves the alert routes off `/api/insights`, and rewrites old model-mapping data on its first start. Its [release notes](https://github.com/StartupBros-com/hov-router/releases/tag/v7.0.0) list the other breaking changes, such as the public value feed now served at schema version 2 only.
+The public home is `StartupBros-com/hov-router`, repository ID `1278801682` ([repository move](hov-router-migration.md#repository-move)). Use the current download and clone URLs below. Release 8.0.0 prints `HoV Router v8.0.0`. It reads only HoV Router names for storage, environment variables and headers. Before starting it on an existing install, follow [Renamed in 8.0.0](hov-router-migration.md#renamed-in-800) to move storage and update settings. The earlier 3.6.2 release keeps its historical bytes and signing identity and still prints its original product name. If you installed an earlier release with this guide, install 8.0.0 below, then [upgrade the earlier install](#upgrade-an-earlier-binary-install). 8.0.0 runs on SQLite only, sends no auto-refresh messages, has no Auto quality lane, and answers `410 Gone` for removed API endpoints: if your install used PostgreSQL, had auto-refresh on, requests a `claude-bccf-quality-*` model, or runs scripts against the router's API, read [PostgreSQL support removed](hov-router-migration.md#postgresql-support-removed), [Auto-refresh removed](hov-router-migration.md#auto-refresh-removed), [Removed in 5.0.0](hov-router-migration.md#removed-in-500) and [Auto quality lane removed](hov-router-migration.md#auto-quality-lane-removed) first. Coming from 6.x, also read [Upgrade leftovers removed](hov-router-migration.md#upgrade-leftovers-removed), [Insights page removed](hov-router-migration.md#insights-page-removed) and [Old model mapping formats removed](hov-router-migration.md#old-model-mapping-formats-removed): 7.0.0 no longer reads pending token rotations saved before 6.0.0, moves the alert routes off `/api/insights`, and rewrites old model-mapping data on its first start. The 7.0.0 [release notes](https://github.com/StartupBros-com/hov-router/releases/tag/v7.0.0) list the other breaking changes, such as the public value feed now served at schema version 2 only.
 
 Requires Bash on Linux x86_64, `curl`, and GNU coreutils (`sha256sum`, `mkdir`, `chmod`). No GitHub CLI, Node.js, or Bun is needed.
 
@@ -74,13 +74,13 @@ Requires Bash on Linux x86_64, `curl`, and GNU coreutils (`sha256sum`, `mkdir`, 
 (
   set -eu
   umask 077
-  version_dir="$HOME/.local/lib/hov-router/7.0.0"
+  version_dir="$HOME/.local/lib/hov-router/8.0.0"
   mkdir -p "$HOME/.local/lib/hov-router"
   mkdir "$version_dir"
   cd "$version_dir"
   curl -q --fail --location --proto '=https' --proto-redir '=https' \
-    --output hov-router https://github.com/StartupBros-com/hov-router/releases/download/v7.0.0/better-ccflare-linux-amd64
-  digest=39a4a56635918b54888e1b5caee392440c236316711f5681d93bc30d05a8b4f9
+    --output hov-router https://github.com/StartupBros-com/hov-router/releases/download/v8.0.0/hov-router-linux-amd64
+  digest=2e05c84aa432c3f60d58406bf611d29fa52032666e84819282178640f936da65
   printf '%s  hov-router\n' "$digest" | sha256sum --check --strict -
   chmod 755 hov-router
 )
@@ -89,13 +89,13 @@ Requires Bash on Linux x86_64, `curl`, and GNU coreutils (`sha256sum`, `mkdir`, 
 
 The checksum verifies the bytes against this trusted reference; it does not independently prove who built them. Before the first run, you can also [verify signed build provenance](hov-router-releases.md#optional-consumer-provenance-verification). That optional check verifies the binary against the exact repository, source commit, tag, workflow identity, signer commit, and hosted runner that built it. It needs `curl`, a current GitHub CLI and network access, but no GitHub login.
 
-If any command fails, stop: do not run the binary. The block refuses any existing `7.0.0` path, including a symlink, and leaves partial downloads for inspection rather than deleting or overwriting them. Inspect the error and existing files before retrying.
+If any command fails, stop: do not run the binary. The block refuses any existing `8.0.0` path, including a symlink, and leaves partial downloads for inspection rather than deleting or overwriting them. Inspect the error and existing files before retrying.
 
 **2. Run.** After the checksum (and optional provenance check) succeeds:
 
 <!-- router-release-run -->
 ```bash
-"$HOME/.local/lib/hov-router/7.0.0/hov-router" --help
+"$HOME/.local/lib/hov-router/8.0.0/hov-router" --help
 ```
 <!-- /router-release-run -->
 
@@ -109,7 +109,7 @@ After verification succeeds, create `hov-router` in `$HOME/.local/bin`, pointing
 ```bash
 (
   set -eu
-  binary="$HOME/.local/lib/hov-router/7.0.0/hov-router"
+  binary="$HOME/.local/lib/hov-router/8.0.0/hov-router"
   bin_dir="$HOME/.local/bin"
   test -x "$binary"
   mkdir -p "$bin_dir"
@@ -132,7 +132,7 @@ Each release installs into its own version directory, so step 1 leaves an earlie
 ```bash
 (
   set -eu
-  binary="$HOME/.local/lib/hov-router/7.0.0/hov-router"
+  binary="$HOME/.local/lib/hov-router/8.0.0/hov-router"
   bin_dir="$HOME/.local/bin"
   test -x "$binary"
   mkdir -p "$bin_dir"
@@ -166,7 +166,7 @@ Each release installs into its own version directory, so step 1 leaves an earlie
 ```
 <!-- /router-release-upgrade -->
 
-Then `hov-router --version` should print `HoV Router v7.0.0`. The block does not delete the earlier version directory or change a running service. To roll back, set `binary` to the earlier release's path, such as `$HOME/.local/lib/hov-router/6.4.0/hov-router` or `$HOME/.local/lib/wstack-router/3.6.2/wstack-router`, and run the block again.
+Then `hov-router --version` should print `HoV Router v8.0.0`. The block does not delete the earlier version directory or change a running service. To roll back, set `binary` to the earlier release's path, such as `$HOME/.local/lib/hov-router/7.0.0/hov-router` or `$HOME/.local/lib/wstack-router/3.6.2/wstack-router`, and run the block again. Before starting a pre-8.0.0 server, reverse the [storage, variable and header migration](hov-router-migration.md#renamed-in-800); changing the executable alias alone does not roll back those names.
 
 ### Install from source
 
@@ -197,7 +197,7 @@ The PATH change applies to this shell only. To keep it, add the printed director
 
 ### Start the local server
 
-The commands below require the 8.x rename code from [Install from source](#install-from-source), with that build first on PATH. The published 7.0.0 binary above ignores the 8.x environment keys, including the loopback binding below, and must not be used for these instructions. No 8.x release asset is assumed available.
+The commands below use the published 8.0.0 binary or a current [source build](#install-from-source), with the selected executable first on PATH. Upgrading an older install requires the [8.0.0 storage and settings migration](hov-router-migration.md#renamed-in-800) before starting it.
 
 For a new local setup, start the server and dashboard with:
 
@@ -1246,7 +1246,7 @@ Full documentation available in [the documentation index](index.md):
 
 ## Platform Support
 
-HoV Router 7.0.0, like the earlier 6.4.0, 6.3.0, 6.2.2, 6.2.1, 6.2.0, 6.1.0, 6.0.0, 5.1.0, 5.0.1, 5.0.0, 4.0.0, 3.7.x and 3.6.2 releases, provides a **Linux x86_64 binary only**. No Router Linux ARM64, macOS, or native Windows binary is published. The [source-build path](#install-from-source) remains available; its acceptance check runs on Linux x86_64, not macOS or native Windows.
+HoV Router 8.0.0, like the earlier 7.0.0, 6.4.0, 6.3.0, 6.2.2, 6.2.1, 6.2.0, 6.1.0, 6.0.0, 5.1.0, 5.0.1, 5.0.0, 4.0.0, 3.7.x and 3.6.2 releases, provides a **Linux x86_64 binary only**. No Router Linux ARM64, macOS, or native Windows binary is published. The [source-build path](#install-from-source) remains available; its acceptance check runs on Linux x86_64, not macOS or native Windows.
 
 The table and device list below describe the retained **upstream distribution** recipes, not HoV Router artifacts.
 
