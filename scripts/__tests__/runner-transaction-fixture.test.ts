@@ -73,3 +73,35 @@ test("stop waits until the runner has started its deploy listener", async () => 
 	expect(commands).toContain("serve");
 	expect(exit.code).toBe(STOPPED_EXIT_STATUS);
 }, 30_000);
+
+test("a runner's stop ignores listener starts from an earlier runner on the same layout", async () => {
+	const where = layout();
+	const first = await startRunner(where);
+	runners.push(first);
+	await first.waitForOutput(READY);
+	expect((await first.stop()).code).toBe(STOPPED_EXIT_STATUS);
+
+	const started = join(first.capture, "started-commands.log");
+	const serves = () =>
+		readFileSync(started, "utf8")
+			.split("\n")
+			.filter((command) => command === "serve").length;
+	expect(serves()).toBe(1);
+	writeFileSync(join(first.capture, "delay-command-serve"), "2");
+	const second = await startRunner(where);
+	runners.push(second);
+	await second.waitForOutput(READY);
+	expect(serves()).toBe(1);
+
+	// Assert at signal time: the EXIT path can wait long enough for a
+	// delayed listener to start after an incorrectly early signal.
+	const kill = second.child.kill.bind(second.child);
+	let servesAtTerm: number | undefined;
+	second.child.kill = (signal) => {
+		if (signal === "SIGTERM") servesAtTerm = serves();
+		return kill(signal);
+	};
+	const exit = await second.stop();
+	expect(servesAtTerm).toBe(2);
+	expect(exit.code).toBe(STOPPED_EXIT_STATUS);
+}, 30_000);
