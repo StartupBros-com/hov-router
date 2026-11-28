@@ -116,7 +116,7 @@ describe("server-tool routing errors", () => {
 		);
 		expect(response.status).toBe(400);
 		expect(response.headers.get("x-should-retry")).toBe("false");
-		expect(response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		expect(await response.json()).toMatchObject({
@@ -136,7 +136,7 @@ describe("server-tool routing errors", () => {
 		expect(error.reason).toBe("forced_incapable");
 		expect(error.accountId).toBe("forced-account");
 		expect(response.status).toBe(503);
-		expect(response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		expect(await response.json()).toEqual({
@@ -171,8 +171,8 @@ describe("server-tool routing errors", () => {
 			}),
 		);
 
-		expect(response.headers.has("x-better-ccflare-pool-status")).toBeFalse();
-		expect(response.headers.has("x-better-ccflare-recovery-scope")).toBeFalse();
+		expect(response.headers.has("x-hov-router-pool-status")).toBeFalse();
+		expect(response.headers.has("x-hov-router-recovery-scope")).toBeFalse();
 		expect(response.headers.has("retry-after")).toBeFalse();
 	});
 

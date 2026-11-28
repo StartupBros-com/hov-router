@@ -29,7 +29,7 @@ const KNOWN_ERROR_META: Record<
 		description:
 			"The upstream provider returned 429 without a reset header; entering probe cooldown.",
 		suggestion:
-			"Cooldown defaults to 60s. Set `CCFLARE_DEFAULT_COOLDOWN_NO_RESET_MS` in your environment to change it.",
+			"Cooldown defaults to 60s. Set `HOV_ROUTER_DEFAULT_COOLDOWN_NO_RESET_MS` in your environment to change it.",
 		severity: "warning",
 	},
 	upstream_402_payment_required: {
@@ -67,7 +67,7 @@ const KNOWN_ERROR_META: Record<
 		description:
 			"The upstream provider returned 529 (overloaded) without a Retry-After header; entering probe cooldown. This also covers mid-stream overloaded_error detections, which never carry a Retry-After header — HTTP headers were already sent before the error occurred in that path.",
 		suggestion:
-			"Cooldown defaults to 10s and pairs with a single-flight recovery probe (only one request re-probes the account once it expires, as long as another account is available to defer to — if every account is currently suppressed, the request runs ungated instead). Set `CCFLARE_OVERLOAD_COOLDOWN_MS` in your environment to change it.",
+			"Cooldown defaults to 10s and pairs with a single-flight recovery probe (only one request re-probes the account once it expires, as long as another account is available to defer to — if every account is currently suppressed, the request runs ungated instead). Set `HOV_ROUTER_OVERLOAD_COOLDOWN_MS` in your environment to change it.",
 		severity: "warning",
 	},
 	out_of_credits: {
@@ -223,7 +223,7 @@ const ATTEMPT_CAUSE_META: Record<
 		suggestion:
 			"A few are normal on slow providers. Many in a row point at an account " +
 			"that accepts requests and then stalls. " +
-			"`CCFLARE_ANTHROPIC_MEANINGFUL_PROGRESS_TIMEOUT_MS` sets the deadline.",
+			"`HOV_ROUTER_ANTHROPIC_MEANINGFUL_PROGRESS_TIMEOUT_MS` sets the deadline.",
 		severity: "error",
 	},
 	semantic_timeout: {
@@ -234,7 +234,7 @@ const ATTEMPT_CAUSE_META: Record<
 			"request.",
 		suggestion:
 			"If they repeat on one account, check that provider. " +
-			"`CCFLARE_ANTHROPIC_PRECOMMIT_TIMEOUT_MS` sets the idle window " +
+			"`HOV_ROUTER_ANTHROPIC_PRECOMMIT_TIMEOUT_MS` sets the idle window " +
 			"(120 seconds by default).",
 		severity: "error",
 	},
@@ -246,7 +246,7 @@ const ATTEMPT_CAUSE_META: Record<
 			"stream limit), so the attempt was stopped, and no other account could " +
 			"take the request.",
 		suggestion:
-			"`CCFLARE_ANTHROPIC_PRECOMMIT_MAX_BUFFER_BYTES` sets the pre-commit " +
+			"`HOV_ROUTER_ANTHROPIC_PRECOMMIT_MAX_BUFFER_BYTES` sets the pre-commit " +
 			"buffer limit. Repeated ones on ordinary requests are worth reporting " +
 			"as a bug.",
 		severity: "error",
@@ -348,7 +348,7 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 			"deadline, so the router stopped before sending it anywhere.",
 		suggestion:
 			"Occasional ones point at a busy host. " +
-			"`CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS` sets the deadline (20 seconds " +
+			"`HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS` sets the deadline (20 seconds " +
 			"by default).",
 		severity: "error",
 	},
@@ -449,7 +449,7 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 		suggestion:
 			"Many in a row point at accounts that accept requests and then stall; " +
 			"see Routing attempts on the Routing card. " +
-			"`CCFLARE_ANTHROPIC_MEANINGFUL_PROGRESS_TIMEOUT_MS` sets the deadline.",
+			"`HOV_ROUTER_ANTHROPIC_MEANINGFUL_PROGRESS_TIMEOUT_MS` sets the deadline.",
 		severity: "error",
 	},
 	anthropic_rescue_routing_error: {
@@ -506,7 +506,7 @@ const ROUTER_ERROR_META: Record<string, ErrorMeta> = {
 type FamilyEntry = Omit<ErrorMeta, "description"> & { detail: string };
 
 const PINNED =
-	"This request was pinned, by the `x-better-ccflare-account-id` header or " +
+	"This request was pinned, by the `x-hov-router-account-id` header or " +
 	"a route profile, to one account or to the accounts its route profile " +
 	"allows, and ";
 

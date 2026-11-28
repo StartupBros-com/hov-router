@@ -119,9 +119,9 @@ function makeRequest(): Request {
 }
 
 const ENV_KEYS = [
-	"CCFLARE_RATE_LIMIT_BACKOFF_BASE_MS",
-	"CCFLARE_RATE_LIMIT_BACKOFF_MAX_MS",
-	"CCFLARE_PASSTHROUGH_ON_EMPTY_POOL",
+	"HOV_ROUTER_RATE_LIMIT_BACKOFF_BASE_MS",
+	"HOV_ROUTER_RATE_LIMIT_BACKOFF_MAX_MS",
+	"HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL",
 ] as const;
 let savedEnv: Record<string, string | undefined>;
 const realDateNow = Date.now;
@@ -198,7 +198,7 @@ describe("incident 2026-07-09 — account-wide cooldown from a scoped upstream 4
 			expect(error.code).toBe("route_unavailable");
 			expect("next_available_at" in error).toBe(false);
 			expect(response.headers.get("Retry-After")).toBeNull();
-			expect(response.headers.get("x-better-ccflare-pool-status")).toBeNull();
+			expect(response.headers.get("x-hov-router-pool-status")).toBeNull();
 		} finally {
 			collectorSpy.mockRestore();
 		}

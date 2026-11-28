@@ -38,7 +38,7 @@ const rotation = {
 let directory: string;
 
 beforeEach(() => {
-	directory = mkdtempSync(join(tmpdir(), "better-ccflare-pending-slots-"));
+	directory = mkdtempSync(join(tmpdir(), "hov-router-pending-slots-"));
 });
 
 afterEach(() => {

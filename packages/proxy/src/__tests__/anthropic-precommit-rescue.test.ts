@@ -113,9 +113,7 @@ describe("coordinateAnthropicPreCommitRescue", () => {
 		});
 
 		expect(response).toBe(original);
-		expect(
-			response.headers.get("x-better-ccflare-precommit-rescue"),
-		).toBeNull();
+		expect(response.headers.get("x-hov-router-precommit-rescue")).toBeNull();
 	});
 
 	it("keeps a slow sequential recovery alive with protocol pings and exposes only the gated winner", async () => {
@@ -243,7 +241,7 @@ describe("coordinateAnthropicPreCommitRescue", () => {
 				status: 400,
 				headers: {
 					"content-type": "application/json",
-					"x-better-ccflare-context-overflow": "authoritative",
+					"x-hov-router-context-overflow": "authoritative",
 				},
 			}),
 		);

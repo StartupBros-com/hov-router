@@ -501,7 +501,7 @@ describe("strategy source (real config)", () => {
 	const tmpDirs: string[] = [];
 
 	function realConfig(): Config {
-		const dir = mkdtempSync(join(tmpdir(), "better-ccflare-handler-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-handler-"));
 		tmpDirs.push(dir);
 		return new Config(join(dir, "config.json"));
 	}

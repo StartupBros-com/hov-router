@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-# Helpers for deploy-ccflare.sh. File rendering and validation stay deterministic;
+# Helpers for deploy-hov-router.sh. File rendering and validation stay deterministic;
 # the one pre-restart activation helper isolates its sudo/systemd mutation so the
 # exact reload, effective-policy check, and no-restart rollback can be mocked.
 
 # A deploy runs from the detached snapshot of refs/remotes/origin/main that the
-# invoked script created (step 0 of deploy-ccflare.sh). Accept only that commit:
+# invoked script created (step 0 of deploy-hov-router.sh). Accept only that commit:
 # detached, at the SHA the bootstrap named, which must still be the freshly
 # fetched origin/main tip.
 validate_main_deploy_source() {
@@ -146,7 +146,7 @@ NODE
 )" || report="unreadable"
 	echo "route profiles: $report"
 	if [[ "$report" == *"status=last_good"* ]]; then
-		echo "WARNING: the route profiles file was NOT loaded; the backend serves its last good copy. The reason is in the backend log (journalctl -u ccflare-stack.service). Fix the file and deploy again." >&2
+		echo "WARNING: the route profiles file was NOT loaded; the backend serves its last good copy. The reason is in the backend log (journalctl -u hov-router.service). Fix the file and deploy again." >&2
 	elif [[ "$report" == *"fallback=MISSING"* ]]; then
 		echo "WARNING: the backend could not save a last-good copy of the route profiles, so a later broken edit has nothing to fall back to. See the backend log." >&2
 	fi
@@ -170,6 +170,31 @@ describe_deploy_lock_holder() {
 	fi
 }
 
+# Release 8.0.0 renamed the unit 7.x used, ccflare-stack.service, to
+# hov-router.service. A host still on the old unit moves once with
+# scripts/hov-router-cutover.sh. A deploy over it would fail on a pin that does
+# not exist yet, or start a second router beside the one still serving. Prints
+# the reason and succeeds when the host is in that state. The state argument is
+# `systemctl is-active` output, or empty where systemd is not consulted.
+legacy_unit_host_reason() {
+	if [[ "$#" -ne 3 ]]; then
+		echo "legacy_unit_host_reason requires: legacy-unit-file pin legacy-unit-state" >&2
+		return 2
+	fi
+	local legacy_unit_file="$1" pin="$2" legacy_state="$3"
+	case "$legacy_state" in
+		active | activating | reloading | refreshing | deactivating)
+			printf '%s is %s' "${legacy_unit_file##*/}" "$legacy_state"
+			return 0
+			;;
+	esac
+	if [[ -e "$legacy_unit_file" && ! -e "$pin" ]]; then
+		printf '%s is installed and %s does not exist yet' "${legacy_unit_file##*/}" "$pin"
+		return 0
+	fi
+	return 1
+}
+
 validate_deploy_owned_systemd_pin() {
 	if [[ "$#" -ne 1 || ! -f "$1" ]]; then
 		echo "validate_deploy_owned_systemd_pin requires an existing systemd drop-in" >&2
@@ -177,14 +202,14 @@ validate_deploy_owned_systemd_pin() {
 	fi
 
 	local input="$1"
-	local managed_begin="# BEGIN better-ccflare managed deployment"
-	local managed_end="# END better-ccflare managed deployment"
+	local managed_begin="# BEGIN hov-router managed deployment"
+	local managed_end="# END hov-router managed deployment"
 	awk \
 		-v input="$input" \
 		-v begin="$managed_begin" \
 		-v end="$managed_end" '
 		function guidance() {
-			print "Migrate operator policy to a later drop-in such as /etc/systemd/system/ccflare-stack.service.d/90-operator-policy.conf, then leave 50-pinned-build.conf deploy-owned." > "/dev/stderr"
+			print "Migrate operator policy to a later drop-in such as /etc/systemd/system/hov-router.service.d/90-operator-policy.conf, then leave 50-pinned-build.conf deploy-owned." > "/dev/stderr"
 		}
 		function fail(message) {
 			print message > "/dev/stderr"
@@ -230,25 +255,25 @@ preserve_unmanaged_systemd_environment() {
 	node - "$1" <<'NODE'
 const fs = require("node:fs");
 const input = process.argv[2];
-const managedBegin = "# BEGIN better-ccflare managed deployment";
-const managedEnd = "# END better-ccflare managed deployment";
+const managedBegin = "# BEGIN hov-router managed deployment";
+const managedEnd = "# END hov-router managed deployment";
 const deployOwned = new Set([
-  "CCFLARE_BIN",
-  "CCFLARE_DISTRIBUTION",
-  "CCFLARE_PRODUCER",
-  "CCFLARE_ARTIFACT_MODE",
-  "CCFLARE_GIT_SHA",
-  "CCFLARE_GIT_REF",
-  "CCFLARE_SOURCE_SHA", "CCFLARE_SCHEMA_DIGEST", "CCFLARE_PIN_PATH", "CCFLARE_MANAGED_TIMING", "GUARD_ACCEPTED_CAP_MS",
-  "CCFLARE_SOURCE_REF",
-  "CCFLARE_UPDATE_CHANNEL",
-  "CCFLARE_VERSION",
-  "CCFLARE_BUILD_DATE",
-  "CCFLARE_CHECKOUT_SHA",
-  "CCFLARE_EVENT_SHA",
-  "CCFLARE_TAG_SHA",
-  "CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES",
-  "CCFLARE_MAX_BODY_ADMISSION_QUEUE",
+  "HOV_ROUTER_BIN",
+  "HOV_ROUTER_DISTRIBUTION",
+  "HOV_ROUTER_PRODUCER",
+  "HOV_ROUTER_ARTIFACT_MODE",
+  "HOV_ROUTER_GIT_SHA",
+  "HOV_ROUTER_GIT_REF",
+  "HOV_ROUTER_SOURCE_SHA", "HOV_ROUTER_SCHEMA_DIGEST", "HOV_ROUTER_PIN_PATH", "HOV_ROUTER_MANAGED_TIMING", "GUARD_ACCEPTED_CAP_MS",
+  "HOV_ROUTER_SOURCE_REF",
+  "HOV_ROUTER_UPDATE_CHANNEL",
+  "HOV_ROUTER_VERSION",
+  "HOV_ROUTER_BUILD_DATE",
+  "HOV_ROUTER_CHECKOUT_SHA",
+  "HOV_ROUTER_EVENT_SHA",
+  "HOV_ROUTER_TAG_SHA",
+  "HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES",
+  "HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE",
   "GUARD_SCRIPT",
   "GUARD_SOURCE_ID",
   "GUARD_POLICY_ID",
@@ -449,11 +474,11 @@ render_systemd_pin() {
 	if [[ ! "$accepted_cap_ms" =~ ^[1-9][0-9]{0,6}$ ]] || ((accepted_cap_ms > 1470000)); then echo "invalid accepted request cap" >&2; return 2; fi
 	local deadline_ms=600000 retry_attempt_headroom_ms=30000 max_recovery_sleep_ms=120000 shutdown_grace_ms=600000 max_recovery_waits=12
 	local kill_mode=mixed stop_timeout=720s
-	local restart=on-failure restart_sec=5s restart_prevent_exit_status=143
+	local restart=on-failure restart_sec=5s restart_prevent_exit_status="143 78"
 	local start_limit_interval=300s start_limit_burst=5
-	local runtime_directory=ccflare-stack runtime_directory_mode=0700
-	local managed_begin="# BEGIN better-ccflare managed deployment"
-	local managed_end="# END better-ccflare managed deployment"
+	local runtime_directory=hov-router runtime_directory_mode=0700
+	local managed_begin="# BEGIN hov-router managed deployment"
+	local managed_end="# END hov-router managed deployment"
 
 	# This drop-in is a deploy-owned identity document. Operator policy belongs
 	# in a later drop-in, where systemd can merge it explicitly without leaving
@@ -472,7 +497,7 @@ render_systemd_pin() {
 	runner_sha256="$(sha256_file "$runner")" || return 2
 
 	# Preserve unrelated service environment entries. The renderer owns its
-	# explicit CCFLARE_/GUARD_/RUNNER_ identity and policy keys, but a mixed
+	# explicit HOV_ROUTER_/GUARD_/RUNNER_ identity and policy keys, but a mixed
 	# Environment= directive must retain each unowned assignment.
 	preserved_environment_lines="$(preserve_unmanaged_systemd_environment "$input")" \
 		|| return "$?"
@@ -486,22 +511,22 @@ render_systemd_pin() {
 		if [[ -n "$preserved_environment_lines" ]]; then
 			printf '%s\n' "$preserved_environment_lines"
 		fi
-		printf 'Environment=%s\n' "CCFLARE_BIN=$binary"
+		printf 'Environment=%s\n' "HOV_ROUTER_BIN=$binary"
 		if [[ -n "$schema_digest" ]]; then
-			printf 'Environment=%s\n' "CCFLARE_SCHEMA_DIGEST=$schema_digest"
-			printf '%s\n' "Environment=CCFLARE_PIN_PATH=/etc/systemd/system/ccflare-stack.service.d/50-pinned-build.conf"
+			printf 'Environment=%s\n' "HOV_ROUTER_SCHEMA_DIGEST=$schema_digest"
+			printf '%s\n' "Environment=HOV_ROUTER_PIN_PATH=/etc/systemd/system/hov-router.service.d/50-pinned-build.conf"
 		fi
 		printf 'Environment=%s\n' "GUARD_ACCEPTED_CAP_MS=$accepted_cap_ms"
-		printf '%s\n' "Environment=CCFLARE_MANAGED_TIMING=1"
+		printf '%s\n' "Environment=HOV_ROUTER_MANAGED_TIMING=1"
 		# A production source deployment is an exact, non-actionable identity.
 		# Keep redundant fields adjacent so stale or conflicting pins fail closed.
-		printf '%s\n' "Environment=CCFLARE_DISTRIBUTION=v1:startupbros-managed-source"
-		printf '%s\n' "Environment=CCFLARE_PRODUCER=startupbros"
-		printf '%s\n' "Environment=CCFLARE_ARTIFACT_MODE=managed-source"
-		printf 'Environment=%s\n' "CCFLARE_GIT_SHA=$backend_source_id"
-		printf '%s\n' "Environment=CCFLARE_GIT_REF=refs/heads/main"
-		printf 'Environment=%s\n' "CCFLARE_SOURCE_SHA=$backend_source_id"
-		printf '%s\n' "Environment=CCFLARE_SOURCE_REF=refs/heads/main"
+		printf '%s\n' "Environment=HOV_ROUTER_DISTRIBUTION=v1:startupbros-managed-source"
+		printf '%s\n' "Environment=HOV_ROUTER_PRODUCER=startupbros"
+		printf '%s\n' "Environment=HOV_ROUTER_ARTIFACT_MODE=managed-source"
+		printf 'Environment=%s\n' "HOV_ROUTER_GIT_SHA=$backend_source_id"
+		printf '%s\n' "Environment=HOV_ROUTER_GIT_REF=refs/heads/main"
+		printf 'Environment=%s\n' "HOV_ROUTER_SOURCE_SHA=$backend_source_id"
+		printf '%s\n' "Environment=HOV_ROUTER_SOURCE_REF=refs/heads/main"
 		printf 'Environment=%s\n' "GUARD_SCRIPT=$guard_script"
 		printf 'Environment=%s\n' "GUARD_SOURCE_ID=$source_id"
 		printf 'Environment=%s\n' "GUARD_POLICY_ID=$policy_id"
@@ -515,8 +540,8 @@ render_systemd_pin() {
 		# The worst-case single reservation is capped at 8x the 32 MiB request
 		# ceiling (256 MiB), so this 1 GiB pin admits four concurrent
 		# worst-case requests rather than only ever admitting one.
-		printf '%s\n' "Environment=CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=1073741824"
-		printf '%s\n' "Environment=CCFLARE_MAX_BODY_ADMISSION_QUEUE=500"
+		printf '%s\n' "Environment=HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=1073741824"
+		printf '%s\n' "Environment=HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=500"
 		printf 'Environment=%s\n' "GUARD_TOTAL_DEADLINE_MS=$deadline_ms"
 		printf 'Environment=%s\n' "GUARD_RETRY_ATTEMPT_HEADROOM_MS=$retry_attempt_headroom_ms"
 		printf 'Environment=%s\n' "GUARD_MAX_RECOVERY_SLEEP_MS=$max_recovery_sleep_ms"
@@ -855,11 +880,11 @@ validate_bun_body_admission_policy_values() {
 	local budget="$1" queue="$2" label="$3"
 	if [[ ! "$budget" =~ ^[0-9]{1,10}$ ]] \
 		|| ((budget < 268435456 || budget > 1073741824)); then
-		echo "unsafe ${label}CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES=${budget}; expected integer 268435456..1073741824" >&2
+		echo "unsafe ${label}HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES=${budget}; expected integer 268435456..1073741824" >&2
 		return 1
 	fi
 	if [[ ! "$queue" =~ ^[0-9]{1,4}$ ]] || ((queue > 5000)); then
-		echo "unsafe ${label}CCFLARE_MAX_BODY_ADMISSION_QUEUE=${queue}; expected integer 0..5000" >&2
+		echo "unsafe ${label}HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE=${queue}; expected integer 0..5000" >&2
 		return 1
 	fi
 }
@@ -910,15 +935,15 @@ validate_deployment_timing() {
 	local rss_threshold rss_poll rss_min_uptime rss_samples rss_cooldown rss_max_recycles rss_window
 	local stop_timeout_usec stop_timeout_ms minimum_stop_timeout_usec
 	body_admission_budget_bytes="$(
-		configured_systemd_environment_value "$pin" CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES
+		configured_systemd_environment_value "$pin" HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES
 	)" || {
-		echo "systemd pin is missing CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES" >&2
+		echo "systemd pin is missing HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES" >&2
 		return 1
 	}
 	body_admission_queue_limit="$(
-		configured_systemd_environment_value "$pin" CCFLARE_MAX_BODY_ADMISSION_QUEUE
+		configured_systemd_environment_value "$pin" HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE
 	)" || {
-		echo "systemd pin is missing CCFLARE_MAX_BODY_ADMISSION_QUEUE" >&2
+		echo "systemd pin is missing HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE" >&2
 		return 1
 	}
 	validate_bun_body_admission_policy_values \
@@ -1009,7 +1034,7 @@ validate_deployment_timing() {
 		return 1
 	}
 	local app_drain_ms cushion_ms stop_reserve_ms accepted_cap_ms
- app_drain_ms="$(configured_systemd_environment_value "$pin" CCFLARE_SERVER_DRAIN_MS 2>/dev/null || printf 60000)"
+ app_drain_ms="$(configured_systemd_environment_value "$pin" HOV_ROUTER_SERVER_DRAIN_MS 2>/dev/null || printf 60000)"
  cushion_ms="$(configured_systemd_environment_value "$pin" GUARD_SHUTDOWN_CUSHION_MS 2>/dev/null || printf 5000)"
  accepted_cap_ms="$(configured_systemd_environment_value "$pin" GUARD_ACCEPTED_CAP_MS 2>/dev/null || printf 1470000)"
  if [[ ! "$app_drain_ms" =~ ^(0|[1-9][0-9]{0,9})$ || ! "$cushion_ms" =~ ^(0|[1-9][0-9]{0,4})$ || ! "$accepted_cap_ms" =~ ^[1-9][0-9]{0,6}$ ]] || ((app_drain_ms > 2147403647 || cushion_ms > 60000 || accepted_cap_ms > 1470000)); then echo "invalid retirement or accepted timing policy" >&2; return 1; fi
@@ -1129,17 +1154,17 @@ validate_effective_systemd_policy() {
 		validate_production_rss_policy_values "$rss_threshold" "$rss_poll" "$rss_min_uptime" "$rss_samples" "$rss_cooldown" "$rss_max_recycles" "$rss_window" "effective " || return 1
 	fi
 	if ! effective_body_admission_budget_bytes="$(
-		systemd_environment_text_value "$effective_environment" CCFLARE_MAX_BUFFERED_REQUEST_BODY_BYTES
+		systemd_environment_text_value "$effective_environment" HOV_ROUTER_MAX_BUFFERED_REQUEST_BODY_BYTES
 	)"; then
 		effective_body_admission_budget_bytes=""
 	fi
 	if ! effective_body_admission_queue_limit="$(
-		systemd_environment_text_value "$effective_environment" CCFLARE_MAX_BODY_ADMISSION_QUEUE
+		systemd_environment_text_value "$effective_environment" HOV_ROUTER_MAX_BODY_ADMISSION_QUEUE
 	)"; then
 		effective_body_admission_queue_limit=""
 	fi
 	if [[ -z "$effective_body_admission_budget_bytes" || -z "$effective_body_admission_queue_limit" ]]; then
-		echo "effective systemd environment is missing a CCFLARE body-admission setting" >&2
+		echo "effective systemd environment is missing a HOV_ROUTER body-admission setting" >&2
 		return 1
 	else
 		validate_bun_body_admission_policy_values \
@@ -1227,8 +1252,10 @@ validate_effective_systemd_policy() {
 		echo "unsafe effective RestartUSec=${restart_sec}; expected at least ${minimum_restart_sec_usec}us" >&2
 		return 1
 	fi
-	if [[ ! " $restart_prevent_exit_status " == *" 143 "* ]]; then
-		echo "effective RestartPreventExitStatus=${restart_prevent_exit_status}; expected status 143" >&2
+	# 143 is an intentional stop; 78 is a retired name the runner or backend
+	# refused, which a restart would only repeat.
+	if [[ ! " $restart_prevent_exit_status " == *" 143 "* || ! " $restart_prevent_exit_status " == *" 78 "* ]]; then
+		echo "effective RestartPreventExitStatus=${restart_prevent_exit_status}; expected statuses 143 and 78" >&2
 		return 1
 	fi
 	start_limit_interval_usec="$(systemd_duration_to_microseconds "$start_limit_interval")" || {
@@ -1256,7 +1283,7 @@ validate_effective_systemd_policy() {
 		return 1
 	}
 	local app_drain_ms cushion_ms stop_reserve_ms accepted_cap_ms
- app_drain_ms="$(systemd_environment_text_value "$effective_environment" CCFLARE_SERVER_DRAIN_MS 2>/dev/null || printf 60000)"
+ app_drain_ms="$(systemd_environment_text_value "$effective_environment" HOV_ROUTER_SERVER_DRAIN_MS 2>/dev/null || printf 60000)"
  cushion_ms="$(systemd_environment_text_value "$effective_environment" GUARD_SHUTDOWN_CUSHION_MS 2>/dev/null || printf 5000)"
  accepted_cap_ms="$(systemd_environment_text_value "$effective_environment" GUARD_ACCEPTED_CAP_MS 2>/dev/null || printf 1470000)"
  if [[ ! "$app_drain_ms" =~ ^(0|[1-9][0-9]{0,9})$ || ! "$cushion_ms" =~ ^(0|[1-9][0-9]{0,4})$ || ! "$accepted_cap_ms" =~ ^[1-9][0-9]{0,6}$ ]] || ((app_drain_ms > 2147403647 || cushion_ms > 60000 || accepted_cap_ms > 1470000)); then echo "invalid effective retirement or accepted timing policy" >&2; return 1; fi
@@ -1305,7 +1332,7 @@ reload_validate_or_restore_systemd_policy() {
 	fi
 	if ! validate_effective_systemd_policy "$service" >/dev/null; then
 		echo "HARD FAILURE: operator drop-ins still produce an unsafe effective systemd policy after restoring the prior deploy pin" >&2
-		echo "Correct the later operator drop-ins (for example /etc/systemd/system/ccflare-stack.service.d/90-operator-policy.conf) before restarting the service." >&2
+		echo "Correct the later operator drop-ins (for example /etc/systemd/system/hov-router.service.d/90-operator-policy.conf) before restarting the service." >&2
 		return 70
 	fi
 	return 1
@@ -1563,7 +1590,7 @@ validate_bun_runtime_version() {
 	if [[ "$actual" != "$expected" ]]; then
 		echo "refusing to deploy: $label runs Bun '${actual:-unknown}', but .bun-version pins $expected" >&2
 		if [[ "$executable" != */* ]]; then
-			echo "Put Bun $expected first on PATH and run the deploy again, for example: mise exec bun@$expected -- scripts/deploy-ccflare.sh" >&2
+			echo "Put Bun $expected first on PATH and run the deploy again, for example: mise exec bun@$expected -- scripts/deploy-hov-router.sh" >&2
 		fi
 		return 1
 	fi
@@ -1575,7 +1602,7 @@ immutable_binary_name() {
   echo "immutable_binary_name requires: version source-id sha256" >&2
   return 2
  fi
- printf 'better-ccflare-v%s-%s-%s\n' "$1" "$2" "$3"
+ printf 'hov-router-v%s-%s-%s\n' "$1" "$2" "$3"
 }
 
 verify_process_start_identity() {
@@ -1646,7 +1673,7 @@ guard_prune_candidates() {
 # mismatch deliberately takes the ordinary full-stack bootstrap path.
 #
 # This is the only copy of that decision: the deploy calls it in sudo mode, and
-# `deploy-ccflare.sh --check` calls it in user mode against the target's source
+# `deploy-hov-router.sh --check` calls it in user mode against the target's source
 # files. Prints the first field that rules out backend-only, then returns
 #   0  backend-only is possible
 #   1  a full restart is required

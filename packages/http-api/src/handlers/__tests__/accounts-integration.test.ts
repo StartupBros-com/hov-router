@@ -1210,7 +1210,7 @@ describe("Accounts Handler - OAuth control-plane hotfix (U8)", () => {
 	} as unknown as Config;
 
 	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ccflare-oauth-hotfix-"));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hov-router-oauth-hotfix-"));
 		dbOps = new DatabaseOperations(path.join(tmpDir, "test.db"));
 	});
 
@@ -1415,7 +1415,7 @@ describe("Accounts Handler - compatible endpoint catalog invalidation", () => {
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), "ccflare-compatible-endpoint-"),
+			path.join(os.tmpdir(), "hov-router-compatible-endpoint-"),
 		);
 		dbOps = new DatabaseOperations(path.join(tmpDir, "test.db"));
 		originalFetch = globalThis.fetch;
@@ -1537,7 +1537,7 @@ describe("Accounts Handler - U1 static-key row-shape parity", () => {
 	let dbOps: DatabaseOperations;
 
 	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ccflare-u1-parity-"));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "hov-router-u1-parity-"));
 		dbOps = new DatabaseOperations(path.join(tmpDir, "test.db"));
 	});
 

@@ -41,7 +41,7 @@ let ctx: ProxyContext;
 
 beforeEach(async () => {
 	const directory = mkdtempSync(
-		join(tmpdir(), "ccflare-cancellation-history-"),
+		join(tmpdir(), "hov-router-cancellation-history-"),
 	);
 	DatabaseFactory.initialize(join(directory, "history.db"));
 	db = DatabaseFactory.getInstance();
@@ -104,7 +104,7 @@ function makeRequest(controller: AbortController): Request {
 		signal: controller.signal,
 		headers: {
 			"content-type": "application/json",
-			"x-better-ccflare-account-id": "cancel-account",
+			"x-hov-router-account-id": "cancel-account",
 			authorization: "Bearer private-credential",
 		},
 		body: JSON.stringify({
@@ -526,7 +526,7 @@ describe("canonical history for caller cancellation before forwarding", () => {
 		ctx.internalProbeSecret = "synthetic-internal-secret";
 		const request = makeRequest(controller);
 		request.headers.set(INTERNAL_PROBE_SECRET_HEADER, ctx.internalProbeSecret);
-		request.headers.set("x-better-ccflare-auto-refresh", "true");
+		request.headers.set("x-hov-router-auto-refresh", "true");
 		globalThis.fetch = mock(async () => {
 			controller.abort();
 			throw new DOMException("synthetic disconnect", "AbortError");
@@ -786,7 +786,7 @@ describe("canonical history for caller cancellation before forwarding", () => {
 			signal: controller.signal,
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-account-id": "cancel-account",
+				"x-hov-router-account-id": "cancel-account",
 			},
 			body: JSON.stringify({
 				model: "test-model",

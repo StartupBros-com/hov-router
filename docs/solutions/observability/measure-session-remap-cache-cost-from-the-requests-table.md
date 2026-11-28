@@ -173,7 +173,7 @@ because the denominator grows faster. The post-#510 comparison under both readin
      an upstream start switched accounts 52% of the time (74 of 142), against about 3%
      otherwise. Remaps that followed a restart carried 12.15M of the 47.37M same-or-lower-band
      remap excess.
-   - **How to count.** Count upstream starts from `journalctl -u ccflare-stack.service`:
+   - **How to count.** Count upstream starts from `journalctl -u hov-router.service`:
      there is one `Dashboard will be available` line per start. The journal retained the
      baseline window only from 2026-10-02 23:33 UTC, and it shows 56 starts from then to the
      window's end.
@@ -193,7 +193,7 @@ Queries 1 and 2 read the window `[start_ms, end_ms)` from one `VALUES` row; Quer
 it from the one-row temp table `p`. The values in Queries 1 to 3c are the pre-#510 baseline window,
 2026-10-01 19:13:49 UTC to 2026-10-15 19:13:49 UTC. It ends at the deploy: the deploy script
 rewrote the production pin at 19:13:49 UTC, 51 seconds after PR #510 merged. Run each with
-`sqlite3 -readonly ~/.config/better-ccflare/better-ccflare.db < query.sql`.
+`sqlite3 -readonly ~/.config/hov-router/hov-router.db < query.sql`.
 
 ```sql
 .headers on
@@ -678,7 +678,7 @@ excess tokens per pair. Query 2's 307 rows are 5.01 per 1,000.
 ### Where the remaps came from
 
 The full attribution is in the
-[#516 comment](https://github.com/StartupBros-com/better-ccflare/issues/516#issuecomment-6203127045),
+[#516 comment](https://github.com/StartupBros-com/hov-router/issues/516#issuecomment-6203127045),
 with every query. It adds a restart timeline from the journal, burst detection and the
 router's own banding to Query 3's split, and assigns each row to the first class it matches.
 

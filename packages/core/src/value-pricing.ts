@@ -1,6 +1,6 @@
 /**
  * Era-versioned list-price module for the Window Value Ledger
- * (github.com/StartupBros-com/better-ccflare issue #252).
+ * (github.com/StartupBros-com/hov-router issue #252).
  *
  * Window-over-window "API-equivalent value" comparisons need CONSTANT,
  * dated pricing. The live models.dev catalogue (see ./pricing.ts) drifts
@@ -132,7 +132,7 @@ export const LIST_PRICE_ERAS: Record<string, ListPriceEra[]> = {
 			outputPerM: 12.0,
 			// source: models.dev 'openai' provider section, gpt-5.6-terra.cost
 			// (input=2, cache_read=0.2, output=12), cross-checked against
-			// /tmp/better-ccflare/models.dev.json on 2026-08-22.
+			// /tmp/hov-router/models.dev.json on 2026-08-22.
 		},
 	],
 	"gpt-5.6-luna": [
@@ -143,7 +143,7 @@ export const LIST_PRICE_ERAS: Record<string, ListPriceEra[]> = {
 			outputPerM: 1.2,
 			// source: models.dev 'openai' provider section, gpt-5.6-luna.cost
 			// (input=0.2, cache_read=0.02, output=1.2), cross-checked against
-			// /tmp/better-ccflare/models.dev.json on 2026-08-22.
+			// /tmp/hov-router/models.dev.json on 2026-08-22.
 		},
 	],
 	"gpt-5.6-sol": [
@@ -154,7 +154,7 @@ export const LIST_PRICE_ERAS: Record<string, ListPriceEra[]> = {
 			outputPerM: 30.0,
 			// source: models.dev 'openai' provider section, gpt-5.6-sol.cost
 			// (input=5, cache_read=0.5, output=30), cross-checked against
-			// /tmp/better-ccflare/models.dev.json on 2026-08-22. This is the
+			// /tmp/hov-router/models.dev.json on 2026-08-22. This is the
 			// pre-2026-08-21 rate; the dated era below supersedes it from that day.
 		},
 		{

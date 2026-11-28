@@ -52,7 +52,7 @@ function makeAccount(overrides: Partial<Account> = {}): Account {
 	};
 }
 
-const CACHE_PACING_MS_ENV = "CCFLARE_CACHE_PACING_MS";
+const CACHE_PACING_MS_ENV = "HOV_ROUTER_CACHE_PACING_MS";
 const originalCachePacingMs = process.env[CACHE_PACING_MS_ENV];
 
 beforeEach(() => {
@@ -110,7 +110,7 @@ describe("handleProxy: force-route fail-closed at the select call site (P2)", ()
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-account-id": "missing-account",
+				"x-hov-router-account-id": "missing-account",
 			},
 			body: JSON.stringify({
 				model: "claude-fable-4-5",
@@ -124,7 +124,7 @@ describe("handleProxy: force-route fail-closed at the select call site (P2)", ()
 
 		expect(getAllAccountsCalls).toBe(1);
 		expect(response.status).toBe(503);
-		expect(response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		const parsed = (await response.json()) as {
@@ -194,7 +194,7 @@ describe("handleProxy: cache pacing precedes account selection", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-account-id": "missing-account",
+				"x-hov-router-account-id": "missing-account",
 			},
 			body: JSON.stringify({
 				model: "claude-fable-4-5",
@@ -275,7 +275,7 @@ describe("U5 canary: forced route to a paused or missing Vercel account fails cl
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-account-id": "vercel-catchall",
+				"x-hov-router-account-id": "vercel-catchall",
 			},
 			body: JSON.stringify({
 				model: "claude-opus-4-8",
@@ -287,7 +287,7 @@ describe("U5 canary: forced route to a paused or missing Vercel account fails cl
 		const response = await handleProxy(request, new URL(request.url), ctx);
 
 		expect(response.status).toBe(503);
-		expect(response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		const parsed = (await response.json()) as {
@@ -336,7 +336,7 @@ describe("U5 canary: forced route to a paused or missing Vercel account fails cl
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-account-id": "vercel-catchall-deleted",
+				"x-hov-router-account-id": "vercel-catchall-deleted",
 			},
 			body: JSON.stringify({
 				model: "claude-opus-4-8",
@@ -348,7 +348,7 @@ describe("U5 canary: forced route to a paused or missing Vercel account fails cl
 		const response = await handleProxy(request, new URL(request.url), ctx);
 
 		expect(response.status).toBe(503);
-		expect(response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		const parsed = (await response.json()) as {
@@ -406,7 +406,7 @@ describe("handleProxy: force-route 503 retry instruction", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-account-id": account.id,
+				"x-hov-router-account-id": account.id,
 			},
 			body: JSON.stringify({
 				model: "claude-opus-4-8",
@@ -428,7 +428,7 @@ describe("handleProxy: force-route 503 retry instruction", () => {
 
 		expect(response.status).toBe(503);
 		expect(response.headers.get("x-should-retry")).toBe("false");
-		expect(response.headers.get("x-better-ccflare-force-route")).toBe(
+		expect(response.headers.get("x-hov-router-force-route")).toBe(
 			"unavailable",
 		);
 		const parsed = (await response.json()) as {

@@ -52,7 +52,7 @@ describe("release lineage", () => {
 			'const { getGitSha } = await import("./version.ts"); process.stdout.write(String(getGitSha()));';
 		const known = Bun.spawnSync([process.execPath, "-e", script], {
 			cwd: import.meta.dir,
-			env: { ...process.env, BETTER_CCFLARE_GIT_SHA: "abc1234" },
+			env: { ...process.env, HOV_ROUTER_HEALTH_GIT_SHA: "abc1234" },
 			stdout: "pipe",
 			stderr: "pipe",
 		});
@@ -60,7 +60,7 @@ describe("release lineage", () => {
 		expect(known.stdout.toString()).toBe("abc1234");
 
 		const unknownEnv = { ...process.env };
-		delete unknownEnv.BETTER_CCFLARE_GIT_SHA;
+		delete unknownEnv.HOV_ROUTER_HEALTH_GIT_SHA;
 		const unknown = Bun.spawnSync([process.execPath, "-e", script], {
 			cwd: import.meta.dir,
 			env: unknownEnv,
@@ -153,14 +153,14 @@ describe("HoV Router distribution identity", () => {
 	] as const) {
 		it(`validates tagged ${mode} evidence consistently without making it actionable`, () => {
 			const env = {
-				CCFLARE_DISTRIBUTION: token,
-				CCFLARE_VERSION: "1.2.3",
-				CCFLARE_GIT_SHA: sha,
-				CCFLARE_SOURCE_SHA: sha,
-				CCFLARE_GIT_REF: "refs/tags/v1.2.3",
-				CCFLARE_SOURCE_REF: "refs/tags/v1.2.3",
-				CCFLARE_PRODUCER: "startupbros",
-				CCFLARE_ARTIFACT_MODE: mode,
+				HOV_ROUTER_DISTRIBUTION: token,
+				HOV_ROUTER_VERSION: "1.2.3",
+				HOV_ROUTER_GIT_SHA: sha,
+				HOV_ROUTER_SOURCE_SHA: sha,
+				HOV_ROUTER_GIT_REF: "refs/tags/v1.2.3",
+				HOV_ROUTER_SOURCE_REF: "refs/tags/v1.2.3",
+				HOV_ROUTER_PRODUCER: "startupbros",
+				HOV_ROUTER_ARTIFACT_MODE: mode,
 			};
 			const valid = resolveBuildProvenance(env);
 			expect(valid).toMatchObject({
@@ -184,9 +184,9 @@ describe("HoV Router distribution identity", () => {
 				expect(
 					resolveBuildProvenance({
 						...env,
-						CCFLARE_VERSION: version,
-						CCFLARE_GIT_REF: `refs/tags/v${version}`,
-						CCFLARE_SOURCE_REF: `refs/tags/v${version}`,
+						HOV_ROUTER_VERSION: version,
+						HOV_ROUTER_GIT_REF: `refs/tags/v${version}`,
+						HOV_ROUTER_SOURCE_REF: `refs/tags/v${version}`,
 					}).reason,
 				).toBe("invalid_release_version");
 				expect(
@@ -197,25 +197,25 @@ describe("HoV Router distribution identity", () => {
 				).toBe(false);
 			}
 			for (const patch of [
-				{ CCFLARE_DISTRIBUTION: ` ${token}` },
-				{ CCFLARE_DISTRIBUTION: token.toUpperCase() },
-				{ CCFLARE_DISTRIBUTION: `${token}:extra` },
-				{ CCFLARE_GIT_SHA: sha.toUpperCase() },
-				{ CCFLARE_GIT_SHA: "short" },
-				{ CCFLARE_SOURCE_SHA: "forged" },
-				{ CCFLARE_SOURCE_REF: "refs/heads/main" },
+				{ HOV_ROUTER_DISTRIBUTION: ` ${token}` },
+				{ HOV_ROUTER_DISTRIBUTION: token.toUpperCase() },
+				{ HOV_ROUTER_DISTRIBUTION: `${token}:extra` },
+				{ HOV_ROUTER_GIT_SHA: sha.toUpperCase() },
+				{ HOV_ROUTER_GIT_SHA: "short" },
+				{ HOV_ROUTER_SOURCE_SHA: "forged" },
+				{ HOV_ROUTER_SOURCE_REF: "refs/heads/main" },
 				{
-					CCFLARE_GIT_REF: "refs/heads/main",
-					CCFLARE_SOURCE_REF: "refs/heads/main",
+					HOV_ROUTER_GIT_REF: "refs/heads/main",
+					HOV_ROUTER_SOURCE_REF: "refs/heads/main",
 				},
 				{
-					CCFLARE_GIT_REF: "refs/tags/v1.2.4",
-					CCFLARE_SOURCE_REF: "refs/tags/v1.2.4",
+					HOV_ROUTER_GIT_REF: "refs/tags/v1.2.4",
+					HOV_ROUTER_SOURCE_REF: "refs/tags/v1.2.4",
 				},
-				{ CCFLARE_PRODUCER: "tombii" },
-				{ CCFLARE_ARTIFACT_MODE: "docker" },
-				{ CCFLARE_UPDATE_CHANNEL: "npm" },
-				{ CCFLARE_UPDATE_CHANNEL: "" },
+				{ HOV_ROUTER_PRODUCER: "tombii" },
+				{ HOV_ROUTER_ARTIFACT_MODE: "docker" },
+				{ HOV_ROUTER_UPDATE_CHANNEL: "npm" },
+				{ HOV_ROUTER_UPDATE_CHANNEL: "" },
 			])
 				expect(resolveBuildProvenance({ ...env, ...patch }).proven).toBe(false);
 			for (const key of Object.keys(env)) {
@@ -269,13 +269,13 @@ describe("distribution identity", () => {
 
 	it("requires complete redundant evidence for non-actionable identities", () => {
 		const valid = {
-			CCFLARE_DISTRIBUTION: "v1:startupbros-managed-source",
-			CCFLARE_GIT_SHA: sourceSha,
-			CCFLARE_GIT_REF: "refs/heads/main",
-			CCFLARE_SOURCE_SHA: sourceSha,
-			CCFLARE_SOURCE_REF: "refs/heads/main",
-			CCFLARE_PRODUCER: "startupbros",
-			CCFLARE_ARTIFACT_MODE: "managed-source",
+			HOV_ROUTER_DISTRIBUTION: "v1:startupbros-managed-source",
+			HOV_ROUTER_GIT_SHA: sourceSha,
+			HOV_ROUTER_GIT_REF: "refs/heads/main",
+			HOV_ROUTER_SOURCE_SHA: sourceSha,
+			HOV_ROUTER_SOURCE_REF: "refs/heads/main",
+			HOV_ROUTER_PRODUCER: "startupbros",
+			HOV_ROUTER_ARTIFACT_MODE: "managed-source",
 		} as const;
 		expect(resolveBuildProvenance(valid)).toMatchObject({
 			proven: true,
@@ -284,12 +284,12 @@ describe("distribution identity", () => {
 		});
 
 		for (const [missing, reason] of [
-			["CCFLARE_GIT_SHA", "missing_source_sha"],
-			["CCFLARE_GIT_REF", "missing_source_ref"],
-			["CCFLARE_SOURCE_SHA", "missing_redundant_source_sha"],
-			["CCFLARE_SOURCE_REF", "missing_redundant_source_ref"],
-			["CCFLARE_PRODUCER", "missing_producer"],
-			["CCFLARE_ARTIFACT_MODE", "missing_artifact_mode"],
+			["HOV_ROUTER_GIT_SHA", "missing_source_sha"],
+			["HOV_ROUTER_GIT_REF", "missing_source_ref"],
+			["HOV_ROUTER_SOURCE_SHA", "missing_redundant_source_sha"],
+			["HOV_ROUTER_SOURCE_REF", "missing_redundant_source_ref"],
+			["HOV_ROUTER_PRODUCER", "missing_producer"],
+			["HOV_ROUTER_ARTIFACT_MODE", "missing_artifact_mode"],
 		] as const) {
 			const evidence = { ...valid } as Record<string, string>;
 			delete evidence[missing];
@@ -297,35 +297,39 @@ describe("distribution identity", () => {
 		}
 
 		expect(
-			resolveBuildProvenance({ ...valid, CCFLARE_UPDATE_CHANNEL: "" }).reason,
+			resolveBuildProvenance({ ...valid, HOV_ROUTER_UPDATE_CHANNEL: "" })
+				.reason,
 		).toBe("unexpected_update_channel");
 		expect(
 			resolveBuildProvenance({
 				...valid,
-				CCFLARE_SOURCE_SHA: "forged",
+				HOV_ROUTER_SOURCE_SHA: "forged",
 			}).reason,
 		).toBe("conflicting_source_sha");
 
 		for (const env of [
 			{},
-			{ CCFLARE_GIT_SHA: "" },
-			{ CCFLARE_GIT_SHA: ` ${sourceSha}` },
-			{ CCFLARE_GIT_SHA: `${sourceSha} ` },
-			{ CCFLARE_GIT_SHA: sourceSha.slice(0, 12) },
-			{ CCFLARE_GIT_SHA: sourceSha.toUpperCase() },
-			{ CCFLARE_GIT_SHA: "unknown" },
-			{ CCFLARE_GIT_SHA: sourceSha, CCFLARE_GIT_REF: "" },
-			{ CCFLARE_GIT_SHA: sourceSha, CCFLARE_GIT_REF: "refs/tags/v1.0.0" },
-			{ CCFLARE_GIT_SHA: sourceSha, CCFLARE_ARTIFACT_MODE: "docker" },
-			{ CCFLARE_GIT_SHA: sourceSha, CCFLARE_PRODUCER: "tombii" },
-			{ CCFLARE_GIT_SHA: sourceSha, CCFLARE_UPDATE_CHANNEL: "npm" },
-			{ CCFLARE_GIT_SHA: sourceSha, CCFLARE_UPDATE_CHANNEL: "" },
-			{ CCFLARE_GIT_SHA: sourceSha, CCFLARE_SOURCE_SHA: "forged" },
-			{ CCFLARE_GIT_SHA: sourceSha, CCFLARE_SOURCE_REF: "refs/tags/v1.0.0" },
+			{ HOV_ROUTER_GIT_SHA: "" },
+			{ HOV_ROUTER_GIT_SHA: ` ${sourceSha}` },
+			{ HOV_ROUTER_GIT_SHA: `${sourceSha} ` },
+			{ HOV_ROUTER_GIT_SHA: sourceSha.slice(0, 12) },
+			{ HOV_ROUTER_GIT_SHA: sourceSha.toUpperCase() },
+			{ HOV_ROUTER_GIT_SHA: "unknown" },
+			{ HOV_ROUTER_GIT_SHA: sourceSha, HOV_ROUTER_GIT_REF: "" },
+			{ HOV_ROUTER_GIT_SHA: sourceSha, HOV_ROUTER_GIT_REF: "refs/tags/v1.0.0" },
+			{ HOV_ROUTER_GIT_SHA: sourceSha, HOV_ROUTER_ARTIFACT_MODE: "docker" },
+			{ HOV_ROUTER_GIT_SHA: sourceSha, HOV_ROUTER_PRODUCER: "tombii" },
+			{ HOV_ROUTER_GIT_SHA: sourceSha, HOV_ROUTER_UPDATE_CHANNEL: "npm" },
+			{ HOV_ROUTER_GIT_SHA: sourceSha, HOV_ROUTER_UPDATE_CHANNEL: "" },
+			{ HOV_ROUTER_GIT_SHA: sourceSha, HOV_ROUTER_SOURCE_SHA: "forged" },
+			{
+				HOV_ROUTER_GIT_SHA: sourceSha,
+				HOV_ROUTER_SOURCE_REF: "refs/tags/v1.0.0",
+			},
 		]) {
 			const result = resolveBuildProvenance({
-				CCFLARE_DISTRIBUTION: "v1:startupbros-managed-source",
-				CCFLARE_GIT_REF: "refs/heads/main",
+				HOV_ROUTER_DISTRIBUTION: "v1:startupbros-managed-source",
+				HOV_ROUTER_GIT_REF: "refs/heads/main",
 				...env,
 			});
 			expect(result.proven).toBe(false);
@@ -335,15 +339,15 @@ describe("distribution identity", () => {
 
 	it("requires matching release ref and tuple for actionable tombii identities", () => {
 		const release = {
-			CCFLARE_DISTRIBUTION: "v1:tombii-ghcr-docker",
-			CCFLARE_VERSION: "1.2.3",
-			CCFLARE_GIT_SHA: sourceSha,
-			CCFLARE_GIT_REF: "refs/tags/v1.2.3",
-			CCFLARE_SOURCE_SHA: sourceSha,
-			CCFLARE_SOURCE_REF: "refs/tags/v1.2.3",
-			CCFLARE_PRODUCER: "tombii",
-			CCFLARE_ARTIFACT_MODE: "docker",
-			CCFLARE_UPDATE_CHANNEL: "ghcr",
+			HOV_ROUTER_DISTRIBUTION: "v1:tombii-ghcr-docker",
+			HOV_ROUTER_VERSION: "1.2.3",
+			HOV_ROUTER_GIT_SHA: sourceSha,
+			HOV_ROUTER_GIT_REF: "refs/tags/v1.2.3",
+			HOV_ROUTER_SOURCE_SHA: sourceSha,
+			HOV_ROUTER_SOURCE_REF: "refs/tags/v1.2.3",
+			HOV_ROUTER_PRODUCER: "tombii",
+			HOV_ROUTER_ARTIFACT_MODE: "docker",
+			HOV_ROUTER_UPDATE_CHANNEL: "ghcr",
 		} as const;
 		expect(resolveBuildProvenance(release)).toMatchObject({
 			proven: true,
@@ -351,27 +355,30 @@ describe("distribution identity", () => {
 			updateChannel: "ghcr",
 		});
 		const missingChannel = { ...release } as Record<string, string>;
-		delete missingChannel.CCFLARE_UPDATE_CHANNEL;
+		delete missingChannel.HOV_ROUTER_UPDATE_CHANNEL;
 		expect(resolveBuildProvenance(missingChannel).reason).toBe(
 			"missing_update_channel",
 		);
 		expect(
 			resolveBuildProvenance({
 				...release,
-				CCFLARE_UPDATE_CHANNEL: "npm",
+				HOV_ROUTER_UPDATE_CHANNEL: "npm",
 			}).reason,
 		).toBe("conflicting_update_channel");
 		for (const env of [
-			{ CCFLARE_VERSION: "1.2.4" },
-			{ CCFLARE_VERSION: "v1.2.3", CCFLARE_GIT_REF: "refs/tags/v1.2.3" },
-			{ CCFLARE_VERSION: "1.2", CCFLARE_GIT_REF: "refs/tags/v1.2" },
-			{ CCFLARE_VERSION: "unknown", CCFLARE_GIT_REF: "refs/tags/vunknown" },
-			{ CCFLARE_GIT_REF: "refs/tags/V1.2.3" },
-			{ CCFLARE_GIT_REF: "refs/tags/v1.2.3 " },
-			{ CCFLARE_PRODUCER: "startupbros" },
-			{ CCFLARE_ARTIFACT_MODE: "binary" },
-			{ CCFLARE_UPDATE_CHANNEL: "github-releases" },
-			{ CCFLARE_DISTRIBUTION: "v1:startupbros-docker-image" },
+			{ HOV_ROUTER_VERSION: "1.2.4" },
+			{ HOV_ROUTER_VERSION: "v1.2.3", HOV_ROUTER_GIT_REF: "refs/tags/v1.2.3" },
+			{ HOV_ROUTER_VERSION: "1.2", HOV_ROUTER_GIT_REF: "refs/tags/v1.2" },
+			{
+				HOV_ROUTER_VERSION: "unknown",
+				HOV_ROUTER_GIT_REF: "refs/tags/vunknown",
+			},
+			{ HOV_ROUTER_GIT_REF: "refs/tags/V1.2.3" },
+			{ HOV_ROUTER_GIT_REF: "refs/tags/v1.2.3 " },
+			{ HOV_ROUTER_PRODUCER: "startupbros" },
+			{ HOV_ROUTER_ARTIFACT_MODE: "binary" },
+			{ HOV_ROUTER_UPDATE_CHANNEL: "github-releases" },
+			{ HOV_ROUTER_DISTRIBUTION: "v1:startupbros-docker-image" },
 		]) {
 			expect(resolveBuildProvenance({ ...release, ...env }).proven).toBe(false);
 		}
@@ -379,15 +386,15 @@ describe("distribution identity", () => {
 
 	it("fails closed for non-stable Tombii release versions in resolvers and facades", () => {
 		const release = {
-			CCFLARE_DISTRIBUTION: "v1:tombii-npm-package",
-			CCFLARE_VERSION: "1.2.3",
-			CCFLARE_GIT_SHA: sourceSha,
-			CCFLARE_GIT_REF: "refs/tags/v1.2.3",
-			CCFLARE_SOURCE_SHA: sourceSha,
-			CCFLARE_SOURCE_REF: "refs/tags/v1.2.3",
-			CCFLARE_PRODUCER: "tombii",
-			CCFLARE_ARTIFACT_MODE: "package",
-			CCFLARE_UPDATE_CHANNEL: "npm",
+			HOV_ROUTER_DISTRIBUTION: "v1:tombii-npm-package",
+			HOV_ROUTER_VERSION: "1.2.3",
+			HOV_ROUTER_GIT_SHA: sourceSha,
+			HOV_ROUTER_GIT_REF: "refs/tags/v1.2.3",
+			HOV_ROUTER_SOURCE_SHA: sourceSha,
+			HOV_ROUTER_SOURCE_REF: "refs/tags/v1.2.3",
+			HOV_ROUTER_PRODUCER: "tombii",
+			HOV_ROUTER_ARTIFACT_MODE: "package",
+			HOV_ROUTER_UPDATE_CHANNEL: "npm",
 		} as const;
 		const proven = resolveBuildProvenance(release);
 		expect(isTrustedDistributionProvenance(proven, "1.2.3")).toBe(true);
@@ -407,9 +414,9 @@ describe("distribution identity", () => {
 		]) {
 			const resolved = resolveBuildProvenance({
 				...release,
-				CCFLARE_VERSION: version,
-				CCFLARE_GIT_REF: `refs/tags/v${version}`,
-				CCFLARE_SOURCE_REF: `refs/tags/v${version}`,
+				HOV_ROUTER_VERSION: version,
+				HOV_ROUTER_GIT_REF: `refs/tags/v${version}`,
+				HOV_ROUTER_SOURCE_REF: `refs/tags/v${version}`,
 			});
 			expect(resolved).toMatchObject({
 				proven: false,
@@ -430,15 +437,14 @@ describe("readDockerBuildProvenance", () => {
 	it("preserves Docker-style provenance env precedence and explicit unknowns", () => {
 		expect(
 			readDockerBuildProvenance({
-				CCFLARE_VERSION: "9.9.9-ccflare",
-				BETTER_CCFLARE_VERSION: "8.8.8-better",
+				HOV_ROUTER_VERSION: "9.9.9-hov-router",
 				npm_package_version: "7.7.7-npm",
-				CCFLARE_GIT_SHA: "abcdef1234567890abcdef1234567890abcdef12",
-				CCFLARE_GIT_REF: "deploy/test",
-				CCFLARE_BUILD_DATE: "2026-08-01T00:00:00Z",
+				HOV_ROUTER_GIT_SHA: "abcdef1234567890abcdef1234567890abcdef12",
+				HOV_ROUTER_GIT_REF: "deploy/test",
+				HOV_ROUTER_BUILD_DATE: "2026-08-01T00:00:00Z",
 			}),
 		).toEqual({
-			version: "9.9.9-ccflare",
+			version: "9.9.9-hov-router",
 			git_sha: "abcdef1234567890abcdef1234567890abcdef12",
 			git_ref: "deploy/test",
 			build_date: "2026-08-01T00:00:00Z",

@@ -24,7 +24,7 @@ describe("--convert-family-policy-aliases local control", () => {
 				});
 			}
 			expect(init?.headers).toMatchObject({
-				"x-better-ccflare-local-control-secret": "local-secret",
+				"x-hov-router-local-control-secret": "local-secret",
 			});
 			expect(JSON.parse(String(init?.body))).toEqual({
 				expected_revision: 4,

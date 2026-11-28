@@ -248,7 +248,7 @@ describe("parseModelRouteProfiles", () => {
 				parseModelRouteProfiles(
 					JSON.stringify([{ ...exactProfile, clientContextWindowHint }]),
 				),
-			).toThrow("CCFLARE_MODEL_ROUTE_PROFILES_JSON");
+			).toThrow("HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON");
 		}
 	});
 
@@ -267,7 +267,7 @@ describe("parseModelRouteProfiles", () => {
 					},
 				]),
 			),
-		).toThrow("CCFLARE_MODEL_ROUTE_PROFILES_JSON");
+		).toThrow("HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON");
 	});
 
 	it("parses bounded exclusive settings on an exact-account profile", () => {
@@ -320,7 +320,7 @@ describe("parseModelRouteProfiles", () => {
 		for (const candidate of malformed) {
 			expect(() =>
 				parseModelRouteProfiles(JSON.stringify([candidate])),
-			).toThrow("CCFLARE_MODEL_ROUTE_PROFILES_JSON");
+			).toThrow("HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON");
 		}
 	});
 
@@ -339,7 +339,7 @@ describe("parseModelRouteProfiles", () => {
 					},
 				]),
 			),
-		).toThrow("CCFLARE_MODEL_ROUTE_PROFILES_JSON");
+		).toThrow("HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON");
 	});
 
 	it("rejects bounded fields on capability profiles", () => {
@@ -358,7 +358,7 @@ describe("parseModelRouteProfiles", () => {
 					},
 				]),
 			),
-		).toThrow("CCFLARE_MODEL_ROUTE_PROFILES_JSON");
+		).toThrow("HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON");
 	});
 
 	it("parses a capability profile without pinning an account", () => {
@@ -479,7 +479,7 @@ describe("parseModelRouteProfiles", () => {
 			]),
 		]) {
 			expect(() => parseModelRouteProfiles(input)).toThrow(
-				"CCFLARE_MODEL_ROUTE_PROFILES_JSON",
+				"HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON",
 			);
 		}
 	});
@@ -632,7 +632,7 @@ describe("route profile aliases", () => {
 			Array.from({ length: 9 }, (_, i) => `former-${i}`),
 		]) {
 			expect(() => parseOne({ ...renamed, aliases })).toThrow(
-				"CCFLARE_MODEL_ROUTE_PROFILES_JSON",
+				"HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON",
 			);
 		}
 	});
@@ -671,7 +671,7 @@ describe("parseModelRouteProfiles line policy", () => {
 		physicalModelPolicy: "line",
 		line: "gpt-sol",
 	};
-	const PREFIX = "CCFLARE_MODEL_ROUTE_PROFILES_JSON: profile 0";
+	const PREFIX = "HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON: profile 0";
 
 	it("accepts a Codex capability pool that follows a model line", () => {
 		const [sol, astra] = parseModelRouteProfiles(
@@ -921,7 +921,7 @@ describe("parseModelRouteProfiles physicalModelPolicy", () => {
 				]),
 			),
 		).toThrow(
-			"CCFLARE_MODEL_ROUTE_PROFILES_JSON: profile 0 capability selection requires expectedPhysicalModel",
+			"HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON: profile 0 capability selection requires expectedPhysicalModel",
 		);
 	});
 
@@ -944,7 +944,7 @@ describe("parseModelRouteProfiles physicalModelPolicy", () => {
 					JSON.stringify([{ ...roleProfile, physicalModelPolicy }]),
 				),
 			).toThrow(
-				"CCFLARE_MODEL_ROUTE_PROFILES_JSON: profile 0 field physicalModelPolicy must be exact, catalog-role or line",
+				"HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON: profile 0 field physicalModelPolicy must be exact, catalog-role or line",
 			);
 		}
 	});
@@ -960,7 +960,7 @@ describe("parseModelRouteProfiles physicalModelPolicy", () => {
 			expect(() =>
 				parseModelRouteProfiles(JSON.stringify([candidate])),
 			).toThrow(
-				"CCFLARE_MODEL_ROUTE_PROFILES_JSON: profile 0 physicalModelPolicy catalog-role requires expectedProvider codex",
+				"HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON: profile 0 physicalModelPolicy catalog-role requires expectedProvider codex",
 			);
 		}
 	});
@@ -971,7 +971,7 @@ describe("parseModelRouteProfiles physicalModelPolicy", () => {
 		expect(() =>
 			parseModelRouteProfiles(JSON.stringify([withoutProvider])),
 		).toThrow(
-			"CCFLARE_MODEL_ROUTE_PROFILES_JSON: profile 0 capability selection requires expectedProvider",
+			"HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON: profile 0 capability selection requires expectedProvider",
 		);
 	});
 
@@ -983,7 +983,7 @@ describe("parseModelRouteProfiles physicalModelPolicy", () => {
 			expect(() =>
 				parseModelRouteProfiles(JSON.stringify([candidate])),
 			).toThrow(
-				"CCFLARE_MODEL_ROUTE_PROFILES_JSON: profile 0 physicalModelPolicy catalog-role must omit expectedPhysicalModel",
+				"HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON: profile 0 physicalModelPolicy catalog-role must omit expectedPhysicalModel",
 			);
 		}
 	});
@@ -996,7 +996,7 @@ describe("parseModelRouteProfiles physicalModelPolicy", () => {
 				]),
 			),
 		).toThrow(
-			"CCFLARE_MODEL_ROUTE_PROFILES_JSON: profile 0 physicalModelPolicy catalog-role must omit contextWindow and maxOutputTokens",
+			"HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON: profile 0 physicalModelPolicy catalog-role must omit contextWindow and maxOutputTokens",
 		);
 		for (const candidate of [
 			{ ...roleProfile, contextWindow: 272_000 },
@@ -1009,7 +1009,7 @@ describe("parseModelRouteProfiles physicalModelPolicy", () => {
 		]) {
 			expect(() =>
 				parseModelRouteProfiles(JSON.stringify([candidate])),
-			).toThrow("CCFLARE_MODEL_ROUTE_PROFILES_JSON");
+			).toThrow("HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON");
 		}
 	});
 
@@ -1020,7 +1020,7 @@ describe("parseModelRouteProfiles physicalModelPolicy", () => {
 					JSON.stringify([{ ...roleProfile, logicalModel }]),
 				),
 			).toThrow(
-				"CCFLARE_MODEL_ROUTE_PROFILES_JSON: profile 0 physicalModelPolicy catalog-role requires a logicalModel in the fable, opus, sonnet or haiku family",
+				"HOV_ROUTER_MODEL_ROUTE_PROFILES_JSON: profile 0 physicalModelPolicy catalog-role requires a logicalModel in the fable, opus, sonnet or haiku family",
 			);
 		}
 		for (const logicalModel of [

@@ -128,7 +128,7 @@ describe("unpublished HoV Router artifact preparation workflow", () => {
 			"bun publish",
 			"ghcr.io",
 			"git push",
-			"CCFLARE_BUILD_PRODUCER",
+			"HOV_ROUTER_BUILD_PRODUCER",
 		]) {
 			expect(configuration).not.toContain(forbidden);
 		}

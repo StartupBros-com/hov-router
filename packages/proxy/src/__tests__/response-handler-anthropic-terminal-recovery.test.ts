@@ -266,9 +266,9 @@ describe("forwardToClient Anthropic terminal recovery integration", () => {
 	});
 
 	it("terminates safely without a route penalty when routing metadata is absent", async () => {
-		const timeoutEnv = "CCFLARE_ANTHROPIC_PRECOMMIT_TIMEOUT_MS";
+		const timeoutEnv = "HOV_ROUTER_ANTHROPIC_PRECOMMIT_TIMEOUT_MS";
 		const progressEnv =
-			"CCFLARE_ANTHROPIC_POSTCOMMIT_MEANINGFUL_PROGRESS_TIMEOUT_MS";
+			"HOV_ROUTER_ANTHROPIC_POSTCOMMIT_MEANINGFUL_PROGRESS_TIMEOUT_MS";
 		const originalTimeout = process.env[timeoutEnv];
 		const originalProgress = process.env[progressEnv];
 		process.env[timeoutEnv] = "10";

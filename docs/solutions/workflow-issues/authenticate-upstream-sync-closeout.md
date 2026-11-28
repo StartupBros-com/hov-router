@@ -103,7 +103,7 @@ The committed manifest records this as a schema-v2 check of tag identity, exact 
 
 ```bash
 git show -s --format=%P 60005baa
-gh pr view 288 --repo StartupBros-com/better-ccflare --json state,mergeCommit
+gh pr view 288 --repo StartupBros-com/hov-router --json state,mergeCommit
 git merge-base --is-ancestor 60005baa origin/main
 ```
 

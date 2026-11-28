@@ -123,9 +123,9 @@ describe("setXaiConvId / getXaiConvId", () => {
 	it("stores request-local transport identity without leaking across metadata", () => {
 		const meta1 = makeRequestMeta();
 		const meta2 = makeRequestMeta();
-		setXaiConvId(meta1, "ccflare-xai-meta1");
+		setXaiConvId(meta1, "hov-router-xai-meta1");
 
-		expect(getXaiConvId(meta1)).toBe("ccflare-xai-meta1");
+		expect(getXaiConvId(meta1)).toBe("hov-router-xai-meta1");
 		expect(getXaiConvId(meta2)).toBeNull();
 	});
 });
@@ -327,7 +327,7 @@ describe("selectAccountsForRequest — xAI cache-native affinity", () => {
 		recordServed(seedCtx, seedMeta, xaiA);
 
 		const forcedMeta = makeAffinityMeta("conv-forced", {
-			headers: new Headers({ "x-better-ccflare-account-id": "xai-b" }),
+			headers: new Headers({ "x-hov-router-account-id": "xai-b" }),
 		});
 		const result = await selectAccountsForRequest(
 			forcedMeta,

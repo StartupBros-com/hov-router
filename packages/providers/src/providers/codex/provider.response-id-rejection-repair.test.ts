@@ -81,12 +81,12 @@ function nativeResponseIdRequestFor(params: {
 	const { requestId, attemptId, messages, stream } = params;
 	const headers: Record<string, string> = {
 		"content-type": "application/json",
-		"x-better-ccflare-request-id": requestId,
-		"x-better-ccflare-attempt-id": attemptId,
-		"x-better-ccflare-attempt-ordinal": "1",
-		"x-better-ccflare-attempt-cause": "initial",
-		"x-better-ccflare-final-model": physicalModel,
-		"x-better-ccflare-native-responses": "1",
+		"x-hov-router-request-id": requestId,
+		"x-hov-router-attempt-id": attemptId,
+		"x-hov-router-attempt-ordinal": "1",
+		"x-hov-router-attempt-cause": "initial",
+		"x-hov-router-final-model": physicalModel,
+		"x-hov-router-native-responses": "1",
 	};
 	const body: Record<string, unknown> = {
 		model: "claude-sonnet-4-5",
@@ -175,10 +175,10 @@ function completedResponse(params: {
 		status: 200,
 		headers: {
 			"content-type": "text/event-stream",
-			"x-better-ccflare-request-id": requestId,
-			"x-better-ccflare-attempt-id": attemptId,
-			"x-better-ccflare-final-model": physicalModel,
-			"x-better-ccflare-request-stream": stream ? "true" : "false",
+			"x-hov-router-request-id": requestId,
+			"x-hov-router-attempt-id": attemptId,
+			"x-hov-router-final-model": physicalModel,
+			"x-hov-router-request-stream": stream ? "true" : "false",
 		},
 	});
 }
@@ -438,11 +438,11 @@ describe("CodexProvider.prepareCodexResponseIdRejectionRepair", () => {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
-				"x-better-ccflare-request-id": "rid-non-response-id-owned",
-				"x-better-ccflare-attempt-id": "aid-non-response-id-owned",
-				"x-better-ccflare-attempt-ordinal": "1",
-				"x-better-ccflare-attempt-cause": "initial",
-				"x-better-ccflare-final-model": physicalModel,
+				"x-hov-router-request-id": "rid-non-response-id-owned",
+				"x-hov-router-attempt-id": "aid-non-response-id-owned",
+				"x-hov-router-attempt-ordinal": "1",
+				"x-hov-router-attempt-cause": "initial",
+				"x-hov-router-final-model": physicalModel,
 			},
 			body: JSON.stringify({
 				model: "claude-sonnet-4-5",

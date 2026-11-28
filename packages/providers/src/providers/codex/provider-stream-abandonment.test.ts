@@ -79,8 +79,8 @@ function makeSpiedTwoEventUpstream() {
 	const response = new Response(stream, {
 		headers: {
 			"content-type": "text/event-stream",
-			"x-better-ccflare-request-id": "abandonment-test",
-			"x-better-ccflare-attempt-id": "attempt-abandonment",
+			"x-hov-router-request-id": "abandonment-test",
+			"x-hov-router-attempt-id": "attempt-abandonment",
 		},
 	});
 	registerResponseDrainTransport(response, transportAbort);

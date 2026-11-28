@@ -32,10 +32,10 @@ tags:
 On 2026-11-17 two runner tests started failing now and then in the `managed-routing-foundation`
 check, and nowhere else (#880):
 
-- `scripts/__tests__/run-ccflare-stack.test.ts`, "exits with a bounded circuit status under a
+- `scripts/__tests__/run-hov-router.test.ts`, "exits with a bounded circuit status under a
   service auto invocation": the restart circuit allowed a third start inside its 1,000 ms
   window (`Expected: 2`, `Received: 3`).
-- `scripts/__tests__/run-ccflare-stack-full-disk.test.ts`, "is killed once the stop budget is
+- `scripts/__tests__/run-hov-router-full-disk.test.ts`, "is killed once the stop budget is
   spent, on a restart and on a stop": a 5,000 ms stop budget ended at 4,783 ms.
 
 Nothing in this repository had changed. The workflows run on `ubuntu-latest`, and GitHub moved
@@ -102,11 +102,11 @@ When a timing test fails only on CI, and local runs, loaded or not, cannot repro
    and `iproute2` added, reproduced both failures. The listener-stop test failed 3 of 6 runs
    before the fix and 0 of 6 after. The circuit test failed 1 of 80 before and 0 of 160 after.
 4. **Test a script's clock against a second clock in the same process.** Outside timestamps
-   agreeing does not clear a script's own clock reads. The "run-ccflare-stack millisecond clock"
-   test in `scripts/__tests__/run-ccflare-stack.test.ts` brackets every `epoch_ms` reading
+   agreeing does not clear a script's own clock reads. The "run-hov-router millisecond clock"
+   test in `scripts/__tests__/run-hov-router.test.ts` brackets every `epoch_ms` reading
    between two reads of `EPOCHREALTIME` across two seconds.
 
-The fix (PR #881) made `epoch_ms` in `scripts/run-ccflare-stack.sh` read bash's
+The fix (PR #881) made `epoch_ms` in `scripts/run-hov-router.sh` read bash's
 `EPOCHREALTIME` and keep only its digits, so the locale's separator does not matter.
 `scripts/__tests__/date-fraction-width.test.ts` fails on a width-cut fraction (`%3N`, `%-3N`,
 `%_6N`) in any tracked shell script or workflow. Bare `%N` reads the same on both dates.

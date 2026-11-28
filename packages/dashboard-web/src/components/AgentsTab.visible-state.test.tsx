@@ -47,7 +47,7 @@ describe("AgentsTab visible state", () => {
 				workspaces: [],
 			}),
 		);
-		const at = html.indexOf("BETTER_CCFLARE_AGENT_WORKSPACE_AUTODISCOVER=true");
+		const at = html.indexOf("HOV_ROUTER_AGENT_WORKSPACE_AUTODISCOVER=true");
 		expect(at).toBeGreaterThan(-1);
 		const start = html.lastIndexOf("<p ", at);
 		expect(html.slice(start, html.indexOf(">", start))).toContain(

@@ -30,10 +30,9 @@ const SQLITE_VALUES: Array<string | undefined> = [
 
 const SAVED_KEYS = [
 	"DATABASE_URL",
-	"BETTER_CCFLARE_DB_PATH",
-	"ccflare_DB_PATH",
+	"HOV_ROUTER_DB_PATH",
 	"XDG_CONFIG_HOME",
-	"BETTER_CCFLARE_DB_READER_WORKER",
+	"HOV_ROUTER_DB_READER_WORKER",
 ] as const;
 let saved: Record<string, string | undefined>;
 let dir: string;
@@ -47,15 +46,14 @@ function dbFilesUnder(root: string): string[] {
 	if (!existsSync(root)) return [];
 	return readdirSync(root, { recursive: true })
 		.map(String)
-		.filter((name) => /better-ccflare\.db/.test(name));
+		.filter((name) => /hov-router\.db/.test(name));
 }
 
 beforeEach(() => {
 	saved = Object.fromEntries(SAVED_KEYS.map((k) => [k, process.env[k]]));
 	dir = mkdtempSync(join(tmpdir(), "hov-pg-refusal-"));
-	delete process.env.BETTER_CCFLARE_DB_PATH;
-	delete process.env.ccflare_DB_PATH;
-	process.env.BETTER_CCFLARE_DB_READER_WORKER = "0";
+	delete process.env.HOV_ROUTER_DB_PATH;
+	process.env.HOV_ROUTER_DB_READER_WORKER = "0";
 });
 
 afterEach(async () => {
@@ -71,7 +69,7 @@ describe("PostgreSQL DATABASE_URL refusal", () => {
 	for (const url of POSTGRES_URLS) {
 		it(`the constructor refuses ${url.split(":")[0]}:// before opening a file`, () => {
 			setDatabaseUrl(url);
-			const dbPath = join(dir, "data", "better-ccflare.db");
+			const dbPath = join(dir, "data", "hov-router.db");
 			let thrown: unknown;
 			try {
 				new DatabaseOperations(dbPath);
@@ -87,7 +85,7 @@ describe("PostgreSQL DATABASE_URL refusal", () => {
 	for (const value of SQLITE_VALUES) {
 		it(`the constructor opens SQLite when DATABASE_URL is ${JSON.stringify(value)}`, async () => {
 			setDatabaseUrl(value);
-			const dbPath = join(dir, "better-ccflare.db");
+			const dbPath = join(dir, "hov-router.db");
 			const ops = new DatabaseOperations(dbPath);
 			try {
 				expect(existsSync(dbPath)).toBe(true);
@@ -106,7 +104,7 @@ describe("PostgreSQL DATABASE_URL refusal", () => {
 		setDatabaseUrl(POSTGRES_URLS[1]);
 		let message = "";
 		try {
-			new DatabaseOperations(join(dir, "better-ccflare.db"));
+			new DatabaseOperations(join(dir, "hov-router.db"));
 		} catch (error) {
 			message = (error as Error).message;
 		}
@@ -160,13 +158,13 @@ describe("PostgreSQL DATABASE_URL refusal", () => {
 				.all(),
 		).toEqual([]);
 		expect(dbFilesUnder(configHome)).toContain(
-			join("better-ccflare", "better-ccflare.db"),
+			join("hov-router", "hov-router.db"),
 		);
 	});
 
 	it("getInstanceAsync rejects with the same refusal", async () => {
 		setDatabaseUrl(POSTGRES_URLS[1]);
-		DatabaseFactory.initialize(join(dir, "better-ccflare.db"));
+		DatabaseFactory.initialize(join(dir, "hov-router.db"));
 		await expect(DatabaseFactory.getInstanceAsync()).rejects.toBeInstanceOf(
 			PostgresUrlRefusedError,
 		);

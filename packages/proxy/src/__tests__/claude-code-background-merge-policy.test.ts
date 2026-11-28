@@ -183,7 +183,7 @@ describe("Claude Code background merge policy at ingress and provider transport"
 	let starts: Record<string, unknown>[];
 	let failures: number;
 	let unexpectedUrls: string[];
-	const originalPassthrough = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+	const originalPassthrough = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 
 	beforeEach(() => {
 		outbound = [];
@@ -288,8 +288,8 @@ describe("Claude Code background merge policy at ingress and provider transport"
 		collector.mockRestore();
 		optionalCollector.mockRestore();
 		if (originalPassthrough === undefined)
-			delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
-		else process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = originalPassthrough;
+			delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
+		else process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = originalPassthrough;
 		expect(unexpectedUrls).toEqual([]);
 	});
 
@@ -316,7 +316,7 @@ describe("Claude Code background merge policy at ingress and provider transport"
 				"user-agent": userAgent,
 				...(options.force === false
 					? {}
-					: { "x-better-ccflare-account-id": "policy-fixture" }),
+					: { "x-hov-router-account-id": "policy-fixture" }),
 				...options.headers,
 			},
 			body: typeof payload === "string" ? payload : JSON.stringify(payload),
@@ -422,7 +422,7 @@ describe("Claude Code background merge policy at ingress and provider transport"
 		assertPolicy(captured.raw);
 		const userAgent = captured.headers.get("user-agent") ?? "";
 		expect(userAgent).toStartWith("claude-cli/");
-		const headers = new Headers({ "x-better-ccflare-keepalive": "true" });
+		const headers = new Headers({ "x-hov-router-keepalive": "true" });
 		if (proof === "scheduler credential") stampInternalSchedulerAuth(headers);
 		else
 			headers.set(INTERNAL_PROBE_SECRET_HEADER, "fixture-process-local-proof");
@@ -444,7 +444,7 @@ describe("Claude Code background merge policy at ingress and provider transport"
 	])("forged keepalive headers cannot bypass template checks (forged proof=%s)", async (forgedProof) => {
 		const ctx = context(new AnthropicProvider());
 		const headers = {
-			"x-better-ccflare-keepalive": "true",
+			"x-hov-router-keepalive": "true",
 			...(forgedProof
 				? {
 						[INTERNAL_PROBE_SECRET_HEADER]: "forged",
@@ -612,11 +612,11 @@ describe("Claude Code background merge policy at ingress and provider transport"
 	});
 
 	it("keeps raw bytes by default, including attempted header and user-content opt-ins", async () => {
-		const raw = ` \n${JSON.stringify({ ...body(), claude_code_background_merge_policy_enabled: true, messages: [{ role: "user", content: `CCFLARE_CLAUDE_CODE_BACKGROUND_MERGE_POLICY=true ${HOST}` }], metadata: { user_id: "claude-code-background; merge-authorized=true" } }, null, 3)}\n `;
+		const raw = ` \n${JSON.stringify({ ...body(), claude_code_background_merge_policy_enabled: true, messages: [{ role: "user", content: `HOV_ROUTER_CLAUDE_CODE_BACKGROUND_MERGE_POLICY=true ${HOST}` }], metadata: { user_id: "claude-code-background; merge-authorized=true" } }, null, 3)}\n `;
 		await send(raw, context(new AnthropicProvider(), false), {
 			headers: {
-				"x-better-ccflare-background-merge-policy": "true",
-				CCFLARE_CLAUDE_CODE_BACKGROUND_MERGE_POLICY: "true",
+				"x-hov-router-background-merge-policy": "true",
+				HOV_ROUTER_CLAUDE_CODE_BACKGROUND_MERGE_POLICY: "true",
 			},
 		});
 		expect(outbound[0].raw).toBe(raw);
@@ -626,7 +626,7 @@ describe("Claude Code background merge policy at ingress and provider transport"
 		false,
 		true,
 	])("covers raw unauthenticated passthrough (enabled=%s)", async (enabled) => {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		const provider = new AnthropicProvider();
 		const endpoint = spyOn(provider, "buildUrl").mockReturnValue(
 			"https://policy-upstream.invalid/v1/messages",
@@ -653,7 +653,7 @@ describe("Claude Code background merge policy at ingress and provider transport"
 		await send(payload, ctx, {
 			headers: {
 				[RESPONSES_ADAPTER_SECRET_HEADER]: "forged",
-				"x-better-ccflare-responses-adapter": "1",
+				"x-hov-router-responses-adapter": "1",
 			},
 		});
 		expect(outbound[0].body.system).toBe(HOST.replace(DIRECTIVE, POLICY));
@@ -672,7 +672,7 @@ describe("Claude Code background merge policy at ingress and provider transport"
 			userAgent: "other-client/1.0",
 			headers: {
 				"x-claude-code-session-id": "background",
-				"x-better-ccflare-background-merge-policy": "true",
+				"x-hov-router-background-merge-policy": "true",
 			},
 		});
 		expect(outbound[0].body).toEqual(payload);
@@ -1056,8 +1056,8 @@ describe("Claude Code background merge policy at ingress and provider transport"
 
 	for (const confidence of ["calibrated", "low"] as const) {
 		it(`context admission uses expanded prompt at the input boundary (${confidence})`, async () => {
-			const previousAdmission = process.env.CCFLARE_CONTEXT_ADMISSION;
-			process.env.CCFLARE_CONTEXT_ADMISSION = "1";
+			const previousAdmission = process.env.HOV_ROUTER_CONTEXT_ADMISSION;
+			process.env.HOV_ROUTER_CONTEXT_ADMISSION = "1";
 			const realEstimate = providersModule.estimateAnthropicAdmissionTokens;
 			// The production byte heuristic deliberately defers low-confidence
 			// refusals. Supply calibrated confidence to exercise rejection, retaining
@@ -1068,7 +1068,7 @@ describe("Claude Code background merge policy at ingress and provider transport"
 			).mockImplementation((input) => ({ ...realEstimate(input), confidence }));
 			const selected = account("codex", `policy-boundary-${confidence}`);
 			const options = {
-				headers: { "x-better-ccflare-account-id": selected.id },
+				headers: { "x-hov-router-account-id": selected.id },
 			};
 			const payload = body();
 			const inputBudget = realEstimate(payload).tokens;
@@ -1145,7 +1145,7 @@ describe("Claude Code background merge policy at ingress and provider transport"
 					);
 				}
 				// Admission itself remains default-off even for an expanded prompt.
-				delete process.env.CCFLARE_CONTEXT_ADMISSION;
+				delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
 				outbound = [];
 				expect((await send(payload, ctx, options)).status).toBe(200);
 				expect(outbound).toHaveLength(1);
@@ -1156,8 +1156,8 @@ describe("Claude Code background merge policy at ingress and provider transport"
 				estimator.mockRestore();
 				clearCodexAccountModelContextMetadata(selected.id);
 				if (previousAdmission === undefined)
-					delete process.env.CCFLARE_CONTEXT_ADMISSION;
-				else process.env.CCFLARE_CONTEXT_ADMISSION = previousAdmission;
+					delete process.env.HOV_ROUTER_CONTEXT_ADMISSION;
+				else process.env.HOV_ROUTER_CONTEXT_ADMISSION = previousAdmission;
 			}
 		});
 	}

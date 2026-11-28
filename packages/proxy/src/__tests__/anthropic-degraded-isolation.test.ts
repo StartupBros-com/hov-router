@@ -27,7 +27,7 @@ const { selectAccountsForRequest } = await import(
 );
 
 const originalFetch = globalThis.fetch;
-const originalPassthrough = process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+const originalPassthrough = process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 
 function makeAccount(overrides: Partial<Account> = {}): Account {
 	return {
@@ -156,15 +156,15 @@ afterEach(() => {
 	estimateAdmissionTokens.mockClear();
 	globalThis.fetch = originalFetch;
 	if (originalPassthrough === undefined) {
-		delete process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL;
+		delete process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL;
 	} else {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = originalPassthrough;
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = originalPassthrough;
 	}
 });
 
 describe("Anthropic degraded-mode isolation", () => {
 	it("does not estimate replay risk when degraded mode and diagnostics are off", async () => {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		globalThis.fetch = mock(async () => {
 			return new Response('{"ok":true}', {
 				status: 200,
@@ -184,7 +184,7 @@ describe("Anthropic degraded-mode isolation", () => {
 	});
 
 	it("does not estimate replay risk for an unrelated provider", async () => {
-		process.env.CCFLARE_PASSTHROUGH_ON_EMPTY_POOL = "1";
+		process.env.HOV_ROUTER_PASSTHROUGH_ON_EMPTY_POOL = "1";
 		globalThis.fetch = mock(async () => {
 			return new Response('{"ok":true}', {
 				status: 200,

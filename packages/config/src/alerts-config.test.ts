@@ -23,7 +23,7 @@ for (const key of ENV_KEYS) {
 }
 
 function makeConfig(): { config: Config; cleanup: () => void } {
-	const dir = mkdtempSync(join(tmpdir(), "better-ccflare-config-"));
+	const dir = mkdtempSync(join(tmpdir(), "hov-router-config-"));
 	return {
 		config: new Config(join(dir, "config.json")),
 		cleanup: () => rmSync(dir, { recursive: true, force: true }),
@@ -285,7 +285,7 @@ describe("alert webhook type allowlist", () => {
 			"cache_efficiency_recovered",
 			"org_permission_denied",
 		];
-		const dir = mkdtempSync(join(tmpdir(), "better-ccflare-config-"));
+		const dir = mkdtempSync(join(tmpdir(), "hov-router-config-"));
 		const path = join(dir, "config.json");
 		writeFileSync(
 			path,

@@ -223,14 +223,14 @@ describe("navigation identity", () => {
 			["v1:startupbros-wstack-router-package", "package"],
 		] as const) {
 			const provenance = resolveBuildProvenance({
-				CCFLARE_DISTRIBUTION: token,
-				CCFLARE_VERSION: "1.0.0",
-				CCFLARE_GIT_SHA: sha,
-				CCFLARE_SOURCE_SHA: sha,
-				CCFLARE_GIT_REF: "refs/tags/v1.0.0",
-				CCFLARE_SOURCE_REF: "refs/tags/v1.0.0",
-				CCFLARE_PRODUCER: "startupbros",
-				CCFLARE_ARTIFACT_MODE: mode,
+				HOV_ROUTER_DISTRIBUTION: token,
+				HOV_ROUTER_VERSION: "1.0.0",
+				HOV_ROUTER_GIT_SHA: sha,
+				HOV_ROUTER_SOURCE_SHA: sha,
+				HOV_ROUTER_GIT_REF: "refs/tags/v1.0.0",
+				HOV_ROUTER_SOURCE_REF: "refs/tags/v1.0.0",
+				HOV_ROUTER_PRODUCER: "startupbros",
+				HOV_ROUTER_ARTIFACT_MODE: mode,
 			});
 			expect(provenance).toMatchObject({
 				identity: token,

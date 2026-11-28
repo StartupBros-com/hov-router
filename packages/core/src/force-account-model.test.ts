@@ -86,7 +86,7 @@ describe("providerAcceptsClientModel", () => {
 });
 
 /**
- * The exempt scope exists for better-ccflare's own probes. A probe names a
+ * The exempt scope exists for hov-router's own probes. A probe names a
  * compiled-in Claude model for whatever account it is aimed at, so mapping is
  * what makes it land — suppressing mapping there breaks the probe instead of
  * honouring a promise about client requests.

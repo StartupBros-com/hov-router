@@ -5,10 +5,37 @@ export HOME=${HOME:-/home/will}
 export USER=${USER:-will}
 export PATH=/home/will/.local/share/mise/shims:/home/will/.local/share/mise/installs/node/24.13.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-: "${CCFLARE_BIN:?CCFLARE_BIN must name the pinned better-ccflare binary}"
+# 8.0.0 renamed the variables inherited from better-ccflare, and nothing reads
+# the old names: a drop-in that still sets one would leave its setting at the
+# default. Refuse before starting anything, with the status the unit's
+# RestartPreventExitStatus keeps systemd from restarting (EX_CONFIG). The
+# backend refuses the same names, and its storage, with the same status.
+RETIRED_NAME_EXIT_STATUS=78
+refuse_retired_names() {
+	local name
+	local -a found=()
+	while IFS= read -r name; do
+		case "$name" in
+			BETTER_CCFLARE_GIT_SHA) found+=("$name -> HOV_ROUTER_HEALTH_GIT_SHA") ;;
+			BETTER_CCFLARE_*) found+=("$name -> HOV_ROUTER_${name#BETTER_CCFLARE_}") ;;
+			CCFLARE_*) found+=("$name -> HOV_ROUTER_${name#CCFLARE_}") ;;
+			ccflare_*) found+=("$name -> HOV_ROUTER_${name#ccflare_}") ;;
+		esac
+	done < <(compgen -e | LC_ALL=C sort)
+	((${#found[@]} == 0)) && return 0
+	{
+		printf '%s\n' "HoV Router 8.0.0 renamed the names it inherited from better-ccflare and reads only the new ones."
+		printf '%s\n' 'Rename these, then start it again (see "Renamed in 8.0.0" in docs/hov-router-migration.md):'
+		printf '  %s\n' "${found[@]}"
+	} >&2
+	exit "$RETIRED_NAME_EXIT_STATUS"
+}
+refuse_retired_names
+
+: "${HOV_ROUTER_BIN:?HOV_ROUTER_BIN must name the pinned hov-router binary}"
 : "${GUARD_SCRIPT:?GUARD_SCRIPT must name the pinned guard script}"
 NODE_BIN=${NODE_BIN:-/home/will/.local/share/mise/shims/node}
-UPSTREAM_PORT=${CCFLARE_UPSTREAM_PORT:-8789}
+UPSTREAM_PORT=${HOV_ROUTER_UPSTREAM_PORT:-8789}
 GUARD_PORT=${GUARD_PORT:-8788}
 AI_GATEWAY_TUNNEL_ENABLED=${AI_GATEWAY_TUNNEL_ENABLED:-1}
 AI_GATEWAY_TUNNEL_REQUIRED=${AI_GATEWAY_TUNNEL_REQUIRED:-1}
@@ -23,12 +50,12 @@ AI_GATEWAY_SSH_CONNECT_TIMEOUT_SECONDS=${AI_GATEWAY_SSH_CONNECT_TIMEOUT_SECONDS:
 GUARD_TOTAL_DEADLINE_MS=${GUARD_TOTAL_DEADLINE_MS:-600000}
 GUARD_RETRY_ATTEMPT_HEADROOM_MS=${GUARD_RETRY_ATTEMPT_HEADROOM_MS:-30000}
 GUARD_MAX_RECOVERY_SLEEP_MS=${GUARD_MAX_RECOVERY_SLEEP_MS:-120000}
-GUARD_EFFECTIVE_MAX_ACTIVE=${CCFLARE_GUARD_MAX_ACTIVE:-${GUARD_MAX_ACTIVE:-12}}
+GUARD_EFFECTIVE_MAX_ACTIVE=${HOV_ROUTER_GUARD_MAX_ACTIVE:-${GUARD_MAX_ACTIVE:-12}}
 GUARD_MAX_RECOVERY_WAITS=${GUARD_MAX_RECOVERY_WAITS:-$GUARD_EFFECTIVE_MAX_ACTIVE}
 GUARD_SHUTDOWN_GRACE_MS=${GUARD_SHUTDOWN_GRACE_MS:-600000}
 GUARD_SHUTDOWN_CUSHION_MS=${GUARD_SHUTDOWN_CUSHION_MS:-5000}
-CCFLARE_SERVER_DRAIN_MS=${CCFLARE_SERVER_DRAIN_MS:-60000}
-UPSTREAM_STOP_BUDGET_MS=$((CCFLARE_SERVER_DRAIN_MS + 20000))
+HOV_ROUTER_SERVER_DRAIN_MS=${HOV_ROUTER_SERVER_DRAIN_MS:-60000}
+UPSTREAM_STOP_BUDGET_MS=$((HOV_ROUTER_SERVER_DRAIN_MS + 20000))
 RUNNER_FAILURE_STOP_BUDGET_MS=${RUNNER_FAILURE_STOP_BUDGET_MS:-30000}
 RUNNER_QUIESCE_PORT_TIMEOUT_MS=${RUNNER_QUIESCE_PORT_TIMEOUT_MS:-10000}
 STOP_POLL_INTERVAL_MS=200
@@ -84,8 +111,8 @@ OUT_OF_SPACE_EXIT_STATUS=28
 OUT_OF_SPACE_MIN_WAIT_MS=1000
 RUNNER_PERSISTENT_GUARD=${RUNNER_PERSISTENT_GUARD:-1}
 case "$RUNNER_PERSISTENT_GUARD" in 0 | 1) ;; *) printf 'invalid RUNNER_PERSISTENT_GUARD\n' >&2; exit 64 ;; esac
-TRANSACTION_MODULE="$(dirname "${BASH_SOURCE[0]}")/ccflare-deployment-transaction.mjs"
-TRANSACTION_DIR=${CCFLARE_TRANSACTION_DIR:-$HOME/.config/better-ccflare/handoff}
+TRANSACTION_MODULE="$(dirname "${BASH_SOURCE[0]}")/hov-router-deployment-transaction.mjs"
+TRANSACTION_DIR=${HOV_ROUTER_TRANSACTION_DIR:-$HOME/.config/hov-router/handoff}
 deployment_pid=""
 pending_deployment=0
 pending_rollback=0
@@ -97,7 +124,7 @@ retiring_start=""
 retiring_generation=""
 reaper_pid=""
 transaction_enabled=0
-if [[ "${CCFLARE_SCHEMA_DIGEST:-}" =~ ^[0-9a-f]{64}$ && -n "${CCFLARE_PIN_PATH:-}" && -f "$TRANSACTION_MODULE" ]]; then transaction_enabled=1; fi
+if [[ "${HOV_ROUTER_SCHEMA_DIGEST:-}" =~ ^[0-9a-f]{64}$ && -n "${HOV_ROUTER_PIN_PATH:-}" && -f "$TRANSACTION_MODULE" ]]; then transaction_enabled=1; fi
 if ((transaction_enabled)); then "$NODE_BIN" "$TRANSACTION_MODULE" recover "$TRANSACTION_DIR" >/dev/null || { printf "unfinished backend transaction requires operator recovery\n" >&2; exit 70; }; fi
 control_dir=""
 control_pid=""
@@ -154,7 +181,7 @@ validate_bounded_int() {
 	fi
 }
 
-validate_bounded_ms CCFLARE_SERVER_DRAIN_MS "$CCFLARE_SERVER_DRAIN_MS" 0 2147403647
+validate_bounded_ms HOV_ROUTER_SERVER_DRAIN_MS "$HOV_ROUTER_SERVER_DRAIN_MS" 0 2147403647
 validate_bounded_ms GUARD_TOTAL_DEADLINE_MS "$GUARD_TOTAL_DEADLINE_MS" 1 2147483647
 validate_bounded_ms GUARD_RETRY_ATTEMPT_HEADROOM_MS "$GUARD_RETRY_ATTEMPT_HEADROOM_MS" 1 2147483647
 validate_bounded_ms GUARD_MAX_RECOVERY_SLEEP_MS "$GUARD_MAX_RECOVERY_SLEEP_MS" 1 120000
@@ -295,11 +322,11 @@ start_deployment_listener() {
  # on a full disk (#827).
  local runtime
  mkdir -p "$TRANSACTION_DIR"; chmod 700 "$TRANSACTION_DIR"
- runtime="$(CCFLARE_ACTIVE_PID="$upstream_pid" CCFLARE_ACTIVE_START="$(proc_start_time "$upstream_pid" /proc)" CCFLARE_ACTIVE_GENERATION="$upstream_generation" CCFLARE_ACTIVE_CONTROL="$control_dir" CCFLARE_ACTIVE_BIN="$CCFLARE_BIN" CCFLARE_ACTIVE_RUNNER="${BASH_SOURCE[0]}" CCFLARE_ACTIVE_GUARD="$GUARD_SCRIPT" CCFLARE_RETIRING_PID="$retiring_pid" CCFLARE_RETIRING_START="$retiring_start" "$NODE_BIN" - <<'NODE'
-const fs=require("node:fs"),crypto=require("node:crypto"),path=require("node:path");const e=process.env;const hash=p=>crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex");const r={generation:Number(e.CCFLARE_ACTIVE_GENERATION),oldPid:Number(e.CCFLARE_ACTIVE_PID),oldStartTime:e.CCFLARE_ACTIVE_START,binary:fs.realpathSync(e.CCFLARE_ACTIVE_BIN),binaryHash:hash(e.CCFLARE_ACTIVE_BIN),backendSourceSha:e.CCFLARE_SOURCE_SHA,schemaDigest:e.CCFLARE_SCHEMA_DIGEST,ingress:{runner:hash(e.CCFLARE_ACTIVE_RUNNER),guard:hash(e.CCFLARE_ACTIVE_GUARD),policy:hash(path.join(path.dirname(e.CCFLARE_ACTIVE_GUARD),"ccflare-guard-policy.mjs")),timing:hash(path.join(path.dirname(e.CCFLARE_ACTIVE_GUARD),"ccflare-managed-timing.mjs")),transaction:hash(path.join(path.dirname(e.CCFLARE_ACTIVE_RUNNER),"ccflare-deployment-transaction.mjs"))},pinPath:e.CCFLARE_PIN_PATH,pinHash:hash(e.CCFLARE_PIN_PATH),controlDir:e.CCFLARE_ACTIVE_CONTROL,...(e.CCFLARE_RETIRING_PID?{retiring:{pid:Number(e.CCFLARE_RETIRING_PID),startTime:e.CCFLARE_RETIRING_START}}:{})};process.stdout.write(JSON.stringify(r));
+ runtime="$(HOV_ROUTER_ACTIVE_PID="$upstream_pid" HOV_ROUTER_ACTIVE_START="$(proc_start_time "$upstream_pid" /proc)" HOV_ROUTER_ACTIVE_GENERATION="$upstream_generation" HOV_ROUTER_ACTIVE_CONTROL="$control_dir" HOV_ROUTER_ACTIVE_BIN="$HOV_ROUTER_BIN" HOV_ROUTER_ACTIVE_RUNNER="${BASH_SOURCE[0]}" HOV_ROUTER_ACTIVE_GUARD="$GUARD_SCRIPT" HOV_ROUTER_RETIRING_PID="$retiring_pid" HOV_ROUTER_RETIRING_START="$retiring_start" "$NODE_BIN" - <<'NODE'
+const fs=require("node:fs"),crypto=require("node:crypto"),path=require("node:path");const e=process.env;const hash=p=>crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex");const r={generation:Number(e.HOV_ROUTER_ACTIVE_GENERATION),oldPid:Number(e.HOV_ROUTER_ACTIVE_PID),oldStartTime:e.HOV_ROUTER_ACTIVE_START,binary:fs.realpathSync(e.HOV_ROUTER_ACTIVE_BIN),binaryHash:hash(e.HOV_ROUTER_ACTIVE_BIN),backendSourceSha:e.HOV_ROUTER_SOURCE_SHA,schemaDigest:e.HOV_ROUTER_SCHEMA_DIGEST,ingress:{runner:hash(e.HOV_ROUTER_ACTIVE_RUNNER),guard:hash(e.HOV_ROUTER_ACTIVE_GUARD),policy:hash(path.join(path.dirname(e.HOV_ROUTER_ACTIVE_GUARD),"hov-router-guard-policy.mjs")),timing:hash(path.join(path.dirname(e.HOV_ROUTER_ACTIVE_GUARD),"hov-router-managed-timing.mjs")),transaction:hash(path.join(path.dirname(e.HOV_ROUTER_ACTIVE_RUNNER),"hov-router-deployment-transaction.mjs"))},pinPath:e.HOV_ROUTER_PIN_PATH,pinHash:hash(e.HOV_ROUTER_PIN_PATH),controlDir:e.HOV_ROUTER_ACTIVE_CONTROL,...(e.HOV_ROUTER_RETIRING_PID?{retiring:{pid:Number(e.HOV_ROUTER_RETIRING_PID),startTime:e.HOV_ROUTER_RETIRING_START}}:{})};process.stdout.write(JSON.stringify(r));
 NODE
  )"
- CCFLARE_DEPLOYMENT_RUNTIME="$runtime" "$NODE_BIN" "$TRANSACTION_MODULE" serve "$TRANSACTION_DIR" &
+ HOV_ROUTER_DEPLOYMENT_RUNTIME="$runtime" "$NODE_BIN" "$TRANSACTION_MODULE" serve "$TRANSACTION_DIR" &
  deployment_pid=$!
 }
 # How long a helper (the deploy listener, the retiring backend's reaper, a
@@ -350,10 +377,10 @@ stop_stack_children() {
 		# Intentional TERM/INT keeps the full guard drain grace and the existing
 		# short child budgets. It is deliberately not an aggregate deadline.
 		log "stopping stack children; cleanup_budget_ms=${GUARD_STOP_BUDGET_MS}; mode=intentional"
-		stop_child "ccflare guard" "$guard_pid" "$GUARD_STOP_BUDGET_MS"
+		stop_child "hov-router guard" "$guard_pid" "$GUARD_STOP_BUDGET_MS"
 		signal_retiring_backend
-		stop_child "better-ccflare upstream" "$upstream_pid" "$UPSTREAM_STOP_BUDGET_MS"
-		await_backend_identity "retiring better-ccflare upstream" "$retiring_pid" "$retiring_start" "$UPSTREAM_STOP_BUDGET_MS"
+		stop_child "hov-router upstream" "$upstream_pid" "$UPSTREAM_STOP_BUDGET_MS"
+		await_backend_identity "retiring hov-router upstream" "$retiring_pid" "$retiring_start" "$UPSTREAM_STOP_BUDGET_MS"
 		stop_child "ai-gateway ssh tunnel" "$ai_gateway_tunnel_pid" 5000
 	else
 		# Unexpected failures use one aggregate deadline so a stubborn child
@@ -363,12 +390,12 @@ stop_stack_children() {
 		local remaining_ms
 		log "stopping stack children; cleanup_budget_ms=${total_budget_ms}; mode=failure"
 		remaining_ms="$(remaining_stop_budget "$deadline_ms")"
-		stop_child "ccflare guard" "$guard_pid" "$remaining_ms"
+		stop_child "hov-router guard" "$guard_pid" "$remaining_ms"
 		signal_retiring_backend
 		remaining_ms="$(remaining_stop_budget "$deadline_ms")"
-		stop_child "better-ccflare upstream" "$upstream_pid" "$remaining_ms"
+		stop_child "hov-router upstream" "$upstream_pid" "$remaining_ms"
 		remaining_ms="$(remaining_stop_budget "$deadline_ms")"
-		await_backend_identity "retiring better-ccflare upstream" "$retiring_pid" "$retiring_start" "$remaining_ms"
+		await_backend_identity "retiring hov-router upstream" "$retiring_pid" "$retiring_start" "$remaining_ms"
 		remaining_ms="$(remaining_stop_budget "$deadline_ms")"
 		stop_child "ai-gateway ssh tunnel" "$ai_gateway_tunnel_pid" "$remaining_ms"
 	fi
@@ -512,7 +539,7 @@ proc_identity_running() {
 
 signal_retiring_backend() {
 	if proc_identity_running "$retiring_pid" "$retiring_start"; then
-		log "stopping retiring better-ccflare upstream pid=${retiring_pid}"
+		log "stopping retiring hov-router upstream pid=${retiring_pid}"
 		kill -TERM "$retiring_pid" 2>/dev/null || true
 	fi
 }
@@ -620,7 +647,7 @@ rss_watchdog() {
 
 stop_guard_for_memory_recycle() {
 	local pid="$1" stop_budget_ms="$2" started_ms now_ms elapsed_ms remaining_ms poll_ms status enforcer_pid
-	log "stopping ccflare guard pid=${pid} for memory recycle; stop_budget_ms=${stop_budget_ms}"
+	log "stopping hov-router guard pid=${pid} for memory recycle; stop_budget_ms=${stop_budget_ms}"
 	kill "$pid" 2>/dev/null || true
 	(
 		started_ms="$(epoch_ms)"
@@ -628,7 +655,7 @@ stop_guard_for_memory_recycle() {
 			now_ms="$(epoch_ms)"
 			elapsed_ms=$((now_ms - started_ms))
 			if ((elapsed_ms >= stop_budget_ms)); then
-				log "ccflare guard pid=${pid} did not stop after ${stop_budget_ms}ms during memory recycle; sending SIGKILL"
+				log "hov-router guard pid=${pid} did not stop after ${stop_budget_ms}ms during memory recycle; sending SIGKILL"
 				kill -KILL "$pid" 2>/dev/null || true
 				exit 0
 			fi
@@ -663,7 +690,7 @@ stop_stack_for_memory_recycle() {
 		*) log "memory recycle failed: unknown guard drain status=${guard_status}"; return 1 ;;
 	esac
 	guard_pid=""
-	stop_child "better-ccflare upstream" "$upstream_pid" "$UPSTREAM_STOP_BUDGET_MS"
+	stop_child "hov-router upstream" "$upstream_pid" "$UPSTREAM_STOP_BUDGET_MS"
 	stop_child "ai-gateway ssh tunnel" "$ai_gateway_tunnel_pid" 5000
 	[[ -n "$watchdog_pid" ]] && { kill "$watchdog_pid" 2>/dev/null || true; wait "$watchdog_pid" 2>/dev/null || true; }
 	wait "${upstream_pid:-0}" 2>/dev/null || true
@@ -678,7 +705,7 @@ cleanup() {
 	cleanup_ran=1
 	trap - EXIT TERM INT
 	stop_owned_helper "$control_pid" "guard control call"; control_pid=""
-	log "stopping ccflare stack"
+	log "stopping hov-router stack"
 	stop_stack_children
 	close_reaped_owner
 	if [[ -n "$control_dir" ]]; then rm -f -- "$control_dir/control.sock" "$control_dir/deploy.sock" "$control_dir/deploy-credential"; rmdir -- "$control_dir" 2>/dev/null || true; fi
@@ -729,8 +756,8 @@ wait_for_url() {
 			child_exit_status=$?
 			set -e
 			case "$name" in
-				ccflare-guard) child_exit_name="ccflare guard" ;;
-				better-ccflare) child_exit_name="better-ccflare upstream" ;;
+				hov-router-guard) child_exit_name="hov-router guard" ;;
+				hov-router) child_exit_name="hov-router upstream" ;;
 				*) child_exit_name="$name" ;;
 			esac
 			classify_child_exit
@@ -748,8 +775,8 @@ wait_for_url() {
 			child_exit_status=$?
 			set -e
 			case "$name" in
-				ccflare-guard) child_exit_name="ccflare guard" ;;
-				better-ccflare) child_exit_name="better-ccflare upstream" ;;
+				hov-router-guard) child_exit_name="hov-router guard" ;;
+				hov-router) child_exit_name="hov-router upstream" ;;
 				*) child_exit_name="$name" ;;
 			esac
 			classify_child_exit
@@ -829,7 +856,7 @@ start_ai_gateway_tunnel() {
 	return 1
 }
 
-require_file "$CCFLARE_BIN"
+require_file "$HOV_ROUTER_BIN"
 require_file "$NODE_BIN"
 require_file "$GUARD_SCRIPT"
 
@@ -858,7 +885,7 @@ generate_guard_correlation_secret() {
 # interrupts a pending drain instead of waiting for a long synchronous command.
 guard_control() {
 	local command="$1" target_generation="$2" candidate_pid="${3:-0}" candidate_start="${4:-0}" status
-	GUARD_CONTROL_SECRET="$guard_control_secret" CCFLARE_GUARD_CORRELATION_SECRET="$guard_correlation_secret" CCFLARE_MANAGED_CANDIDATE_NONCE="${CCFLARE_MANAGED_CANDIDATE_NONCE:-}" CCFLARE_DEPLOYMENT_TRANSACTION_ID="${CCFLARE_DEPLOYMENT_TRANSACTION_ID:-}" CCFLARE_DEPLOYMENT_ROLLBACK="${CCFLARE_DEPLOYMENT_ROLLBACK:-0}" CCFLARE_DEPLOYMENT_INTENT_PATH="$TRANSACTION_DIR/intent.json" \
+	GUARD_CONTROL_SECRET="$guard_control_secret" HOV_ROUTER_GUARD_CORRELATION_SECRET="$guard_correlation_secret" HOV_ROUTER_MANAGED_CANDIDATE_NONCE="${HOV_ROUTER_MANAGED_CANDIDATE_NONCE:-}" HOV_ROUTER_DEPLOYMENT_TRANSACTION_ID="${HOV_ROUTER_DEPLOYMENT_TRANSACTION_ID:-}" HOV_ROUTER_DEPLOYMENT_ROLLBACK="${HOV_ROUTER_DEPLOYMENT_ROLLBACK:-0}" HOV_ROUTER_DEPLOYMENT_INTENT_PATH="$TRANSACTION_DIR/intent.json" \
 		"$NODE_BIN" - "$control_dir/control.sock" "$command" "$target_generation" "$candidate_pid" "$candidate_start" "$GUARD_STOP_BUDGET_MS" <<'NODE' &
 const net = require("node:net");
 const [path, command, generation, pid, startTime, budget] = process.argv.slice(2);
@@ -867,7 +894,7 @@ let output = "", settled = false;
 const fail = () => { if (settled) return; settled = true; socket.destroy(); process.exitCode = 1; };
 socket.setTimeout(Number(budget) + 3000, fail);
 socket.on("error", fail);
-socket.on("connect", () => socket.write(JSON.stringify({ command, generation: Number(generation), pid: Number(pid), startTime, secret: process.env.GUARD_CONTROL_SECRET, correlationSecret: process.env.CCFLARE_GUARD_CORRELATION_SECRET, candidateNonce: process.env.CCFLARE_MANAGED_CANDIDATE_NONCE, transactionId: process.env.CCFLARE_DEPLOYMENT_TRANSACTION_ID || undefined, rollback: process.env.CCFLARE_DEPLOYMENT_ROLLBACK === "1", manifest: command === "prepare" ? (()=>{const t=JSON.parse(require("node:fs").readFileSync(process.env.CCFLARE_DEPLOYMENT_INTENT_PATH));return {...t.manifest,intentPath:process.env.CCFLARE_DEPLOYMENT_INTENT_PATH,pinPath:t.previous.pinPath};})() : undefined }) + "\n"));
+socket.on("connect", () => socket.write(JSON.stringify({ command, generation: Number(generation), pid: Number(pid), startTime, secret: process.env.GUARD_CONTROL_SECRET, correlationSecret: process.env.HOV_ROUTER_GUARD_CORRELATION_SECRET, candidateNonce: process.env.HOV_ROUTER_MANAGED_CANDIDATE_NONCE, transactionId: process.env.HOV_ROUTER_DEPLOYMENT_TRANSACTION_ID || undefined, rollback: process.env.HOV_ROUTER_DEPLOYMENT_ROLLBACK === "1", manifest: command === "prepare" ? (()=>{const t=JSON.parse(require("node:fs").readFileSync(process.env.HOV_ROUTER_DEPLOYMENT_INTENT_PATH));return {...t.manifest,intentPath:process.env.HOV_ROUTER_DEPLOYMENT_INTENT_PATH,pinPath:t.previous.pinPath};})() : undefined }) + "\n"));
 socket.on("data", chunk => { output += chunk.toString(); if (output.length > 4096) fail(); });
 socket.on("end", () => {
  if (settled) return;
@@ -909,7 +936,7 @@ quiesce_backend_for_deployment() {
 		if (($(epoch_ms) >= deadline_ms)); then
 			log "backend still listens on ${UPSTREAM_PORT} after ${RUNNER_QUIESCE_PORT_TIMEOUT_MS}ms; falling back to drain"
 			guard_control retire "$upstream_generation" || return 1
-			stop_child "better-ccflare upstream" "$upstream_pid" "$UPSTREAM_STOP_BUDGET_MS"
+			stop_child "hov-router upstream" "$upstream_pid" "$UPSTREAM_STOP_BUDGET_MS"
 			wait "$upstream_pid" 2>/dev/null || true
 			transaction_advance quiescing old_reaped || return 1
 			handoff_phase=old_reaped
@@ -931,7 +958,7 @@ reap_retiring_backend() {
 	if ! guard_control retire "$retiring_generation"; then
 		log "guard retire unavailable; generation=${retiring_generation}; stopping retiring backend under its own drain"
 	fi
-	stop_backend_identity "retiring better-ccflare upstream" "$retiring_pid" "$retiring_start" "$UPSTREAM_STOP_BUDGET_MS"
+	stop_backend_identity "retiring hov-router upstream" "$retiring_pid" "$retiring_start" "$UPSTREAM_STOP_BUDGET_MS"
 }
 
 start_retiring_reaper() {
@@ -943,7 +970,7 @@ start_retiring_reaper() {
 
 finish_retiring_reaper() {
 	# A reaper that died early leaves its backend to this bounded stop.
-	stop_backend_identity "retiring better-ccflare upstream" "$retiring_pid" "$retiring_start" "$UPSTREAM_STOP_BUDGET_MS"
+	stop_backend_identity "retiring hov-router upstream" "$retiring_pid" "$retiring_start" "$UPSTREAM_STOP_BUDGET_MS"
 	wait "$retiring_pid" 2>/dev/null || true
 	log "retiring backend reaped; pid=${retiring_pid}; generation=${retiring_generation}; reaper_status=$1"
 	retiring_pid=""
@@ -966,9 +993,9 @@ await_retiring_backend() {
 begin_backend_deployment() {
  deployment_pid=""
  await_retiring_backend
- export CCFLARE_DEPLOYMENT_ROLLBACK=0
- export CCFLARE_DEPLOYMENT_TRANSACTION_ID="$(deployment_field manifest.transactionId)"
- export CCFLARE_MANAGED_CANDIDATE_NONCE="$(deployment_field manifest.candidateNonce)"
+ export HOV_ROUTER_DEPLOYMENT_ROLLBACK=0
+ export HOV_ROUTER_DEPLOYMENT_TRANSACTION_ID="$(deployment_field manifest.transactionId)"
+ export HOV_ROUTER_MANAGED_CANDIDATE_NONCE="$(deployment_field manifest.candidateNonce)"
  guard_control prepare "$upstream_generation" || return 1
  if backend_quiesce_capable; then
   quiesce_backend_for_deployment || return 1
@@ -977,15 +1004,15 @@ begin_backend_deployment() {
   transaction_advance prepared draining || return 1
   guard_control begin "$upstream_generation" || return 1
   [[ "$(proc_start_time "$upstream_pid" /proc)" == "$(deployment_field previous.oldStartTime)" ]] || return 1
-  stop_child "better-ccflare upstream" "$upstream_pid" "$UPSTREAM_STOP_BUDGET_MS"
+  stop_child "hov-router upstream" "$upstream_pid" "$UPSTREAM_STOP_BUDGET_MS"
   wait "$upstream_pid" 2>/dev/null || true
   transaction_advance draining old_reaped || return 1
   handoff_phase=old_reaped
  fi
  upstream_pid=""
  if [[ -n "$watchdog_pid" ]]; then kill "$watchdog_pid" 2>/dev/null || true; wait "$watchdog_pid" 2>/dev/null || true; watchdog_pid=""; fi
- CCFLARE_BIN="$(deployment_field manifest.candidateBinary)"
- export CCFLARE_SOURCE_SHA="$(deployment_field manifest.candidateSourceSha)" CCFLARE_GIT_SHA="$(deployment_field manifest.candidateSourceSha)"
+ HOV_ROUTER_BIN="$(deployment_field manifest.candidateBinary)"
+ export HOV_ROUTER_SOURCE_SHA="$(deployment_field manifest.candidateSourceSha)" HOV_ROUTER_GIT_SHA="$(deployment_field manifest.candidateSourceSha)"
  ((upstream_generation+=1));pending_replacement=1;pending_deployment=1
 }
 verify_and_commit_backend_deployment() {
@@ -1006,7 +1033,7 @@ recycle_upstream_with_persistent_guard() {
 	guard_control begin "$upstream_generation" || return 1
 	# The guard has fenced all old dispatches. Reap the sole DB owner before
 	# allowing a replacement to bind the same upstream port.
-	stop_child "better-ccflare upstream" "$upstream_pid" "$UPSTREAM_STOP_BUDGET_MS"
+	stop_child "hov-router upstream" "$upstream_pid" "$UPSTREAM_STOP_BUDGET_MS"
 	wait "$upstream_pid" 2>/dev/null || true
 	upstream_pid=""
 	[[ -n "$watchdog_pid" ]] && { wait "$watchdog_pid" 2>/dev/null || true; }
@@ -1037,9 +1064,9 @@ classify_child_exit() {
 child_name_for_pid() {
 	local pid="$1"
 	if [[ "$pid" == "$upstream_pid" ]]; then
-		printf 'better-ccflare upstream'
+		printf 'hov-router upstream'
 	elif [[ "$pid" == "$guard_pid" ]]; then
-		printf 'ccflare guard'
+		printf 'hov-router guard'
 	elif [[ -n "$ai_gateway_tunnel_pid" && "$pid" == "$ai_gateway_tunnel_pid" ]]; then
 		printf 'ai-gateway ssh tunnel'
 	else
@@ -1073,20 +1100,20 @@ start_recorded_upstream() {
 		if ((transaction_enabled)); then close_unstarted_owner; fi
 		return 1
 	fi
-	log "starting better-ccflare upstream on 127.0.0.1:${UPSTREAM_PORT}"
+	log "starting hov-router upstream on 127.0.0.1:${UPSTREAM_PORT}"
 	# From here a backend may exist before the record names it.
 	owner_spawn_begun=1
 	HOME="$HOME" \
 		USER="$USER" \
-		BETTER_CCFLARE_HOST=127.0.0.1 \
+		HOV_ROUTER_HOST=127.0.0.1 \
 		PORT="$UPSTREAM_PORT" \
 		STORE_PAYLOADS=false \
 		LOG_LEVEL="${LOG_LEVEL:-warn}" \
-		CCFLARE_RATE_LIMIT_BACKOFF_MAX_MS=120000 \
-		CCFLARE_GUARD_CORRELATION_SECRET="$guard_correlation_secret" \
-		CCFLARE_DEBUG_ANTHROPIC_BOUNDARY="${CCFLARE_DEBUG_ANTHROPIC_BOUNDARY:-1}" \
-		CCFLARE_DEBUG_CODEX_STREAM="${CCFLARE_DEBUG_CODEX_STREAM:-1}" \
-		"$CCFLARE_BIN" --serve --port "$UPSTREAM_PORT" &
+		HOV_ROUTER_RATE_LIMIT_BACKOFF_MAX_MS=120000 \
+		HOV_ROUTER_GUARD_CORRELATION_SECRET="$guard_correlation_secret" \
+		HOV_ROUTER_DEBUG_ANTHROPIC_BOUNDARY="${HOV_ROUTER_DEBUG_ANTHROPIC_BOUNDARY:-1}" \
+		HOV_ROUTER_DEBUG_CODEX_STREAM="${HOV_ROUTER_DEBUG_CODEX_STREAM:-1}" \
+		"$HOV_ROUTER_BIN" --serve --port "$UPSTREAM_PORT" &
 	# The record's pid is noted in the same command as the backend's, which
 	# narrows the moment at which cleanup could stop this backend while the
 	# record's close does not know which one it was (#859).
@@ -1153,7 +1180,7 @@ run_stack_once() {
 			rm -f -- "$control_dir/control.sock" "$control_dir/deploy.sock"
 		else
 			control_base="$(control_dir_base)"
-			if ! control_dir="$(mktemp -d "$control_base/ccflare-control.XXXXXX")"; then
+			if ! control_dir="$(mktemp -d "$control_base/hov-router-control.XXXXXX")"; then
 				control_dir=""
 				log "control directory could not be made under ${control_base}; nothing was started"
 				if filesystem_out_of_space "$control_base"; then start_out_of_space="the control directory"; fi
@@ -1175,10 +1202,10 @@ run_stack_once() {
 		return 1
 	fi
 
-	CCFLARE_MANAGED_INGRESS_NONCE=${CCFLARE_MANAGED_INGRESS_NONCE:-$(LC_ALL=C head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')}
-	if ((pending_deployment || pending_rollback)); then CCFLARE_MANAGED_CANDIDATE_NONCE="$(deployment_field manifest.candidateNonce)"; else CCFLARE_MANAGED_CANDIDATE_NONCE=$(LC_ALL=C head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'); fi
-	export CCFLARE_MANAGED_TIMING="${CCFLARE_MANAGED_TIMING:-0}" CCFLARE_MANAGED_INGRESS_NONCE CCFLARE_MANAGED_CANDIDATE_NONCE
-	export CCFLARE_MANAGED_GENERATION="$upstream_generation"
+	HOV_ROUTER_MANAGED_INGRESS_NONCE=${HOV_ROUTER_MANAGED_INGRESS_NONCE:-$(LC_ALL=C head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')}
+	if ((pending_deployment || pending_rollback)); then HOV_ROUTER_MANAGED_CANDIDATE_NONCE="$(deployment_field manifest.candidateNonce)"; else HOV_ROUTER_MANAGED_CANDIDATE_NONCE=$(LC_ALL=C head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'); fi
+	export HOV_ROUTER_MANAGED_TIMING="${HOV_ROUTER_MANAGED_TIMING:-0}" HOV_ROUTER_MANAGED_INGRESS_NONCE HOV_ROUTER_MANAGED_CANDIDATE_NONCE
+	export HOV_ROUTER_MANAGED_GENERATION="$upstream_generation"
 	# A stop that lands in here is kept until the ownership record says what
 	# was started: see hold_shutdown.
 	local start_status=0
@@ -1186,15 +1213,15 @@ run_stack_once() {
 	start_recorded_upstream || start_status=$?
 	release_shutdown
 	((start_status == 0)) || return 1
-	if ! wait_for_url better-ccflare "http://127.0.0.1:${UPSTREAM_PORT}/health" "$upstream_pid"; then
+	if ! wait_for_url hov-router "http://127.0.0.1:${UPSTREAM_PORT}/health" "$upstream_pid"; then
 		if [[ -z "$child_exit_name" ]]; then
-			child_exit_name="better-ccflare upstream"
+			child_exit_name="hov-router upstream"
 			child_exit_status=1
 			child_exit_class="failure"
 		fi
 		# The backend leaves this status when its start found no space,
 		# and for nothing else.
-		if [[ "$child_exit_name" == "better-ccflare upstream" ]] && ((child_exit_status == OUT_OF_SPACE_EXIT_STATUS)); then
+		if [[ "$child_exit_name" == "hov-router upstream" ]] && ((child_exit_status == OUT_OF_SPACE_EXIT_STATUS)); then
 			start_out_of_space="the backend's start"
 		fi
 		return 1
@@ -1207,22 +1234,22 @@ run_stack_once() {
 			return 1
 		fi
 		pending_replacement=0
-		if ((pending_deployment)); then transaction_advance committed attached; pending_deployment=0; unset CCFLARE_DEPLOYMENT_TRANSACTION_ID; fi
-		if ((pending_rollback)); then pending_rollback=0; unset CCFLARE_DEPLOYMENT_TRANSACTION_ID CCFLARE_DEPLOYMENT_ROLLBACK; fi
+		if ((pending_deployment)); then transaction_advance committed attached; pending_deployment=0; unset HOV_ROUTER_DEPLOYMENT_TRANSACTION_ID; fi
+		if ((pending_rollback)); then pending_rollback=0; unset HOV_ROUTER_DEPLOYMENT_TRANSACTION_ID HOV_ROUTER_DEPLOYMENT_ROLLBACK; fi
 		start_retiring_reaper
 	else
-	log "starting ccflare guard on 127.0.0.1:${GUARD_PORT} -> 127.0.0.1:${UPSTREAM_PORT}; failure_cleanup_budget_ms=${RUNNER_FAILURE_STOP_BUDGET_MS}; intentional_stop_budget_ms=${GUARD_STOP_BUDGET_MS}"
+	log "starting hov-router guard on 127.0.0.1:${GUARD_PORT} -> 127.0.0.1:${UPSTREAM_PORT}; failure_cleanup_budget_ms=${RUNNER_FAILURE_STOP_BUDGET_MS}; intentional_stop_budget_ms=${GUARD_STOP_BUDGET_MS}"
 	HOME="$HOME" \
 		USER="$USER" \
 		GUARD_HOST=127.0.0.1 \
 		GUARD_PORT="$GUARD_PORT" \
-		CCFLARE_UPSTREAM="http://127.0.0.1:${UPSTREAM_PORT}" \
+		HOV_ROUTER_UPSTREAM="http://127.0.0.1:${UPSTREAM_PORT}" \
 		GUARD_UPSTREAM_PID="${upstream_pid}" \
 		GUARD_CONTROL_SOCKET="${control_dir:+$control_dir/control.sock}" \
 		GUARD_CONTROL_SECRET="$guard_control_secret" \
-		CCFLARE_GUARD_CORRELATION_SECRET="$guard_correlation_secret" \
+		HOV_ROUTER_GUARD_CORRELATION_SECRET="$guard_correlation_secret" \
 		GUARD_MAX_ACTIVE="$GUARD_EFFECTIVE_MAX_ACTIVE" \
-		GUARD_MAX_QUEUE="${CCFLARE_GUARD_MAX_QUEUE:-${GUARD_MAX_QUEUE:-500}}" \
+		GUARD_MAX_QUEUE="${HOV_ROUTER_GUARD_MAX_QUEUE:-${GUARD_MAX_QUEUE:-500}}" \
 		GUARD_MAX_RECOVERY_WAITS="$GUARD_MAX_RECOVERY_WAITS" \
 		GUARD_TOTAL_DEADLINE_MS="$GUARD_TOTAL_DEADLINE_MS" \
 		GUARD_RETRY_ATTEMPT_HEADROOM_MS="$GUARD_RETRY_ATTEMPT_HEADROOM_MS" \
@@ -1233,9 +1260,9 @@ run_stack_once() {
 		GUARD_SHUTDOWN_GRACE_MS="$GUARD_SHUTDOWN_GRACE_MS" \
 		"$NODE_BIN" "$GUARD_SCRIPT" &
 	guard_pid=$!
-	if ! wait_for_url ccflare-guard "http://127.0.0.1:${GUARD_PORT}/_guard/health" "$guard_pid"; then
+	if ! wait_for_url hov-router-guard "http://127.0.0.1:${GUARD_PORT}/_guard/health" "$guard_pid"; then
 		if [[ -z "$child_exit_name" ]]; then
-			child_exit_name="ccflare guard"
+			child_exit_name="hov-router guard"
 			child_exit_status=1
 			child_exit_class="failure"
 		fi
@@ -1251,7 +1278,7 @@ run_stack_once() {
 		# nothing that acts on "ready" can race the baseline it is compared to.
 		upstream_identity="$(proc_start_time "$upstream_pid")" || { log "cannot capture upstream proc start-time identity"; fatal_startup=1; return 1; }
 	fi
-	log "ccflare stack ready; upstream_pid=${upstream_pid} guard_pid=${guard_pid}"
+	log "hov-router stack ready; upstream_pid=${upstream_pid} guard_pid=${guard_pid}"
 	local -a child_pids=("$upstream_pid" "$guard_pid")
 	if ((transaction_enabled)); then start_deployment_listener; child_pids+=("$deployment_pid"); fi
 	# Use Bash's PID-reporting form for deterministic child classification and
@@ -1290,7 +1317,7 @@ run_stack_once() {
 	child_exit_name="$(child_name_for_pid "$exited_pid")"
 	classify_child_exit
 	fi
-	log "ccflare stack child exited; child=${child_exit_name}; status=${child_exit_status}; class=${child_exit_class}"
+	log "hov-router stack child exited; child=${child_exit_name}; status=${child_exit_status}; class=${child_exit_class}"
 	if [[ "$child_exit_class" == "intentional" ]]; then
 		return 0
 	fi
@@ -1414,7 +1441,7 @@ while :; do
 		stop_child "failed candidate" "$upstream_pid" "$UPSTREAM_STOP_BUDGET_MS"; wait "${upstream_pid:-0}" 2>/dev/null || true; upstream_pid=""
 		phase="$(deployment_field phase)"
 		if transaction_advance "$phase" rolled_back; then
-			CCFLARE_BIN="$(deployment_field previous.binary)"; export CCFLARE_SOURCE_SHA="$(deployment_field previous.backendSourceSha)" CCFLARE_GIT_SHA="$(deployment_field previous.backendSourceSha)" CCFLARE_DEPLOYMENT_ROLLBACK=1
+			HOV_ROUTER_BIN="$(deployment_field previous.binary)"; export HOV_ROUTER_SOURCE_SHA="$(deployment_field previous.backendSourceSha)" HOV_ROUTER_GIT_SHA="$(deployment_field previous.backendSourceSha)" HOV_ROUTER_DEPLOYMENT_ROLLBACK=1
 			pending_deployment=0;pending_rollback=1;continue
 		fi
 		log "backend deployment recovery held; pin or ownership ambiguity"; wait_for_operator; exit 70
@@ -1443,6 +1470,14 @@ while :; do
 			log "restarting stack after memory recycle; recycle_count=${rss_recycle_count}; no_failure_backoff=true"
 			continue
 		fi
+	fi
+	if [[ "$child_exit_name" == "hov-router upstream" ]] && ((child_exit_status == RETIRED_NAME_EXIT_STATUS)); then
+		# The backend found a retired name. A restart reads the same names, so
+		# stop for the operator instead of spending the restart circuit.
+		log "hov-router upstream refused a retired name; exiting for the operator; status=${RETIRED_NAME_EXIT_STATUS}"
+		stop_stack_children "$RUNNER_FAILURE_STOP_BUDGET_MS"
+		close_reaped_owner
+		exit "$RETIRED_NAME_EXIT_STATUS"
 	fi
 	if ((pending_replacement)) && [[ -n "$guard_pid" ]] && kill -0 "$guard_pid" 2>/dev/null; then
 		stop_child "failed replacement upstream" "$upstream_pid" "$RUNNER_FAILURE_STOP_BUDGET_MS"

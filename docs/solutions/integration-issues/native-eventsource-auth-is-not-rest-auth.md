@@ -24,8 +24,8 @@ This matters when maintaining Requests, Alerts, or Logs, especially after import
 
 ## Symptoms
 
-- In [#479](https://github.com/StartupBros-com/better-ccflare/issues/479), normal stored-key Requests reads returned 200, the native Requests stream returned 401, and Logs worked through its existing token mechanism. The Requests gap was observed on the preceding deployment too; it was not established as a regression introduced by the upstream integration.
-- After the Requests fix shipped, [#483](https://github.com/StartupBros-com/better-ccflare/issues/483) exposed the same REST-200/native-stream-401 split in Alerts. Fixing one caller had not covered its siblings.
+- In [#479](https://github.com/StartupBros-com/hov-router/issues/479), normal stored-key Requests reads returned 200, the native Requests stream returned 401, and Logs worked through its existing token mechanism. The Requests gap was observed on the preceding deployment too; it was not established as a regression introduced by the upstream integration.
+- After the Requests fix shipped, [#483](https://github.com/StartupBros-com/hov-router/issues/483) exposed the same REST-200/native-stream-401 split in Alerts. Fixing one caller had not covered its siblings.
 
 ## What Didn't Work
 
@@ -38,7 +38,7 @@ A later blocked dashboard run was a different limitation, not evidence that stre
 
 ## Solution
 
-Reuse the existing Logs mechanism for all three dashboard streams rather than adding an authentication exemption or putting a durable API key in a URL. [#482](https://github.com/StartupBros-com/better-ccflare/pull/482) and [#484](https://github.com/StartupBros-com/better-ccflare/pull/484) are merged; both fixes are present in the tree used for this capture.
+Reuse the existing Logs mechanism for all three dashboard streams rather than adding an authentication exemption or putting a durable API key in a URL. [#482](https://github.com/StartupBros-com/hov-router/pull/482) and [#484](https://github.com/StartupBros-com/hov-router/pull/484) are merged; both fixes are present in the tree used for this capture.
 
 The shared client entry point is `packages/dashboard-web/src/api.ts:981`: when a stored key exists, `createEventSource(audience)` authenticates a mint POST through the ordinary API client, then opens native `EventSource` with the returned ephemeral token. The router handles the mint only after normal authentication and authorization (`packages/http-api/src/router.ts:680`).
 
@@ -52,8 +52,8 @@ The fix aligns the actual browser credential transport with the existing server 
 
 There are still two distinct live-evidence boundaries:
 
-- **Native protocol acceptance:** the [post-deployment receipt](https://github.com/StartupBros-com/better-ccflare/issues/483#issuecomment-6158543691) records successful authenticated mint/stream responses for Alerts twice, Requests, and Logs, with four distinct tokens, four sources closed, and zero protocol errors. Anonymous Alerts mint and stream requests returned 401. These were non-inference checks.
-- **Actual dashboard lifecycle acceptance:** not established by those connections. In the same validation, authenticated stats stayed pending across two 30-second waits, preventing dashboard children from mounting. The client awaits stats during its initial auth check and withholds routes until it completes (`packages/dashboard-web/src/App.tsx:243`, `packages/dashboard-web/src/App.tsx:316`, `packages/dashboard-web/src/App.tsx:358`). [#480's receipt](https://github.com/StartupBros-com/better-ccflare/issues/480#issuecomment-6158527029) leaves the latency cause unresolved.
+- **Native protocol acceptance:** the [post-deployment receipt](https://github.com/StartupBros-com/hov-router/issues/483#issuecomment-6158543691) records successful authenticated mint/stream responses for Alerts twice, Requests, and Logs, with four distinct tokens, four sources closed, and zero protocol errors. Anonymous Alerts mint and stream requests returned 401. These were non-inference checks.
+- **Actual dashboard lifecycle acceptance:** not established by those connections. In the same validation, authenticated stats stayed pending across two 30-second waits, preventing dashboard children from mounting. The client awaits stats during its initial auth check and withholds routes until it completes (`packages/dashboard-web/src/App.tsx:243`, `packages/dashboard-web/src/App.tsx:316`, `packages/dashboard-web/src/App.tsx:358`). [#480's receipt](https://github.com/StartupBros-com/hov-router/issues/480#issuecomment-6158527029) leaves the latency cause unresolved.
 
 Thus, no mint/stream request in a blocked UI run can mean the hook never ran; it does not identify an authentication failure. Conversely, opening native connections separately establishes transport behavior, not component mounting, offline recovery, or visual correctness.
 
@@ -69,6 +69,6 @@ This learning serves engineers changing dashboard stream authentication and its 
 
 ## Related Issues
 
-- [#479 Requests authentication](https://github.com/StartupBros-com/better-ccflare/issues/479), [#483 Alerts authentication](https://github.com/StartupBros-com/better-ccflare/issues/483), and [#480 unresolved stats latency](https://github.com/StartupBros-com/better-ccflare/issues/480).
-- [Selected upstream integration closeout](https://github.com/StartupBros-com/better-ccflare/issues/473#issuecomment-6158857919): delivered integration scope is not a claim that every discovered dashboard problem is resolved.
+- [#479 Requests authentication](https://github.com/StartupBros-com/hov-router/issues/479), [#483 Alerts authentication](https://github.com/StartupBros-com/hov-router/issues/483), and [#480 unresolved stats latency](https://github.com/StartupBros-com/hov-router/issues/480).
+- [Selected upstream integration closeout](https://github.com/StartupBros-com/hov-router/issues/473#issuecomment-6158857919): delivered integration scope is not a claim that every discovered dashboard problem is resolved.
 - [Per-unit gates hide cross-unit regressions](../workflow-issues/per-unit-gates-hide-cross-unit-regressions.md): related evidence-completeness lesson, but isolated repository tests do not replace validation of browser credential transport.

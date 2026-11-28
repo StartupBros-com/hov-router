@@ -4,7 +4,7 @@
 - **Fork type:** Product fork with intentional hard divergence
 - **GitHub fork network:** left on 2026-11-21 (#910), keeping the repository's ID, issues, pull requests and releases. GitHub no longer marks it as a fork, so the fleet's Renovate run and Dependabot cover it like every other repository. The credit stays in [LICENSE](LICENSE) and [docs/acknowledgements.md](docs/acknowledgements.md).
 - **Sync cadence:** Targeted cherry-picks only. Wholesale release merges ended on 2026-11-03; see [Porting an upstream fix](#porting-an-upstream-fix). To port fixes from the wider fork network rather than from a release, follow [the fork-network survey method](docs/solutions/workflow-issues/survey-the-fork-network-then-check-each-port-applies-here.md)
-- **Last wholesale merge:** upstream v3.5.78, [PR #339](https://github.com/StartupBros-com/better-ccflare/pull/339) (2026-09-10), with its [resolution inventory](docs/plans/2026-09-09-issue-338-v3.5.78-resolution-inventory.json) and [generated ledger](docs/plans/2026-09-09-issue-338-v3.5.78-resolution-ledger.md)
+- **Last wholesale merge:** upstream v3.5.78, [PR #339](https://github.com/StartupBros-com/hov-router/pull/339) (2026-09-10), with its [resolution inventory](docs/plans/2026-09-09-issue-338-v3.5.78-resolution-inventory.json) and [generated ledger](docs/plans/2026-09-09-issue-338-v3.5.78-resolution-ledger.md)
 
 This repository is not a mirror. It substantially rewrites routing, provider,
 persistence, provenance, and operator behavior for StartupBros. Default-branch
@@ -42,7 +42,7 @@ A port must preserve, at minimum, these protected fork contracts:
 - fork build/update provenance, runtime Git-SHA identity, deployment source gates,
   observability, and operator controls.
 
-Deployment stays a separate operator-authorized action. `scripts/deploy-ccflare.sh`
+Deployment stays a separate operator-authorized action. `scripts/deploy-hov-router.sh`
 ships only the freshly fetched `origin/main` tip, from any checkout. A merge, package
 version, or ported fix does not prove the installed binary or running service identity.
 
@@ -60,7 +60,7 @@ would justify bringing it back.
   `release-dispatch.yml`, `signpath-release.yml`, `signpath-test.yml`,
   `.signpath/`), the npm `prepublishOnly`/`postpublish` hooks, and the macOS,
   Windows and arm64 build aliases: removed 2026-11-03. Router releases come from
-  `router-release.yml`; `build:multi` with `CCFLARE_ONLY_PLATFORMS` still builds
+  `router-release.yml`; `build:multi` with `HOV_ROUTER_ONLY_PLATFORMS` still builds
   any platform. `scripts/__tests__/router-release-workflow.test.ts` fails if a
   publisher workflow reappears.
 - **PostgreSQL support** (`migrations-pg.ts`, the PostgreSQL adapter and repository

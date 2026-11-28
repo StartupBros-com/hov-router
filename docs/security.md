@@ -2,7 +2,7 @@
 
 **Last Security Review**: October 27, 2025
 
-This document outlines the security considerations, practices, and recommendations for the HoV Router (formerly better-ccflare) load balancer system.
+This document outlines the security considerations, practices, and recommendations for the HoV Router (formerly hov-router) load balancer system.
 
 ## ⚠️ Critical Security Notice
 
@@ -253,10 +253,10 @@ iptables -A INPUT -p tcp --dport 8080 -s 127.0.0.1 -j ACCEPT
 iptables -A INPUT -p tcp --dport 8080 -j DROP
 ```
 
-**✅ Implemented**: Server now supports the `BETTER_CCFLARE_HOST` environment variable for binding configuration:
+**✅ Implemented**: Server now supports the `HOV_ROUTER_HOST` environment variable for binding configuration:
 ```typescript
 // Implemented in apps/server/src/server.ts
-const hostname = process.env.BETTER_CCFLARE_HOST || "0.0.0.0"; // Allow binding configuration
+const hostname = process.env.HOV_ROUTER_HOST || "0.0.0.0"; // Allow binding configuration
 const serverConfig = {
     port: runtime.port,
     hostname,
@@ -268,15 +268,15 @@ const serverConfig = {
 **Usage Examples**:
 ```bash
 # Bind to localhost only (secure)
-export BETTER_CCFLARE_HOST=127.0.0.1
+export HOV_ROUTER_HOST=127.0.0.1
 bun start
 
 # Bind to all interfaces (default - insecure)
-export BETTER_CCFLARE_HOST=0.0.0.0
+export HOV_ROUTER_HOST=0.0.0.0
 bun start
 
 # Bind to specific network interface
-export BETTER_CCFLARE_HOST=192.168.1.100
+export HOV_ROUTER_HOST=192.168.1.100
 bun start
 ```
 
@@ -285,7 +285,7 @@ bun start
 # Nginx configuration example
 server {
     listen 443 ssl http2;
-    server_name better-ccflare.internal;
+    server_name hov-router.internal;
     
     ssl_certificate /path/to/cert.pem;
     ssl_certificate_key /path/to/key.pem;
@@ -418,7 +418,7 @@ When `PAYLOAD_ENCRYPTION_KEY` is set to a 64-character hex string (32 bytes / AE
 ### Log Retention
 
 #### Current State
-- The log file (`app.log` under `BETTER_CCFLARE_LOG_DIR`, by default a `better-ccflare-logs` folder in the system temp directory) is deleted and started again when it passes 10 MB; no older copies are kept
+- The log file (`app.log` under `HOV_ROUTER_LOG_DIR`, by default a `hov-router-logs` folder in the system temp directory) is deleted and started again when it passes 10 MB; no older copies are kept
 - Stored request payloads are deleted after `DATA_RETENTION_DAYS` (default 1 day) and request records after `REQUEST_RETENTION_DAYS` (default 90 days)
 
 #### Recommended Practices
@@ -527,7 +527,7 @@ interface User {
 ### Deployment Checklist
 
 - [ ] **Network Configuration**
-  - [ ] ✅ Bind server to localhost only using `BETTER_CCFLARE_HOST=127.0.0.1`
+  - [ ] ✅ Bind server to localhost only using `HOV_ROUTER_HOST=127.0.0.1`
   - [ ] Configure firewall rules
   - [ ] Set up reverse proxy with TLS
   - [ ] Disable unnecessary network services
@@ -724,7 +724,7 @@ function addSecurityHeaders(response: Response): Response {
 - Secure key rotation mechanism
 
 ### Phase 3: Network Hardening (Priority: High)
-- ~~Add HOST binding configuration~~ (`BETTER_CCFLARE_HOST`); making localhost the default is still open
+- ~~Add HOST binding configuration~~ (`HOV_ROUTER_HOST`); making localhost the default is still open
 - ~~TLS support in proxy server~~ (`--ssl-key` and `--ssl-cert`)
 - Certificate pinning for API calls
 - IP allowlisting capability
@@ -749,15 +749,15 @@ function addSecurityHeaders(response: Response): Response {
 # Logging and Debugging
 LOG_LEVEL=INFO                  # Set to ERROR in production
 LOG_FORMAT=json                 # Use json for structured logging
-BETTER_CCFLARE_DEBUG=0            # Set to 1 only for debugging
+HOV_ROUTER_DEBUG=0            # Set to 1 only for debugging
 
 # Configuration
-BETTER_CCFLARE_CONFIG_PATH=/path/to/config.json  # Custom config location
+HOV_ROUTER_CONFIG_PATH=/path/to/config.json  # Custom config location
 CLIENT_ID=your-client-id       # OAuth client ID
 
 # Server Configuration
 PORT=8080                      # Server port
-BETTER_CCFLARE_HOST=0.0.0.0   # Server binding host (use 127.0.0.1 for localhost-only)
+HOV_ROUTER_HOST=0.0.0.0   # Server binding host (use 127.0.0.1 for localhost-only)
 LB_STRATEGY=session           # Load balancing strategy
 
 # Retry Configuration
@@ -812,7 +812,7 @@ SESSION_DURATION_MS=18000000 # Session duration (5 hours)
 grep -v "127.0.0.1\|::1" access.log
 
 # Monitor for high request volumes
-sqlite3 better-ccflare.db "SELECT COUNT(*) as count, account_used 
+sqlite3 hov-router.db "SELECT COUNT(*) as count, account_used 
 FROM requests 
 WHERE timestamp > strftime('%s', 'now', '-1 hour') * 1000 
 GROUP BY account_used 

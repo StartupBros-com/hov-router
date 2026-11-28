@@ -177,7 +177,7 @@ async function forwardAccountingFixture(options: {
 			"content-type": options.stream ? "text/event-stream" : "application/json",
 		});
 		if (options.stream && options.native !== false) {
-			headers.set("x-better-ccflare-codex-response-format", "responses-api");
+			headers.set("x-hov-router-codex-response-format", "responses-api");
 		}
 		const bytes = new TextEncoder().encode(options.body);
 		let offset = 0;
@@ -496,7 +496,7 @@ it("does not let a client format header reclassify a transformed Anthropic strea
 		stream: true,
 		native: false,
 		requestHeaders: new Headers({
-			"x-better-ccflare-codex-response-format": "responses-api",
+			"x-hov-router-codex-response-format": "responses-api",
 		}),
 	});
 	expect(row).toMatchObject({ success: 1, stream_terminal_state: "complete" });

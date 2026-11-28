@@ -85,7 +85,9 @@ describe("repository agent instructions", () => {
 		expect(instructions).not.toContain("must only be used through a real interactive");
 		expect(instructions).toContain("headless `claude -p`");
 		expect(instructions).toContain("Nothing here authorizes paid overage");
-		expect(instructions).toContain("`x-better-ccflare-account-id`");
+		expect(instructions).toContain("`x-hov-router-account-id`");
+		// A 7.x server ignores the new header, so the rule must say to check first.
+		expect(instructions).toContain("`/health` `version` is 8.0.0 or later");
 	});
 
 	test("the canonical instructions omit stale repository guidance", () => {

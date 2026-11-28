@@ -48,6 +48,8 @@ const actions: Record<TrustedUpdateChannel, UpdateAction> = {
 		kind: "command",
 		value: "docker pull ghcr.io/tombii/better-ccflare:latest",
 	},
+	// Upstream builds only (v1:tombii-* provenance). This fork publishes no
+	// npm package, so these name upstream's package, not this product.
 	npm: { kind: "command", value: "npm install -g better-ccflare@latest" },
 	"github-releases": {
 		kind: "url",

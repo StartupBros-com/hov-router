@@ -317,7 +317,7 @@ describe("SessionDrainSoonestStrategy strict mode", () => {
 			[later, agedOut],
 			makeMeta({
 				headers: new Headers({
-					"x-better-ccflare-bypass-session": "true",
+					"x-hov-router-bypass-session": "true",
 				}),
 			}),
 		);

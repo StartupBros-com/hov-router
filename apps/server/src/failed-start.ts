@@ -5,7 +5,7 @@ import { StartOutOfSpaceError } from "@hov-router/database";
  * What a start that failed for lack of disk space exits with: the errno of
  * ENOSPC.
  *
- * The runner (`scripts/run-ccflare-stack.sh`) reads it. After this status it
+ * The runner (`scripts/run-hov-router.sh`) reads it. After this status it
  * waits for space and starts the backend again, and does not count the
  * failure toward the restart circuit that takes the unit down (#827). The
  * runner and the transaction module carry the same number; a test holds the

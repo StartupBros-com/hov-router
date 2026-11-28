@@ -31,8 +31,8 @@ describe("native quota terminal presentation", () => {
 		expect(response.status).toBe(429);
 		expect(response.headers.get("retry-after")).toBe("60");
 		expect(response.headers.get("x-should-retry")).toBe("true");
-		expect(response.headers.get("x-better-ccflare-pool-status")).toBeNull();
-		expect(response.headers.get("x-better-ccflare-recovery-scope")).toBeNull();
+		expect(response.headers.get("x-hov-router-pool-status")).toBeNull();
+		expect(response.headers.get("x-hov-router-recovery-scope")).toBeNull();
 		expect(
 			[...response.headers.keys()].some((key) => key.startsWith("anthropic-")),
 		).toBe(false);

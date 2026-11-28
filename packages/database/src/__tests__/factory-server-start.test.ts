@@ -21,11 +21,11 @@ describe("database factory server start", () => {
 	let savedReaderWorker: string | undefined;
 
 	beforeEach(() => {
-		dir = mkdtempSync(join(tmpdir(), "ccflare-factory-server-start-"));
+		dir = mkdtempSync(join(tmpdir(), "hov-router-factory-server-start-"));
 		dbPath = join(dir, "test.db");
 		savedDatabaseUrl = process.env.DATABASE_URL;
-		savedReaderWorker = process.env.BETTER_CCFLARE_DB_READER_WORKER;
-		process.env.BETTER_CCFLARE_DB_READER_WORKER = "0";
+		savedReaderWorker = process.env.HOV_ROUTER_DB_READER_WORKER;
+		process.env.HOV_ROUTER_DB_READER_WORKER = "0";
 	});
 
 	afterEach(async () => {
@@ -33,9 +33,9 @@ describe("database factory server start", () => {
 		if (savedDatabaseUrl === undefined) delete process.env.DATABASE_URL;
 		else process.env.DATABASE_URL = savedDatabaseUrl;
 		if (savedReaderWorker === undefined) {
-			delete process.env.BETTER_CCFLARE_DB_READER_WORKER;
+			delete process.env.HOV_ROUTER_DB_READER_WORKER;
 		} else {
-			process.env.BETTER_CCFLARE_DB_READER_WORKER = savedReaderWorker;
+			process.env.HOV_ROUTER_DB_READER_WORKER = savedReaderWorker;
 		}
 		rmSync(dir, { recursive: true, force: true });
 	});

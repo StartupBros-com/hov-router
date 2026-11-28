@@ -13,7 +13,7 @@ import {
 import { dirname, isAbsolute } from "node:path";
 
 export const CODEX_CACHE_TELEMETRY_PATH_ENV =
-	"CCFLARE_CODEX_CACHE_TELEMETRY_PATH";
+	"HOV_ROUTER_CODEX_CACHE_TELEMETRY_PATH";
 export type CacheFacts = Record<string, string | number | boolean | null>;
 
 // This is a serialization allowlist, not just a TypeScript type. Arbitrary

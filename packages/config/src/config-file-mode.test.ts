@@ -19,7 +19,7 @@ import { Config } from "./index";
  * The config file holds pg_password, local_control_secret and other secrets,
  * so it must be readable by its owner only.
  *
- * Adapted from SijanC147/better-ccflare config-file-mode.test.ts (f2dc5c8e5),
+ * Adapted from SijanC147/hov-router config-file-mode.test.ts (f2dc5c8e5),
  * covering the in-place write kept here rather than the fork's temp-file
  * rename.
  *
@@ -54,13 +54,13 @@ afterEach(() => {
 
 describe("config file mode", () => {
 	it("creates a missing config file 0600", () => {
-		const path = join(dir, "better-ccflare.json");
+		const path = join(dir, "hov-router.json");
 		new Config(path);
 		expect(mode(path)).toBe(0o600);
 	});
 
 	it("tightens an existing 0644 config on load and keeps it 0600 across saves", () => {
-		const path = join(dir, "better-ccflare.json");
+		const path = join(dir, "hov-router.json");
 		writeFileSync(path, JSON.stringify({ label: "original" }));
 		chmodSync(path, 0o644);
 
@@ -76,7 +76,7 @@ describe("config file mode", () => {
 		// The create mode is masked by the umask. Left at 0400, the next
 		// in-place save fails to open the file for writing.
 		process.umask(0o277);
-		const path = join(dir, "better-ccflare.json");
+		const path = join(dir, "hov-router.json");
 
 		const config = new Config(path);
 		expect(mode(path)).toBe(0o600);
@@ -88,11 +88,11 @@ describe("config file mode", () => {
 	it("tightens the target of a symlinked config and keeps the link", () => {
 		// Dotfiles setups link the config from elsewhere. A save must write
 		// through the link, never replace it with a regular file.
-		const target = join(dir, "dotfiles", "better-ccflare.json");
+		const target = join(dir, "dotfiles", "hov-router.json");
 		mkdirSync(dirname(target));
 		writeFileSync(target, JSON.stringify({ label: "original" }));
 		chmodSync(target, 0o644);
-		const link = join(dir, "better-ccflare.json");
+		const link = join(dir, "hov-router.json");
 		symlinkSync(target, link);
 
 		const config = new Config(link);
@@ -106,7 +106,7 @@ describe("config file mode", () => {
 	it("leaves a directory at the config path alone", () => {
 		// Stripping a directory's execute bits would lock the operator out of
 		// the database beside it.
-		const path = join(dir, "better-ccflare.json");
+		const path = join(dir, "hov-router.json");
 		mkdirSync(path);
 		chmodSync(path, 0o755);
 
@@ -118,8 +118,8 @@ describe("config file mode", () => {
 
 describe("config directory mode", () => {
 	it("creates a missing config directory 0700", () => {
-		const configDir = join(dir, "better-ccflare");
-		new Config(join(configDir, "better-ccflare.json"));
+		const configDir = join(dir, "hov-router");
+		new Config(join(configDir, "hov-router.json"));
 		expect(mode(configDir)).toBe(0o700);
 	});
 
@@ -130,7 +130,7 @@ describe("config directory mode", () => {
 		mkdirSync(configDir);
 		chmodSync(configDir, 0o755);
 
-		new Config(join(configDir, "better-ccflare.json"));
+		new Config(join(configDir, "hov-router.json"));
 
 		expect(mode(configDir)).toBe(0o755);
 	});

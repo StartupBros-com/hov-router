@@ -41,7 +41,7 @@ The router runs its SQLite work on several Bun Worker threads inside one process
 
 Other Workers can run alongside them. After #712 was deployed, the question was whether `GET /api/accounts` really runs on the new thread in production. None of the obvious signals could answer it:
 
-- **Thread names.** At the time, every worker thread's `comm` read `Worker`, because the workers were spawned with `{ smol: true }` and no `name`. The main thread reads `better-ccflare-`, cut to Linux's 15 characters. Each database worker now names its thread after its lane ([Thread names](#thread-names) below). That says which thread is which lane, but still not which lane an endpoint's reads go to.
+- **Thread names.** At the time, every worker thread's `comm` read `Worker`, because the workers were spawned with `{ smol: true }` and no `name`. The main thread reads `hov-router-`, cut to Linux's 15 characters. Each database worker now names its thread after its lane ([Thread names](#thread-names) below). That says which thread is which lane, but still not which lane an endpoint's reads go to.
 - **The ready line.** Each lane logs `Off-thread <label> ready` once (`packages/database/src/off-thread-reader.ts:352-356`), but at info level. The level comes from `LOG_LEVEL` (`packages/logger/src/index.ts:89`), and production ran `LOG_LEVEL=warn` when this was measured (backend pid 4179860, 2026-11-04 UTC).
 - **Slow-SQL warnings.** `Slow off-thread SQL` is logged at warn level, but only for statements of 250 ms or more (`SLOW_SQL_STATEMENT_MS`, `packages/database/src/sqlite-statement-timing.ts:26`). Only a labelled reader appends ` (interactive reader)` to it (`off-thread-reader.ts:370-372`), so an unsuffixed line can come from either the bulk reader or the writer. An accounts read takes about 32 ms, so it never produces the line at all.
 - **`read_bytes`.** It stayed 0 on the readers while they served hundreds of megabytes (`rchar`), because the kernel page cache answered the reads.
@@ -83,7 +83,7 @@ Production `/api` needs the admin key; only `/health` is exempt. Put the `x-api-
 
 Two cautions:
 
-- Send bursts only to real dashboard routes ([unknown-path doc](./never-poll-an-unknown-path-against-a-local-ccflare.md)). This method uses dashboard reads, never inference traffic.
+- Send bursts only to real dashboard routes ([unknown-path doc](./never-poll-an-unknown-path-against-a-local-router.md)). This method uses dashboard reads, never inference traffic.
 - Keep the contention test short. Each heavy bulk endpoint ran 39-85 s when this was written. Since #722 (2026-11-04) the recurring bulk-lane scans are cheap: a public subscription-value refresh takes about 0.33 s warm, and the Codex scanner's usage report about 0.19 s run alone. So the endpoint you start in step 4 supplies the contention. One or two runs are enough.
 
 ### Thread names
@@ -147,6 +147,6 @@ Before #712, those same accounts reads queued behind the single reader while a s
 - Issue #606: where the off-thread bulk reader came from. Issue #710 and the Codex scanner's `report()` call (`packages/http-api/src/services/external-codex-scanner.ts`) were the recurring bulk-lane load until #722 fixed #710's query plan; after that deploy `report()` all but stopped logging as slow (once, at 1.0 s, in the first 51 minutes) ([planner-tie learning](../performance-issues/sqlite-planner-tie-between-low-cardinality-and-account-index.md)). Since #601 the dashboard no longer polls `/api/stats`, so #711 is not part of it.
 - [Worker SQLite connections run compile-default pragmas](../performance-issues/worker-sqlite-connections-run-compile-default-pragmas.md): how the worker connections are configured, and the inventory of worker sites.
 - [Verify fix ancestry before citing a measured rate](./verify-fix-ancestry-before-citing-a-measured-rate.md): confirm the live `git_sha` carries the change before citing a measurement.
-- [Never poll an unknown path against a local ccflare](./never-poll-an-unknown-path-against-a-local-ccflare.md): send bursts to known routes only.
+- [Never poll an unknown path against a local router](./never-poll-an-unknown-path-against-a-local-router.md): send bursts to known routes only.
 - [RSS watchdog blind to swap-evicted memory](../performance-issues/rss-watchdog-blind-to-swap-evicted-memory.md): another `/proc` reading where the obvious counter misleads.
 - [Snapshot a live SQLite DB with VACUUM INTO, not .backup](./snapshot-a-live-sqlite-db-with-vacuum-into-not-backup.md): inspecting the live production database without disturbing it.

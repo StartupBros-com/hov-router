@@ -12,9 +12,9 @@
  * signal for fresh subagent fan-out.
  *
  * Enable:
- *   CCFLARE_CODEX_TRACE_DIR=/path/to/dir     # summaries only, no prompt content
- *   CCFLARE_CODEX_TRACE_FULL=1               # also embed full request bodies
- *   CCFLARE_CODEX_TRACE_RETENTION_DAYS=7     # delete daily files older than this; 0 keeps all
+ *   HOV_ROUTER_CODEX_TRACE_DIR=/path/to/dir     # summaries only, no prompt content
+ *   HOV_ROUTER_CODEX_TRACE_FULL=1               # also embed full request bodies
+ *   HOV_ROUTER_CODEX_TRACE_RETENTION_DAYS=7     # delete daily files older than this; 0 keeps all
  *
  * Tracing is best-effort and MUST never affect the request path: all I/O is
  * wrapped so a trace failure is swallowed.
@@ -33,14 +33,14 @@ import type {
 	OrchestrationAdmissionBasis,
 } from "./orchestration-election";
 
-export const CODEX_TRACE_DIR_ENV = "CCFLARE_CODEX_TRACE_DIR";
-export const CODEX_TRACE_FULL_ENV = "CCFLARE_CODEX_TRACE_FULL";
-export const CODEX_TRACE_HMAC_KEY_ENV = "CCFLARE_CODEX_TRACE_HMAC_KEY";
+export const CODEX_TRACE_DIR_ENV = "HOV_ROUTER_CODEX_TRACE_DIR";
+export const CODEX_TRACE_FULL_ENV = "HOV_ROUTER_CODEX_TRACE_FULL";
+export const CODEX_TRACE_HMAC_KEY_ENV = "HOV_ROUTER_CODEX_TRACE_HMAC_KEY";
 export const CODEX_TRACE_RETENTION_DAYS_ENV =
-	"CCFLARE_CODEX_TRACE_RETENTION_DAYS";
+	"HOV_ROUTER_CODEX_TRACE_RETENTION_DAYS";
 export const DEFAULT_CODEX_TRACE_RETENTION_DAYS = 7;
 /** Warn when one response spawns at least this many subagents (0 disables). */
-export const CODEX_FANOUT_WARN_ENV = "CCFLARE_CODEX_FANOUT_WARN";
+export const CODEX_FANOUT_WARN_ENV = "HOV_ROUTER_CODEX_FANOUT_WARN";
 
 // v19: context_utilization_pct's denominator (modelContextWindow) changed
 // epoch — GPT-5.6 moved from the invented 372k window to the catalog max
@@ -314,7 +314,7 @@ interface TraceInputs {
 	elapsedMsSinceRoot?: number | null;
 	tools?: readonly unknown[];
 	codexInput: readonly unknown[];
-	/** full bodies, only embedded when CCFLARE_CODEX_TRACE_FULL=1 */
+	/** full bodies, only embedded when HOV_ROUTER_CODEX_TRACE_FULL=1 */
 	anthropicRequest?: unknown;
 	codexRequest?: unknown;
 }
@@ -624,7 +624,7 @@ function privacyHmac(
 	const key = process.env[CODEX_TRACE_HMAC_KEY_ENV];
 	if (!key || !value) return null;
 	return createHmac("sha256", key)
-		.update(`better-ccflare/codex-trace/${domain}/v1\0`, "utf8")
+		.update(`hov-router/codex-trace/${domain}/v1\0`, "utf8")
 		.update(value, "utf8")
 		.digest("hex");
 }

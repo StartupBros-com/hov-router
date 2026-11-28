@@ -64,7 +64,7 @@ Advisor is now a native Anthropic passthrough requirement. In outline (the routi
 Checking it live: the operator runs `/advisor` in an interactive Claude Code session (`AGENTS.md` forbids requests to Anthropic accounts that do not come from Claude Code), then reads the result without writing anything. A [tool-free route check](../../agent-setup.md#5-connect-claude-code-and-prove-the-route) does not exercise `/advisor`:
 
 ```sql
--- sqlite3 -readonly ~/.config/better-ccflare/better-ccflare.db
+-- sqlite3 -readonly ~/.config/hov-router/hov-router.db
 SELECT datetime(timestamp/1000, 'unixepoch', 'localtime') AS t,
        model, agent_used, advisor_usage
 FROM requests
@@ -90,7 +90,7 @@ The refusals work because Claude Code recovers from advisor errors by matching s
   - The per-session controls are the `--advisor <model>` launch flag and `CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1`.
   - The advisor must rank at least as high as the main model on the catalog's `advisor_rank`: Haiku 4.5 = 1, Sonnet 5 = 4, Sonnet 5.5 = 6, Opus 5 and 5.5 = 7, Fable 5.1 = 9. Equal ranks are allowed, so a Fable chat gets Fable advising Fable. Opus can't advise a Fable chat. The client leaves the advisor out, with the reason "advisor must be at least as capable as the base model"; whether that reason is shown to the user was not checked.
   - Subagents check the same setting against their own model. This comes from reading the code; no subagent advisor call has been observed yet.
-- **Expect large, uncached advisor input.** Each advisor call sends the whole transcript to the advisor model with no cache. The first three production calls on 2026-10-04 read 199,528, 217,727 and 231,684 input tokens, all with 0 cached. Two of them came from Opus 5.5 chats with a Fable advisor, so the mixed-model case works too. better-ccflare prices advisor tokens at the advisor model's rate, not the main model's.
+- **Expect large, uncached advisor input.** Each advisor call sends the whole transcript to the advisor model with no cache. The first three production calls on 2026-10-04 read 199,528, 217,727 and 231,684 input tokens, all with 0 cached. Two of them came from Opus 5.5 chats with a Fable advisor, so the mixed-model case works too. hov-router prices advisor tokens at the advisor model's rate, not the main model's.
 
 ## Related Issues
 

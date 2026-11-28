@@ -83,7 +83,7 @@ const {
 	getAnthropicStreamRuntimeConfig,
 } = await import("../anthropic-semantic-preflight");
 const { DEFAULT_GUARD_RESPONSE_IDLE_TIMEOUT_MS } = await import(
-	"../../../../scripts/ccflare-guard.mjs"
+	"../../../../scripts/hov-router-guard.mjs"
 );
 
 const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000;

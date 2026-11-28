@@ -230,7 +230,7 @@ export function createServerToolRoutingErrorResponse(
 		error.reason === "forced_incapable" ||
 		error.reason === "forced_structurally_incapable"
 	) {
-		headers.set("x-better-ccflare-force-route", "unavailable");
+		headers.set("x-hov-router-force-route", "unavailable");
 	}
 	if (error.reason === "forced_structurally_incapable") {
 		headers.set("x-should-retry", "false");

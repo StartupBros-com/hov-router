@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it, mock } from "bun:test";
 import type { APIContext } from "@hov-router/types";
 
 // The shared models.dev catalogue is the last-resort source for providers
-// ccflare cannot ask directly, and the real one performs network I/O. Stub it
+// The router cannot ask directly, and the real one performs network I/O. Stub it
 // so these tests are offline and deterministic — same discipline as the rest
 // of this suite. The handler is imported after the mock is registered.
 const actualCore = await import("@hov-router/core");

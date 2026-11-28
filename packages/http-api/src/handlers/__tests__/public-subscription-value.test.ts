@@ -13,9 +13,9 @@ import { join } from "node:path";
 import { Logger } from "@hov-router/logger";
 import type { APIContext } from "../../types";
 
-const scratch = mkdtempSync(join(tmpdir(), "ccflare-public-value-"));
-process.env.BETTER_CCFLARE_DB_PATH = join(scratch, "isolated.db");
-process.env.BETTER_CCFLARE_CONFIG_PATH = join(scratch, "isolated-config.json");
+const scratch = mkdtempSync(join(tmpdir(), "hov-router-public-value-"));
+process.env.HOV_ROUTER_DB_PATH = join(scratch, "isolated.db");
+process.env.HOV_ROUTER_CONFIG_PATH = join(scratch, "isolated-config.json");
 process.env.DATABASE_URL = "";
 const { VALUE_PRICING_VERSION } = await import("@hov-router/core");
 const { DatabaseOperations } = await import("@hov-router/database");

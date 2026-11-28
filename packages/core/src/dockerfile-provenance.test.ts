@@ -46,7 +46,7 @@ describe("Dockerfile builds HoV Router from source", () => {
 		expect(froms).toHaveLength(2);
 		expect(froms[1]).toBe("FROM debian:trixie-slim");
 		expect(dockerfile).toContain(
-			"COPY --from=builder /src/apps/cli/dist/better-ccflare /usr/local/bin/better-ccflare",
+			"COPY --from=builder /src/apps/cli/dist/hov-router /usr/local/bin/hov-router",
 		);
 	});
 
@@ -88,17 +88,17 @@ describe("Dockerfile builds HoV Router from source", () => {
 		);
 	});
 
-	it("runs as the non-root ccflare user with persistent /data", () => {
-		expect(instructions).toContain("USER ccflare");
+	it("runs as the non-root hov-router user with persistent /data", () => {
+		expect(instructions).toContain("USER hov-router");
 		expect(
-			instructions.some((l) => /useradd -u 1000 .* ccflare( |$)/.test(l)),
+			instructions.some((l) => /useradd -u 1000 .* hov-router( |$)/.test(l)),
 		).toBe(true);
 		expect(instructions).toContain('VOLUME ["/data"]');
 		expect(instructions).toContain(
-			"ENV BETTER_CCFLARE_DB_PATH=/data/better-ccflare.db",
+			"ENV HOV_ROUTER_DB_PATH=/data/hov-router.db",
 		);
 		expect(instructions).toContain("ENV XDG_CONFIG_HOME=/data");
-		expect(instructions).toContain("ENV BETTER_CCFLARE_LOG_DIR=/app/logs");
+		expect(instructions).toContain("ENV HOV_ROUTER_LOG_DIR=/app/logs");
 		expect(instructions).toContain("ENV NODE_ENV=production");
 	});
 
@@ -114,10 +114,10 @@ describe("Dockerfile builds HoV Router from source", () => {
 	});
 
 	it("sets the listening host itself, so the published port does not depend on the binary's default", () => {
-		expect(instructions).toContain("ENV BETTER_CCFLARE_HOST=0.0.0.0");
+		expect(instructions).toContain("ENV HOV_ROUTER_HOST=0.0.0.0");
 		// The image carries the setting. A value under compose `environment:`
 		// would override the user's own `.env`, so compose must not pin it.
-		expect(compose).not.toMatch(/^\s*-\s*BETTER_CCFLARE_HOST=/m);
+		expect(compose).not.toMatch(/^\s*-\s*HOV_ROUTER_HOST=/m);
 	});
 
 	it("labels the image as HoV Router from this repository", () => {
@@ -134,17 +134,26 @@ describe("Docker guide reaches the install's real data volume", () => {
 
 	it("backs up and restores through the fixed container name", () => {
 		// Compose prefixes the volume with the project name, so a bare
-		// `-v better-ccflare-data:` mounts a new, empty volume instead.
-		expect(guide).not.toMatch(/-v\s+better-ccflare-data:/);
-		expect(compose).toContain("container_name: better-ccflare");
-		const volumesFrom = guide.match(/--volumes-from better-ccflare /g) ?? [];
+		// `-v hov-router-data:` in a backup or restore mounts a new, empty
+		// volume instead. The plain-Docker example names its own volume.
+		const oneOffRuns = guide
+			.split("\n")
+			.filter((line) => line.includes("docker run --rm"));
+		expect(oneOffRuns.length).toBeGreaterThanOrEqual(3);
+		for (const line of oneOffRuns)
+			expect(line).not.toMatch(/-v\s+hov-router-data:/);
+		expect(compose).toContain("container_name: hov-router");
+		const volumesFrom = guide.match(/--volumes-from hov-router /g) ?? [];
 		expect(volumesFrom.length).toBeGreaterThanOrEqual(2);
-		expect(guide).toContain("test -f /data/better-ccflare.db");
+		expect(guide).toContain("test -f /data/hov-router.db");
 	});
 
-	it("tells upgraders to keep the old compose project name", () => {
-		expect(guide).toContain("com.docker.compose.project");
-		expect(guide).toContain("COMPOSE_PROJECT_NAME=");
+	it("moves a pre-8.0.0 volume by copying it, never in place", () => {
+		// The volume name changed, so the old one is read-only input and stays
+		// as the rollback copy. The copy refuses to overwrite a database.
+		expect(guide).toContain(":/old:ro");
+		expect(guide).toContain("docker compose create --build");
+		expect(guide).toContain("test ! -e /data/hov-router.db");
 	});
 });
 
@@ -178,29 +187,31 @@ describe("Docker stop waits for the server's shutdown drain", () => {
 
 describe("Dockerfile provenance wiring", () => {
 	const wiring: ReadonlyArray<readonly [string, string]> = [
-		["CCFLARE_VERSION", "VERSION"],
-		["CCFLARE_GIT_REF", "GIT_REF"],
-		["CCFLARE_SOURCE_REF", "GIT_REF"],
-		["CCFLARE_CHECKOUT_SHA", "CHECKOUT_SHA"],
-		["CCFLARE_EVENT_SHA", "EVENT_SHA"],
-		["CCFLARE_TAG_SHA", "TAG_SHA"],
-		["CCFLARE_BUILD_DATE", "BUILD_DATE"],
-		["CCFLARE_DISTRIBUTION", "DISTRIBUTION"],
-		["CCFLARE_PRODUCER", "PRODUCER"],
-		["CCFLARE_ARTIFACT_MODE", "ARTIFACT_MODE"],
-		["CCFLARE_UPDATE_CHANNEL", "UPDATE_CHANNEL"],
+		["HOV_ROUTER_VERSION", "VERSION"],
+		["HOV_ROUTER_GIT_REF", "GIT_REF"],
+		["HOV_ROUTER_SOURCE_REF", "GIT_REF"],
+		["HOV_ROUTER_CHECKOUT_SHA", "CHECKOUT_SHA"],
+		["HOV_ROUTER_EVENT_SHA", "EVENT_SHA"],
+		["HOV_ROUTER_TAG_SHA", "TAG_SHA"],
+		["HOV_ROUTER_BUILD_DATE", "BUILD_DATE"],
+		["HOV_ROUTER_DISTRIBUTION", "DISTRIBUTION"],
+		["HOV_ROUTER_PRODUCER", "PRODUCER"],
+		["HOV_ROUTER_ARTIFACT_MODE", "ARTIFACT_MODE"],
+		["HOV_ROUTER_UPDATE_CHANNEL", "UPDATE_CHANNEL"],
 	];
 
 	it("feeds each provenance ENV from its build ARG", () => {
 		for (const [env, arg] of wiring) {
 			expect(instructions, env).toContain(`ENV ${env}=\${${arg}}`);
 		}
-		expect(instructions).toContain("ENV CCFLARE_GIT_SHA=${GIT_SHA:-unknown}");
 		expect(instructions).toContain(
-			"ENV CCFLARE_SOURCE_SHA=${GIT_SHA:-unknown}",
+			"ENV HOV_ROUTER_GIT_SHA=${GIT_SHA:-unknown}",
+		);
+		expect(instructions).toContain(
+			"ENV HOV_ROUTER_SOURCE_SHA=${GIT_SHA:-unknown}",
 		);
 		// /health git_sha comes from this when the binary has no embedded SHA.
-		expect(instructions).toContain("ENV BETTER_CCFLARE_GIT_SHA=${GIT_SHA}");
+		expect(instructions).toContain("ENV HOV_ROUTER_HEALTH_GIT_SHA=${GIT_SHA}");
 	});
 
 	it("defaults every identity ARG to unknown so a source build proves nothing", () => {
@@ -218,7 +229,7 @@ describe("Dockerfile provenance wiring", () => {
 	it("resolves the default image environment to an unproven distribution", () => {
 		const env: Record<string, string> = {};
 		for (const line of instructions) {
-			const match = /^ENV (CCFLARE_[A-Z_]+)=(.*)$/.exec(line);
+			const match = /^ENV (HOV_ROUTER_[A-Z_]+)=(.*)$/.exec(line);
 			if (!match) continue;
 			// Evaluate ${ARG} / ${ARG:-fallback} with every ARG at its default.
 			const [, name, value] = match;
@@ -234,7 +245,7 @@ describe("Dockerfile provenance wiring", () => {
 				},
 			);
 		}
-		expect(env.CCFLARE_DISTRIBUTION).toBe("unknown");
+		expect(env.HOV_ROUTER_DISTRIBUTION).toBe("unknown");
 		expect(resolveBuildProvenance(env)).toMatchObject({
 			proven: false,
 			actionable: false,

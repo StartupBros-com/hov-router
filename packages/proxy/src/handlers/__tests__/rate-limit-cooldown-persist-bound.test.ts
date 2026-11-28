@@ -24,7 +24,7 @@ const markResult = (
 
 const NOW = Date.UTC(2026, 6, 17, 12, 0, 0);
 const realDateNow = Date.now;
-const TIMEOUT_ENV = "CCFLARE_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS";
+const TIMEOUT_ENV = "HOV_ROUTER_RATE_LIMIT_PERSIST_AWAIT_TIMEOUT_MS";
 const originalTimeoutEnv = process.env[TIMEOUT_ENV];
 
 function makeAccount(overrides: Partial<Account> = {}): Account {
@@ -73,10 +73,10 @@ function expectRetryablePoolExhaustion(account: Account): void {
 
 	expect(terminal.kind).toBe("pool_exhausted");
 	expect(terminal.response.headers.get("retry-after")).not.toBeNull();
-	expect(terminal.response.headers.get("x-better-ccflare-pool-status")).toBe(
+	expect(terminal.response.headers.get("x-hov-router-pool-status")).toBe(
 		"exhausted",
 	);
-	expect(terminal.response.headers.get("x-better-ccflare-recovery-scope")).toBe(
+	expect(terminal.response.headers.get("x-hov-router-recovery-scope")).toBe(
 		"pool",
 	);
 }

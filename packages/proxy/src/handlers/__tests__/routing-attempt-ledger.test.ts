@@ -675,8 +675,8 @@ describe("RoutingAttemptLedger", () => {
 
 		expect(response?.status).toBe(503);
 		expect(response?.headers.get("retry-after")).toBeNull();
-		expect(response?.headers.get("x-better-ccflare-pool-status")).toBeNull();
-		expect(response?.headers.get("x-better-ccflare-recovery-scope")).toBeNull();
+		expect(response?.headers.get("x-hov-router-pool-status")).toBeNull();
+		expect(response?.headers.get("x-hov-router-recovery-scope")).toBeNull();
 		expect(response?.headers.get("x-should-retry")).toBeNull();
 		expect(await response?.json()).toEqual({
 			type: "error",

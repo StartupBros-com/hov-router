@@ -31,8 +31,8 @@ export async function getVersion(): Promise<string> {
 	}
 
 	// 2. Runtime env var fallback (dev/test environments)
-	if (process.env.BETTER_CCFLARE_VERSION) {
-		cachedVersion = process.env.BETTER_CCFLARE_VERSION;
+	if (process.env.HOV_ROUTER_VERSION) {
+		cachedVersion = process.env.HOV_ROUTER_VERSION;
 		return cachedVersion;
 	}
 
@@ -75,8 +75,8 @@ export function getVersionSync(): string {
 	}
 
 	// 2. Runtime env var fallback
-	if (process.env.BETTER_CCFLARE_VERSION) {
-		cachedVersion = process.env.BETTER_CCFLARE_VERSION;
+	if (process.env.HOV_ROUTER_VERSION) {
+		cachedVersion = process.env.HOV_ROUTER_VERSION;
 		return cachedVersion;
 	}
 
@@ -97,7 +97,7 @@ export function getVersionSync(): string {
  * Unlike the version, there is no static default — an unknown SHA means
  * the deploy provenance can't be verified, so callers must handle null.
  *
- * @returns The build-time injected SHA, the BETTER_CCFLARE_GIT_SHA env var, or null if unknown.
+ * @returns The build-time injected SHA, the HOV_ROUTER_HEALTH_GIT_SHA env var, or null if unknown.
  */
 export function getGitSha(): string | null {
 	if (cachedGitSha !== undefined) {
@@ -115,8 +115,8 @@ export function getGitSha(): string | null {
 	}
 
 	// 2. Runtime env var fallback (dev/test environments)
-	if (process.env.BETTER_CCFLARE_GIT_SHA) {
-		cachedGitSha = process.env.BETTER_CCFLARE_GIT_SHA;
+	if (process.env.HOV_ROUTER_HEALTH_GIT_SHA) {
+		cachedGitSha = process.env.HOV_ROUTER_HEALTH_GIT_SHA;
 		return cachedGitSha;
 	}
 

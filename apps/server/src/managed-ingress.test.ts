@@ -6,7 +6,7 @@ import {
 	monotonicNowNs,
 	registerManagedTerminal,
 	signManagedTiming,
-} from "../../../scripts/ccflare-managed-timing.mjs";
+} from "../../../scripts/hov-router-managed-timing.mjs";
 import {
 	createManagedIngress,
 	malformedRequestUrlResponse,
@@ -35,11 +35,7 @@ function fixture(
 		method: "POST",
 		body: "{}",
 		headers: {
-			"x-better-ccflare-managed-timing": signManagedTiming(
-				timing,
-				binding,
-				secret,
-			),
+			"x-hov-router-managed-timing": signManagedTiming(timing, binding, secret),
 		},
 	});
 	const ingress = createManagedIngress({
@@ -73,7 +69,7 @@ test("postcommit accepted expiry publishes first terminal before cancellation", 
 	const order: string[] = [];
 	let interval: ReturnType<typeof setInterval>;
 	const response = await f.ingress(f.req, async (req) => {
-		expect(req.headers.has("x-better-ccflare-managed-timing")).toBe(false);
+		expect(req.headers.has("x-hov-router-managed-timing")).toBe(false);
 		registerManagedTerminal(req, () => {
 			order.push("terminal");
 		});
@@ -248,7 +244,7 @@ test.each([
 			method: "POST",
 			body: "{}",
 			headers: {
-				"x-better-ccflare-managed-timing": signManagedTiming(
+				"x-hov-router-managed-timing": signManagedTiming(
 					timing,
 					binding,
 					secret,
@@ -316,7 +312,7 @@ test("committed non-stream Responses compact closes with typed accepted failure"
 			method: "POST",
 			body: "{}",
 			headers: {
-				"x-better-ccflare-managed-timing": signManagedTiming(
+				"x-hov-router-managed-timing": signManagedTiming(
 					timing,
 					binding,
 					secret,

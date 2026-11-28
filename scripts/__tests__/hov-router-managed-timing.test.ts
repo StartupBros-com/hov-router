@@ -15,8 +15,8 @@ import {
 	managedRemainingMs,
 	registerManagedTerminal,
 	publishManagedTerminal,
-} from "../ccflare-managed-timing.mjs";
-import { createGuard } from "../ccflare-guard.mjs";
+} from "../hov-router-managed-timing.mjs";
+import { createGuard } from "../hov-router-guard.mjs";
 import { resolveNodeExecutable } from "./node-runtime";
 const nonce = "a".repeat(32),
 	source = "b".repeat(40),
@@ -61,7 +61,7 @@ test("same-host native Node/Bun Linux boot-time clock transfers without wall tim
 			[
 				"--input-type=module",
 				"-e",
-				`import { monotonicNowNs, bootIdentity } from ${JSON.stringify(new URL("../ccflare-managed-timing.mjs", import.meta.url).href)}; console.log(JSON.stringify({ now: String(monotonicNowNs()), boot: bootIdentity() }))`,
+				`import { monotonicNowNs, bootIdentity } from ${JSON.stringify(new URL("../hov-router-managed-timing.mjs", import.meta.url).href)}; console.log(JSON.stringify({ now: String(monotonicNowNs()), boot: bootIdentity() }))`,
 			],
 			{ encoding: "utf8" },
 		),
@@ -191,10 +191,10 @@ test("managed guard refuses missing ingress nonce before listening", () => {
 	expect(() =>
 		createGuard({
 			env: {
-				CCFLARE_MANAGED_TIMING: "1",
-				CCFLARE_GUARD_CORRELATION_SECRET: secret.toString("base64url"),
-				CCFLARE_MANAGED_CANDIDATE_NONCE: nonce,
-				CCFLARE_SOURCE_SHA: source,
+				HOV_ROUTER_MANAGED_TIMING: "1",
+				HOV_ROUTER_GUARD_CORRELATION_SECRET: secret.toString("base64url"),
+				HOV_ROUTER_MANAGED_CANDIDATE_NONCE: nonce,
+				HOV_ROUTER_SOURCE_SHA: source,
 			},
 			logger: () => {},
 		}),

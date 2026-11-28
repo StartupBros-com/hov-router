@@ -4,26 +4,22 @@ import cliPackage from "../../../apps/cli/package.json";
 import rootPackage from "../../../package.json";
 
 describe("public product identity", () => {
-	it("preserves distribution package names and version agreement", () => {
+	it("names the packages and keeps their versions in step", () => {
 		expect(rootPackage.name).toBe("hov-router");
-		expect(cliPackage.name).toBe("better-ccflare");
+		// A workspace may not share the root package's name.
+		expect(cliPackage.name).toBe("@hov-router/cli");
 		expect(cliPackage.version).toBe(rootPackage.version);
 		expect(cliPackage.license).toBe("MIT");
-		expect(cliPackage.files).toEqual(["dist/better-ccflare", "README.md"]);
+		expect(cliPackage.files).toEqual(["dist/hov-router", "README.md"]);
 	});
 
-	it("adds compatible executable aliases without renaming distribution artifacts", () => {
-		expect(cliPackage.bin).toEqual({
-			"hov-router": "dist/better-ccflare",
-			"better-ccflare": "dist/better-ccflare",
-		});
-		expect(rootPackage.scripts).toMatchObject({
-			"hov-router": "bun run build && bun run cli",
-			"better-ccflare": "bun run build && bun run cli",
-		});
-		// The interim wstack-router name is no longer installed; existing links
-		// still work because the binary ignores the name it was started under.
-		expect(rootPackage.scripts).not.toHaveProperty("wstack-router");
+	it("installs one hov-router command from the build output", () => {
+		expect(cliPackage.bin).toEqual({ "hov-router": "dist/hov-router" });
+		expect(rootPackage.scripts["hov-router"]).toBe(
+			"bun run build && bun run cli",
+		);
+		for (const retired of ["better-ccflare", "wstack-router"])
+			expect(rootPackage.scripts).not.toHaveProperty(retired);
 	});
 
 	it("points public metadata to the HoV Router home", () => {
@@ -40,13 +36,9 @@ describe("public product identity", () => {
 		expect(cliPackage.description).toBe(rootPackage.description);
 	});
 
-	it("separates display and preferred command names from the legacy alias", () => {
+	it("names the product and its one command", () => {
 		expect(identity.PRODUCT_NAME).toBe("HoV Router");
 		expect(identity.COMMAND_NAME).toBe("hov-router");
-		expect(identity.LEGACY_COMMAND_NAME).toBe("better-ccflare");
-	});
-
-	it("lists the preferred command and the compatibility alias exactly once", () => {
-		expect(identity.COMMAND_NAMES).toEqual(["hov-router", "better-ccflare"]);
+		expect(identity.COMMAND_NAMES).toEqual(["hov-router"]);
 	});
 });

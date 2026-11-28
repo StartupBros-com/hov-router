@@ -230,7 +230,7 @@ async function proxyModel(
 			...(physicalModel
 				? {
 						[RESPONSES_ADAPTER_SECRET_HEADER]: ADAPTER_SECRET,
-						"x-better-ccflare-exclude-providers": "anthropic-oauth",
+						"x-hov-router-exclude-providers": "anthropic-oauth",
 					}
 				: {}),
 			...options.headers,
@@ -450,8 +450,8 @@ describe("issue #324 — Codex CLI physical model implicit route", () => {
 			}
 			return healthy;
 		};
-		const previous = process.env.CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS;
-		process.env.CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS = "100";
+		const previous = process.env.HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS;
+		process.env.HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS = "100";
 		try {
 			await proxyModel(ctx, CLAUDE_SONNET_5, "gpt-6-astra");
 			expect(coldReads).toBe(0);
@@ -463,8 +463,8 @@ describe("issue #324 — Codex CLI physical model implicit route", () => {
 			lookup.resolve(null);
 			if (coldReads > 0) await ensureCodexModelDefaults(cold, ctx);
 			if (previous === undefined)
-				delete process.env.CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS;
-			else process.env.CCFLARE_ACCOUNT_SELECTION_TIMEOUT_MS = previous;
+				delete process.env.HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS;
+			else process.env.HOV_ROUTER_ACCOUNT_SELECTION_TIMEOUT_MS = previous;
 		}
 	});
 
@@ -558,9 +558,9 @@ describe("issue #324 — Codex CLI physical model implicit route", () => {
 			status: 503,
 			headers:
 				reason === "provider exclusion"
-					? { "x-better-ccflare-exclude-providers": "codex" }
+					? { "x-hov-router-exclude-providers": "codex" }
 					: reason === "force conflict"
-						? { "x-better-ccflare-account-id": cold.id }
+						? { "x-hov-router-account-id": cold.id }
 						: {},
 		});
 		expect(reads).toHaveBeenCalledTimes(0);

@@ -795,10 +795,10 @@ if (
 			// still read when one is named.
 			const input = args[0]
 				? readFileSync(args[0], "utf8")
-				: process.env.CCFLARE_DEPLOYMENT_RUNTIME;
+				: process.env.HOV_ROUTER_DEPLOYMENT_RUNTIME;
 			if (!input)
 				throw new Error(
-					"serve needs a runtime file or CCFLARE_DEPLOYMENT_RUNTIME",
+					"serve needs a runtime file or HOV_ROUTER_DEPLOYMENT_RUNTIME",
 				);
 			await serve(dir, JSON.parse(input));
 		} else if (command === "client") {
@@ -827,10 +827,10 @@ if (
 			);
 		else if (command === "recover") {
 			const result = recoverTransaction(dir, processExists, {
-				binary: process.env.CCFLARE_BIN,
-				sourceSha: process.env.CCFLARE_SOURCE_SHA,
-				schemaDigest: process.env.CCFLARE_SCHEMA_DIGEST,
-				pinPath: process.env.CCFLARE_PIN_PATH,
+				binary: process.env.HOV_ROUTER_BIN,
+				sourceSha: process.env.HOV_ROUTER_SOURCE_SHA,
+				schemaDigest: process.env.HOV_ROUTER_SCHEMA_DIGEST,
+				pinPath: process.env.HOV_ROUTER_PIN_PATH,
 			});
 			console.log(JSON.stringify(result));
 			if (result.action === "hold") process.exitCode = 70;

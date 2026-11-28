@@ -271,7 +271,7 @@ describe("xAI cache-native helpers", () => {
 			}),
 		);
 		expect(turn1?.headerValue).toBe(turn2?.headerValue);
-		expect(turn1?.headerValue).toMatch(/^ccflare-xai-[0-9a-f]{48}$/);
+		expect(turn1?.headerValue).toMatch(/^hov-router-xai-[0-9a-f]{48}$/);
 		expect(turn1?.headerValue).not.toContain(SESSION_A);
 		expect(turn1?.identityFingerprint).toHaveLength(16);
 		// Different first message changes identity (sibling seed).
@@ -345,7 +345,7 @@ describe("xAI cache-native helpers", () => {
 			headers,
 			"anthropic",
 			account({ provider: "anthropic" }),
-			"ccflare-xai-abc123",
+			"hov-router-xai-abc123",
 		);
 		expect(headers.has(XAI_CONV_ID_HEADER)).toBe(false);
 	});
@@ -362,7 +362,7 @@ describe("xAI cache-native helpers", () => {
 			headers,
 			"xai",
 			account({ custom_endpoint: "https://my-proxy.example.com/v1" }),
-			"ccflare-xai-abc123",
+			"hov-router-xai-abc123",
 		);
 		expect(headers.has(XAI_CONV_ID_HEADER)).toBe(false);
 	});

@@ -3755,7 +3755,7 @@ describe("SessionAffinityStrategy", () => {
 		];
 		const convoMeta = {
 			...metaFor(null),
-			cacheAffinityKey: "ccflare-xai-convo-1",
+			cacheAffinityKey: "hov-router-xai-convo-1",
 			xaiCacheNativeActive: true,
 			xaiCacheEligibleAccountIds: new Set(["a", "b"]),
 		} as RequestMeta;
@@ -3763,7 +3763,7 @@ describe("SessionAffinityStrategy", () => {
 		const second = (
 			await strategy.select(accounts, {
 				...metaFor(null),
-				cacheAffinityKey: "ccflare-xai-convo-1",
+				cacheAffinityKey: "hov-router-xai-convo-1",
 				xaiCacheNativeActive: true,
 				xaiCacheEligibleAccountIds: new Set(["a", "b"]),
 			} as RequestMeta)

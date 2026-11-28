@@ -95,17 +95,17 @@ describe("ChatGPT account hashes", () => {
 
 describe("fetchCodexUsageData", () => {
 	it("keeps the same Codex user agent on a 404 fallback after identity changes", async () => {
-		const oldVersion = process.env.CCFLARE_CODEX_CLIENT_VERSION;
+		const oldVersion = process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
 		const agents: string[] = [];
 		const previousFetch = globalThis.fetch;
 		try {
 			resetCodexUsageEndpointForTest();
-			process.env.CCFLARE_CODEX_CLIENT_VERSION = "0.171.0";
+			process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = "0.171.0";
 			globalThis.fetch = (async (input, init) => {
 				const request = new Request(input, init);
 				agents.push(request.headers.get("User-Agent") ?? "");
 				if (agents.length === 1) {
-					process.env.CCFLARE_CODEX_CLIENT_VERSION = "0.172.0";
+					process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = "0.172.0";
 					return new Response(null, { status: 404 });
 				}
 				return Response.json({
@@ -121,8 +121,8 @@ describe("fetchCodexUsageData", () => {
 			globalThis.fetch = previousFetch;
 			resetCodexUsageEndpointForTest();
 			if (oldVersion === undefined)
-				delete process.env.CCFLARE_CODEX_CLIENT_VERSION;
-			else process.env.CCFLARE_CODEX_CLIENT_VERSION = oldVersion;
+				delete process.env.HOV_ROUTER_CODEX_CLIENT_VERSION;
+			else process.env.HOV_ROUTER_CODEX_CLIENT_VERSION = oldVersion;
 		}
 	});
 	let originalFetch: typeof fetch;

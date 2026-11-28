@@ -103,9 +103,9 @@ describe("Responses cache identity protocol bridge", () => {
 
 	beforeEach(() => {
 		originalXaiCacheNative = process.env[XAI_CACHE_NATIVE_ENV];
-		originalCodexCacheKey = process.env.CCFLARE_CODEX_PROMPT_CACHE_KEY;
+		originalCodexCacheKey = process.env.HOV_ROUTER_CODEX_PROMPT_CACHE_KEY;
 		process.env[XAI_CACHE_NATIVE_ENV] = "1";
-		process.env.CCFLARE_CODEX_PROMPT_CACHE_KEY = "1";
+		process.env.HOV_ROUTER_CODEX_PROMPT_CACHE_KEY = "1";
 	});
 
 	afterEach(() => {
@@ -115,9 +115,9 @@ describe("Responses cache identity protocol bridge", () => {
 			process.env[XAI_CACHE_NATIVE_ENV] = originalXaiCacheNative;
 		}
 		if (originalCodexCacheKey === undefined) {
-			delete process.env.CCFLARE_CODEX_PROMPT_CACHE_KEY;
+			delete process.env.HOV_ROUTER_CODEX_PROMPT_CACHE_KEY;
 		} else {
-			process.env.CCFLARE_CODEX_PROMPT_CACHE_KEY = originalCodexCacheKey;
+			process.env.HOV_ROUTER_CODEX_PROMPT_CACHE_KEY = originalCodexCacheKey;
 		}
 	});
 
@@ -134,7 +134,7 @@ describe("Responses cache identity protocol bridge", () => {
 		const codexOther = await codexCacheKey(
 			request({ prompt_cache_key: other }),
 		);
-		expect(codexFirst).toMatch(/^ccflare-convo-[0-9a-f]{48}$/);
+		expect(codexFirst).toMatch(/^hov-router-convo-[0-9a-f]{47}$/);
 		expect(codexRepeated).toBe(codexFirst);
 		expect(codexOther).not.toBe(codexFirst);
 
@@ -145,7 +145,7 @@ describe("Responses cache identity protocol bridge", () => {
 			request({ prompt_cache_key: arbitrary }),
 		);
 		const xaiOther = await xaiCacheKey(request({ prompt_cache_key: other }));
-		expect(xaiFirst).toMatch(/^ccflare-xai-[0-9a-f]{48}$/);
+		expect(xaiFirst).toMatch(/^hov-router-xai-[0-9a-f]{48}$/);
 		expect(xaiRepeated).toBe(xaiFirst);
 		expect(xaiOther).not.toBe(xaiFirst);
 
