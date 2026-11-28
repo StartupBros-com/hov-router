@@ -7,8 +7,42 @@ import {
 	sanitizeProxyHeaders,
 	sanitizeRequestHeaders,
 	sanitizeResponseHeaders,
+	stripClientForwardingHeaders,
+	TAILSCALE_DASHBOARD_HEADER,
 	withSanitizedProxyHeaders,
 } from "../headers";
+
+describe("Tailscale identity privacy", () => {
+	const values = {
+		[TAILSCALE_DASHBOARD_HEADER]: "private-proof",
+		"tailscale-user-login": "operator@example.com",
+		"tailscale-user-name": "Operator",
+		"content-type": "application/json",
+	};
+
+	test("does not send identity or its proof to providers", () => {
+		const headers = new Headers(values);
+		stripClientForwardingHeaders(headers);
+		expect(Object.fromEntries(headers)).toEqual({
+			"content-type": "application/json",
+		});
+	});
+
+	test("does not persist request identity or its proof", () => {
+		expect(
+			Object.fromEntries(sanitizeRequestHeaders(new Headers(values))),
+		).toEqual({ "content-type": "application/json" });
+	});
+
+	test("does not expose or persist private identity response headers", () => {
+		expect(
+			Object.fromEntries(sanitizeProxyHeaders(new Headers(values))),
+		).toEqual({ "content-type": "application/json" });
+		expect(sanitizeResponseHeaders(values)).toEqual({
+			"content-type": "application/json",
+		});
+	});
+});
 
 // Ported from SijanC147/hov-router headers.test.ts (13115ce94519).
 describe("sanitizeResponseHeaders", () => {

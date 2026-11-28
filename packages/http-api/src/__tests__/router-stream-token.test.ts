@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
+import { createHmac } from "node:crypto";
+import { TAILSCALE_DASHBOARD_HEADER } from "@hov-router/http-common";
+import { createTailscaleDashboardVerifier } from "../services/tailscale-dashboard-auth";
 import "@hov-router/core";
 import { type ApiKey, NodeCryptoUtils } from "@hov-router/types/api-key";
 import { APIRouter } from "../router";
@@ -14,6 +17,7 @@ const streamPaths = {
 type Audience = keyof typeof streamPaths;
 let keys: ApiKey[];
 let router: APIRouter;
+let context: APIContext;
 
 beforeEach(async () => {
 	const crypto = new NodeCryptoUtils();
@@ -30,8 +34,11 @@ beforeEach(async () => {
 			usageCount: 0,
 		})),
 	);
-	router = new APIRouter({
-		config: {},
+	context = {
+		config: {
+			getStrategy: () => "session",
+			getStrategySource: () => "config",
+		},
 		dbOps: {
 			getAdapter: () => ({}),
 			countActiveApiKeys: async () => keys.filter((key) => key.isActive).length,
@@ -40,7 +47,8 @@ beforeEach(async () => {
 				keys.find((key) => key.id === id) ?? null,
 			updateApiKeyUsage: () => {},
 		},
-	} as unknown as APIContext);
+	} as unknown as APIContext;
+	router = new APIRouter(context);
 });
 
 async function request(path: string, method = "GET", key?: string) {
@@ -69,6 +77,76 @@ async function expectStream(path: string, key?: string) {
 		await response.body?.cancel();
 	}
 }
+
+describe("Tailscale dashboard route integration", () => {
+	const secret = Buffer.alloc(32, 13);
+	const origin = "https://router.example.test";
+	async function signedRequest(path: string, method = "GET", key?: string) {
+		const payload = Buffer.from(
+			JSON.stringify({
+				login: "operator@example.test",
+				origin,
+				method,
+				path,
+				issuedAt: Date.now(),
+			}),
+		).toString("base64url");
+		const signature = createHmac("sha256", secret)
+			.update(`hov-router/tailscale-dashboard/v1\n${payload}`)
+			.digest("base64url");
+		const headers = new Headers({
+			origin,
+			[TAILSCALE_DASHBOARD_HEADER]: `v1.${payload}.${signature}`,
+		});
+		if (key) headers.set("x-api-key", key);
+		const url = new URL(`http://localhost${path}`);
+		const response = await router.handleRequest(
+			url,
+			new Request(url, { method, headers }),
+		);
+		if (!response) throw new Error(`No route for ${path}`);
+		return response;
+	}
+	beforeEach(() => {
+		router = new APIRouter(context, {
+			dashboardIdentityVerifier: createTailscaleDashboardVerifier(secret),
+		});
+	});
+	it("opens the dashboard startup endpoint without a key but retains explicit key roles", async () => {
+		const path = "/api/config/strategy";
+		const response = await signedRequest(path);
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({
+			strategy: "session",
+			strategySource: "config",
+		});
+		expect((await request(path)).status).toBe(401);
+		expect((await signedRequest(path, "GET", API_ONLY)).status).toBe(401);
+		expect((await signedRequest(path, "GET", "invalid")).status).toBe(401);
+		expect((await signedRequest(path, "GET", ADMIN)).status).toBe(200);
+	});
+	for (const audience of ["logs", "requests", "alerts"] as const) {
+		it(`${audience}: trusted identity opens the real stream; its token alone cannot`, async () => {
+			const minted = await signedRequest(
+				`${streamPaths[audience]}/token`,
+				"POST",
+			);
+			expect(minted.status).toBe(200);
+			const { token } = await minted.json();
+			const path = `${streamPaths[audience]}?stream_token=${token}`;
+			expect((await request(path)).status).toBe(401);
+			const response = await signedRequest(path);
+			try {
+				expect(response.status).toBe(200);
+				expect(response.headers.get("content-type")).toContain(
+					"text/event-stream",
+				);
+			} finally {
+				await response.body?.cancel();
+			}
+		});
+	}
+});
 
 describe("router stream-token authentication and authorization", () => {
 	for (const audience of ["logs", "requests", "alerts"] as const) {

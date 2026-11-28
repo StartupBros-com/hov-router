@@ -450,7 +450,7 @@ bun cli cleanup --type requests --force
 
 ### Current State
 - **Authentication is off until the first API key exists**: With no active key, every API and proxy request is accepted from anything that can reach the port. Once a key exists, API and proxy requests need a valid key in the `x-api-key` header or as `Authorization: Bearer <key>`
-- **Dashboard**: The page itself (HTML and static assets) is always served without a key. The `/api/*` calls it makes need a key once one exists
+- **Dashboard**: The page itself (HTML and static assets) is always served without a key. The `/api/*` calls it makes need a key once one exists, or an explicitly authorized identity through the opt-in [private Tailscale dashboard ingress](tailscale-dashboard.md). Tailscale headers on the ordinary HTTP listener are never trusted
 - **API endpoints**: `/api/*` needs a key once one exists. A few read-only routes stay open: `/health`, `/api/version/check`, `GET /api/sessions/:id/account`, `GET /api/oauth/qwen/status/:id`, `GET /api/oauth/codex/status/:id` and, only when publication is turned on, `GET /api/public/subscription-value`
 - **No CORS headers**: The server does not set any CORS headers, effectively allowing requests from any origin
 - **No rate limiting**: Individual clients can make unlimited requests to API endpoints

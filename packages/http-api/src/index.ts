@@ -25,6 +25,7 @@ export {
 	startMemberNoticeScheduler,
 } from "./services/member-notices";
 export { createServerDeviceSetupCoordinator } from "./services/server-device-setup";
+export { createTailscaleDashboardVerifier } from "./services/tailscale-dashboard-auth";
 export { UsageWindowLedger } from "./services/usage-window-ledger";
 // Export types
 export * from "./types";

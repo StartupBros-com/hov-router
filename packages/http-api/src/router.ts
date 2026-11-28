@@ -164,11 +164,13 @@ import {
 } from "./removed-endpoints";
 import { AuthService } from "./services/auth-service";
 import type { DeviceSetupCoordinator } from "./services/device-setup-jobs";
+import type { DashboardIdentityVerifier } from "./services/tailscale-dashboard-auth";
 import type { APIContext } from "./types";
 import { errorResponse, jsonResponse } from "./utils/http-error";
 
 export interface APIRouterOptions {
 	deviceSetupCoordinator?: DeviceSetupCoordinator;
+	dashboardIdentityVerifier?: DashboardIdentityVerifier;
 }
 
 /**
@@ -193,6 +195,7 @@ export class APIRouter {
 			context.dbOps,
 			context.internalProbeSecret,
 			context.localControlSecret,
+			options.dashboardIdentityVerifier,
 		);
 		this.qwenStatusHandler = createQwenDeviceFlowStatusHandler();
 		this.codexStatusHandler = createCodexDeviceFlowStatusHandler();
@@ -693,10 +696,10 @@ export class APIRouter {
 			);
 		}
 
-		// Authorize the request based on API key role
-		if (authResult.apiKey) {
+		// Every authenticated principal goes through the same role check.
+		if (authResult.role) {
 			const authzResult = await this.authService.authorizeEndpoint(
-				authResult.apiKey,
+				{ role: authResult.role },
 				path,
 				method,
 			);
