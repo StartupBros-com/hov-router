@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.0.0](https://github.com/StartupBros-com/hov-router/compare/v7.0.0...v8.0.0) (2026-11-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* HoV Router reads only HOV_ROUTER_* variables, x-hov-router-* headers, ~/.config/hov-router and hov-router.service. An install that still uses a better-ccflare name stops at startup until it is renamed; docs/hov-router-migration.md "Renamed in 8.0.0" covers the move.
+
+### Improvements
+
+* rename internal workspaces and in-binary names to HoV Router names ([#1057](https://github.com/StartupBros-com/hov-router/issues/1057)) ([6370cc6](https://github.com/StartupBros-com/hov-router/commit/6370cc6a40147a5e7a7af23e44886e7988373b53))
+* rename the host-facing better-ccflare names to HoV Router names ([2ac73a4](https://github.com/StartupBros-com/hov-router/commit/2ac73a4ad7468f3140f6f1fad47674ef51dc8bb7))
+
 ## [7.0.0](https://github.com/StartupBros-com/hov-router/compare/v6.4.0...v7.0.0) (2026-11-26)
 
 
