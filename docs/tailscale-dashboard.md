@@ -110,9 +110,11 @@ and shutdown lifecycle rather than bypassing it.
    `Tailscale-User-Login` header. Verify the normal AI clients continue working;
    do not send diagnostic inference requests to subscription accounts.
 
-Browser API reads with a foreign `Origin` or `Sec-Fetch-Site: cross-site` are
-rejected. Mutations require the configured origin. This prevents another site
-from using the browser's Tailscale access to read or change Router state. The
+Browser API requests with a foreign `Origin`, `Sec-Fetch-Site: same-site`, or
+`Sec-Fetch-Site: cross-site` are rejected. Another device in the same tailnet is
+not the dashboard's origin and must not gain authority through an operator's
+browser, even for GET diagnostics. Mutations require the configured origin.
+These checks prevent another site from using the browser's Tailscale access. The
 normal dashboard already sends the required same-origin headers automatically.
 
 An explicitly supplied invalid browser key is still rejected rather than

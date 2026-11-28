@@ -78,7 +78,8 @@ export function createTailscaleDashboardVerifier(
 			if (requestOrigin !== null && requestOrigin !== origin) return null;
 			if (!["GET", "HEAD"].includes(req.method) && requestOrigin !== origin)
 				return null;
-			if (req.headers.get("sec-fetch-site") === "cross-site") return null;
+			const site = req.headers.get("sec-fetch-site");
+			if (site !== null && !["same-origin", "none"].includes(site)) return null;
 			return { provider: "tailscale", login };
 		} catch {
 			return null;

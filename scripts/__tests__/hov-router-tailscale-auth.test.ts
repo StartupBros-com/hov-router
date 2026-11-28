@@ -225,6 +225,14 @@ test("only private keyless dashboard requests carry an accepted proof", async ()
 		signed: false,
 	});
 	const before = seen;
+	const siblingImage = await send(socket, "/api/debug/snapshot", {
+		...identity,
+		"sec-fetch-site": "same-site",
+		"sec-fetch-mode": "no-cors",
+		"sec-fetch-dest": "image",
+	});
+	expect(siblingImage.status).toBe(403);
+	expect(seen).toBe(before);
 	for (const headers of [
 		{},
 		{ "tailscale-user-login": "other" },

@@ -423,7 +423,7 @@ function allowedLogin(req, config) {
 		!config.users.has(login[0]) ||
 		(site &&
 			(site.length !== 1 ||
-				!["same-site", "same-origin", "none"].includes(site[0]))) ||
+				!["same-origin", "none"].includes(site[0]))) ||
 		(h.origin && (h.origin.length !== 1 || h.origin[0] !== config.origin)) ||
 		(!["GET", "HEAD"].includes(req.method) && !h.origin)
 	)

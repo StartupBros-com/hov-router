@@ -156,6 +156,21 @@ describe("guard-signed Tailscale dashboard identity", () => {
 		).not.toBeNull();
 	});
 
+	test("rejects a same-site image request without Origin, even with a valid proof", () => {
+		const path = "/api/debug/snapshot";
+		expect(
+			verify(
+				req(proof({ path }), path, {
+					headers: {
+						"sec-fetch-site": "same-site",
+						"sec-fetch-mode": "no-cors",
+						"sec-fetch-dest": "image",
+					},
+				}),
+			),
+		).toBeNull();
+	});
+
 	test("rejects invalid signed identity and origin claims", () => {
 		for (const overrides of [
 			{ login: "" },
