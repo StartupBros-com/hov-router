@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.1.0](https://github.com/StartupBros-com/hov-router/compare/v8.0.0...v8.1.0) (2026-11-28)
+
+
+### Features
+
+* **auth:** allow verified Tailscale dashboard access ([#1068](https://github.com/StartupBros-com/hov-router/issues/1068)) ([7d27f6d](https://github.com/StartupBros-com/hov-router/commit/7d27f6d9158c14a3c3e735019a0cf32cab78a861))
+
 ## [8.0.0](https://github.com/StartupBros-com/hov-router/compare/v7.0.0...v8.0.0) (2026-11-27)
 
 
