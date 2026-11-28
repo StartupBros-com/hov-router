@@ -78,8 +78,6 @@ const DOC_EXEMPTIONS: Record<string, string> = {
 	"docs/hov-router-migration.md": "how to move an install",
 	"docs/docker.md": "how to move a Docker install",
 	"docs/acknowledgements.md": "credits contributions by their original names",
-	// Remove in the docs repin after 8.0.0 publishes (#1056), with the 7.0.0 install notes.
-	"docs/reference.md": "7.0.0 install notes",
 };
 
 /** An old variable, header, storage path or unit a reader could act on. */
