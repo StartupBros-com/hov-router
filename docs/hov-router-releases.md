@@ -1,6 +1,6 @@
 # HoV Router release automation (draft-only)
 
-For the current published release, 7.0.0 (Linux x86_64), follow the technical
+For the current published release, 8.0.0 (Linux x86_64), follow the technical
 reference's [consumer installation and verification instructions](reference.md#install-the-linux-x86_64-release).
 
 This is the operator guide for HoV Router release automation at
@@ -59,21 +59,21 @@ bundles are never deleted or rewritten, so each block's download address keeps w
 ```bash
 (
   set -eu
-  binary="$HOME/.local/lib/hov-router/7.0.0/hov-router"
-  source_sha=385efd9d8ad4465bea60dfe59e82f0466c8ac48e
-  digest=39a4a56635918b54888e1b5caee392440c236316711f5681d93bc30d05a8b4f9
-  bundle_sha=2b3eacb65b102e65214f05d8d648c85d6eb22ff6953356f2c1f3dad6e3b6e5db
+  binary="$HOME/.local/lib/hov-router/8.0.0/hov-router"
+  source_sha=8087e32434170222db2e0b5556c28939db17edef
+  digest=2e05c84aa432c3f60d58406bf611d29fa52032666e84819282178640f936da65
+  bundle_sha=c48591e7ecd725e6736c86378a31d5a2dcd7dce1fb288e112e2e1eff5db0292b
   printf '%s  %s\n' "$digest" "$binary" | sha256sum --check --strict -
   bundle_dir=$(mktemp -d "${TMPDIR:-/tmp}/router-provenance.XXXXXX")
-  bundle="$bundle_dir/v7.0.0.jsonl"
+  bundle="$bundle_dir/v8.0.0.jsonl"
   curl -q --fail --location --proto '=https' --proto-redir '=https' \
-    --output "$bundle" https://raw.githubusercontent.com/StartupBros-com/hov-router/refs/heads/main/docs/provenance/v7.0.0.jsonl
+    --output "$bundle" https://raw.githubusercontent.com/StartupBros-com/hov-router/refs/heads/main/docs/provenance/v8.0.0.jsonl
   printf '%s  %s\n' "$bundle_sha" "$bundle" | sha256sum --check --strict -
   gh attestation verify "$binary" \
     --repo StartupBros-com/hov-router \
     --source-digest "$source_sha" \
-    --source-ref refs/tags/v7.0.0 \
-    --cert-identity https://github.com/StartupBros-com/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v7.0.0 \
+    --source-ref refs/tags/v8.0.0 \
+    --cert-identity https://github.com/StartupBros-com/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v8.0.0 \
     --signer-digest "$source_sha" \
     --deny-self-hosted-runners \
     --bundle "$bundle"
@@ -94,17 +94,17 @@ release auditing; neither is required by the consumer install above. The operato
 pipeline below still verifies the complete inventory and both attestations before
 executing release smoke checks. Its strict verification policy is unchanged.
 
-Release ID **458917706** and tag `refs/tags/v7.0.0` identify source commit
-`385efd9d8ad4465bea60dfe59e82f0466c8ac48e`. The exact certificate is
-`https://github.com/StartupBros-com/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v7.0.0`.
+Release ID **461271176** and tag `refs/tags/v8.0.0` identify source commit
+`8087e32434170222db2e0b5556c28939db17edef`. The exact certificate is
+`https://github.com/StartupBros-com/hov-router/.github/workflows/router-release-artifacts.yml@refs/tags/v8.0.0`.
 
-| 7.0.0 asset | Asset ID | Size (bytes) | SHA-256 |
+| 8.0.0 asset | Asset ID | Size (bytes) | SHA-256 |
 | --- | --- | --- | --- |
-| `better-ccflare-linux-amd64` | 794171815 | 96118240 | `39a4a56635918b54888e1b5caee392440c236316711f5681d93bc30d05a8b4f9` |
-| `release-manifest.json` | 794172297 | 809 | `dd0d18bb962c6b2eb5c3aeba04591cb949df5fa37de407f30f6c2581bd4ff91e` |
-| `SHA256SUMS` | 794171477 | 93 | `dbab20ecf4c3991743a14d22bca3d638ef043f0598d9769aa9e53189c2c210be` |
+| `hov-router-linux-amd64` | 803054347 | 96118240 | `2e05c84aa432c3f60d58406bf611d29fa52032666e84819282178640f936da65` |
+| `release-manifest.json` | 803054714 | 805 | `0599f6804b0090c6111b0279fdf186770b0f8e0f68676fcecfa1f159f29e3775` |
+| `SHA256SUMS` | 803054090 | 89 | `0cd9769d20823583207993f7a0afb58669ed2eb33e30f23852c3f4386322ce8b` |
 
-For a manifest audit, download `release-manifest.json` from the v7.0.0 release,
+For a manifest audit, download `release-manifest.json` from the v8.0.0 release,
 check its digest above, then run the same block with `binary` set to that local
 manifest and `digest` set to its SHA-256. The bundle stays the same: one signed
 statement names both the binary and the manifest. The signed manifest names repository
@@ -132,7 +132,7 @@ certificate is
 | `SHA256SUMS` | 774422735 | 93 | `8b79b1669b6ba39c87467d41098da165cb0386fe6bc09ebe9ac5ae890db2e34e` |
 
 To install it, use the reference's install block the same way: `6.2.1` in place of
-`7.0.0` in the version directory and download URL, and the binary's digest above.
+`8.0.0` in the version directory and download URL, and the binary's digest above. Use the historical asset name `better-ccflare-linux-amd64` in place of `hov-router-linux-amd64` in the download URL.
 Then verify it, before running it, with this block. It expects that install path,
 the one this guide used while 6.2.1 was the current release. For a manifest audit, set `binary`
 and `digest` as described for the current release; the bundle stays the same.
@@ -176,6 +176,7 @@ Each release has one bundle, whose signed statement names both its binary and it
 
 | Release | Source commit | Binary SHA-256 | Bundle SHA-256 |
 | --- | --- | --- | --- |
+| [7.0.0](https://github.com/StartupBros-com/hov-router/releases/tag/v7.0.0) | `385efd9d8ad4465bea60dfe59e82f0466c8ac48e` | `39a4a56635918b54888e1b5caee392440c236316711f5681d93bc30d05a8b4f9` | `2b3eacb65b102e65214f05d8d648c85d6eb22ff6953356f2c1f3dad6e3b6e5db` |
 | [6.4.0](https://github.com/StartupBros-com/hov-router/releases/tag/v6.4.0) | `94500eef95863210467676080581e3781f9eed11` | `f56910b6d20325d4c8103a88160a72c6e003203d264a69df971f1a72cde387e9` | `b305220f27b1c432a2a076199bfd9269a409a8c5281cf264ce2caee14459a328` |
 | [6.3.0](https://github.com/StartupBros-com/hov-router/releases/tag/v6.3.0) | `b171f46ac731b55e78297f378dc76e4611ce684e` | `d1c7e43fe45d2db7ee3d8a31db30439fd153686450d9f4827fe690966c523329` | `a8aeafe9ae1712e0ee4b4595907edab2b4660822cee088a4a32dd64b81549d3a` |
 | [6.2.2](https://github.com/StartupBros-com/hov-router/releases/tag/v6.2.2) | `baaa81a4656851f51ed30eaa92433f27c47d459a` | `955696abccd1d4b7fe02e298687fc136655797d94aeec856dc785990fc78a4ac` | `d60ef772511873dcb626d856b2921f1447dff9c99b9ad63200e19363dd346f9e` |
@@ -197,7 +198,7 @@ commit `6b88f789e30c3a86ee918d35a6673e7be12f9243`. The exact certificate is
 | `SHA256SUMS` | 675764852 | 93 | `923d6041201ba6ade61ff3dcd2ec200970475076ae7b9af261058211394545e5` |
 
 To install it, use the reference's install block the same way: `3.7.1` in place of
-`7.0.0` in the version directory and download URL, and the binary's digest above.
+`8.0.0` in the version directory and download URL, and the binary's digest above. Use the historical asset name `better-ccflare-linux-amd64` in place of `hov-router-linux-amd64` in the download URL.
 Then verify it, before running it, with this block. It expects that install path,
 the one this guide used while 3.7.1 was the current release. For a manifest audit, set `binary`
 and `digest` as described for the current release; the bundle stays the same.
@@ -554,7 +555,7 @@ kept under [its own heading](#verify-release-621), as the 3.7.1 block is kept.
 Later releases signed in the organization get rows, as each leaves the current
 block, in [a table of their own](#verify-another-release-signed-in-the-organization)
 that points at the 6.2.1 block, the way the pre-move table points at the 3.7.1
-block. 6.2.2 was the first of them, when 6.3.0 replaced it; 6.3.0 joined it when 6.4.0 did, and 6.4.0 when 7.0.0 did.
+block. 6.2.2 was the first of them, when 6.3.0 replaced it; 6.3.0 joined it when 6.4.0 did, and 6.4.0 when 7.0.0 did. 7.0.0 joined them when 8.0.0 replaced it.
 
 Never delete or rewrite a committed bundle: copies of this guide in older checkouts
 download them from `main`.
