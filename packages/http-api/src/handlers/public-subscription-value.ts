@@ -660,6 +660,7 @@ export function createPublicSubscriptionValueHandler(
 			const at = now();
 			if (!timestamp(at)) throw new FeedUnavailable("clock");
 			const cached = cache;
+			let checkedSignature: string | undefined;
 			let entry =
 				cached &&
 				cached.raw === target.key &&
@@ -687,13 +688,16 @@ export function createPublicSubscriptionValueHandler(
 					started.then(clear, clear);
 				}
 				const signature = await withDeadline(pendingCheck);
-				if (signature === entry.signature) entry.rosterCheckedAt = at;
-				else entry = undefined;
+				if (signature === entry.signature) {
+					entry.rosterCheckedAt = at;
+					checkedSignature = signature;
+				} else entry = undefined;
 			}
 			if (entry) {
 				// An aging body answers now; the rebuild runs behind it.
-				// The timer runs it, after this response is sent.
+				// A detached entry cannot replace the timer for a newer body.
 				if (
+					cache === entry &&
 					at - entry.body.generatedAt >= CACHE_MS &&
 					at >= retryNotBefore &&
 					!flights.has(target.key)
@@ -704,6 +708,22 @@ export function createPublicSubscriptionValueHandler(
 			}
 			const responseAt = now();
 			if (!timestamp(responseAt)) throw new FeedUnavailable("clock");
+			const warmed = cache;
+			// The roster check may outlive this entry. Only reuse a newer body
+			// for the still-current target and the roster we just verified.
+			if (
+				responseAt >= entry.expiresAt &&
+				checkedSignature !== undefined &&
+				warmed &&
+				warmed.raw === target.key &&
+				warmed.signature === checkedSignature &&
+				warmed.body.generatedAt > entry.body.generatedAt &&
+				responseAt >= warmed.body.generatedAt &&
+				responseAt < warmed.expiresAt &&
+				getConfig() === target.raw &&
+				getGeneration() === target.generation
+			)
+				entry = warmed;
 			if (responseAt < entry.body.generatedAt || responseAt >= entry.expiresAt)
 				throw new FeedUnavailable("expired");
 			return response(entry.body);
