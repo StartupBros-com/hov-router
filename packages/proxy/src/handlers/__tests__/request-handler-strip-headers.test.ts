@@ -200,6 +200,8 @@ describe("makeProxyRequest strips client-supplied forwarding headers before ever
 			"cf-ipcountry": "US",
 			"x-forwarded-for": "203.0.113.9",
 			"x-forwarded-proto": "https",
+			"tailscale-user-login": "operator@example.com",
+			"x-hov-router-tailscale-dashboard": "private-dashboard-proof",
 			authorization: "Bearer token",
 			"content-type": "application/json",
 		};
@@ -221,6 +223,8 @@ describe("makeProxyRequest strips client-supplied forwarding headers before ever
 		expect(sentHeaders?.get("cf-connecting-ip")).toBeNull();
 		expect(sentHeaders?.get("cf-ipcountry")).toBeNull();
 		expect(sentHeaders?.get("x-forwarded-for")).toBeNull();
+		expect(sentHeaders?.get("tailscale-user-login")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-tailscale-dashboard")).toBeNull();
 		expect(sentHeaders?.get("x-forwarded-proto")).toBeNull();
 		// unrelated headers still forwarded
 		expect(sentHeaders?.get("authorization")).toBe("Bearer token");
@@ -239,6 +243,8 @@ describe("makeProxyRequest strips client-supplied forwarding headers before ever
 		expect(sentHeaders?.get("cdn-loop")).toBeNull();
 		expect(sentHeaders?.get("cf-connecting-ip")).toBeNull();
 		expect(sentHeaders?.get("x-forwarded-for")).toBeNull();
+		expect(sentHeaders?.get("tailscale-user-login")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-tailscale-dashboard")).toBeNull();
 		expect(sentHeaders?.get("authorization")).toBe("Bearer token");
 	});
 
@@ -257,6 +263,8 @@ describe("makeProxyRequest strips client-supplied forwarding headers before ever
 		expect(sentHeaders?.get("cdn-loop")).toBeNull();
 		expect(sentHeaders?.get("cf-connecting-ip")).toBeNull();
 		expect(sentHeaders?.get("x-forwarded-for")).toBeNull();
+		expect(sentHeaders?.get("tailscale-user-login")).toBeNull();
+		expect(sentHeaders?.get("x-hov-router-tailscale-dashboard")).toBeNull();
 		// unrelated headers still forwarded -- stripping must not be overbroad
 		expect(sentHeaders?.get("authorization")).toBe("Bearer token");
 		expect(sentHeaders?.get("content-type")).toBe("application/json");
